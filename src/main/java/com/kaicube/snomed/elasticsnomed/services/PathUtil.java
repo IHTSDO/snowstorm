@@ -2,7 +2,7 @@ package com.kaicube.snomed.elasticsnomed.services;
 
 public class PathUtil {
 
-	public static final String SEPARATOR = "_";
+	public static final String SEPARATOR = "/";
 
 	public static String getParentPath(String path) {
 		final int indexOf = path.lastIndexOf(SEPARATOR);
@@ -10,5 +10,13 @@ public class PathUtil {
 			return path.substring(0, indexOf);
 		}
 		return null;
+	}
+
+	public static String flaten(String path) {
+		return path.replace("/", "_");
+	}
+
+	public static String fatten(String path) {
+		return path.replace("_", "/");
 	}
 }

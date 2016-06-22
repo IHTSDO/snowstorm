@@ -42,14 +42,14 @@ public class ConceptService {
 		}
 
 		branchCriteria.should(boolQuery()
-				.must(queryStringQuery(branch.getPath()).field("path"))
+				.must(queryStringQuery(branch.getFlatPath()).field("path"))
 		);
 
 		final String parentPath = PathUtil.getParentPath(path);
 		if (parentPath != null) {
 			final Branch parentBranch = branchService.find(parentPath);
 			branchCriteria.should(boolQuery()
-					.must(queryStringQuery(parentBranch.getPath()).field("path"))
+					.must(queryStringQuery(parentBranch.getFlatPath()).field("path"))
 					.must(rangeQuery("commit").lte(branch.getBase()))
 			);
 		}

@@ -2,11 +2,8 @@ package com.kaicube.snomed.elasticsnomed.services;
 
 import com.kaicube.snomed.elasticsnomed.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.repositories.BranchRepository;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -21,11 +18,6 @@ public class BranchService {
 
 	@Autowired
 	private BranchRepository branchRepository;
-
-	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
-
-	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Branch create(String path) {
 		if (find(path) != null) {
@@ -50,26 +42,17 @@ public class BranchService {
 		return branchRepository.save(branch);
 	}
 
-	public Branch getCreateBranch(String path) {
-		final Branch branch = find(path);
-		if (branch != null) {
-			return branch;
-		}
-		return create(path);
-	}
-
 	public void deleteAll() {
 		branchRepository.deleteAll();
 	}
 
 	public void updateBranchHead(Branch branch, Date commit) {
 		branch.setHead(commit);
-//		branchRepository.delete(branch);
 		branchRepository.save(branch);
 	}
 
 	public Iterable<Branch> loadBranchAndAncestors(String path) {
-		Set<String> branchPaths = getBranchPaths(path);
+		Set<String> branchPaths = getBranchPaths(PathUtil.flaten(path));
 		return branchRepository.findByPathIn(branchPaths);
 	}
 
@@ -86,7 +69,7 @@ public class BranchService {
 	}
 
 	public Branch find(String path) {
-		return branchRepository.findByPath(path);
+		return branchRepository.findByPath(PathUtil.flaten(path));
 	}
 
 	public Iterable<Branch> findAll() {

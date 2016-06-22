@@ -1,5 +1,7 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.kaicube.snomed.elasticsnomed.services.PathUtil;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 
@@ -10,8 +12,6 @@ public class Branch {
 
 	@Id
 	private String id;
-
-//	@Field(index = FieldIndex.not_analyzed)
 	private String path;
 	private Date base;
 	private Date head;
@@ -20,11 +20,20 @@ public class Branch {
 	}
 
 	public Branch(String path) {
-		this.path = path;
+		this.path = PathUtil.flaten(path);
 		head = new Date();
 	}
 
 	public String getPath() {
+		return path;
+	}
+
+	public String getFatPath() {
+		return PathUtil.fatten(path);
+	}
+
+	@JsonIgnore
+	public String getFlatPath() {
 		return path;
 	}
 

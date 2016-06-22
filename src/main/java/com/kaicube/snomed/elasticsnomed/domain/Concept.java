@@ -1,5 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
+import com.kaicube.snomed.elasticsnomed.services.PathUtil;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -74,8 +75,12 @@ public class Concept {
 		return path;
 	}
 
+	public String getFatPath() {
+		return PathUtil.fatten(path);
+	}
+
 	public void setPath(String path) {
-		this.path = path;
+		this.path = PathUtil.flaten(path);
 	}
 
 	@Override

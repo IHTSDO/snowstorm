@@ -25,17 +25,17 @@ public class BranchServiceTest {
 
 		final Branch main = branchService.find("MAIN");
 		Assert.assertNotNull(main);
-		Assert.assertNotNull(main.getPath());
+		Assert.assertNotNull(main.getFatPath());
 		Assert.assertNotNull(main.getId());
 		Assert.assertNull(main.getBase());
 		Assert.assertNotNull(main.getHead());
-		Assert.assertEquals("MAIN", main.getPath());
+		Assert.assertEquals("MAIN", main.getFatPath());
 
-		Assert.assertNull(branchService.find("MAIN_A"));
-		branchService.create("MAIN_A");
-		final Branch a = branchService.find("MAIN_A");
+		Assert.assertNull(branchService.find("MAIN/A"));
+		branchService.create("MAIN/A");
+		final Branch a = branchService.find("MAIN/A");
 		Assert.assertNotNull(a);
-		Assert.assertEquals("MAIN_A", a.getPath());
+		Assert.assertEquals("MAIN/A", a.getFatPath());
 
 		Assert.assertNotNull(branchService.find("MAIN"));
 	}
