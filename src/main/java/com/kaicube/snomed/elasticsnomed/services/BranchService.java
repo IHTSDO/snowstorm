@@ -28,6 +28,9 @@ public class BranchService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Branch create(String path) {
+		if (find(path) != null) {
+			throw new IllegalArgumentException("Branch '" + path + "' already exists.");
+		}
 		final String parentPath = getParentPath(path);
 		Date parentHead = null;
 		if (parentPath != null) {

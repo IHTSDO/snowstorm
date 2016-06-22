@@ -1,13 +1,12 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
-import com.kaicube.snomed.elasticsnomed.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.App;
+import com.kaicube.snomed.elasticsnomed.domain.Branch;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -18,11 +17,8 @@ public class BranchServiceTest {
 	@Autowired
 	private BranchService branchService;
 
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
-
 	@Test
-	public void testFind() throws Exception {
+	public void testCreateFindBranches() throws Exception {
 		Assert.assertNull(branchService.find("MAIN"));
 
 		branchService.create("MAIN");

@@ -70,8 +70,11 @@ public class ConceptService {
 	}
 
 	public void create(Concept conceptVersion, String path) {
+		final Branch branch = branchService.find(path);
+		if (branch == null) {
+			throw new IllegalArgumentException("Branch '" + path + "' does not exist.");
+		}
 		Date commit = new Date();
-		final Branch branch = branchService.getCreateBranch(path);
 		conceptVersion.setId(UUID.randomUUID().toString());
 		conceptVersion.setPath(path);
 		conceptVersion.setCommit(commit);
