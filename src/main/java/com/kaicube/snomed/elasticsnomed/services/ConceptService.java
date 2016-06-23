@@ -4,9 +4,12 @@ import com.kaicube.snomed.elasticsnomed.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.repositories.ConceptRepository;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -60,26 +63,48 @@ public class ConceptService {
 
 		final NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(builder)
+				.withSort(SortBuilders.fieldSort("path").order(SortOrder.DESC))
+				.withPageable(new PageRequest(0, 1))
 				.build();
 		final List<Concept> concepts = elasticsearchTemplate.queryForList(query, Concept.class);
 
-		final Iterator<Concept> iterator = concepts.iterator();
-		final Concept concept = iterator.hasNext() ? iterator.next() : null;
+		final Concept concept = !concepts.isEmpty() ? concepts.get(0) : null;
+
 		logger.info("Find id:{}, path:{} found:{}", id, path, concept);
 		return concept;
 	}
 
-	public void create(Concept conceptVersion, String path) {
-		final Branch branch = branchService.find(path);
-		if (branch == null) {
-			throw new IllegalArgumentException("Branch '" + path + "' does not exist.");
+	public Concept create(Concept conceptVersion, String path) {
+		final Branch branch = branchService.findBranchOrThrow(path);
+		if (find(conceptVersion.getConceptId(), path) != null) {
+			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
 		}
+
+		return doSave(conceptVersion, path, branch);
+	}
+
+	private Concept doSave(Concept conceptVersion, String path, Branch branch) {
 		Date commit = new Date();
 		conceptVersion.setId(UUID.randomUUID().toString());
 		conceptVersion.setPath(path);
 		conceptVersion.setCommit(commit);
-		conceptRepository.save(conceptVersion);
+		final Concept saved = conceptRepository.save(conceptVersion);
 		branchService.updateBranchHead(branch, commit);
+		return saved;
+	}
+
+	public Concept update(Concept conceptVersion, String path) {
+		final Branch branch = branchService.findBranchOrThrow(path);
+		final Long conceptId = conceptVersion.getConceptId();
+		if (conceptId == null) {
+			throw new IllegalArgumentException("conceptId must not be null.");
+		}
+		final Concept existingConcept = find(conceptId, path);
+		if (existingConcept == null) {
+			throw new IllegalArgumentException("Concept '" + conceptId + "' does not exist on branch '" + path + "'.");
+		}
+
+		return doSave(conceptVersion, path, branch);
 	}
 
 	public void deleteAll() {

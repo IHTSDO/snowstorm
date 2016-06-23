@@ -21,7 +21,7 @@ public class ConceptServiceTest {
 	private ConceptService conceptService;
 
 	@Test
-	public void testConceptBranching() {
+	public void testConceptCreationBranchingVisibility() {
 		branchService.create("MAIN");
 
 		Assert.assertNull("Concept 1 does not exist on MAIN.", conceptService.find(1l, "MAIN"));
@@ -42,6 +42,34 @@ public class ConceptServiceTest {
 		conceptService.create(new Concept(3l, "three"), "MAIN");
 		Assert.assertNull("Concept 3 is not accessible on branch A because created after branching.", conceptService.find(3l, "MAIN/A"));
 		Assert.assertNotNull(conceptService.find(3l, "MAIN"));
+	}
+
+	@Test
+	public void testMultipleConceptVersionsOnOneBranch() {
+		branchService.create("MAIN");
+		conceptService.create(new Concept(1l, "one"), "MAIN");
+
+		final Concept concept1 = conceptService.find(1l, "MAIN");
+		Assert.assertEquals("one", concept1.getFsn());
+
+		conceptService.update(new Concept(1l, "oneee"), "MAIN");
+
+		final Concept concept1Version2 = conceptService.find(1l, "MAIN");
+		Assert.assertEquals("oneee", concept1Version2.getFsn());
+	}
+
+	@Test
+	public void testUpdateExistingConceptOnNewBranch() {
+		branchService.create("MAIN");
+
+		conceptService.create(new Concept(1l, "one"), "MAIN");
+
+		branchService.create("MAIN/A");
+
+		conceptService.update(new Concept(1l, "one1"), "MAIN/A");
+
+		Assert.assertEquals("one", conceptService.find(1l, "MAIN").getFsn());
+		Assert.assertEquals("one1", conceptService.find(1l, "MAIN/A").getFsn());
 	}
 
 	@After

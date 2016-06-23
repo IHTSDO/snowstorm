@@ -72,6 +72,14 @@ public class BranchService {
 		return branchRepository.findByPath(PathUtil.flaten(path));
 	}
 
+	public Branch findBranchOrThrow(String path) {
+		final Branch branch = find(path);
+		if (branch == null) {
+			throw new IllegalArgumentException("Branch '" + path + "' does not exist.");
+		}
+		return branch;
+	}
+
 	public Iterable<Branch> findAll() {
 		return branchRepository.findAll(new PageRequest(0, 10)).getContent();
 	}
