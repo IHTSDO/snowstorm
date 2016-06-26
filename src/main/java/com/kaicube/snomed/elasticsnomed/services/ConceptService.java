@@ -1,7 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
-import com.kaicube.snomed.elasticsnomed.domain.Branch;
-import com.kaicube.snomed.elasticsnomed.domain.Concept;
+import com.kaicube.snomed.elasticsnomed.domain.*;
 import com.kaicube.snomed.elasticsnomed.repositories.ConceptRepository;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -15,8 +14,8 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
+import java.util.Collection;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,7 +35,7 @@ public class ConceptService {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
-	public Concept find(Long id, String path) {
+	public Concept find(String id, String path) {
 
 		final BoolQueryBuilder branchCriteria = boolQuery();
 		final Branch branch = branchService.find(path);
@@ -58,12 +57,13 @@ public class ConceptService {
 		}
 
 		final BoolQueryBuilder builder = boolQuery()
-				.must(termQuery("conceptId", id))
+				.must(queryStringQuery(id).field("conceptId"))
 				.must(branchCriteria);
 
 		final NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(builder)
 				.withSort(SortBuilders.fieldSort("path").order(SortOrder.DESC))
+				.withSort(SortBuilders.fieldSort("commit").order(SortOrder.DESC))
 				.withPageable(new PageRequest(0, 1))
 				.build();
 		final List<Concept> concepts = elasticsearchTemplate.queryForList(query, Concept.class);
@@ -80,22 +80,12 @@ public class ConceptService {
 			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
 		}
 
-		return doSave(conceptVersion, path, branch);
-	}
-
-	private Concept doSave(Concept conceptVersion, String path, Branch branch) {
-		Date commit = new Date();
-		conceptVersion.setId(UUID.randomUUID().toString());
-		conceptVersion.setPath(path);
-		conceptVersion.setCommit(commit);
-		final Concept saved = conceptRepository.save(conceptVersion);
-		branchService.updateBranchHead(branch, commit);
-		return saved;
+		return doSave(conceptVersion, branch);
 	}
 
 	public Concept update(Concept conceptVersion, String path) {
 		final Branch branch = branchService.findBranchOrThrow(path);
-		final Long conceptId = conceptVersion.getConceptId();
+		final String conceptId = conceptVersion.getConceptId();
 		if (conceptId == null) {
 			throw new IllegalArgumentException("conceptId must not be null.");
 		}
@@ -104,7 +94,47 @@ public class ConceptService {
 			throw new IllegalArgumentException("Concept '" + conceptId + "' does not exist on branch '" + path + "'.");
 		}
 
-		return doSave(conceptVersion, path, branch);
+		return doSave(conceptVersion, branch);
+	}
+
+	public void bulkImport(Collection<Concept> concepts, String path) {
+		final Branch branch = branchService.findBranchOrThrow(path);
+		
+		doSave(concepts, branch);
+	}
+
+	private Concept doSave(Concept concept, Branch branch) {
+		Date commit = new Date();
+		setConceptMeta(concept, branch, commit);
+		final Concept saved = conceptRepository.save(concept);
+		branchService.updateBranchHead(branch, commit);
+		return saved;
+	}
+
+	private Iterable<Concept> doSave(Iterable<Concept> concepts, Branch branch) {
+		Date commit = new Date();
+		for (Concept concept : concepts) {
+			setConceptMeta(concept, branch, commit);
+		}
+		final Iterable<Concept> saved = conceptRepository.save(concepts);
+		branchService.updateBranchHead(branch, commit);
+		return saved;
+	}
+
+	private void setConceptMeta(Concept concept, Branch branch, Date commit) {
+		setComponentMeta(concept, branch, commit);
+		for (Description description : concept.getDescriptions()) {
+			setComponentMeta(description, branch, commit);
+		}
+		for (Relationship relationship : concept.getRelationships()) {
+			setComponentMeta(relationship, branch, commit);
+		}
+	}
+
+	private void setComponentMeta(Component component, Branch branch, Date commit) {
+		component.setUuid(UUID.randomUUID().toString());
+		component.setPath(branch.getPath());
+		component.setCommit(commit);
 	}
 
 	public void deleteAll() {
@@ -112,6 +142,6 @@ public class ConceptService {
 	}
 
 	public Iterable<Concept> findAll(String path) {
-		return conceptRepository.findByPath(path);
+		return conceptRepository.findByPath(PathUtil.flaten(path));
 	}
 }

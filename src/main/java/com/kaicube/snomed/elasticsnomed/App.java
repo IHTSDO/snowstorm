@@ -1,5 +1,6 @@
 package com.kaicube.snomed.elasticsnomed;
 
+import com.kaicube.snomed.elasticsnomed.rf2import.ImportService;
 import com.kaicube.snomed.elasticsnomed.services.BranchService;
 import org.elasticsearch.common.settings.Settings;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
@@ -40,6 +41,11 @@ public class App {
 	@Bean
 	public BranchService getBranchService() {
 		return new BranchService();
+	}
+
+	@Bean
+	public ImportService getImportService() {
+		return new ImportService();
 	}
 
 	public static void main(String[] args) throws Exception {

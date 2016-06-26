@@ -20,10 +20,27 @@
 	</properties>
 
 	<dependencies>
+		<!-- RF2 Import -->
+		<dependency>
+			<groupId>org.ihtsdo.otf</groupId>
+			<artifactId>snomed-boot</artifactId>
+			<version>1.0.2-SNAPSHOT</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.google.collections</groupId>
+					<artifactId>google-collections</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.data</groupId>
 			<artifactId>spring-data-elasticsearch</artifactId>
 			<version>2.0.2.RELEASE</version>
+		</dependency>
+		<dependency>
+			<groupId>it.unimi.dsi</groupId>
+			<artifactId>fastutil</artifactId>
+			<version>7.0.10</version>
 		</dependency>
 		<dependency>
 			<groupId>net.java.dev.jna</groupId>

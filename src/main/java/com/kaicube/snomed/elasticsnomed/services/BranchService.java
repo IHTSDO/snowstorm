@@ -27,7 +27,7 @@ public class BranchService {
 		Date parentHead = null;
 		if (parentPath != null) {
 			final Branch parentBranch = find(parentPath);
-			if (parentPath == null) {
+			if (parentBranch == null) {
 				throw new IllegalStateException("Parent branch '" + parentPath + "' does not exist.");
 			}
 			parentHead = parentBranch.getHead();
