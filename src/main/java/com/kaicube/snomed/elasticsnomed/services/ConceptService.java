@@ -96,8 +96,20 @@ public class ConceptService {
 
 	public void bulkImport(Collection<Concept> concepts, String path) {
 		final Branch branch = branchService.findBranchOrThrow(path);
-		
-		doSave(concepts, branch);
+
+		List<Concept> conceptList = new ArrayList<>(concepts);
+		final int size = concepts.size();
+		final int chunkSize = 10000;
+		int start, end;
+		for (int i = 0; i < size; i += chunkSize) {
+			start = i;
+			end = start + chunkSize;
+			if (end > size - 1) {
+				end = size - 1;
+			}
+			logger.info("Bulk Import Saving Chunk {} - {} of {}", start, end, size);
+			doSave(conceptList.subList(start, end), branch);
+		}
 	}
 
 	private Concept doSave(Concept concept, Branch branch) {
