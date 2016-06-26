@@ -11,7 +11,7 @@ import java.util.Date;
 public class Component {
 
 	@Id
-	private String uuid;
+	private String internalId;
 
 	@Field(type = FieldType.Date)
 	private Date commit;
@@ -19,12 +19,12 @@ public class Component {
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String path;
 
-	public String getUuid() {
-		return uuid;
+	public String getInternalId() {
+		return internalId;
 	}
 
-	public void setUuid(String uuid) {
-		this.uuid = uuid;
+	public void setInternalId(String internalId) {
+		this.internalId = internalId;
 	}
 
 	public Date getCommit() {

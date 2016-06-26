@@ -115,7 +115,7 @@ public class Description extends Component {
 				", languageCode='" + languageCode + '\'' +
 				", typeId='" + typeId + '\'' +
 				", caseSignificanceId='" + caseSignificanceId + '\'' +
-				", uuid='" + getUuid() + '\'' +
+				", internalId='" + getInternalId() + '\'' +
 				", commit='" + getCommit() + '\'' +
 				", path='" + getPath() + '\'' +
 				'}';

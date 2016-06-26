@@ -109,7 +109,7 @@ public class Concept extends Component {
 				", active=" + active +
 				", moduleId='" + moduleId + '\'' +
 				", definitionStatusId='" + definitionStatusId + '\'' +
-				", uuid='" + getUuid() + '\'' +
+				", internalId='" + getInternalId() + '\'' +
 				", commit='" + getCommit() + '\'' +
 				", path='" + getPath() + '\'' +
 				'}';

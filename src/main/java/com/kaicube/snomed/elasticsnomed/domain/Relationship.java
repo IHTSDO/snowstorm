@@ -85,7 +85,7 @@ public class Relationship extends Component {
 				", typeId='" + typeId + '\'' +
 				", characteristicTypeId='" + characteristicTypeId + '\'' +
 				", modifierId='" + modifierId + '\'' +
-				", uuid='" + getUuid() + '\'' +
+				", internalId='" + getInternalId() + '\'' +
 				", commit='" + getCommit() + '\'' +
 				", path='" + getPath() + '\'' +
 				'}';

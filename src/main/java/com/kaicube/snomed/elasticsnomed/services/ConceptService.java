@@ -14,10 +14,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
@@ -132,7 +129,6 @@ public class ConceptService {
 	}
 
 	private void setComponentMeta(Component component, Branch branch, Date commit) {
-		component.setUuid(UUID.randomUUID().toString());
 		component.setPath(branch.getPath());
 		component.setCommit(commit);
 	}
