@@ -1,5 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.kaicube.snomed.elasticsnomed.services.PathUtil;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -43,6 +44,7 @@ public class Component {
 		this.path = PathUtil.flaten(path);
 	}
 
+	@JsonIgnore
 	public String getFatPath() {
 		return PathUtil.fatten(path);
 	}

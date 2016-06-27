@@ -152,4 +152,8 @@ public class ConceptService {
 	public Iterable<Concept> findAll(String path) {
 		return conceptRepository.findByPath(PathUtil.flaten(path));
 	}
+
+	public Iterable<Concept> findAll(String path, PageRequest pageRequest) {
+		return conceptRepository.findByPath(PathUtil.flaten(path), pageRequest);
+	}
 }

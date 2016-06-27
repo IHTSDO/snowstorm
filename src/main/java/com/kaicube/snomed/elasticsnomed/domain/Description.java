@@ -1,19 +1,38 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
 
+import com.fasterxml.jackson.annotation.JsonView;
+import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 @Document(type = "description", indexName = "snomed")
 public class Description extends Component {
 
+	@JsonView(value = View.Component.class)
 	private String descriptionId;
+
+	@JsonView(value = View.Component.class)
 	private boolean active;
+
+	@JsonView(value = View.Component.class)
 	private String term;
+
+	@JsonView(value = View.Component.class)
 	private String conceptId;
+
+	@JsonView(value = View.Component.class)
 	private String effectiveTime;
+
+	@JsonView(value = View.Component.class)
 	private String moduleId;
+
+	@JsonView(value = View.Component.class)
 	private String languageCode;
+
+	@JsonView(value = View.Component.class)
 	private String typeId;
+
+	@JsonView(value = View.Component.class)
 	private String caseSignificanceId;
 
 	public Description() {

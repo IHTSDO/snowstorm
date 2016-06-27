@@ -1,5 +1,7 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
+import com.fasterxml.jackson.annotation.JsonView;
+import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.util.HashSet;
@@ -8,13 +10,25 @@ import java.util.Set;
 @Document(type = "concept", indexName = "snomed")
 public class Concept extends Component {
 
+	@JsonView(value = View.Component.class)
 	private String conceptId;
+
+	@JsonView(value = View.Component.class)
 	private String effectiveTime;
+
+	@JsonView(value = View.Component.class)
 	private boolean active;
+
+	@JsonView(value = View.Component.class)
 	private String moduleId;
+
+	@JsonView(value = View.Component.class)
 	private String definitionStatusId;
 
+	@JsonView(value = View.Component.class)
 	private Set<Description> descriptions;
+
+	@JsonView(value = View.Component.class)
 	private Set<Relationship> relationships;
 
 	public Concept() {

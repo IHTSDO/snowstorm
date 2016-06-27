@@ -1,19 +1,40 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
+import com.fasterxml.jackson.annotation.JsonView;
+import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 @Document(type = "relationship", indexName = "snomed")
 public class Relationship extends Component {
 
+	@JsonView(value = View.Component.class)
 	private String relationshipId;
+
+	@JsonView(value = View.Component.class)
 	private String effectiveTime;
+
+	@JsonView(value = View.Component.class)
 	private boolean active;
+
+	@JsonView(value = View.Component.class)
 	private String moduleId;
+
+	@JsonView(value = View.Component.class)
 	private String sourceId;
+
+	@JsonView(value = View.Component.class)
 	private String destinationId;
+
+	@JsonView(value = View.Component.class)
 	private String relationshipGroup;
+
+	@JsonView(value = View.Component.class)
 	private String typeId;
+
+	@JsonView(value = View.Component.class)
 	private String characteristicTypeId;
+
+	@JsonView(value = View.Component.class)
 	private String modifierId;
 
 	public Relationship() {
