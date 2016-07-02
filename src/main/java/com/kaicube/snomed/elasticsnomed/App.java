@@ -3,20 +3,21 @@ package com.kaicube.snomed.elasticsnomed;
 import com.kaicube.snomed.elasticsnomed.rf2import.ImportService;
 import com.kaicube.snomed.elasticsnomed.services.BranchService;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
-import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import javax.annotation.PostConstruct;
-
-import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
 
 @SpringBootApplication
 @EnableElasticsearchRepositories(basePackages = "com.kaicube.snomed.elasticsnomed.repositories")
@@ -29,14 +30,26 @@ public class App {
 	private BranchService branchService;
 
 	@Autowired
+	private ElasticsearchTemplate elasticsearchTemplate;
+
+	@Autowired
 	private ImportService importService;
 
 	final Logger logger = LoggerFactory.getLogger(getClass());
 
-	@Bean
-	public ElasticsearchOperations elasticsearchTemplate() {
-		return new ElasticsearchTemplate(nodeBuilder().local(true).settings(Settings.builder().put("path.home", "target/data").build()).node().client());
+	@Bean // Use standalone Elasticsearch Server on localhost
+	public Client client() throws UnknownHostException {
+		final InetAddress localhost = InetAddress.getByName("localhost");
+		return TransportClient.builder().build()
+				.addTransportAddress(new InetSocketTransportAddress(localhost, 9300));
 	}
+
+//	@Bean // Use embedded Elasticsearch Server
+//	public ElasticsearchOperations elasticsearchTemplate() throws UnknownHostException {
+//		Client client = client();
+//		final Client client = nodeBuilder().local(true).settings(Settings.builder().put("path.home", "target/data").build()).node().client();
+//		return new ElasticsearchTemplate(client);
+//	}
 
 	@Bean
 	public ConceptService getConceptService() {
@@ -59,11 +72,11 @@ public class App {
 
 	@PostConstruct
 	public void run() throws Exception {
-		conceptService.deleteAll();
-		branchService.deleteAll();
-
-		branchService.create("MAIN");
-		importService.importSnapshot(getClass().getResource("/MiniCT_INT_GB_20140131").getPath(), "MAIN");
+		// Import international edition at startup
+//		conceptService.deleteAll();
+//		branchService.deleteAll();
+//		branchService.create("MAIN");
+//		importService.importSnapshot("release/SnomedCT_RF2Release_INT_20160131", "MAIN");
 	}
 
 }
