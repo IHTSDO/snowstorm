@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.kaicube.snomed.elasticsnomed.services.PathUtil;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldIndex;
+import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.Date;
 
@@ -11,9 +14,16 @@ import java.util.Date;
 public class Branch {
 
 	@Id
+	@Field(index = FieldIndex.not_analyzed)
 	private String id;
+
+	@Field(index = FieldIndex.not_analyzed)
 	private String path;
+
+	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
 	private Date base;
+
+	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
 	private Date head;
 
 	public Branch() {

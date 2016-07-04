@@ -3,38 +3,49 @@ package com.kaicube.snomed.elasticsnomed.domain;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldIndex;
 
 @Document(type = "relationship", indexName = "snomed")
 public class Relationship extends Component {
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String relationshipId;
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String effectiveTime;
 
 	@JsonView(value = View.Component.class)
 	private boolean active;
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String moduleId;
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String sourceId;
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String destinationId;
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String relationshipGroup;
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String typeId;
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String characteristicTypeId;
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String modifierId;
 
 	public Relationship() {

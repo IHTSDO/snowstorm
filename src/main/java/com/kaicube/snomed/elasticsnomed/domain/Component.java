@@ -12,9 +12,10 @@ import java.util.Date;
 public class Component {
 
 	@Id
+	@Field(index = FieldIndex.not_analyzed)
 	private String internalId;
 
-	@Field(type = FieldType.Date)
+	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
 	private Date commit;
 
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)

@@ -3,6 +3,8 @@ package com.kaicube.snomed.elasticsnomed.domain;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldIndex;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -11,18 +13,22 @@ import java.util.Set;
 public class Concept extends Component {
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String conceptId;
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String effectiveTime;
 
 	@JsonView(value = View.Component.class)
 	private boolean active;
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String moduleId;
 
 	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.not_analyzed)
 	private String definitionStatusId;
 
 	@JsonView(value = View.Component.class)
