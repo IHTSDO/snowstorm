@@ -66,10 +66,10 @@ public class App {
 	@PostConstruct
 	public void run() throws Exception {
 		// Import international edition at startup
-//		conceptService.deleteAll();
-//		branchService.deleteAll();
-//		branchService.create("MAIN");
-//		importService.importSnapshot("release/SnomedCT_RF2Release_INT_20160131", "MAIN");
+		conceptService.deleteAll();
+		branchService.deleteAll();
+		branchService.create("MAIN");
+		importService.importSnapshot("release/SnomedCT_RF2Release_INT_20160131", "MAIN");
 	}
 
 }

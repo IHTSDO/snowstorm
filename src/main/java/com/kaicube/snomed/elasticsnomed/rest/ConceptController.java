@@ -5,10 +5,7 @@ import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 public class ConceptController {
@@ -19,8 +16,8 @@ public class ConceptController {
 	@RequestMapping("/concepts")
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public Iterable<Concept> findConcepts() {
-		return conceptService.findAll("MAIN", new PageRequest(0, 10));
+	public Page<Concept> findConcepts(@RequestParam(defaultValue = "0") int number, @RequestParam(defaultValue = "100") int size) {
+		return new Page<>(conceptService.findAll("MAIN", new PageRequest(number, size)));
 	}
 
 	@RequestMapping("/concepts/{conceptId}")

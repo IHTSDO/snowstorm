@@ -10,6 +10,7 @@ import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -40,11 +41,71 @@ public class ConceptService {
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Concept find(String id, String path) {
+		final Page<Concept> concepts = doFind(id, path, new PageRequest(0, 1));
+		Concept concept = concepts.getTotalElements() == 0 ? null : concepts.iterator().next();
+		logger.info("Find id:{}, path:{} found:{}", id, path, concept);
+		return concept;
+	}
 
+	public Page<Concept> findAll(String path, PageRequest pageRequest) {
+		return doFind(null, path, pageRequest);
+	}
+
+	private Page<Concept> doFind(String id, String path, PageRequest pageRequest) {
+		final BoolQueryBuilder branchCriteria = getBranchCriteria(path);
+
+		final BoolQueryBuilder builder = boolQuery()
+				.must(branchCriteria);
+		if (id != null) {
+			builder.must(queryStringQuery(id).field("conceptId"));
+		}
+
+		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(builder)
+				.withSort(SortBuilders.fieldSort("path").order(SortOrder.DESC))
+				.withSort(SortBuilders.fieldSort("commit").order(SortOrder.DESC))
+				.withSort(SortBuilders.fieldSort("conceptId").order(SortOrder.ASC))
+				.withPageable(pageRequest);
+
+		final Page<Concept> concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
+
+		Map<String, Concept> conceptIdMap = new HashMap<>();
+		for (Concept concept : concepts) {
+			conceptIdMap.put(concept.getConceptId(), concept);
+			concept.getDescriptions().clear();
+			concept.getRelationships().clear();
+		}
+
+		// Fetch Descriptions
+		queryBuilder.withQuery(boolQuery()
+				.must(termsQuery("conceptId", conceptIdMap.keySet()))
+				.must(branchCriteria))
+				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
+		final Page<Description> descriptions = elasticsearchTemplate.queryForPage(queryBuilder.build(), Description.class);
+		// Join Descriptions
+		for (Description description : descriptions) {
+			conceptIdMap.get(description.getConceptId()).addDescription(description);
+		}
+
+		// Fetch Relationships
+		queryBuilder.withQuery(boolQuery()
+				.must(termsQuery("sourceId", conceptIdMap.keySet()))
+				.must(branchCriteria))
+				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
+		final List<Relationship> relationships = elasticsearchTemplate.queryForList(queryBuilder.build(), Relationship.class);
+		// Join Relationships
+		for (Relationship relationship : relationships) {
+			conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
+		}
+
+		return concepts;
+	}
+
+	private BoolQueryBuilder getBranchCriteria(String path) {
 		final BoolQueryBuilder branchCriteria = boolQuery();
 		final Branch branch = branchService.find(path);
 		if (branch == null) {
-			return null;
+			throw new IllegalArgumentException("Branch '" + path + "' does not exist.");
 		}
 
 		branchCriteria.should(boolQuery()
@@ -56,44 +117,10 @@ public class ConceptService {
 			final Branch parentBranch = branchService.find(parentPath);
 			branchCriteria.should(boolQuery()
 					.must(queryStringQuery(parentBranch.getFlatPath()).field("path"))
-					.must(rangeQuery("commit").lte(branch.getBase()))
+					.must(rangeQuery("commit").lte(branch.getBase().getTime()))
 			);
 		}
-
-		final BoolQueryBuilder builder = boolQuery()
-				.must(queryStringQuery(id).field("conceptId"))
-				.must(branchCriteria);
-
-		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(builder)
-				.withSort(SortBuilders.fieldSort("path").order(SortOrder.DESC))
-				.withSort(SortBuilders.fieldSort("commit").order(SortOrder.DESC))
-				.withPageable(new PageRequest(0, 1));
-
-		final List<Concept> concepts = elasticsearchTemplate.queryForList(queryBuilder.build(), Concept.class);
-
-		final Concept concept = !concepts.isEmpty() ? concepts.get(0) : null;
-
-		if (concept != null) {
-			// Join Descriptions
-			queryBuilder.withQuery(boolQuery()
-					.must(queryStringQuery(id).field("conceptId"))
-					.must(branchCriteria))
-					.withPageable(null);
-			final List<Description> descriptions = elasticsearchTemplate.queryForList(queryBuilder.build(), Description.class);
-			concept.setDescriptions(new HashSet<>(descriptions));
-
-			// Join Relationships
-			queryBuilder.withQuery(boolQuery()
-					.must(queryStringQuery(id).field("sourceId"))
-					.must(branchCriteria))
-					.withPageable(null);
-			final List<Relationship> relationships = elasticsearchTemplate.queryForList(queryBuilder.build(), Relationship.class);
-			concept.setRelationships(new HashSet<>(relationships));
-		}
-
-		logger.info("Find id:{}, path:{} found:{}", id, path, concept);
-		return concept;
+		return branchCriteria;
 	}
 
 	public Concept create(Concept conceptVersion, String path) {
@@ -126,7 +153,7 @@ public class ConceptService {
 		final int size = concepts.size();
 		final int chunkSize = 10000;
 		int start, end;
-		for (int i = 0; i < size; i += chunkSize) {
+		for (int i = 0; i < size && i < chunkSize * 3; i += chunkSize) {
 			start = i;
 			end = start + chunkSize;
 			if (end > size - 1) {
@@ -145,14 +172,25 @@ public class ConceptService {
 		Date commit = new Date();
 		List<Description> descriptions = new ArrayList<>();
 		List<Relationship> relationships = new ArrayList<>();
+		int conceptCount = 0;
 		for (Concept concept : concepts) {
+			conceptCount++;
 			setConceptMeta(concept, branch, commit);
 			descriptions.addAll(concept.getDescriptions());
+			concept.getDescriptions().clear();
 			relationships.addAll(concept.getRelationships());
+			concept.getRelationships().clear();
 		}
+		logger.info("Concepts {}", conceptCount);
+		logger.info("descriptions {}", descriptions.size());
+		logger.info("relationships {}", relationships.size());
 		final Iterable<Concept> saved = conceptRepository.save(concepts);
-		descriptionRepository.save(descriptions);
-		relationshipRepository.save(relationships);
+		if (!descriptions.isEmpty()) {
+			descriptionRepository.save(descriptions);
+		}
+		if (!relationships.isEmpty()) {
+			relationshipRepository.save(relationships);
+		}
 		branchService.updateBranchHead(branch, commit);
 		return saved;
 	}
@@ -176,13 +214,5 @@ public class ConceptService {
 		conceptRepository.deleteAll();
 		descriptionRepository.deleteAll();
 		relationshipRepository.deleteAll();
-	}
-
-	public Iterable<Concept> findAll(String path) {
-		return conceptRepository.findByPath(PathUtil.flaten(path));
-	}
-
-	public Iterable<Concept> findAll(String path, PageRequest pageRequest) {
-		return conceptRepository.findByPath(PathUtil.flaten(path), pageRequest);
 	}
 }

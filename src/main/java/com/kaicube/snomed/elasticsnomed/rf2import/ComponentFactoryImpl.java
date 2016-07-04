@@ -31,7 +31,7 @@ public class ComponentFactoryImpl implements ComponentFactory {
 
 	@Override
 	public void addDescription(String id, String effectiveTime, String active, String moduleId, String conceptId, String languageCode, String typeId, String term, String caseSignificanceId) {
-		conceptMap.get(Long.parseLong(caseSignificanceId)).addDescription(new Description(id, effectiveTime, isActive(active), moduleId, conceptId, languageCode, typeId, term, caseSignificanceId));
+		conceptMap.get(Long.parseLong(conceptId)).addDescription(new Description(id, effectiveTime, isActive(active), moduleId, conceptId, languageCode, typeId, term, caseSignificanceId));
 	}
 
 	@Override
