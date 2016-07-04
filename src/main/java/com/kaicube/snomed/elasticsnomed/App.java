@@ -44,13 +44,6 @@ public class App {
 				.addTransportAddress(new InetSocketTransportAddress(localhost, 9300));
 	}
 
-//	@Bean // Use embedded Elasticsearch Server
-//	public ElasticsearchOperations elasticsearchTemplate() throws UnknownHostException {
-//		Client client = client();
-//		final Client client = nodeBuilder().local(true).settings(Settings.builder().put("path.home", "target/data").build()).node().client();
-//		return new ElasticsearchTemplate(client);
-//	}
-
 	@Bean
 	public ConceptService getConceptService() {
 		return new ConceptService();
