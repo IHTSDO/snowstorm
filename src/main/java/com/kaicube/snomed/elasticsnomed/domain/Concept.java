@@ -1,5 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -10,6 +11,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Document(type = "concept", indexName = "snomed")
+@JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "moduleId", "definitionStatusId", "descriptions", "relationships"})
 public class Concept extends Component {
 
 	@JsonView(value = View.Component.class)
@@ -60,6 +62,16 @@ public class Concept extends Component {
 		this.active = active;
 		this.moduleId = moduleId;
 		this.definitionStatusId = definitionStatusId;
+	}
+
+	@JsonView(value = View.Component.class)
+	public String getFsn() {
+		for (Description description : descriptions) {
+			if (description.isActive() && description.getTypeId().equals(Concepts.FSN)) {
+				return description.getTerm();
+			}
+		}
+		return null;
 	}
 
 	public void addDescription(Description description) {
