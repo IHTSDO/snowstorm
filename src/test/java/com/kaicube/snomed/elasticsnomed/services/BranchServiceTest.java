@@ -1,6 +1,7 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
 import com.kaicube.snomed.elasticsnomed.App;
+import com.kaicube.snomed.elasticsnomed.TestConfig;
 import com.kaicube.snomed.elasticsnomed.domain.Branch;
 import org.junit.After;
 import org.junit.Assert;
@@ -11,7 +12,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = App.class)
+@ContextConfiguration(classes = TestConfig.class)
 public class BranchServiceTest {
 
 	@Autowired

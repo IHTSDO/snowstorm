@@ -5,6 +5,7 @@ import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
+import org.springframework.data.elasticsearch.annotations.FieldType;
 
 @Document(type = "description", indexName = "snomed")
 public class Description extends Component {
@@ -18,6 +19,7 @@ public class Description extends Component {
 	private boolean active;
 
 	@JsonView(value = View.Component.class)
+	@Field(type = FieldType.String, index = FieldIndex.analyzed)
 	private String term;
 
 	@JsonView(value = View.Component.class)
@@ -45,6 +47,10 @@ public class Description extends Component {
 	private String caseSignificanceId;
 
 	public Description() {
+	}
+
+	public Description(String term) {
+		this.term = term;
 	}
 
 	public Description(String id, String effectiveTime, boolean active, String moduleId, String conceptId, String languageCode, String typeId, String term, String caseSignificanceId) {

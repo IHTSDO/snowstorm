@@ -84,6 +84,10 @@ public class Relationship extends Component {
 		return sourceId;
 	}
 
+	public void setSourceId(String sourceId) {
+		this.sourceId = sourceId;
+	}
+
 	public String getDestinationId() {
 		return destinationId;
 	}

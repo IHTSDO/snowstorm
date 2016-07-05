@@ -1,6 +1,7 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
 import com.kaicube.snomed.elasticsnomed.App;
+import com.kaicube.snomed.elasticsnomed.TestConfig;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.domain.Description;
 import org.junit.After;
@@ -8,13 +9,21 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import java.util.List;
+
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = App.class)
+@ContextConfiguration(classes = TestConfig.class)
 public class ConceptServiceTest {
+
+	public static final PageRequest PAGE_REQUEST = new PageRequest(0, 100);
 
 	@Autowired
 	private BranchService branchService;
@@ -38,7 +47,7 @@ public class ConceptServiceTest {
 		Assert.assertEquals("MAIN", c1.getFatPath());
 		Assert.assertEquals("one", c1.getModuleId());
 
-		System.out.println(branchService.create("MAIN/A"));
+		branchService.create("MAIN/A");
 		conceptService.create(new Concept("2", "two"), "MAIN/A");
 		Assert.assertNull("Concept 2 does not exist on MAIN.", conceptService.find("2", "MAIN"));
 		Assert.assertNotNull("Concept 2 exists on branch A.", conceptService.find("2", "MAIN/A"));
@@ -84,6 +93,35 @@ public class ConceptServiceTest {
 		Assert.assertNotNull(savedConcept);
 		Assert.assertEquals(1, savedConcept.getDescriptions().size());
 		Assert.assertEquals("84923010", savedConcept.getDescriptions().iterator().next().getDescriptionId());
+	}
+
+	@Test
+	// TODO: Test sort order for relevance and consistency
+	public void testDescriptionSearch() {
+		createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
+		createConceptWithPathIdAndTerms("MAIN", "2", "Lung");
+		createConceptWithPathIdAndTerms("MAIN", "3", "Foot bone");
+		createConceptWithPathIdAndTerms("MAIN", "4", "Foot");
+		createConceptWithPathIdAndTerms("MAIN", "5", "Footwear");
+		createConceptWithPathIdAndTerms("MAIN", "6", "Foot cramps");
+
+		Assert.assertEquals(3, conceptService.findDescriptions("MAIN", "Foot", PAGE_REQUEST).getContent().size());
+
+		Assert.assertEquals(4, conceptService.findDescriptions("MAIN", "Foo*", PAGE_REQUEST).getContent().size());
+
+		branchService.create("MAIN/A");
+		createConceptWithPathIdAndTerms("MAIN/A", "7", "Foot care");
+		Assert.assertEquals(3, conceptService.findDescriptions("MAIN", "Foot", PAGE_REQUEST).getContent().size());
+
+		Assert.assertEquals(4, conceptService.findDescriptions("MAIN/A", "Foot", PAGE_REQUEST).getContent().size());
+	}
+
+	private void createConceptWithPathIdAndTerms(String path, String conceptId, String... terms) {
+		final Concept concept = new Concept(conceptId);
+		for (String term : terms) {
+			concept.addDescription(new Description(term));
+		}
+		conceptService.create(concept, path);
 	}
 
 	@After

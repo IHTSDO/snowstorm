@@ -42,6 +42,11 @@ public class Concept extends Component {
 		relationships = new HashSet<>();
 	}
 
+	public Concept(String conceptId) {
+		this();
+		this.conceptId = conceptId;
+	}
+
 	public Concept(String conceptId, String moduleId) {
 		this();
 		this.conceptId = conceptId;
@@ -58,10 +63,12 @@ public class Concept extends Component {
 	}
 
 	public void addDescription(Description description) {
+		description.setConceptId(this.conceptId);
 		descriptions.add(description);
 	}
 
 	public void addRelationship(Relationship relationship) {
+		relationship.setSourceId(this.conceptId);
 		relationships.add(relationship);
 	}
 

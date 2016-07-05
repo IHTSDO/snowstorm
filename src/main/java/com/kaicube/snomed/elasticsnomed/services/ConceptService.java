@@ -4,6 +4,7 @@ import com.kaicube.snomed.elasticsnomed.domain.*;
 import com.kaicube.snomed.elasticsnomed.repositories.ConceptRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.DescriptionRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.RelationshipRepository;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
@@ -99,6 +100,25 @@ public class ConceptService {
 		}
 
 		return concepts;
+	}
+
+	public Page<Description> findDescriptions(String path, String term, PageRequest pageRequest) {
+		final BoolQueryBuilder branchCriteria = getBranchCriteria(path);
+
+		final BoolQueryBuilder builder = boolQuery()
+				.must(branchCriteria);
+		if (!Strings.isNullOrEmpty(term)) {
+			builder.must(simpleQueryStringQuery(term).field("term"));
+		}
+
+		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(builder)
+				.withSort(SortBuilders.fieldSort("path").order(SortOrder.DESC))
+				.withSort(SortBuilders.fieldSort("commit").order(SortOrder.DESC))
+				.withSort(SortBuilders.scoreSort())
+				.withPageable(pageRequest);
+
+		return elasticsearchTemplate.queryForPage(queryBuilder.build(), Description.class);
 	}
 
 	private BoolQueryBuilder getBranchCriteria(String path) {
