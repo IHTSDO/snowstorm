@@ -3,6 +3,7 @@ package com.kaicube.snomed.elasticsnomed.services;
 import com.kaicube.snomed.elasticsnomed.domain.*;
 import com.kaicube.snomed.elasticsnomed.repositories.ConceptRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.DescriptionRepository;
+import com.kaicube.snomed.elasticsnomed.repositories.ReferenceSetMemberRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.RelationshipRepository;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -16,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 
 import java.util.*;
 
@@ -32,6 +34,9 @@ public class ConceptService {
 
 	@Autowired
 	private RelationshipRepository relationshipRepository;
+
+	@Autowired
+	private ReferenceSetMemberRepository referenceSetMemberRepository;
 
 	@Autowired
 	private BranchService branchService;
@@ -84,8 +89,23 @@ public class ConceptService {
 				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
 		final Page<Description> descriptions = elasticsearchTemplate.queryForPage(queryBuilder.build(), Description.class);
 		// Join Descriptions
+		Map<String, Description> descriptionIdMap = new HashMap<>();
 		for (Description description : descriptions) {
+			descriptionIdMap.put(description.getDescriptionId(), description);
 			conceptIdMap.get(description.getConceptId()).addDescription(description);
+		}
+
+		// Fetch Lang Refset Members
+		queryBuilder.withQuery(boolQuery()
+				.must(termsQuery("referencedComponentId", descriptionIdMap.keySet()))
+				.must(termQuery("active", true))
+				.must(branchCriteria))
+				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
+		final Page<LanguageReferenceSetMember> langRefsetMembers = elasticsearchTemplate.queryForPage(queryBuilder.build(), LanguageReferenceSetMember.class);
+		// Join Lang Refset Members
+		for (LanguageReferenceSetMember langRefsetMember : langRefsetMembers) {
+			descriptionIdMap.get(langRefsetMember.getReferencedComponentId())
+					.addAcceptability(langRefsetMember.getRefsetId(), langRefsetMember.getAcceptabilityId());
 		}
 
 		// Fetch Relationships
@@ -148,8 +168,16 @@ public class ConceptService {
 		if (find(conceptVersion.getConceptId(), path) != null) {
 			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
 		}
-
 		return doSave(conceptVersion, branch);
+	}
+
+	public ReferenceSetMember create(ReferenceSetMember referenceSetMember, String path) {
+		final Branch branch = branchService.findBranchOrThrow(path);
+		if (find(referenceSetMember.getMemberId(), path) != null) {
+			throw new IllegalArgumentException("Reference Set Member '" + referenceSetMember.getMemberId() + "' already exists on branch '" + path + "'.");
+		}
+		return doSave(referenceSetMember, branch);
+
 	}
 
 	public Concept update(Concept conceptVersion, String path) {
@@ -166,30 +194,52 @@ public class ConceptService {
 		return doSave(conceptVersion, branch);
 	}
 
-	public void bulkImport(Collection<Concept> concepts, String path) {
+	public void bulkImport(List<Concept> concepts, List<ReferenceSetMember> members, String path) {
+		final Date commit = new Date();
 		final Branch branch = branchService.findBranchOrThrow(path);
 
-		List<Concept> conceptList = new ArrayList<>(concepts);
-		final int size = concepts.size();
 		final int chunkSize = 10000;
 		int start, end;
+		int size = concepts.size();
 		for (int i = 0; i < size && i < chunkSize * 3; i += chunkSize) {
 			start = i;
 			end = start + chunkSize;
-			if (end > size - 1) {
-				end = size - 1;
+			if (end > size) {
+				end = size;
 			}
-			logger.info("Bulk Import Saving Chunk {} - {} of {}", start, end, size);
-			doSave(conceptList.subList(start, end), branch);
+			logger.info("Bulk Import Saving Concepts Chunk {} - {} of {}", start, end, size);
+			doSaveConceptBatch(concepts.subList(start, end), branch, commit);
 		}
+
+		size = members.size();
+		for (int i = 0; i < size; i += chunkSize) {
+			start = i;
+			end = start + chunkSize;
+			if (end > size) {
+				end = size;
+			}
+			logger.info("Bulk Import Saving Reference Set Members Chunk {} - {} of {}", start, end, size);
+			doSaveMembersBatch(members.subList(start, end), branch, commit);
+		}
+
+		branchService.updateBranchHead(branch, commit);
 	}
 
 	private Concept doSave(Concept concept, Branch branch) {
-		return doSave(Collections.singleton(concept), branch).iterator().next();
+		final Date commit = new Date();
+		final Concept savedConcept = doSaveConceptBatch(Collections.singleton(concept), branch, commit).iterator().next();
+		branchService.updateBranchHead(branch, commit);
+		return savedConcept;
 	}
 
-	private Iterable<Concept> doSave(Iterable<Concept> concepts, Branch branch) {
-		Date commit = new Date();
+	private ReferenceSetMember doSave(ReferenceSetMember member, Branch branch) {
+		final Date commit = new Date();
+		final ReferenceSetMember savedMember = doSaveMembersBatch(Collections.singleton(member), branch, commit).iterator().next();
+		branchService.updateBranchHead(branch, commit);
+		return savedMember;
+	}
+
+	private Iterable<Concept> doSaveConceptBatch(Iterable<Concept> concepts, Branch branch, Date commit) {
 		List<Description> descriptions = new ArrayList<>();
 		List<Relationship> relationships = new ArrayList<>();
 		int conceptCount = 0;
@@ -201,38 +251,54 @@ public class ConceptService {
 			relationships.addAll(concept.getRelationships());
 			concept.getRelationships().clear();
 		}
-		logger.info("Concepts {}", conceptCount);
-		logger.info("descriptions {}", descriptions.size());
-		logger.info("relationships {}", relationships.size());
+		logger.info("Saving batch of {} concepts", conceptCount);
 		final Iterable<Concept> saved = conceptRepository.save(concepts);
+		logger.info("Saving batch of {} descriptions", descriptions.size());
 		if (!descriptions.isEmpty()) {
 			descriptionRepository.save(descriptions);
 		}
+		logger.info("Saving batch of {} relationships", relationships.size());
 		if (!relationships.isEmpty()) {
 			relationshipRepository.save(relationships);
 		}
-		branchService.updateBranchHead(branch, commit);
 		return saved;
 	}
 
+	private Iterable<ReferenceSetMember> doSaveMembersBatch(Iterable<ReferenceSetMember> members, Branch branch, Date commit) {
+		int memberCount = 0;
+		for (ReferenceSetMember member : members) {
+			if (member != null) {
+				memberCount++;
+				setEntityMeta(member, branch, commit);
+			} else {
+				logger.warn("Member null {}", memberCount);
+			}
+		}
+		logger.info("Saving batch of {} reference set members", memberCount);
+		return referenceSetMemberRepository.save(members);
+	}
+
 	private void setConceptMeta(Concept concept, Branch branch, Date commit) {
-		setComponentMeta(concept, branch, commit);
+		setEntityMeta(concept, branch, commit);
 		for (Description description : concept.getDescriptions()) {
-			setComponentMeta(description, branch, commit);
+			setEntityMeta(description, branch, commit);
 		}
 		for (Relationship relationship : concept.getRelationships()) {
-			setComponentMeta(relationship, branch, commit);
+			setEntityMeta(relationship, branch, commit);
 		}
 	}
 
-	private void setComponentMeta(Component component, Branch branch, Date commit) {
-		component.setPath(branch.getPath());
-		component.setCommit(commit);
+	private void setEntityMeta(Entity entity, Branch branch, Date commit) {
+		Assert.notNull(entity, "Entity must not be null");
+		Assert.notNull(branch, "Branch must not be null");
+		entity.setPath(branch.getPath());
+		entity.setCommit(commit);
 	}
 
 	public void deleteAll() {
 		conceptRepository.deleteAll();
 		descriptionRepository.deleteAll();
 		relationshipRepository.deleteAll();
+		referenceSetMemberRepository.deleteAll();
 	}
 }

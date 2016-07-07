@@ -9,7 +9,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.Date;
 
-public class Component {
+public class Entity {
 
 	@Id
 	@Field(index = FieldIndex.not_analyzed)

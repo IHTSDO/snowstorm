@@ -1,11 +1,10 @@
 package com.kaicube.snomed.elasticsnomed.rf2import;
 
-import com.kaicube.snomed.elasticsnomed.domain.Concept;
-import com.kaicube.snomed.elasticsnomed.domain.Description;
-import com.kaicube.snomed.elasticsnomed.domain.Relationship;
+import com.kaicube.snomed.elasticsnomed.domain.*;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.ihtsdo.otf.snomedboot.factory.ComponentFactory;
+import org.ihtsdo.otf.snomedboot.factory.FactoryUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +13,7 @@ public class ComponentFactoryImpl implements ComponentFactory {
 
 	private Long2ObjectMap<Concept> conceptMap = new Long2ObjectOpenHashMap<>();
 	private List<Concept> concepts = new ArrayList<>();
+	private List<ReferenceSetMember> members = new ArrayList<>();
 
 	@Override
 	public void createConcept(String conceptId, String effectiveTime, String active, String moduleId, String definitionStatusId) {
@@ -49,11 +49,30 @@ public class ComponentFactoryImpl implements ComponentFactory {
 	@Override
 	public void addConceptFSN(String conceptId, String term) {}
 
+	@Override
+	public void addReferenceSetMember(String id, String effectiveTime, String active, String moduleId, String refsetId, String referencedComponentId, String... otherValues) {
+		if (otherValues.length == 1 && isAcceptabilityConceptId(otherValues[0]) && FactoryUtils.isDescriptionId(referencedComponentId)) {
+			final LanguageReferenceSetMember member = new LanguageReferenceSetMember(id, effectiveTime, isActive(active), moduleId, refsetId, referencedComponentId, otherValues[0]);
+			synchronized (members) {
+				members.add(member);
+			}
+		}
+	}
+
+	private boolean isAcceptabilityConceptId(String conceptId) {
+		return Concepts.ACCEPTABLE.equals(conceptId) || Concepts.PREFERRED.equals(conceptId);
+	}
+
 	public List<Concept> getConcepts() {
 		return concepts;
+	}
+
+	public List<ReferenceSetMember> getMembers() {
+		return members;
 	}
 
 	private boolean isActive(String active) {
 		return "1".equals(active);
 	}
+
 }

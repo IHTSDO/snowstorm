@@ -1,5 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -7,8 +8,11 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Document(type = "description", indexName = "snomed")
-public class Description extends Component {
+public class Description extends Entity {
 
 	@JsonView(value = View.Component.class)
 	@Field(index = FieldIndex.not_analyzed)
@@ -46,14 +50,20 @@ public class Description extends Component {
 	@Field(index = FieldIndex.not_analyzed)
 	private String caseSignificanceId;
 
+	@JsonIgnore
+	private Map<String, String> acceptabilityMap;
+
 	public Description() {
+		acceptabilityMap = new HashMap<>();
 	}
 
 	public Description(String term) {
+		this();
 		this.term = term;
 	}
 
 	public Description(String id, String effectiveTime, boolean active, String moduleId, String conceptId, String languageCode, String typeId, String term, String caseSignificanceId) {
+		this();
 		this.descriptionId = id;
 		this.effectiveTime = effectiveTime;
 		this.active = active;
@@ -63,6 +73,15 @@ public class Description extends Component {
 		this.typeId = typeId;
 		this.term = term;
 		this.caseSignificanceId = caseSignificanceId;
+	}
+
+	public void addAcceptability(String languageReferenceSetId, String acceptabilityId) {
+		acceptabilityMap.put(languageReferenceSetId, acceptabilityId);
+	}
+
+	@JsonView(value = View.Component.class)
+	public Map<String, String> getAcceptabilityMap() {
+		return acceptabilityMap;
 	}
 
 	public String getDescriptionId() {
@@ -154,5 +173,4 @@ public class Description extends Component {
 				", path='" + getPath() + '\'' +
 				'}';
 	}
-
 }

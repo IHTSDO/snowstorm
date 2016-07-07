@@ -7,7 +7,7 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 
 @Document(type = "relationship", indexName = "snomed")
-public class Relationship extends Component {
+public class Relationship extends Entity {
 
 	@JsonView(value = View.Component.class)
 	@Field(index = FieldIndex.not_analyzed)

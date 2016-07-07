@@ -3,7 +3,9 @@ package com.kaicube.snomed.elasticsnomed.services;
 import com.kaicube.snomed.elasticsnomed.App;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
+import com.kaicube.snomed.elasticsnomed.domain.Concepts;
 import com.kaicube.snomed.elasticsnomed.domain.Description;
+import com.kaicube.snomed.elasticsnomed.domain.LanguageReferenceSetMember;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -18,6 +20,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.List;
+import java.util.UUID;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -92,7 +95,25 @@ public class ConceptServiceTest {
 		final Concept savedConcept = conceptService.find("50960005", "MAIN");
 		Assert.assertNotNull(savedConcept);
 		Assert.assertEquals(1, savedConcept.getDescriptions().size());
-		Assert.assertEquals("84923010", savedConcept.getDescriptions().iterator().next().getDescriptionId());
+		final Description description = savedConcept.getDescriptions().iterator().next();
+		Assert.assertEquals("84923010", description.getDescriptionId());
+		Assert.assertEquals(0, description.getAcceptabilityMap().size());
+	}
+
+	@Test
+	public void testSaveConceptWithDescriptionAndAcceptability() {
+		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
+		conceptService.create(concept, "MAIN");
+		conceptService.create(new LanguageReferenceSetMember(UUID.randomUUID().toString(), "20020131", true, "900000000000207008", "900000000000509007", "84923010", Concepts.PREFERRED), "MAIN");
+
+		final Concept savedConcept = conceptService.find("50960005", "MAIN");
+		Assert.assertNotNull(savedConcept);
+		Assert.assertEquals(1, savedConcept.getDescriptions().size());
+		final Description description = savedConcept.getDescriptions().iterator().next();
+		Assert.assertEquals("84923010", description.getDescriptionId());
+		Assert.assertEquals(1, description.getAcceptabilityMap().size());
+		Assert.assertEquals(Concepts.PREFERRED, description.getAcceptabilityMap().get("900000000000509007"));
 	}
 
 	@Test

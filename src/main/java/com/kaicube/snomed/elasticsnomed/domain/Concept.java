@@ -12,7 +12,7 @@ import java.util.Set;
 
 @Document(type = "concept", indexName = "snomed")
 @JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "moduleId", "definitionStatusId", "descriptions", "relationships"})
-public class Concept extends Component {
+public class Concept extends Entity {
 
 	@JsonView(value = View.Component.class)
 	@Field(index = FieldIndex.not_analyzed)
