@@ -133,8 +133,6 @@ public class ConceptService {
 
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(builder)
-				.withSort(SortBuilders.fieldSort("path").order(SortOrder.DESC))
-				.withSort(SortBuilders.fieldSort("commit").order(SortOrder.DESC))
 				.withSort(SortBuilders.scoreSort())
 				.withPageable(pageRequest);
 

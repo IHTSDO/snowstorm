@@ -1,6 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
-import com.kaicube.snomed.elasticsnomed.App;
+import com.google.common.collect.Sets;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.domain.Concepts;
@@ -11,16 +11,12 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -121,28 +117,68 @@ public class ConceptServiceTest {
 	public void testDescriptionSearch() {
 		createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
 		createConceptWithPathIdAndTerms("MAIN", "2", "Lung");
+		createConceptWithPathIdAndTerms("MAIN", "6", "Foot cramps");
+		createConceptWithPathIdAndTerms("MAIN", "7", "Foot cramp");
 		createConceptWithPathIdAndTerms("MAIN", "3", "Foot bone");
 		createConceptWithPathIdAndTerms("MAIN", "4", "Foot");
 		createConceptWithPathIdAndTerms("MAIN", "5", "Footwear");
-		createConceptWithPathIdAndTerms("MAIN", "6", "Foot cramps");
 
-		Assert.assertEquals(3, conceptService.findDescriptions("MAIN", "Foot", PAGE_REQUEST).getContent().size());
+		final List<Description> content = conceptService.findDescriptions("MAIN", "Foo* cr*", PAGE_REQUEST).getContent();
+		assertSearchResults(content, 5, "Foot cramp", "Foot cramps");
 
-		Assert.assertEquals(4, conceptService.findDescriptions("MAIN", "Foo*", PAGE_REQUEST).getContent().size());
+		final List<Description> fooMatches = conceptService.findDescriptions("MAIN", "Foo*", PAGE_REQUEST).getContent();
+		assertSearchResults(fooMatches, 5);
 
 		branchService.create("MAIN/A");
-		createConceptWithPathIdAndTerms("MAIN/A", "7", "Foot care");
-		Assert.assertEquals(3, conceptService.findDescriptions("MAIN", "Foot", PAGE_REQUEST).getContent().size());
 
-		Assert.assertEquals(4, conceptService.findDescriptions("MAIN/A", "Foot", PAGE_REQUEST).getContent().size());
+		createConceptWithPathIdAndTerms("MAIN/A", "8", "Foot care");
+
+		final List<Description> footOnMain = conceptService.findDescriptions("MAIN", "Foot", PAGE_REQUEST).getContent();
+		Assert.assertEquals(4, footOnMain.size());
+
+		final List<Description> footOnA = conceptService.findDescriptions("MAIN/A", "Foot", PAGE_REQUEST).getContent();
+		Assert.assertEquals(5, footOnA.size());
+		Assert.assertTrue(toTermSet(footOnA).contains("Foot care"));
+	}
+
+	private void assertSearchResults(List<Description> content, int expectedSize, String... topHitsUnordered) {
+		try {
+			Assert.assertEquals(expectedSize, content.size());
+			final HashSet<String> topHitSet = Sets.newHashSet(topHitsUnordered);
+			for (int i = 0; i < topHitsUnordered.length; i++) {
+				final String term = content.get(i++).getTerm();
+				Assert.assertTrue("Hit " + i + " '" + term + "' within expected top hits.", topHitSet.contains(term));
+			}
+		} catch (AssertionError e) {
+			printAll(content);
+			throw e;
+		}
 	}
 
 	private void createConceptWithPathIdAndTerms(String path, String conceptId, String... terms) {
 		final Concept concept = new Concept(conceptId);
 		for (String term : terms) {
-			concept.addDescription(new Description(term));
+			final Description description = new Description(term);
+			description.setDescriptionId(UUID.randomUUID().toString());
+			concept.addDescription(description);
 		}
 		conceptService.create(concept, path);
+	}
+
+	private void printAll(List<Description> content) {
+		System.out.println(content.size() + " descriptions:");
+		for (Description description : content) {
+			System.out.println(description.getTerm());
+		}
+		System.out.println();
+	}
+
+	private Set<String> toTermSet(Collection<Description> descriptions) {
+		Set<String> terms = new HashSet<>();
+		for (Description description : descriptions) {
+			terms.add(description.getTerm());
+		}
+		return terms;
 	}
 
 	@After
