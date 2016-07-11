@@ -10,7 +10,7 @@ import java.net.UnknownHostException;
 import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
 
 @Configuration
-public class TestConfig extends App {
+public class TestConfig {
 
 	@Bean // Use embedded Elastic search Server
 	public Client client() throws UnknownHostException {

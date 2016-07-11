@@ -1,6 +1,7 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
 import com.google.common.collect.Sets;
+import com.kaicube.snomed.elasticsnomed.App;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.domain.Concepts;
@@ -17,9 +18,10 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = TestConfig.class)
+@ContextConfiguration(classes = {App.class, TestConfig.class})
 public class ConceptServiceTest {
 
 	public static final PageRequest PAGE_REQUEST = new PageRequest(0, 100);
@@ -174,11 +176,7 @@ public class ConceptServiceTest {
 	}
 
 	private Set<String> toTermSet(Collection<Description> descriptions) {
-		Set<String> terms = new HashSet<>();
-		for (Description description : descriptions) {
-			terms.add(description.getTerm());
-		}
-		return terms;
+		return descriptions.stream().map(Description::getTerm).collect(Collectors.toSet());
 	}
 
 	@After

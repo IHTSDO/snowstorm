@@ -22,7 +22,7 @@ import java.util.Map;
 import java.util.Set;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = TestConfig.class)
+@ContextConfiguration(classes = {App.class, TestConfig.class})
 public class ImportServiceTest {
 
 	@Autowired
