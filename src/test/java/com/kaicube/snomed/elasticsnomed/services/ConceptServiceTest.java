@@ -191,6 +191,9 @@ public class ConceptServiceTest {
 
 		Assert.assertEquals("Branch A should see old version of concept because of old base point.", 1, conceptService.findDescriptions("MAIN/A", "Heart", PAGE_REQUEST).getNumberOfElements());
 		Assert.assertEquals("Branch A should not see new version of concept because of old base point.", 0, conceptService.findDescriptions("MAIN/A", "Bone", PAGE_REQUEST).getNumberOfElements());
+
+		final Concept concept1 = conceptService.find("1", "MAIN");
+		Assert.assertEquals(1, concept1.getDescriptions().size());
 	}
 
 	private void printAllDescriptions(String path) {
