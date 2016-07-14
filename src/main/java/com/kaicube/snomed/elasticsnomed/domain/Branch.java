@@ -1,24 +1,17 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.kaicube.snomed.elasticsnomed.services.PathUtil;
-import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.Date;
+import java.util.HashSet;
+import java.util.Set;
 
 @Document(type = "branch", indexName = "branch")
-public class Branch {
-
-	@Id
-	@Field(index = FieldIndex.not_analyzed)
-	private String id;
-
-	@Field(index = FieldIndex.not_analyzed)
-	private String path;
+public class Branch extends Entity {
 
 	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
 	private Date base;
@@ -26,37 +19,36 @@ public class Branch {
 	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
 	private Date head;
 
+	private Set<String> versionsReplaced;
+
+	private Set<String> entitiesRemoved;
+
 	public Branch() {
+		head = new Date();
+		versionsReplaced = new HashSet<>();
+		entitiesRemoved = new HashSet<>();
 	}
 
 	public Branch(String path) {
-		this.path = PathUtil.flaten(path);
-		head = new Date();
+		this();
+		setPath(path);
 	}
 
-	public String getPath() {
-		return path;
+	public void addVersionReplaced(String internalId) {
+		versionsReplaced.add(internalId);
 	}
 
-	public String getFatPath() {
-		return PathUtil.fatten(path);
+	public void addEntityRemoved(String internalId) {
+		entitiesRemoved.add(internalId);
 	}
 
 	@JsonIgnore
 	public String getFlatPath() {
-		return path;
+		return getPath();
 	}
 
 	public void setHead(Date head) {
 		this.head = head;
-	}
-
-	public String getId() {
-		return id;
-	}
-
-	public void setId(String id) {
-		this.id = id;
 	}
 
 	public Date getBase() {
@@ -71,27 +63,26 @@ public class Branch {
 		return head;
 	}
 
+	public Set<String> getVersionsReplaced() {
+		return versionsReplaced;
+	}
+
+	public Set<String> getEntitiesRemoved() {
+		return entitiesRemoved;
+	}
+
 	@Override
 	public String toString() {
 		return "Branch{" +
-				"id='" + id + '\'' +
-				", path='" + path + '\'' +
+				"path=" + getPath() +
+				", base=" + getMillis(base) +
+				", head=" + getMillis(head) +
+				", start=" + getMillis(getStart()) +
+				", end=" + getMillis(getEnd()) +
 				'}';
 	}
 
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) return true;
-		if (o == null || getClass() != o.getClass()) return false;
-
-		Branch branch = (Branch) o;
-
-		return path != null ? path.equals(branch.path) : branch.path == null;
-
-	}
-
-	@Override
-	public int hashCode() {
-		return path != null ? path.hashCode() : 0;
+	private Long getMillis(Date date) {
+		return date == null ? null : date.getTime();
 	}
 }

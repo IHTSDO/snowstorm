@@ -15,11 +15,11 @@ import java.util.Map;
 public class Description extends Entity {
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String descriptionId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
 	private boolean active;
 
 	@JsonView(value = View.Component.class)
@@ -27,27 +27,27 @@ public class Description extends Entity {
 	private String term;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String conceptId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String effectiveTime;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String moduleId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String languageCode;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String typeId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String caseSignificanceId;
 
 	@JsonIgnore
@@ -169,7 +169,8 @@ public class Description extends Entity {
 				", typeId='" + typeId + '\'' +
 				", caseSignificanceId='" + caseSignificanceId + '\'' +
 				", internalId='" + getInternalId() + '\'' +
-				", commit='" + getCommit() + '\'' +
+				", start='" + getStart() + '\'' +
+				", end='" + getEnd() + '\'' +
 				", path='" + getPath() + '\'' +
 				'}';
 	}

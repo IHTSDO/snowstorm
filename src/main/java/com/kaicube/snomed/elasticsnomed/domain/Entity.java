@@ -15,11 +15,23 @@ public class Entity {
 	@Field(index = FieldIndex.not_analyzed)
 	private String internalId;
 
-	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
-	private Date commit;
-
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String path;
+
+	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
+	private Date start;
+
+	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
+	private Date end;
+
+	public void clearInternalId() {
+		internalId = null;
+	}
+
+	@JsonIgnore
+	public String getFatPath() {
+		return PathUtil.fatten(path);
+	}
 
 	public String getInternalId() {
 		return internalId;
@@ -27,14 +39,6 @@ public class Entity {
 
 	public void setInternalId(String internalId) {
 		this.internalId = internalId;
-	}
-
-	public Date getCommit() {
-		return commit;
-	}
-
-	public void setCommit(Date commit) {
-		this.commit = commit;
 	}
 
 	public String getPath() {
@@ -45,8 +49,19 @@ public class Entity {
 		this.path = PathUtil.flaten(path);
 	}
 
-	@JsonIgnore
-	public String getFatPath() {
-		return PathUtil.fatten(path);
+	public Date getStart() {
+		return start;
+	}
+
+	public void setStart(Date start) {
+		this.start = start;
+	}
+
+	public Date getEnd() {
+		return end;
+	}
+
+	public void setEnd(Date end) {
+		this.end = end;
 	}
 }

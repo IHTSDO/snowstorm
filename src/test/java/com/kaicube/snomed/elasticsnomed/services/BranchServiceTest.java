@@ -20,25 +20,24 @@ public class BranchServiceTest {
 
 	@Test
 	public void testCreateFindBranches() throws Exception {
-		Assert.assertNull(branchService.find("MAIN"));
+		Assert.assertNull(branchService.findLatest("MAIN"));
 
 		branchService.create("MAIN");
 
-		final Branch main = branchService.find("MAIN");
+		final Branch main = branchService.findLatest("MAIN");
 		Assert.assertNotNull(main);
 		Assert.assertNotNull(main.getFatPath());
-		Assert.assertNotNull(main.getId());
-		Assert.assertNull(main.getBase());
+		Assert.assertNotNull(main.getBase());
 		Assert.assertNotNull(main.getHead());
 		Assert.assertEquals("MAIN", main.getFatPath());
 
-		Assert.assertNull(branchService.find("MAIN/A"));
+		Assert.assertNull(branchService.findLatest("MAIN/A"));
 		branchService.create("MAIN/A");
-		final Branch a = branchService.find("MAIN/A");
+		final Branch a = branchService.findLatest("MAIN/A");
 		Assert.assertNotNull(a);
 		Assert.assertEquals("MAIN/A", a.getFatPath());
 
-		Assert.assertNotNull(branchService.find("MAIN"));
+		Assert.assertNotNull(branchService.findLatest("MAIN"));
 	}
 
 	@After

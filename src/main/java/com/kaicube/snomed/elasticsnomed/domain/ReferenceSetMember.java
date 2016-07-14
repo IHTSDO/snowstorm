@@ -5,31 +5,33 @@ import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
+import org.springframework.data.elasticsearch.annotations.FieldType;
 
 @Document(type = "member", indexName = "snomed")
 public class ReferenceSetMember extends Entity {
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String memberId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String effectiveTime;
 
 	@JsonView(value = View.Component.class)
+	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
 	private boolean active;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String moduleId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String refsetId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String referencedComponentId;
 
 	public ReferenceSetMember() {

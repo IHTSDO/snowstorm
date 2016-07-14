@@ -35,9 +35,6 @@ public class RF2FullToSnapshot {
 
 			final String fullFilePath = fullFile.getPath();
 			String snapshotFilePath = basePath + fullFilePath.substring(basePath.length()).replace("Full_", "Snapshot_").replace("Full/", "Snapshot/");
-			System.out.println(fullFilePath);
-			System.out.println(snapshotFilePath);
-			System.out.println();
 
 			final File snapshotFile = new File(snapshotFilePath);
 			snapshotFile.getParentFile().mkdirs();

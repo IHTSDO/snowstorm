@@ -5,53 +5,55 @@ import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
+import org.springframework.data.elasticsearch.annotations.FieldType;
 
 @Document(type = "relationship", indexName = "snomed")
 public class Relationship extends Entity {
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String relationshipId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String effectiveTime;
 
 	@JsonView(value = View.Component.class)
+	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
 	private boolean active;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String moduleId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String sourceId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String destinationId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
-	private String relationshipGroup;
+	@Field(type = FieldType.Integer, index = FieldIndex.not_analyzed)
+	private int relationshipGroup;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String typeId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String characteristicTypeId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String modifierId;
 
 	public Relationship() {
 	}
 
-	public Relationship(String id, String effectiveTime, boolean active, String moduleId, String sourceId, String destinationId, String relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
+	public Relationship(String id, String effectiveTime, boolean active, String moduleId, String sourceId, String destinationId, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
 		this.relationshipId = id;
 		this.effectiveTime = effectiveTime;
 		this.active = active;
@@ -92,7 +94,7 @@ public class Relationship extends Entity {
 		return destinationId;
 	}
 
-	public String getRelationshipGroup() {
+	public int getRelationshipGroup() {
 		return relationshipGroup;
 	}
 
@@ -122,7 +124,8 @@ public class Relationship extends Entity {
 				", characteristicTypeId='" + characteristicTypeId + '\'' +
 				", modifierId='" + modifierId + '\'' +
 				", internalId='" + getInternalId() + '\'' +
-				", commit='" + getCommit() + '\'' +
+				", start='" + getStart() + '\'' +
+				", end='" + getEnd() + '\'' +
 				", path='" + getPath() + '\'' +
 				'}';
 	}

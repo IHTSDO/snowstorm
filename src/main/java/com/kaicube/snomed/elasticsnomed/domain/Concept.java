@@ -6,6 +6,7 @@ import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
+import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -15,22 +16,23 @@ import java.util.Set;
 public class Concept extends Entity {
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String conceptId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String effectiveTime;
 
 	@JsonView(value = View.Component.class)
+	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
 	private boolean active;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String moduleId;
 
 	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String definitionStatusId;
 
 	@JsonView(value = View.Component.class)
@@ -149,7 +151,8 @@ public class Concept extends Entity {
 				", moduleId='" + moduleId + '\'' +
 				", definitionStatusId='" + definitionStatusId + '\'' +
 				", internalId='" + getInternalId() + '\'' +
-				", commit='" + getCommit() + '\'' +
+				", start='" + getStart() + '\'' +
+				", end='" + getEnd() + '\'' +
 				", path='" + getPath() + '\'' +
 				'}';
 	}

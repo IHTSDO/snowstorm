@@ -8,14 +8,15 @@ import com.kaicube.snomed.elasticsnomed.repositories.RelationshipRepository;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
-import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
@@ -68,9 +69,6 @@ public class ConceptService {
 
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(builder)
-				.withSort(SortBuilders.fieldSort("path").order(SortOrder.DESC))
-				.withSort(SortBuilders.fieldSort("commit").order(SortOrder.DESC))
-				.withSort(SortBuilders.fieldSort("conceptId").order(SortOrder.ASC))
 				.withPageable(pageRequest);
 
 		final Page<Concept> concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
@@ -136,29 +134,45 @@ public class ConceptService {
 				.withSort(SortBuilders.scoreSort())
 				.withPageable(pageRequest);
 
-		return elasticsearchTemplate.queryForPage(queryBuilder.build(), Description.class);
+		final NativeSearchQuery build = queryBuilder.build();
+		return elasticsearchTemplate.queryForPage(build, Description.class);
 	}
 
 	private BoolQueryBuilder getBranchCriteria(String path) {
 		final BoolQueryBuilder branchCriteria = boolQuery();
-		final Branch branch = branchService.find(path);
+		final Branch branch = branchService.findLatest(path);
 		if (branch == null) {
 			throw new IllegalArgumentException("Branch '" + path + "' does not exist.");
 		}
 
 		branchCriteria.should(boolQuery()
 				.must(queryStringQuery(branch.getFlatPath()).field("path"))
+				.must(rangeQuery("start").lte(branch.getHead()))
+				.must(boolQuery().mustNot(existsQuery("end")))
 		);
 
-		final String parentPath = PathUtil.getParentPath(path);
+		addParentCriteriaRecursively(branchCriteria, branch, branch.getVersionsReplaced());
+
+		return branchCriteria;
+	}
+
+	private void addParentCriteriaRecursively(BoolQueryBuilder branchCriteria, Branch branch, Set<String> versionsReplaced) {
+		String parentPath = PathUtil.getParentPath(branch.getFatPath());
 		if (parentPath != null) {
-			final Branch parentBranch = branchService.find(parentPath);
+			final Branch parentBranch = branchService.findAtTimepointOrThrow(parentPath, branch.getBase());
+			versionsReplaced = new HashSet<>(versionsReplaced);
+			versionsReplaced.addAll(parentBranch.getVersionsReplaced());
+			final Date base = branch.getBase();
 			branchCriteria.should(boolQuery()
 					.must(queryStringQuery(parentBranch.getFlatPath()).field("path"))
-					.must(rangeQuery("commit").lte(branch.getBase().getTime()))
+					.must(rangeQuery("start").lte(base))
+					.must(boolQuery()
+							.should(boolQuery().mustNot(existsQuery("end")))
+							.should(rangeQuery("end").gt(base)))
+					.mustNot(termsQuery("internalId", versionsReplaced))
 			);
+			addParentCriteriaRecursively(branchCriteria, parentBranch, versionsReplaced);
 		}
-		return branchCriteria;
 	}
 
 	public Concept create(Concept conceptVersion, String path) {
@@ -166,7 +180,7 @@ public class ConceptService {
 		if (find(conceptVersion.getConceptId(), path) != null) {
 			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
 		}
-		return doSave(conceptVersion, branch);
+		return doSave(conceptVersion, branch, new Date());
 	}
 
 	public ReferenceSetMember create(ReferenceSetMember referenceSetMember, String path) {
@@ -184,12 +198,13 @@ public class ConceptService {
 		if (conceptId == null) {
 			throw new IllegalArgumentException("conceptId must not be null.");
 		}
+		final Date commit = new Date();
 		final Concept existingConcept = find(conceptId, path);
 		if (existingConcept == null) {
 			throw new IllegalArgumentException("Concept '" + conceptId + "' does not exist on branch '" + path + "'.");
 		}
 
-		return doSave(conceptVersion, branch);
+		return doSave(conceptVersion, branch, commit);
 	}
 
 	public void bulkImport(List<Concept> concepts, List<ReferenceSetMember> members, String path) {
@@ -220,35 +235,45 @@ public class ConceptService {
 			doSaveMembersBatch(members.subList(start, end), branch, commit);
 		}
 
-		branchService.updateBranchHead(branch, commit);
+		branchService.updateBranch(branch, commit);
 	}
 
-	private Concept doSave(Concept concept, Branch branch) {
-		final Date commit = new Date();
+	private Concept doSave(Concept concept, Branch branch, Date commit) {
 		final Concept savedConcept = doSaveConceptBatch(Collections.singleton(concept), branch, commit).iterator().next();
-		branchService.updateBranchHead(branch, commit);
+		branchService.updateBranch(branch, commit);
 		return savedConcept;
 	}
 
 	private ReferenceSetMember doSave(ReferenceSetMember member, Branch branch) {
 		final Date commit = new Date();
 		final ReferenceSetMember savedMember = doSaveMembersBatch(Collections.singleton(member), branch, commit).iterator().next();
-		branchService.updateBranchHead(branch, commit);
+		branchService.updateBranch(branch, commit);
 		return savedMember;
 	}
 
 	private Iterable<Concept> doSaveConceptBatch(Iterable<Concept> concepts, Branch branch, Date commit) {
 		List<Description> descriptions = new ArrayList<>();
 		List<Relationship> relationships = new ArrayList<>();
+		Set<String> conceptIds = new HashSet<>();
+		Set<String> descriptionIds = new HashSet<>();
 		int conceptCount = 0;
 		for (Concept concept : concepts) {
 			conceptCount++;
+			conceptIds.add(concept.getConceptId());
 			setConceptMeta(concept, branch, commit);
 			descriptions.addAll(concept.getDescriptions());
+			for (Description description : concept.getDescriptions()) {
+				descriptionIds.add(description.getDescriptionId());
+			}
 			concept.getDescriptions().clear();
 			relationships.addAll(concept.getRelationships());
 			concept.getRelationships().clear();
 		}
+
+		// End old versions
+		endOldVersions(branch, commit, "conceptId", Concept.class, conceptIds, this.conceptRepository);
+		endOldVersions(branch, commit, "descriptionId", Description.class, descriptionIds, this.descriptionRepository);
+
 		logger.info("Saving batch of {} concepts", conceptCount);
 		final Iterable<Concept> saved = conceptRepository.save(concepts);
 		logger.info("Saving batch of {} descriptions", descriptions.size());
@@ -260,6 +285,23 @@ public class ConceptService {
 			relationshipRepository.save(relationships);
 		}
 		return saved;
+	}
+
+	private void endOldVersions(Branch branch, Date commit, String idField, Class<? extends Entity> clazz, Set<String> ids, ElasticsearchCrudRepository repository) {
+		final List<? extends Entity> replacedVersions = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
+				new BoolQueryBuilder()
+						.must(termsQuery(idField, ids))
+						.must(termQuery("path", branch.getFlatPath()))
+						.must(rangeQuery("start").lt(commit))
+						.mustNot(existsQuery("end"))
+				).build(), clazz);
+		if (!replacedVersions.isEmpty()) {
+			for (Entity replacedVersion : replacedVersions) {
+				replacedVersion.setEnd(commit);
+				branch.addVersionReplaced(replacedVersion.getInternalId());
+			}
+			repository.save(replacedVersions);
+		}
 	}
 
 	private Iterable<ReferenceSetMember> doSaveMembersBatch(Iterable<ReferenceSetMember> members, Branch branch, Date commit) {
@@ -290,7 +332,8 @@ public class ConceptService {
 		Assert.notNull(entity, "Entity must not be null");
 		Assert.notNull(branch, "Branch must not be null");
 		entity.setPath(branch.getPath());
-		entity.setCommit(commit);
+		entity.setStart(commit);
+		entity.clearInternalId();
 	}
 
 	public void deleteAll() {

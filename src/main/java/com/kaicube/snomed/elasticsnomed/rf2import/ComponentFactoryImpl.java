@@ -13,7 +13,7 @@ public class ComponentFactoryImpl implements ComponentFactory {
 
 	private Long2ObjectMap<Concept> conceptMap = new Long2ObjectOpenHashMap<>();
 	private List<Concept> concepts = new ArrayList<>();
-	private List<ReferenceSetMember> members = new ArrayList<>();
+	private final List<ReferenceSetMember> members = new ArrayList<>();
 
 	@Override
 	public void createConcept(String conceptId, String effectiveTime, String active, String moduleId, String definitionStatusId) {
@@ -25,8 +25,9 @@ public class ComponentFactoryImpl implements ComponentFactory {
 	@Override
 	public void addRelationship(String id, String effectiveTime, String active, String moduleId, String sourceId,
 			String destinationId, String relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
-		conceptMap.get(Long.parseLong(sourceId)).addRelationship(new Relationship(id, effectiveTime, isActive(active), moduleId, sourceId,
-				destinationId, relationshipGroup, typeId, characteristicTypeId, modifierId));
+		conceptMap.get(Long.parseLong(sourceId)).addRelationship(
+				new Relationship(id, effectiveTime, isActive(active), moduleId, sourceId,
+					destinationId, Integer.parseInt(relationshipGroup), typeId, characteristicTypeId, modifierId));
 	}
 
 	@Override

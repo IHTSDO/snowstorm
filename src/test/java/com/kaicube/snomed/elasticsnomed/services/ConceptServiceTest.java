@@ -12,7 +12,10 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -31,6 +34,8 @@ public class ConceptServiceTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Before
 	public void setup() {
@@ -85,6 +90,27 @@ public class ConceptServiceTest {
 	}
 
 	@Test
+	public void testFindConceptOnParentBranchUsingBaseVersion() throws InterruptedException {
+		conceptService.create(new Concept("1", "one"), "MAIN");
+		conceptService.update(new Concept("1", "one1"), "MAIN");
+
+		branchService.create("MAIN/A");
+
+		conceptService.update(new Concept("1", "one2"), "MAIN");
+
+		Assert.assertEquals("one2", conceptService.find("1", "MAIN").getModuleId());
+		Assert.assertEquals("one1", conceptService.find("1", "MAIN/A").getModuleId());
+
+		branchService.create("MAIN/A/A1");
+
+		Assert.assertEquals("one1", conceptService.find("1", "MAIN/A/A1").getModuleId());
+
+		conceptService.update(new Concept("1", "one3"), "MAIN/A");
+
+		Assert.assertEquals("one1", conceptService.find("1", "MAIN/A/A1").getModuleId());
+	}
+
+	@Test
 	public void testSaveConceptWithDescription() {
 		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
 		concept.addDescription(new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
@@ -115,7 +141,6 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	// TODO: Test sort order for relevance and consistency
 	public void testDescriptionSearch() {
 		createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
 		createConceptWithPathIdAndTerms("MAIN", "2", "Lung");
@@ -143,6 +168,39 @@ public class ConceptServiceTest {
 		Assert.assertTrue(toTermSet(footOnA).contains("Foot care"));
 	}
 
+	@Test
+	public void testLatestVersionMatch() {
+		createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
+
+		Assert.assertEquals(1, conceptService.findDescriptions("MAIN", "Heart", PAGE_REQUEST).getNumberOfElements());
+		Assert.assertEquals(0, conceptService.findDescriptions("MAIN", "Bone", PAGE_REQUEST).getNumberOfElements());
+
+		// Create branch (base point is now)
+		branchService.create("MAIN/A");
+
+		// Make further changes ahead of A's base point on MAIN
+		final Concept concept = conceptService.find("1", "MAIN");
+		concept.getDescriptions().iterator().next().setTerm("Bone");
+		conceptService.update(concept, "MAIN");
+
+		Assert.assertEquals(0, conceptService.findDescriptions("MAIN", "Heart", PAGE_REQUEST).getNumberOfElements());
+		Assert.assertEquals(1, conceptService.findDescriptions("MAIN", "Bone", PAGE_REQUEST).getNumberOfElements());
+
+		printAllDescriptions("MAIN");
+		printAllDescriptions("MAIN/A");
+
+		Assert.assertEquals("Branch A should see old version of concept because of old base point.", 1, conceptService.findDescriptions("MAIN/A", "Heart", PAGE_REQUEST).getNumberOfElements());
+		Assert.assertEquals("Branch A should not see new version of concept because of old base point.", 0, conceptService.findDescriptions("MAIN/A", "Bone", PAGE_REQUEST).getNumberOfElements());
+	}
+
+	private void printAllDescriptions(String path) {
+		final Page<Description> descriptions = conceptService.findDescriptions(path, null, PAGE_REQUEST);
+		logger.info("Description on " + path);
+		for (Description description : descriptions) {
+			logger.info("{}", description);
+		}
+	}
+
 	private void assertSearchResults(List<Description> content, int expectedSize, String... topHitsUnordered) {
 		try {
 			Assert.assertEquals(expectedSize, content.size());
@@ -168,11 +226,10 @@ public class ConceptServiceTest {
 	}
 
 	private void printAll(List<Description> content) {
-		System.out.println(content.size() + " descriptions:");
+		logger.info(content.size() + " descriptions:");
 		for (Description description : content) {
-			System.out.println(description.getTerm());
+			logger.info(description.getTerm());
 		}
-		System.out.println();
 	}
 
 	private Set<String> toTermSet(Collection<Description> descriptions) {
