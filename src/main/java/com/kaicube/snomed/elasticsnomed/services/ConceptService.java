@@ -16,9 +16,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.util.Assert;
 
 import java.util.*;
 
@@ -43,6 +41,9 @@ public class ConceptService {
 	private BranchService branchService;
 
 	@Autowired
+	private VersionControlHelper versionControlHelper;
+
+	@Autowired
 	private ElasticsearchTemplate elasticsearchTemplate;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -59,7 +60,7 @@ public class ConceptService {
 	}
 
 	private Page<Concept> doFind(String id, String path, PageRequest pageRequest) {
-		final BoolQueryBuilder branchCriteria = getBranchCriteria(path);
+		final BoolQueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 		final BoolQueryBuilder builder = boolQuery()
 				.must(branchCriteria);
@@ -121,7 +122,7 @@ public class ConceptService {
 	}
 
 	public Page<Description> findDescriptions(String path, String term, PageRequest pageRequest) {
-		final BoolQueryBuilder branchCriteria = getBranchCriteria(path);
+		final BoolQueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 		final BoolQueryBuilder builder = boolQuery()
 				.must(branchCriteria);
@@ -136,43 +137,6 @@ public class ConceptService {
 
 		final NativeSearchQuery build = queryBuilder.build();
 		return elasticsearchTemplate.queryForPage(build, Description.class);
-	}
-
-	private BoolQueryBuilder getBranchCriteria(String path) {
-		final BoolQueryBuilder branchCriteria = boolQuery();
-		final Branch branch = branchService.findLatest(path);
-		if (branch == null) {
-			throw new IllegalArgumentException("Branch '" + path + "' does not exist.");
-		}
-
-		branchCriteria.should(boolQuery()
-				.must(queryStringQuery(branch.getFlatPath()).field("path"))
-				.must(rangeQuery("start").lte(branch.getHead()))
-				.must(boolQuery().mustNot(existsQuery("end")))
-		);
-
-		addParentCriteriaRecursively(branchCriteria, branch, branch.getVersionsReplaced());
-
-		return branchCriteria;
-	}
-
-	private void addParentCriteriaRecursively(BoolQueryBuilder branchCriteria, Branch branch, Set<String> versionsReplaced) {
-		String parentPath = PathUtil.getParentPath(branch.getFatPath());
-		if (parentPath != null) {
-			final Branch parentBranch = branchService.findAtTimepointOrThrow(parentPath, branch.getBase());
-			versionsReplaced = new HashSet<>(versionsReplaced);
-			versionsReplaced.addAll(parentBranch.getVersionsReplaced());
-			final Date base = branch.getBase();
-			branchCriteria.should(boolQuery()
-					.must(queryStringQuery(parentBranch.getFlatPath()).field("path"))
-					.must(rangeQuery("start").lte(base))
-					.must(boolQuery()
-							.should(boolQuery().mustNot(existsQuery("end")))
-							.should(rangeQuery("end").gt(base)))
-					.mustNot(termsQuery("internalId", versionsReplaced))
-			);
-			addParentCriteriaRecursively(branchCriteria, parentBranch, versionsReplaced);
-		}
 	}
 
 	public Concept create(Concept conceptVersion, String path) {
@@ -193,12 +157,12 @@ public class ConceptService {
 	}
 
 	public Concept update(Concept conceptVersion, String path) {
+		final Date commit = new Date();
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final String conceptId = conceptVersion.getConceptId();
 		if (conceptId == null) {
 			throw new IllegalArgumentException("conceptId must not be null.");
 		}
-		final Date commit = new Date();
 		final Concept existingConcept = find(conceptId, path);
 		if (existingConcept == null) {
 			throw new IllegalArgumentException("Concept '" + conceptId + "' does not exist on branch '" + path + "'.");
@@ -271,8 +235,8 @@ public class ConceptService {
 		}
 
 		// End old versions
-		endOldVersions(branch, commit, "conceptId", Concept.class, conceptIds, this.conceptRepository);
-		endOldVersions(branch, commit, "descriptionId", Description.class, descriptionIds, this.descriptionRepository);
+		versionControlHelper.endOldVersions(branch, commit, "conceptId", Concept.class, conceptIds, this.conceptRepository, this);
+		versionControlHelper.endOldVersions(branch, commit, "descriptionId", Description.class, descriptionIds, this.descriptionRepository, this);
 
 		logger.info("Saving batch of {} concepts", conceptCount);
 		final Iterable<Concept> saved = conceptRepository.save(concepts);
@@ -287,29 +251,12 @@ public class ConceptService {
 		return saved;
 	}
 
-	private void endOldVersions(Branch branch, Date commit, String idField, Class<? extends Entity> clazz, Set<String> ids, ElasticsearchCrudRepository repository) {
-		final List<? extends Entity> replacedVersions = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
-				new BoolQueryBuilder()
-						.must(termsQuery(idField, ids))
-						.must(termQuery("path", branch.getFlatPath()))
-						.must(rangeQuery("start").lt(commit))
-						.mustNot(existsQuery("end"))
-				).build(), clazz);
-		if (!replacedVersions.isEmpty()) {
-			for (Entity replacedVersion : replacedVersions) {
-				replacedVersion.setEnd(commit);
-				branch.addVersionReplaced(replacedVersion.getInternalId());
-			}
-			repository.save(replacedVersions);
-		}
-	}
-
 	private Iterable<ReferenceSetMember> doSaveMembersBatch(Iterable<ReferenceSetMember> members, Branch branch, Date commit) {
 		int memberCount = 0;
 		for (ReferenceSetMember member : members) {
 			if (member != null) {
 				memberCount++;
-				setEntityMeta(member, branch, commit);
+				versionControlHelper.setEntityMeta(member, branch, commit);
 			} else {
 				logger.warn("Member null {}", memberCount);
 			}
@@ -319,21 +266,13 @@ public class ConceptService {
 	}
 
 	private void setConceptMeta(Concept concept, Branch branch, Date commit) {
-		setEntityMeta(concept, branch, commit);
+		versionControlHelper.setEntityMeta(concept, branch, commit);
 		for (Description description : concept.getDescriptions()) {
-			setEntityMeta(description, branch, commit);
+			versionControlHelper.setEntityMeta(description, branch, commit);
 		}
 		for (Relationship relationship : concept.getRelationships()) {
-			setEntityMeta(relationship, branch, commit);
+			versionControlHelper.setEntityMeta(relationship, branch, commit);
 		}
-	}
-
-	private void setEntityMeta(Entity entity, Branch branch, Date commit) {
-		Assert.notNull(entity, "Entity must not be null");
-		Assert.notNull(branch, "Branch must not be null");
-		entity.setPath(branch.getPath());
-		entity.setStart(commit);
-		entity.clearInternalId();
 	}
 
 	public void deleteAll() {

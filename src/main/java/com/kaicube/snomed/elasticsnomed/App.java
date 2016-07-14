@@ -3,6 +3,7 @@ package com.kaicube.snomed.elasticsnomed;
 import com.kaicube.snomed.elasticsnomed.rf2import.ImportService;
 import com.kaicube.snomed.elasticsnomed.services.BranchService;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
+import com.kaicube.snomed.elasticsnomed.services.VersionControlHelper;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
@@ -57,6 +58,11 @@ public class App {
 	@Bean
 	public ImportService getImportService() {
 		return new ImportService();
+	}
+
+	@Bean
+	public VersionControlHelper getVersionControlHelper() {
+		return new VersionControlHelper();
 	}
 
 	public static void main(String[] args) {
