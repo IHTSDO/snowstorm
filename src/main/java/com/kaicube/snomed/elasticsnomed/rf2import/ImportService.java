@@ -20,14 +20,14 @@ public class ImportService {
 	@Autowired
 	private BranchService branchService;
 
-//	public void importFull(String releaseDirPath, String branchPath) throws ReleaseImportException {
-//		ComponentFactoryImpl componentFactory = new ComponentFactoryImpl(conceptService, branchPath);
-//		ReleaseImporter releaseImporter = new ReleaseImporter();
-//		releaseImporter.loadFullReleaseFiles(releaseDirPath, LoadingProfile.complete);
-//	}
+	public void importFull(String releaseDirPath, String branchPath) throws ReleaseImportException {
+		FullImportComponentFactoryImpl componentFactory = new FullImportComponentFactoryImpl(conceptService, branchService, branchPath);
+		ReleaseImporter releaseImporter = new ReleaseImporter();
+		releaseImporter.loadFullReleaseFiles(releaseDirPath, DEFAULT_LOADING_PROFILE, componentFactory);
+	}
 
 	public void importSnapshot(String releaseDirPath, String branchPath) throws ReleaseImportException {
-		SingleImportComponentFactoryImpl componentFactory = new SingleImportComponentFactoryImpl(conceptService, branchService, branchPath);
+		ImportComponentFactoryImpl componentFactory = new ImportComponentFactoryImpl(conceptService, branchService, branchPath);
 		ReleaseImporter releaseImporter = new ReleaseImporter();
 		releaseImporter.loadSnapshotReleaseFiles(releaseDirPath, DEFAULT_LOADING_PROFILE, componentFactory);
 	}

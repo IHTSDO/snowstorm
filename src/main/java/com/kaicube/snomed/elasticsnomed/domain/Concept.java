@@ -86,6 +86,15 @@ public class Concept extends Entity {
 		relationships.add(relationship);
 	}
 
+	public Description getDescription(String descriptionId) {
+		for (Description description : descriptions) {
+			if (descriptionId.equals(description.getDescriptionId())) {
+				return description;
+			}
+		}
+		return null;
+	}
+
 	public String getConceptId() {
 		return conceptId;
 	}

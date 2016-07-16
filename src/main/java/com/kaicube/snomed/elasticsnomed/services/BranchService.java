@@ -9,6 +9,7 @@ import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
@@ -101,6 +102,7 @@ public class BranchService {
 		return elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
 				.withQuery(new BoolQueryBuilder().mustNot(existsQuery("end")))
 				.withSort(new FieldSortBuilder("path"))
+				.withPageable(new PageRequest(0, 10000))
 				.build(), Branch.class);
 	}
 

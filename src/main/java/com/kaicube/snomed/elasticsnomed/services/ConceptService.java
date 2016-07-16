@@ -203,11 +203,14 @@ public class ConceptService {
 	}
 
 	public Iterable<Concept> doSaveBatchConcepts(Collection<Concept> concepts, Commit commit) {
-		logger.info("Saving batch of {} concepts", concepts.size());
-		final List<String> ids = concepts.stream().map(Concept::getConceptId).collect(Collectors.toList());
-		versionControlHelper.endOldVersions(commit, "conceptId", Concept.class, ids, this.conceptRepository);
-		versionControlHelper.setEntityMeta(concepts, commit);
-		return conceptRepository.save(concepts);
+		if (!concepts.isEmpty()) {
+			logger.info("Saving batch of {} concepts", concepts.size());
+			final List<String> ids = concepts.stream().map(Concept::getConceptId).collect(Collectors.toList());
+			versionControlHelper.endOldVersions(commit, "conceptId", Concept.class, ids, this.conceptRepository);
+			versionControlHelper.setEntityMeta(concepts, commit);
+			return conceptRepository.save(concepts);
+		}
+		return Collections.emptyList();
 	}
 
 	public void doSaveBatchDescriptions(Collection<Description> descriptions, Commit commit) {
@@ -231,11 +234,14 @@ public class ConceptService {
 	}
 
 	public Iterable<ReferenceSetMember> doSaveBatchMembers(Collection<ReferenceSetMember> members, Commit commit) {
-		logger.info("Saving batch of {} members", members.size());
-		final List<String> ids = members.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList());
-		versionControlHelper.endOldVersions(commit, "memberId", ReferenceSetMember.class, ids, this.referenceSetMemberRepository);
-		versionControlHelper.setEntityMeta(members, commit);
-		return referenceSetMemberRepository.save(members);
+		if (!members.isEmpty()) {
+			logger.info("Saving batch of {} members", members.size());
+			final List<String> ids = members.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList());
+			versionControlHelper.endOldVersions(commit, "memberId", ReferenceSetMember.class, ids, this.referenceSetMemberRepository);
+			versionControlHelper.setEntityMeta(members, commit);
+			return referenceSetMemberRepository.save(members);
+		}
+		return Collections.emptyList();
 	}
 
 	public void deleteAll() {

@@ -2,10 +2,12 @@ package com.kaicube.snomed.elasticsnomed.rf2import;
 
 import com.kaicube.snomed.elasticsnomed.App;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
+import com.kaicube.snomed.elasticsnomed.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.domain.Description;
 import com.kaicube.snomed.elasticsnomed.services.BranchService;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
+import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -35,7 +37,70 @@ public class ImportServiceTest {
 	private ConceptService conceptService;
 
 	@Test
-	public void testImportSnapshot() throws Exception {
+	public void testImportFull() throws ReleaseImportException {
+		final String branchPath = "MAIN";
+		branchService.create(branchPath);
+		Assert.assertEquals(1, branchService.findAll().size());
+
+		importService.importFull(getClass().getResource("/MiniCT_INT_GB_20140131").getPath(), branchPath);
+
+		final List<Branch> branches = branchService.findAll();
+		Assert.assertEquals(26, branches.size());
+		int a = 0;
+		Assert.assertEquals("MAIN", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20020131", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20020731", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20030131", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20030731", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20040131", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20040731", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20050131", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20050731", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20060131", branches.get(a).getFatPath());
+
+		a = 21;
+		Assert.assertEquals("MAIN/20120131", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20120731", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20130131", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20130731", branches.get(a++).getFatPath());
+		Assert.assertEquals("MAIN/20140131", branches.get(a).getFatPath());
+
+		String path = "MAIN/20020131";
+		Assert.assertEquals(88, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
+		Assert.assertNull(conceptService.find("370136006", path));
+
+		path = "MAIN/20020731";
+		Assert.assertEquals(89, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
+		Assert.assertNotNull(conceptService.find("370136006", path));
+
+		// Test concept's description present and active
+		final Concept concept138875005in2002 = conceptService.find("138875005", path);
+		Assert.assertNotNull(concept138875005in2002);
+		Assert.assertEquals(6, concept138875005in2002.getDescriptions().size());
+		final Description description1237157018in2002 = concept138875005in2002.getDescription("1237157018");
+		Assert.assertNotNull(description1237157018in2002);
+		Assert.assertEquals("SNOMED CT July 2002 Release: 20020731 [R]", description1237157018in2002.getTerm());
+		Assert.assertEquals(true, description1237157018in2002.isActive());
+
+		path = "MAIN/20030131";
+		Assert.assertEquals(89, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
+
+		// Test concept's description present and inactive
+		final Concept concept138875005in2003 = conceptService.find("138875005", path);
+		Assert.assertNotNull(concept138875005in2003);
+		Assert.assertEquals(7, concept138875005in2003.getDescriptions().size());
+		final Description description1237157018in2003 = concept138875005in2003.getDescription("1237157018");
+		Assert.assertNotNull(description1237157018in2003);
+		Assert.assertEquals("SNOMED CT July 2002 Release: 20020731 [R]", description1237157018in2003.getTerm());
+		Assert.assertEquals(false, description1237157018in2003.isActive());
+
+		path = "MAIN/20140131";
+		Assert.assertEquals(102, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
+		Assert.assertEquals(102, conceptService.findAll("MAIN", new PageRequest(0, 10)).getTotalElements());
+	}
+
+	@Test
+	public void testImportSnapshot() throws ReleaseImportException {
 		branchService.create("MAIN");
 		final String branchPath = "MAIN/import";
 		branchService.create(branchPath);

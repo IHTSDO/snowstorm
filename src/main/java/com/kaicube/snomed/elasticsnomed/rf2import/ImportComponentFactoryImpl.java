@@ -7,7 +7,7 @@ import org.ihtsdo.otf.snomedboot.factory.ComponentFactory;
 
 import java.util.*;
 
-public class SingleImportComponentFactoryImpl implements ComponentFactory {
+public class ImportComponentFactoryImpl implements ComponentFactory {
 
 	public static final int FLUSH_INTERVAL = 10000;
 	private final BranchService branchService;
@@ -20,7 +20,7 @@ public class SingleImportComponentFactoryImpl implements ComponentFactory {
 	private PersistBuffer<ReferenceSetMember> memberPersistBuffer;
 	private Set<PersistBuffer> persistBuffers;
 
-	public SingleImportComponentFactoryImpl(ConceptService conceptService, BranchService branchService, String path) {
+	public ImportComponentFactoryImpl(ConceptService conceptService, BranchService branchService, String path) {
 		this.branchService = branchService;
 		this.path = path;
 		persistBuffers = new HashSet<>();
@@ -57,6 +57,10 @@ public class SingleImportComponentFactoryImpl implements ComponentFactory {
 
 	@Override
 	public void loadingComponentsCompleted() {
+		completeImportCommit();
+	}
+
+	protected void completeImportCommit() {
 		persistBuffers.stream().forEach(PersistBuffer::flush);
 		branchService.completeCommit(commit);
 	}
@@ -98,6 +102,18 @@ public class SingleImportComponentFactoryImpl implements ComponentFactory {
 
 	@Override
 	public void addConceptFSN(String conceptId, String term) {}
+
+	protected void setCommit(Commit commit) {
+		this.commit = commit;
+	}
+
+	protected Commit getCommit() {
+		return commit;
+	}
+
+	protected BranchService getBranchService() {
+		return branchService;
+	}
 
 	private boolean isActive(String active) {
 		return "1".equals(active);
