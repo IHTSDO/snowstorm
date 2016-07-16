@@ -35,7 +35,7 @@ public class ConceptServiceTest {
 	@Autowired
 	private ConceptService conceptService;
 
-	final Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Before
 	public void setup() {

@@ -1,6 +1,7 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
 import com.kaicube.snomed.elasticsnomed.domain.Branch;
+import com.kaicube.snomed.elasticsnomed.domain.Commit;
 import com.kaicube.snomed.elasticsnomed.domain.Entity;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,13 +10,9 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.util.Assert;
 
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 
 public class VersionControlHelper {
 
@@ -62,28 +59,41 @@ public class VersionControlHelper {
 		}
 	}
 
-	void endOldVersions(Branch branch, Date commit, String idField, Class<? extends Entity> clazz, Set<String> ids, ElasticsearchCrudRepository repository, ConceptService conceptService) {
+	void endOldVersions(Commit commit, String idField, Class<? extends Entity> clazz, Collection<String> ids, ElasticsearchCrudRepository repository) {
+		final String flatBranchPath = commit.getFlatBranchPath();
 		final List<? extends Entity> replacedVersions = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
 				new BoolQueryBuilder()
 						.must(termsQuery(idField, ids))
-						.must(termQuery("path", branch.getFlatPath()))
-						.must(rangeQuery("start").lt(commit))
+						.must(termQuery("path", flatBranchPath))
+						.must(rangeQuery("start").lt(commit.getTimepoint()))
 						.mustNot(existsQuery("end"))
 				).build(), clazz);
 		if (!replacedVersions.isEmpty()) {
 			for (Entity replacedVersion : replacedVersions) {
-				replacedVersion.setEnd(commit);
-				branch.addVersionReplaced(replacedVersion.getInternalId());
+				replacedVersion.setEnd(commit.getTimepoint());
+				commit.addVersionReplaced(replacedVersion.getInternalId());
 			}
 			repository.save(replacedVersions);
 		}
 	}
 
-	void setEntityMeta(Entity entity, Branch branch, Date commit) {
+	void setEntityMeta(Entity entity, Commit commit) {
 		Assert.notNull(entity, "Entity must not be null");
-		Assert.notNull(branch, "Branch must not be null");
-		entity.setPath(branch.getPath());
-		entity.setStart(commit);
+		Assert.notNull(commit, "Commit must not be null");
+		doSetEntityMeta(commit, entity);
+	}
+
+	void setEntityMeta(Collection<? extends Entity> entities, Commit commit) {
+		Assert.notNull(entities, "Entities must not be null");
+		Assert.notNull(commit, "Commit must not be null");
+		for (Entity entity : entities) {
+			doSetEntityMeta(commit, entity);
+		}
+	}
+
+	private void doSetEntityMeta(Commit commit, Entity entity) {
+		entity.setPath(commit.getFlatBranchPath());
+		entity.setStart(commit.getTimepoint());
 		entity.clearInternalId();
 	}
 }

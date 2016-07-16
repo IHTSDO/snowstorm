@@ -24,8 +24,9 @@ public class Entity {
 	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
 	private Date end;
 
-	public void clearInternalId() {
+	public Entity clearInternalId() {
 		internalId = null;
+		return this;
 	}
 
 	@JsonIgnore

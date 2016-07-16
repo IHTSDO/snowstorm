@@ -1,21 +1,34 @@
 package com.kaicube.snomed.elasticsnomed.rf2import;
 
+import com.kaicube.snomed.elasticsnomed.services.BranchService;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.ihtsdo.otf.snomedboot.ReleaseImporter;
+import org.ihtsdo.otf.snomedboot.domain.ConceptConstants;
 import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class ImportService {
 
+	public static final LoadingProfile DEFAULT_LOADING_PROFILE = LoadingProfile.complete.withoutAllRefsets()
+			.withRefset(ConceptConstants.US_EN_LANGUAGE_REFERENCE_SET)
+			.withRefset(ConceptConstants.GB_EN_LANGUAGE_REFERENCE_SET);
+
 	@Autowired
 	private ConceptService conceptService;
 
-	public void importSnapshot(String releaseDirPath, String branchPath) throws ReleaseImportException {
-		ComponentFactoryImpl componentFactory = new ComponentFactoryImpl();
-		ReleaseImporter releaseImporter = new ReleaseImporter(componentFactory);
-		releaseImporter.loadReleaseFiles(releaseDirPath, LoadingProfile.full);
+	@Autowired
+	private BranchService branchService;
 
-		conceptService.bulkImport(componentFactory.getConcepts(), componentFactory.getMembers(), branchPath);
+//	public void importFull(String releaseDirPath, String branchPath) throws ReleaseImportException {
+//		ComponentFactoryImpl componentFactory = new ComponentFactoryImpl(conceptService, branchPath);
+//		ReleaseImporter releaseImporter = new ReleaseImporter();
+//		releaseImporter.loadFullReleaseFiles(releaseDirPath, LoadingProfile.complete);
+//	}
+
+	public void importSnapshot(String releaseDirPath, String branchPath) throws ReleaseImportException {
+		SingleImportComponentFactoryImpl componentFactory = new SingleImportComponentFactoryImpl(conceptService, branchService, branchPath);
+		ReleaseImporter releaseImporter = new ReleaseImporter();
+		releaseImporter.loadSnapshotReleaseFiles(releaseDirPath, DEFAULT_LOADING_PROFILE, componentFactory);
 	}
 }

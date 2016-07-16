@@ -1,6 +1,8 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
+import com.google.common.collect.Lists;
 import com.kaicube.snomed.elasticsnomed.domain.Branch;
+import com.kaicube.snomed.elasticsnomed.domain.Commit;
 import com.kaicube.snomed.elasticsnomed.repositories.BranchRepository;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
@@ -12,9 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import static com.kaicube.snomed.elasticsnomed.services.PathUtil.getParentPath;
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -57,25 +57,6 @@ public class BranchService {
 		branchRepository.deleteAll();
 	}
 
-	public void updateBranch(Branch branch, Date commit) {
-		branch.setHead(commit);
-
-		Set<Branch> toSave = new HashSet<>();
-		toSave.add(branch);
-
-		final String internalId = branch.getInternalId();
-		branch.clearInternalId();
-		branch.setStart(commit);
-
-		if (internalId != null) {
-			final Branch oldBranch = branchRepository.findOne(internalId);
-			oldBranch.setEnd(commit);
-			toSave.add(oldBranch);
-		}
-
-		branchRepository.save(toSave);
-	}
-
 	public Branch findLatest(String path) {
 		final List<Branch> branches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
 				new BoolQueryBuilder()
@@ -111,4 +92,34 @@ public class BranchService {
 
 		return branches.get(0);
 	}
+
+	public Commit openCommit(String path) {
+		Branch branch = findLatest(path);
+		if (branch.isLocked()) {
+			throw new IllegalStateException("Branch already locked");
+		}
+
+		branch.setLocked(true);
+		branch = branchRepository.save(branch);
+
+		return new Commit(branch);
+	}
+
+	public void completeCommit(Commit commit) {
+		final Date timepoint = commit.getTimepoint();
+		final Branch oldBranchTimespan = commit.getBranch();
+		oldBranchTimespan.setEnd(timepoint);
+		oldBranchTimespan.setLocked(false);
+
+		final Branch newBranchTimespan = new Branch(oldBranchTimespan.getPath());
+		newBranchTimespan.setBase(oldBranchTimespan.getBase());
+		newBranchTimespan.setStart(timepoint);
+		newBranchTimespan.setHead(timepoint);
+		newBranchTimespan.addVersionsReplaced(oldBranchTimespan.getVersionsReplaced());
+		newBranchTimespan.addVersionsReplaced(commit.getEntityVersionsReplaced());
+		newBranchTimespan.addEntitiesRemoved(oldBranchTimespan.getEntitiesRemoved());
+		branchRepository.save(Lists.newArrayList(oldBranchTimespan, newBranchTimespan));
+	}
+
+	// TODO - Implement commit rollback; simply delete all entities at commit timepoint from branch and remove write lock.
 }

@@ -19,6 +19,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
@@ -144,7 +145,7 @@ public class ConceptService {
 		if (find(conceptVersion.getConceptId(), path) != null) {
 			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
 		}
-		return doSave(conceptVersion, branch, new Date());
+		return doSave(conceptVersion, branch);
 	}
 
 	public ReferenceSetMember create(ReferenceSetMember referenceSetMember, String path) {
@@ -157,7 +158,6 @@ public class ConceptService {
 	}
 
 	public Concept update(Concept conceptVersion, String path) {
-		final Date commit = new Date();
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final String conceptId = conceptVersion.getConceptId();
 		if (conceptId == null) {
@@ -168,111 +168,74 @@ public class ConceptService {
 			throw new IllegalArgumentException("Concept '" + conceptId + "' does not exist on branch '" + path + "'.");
 		}
 
-		return doSave(conceptVersion, branch, commit);
+		return doSave(conceptVersion, branch);
 	}
 
-	public void bulkImport(List<Concept> concepts, List<ReferenceSetMember> members, String path) {
-		final Date commit = new Date();
-		final Branch branch = branchService.findBranchOrThrow(path);
-
-		final int chunkSize = 10000;
-		int start, end;
-		int size = concepts.size();
-		for (int i = 0; i < size && i < chunkSize * 3; i += chunkSize) {
-			start = i;
-			end = start + chunkSize;
-			if (end > size) {
-				end = size;
-			}
-			logger.info("Bulk Import Saving Concepts Chunk {} - {} of {}", start, end, size);
-			doSaveConceptBatch(concepts.subList(start, end), branch, commit);
-		}
-
-		size = members.size();
-		for (int i = 0; i < size; i += chunkSize) {
-			start = i;
-			end = start + chunkSize;
-			if (end > size) {
-				end = size;
-			}
-			logger.info("Bulk Import Saving Reference Set Members Chunk {} - {} of {}", start, end, size);
-			doSaveMembersBatch(members.subList(start, end), branch, commit);
-		}
-
-		branchService.updateBranch(branch, commit);
-	}
-
-	private Concept doSave(Concept concept, Branch branch, Date commit) {
-		final Concept savedConcept = doSaveConceptBatch(Collections.singleton(concept), branch, commit).iterator().next();
-		branchService.updateBranch(branch, commit);
+	private Concept doSave(Concept concept, Branch branch) {
+		final Commit commit = branchService.openCommit(branch.getFatPath());
+		final Concept savedConcept = doSaveBatchConceptsAndComponents(Collections.singleton(concept), commit).iterator().next();
+		branchService.completeCommit(commit);
 		return savedConcept;
 	}
 
 	private ReferenceSetMember doSave(ReferenceSetMember member, Branch branch) {
-		final Date commit = new Date();
-		final ReferenceSetMember savedMember = doSaveMembersBatch(Collections.singleton(member), branch, commit).iterator().next();
-		branchService.updateBranch(branch, commit);
+		final Commit commit = branchService.openCommit(branch.getFatPath());
+		final ReferenceSetMember savedMember = doSaveBatchMembers(Collections.singleton(member), commit).iterator().next();
+		branchService.completeCommit(commit);
 		return savedMember;
 	}
 
-	private Iterable<Concept> doSaveConceptBatch(Iterable<Concept> concepts, Branch branch, Date commit) {
+	public Iterable<Concept> doSaveBatchConceptsAndComponents(Collection<Concept> concepts, Commit commit) {
 		List<Description> descriptions = new ArrayList<>();
 		List<Relationship> relationships = new ArrayList<>();
-		Set<String> conceptIds = new HashSet<>();
-		Set<String> descriptionIds = new HashSet<>();
-		int conceptCount = 0;
 		for (Concept concept : concepts) {
-			conceptCount++;
-			conceptIds.add(concept.getConceptId());
-			setConceptMeta(concept, branch, commit);
+			// Detach concept's components to be persisted separately
 			descriptions.addAll(concept.getDescriptions());
-			for (Description description : concept.getDescriptions()) {
-				descriptionIds.add(description.getDescriptionId());
-			}
 			concept.getDescriptions().clear();
 			relationships.addAll(concept.getRelationships());
 			concept.getRelationships().clear();
 		}
 
-		// End old versions
-		versionControlHelper.endOldVersions(branch, commit, "conceptId", Concept.class, conceptIds, this.conceptRepository, this);
-		versionControlHelper.endOldVersions(branch, commit, "descriptionId", Description.class, descriptionIds, this.descriptionRepository, this);
+		final Iterable<Concept> conceptsSaved = doSaveBatchConcepts(concepts, commit);
+		doSaveBatchDescriptions(descriptions, commit);
+		doSaveBatchRelationships(relationships, commit);
+		return conceptsSaved;
+	}
 
-		logger.info("Saving batch of {} concepts", conceptCount);
-		final Iterable<Concept> saved = conceptRepository.save(concepts);
-		logger.info("Saving batch of {} descriptions", descriptions.size());
+	public Iterable<Concept> doSaveBatchConcepts(Collection<Concept> concepts, Commit commit) {
+		logger.info("Saving batch of {} concepts", concepts.size());
+		final List<String> ids = concepts.stream().map(Concept::getConceptId).collect(Collectors.toList());
+		versionControlHelper.endOldVersions(commit, "conceptId", Concept.class, ids, this.conceptRepository);
+		versionControlHelper.setEntityMeta(concepts, commit);
+		return conceptRepository.save(concepts);
+	}
+
+	public void doSaveBatchDescriptions(Collection<Description> descriptions, Commit commit) {
 		if (!descriptions.isEmpty()) {
+			logger.info("Saving batch of {} descriptions", descriptions.size());
+			final List<String> ids = descriptions.stream().map(Description::getDescriptionId).collect(Collectors.toList());
+			versionControlHelper.endOldVersions(commit, "descriptionId", Description.class, ids, this.descriptionRepository);
+			versionControlHelper.setEntityMeta(descriptions, commit);
 			descriptionRepository.save(descriptions);
 		}
-		logger.info("Saving batch of {} relationships", relationships.size());
+	}
+
+	public void doSaveBatchRelationships(Collection<Relationship> relationships, Commit commit) {
 		if (!relationships.isEmpty()) {
+			logger.info("Saving batch of {} relationships", relationships.size());
+			final List<String> ids = relationships.stream().map(Relationship::getRelationshipId).collect(Collectors.toList());
+			versionControlHelper.endOldVersions(commit, "relationshipId", Relationship.class, ids, this.relationshipRepository);
+			versionControlHelper.setEntityMeta(relationships, commit);
 			relationshipRepository.save(relationships);
 		}
-		return saved;
 	}
 
-	private Iterable<ReferenceSetMember> doSaveMembersBatch(Iterable<ReferenceSetMember> members, Branch branch, Date commit) {
-		int memberCount = 0;
-		for (ReferenceSetMember member : members) {
-			if (member != null) {
-				memberCount++;
-				versionControlHelper.setEntityMeta(member, branch, commit);
-			} else {
-				logger.warn("Member null {}", memberCount);
-			}
-		}
-		logger.info("Saving batch of {} reference set members", memberCount);
+	public Iterable<ReferenceSetMember> doSaveBatchMembers(Collection<ReferenceSetMember> members, Commit commit) {
+		logger.info("Saving batch of {} members", members.size());
+		final List<String> ids = members.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList());
+		versionControlHelper.endOldVersions(commit, "memberId", ReferenceSetMember.class, ids, this.referenceSetMemberRepository);
+		versionControlHelper.setEntityMeta(members, commit);
 		return referenceSetMemberRepository.save(members);
-	}
-
-	private void setConceptMeta(Concept concept, Branch branch, Date commit) {
-		versionControlHelper.setEntityMeta(concept, branch, commit);
-		for (Description description : concept.getDescriptions()) {
-			versionControlHelper.setEntityMeta(description, branch, commit);
-		}
-		for (Relationship relationship : concept.getRelationships()) {
-			versionControlHelper.setEntityMeta(relationship, branch, commit);
-		}
 	}
 
 	public void deleteAll() {

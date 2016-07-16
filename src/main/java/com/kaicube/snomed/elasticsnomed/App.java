@@ -76,6 +76,7 @@ public class App {
 //		branchService.deleteAll();
 //		branchService.create("MAIN");
 //		importService.importSnapshot("release/SnomedCT_RF2Release_INT_20160131", "MAIN");
+//		importService.importFull("release/SnomedCT_RF2Release_INT_20160131", "MAIN");
 	}
 
 }

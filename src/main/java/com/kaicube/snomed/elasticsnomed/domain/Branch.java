@@ -19,6 +19,9 @@ public class Branch extends Entity {
 	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
 	private Date head;
 
+	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
+	private boolean locked;
+
 	private Set<String> versionsReplaced;
 
 	private Set<String> entitiesRemoved;
@@ -34,12 +37,12 @@ public class Branch extends Entity {
 		setPath(path);
 	}
 
-	public void addVersionReplaced(String internalId) {
-		versionsReplaced.add(internalId);
+	public void addVersionsReplaced(Set<String> internalIds) {
+		versionsReplaced.addAll(internalIds);
 	}
 
-	public void addEntityRemoved(String internalId) {
-		entitiesRemoved.add(internalId);
+	public void addEntitiesRemoved(Set<String> internalIds) {
+		entitiesRemoved.addAll(internalIds);
 	}
 
 	@JsonIgnore
@@ -61,6 +64,14 @@ public class Branch extends Entity {
 
 	public Date getHead() {
 		return head;
+	}
+
+	public void setLocked(boolean locked) {
+		this.locked = locked;
+	}
+
+	public boolean isLocked() {
+		return locked;
 	}
 
 	public Set<String> getVersionsReplaced() {
