@@ -32,7 +32,7 @@
 		<dependency>
 			<groupId>org.ihtsdo.otf</groupId>
 			<artifactId>snomed-boot</artifactId>
-			<version>1.0.2-SNAPSHOT</version>
+			<version>1.0.3-SNAPSHOT</version>
 			<exclusions>
 				<exclusion>
 					<groupId>com.google.collections</groupId>
