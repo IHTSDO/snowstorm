@@ -5,6 +5,7 @@ import com.kaicube.snomed.elasticsnomed.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.domain.Commit;
 import com.kaicube.snomed.elasticsnomed.repositories.BranchRepository;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +32,9 @@ public class BranchService {
 	final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Branch create(String path) {
+		Assert.notNull(path, "Branch path can not be null.");
+		Assert.isTrue(!path.contains("_"), "Branch path may not contain the underscore character.");
+
 		logger.debug("Creating branch {}", path);
 		Date commit = new Date();
 		if (findLatest(path) != null) {
@@ -91,6 +95,20 @@ public class BranchService {
 		}
 
 		return branches.get(0);
+	}
+
+	public List<Branch> findAll() {
+		return elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+				.withQuery(new BoolQueryBuilder().mustNot(existsQuery("end")))
+				.withSort(new FieldSortBuilder("path"))
+				.build(), Branch.class);
+	}
+
+	public List<Branch> findChildren(String path) {
+		return elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+				.withQuery(new BoolQueryBuilder().mustNot(existsQuery("end")).must(prefixQuery("path", PathUtil.flaten(path + "/"))))
+				.withSort(new FieldSortBuilder("path"))
+				.build(), Branch.class);
 	}
 
 	public Commit openCommit(String path) {

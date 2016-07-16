@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import java.util.List;
+
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = {App.class, TestConfig.class})
 public class BranchServiceTest {
@@ -38,6 +40,54 @@ public class BranchServiceTest {
 		Assert.assertEquals("MAIN/A", a.getFatPath());
 
 		Assert.assertNotNull(branchService.findLatest("MAIN"));
+	}
+
+	@Test
+	public void testFindAll() {
+		Assert.assertEquals(0, branchService.findAll().size());
+
+		branchService.create("MAIN");
+		Assert.assertEquals(1, branchService.findAll().size());
+
+		branchService.create("MAIN/A");
+		branchService.create("MAIN/A/AA");
+		branchService.create("MAIN/C");
+		branchService.create("MAIN/C/something");
+		branchService.create("MAIN/C/something/thing");
+		branchService.create("MAIN/B");
+
+		final List<Branch> branches = branchService.findAll();
+		Assert.assertEquals(7, branches.size());
+
+		Assert.assertEquals("MAIN", branches.get(0).getFatPath());
+		Assert.assertEquals("MAIN/A", branches.get(1).getFatPath());
+		Assert.assertEquals("MAIN/C/something/thing", branches.get(6).getFatPath());
+	}
+
+	@Test
+	public void testFindChildren() {
+		Assert.assertEquals(0, branchService.findAll().size());
+
+		branchService.create("MAIN");
+		Assert.assertEquals(0, branchService.findChildren("MAIN").size());
+
+		branchService.create("MAIN/A");
+		branchService.create("MAIN/A/AA");
+		branchService.create("MAIN/C");
+		branchService.create("MAIN/C/something");
+		branchService.create("MAIN/C/something/thing");
+		branchService.create("MAIN/B");
+
+		final List<Branch> mainChildren = branchService.findChildren("MAIN");
+		Assert.assertEquals(6, mainChildren.size());
+
+		Assert.assertEquals("MAIN/A", mainChildren.get(0).getFatPath());
+		Assert.assertEquals("MAIN/C/something/thing", mainChildren.get(5).getFatPath());
+
+		final List<Branch> cChildren = branchService.findChildren("MAIN/C");
+		Assert.assertEquals(2, cChildren.size());
+		Assert.assertEquals("MAIN/C/something", cChildren.get(0).getFatPath());
+		Assert.assertEquals("MAIN/C/something/thing", cChildren.get(1).getFatPath());
 	}
 
 	@After
