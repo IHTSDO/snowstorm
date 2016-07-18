@@ -1,5 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
+import com.google.common.collect.Sets;
 import com.kaicube.snomed.elasticsnomed.domain.*;
 import com.kaicube.snomed.elasticsnomed.repositories.ConceptRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.DescriptionRepository;
@@ -82,9 +83,25 @@ public class ConceptService {
 			concept.getRelationships().clear();
 		}
 
+		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
+
+		// Fetch Relationships
+		queryBuilder.withQuery(boolQuery()
+				.must(termsQuery("sourceId", conceptIdMap.keySet()))
+				.must(branchCriteria))
+				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
+		final List<Relationship> relationships = elasticsearchTemplate.queryForList(queryBuilder.build(), Relationship.class);
+		// Join Relationships
+		for (Relationship relationship : relationships) {
+			conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
+
+			conceptMiniMap.put(relationship.getTypeId(), relationship.setType(new ConceptMini(relationship.getTypeId())));
+			conceptMiniMap.put(relationship.getDestinationId(), relationship.setDestination(new ConceptMini(relationship.getDestinationId())));
+		}
+
 		// Fetch Descriptions
 		queryBuilder.withQuery(boolQuery()
-				.must(termsQuery("conceptId", conceptIdMap.keySet()))
+				.must(termsQuery("conceptId", Sets.union(conceptIdMap.keySet(), conceptMiniMap.keySet())))
 				.must(branchCriteria))
 				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
 		final Page<Description> descriptions = elasticsearchTemplate.queryForPage(queryBuilder.build(), Description.class);
@@ -92,7 +109,15 @@ public class ConceptService {
 		Map<String, Description> descriptionIdMap = new HashMap<>();
 		for (Description description : descriptions) {
 			descriptionIdMap.put(description.getDescriptionId(), description);
-			conceptIdMap.get(description.getConceptId()).addDescription(description);
+			final String descriptionConceptId = description.getConceptId();
+			final Concept concept = conceptIdMap.get(descriptionConceptId);
+			if (concept != null) {
+				concept.addDescription(description);
+			}
+			final ConceptMini conceptMini = conceptMiniMap.get(descriptionConceptId);
+			if (conceptMini != null && Concepts.FSN.equals(description.getTypeId()) && description.isActive()) {
+				conceptMini.addActiveFsn(description);
+			}
 		}
 
 		// Fetch Lang Refset Members
@@ -106,17 +131,6 @@ public class ConceptService {
 		for (LanguageReferenceSetMember langRefsetMember : langRefsetMembers) {
 			descriptionIdMap.get(langRefsetMember.getReferencedComponentId())
 					.addAcceptability(langRefsetMember.getRefsetId(), langRefsetMember.getAcceptabilityId());
-		}
-
-		// Fetch Relationships
-		queryBuilder.withQuery(boolQuery()
-				.must(termsQuery("sourceId", conceptIdMap.keySet()))
-				.must(branchCriteria))
-				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
-		final List<Relationship> relationships = elasticsearchTemplate.queryForList(queryBuilder.build(), Relationship.class);
-		// Join Relationships
-		for (Relationship relationship : relationships) {
-			conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
 		}
 
 		return concepts;

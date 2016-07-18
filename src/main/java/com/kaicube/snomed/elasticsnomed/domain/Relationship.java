@@ -30,7 +30,6 @@ public class Relationship extends Entity {
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String sourceId;
 
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String destinationId;
 
@@ -38,7 +37,6 @@ public class Relationship extends Entity {
 	@Field(type = FieldType.Integer, index = FieldIndex.not_analyzed)
 	private int relationshipGroup;
 
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String typeId;
 
@@ -49,6 +47,14 @@ public class Relationship extends Entity {
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String modifierId;
+
+	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.no)
+	private ConceptMini type;
+
+	@JsonView(value = View.Component.class)
+	@Field(index = FieldIndex.no)
+	private ConceptMini destination;
 
 	public Relationship() {
 	}
@@ -64,6 +70,25 @@ public class Relationship extends Entity {
 		this.typeId = typeId;
 		this.characteristicTypeId = characteristicTypeId;
 		this.modifierId = modifierId;
+	}
+
+	public ConceptMini getType() {
+		return type;
+	}
+
+	public ConceptMini setType(ConceptMini type) {
+		this.type = type;
+		return type;
+	}
+
+	public ConceptMini getDestination() {
+		return destination;
+	}
+
+	public ConceptMini setDestination(ConceptMini destination) {
+		this.destination = destination;
+		return destination;
+
 	}
 
 	public String getRelationshipId() {
