@@ -66,15 +66,18 @@ public class ConceptServiceTest {
 
 	@Test
 	public void testMultipleConceptVersionsOnOneBranch() {
+		Assert.assertEquals(0, conceptService.findAll("MAIN", PAGE_REQUEST).getTotalElements());
 		conceptService.create(new Concept("1", "one"), "MAIN");
 
 		final Concept concept1 = conceptService.find("1", "MAIN");
 		Assert.assertEquals("one", concept1.getModuleId());
+		Assert.assertEquals(1, conceptService.findAll("MAIN", PAGE_REQUEST).getTotalElements());
 
 		conceptService.update(new Concept("1", "oneee"), "MAIN");
 
 		final Concept concept1Version2 = conceptService.find("1", "MAIN");
 		Assert.assertEquals("oneee", concept1Version2.getModuleId());
+		Assert.assertEquals(1, conceptService.findAll("MAIN", PAGE_REQUEST).getTotalElements());
 	}
 
 	@Test
@@ -108,6 +111,41 @@ public class ConceptServiceTest {
 		conceptService.update(new Concept("1", "one3"), "MAIN/A");
 
 		Assert.assertEquals("one1", conceptService.find("1", "MAIN/A/A1").getModuleId());
+	}
+
+	@Test
+	public void testListConceptsOnGrandchildBranchWithUpdateOnChildBranch() {
+		conceptService.create(new Concept("1", "orig value"), "MAIN");
+		Assert.assertEquals("orig value", conceptService.find("1", "MAIN").getModuleId());
+
+		branchService.create("MAIN/A");
+		branchService.create("MAIN/A/A1");
+		conceptService.update(new Concept("1", "updated value"), "MAIN/A");
+		branchService.create("MAIN/A/A2");
+
+		Assert.assertEquals("orig value", conceptService.find("1", "MAIN").getModuleId());
+		Assert.assertEquals("updated value", conceptService.find("1", "MAIN/A").getModuleId());
+		Assert.assertEquals("orig value", conceptService.find("1", "MAIN/A/A1").getModuleId());
+		Assert.assertEquals("updated value", conceptService.find("1", "MAIN/A/A2").getModuleId());
+
+		final Page<Concept> allOnGrandChild = conceptService.findAll("MAIN/A/A1", PAGE_REQUEST);
+		Assert.assertEquals(1, allOnGrandChild.getTotalElements());
+		Assert.assertEquals("orig value", allOnGrandChild.getContent().get(0).getModuleId());
+
+		final Page<Concept> allOnChild = conceptService.findAll("MAIN/A", PAGE_REQUEST);
+		Assert.assertEquals(1, allOnChild.getTotalElements());
+		Assert.assertEquals("updated value", allOnChild.getContent().get(0).getModuleId());
+
+		conceptService.update(new Concept("1", "updated value for A"), "MAIN/A");
+
+		final Page<Concept> allOnChildAfterSecondUpdate = conceptService.findAll("MAIN/A", PAGE_REQUEST);
+		Assert.assertEquals(1, allOnChildAfterSecondUpdate.getTotalElements());
+		Assert.assertEquals("updated value for A", allOnChildAfterSecondUpdate.getContent().get(0).getModuleId());
+
+		Assert.assertEquals("orig value", conceptService.find("1", "MAIN").getModuleId());
+		Assert.assertEquals("updated value for A", conceptService.find("1", "MAIN/A").getModuleId());
+		Assert.assertEquals("orig value", conceptService.find("1", "MAIN/A/A1").getModuleId());
+		Assert.assertEquals("updated value", conceptService.find("1", "MAIN/A/A2").getModuleId());
 	}
 
 	@Test

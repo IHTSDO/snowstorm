@@ -60,17 +60,31 @@ public class VersionControlHelper {
 	}
 
 	void endOldVersions(Commit commit, String idField, Class<? extends Entity> clazz, Collection<String> ids, ElasticsearchCrudRepository repository) {
-		final String flatBranchPath = commit.getFlatBranchPath();
+		// Find components on this branch and end the version
+		final List<? extends Entity> localVersionsToEnd = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
+				new BoolQueryBuilder()
+						.must(termsQuery(idField, ids))
+						.must(termQuery("path", commit.getFlatBranchPath()))
+						.must(rangeQuery("start").lt(commit.getTimepoint()))
+						.mustNot(existsQuery("end"))
+		).build(), clazz);
+		if (!localVersionsToEnd.isEmpty()) {
+			for (Entity replacedVersion : localVersionsToEnd) {
+				replacedVersion.setEnd(commit.getTimepoint());
+			}
+			repository.save(localVersionsToEnd);
+		}
+
+		// Find versions to end across all paths
 		final List<? extends Entity> replacedVersions = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
 				new BoolQueryBuilder()
 						.must(termsQuery(idField, ids))
-						.must(termQuery("path", flatBranchPath))
+						.must(getBranchCriteria(commit.getBranch().getFatPath()))
 						.must(rangeQuery("start").lt(commit.getTimepoint()))
 						.mustNot(existsQuery("end"))
-				).build(), clazz);
+		).build(), clazz);
 		if (!replacedVersions.isEmpty()) {
 			for (Entity replacedVersion : replacedVersions) {
-				replacedVersion.setEnd(commit.getTimepoint());
 				commit.addVersionReplaced(replacedVersion.getInternalId());
 			}
 			repository.save(replacedVersions);

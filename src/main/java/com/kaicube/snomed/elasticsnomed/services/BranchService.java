@@ -138,6 +138,8 @@ public class BranchService {
 		newBranchTimespan.addVersionsReplaced(oldBranchTimespan.getVersionsReplaced());
 		newBranchTimespan.addVersionsReplaced(commit.getEntityVersionsReplaced());
 		newBranchTimespan.addEntitiesRemoved(oldBranchTimespan.getEntitiesRemoved());
+		logger.debug("Ending branch timespan {}", oldBranchTimespan);
+		logger.debug("Starting branch timespan {}", newBranchTimespan);
 		branchRepository.save(Lists.newArrayList(oldBranchTimespan, newBranchTimespan));
 	}
 

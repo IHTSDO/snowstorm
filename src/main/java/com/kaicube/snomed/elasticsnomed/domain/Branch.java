@@ -38,11 +38,19 @@ public class Branch extends Entity {
 	}
 
 	public void addVersionsReplaced(Set<String> internalIds) {
-		versionsReplaced.addAll(internalIds);
+		if (notMAIN()) {
+			versionsReplaced.addAll(internalIds);
+		}
 	}
 
 	public void addEntitiesRemoved(Set<String> internalIds) {
-		entitiesRemoved.addAll(internalIds);
+		if (notMAIN()) {
+			entitiesRemoved.addAll(internalIds);
+		}
+	}
+
+	private boolean notMAIN() {
+		return !"MAIN".equals(getPath());
 	}
 
 	@JsonIgnore
@@ -90,6 +98,8 @@ public class Branch extends Entity {
 				", head=" + getMillis(head) +
 				", start=" + getMillis(getStart()) +
 				", end=" + getMillis(getEnd()) +
+				", versionsReplaced=" + versionsReplaced +
+				", entitiesRemoved=" + entitiesRemoved +
 				'}';
 	}
 
