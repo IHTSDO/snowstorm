@@ -48,12 +48,8 @@ public class Relationship extends Entity {
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String modifierId;
 
-	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.no)
 	private ConceptMini type;
 
-	@JsonView(value = View.Component.class)
-	@Field(index = FieldIndex.no)
 	private ConceptMini destination;
 
 	public Relationship() {
@@ -72,7 +68,8 @@ public class Relationship extends Entity {
 		this.modifierId = modifierId;
 	}
 
-	public ConceptMini getType() {
+	@JsonView(value = View.Component.class)
+	public ConceptMini type() {
 		return type;
 	}
 
@@ -81,7 +78,8 @@ public class Relationship extends Entity {
 		return type;
 	}
 
-	public ConceptMini getDestination() {
+	@JsonView(value = View.Component.class)
+	public ConceptMini destination() {
 		return destination;
 	}
 
