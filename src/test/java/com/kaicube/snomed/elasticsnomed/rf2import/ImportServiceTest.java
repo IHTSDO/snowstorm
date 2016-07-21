@@ -7,6 +7,7 @@ import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.domain.Description;
 import com.kaicube.snomed.elasticsnomed.services.BranchService;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
+import com.kaicube.snomed.elasticsnomed.services.QueryIndexService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.After;
 import org.junit.Assert;
@@ -19,6 +20,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +37,9 @@ public class ImportServiceTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private QueryIndexService queryIndexService;
 
 	@Test
 	public void testImportFull() throws ReleaseImportException {
@@ -97,6 +102,10 @@ public class ImportServiceTest {
 		path = "MAIN/20140131";
 		Assert.assertEquals(102, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
 		Assert.assertEquals(102, conceptService.findAll("MAIN", new PageRequest(0, 10)).getTotalElements());
+
+		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryIndexService.retrieveAncestors("131148009", "MAIN/20020131"));
+		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryIndexService.retrieveAncestors("131148009", "MAIN/20050131"));
+		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryIndexService.retrieveAncestors("131148009", "MAIN/20060131"));
 	}
 
 	@Test
@@ -141,9 +150,18 @@ public class ImportServiceTest {
 
 	@Before
 	@After
-	public void tearDown() {
+	public void tearDown() throws InterruptedException {
 		conceptService.deleteAll();
 		branchService.deleteAll();
+		Thread.sleep(1000L);
+	}
+
+	private Set<Long> asSet(String string) {
+		Set<Long> longs = new HashSet<>();
+		for (String split : string.split(",")) {
+			longs.add(Long.parseLong(split.trim()));
+		}
+		return longs;
 	}
 
 }

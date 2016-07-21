@@ -10,6 +10,7 @@ import java.util.*;
 public class ImportComponentFactoryImpl implements ComponentFactory {
 
 	public static final int FLUSH_INTERVAL = 10000;
+	private final ConceptService conceptService;
 	private final BranchService branchService;
 	private final String path;
 	private Commit commit;
@@ -21,6 +22,7 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 	private Set<PersistBuffer> persistBuffers;
 
 	public ImportComponentFactoryImpl(ConceptService conceptService, BranchService branchService, String path) {
+		this.conceptService = conceptService;
 		this.branchService = branchService;
 		this.path = path;
 		persistBuffers = new HashSet<>();
@@ -62,6 +64,7 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 
 	protected void completeImportCommit() {
 		persistBuffers.stream().forEach(PersistBuffer::flush);
+		conceptService.postProcess(commit);
 		branchService.completeCommit(commit);
 	}
 
@@ -90,6 +93,10 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 
 	@Override
 	public void addConceptParent(String sourceId, String parentId) {
+	}
+
+	@Override
+	public void removeConceptParent(String sourceId, String destinationId) {
 	}
 
 	@Override

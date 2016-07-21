@@ -8,6 +8,7 @@ import com.kaicube.snomed.elasticsnomed.repositories.ReferenceSetMemberRepositor
 import com.kaicube.snomed.elasticsnomed.repositories.RelationshipRepository;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,10 +49,17 @@ public class ConceptService {
 	@Autowired
 	private ElasticsearchTemplate elasticsearchTemplate;
 
+	@Autowired
+	private QueryIndexService queryIndexService;
+
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Concept find(String id, String path) {
-		final Page<Concept> concepts = doFind(id, path, new PageRequest(0, 1));
+		final Page<Concept> concepts = doFind(id, path, new PageRequest(0, 10));
+		if (concepts.getTotalElements() > 1) {
+			logger.error("Found more than one concept {}", concepts.getContent());
+			throw new IllegalStateException("More than one concept found for id " + id + " on branch " + path);
+		}
 		Concept concept = concepts.getTotalElements() == 0 ? null : concepts.iterator().next();
 		logger.info("Find id:{}, path:{} found:{}", id, path, concept);
 		return concept;
@@ -62,7 +70,7 @@ public class ConceptService {
 	}
 
 	private Page<Concept> doFind(String id, String path, PageRequest pageRequest) {
-		final BoolQueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 		final BoolQueryBuilder builder = boolQuery()
 				.must(branchCriteria);
@@ -137,7 +145,7 @@ public class ConceptService {
 	}
 
 	public Page<Description> findDescriptions(String path, String term, PageRequest pageRequest) {
-		final BoolQueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 		final BoolQueryBuilder builder = boolQuery()
 				.must(branchCriteria);
@@ -258,10 +266,15 @@ public class ConceptService {
 		return Collections.emptyList();
 	}
 
+	public void postProcess(Commit commit) {
+		queryIndexService.createTransitiveClosureForEveryConcept(commit);
+	}
+
 	public void deleteAll() {
 		conceptRepository.deleteAll();
 		descriptionRepository.deleteAll();
 		relationshipRepository.deleteAll();
 		referenceSetMemberRepository.deleteAll();
+		queryIndexService.deleteAll();
 	}
 }

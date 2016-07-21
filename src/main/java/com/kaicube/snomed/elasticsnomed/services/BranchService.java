@@ -113,7 +113,7 @@ public class BranchService {
 				.build(), Branch.class);
 	}
 
-	public Commit openCommit(String path) {
+	public synchronized Commit openCommit(String path) {
 		Branch branch = findLatest(path);
 		if (branch.isLocked()) {
 			throw new IllegalStateException("Branch already locked");
@@ -125,7 +125,7 @@ public class BranchService {
 		return new Commit(branch);
 	}
 
-	public void completeCommit(Commit commit) {
+	public synchronized void completeCommit(Commit commit) {
 		final Date timepoint = commit.getTimepoint();
 		final Branch oldBranchTimespan = commit.getBranch();
 		oldBranchTimespan.setEnd(timepoint);
