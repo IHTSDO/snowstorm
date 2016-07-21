@@ -114,10 +114,6 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 		this.commit = commit;
 	}
 
-	protected Commit getCommit() {
-		return commit;
-	}
-
 	protected BranchService getBranchService() {
 		return branchService;
 	}
@@ -134,19 +130,19 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 			persistBuffers.add(this);
 		}
 
-		public void save(E entity) {
+		public synchronized void save(E entity) {
 			entities.add(entity);
 			if (entities.size() >= FLUSH_INTERVAL) {
 				flush();
 			}
 		}
 
-		public void flush() {
+		public synchronized void flush() {
 			persistCollection(entities);
 			entities.clear();
 		}
 
-		public abstract void persistCollection(Collection<E> entities);
+		abstract void persistCollection(Collection<E> entities);
 
 	}
 
