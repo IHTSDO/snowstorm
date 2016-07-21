@@ -102,9 +102,8 @@ public class ConceptService {
 		// Join Relationships
 		for (Relationship relationship : relationships) {
 			conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
-
-			conceptMiniMap.put(relationship.getTypeId(), relationship.setType(new ConceptMini(relationship.getTypeId())));
-			conceptMiniMap.put(relationship.getDestinationId(), relationship.setDestination(new ConceptMini(relationship.getDestinationId())));
+			relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId()));
+			relationship.setDestination(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
 		}
 
 		// Fetch Descriptions
@@ -142,6 +141,15 @@ public class ConceptService {
 		}
 
 		return concepts;
+	}
+
+	private ConceptMini getConceptMini(Map<String, ConceptMini> conceptMiniMap, String id) {
+		ConceptMini mini = conceptMiniMap.get(id);
+		if (mini == null) {
+			mini = new ConceptMini(id);
+			conceptMiniMap.put(id, mini);
+		}
+		return mini;
 	}
 
 	public Page<Description> findDescriptions(String path, String term, PageRequest pageRequest) {

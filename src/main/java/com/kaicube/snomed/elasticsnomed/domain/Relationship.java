@@ -73,9 +73,8 @@ public class Relationship extends Entity {
 		return type;
 	}
 
-	public ConceptMini setType(ConceptMini type) {
+	public void setType(ConceptMini type) {
 		this.type = type;
-		return type;
 	}
 
 	@JsonView(value = View.Component.class)
@@ -83,10 +82,8 @@ public class Relationship extends Entity {
 		return destination;
 	}
 
-	public ConceptMini setDestination(ConceptMini destination) {
+	public void setDestination(ConceptMini destination) {
 		this.destination = destination;
-		return destination;
-
 	}
 
 	public String getRelationshipId() {
