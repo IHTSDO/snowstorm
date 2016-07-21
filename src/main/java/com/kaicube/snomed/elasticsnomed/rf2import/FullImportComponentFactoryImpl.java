@@ -7,10 +7,12 @@ import org.ihtsdo.otf.snomedboot.factory.HistoryAwareComponentFactory;
 public class FullImportComponentFactoryImpl extends ImportComponentFactoryImpl implements HistoryAwareComponentFactory {
 
 	private String basePath;
+	private final String stopImportAfterEffectiveTime;
 
-	public FullImportComponentFactoryImpl(ConceptService conceptService, BranchService branchService, String path) {
+	public FullImportComponentFactoryImpl(ConceptService conceptService, BranchService branchService, String path, String stopImportAfterEffectiveTime) {
 		super(conceptService, branchService, path);
 		this.basePath = path;
+		this.stopImportAfterEffectiveTime = stopImportAfterEffectiveTime;
 	}
 
 	@Override
@@ -22,6 +24,9 @@ public class FullImportComponentFactoryImpl extends ImportComponentFactoryImpl i
 	public void loadingReleaseDeltaFinished(String releaseDate) {
 		completeImportCommit();
 		getBranchService().create(basePath + "/" + releaseDate);
+		if (stopImportAfterEffectiveTime != null && stopImportAfterEffectiveTime.equals(releaseDate)) {
+			throw new RuntimeException("Stopping import here after " + stopImportAfterEffectiveTime);
+		}
 	}
 
 	@Override

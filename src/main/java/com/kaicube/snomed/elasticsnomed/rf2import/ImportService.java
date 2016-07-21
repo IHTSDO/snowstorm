@@ -21,7 +21,14 @@ public class ImportService {
 	private BranchService branchService;
 
 	public void importFull(String releaseDirPath, String branchPath) throws ReleaseImportException {
-		FullImportComponentFactoryImpl componentFactory = new FullImportComponentFactoryImpl(conceptService, branchService, branchPath);
+		importFull(releaseDirPath, branchPath, null);
+	}
+
+	public void importFull(String releaseDirPath, String branchPath, String stopImportAfterEffectiveTime) throws ReleaseImportException {
+		conceptService.deleteAll();
+		branchService.deleteAll();
+		branchService.create("MAIN");
+		FullImportComponentFactoryImpl componentFactory = new FullImportComponentFactoryImpl(conceptService, branchService, branchPath, stopImportAfterEffectiveTime);
 		ReleaseImporter releaseImporter = new ReleaseImporter();
 		releaseImporter.loadFullReleaseFiles(releaseDirPath, DEFAULT_LOADING_PROFILE, componentFactory);
 	}
