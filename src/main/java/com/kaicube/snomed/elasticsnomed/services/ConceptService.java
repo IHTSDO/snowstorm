@@ -1,6 +1,5 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
-import com.google.common.collect.Sets;
 import com.kaicube.snomed.elasticsnomed.domain.*;
 import com.kaicube.snomed.elasticsnomed.repositories.ConceptRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.DescriptionRepository;
@@ -18,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -54,6 +54,8 @@ public class ConceptService {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
+	private static final PageRequest PAGE_REQUEST_LARGE = new PageRequest(0, 10000);
+
 	public Concept find(String id, String path) {
 		final Page<Concept> concepts = doFind(id, path, new PageRequest(0, 10));
 		if (concepts.getTotalElements() > 1) {
@@ -67,6 +69,51 @@ public class ConceptService {
 
 	public Page<Concept> findAll(String path, PageRequest pageRequest) {
 		return doFind(null, path, pageRequest);
+	}
+
+	public Collection<ConceptMini> findConceptChildrenInferred(String conceptId, String path) {
+		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+
+		// Gather inferred children ids
+		final Set<String> childrenIds = new HashSet<>();
+		try (final CloseableIterator<Relationship> relationshipStream = openRelationshipStream(branchCriteria, termQuery("destinationId", conceptId))) {
+			relationshipStream.forEachRemaining(relationship -> childrenIds.add(relationship.getSourceId()));
+		}
+
+		// Fetch concept details
+		final Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
+		try (final CloseableIterator<Concept> conceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termsQuery("conceptId", childrenIds))
+				)
+				.build(), Concept.class
+		)) {
+			conceptStream.forEachRemaining(concept -> conceptMiniMap.put(concept.getConceptId(), new ConceptMini(concept).setLeafInferred(true)));
+		}
+
+		// Find inferred children of the inferred children to set the isLeafInferred flag
+		try (final CloseableIterator<Relationship> relationshipStream = openRelationshipStream(branchCriteria, termsQuery("destinationId", childrenIds))) {
+			relationshipStream.forEachRemaining(relationship -> conceptMiniMap.get(relationship.getDestinationId()).setLeafInferred(false));
+		}
+
+		// Fetch descriptions and Lang refsets
+		fetchDescriptions(branchCriteria, null, conceptMiniMap);
+
+		return conceptMiniMap.values();
+	}
+
+	private CloseableIterator<Relationship> openRelationshipStream(QueryBuilder branchCriteria, QueryBuilder destinationCriteria) {
+		return elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termQuery("active", true))
+						.must(termQuery("typeId", Concepts.ISA))
+						.must(destinationCriteria)
+						.must(termQuery("characteristicTypeId", Concepts.INFERRED))
+				)
+				.build(), Relationship.class
+		);
 	}
 
 	private Page<Concept> doFind(String id, String path, PageRequest pageRequest) {
@@ -97,7 +144,7 @@ public class ConceptService {
 		queryBuilder.withQuery(boolQuery()
 				.must(termsQuery("sourceId", conceptIdMap.keySet()))
 				.must(branchCriteria))
-				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
+				.withPageable(PAGE_REQUEST_LARGE); // FIXME: this is temporary
 		final List<Relationship> relationships = elasticsearchTemplate.queryForList(queryBuilder.build(), Relationship.class);
 		// Join Relationships
 		for (Relationship relationship : relationships) {
@@ -110,30 +157,54 @@ public class ConceptService {
 		queryBuilder.withQuery(boolQuery()
 				.must(termsQuery("conceptId", conceptMiniMap.keySet()))
 				.must(branchCriteria))
-				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
+				.withPageable(PAGE_REQUEST_LARGE); // FIXME: this is temporary
 		final List<Concept> conceptsForMini = elasticsearchTemplate.queryForList(queryBuilder.build(), Concept.class);
 		for (Concept concept : conceptsForMini) {
 			conceptMiniMap.get(concept.getConceptId()).setDefinitionStatusId(concept.getDefinitionStatusId());
 		}
 
+		fetchDescriptions(branchCriteria, conceptIdMap, conceptMiniMap);
+
+		return concepts;
+	}
+
+	private void fetchDescriptions(QueryBuilder branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap) {
+		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withPageable(PAGE_REQUEST_LARGE);
+
 		// Fetch Descriptions
+		final Set<String> allConceptIds = new HashSet<>();
+		if (conceptIdMap != null) {
+			allConceptIds.addAll(conceptIdMap.keySet());
+		}
+		if (conceptMiniMap != null) {
+			allConceptIds.addAll(conceptMiniMap.keySet());
+		}
+		if (allConceptIds.isEmpty()) {
+			return;
+		}
+
 		queryBuilder.withQuery(boolQuery()
 				.must(branchCriteria))
-				.withFilter(boolQuery().must(termsQuery("conceptId", Sets.union(conceptIdMap.keySet(), conceptMiniMap.keySet()))))
-				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
+				.withFilter(boolQuery().must(termsQuery("conceptId", allConceptIds)))
+				.withPageable(PAGE_REQUEST_LARGE); // FIXME: this is temporary
 		final Page<Description> descriptions = elasticsearchTemplate.queryForPage(queryBuilder.build(), Description.class);
 		// Join Descriptions
 		Map<String, Description> descriptionIdMap = new HashMap<>();
 		for (Description description : descriptions) {
 			descriptionIdMap.put(description.getDescriptionId(), description);
 			final String descriptionConceptId = description.getConceptId();
-			final Concept concept = conceptIdMap.get(descriptionConceptId);
-			if (concept != null) {
-				concept.addDescription(description);
+			if (conceptIdMap != null) {
+				final Concept concept = conceptIdMap.get(descriptionConceptId);
+				if (concept != null) {
+					concept.addDescription(description);
+				}
 			}
-			final ConceptMini conceptMini = conceptMiniMap.get(descriptionConceptId);
-			if (conceptMini != null && Concepts.FSN.equals(description.getTypeId()) && description.isActive()) {
-				conceptMini.addActiveFsn(description);
+			if (conceptMiniMap != null) {
+				final ConceptMini conceptMini = conceptMiniMap.get(descriptionConceptId);
+				if (conceptMini != null && Concepts.FSN.equals(description.getTypeId()) && description.isActive()) {
+					conceptMini.addActiveFsn(description);
+				}
 			}
 		}
 
@@ -142,15 +213,13 @@ public class ConceptService {
 				.must(branchCriteria)
 				.must(termQuery("active", true)))
 				.withFilter(boolQuery().must(termsQuery("referencedComponentId", descriptionIdMap.keySet())))
-				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
+				.withPageable(PAGE_REQUEST_LARGE); // FIXME: this is temporary
 		final Page<LanguageReferenceSetMember> langRefsetMembers = elasticsearchTemplate.queryForPage(queryBuilder.build(), LanguageReferenceSetMember.class);
 		// Join Lang Refset Members
 		for (LanguageReferenceSetMember langRefsetMember : langRefsetMembers) {
 			descriptionIdMap.get(langRefsetMember.getReferencedComponentId())
 					.addAcceptability(langRefsetMember.getRefsetId(), langRefsetMember.getAcceptabilityId());
 		}
-
-		return concepts;
 	}
 
 	private ConceptMini getConceptMini(Map<String, ConceptMini> conceptMiniMap, String id) {

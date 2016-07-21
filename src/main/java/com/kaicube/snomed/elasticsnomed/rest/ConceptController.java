@@ -2,6 +2,7 @@ package com.kaicube.snomed.elasticsnomed.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
+import com.kaicube.snomed.elasticsnomed.domain.ConceptMini;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -9,6 +10,7 @@ import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.HandlerMapping;
 
+import java.util.Collection;
 import javax.servlet.http.HttpServletRequest;
 
 @RestController
@@ -33,6 +35,14 @@ public class ConceptController {
 	public Concept findConcept(@PathVariable String conceptId, HttpServletRequest request) {
 		String path = extractBranchPath(request, "/concepts");
 		return conceptService.find(conceptId, path);
+	}
+
+	@ResponseBody
+	@RequestMapping("/**/concepts/{conceptId}/children")
+	@JsonView(value = View.Component.class)
+	public Collection<ConceptMini> findConceptChildren(@PathVariable String conceptId, HttpServletRequest request) {
+		String path = extractBranchPath(request, "/concepts");
+		return conceptService.findConceptChildrenInferred(conceptId, path);
 	}
 
 	private String extractBranchPath(HttpServletRequest request, String end) {

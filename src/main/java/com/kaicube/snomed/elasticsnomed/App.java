@@ -1,5 +1,7 @@
 package com.kaicube.snomed.elasticsnomed;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kaicube.snomed.elasticsnomed.rf2import.ImportService;
 import com.kaicube.snomed.elasticsnomed.services.BranchService;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
@@ -15,6 +17,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -43,6 +46,16 @@ public class App {
 		final InetAddress localhost = InetAddress.getByName("localhost");
 		return TransportClient.builder().build()
 				.addTransportAddress(new InetSocketTransportAddress(localhost, 9300));
+	}
+
+	@Bean
+	public ObjectMapper getMapper() {
+		return Jackson2ObjectMapperBuilder
+				.json()
+				.defaultViewInclusion(false)
+				.failOnUnknownProperties(false)
+				.serializationInclusion(JsonInclude.Include.NON_NULL)
+				.build();
 	}
 
 	@Bean

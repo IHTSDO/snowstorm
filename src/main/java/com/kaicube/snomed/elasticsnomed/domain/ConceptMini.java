@@ -11,10 +11,20 @@ public class ConceptMini {
 	private String conceptId;
 	private Set<Description> activeFsns;
 	private String definitionStatusId;
+	private Boolean leafInferred;
 
 	public ConceptMini(String conceptId) {
 		this.conceptId = conceptId;
 		activeFsns = new HashSet<>();
+	}
+
+	public ConceptMini(Concept concept) {
+		this(concept.getConceptId());
+		definitionStatusId = concept.getDefinitionStatusId();
+	}
+
+	public void addActiveFsn(Description fsn) {
+		activeFsns.add(fsn);
 	}
 
 	@JsonView(value = View.Component.class)
@@ -27,8 +37,9 @@ public class ConceptMini {
 		return activeFsns.isEmpty() ? null : activeFsns.iterator().next().getTerm();
 	}
 
-	public void addActiveFsn(Description fsn) {
-		activeFsns.add(fsn);
+	@JsonView(value = View.Component.class)
+	public String getDefinitionStatusId() {
+		return definitionStatusId;
 	}
 
 	public void setDefinitionStatusId(String definitionStatusId) {
@@ -36,7 +47,12 @@ public class ConceptMini {
 	}
 
 	@JsonView(value = View.Component.class)
-	public String getDefinitionStatusId() {
-		return definitionStatusId;
+	public Boolean getLeafInferred() {
+		return leafInferred;
+	}
+
+	public ConceptMini setLeafInferred(Boolean leafInferred) {
+		this.leafInferred = leafInferred;
+		return this;
 	}
 }

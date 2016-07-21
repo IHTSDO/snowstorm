@@ -5,4 +5,5 @@ public class Concepts {
 	public static final String ACCEPTABLE = "900000000000549004";
 	public static final String PREFERRED = "900000000000548007";
 	public static final String ISA = "116680003";
+	public static final String INFERRED = "900000000000011006";
 }
