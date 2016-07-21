@@ -106,6 +106,16 @@ public class ConceptService {
 			relationship.setDestination(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
 		}
 
+		// Fetch ConceptMini definition statuses
+		queryBuilder.withQuery(boolQuery()
+				.must(termsQuery("conceptId", conceptMiniMap.keySet()))
+				.must(branchCriteria))
+				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
+		final List<Concept> conceptsForMini = elasticsearchTemplate.queryForList(queryBuilder.build(), Concept.class);
+		for (Concept concept : conceptsForMini) {
+			conceptMiniMap.get(concept.getConceptId()).setDefinitionStatusId(concept.getDefinitionStatusId());
+		}
+
 		// Fetch Descriptions
 		queryBuilder.withQuery(boolQuery()
 				.must(branchCriteria))

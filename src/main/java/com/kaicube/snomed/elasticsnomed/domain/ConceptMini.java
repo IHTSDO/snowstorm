@@ -10,6 +10,7 @@ public class ConceptMini {
 
 	private String conceptId;
 	private Set<Description> activeFsns;
+	private String definitionStatusId;
 
 	public ConceptMini(String conceptId) {
 		this.conceptId = conceptId;
@@ -28,5 +29,14 @@ public class ConceptMini {
 
 	public void addActiveFsn(Description fsn) {
 		activeFsns.add(fsn);
+	}
+
+	public void setDefinitionStatusId(String definitionStatusId) {
+		this.definitionStatusId = definitionStatusId;
+	}
+
+	@JsonView(value = View.Component.class)
+	public String getDefinitionStatusId() {
+		return definitionStatusId;
 	}
 }
