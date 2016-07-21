@@ -16,12 +16,12 @@ import org.ihtsdo.otf.snomedboot.factory.implementation.standard.ConceptImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -76,20 +76,17 @@ public class QueryIndexService {
 		final ComponentStore componentStore = new ComponentStore();
 		ComponentFactory componentFactory = new ComponentFactoryImpl(componentStore);
 
-		Page<Relationship> relationships;
-		do {
-			relationships = elasticsearchTemplate.queryForPage(queryBuilder.build(), Relationship.class);
-			for (Relationship relationship : relationships) {
+		try (final CloseableIterator<Relationship> relationshipStream = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
+			relationshipStream.forEachRemaining(relationship -> {
 				if (relationship.isActive()) {
 					componentFactory.addConceptParent(relationship.getSourceId(), relationship.getDestinationId());
 				} else {
 					componentFactory.removeConceptParent(relationship.getSourceId(), relationship.getDestinationId());
 				}
-			}
-			pageable = pageable.next();
-			queryBuilder.withPageable(pageable);
-		} while (!relationships.isLast());
-		logger.info("Processing {} relationships.", relationships.getTotalElements());
+			});
+		}
+
+		logger.info("Processing relationships.");
 
 		final ObjectCollection<ConceptImpl> concepts = componentStore.getConcepts().values();
 		final List<QueryIndexConcept> conceptsToSave = new ArrayList<>();
