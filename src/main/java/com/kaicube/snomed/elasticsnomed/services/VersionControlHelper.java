@@ -75,14 +75,16 @@ public class VersionControlHelper {
 
 	<T extends Entity> void endOldVersions(Commit commit, String idField, Class<T> clazz, Collection<? extends Object> ids, ElasticsearchCrudRepository repository) {
 		// Find versions replaced across all paths
-		final String path = commit.getBranch().getFatPath();
 		final List<T> localVersionsToEnd = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
 				.withQuery(
 					new BoolQueryBuilder()
-						.must(termsQuery(idField, ids))
 						.must(termQuery("path", commit.getFlatBranchPath()))
 						.must(rangeQuery("start").lt(commit.getTimepoint()))
 						.mustNot(existsQuery("end"))
+				)
+				.withFilter(
+						new BoolQueryBuilder()
+								.must(termsQuery(idField, ids))
 				)
 				.withPageable(new PageRequest(0, 10000)) // FIXME: this is temporary
 				.build(), clazz);
@@ -96,10 +98,13 @@ public class VersionControlHelper {
 		// Find versions to end across all paths
 		final List<? extends Entity> replacedVersions = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
 				new BoolQueryBuilder()
-						.must(termsQuery(idField, ids))
 						.must(getBranchCriteria(commit.getBranch().getFatPath()))
 						.must(rangeQuery("start").lt(commit.getTimepoint()))
 						.mustNot(existsQuery("end"))
+				)
+				.withFilter(
+						new BoolQueryBuilder()
+								.must(termsQuery(idField, ids))
 				)
 				.withPageable(new PageRequest(0, 10000)) // FIXME: this is temporary
 				.build(), clazz);

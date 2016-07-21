@@ -109,8 +109,8 @@ public class ConceptService {
 
 		// Fetch Descriptions
 		queryBuilder.withQuery(boolQuery()
-				.must(termsQuery("conceptId", Sets.union(conceptIdMap.keySet(), conceptMiniMap.keySet())))
 				.must(branchCriteria))
+				.withFilter(boolQuery().must(termsQuery("conceptId", Sets.union(conceptIdMap.keySet(), conceptMiniMap.keySet()))))
 				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
 		final Page<Description> descriptions = elasticsearchTemplate.queryForPage(queryBuilder.build(), Description.class);
 		// Join Descriptions
@@ -130,9 +130,9 @@ public class ConceptService {
 
 		// Fetch Lang Refset Members
 		queryBuilder.withQuery(boolQuery()
-				.must(termsQuery("referencedComponentId", descriptionIdMap.keySet()))
-				.must(termQuery("active", true))
-				.must(branchCriteria))
+				.must(branchCriteria)
+				.must(termQuery("active", true)))
+				.withFilter(boolQuery().must(termsQuery("referencedComponentId", descriptionIdMap.keySet())))
 				.withPageable(new PageRequest(0, 10000)); // FIXME: this is temporary
 		final Page<LanguageReferenceSetMember> langRefsetMembers = elasticsearchTemplate.queryForPage(queryBuilder.build(), LanguageReferenceSetMember.class);
 		// Join Lang Refset Members
