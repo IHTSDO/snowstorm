@@ -1,5 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.kaicube.snomed.elasticsnomed.rest.View;
@@ -13,7 +14,7 @@ import java.util.Set;
 
 @Document(type = "concept", indexName = "snomed")
 @JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "moduleId", "definitionStatusId", "descriptions", "relationships"})
-public class Concept extends Entity {
+public class Concept extends Component {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -76,14 +77,16 @@ public class Concept extends Entity {
 		return null;
 	}
 
-	public void addDescription(Description description) {
+	public Concept addDescription(Description description) {
 		description.setConceptId(this.conceptId);
 		descriptions.add(description);
+		return this;
 	}
 
-	public void addRelationship(Relationship relationship) {
+	public Concept addRelationship(Relationship relationship) {
 		relationship.setSourceId(this.conceptId);
 		relationships.add(relationship);
+		return this;
 	}
 
 	public Description getDescription(String descriptionId) {
@@ -93,6 +96,12 @@ public class Concept extends Entity {
 			}
 		}
 		return null;
+	}
+
+	@Override
+	@JsonIgnore
+	public String getId() {
+		return conceptId;
 	}
 
 	public String getConceptId() {

@@ -3,10 +3,7 @@ package com.kaicube.snomed.elasticsnomed.services;
 import com.google.common.collect.Sets;
 import com.kaicube.snomed.elasticsnomed.App;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
-import com.kaicube.snomed.elasticsnomed.domain.Concept;
-import com.kaicube.snomed.elasticsnomed.domain.Concepts;
-import com.kaicube.snomed.elasticsnomed.domain.Description;
-import com.kaicube.snomed.elasticsnomed.domain.LanguageReferenceSetMember;
+import com.kaicube.snomed.elasticsnomed.domain.*;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -62,6 +59,51 @@ public class ConceptServiceTest {
 		conceptService.create(new Concept("3", "three"), "MAIN");
 		Assert.assertNull("Concept 3 is not accessible on branch A because created after branching.", conceptService.find("3", "MAIN/A"));
 		Assert.assertNotNull(conceptService.find("3", "MAIN"));
+	}
+
+	@Test
+	public void testDeleteDescription() {
+		final Concept concept = conceptService.create(
+				new Concept("1")
+						.addDescription(new Description("1", "one"))
+						.addDescription(new Description("2", "two"))
+						.addDescription(new Description("3", "three"))
+				, "MAIN");
+
+		Assert.assertEquals(3, concept.getDescriptions().size());
+		Assert.assertEquals(3, conceptService.find("1", "MAIN").getDescriptions().size());
+
+		branchService.create("MAIN/one");
+		branchService.create("MAIN/one/one-1");
+		branchService.create("MAIN/two");
+
+		concept.getDescriptions().remove(new Description("2", ""));
+		final Concept updatedConcept = conceptService.update(concept, "MAIN/one");
+
+		Assert.assertEquals(2, updatedConcept.getDescriptions().size());
+		Assert.assertEquals(2, conceptService.find("1", "MAIN/one").getDescriptions().size());
+		Assert.assertEquals(3, conceptService.find("1", "MAIN").getDescriptions().size());
+		Assert.assertEquals(3, conceptService.find("1", "MAIN/one/one-1").getDescriptions().size());
+		Assert.assertEquals(3, conceptService.find("1", "MAIN/two").getDescriptions().size());
+	}
+
+	@Test
+	public void testDeleteRelationship() {
+		final Concept concept = conceptService.create(
+				new Concept("1")
+						.addRelationship(new Relationship("1"))
+						.addRelationship(new Relationship("2"))
+						.addRelationship(new Relationship("3"))
+				, "MAIN");
+
+		Assert.assertEquals(3, concept.getRelationships().size());
+		Assert.assertEquals(3, conceptService.find("1", "MAIN").getRelationships().size());
+
+		concept.getRelationships().remove(new Relationship("3"));
+		final Concept updatedConcept = conceptService.update(concept, "MAIN");
+
+		Assert.assertEquals(2, updatedConcept.getRelationships().size());
+		Assert.assertEquals(2, conceptService.find("1", "MAIN").getRelationships().size());
 	}
 
 	@Test

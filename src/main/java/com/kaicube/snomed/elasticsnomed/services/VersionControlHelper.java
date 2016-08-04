@@ -2,6 +2,7 @@ package com.kaicube.snomed.elasticsnomed.services;
 
 import com.kaicube.snomed.elasticsnomed.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.domain.Commit;
+import com.kaicube.snomed.elasticsnomed.domain.Component;
 import com.kaicube.snomed.elasticsnomed.domain.Entity;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -15,6 +16,7 @@ import org.springframework.data.elasticsearch.repository.ElasticsearchCrudReposi
 import org.springframework.util.Assert;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
@@ -43,11 +45,11 @@ public class VersionControlHelper {
 	private BoolQueryBuilder getBranchCriteria(Branch branch, Date timepoint, Set<String> versionsReplaced) {
 		final BoolQueryBuilder branchCriteria = boolQuery();
 		branchCriteria.should(
-							boolQuery()
-								.must(queryStringQuery(branch.getFlatPath()).field("path"))
-								.must(rangeQuery("start").lte(timepoint))
-								.mustNot(existsQuery("end"))
-					);
+				boolQuery()
+						.must(queryStringQuery(branch.getFlatPath()).field("path"))
+						.must(rangeQuery("start").lte(timepoint))
+						.mustNot(existsQuery("end"))
+		);
 
 		addParentCriteriaRecursively(branchCriteria, branch, versionsReplaced);
 
@@ -77,10 +79,10 @@ public class VersionControlHelper {
 		// Find versions replaced across all paths
 		final List<T> localVersionsToEnd = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
 				.withQuery(
-					new BoolQueryBuilder()
-						.must(termQuery("path", commit.getFlatBranchPath()))
-						.must(rangeQuery("start").lt(commit.getTimepoint()))
-						.mustNot(existsQuery("end"))
+						new BoolQueryBuilder()
+								.must(termQuery("path", commit.getFlatBranchPath()))
+								.must(rangeQuery("start").lt(commit.getTimepoint()))
+								.mustNot(existsQuery("end"))
 				)
 				.withFilter(
 						new BoolQueryBuilder()
@@ -101,7 +103,7 @@ public class VersionControlHelper {
 						.must(getBranchCriteria(commit.getBranch().getFatPath()))
 						.must(rangeQuery("start").lt(commit.getTimepoint()))
 						.mustNot(existsQuery("end"))
-				)
+		)
 				.withFilter(
 						new BoolQueryBuilder()
 								.must(termsQuery(idField, ids))
@@ -135,5 +137,9 @@ public class VersionControlHelper {
 		entity.setPath(commit.getFlatBranchPath());
 		entity.setStart(commit.getTimepoint());
 		entity.clearInternalId();
+	}
+
+	public <C extends Component> void removeDeleted(Collection<C> entities) {
+		entities.removeAll(entities.stream().filter(Entity::isDeleted).collect(Collectors.toSet()));
 	}
 }

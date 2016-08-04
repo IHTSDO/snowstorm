@@ -19,6 +19,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -226,7 +227,9 @@ public class ConceptService {
 		ConceptMini mini = conceptMiniMap.get(id);
 		if (mini == null) {
 			mini = new ConceptMini(id);
-			conceptMiniMap.put(id, mini);
+			if (id != null) {
+				conceptMiniMap.put(id, mini);
+			}
 		}
 		return mini;
 	}
@@ -269,15 +272,25 @@ public class ConceptService {
 	public Concept update(Concept conceptVersion, String path) {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final String conceptId = conceptVersion.getConceptId();
-		if (conceptId == null) {
-			throw new IllegalArgumentException("conceptId must not be null.");
-		}
+		Assert.isTrue(!Strings.isNullOrEmpty(conceptId), "conceptId is required.");
 		final Concept existingConcept = find(conceptId, path);
 		if (existingConcept == null) {
 			throw new IllegalArgumentException("Concept '" + conceptId + "' does not exist on branch '" + path + "'.");
 		}
 
+		recoverAndMarkDeletions(conceptVersion.getDescriptions(), existingConcept.getDescriptions());
+		recoverAndMarkDeletions(conceptVersion.getRelationships(), existingConcept.getRelationships());
+
 		return doSave(conceptVersion, branch);
+	}
+
+	private <C extends Component> void recoverAndMarkDeletions(Set<C> newComponents, Set<C> existingComponents) {
+		for (C existingComponent : existingComponents) {
+			if (!newComponents.contains(existingComponent)) {
+				existingComponent.markDeleted();
+				newComponents.add(existingComponent);
+			}
+		}
 	}
 
 	private Concept doSave(Concept concept, Branch branch) {
@@ -308,6 +321,18 @@ public class ConceptService {
 		final Iterable<Concept> conceptsSaved = doSaveBatchConcepts(concepts, commit);
 		doSaveBatchDescriptions(descriptions, commit);
 		doSaveBatchRelationships(relationships, commit);
+
+		Map<String, Concept> conceptMap = new HashMap<>();
+		for (Concept concept : concepts) {
+			conceptMap.put(concept.getConceptId(), concept);
+		}
+		for (Description description : descriptions) {
+			conceptMap.get(description.getConceptId()).addDescription(description);
+		}
+		for (Relationship relationship : relationships) {
+			conceptMap.get(relationship.getSourceId()).addRelationship(relationship);
+		}
+
 		return conceptsSaved;
 	}
 
@@ -327,6 +352,7 @@ public class ConceptService {
 			logger.info("Saving batch of {} descriptions", descriptions.size());
 			final List<String> ids = descriptions.stream().map(Description::getDescriptionId).collect(Collectors.toList());
 			versionControlHelper.endOldVersions(commit, "descriptionId", Description.class, ids, this.descriptionRepository);
+			versionControlHelper.removeDeleted(descriptions);
 			versionControlHelper.setEntityMeta(descriptions, commit);
 			descriptionRepository.save(descriptions);
 		}
@@ -337,6 +363,7 @@ public class ConceptService {
 			logger.info("Saving batch of {} relationships", relationships.size());
 			final List<String> ids = relationships.stream().map(Relationship::getRelationshipId).collect(Collectors.toList());
 			versionControlHelper.endOldVersions(commit, "relationshipId", Relationship.class, ids, this.relationshipRepository);
+			versionControlHelper.removeDeleted(relationships);
 			versionControlHelper.setEntityMeta(relationships, commit);
 			relationshipRepository.save(relationships);
 		}

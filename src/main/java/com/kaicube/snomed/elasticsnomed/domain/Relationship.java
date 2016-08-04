@@ -1,5 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -8,7 +9,7 @@ import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 @Document(type = "relationship", indexName = "snomed")
-public class Relationship extends Entity {
+public class Relationship extends Component {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -55,6 +56,10 @@ public class Relationship extends Entity {
 	public Relationship() {
 	}
 
+	public Relationship(String relationshipId) {
+		this.relationshipId = relationshipId;
+	}
+
 	public Relationship(String id, String effectiveTime, boolean active, String moduleId, String sourceId, String destinationId, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
 		this.relationshipId = id;
 		this.effectiveTime = effectiveTime;
@@ -66,6 +71,12 @@ public class Relationship extends Entity {
 		this.typeId = typeId;
 		this.characteristicTypeId = characteristicTypeId;
 		this.modifierId = modifierId;
+	}
+
+	@Override
+	@JsonIgnore
+	public String getId() {
+		return relationshipId;
 	}
 
 	@JsonView(value = View.Component.class)
@@ -128,6 +139,22 @@ public class Relationship extends Entity {
 
 	public String getModifierId() {
 		return modifierId;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+
+		Relationship that = (Relationship) o;
+
+		return relationshipId.equals(that.relationshipId);
+
+	}
+
+	@Override
+	public int hashCode() {
+		return relationshipId.hashCode();
 	}
 
 	@Override

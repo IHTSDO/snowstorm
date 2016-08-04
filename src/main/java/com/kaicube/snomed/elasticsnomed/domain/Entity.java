@@ -24,6 +24,13 @@ public class Entity {
 	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
 	private Date end;
 
+	@JsonIgnore
+	private boolean deleted;
+
+	public void markDeleted() {
+		deleted = true;
+	}
+
 	public Entity clearInternalId() {
 		internalId = null;
 		return this;
@@ -65,4 +72,9 @@ public class Entity {
 	public void setEnd(Date end) {
 		this.end = end;
 	}
+
+	public boolean isDeleted() {
+		return deleted;
+	}
+
 }

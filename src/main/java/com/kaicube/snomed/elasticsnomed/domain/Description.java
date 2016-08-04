@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Document(type = "description", indexName = "snomed")
-public class Description extends Entity {
+public class Description extends Component {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -59,7 +59,13 @@ public class Description extends Entity {
 
 	public Description(String term) {
 		this();
+		this.descriptionId = term.hashCode() + "";
 		this.term = term;
+	}
+
+	public Description(String id, String term) {
+		this(term);
+		this.descriptionId = id;
 	}
 
 	public Description(String id, String effectiveTime, boolean active, String moduleId, String conceptId, String languageCode, String typeId, String term, String caseSignificanceId) {
@@ -77,6 +83,12 @@ public class Description extends Entity {
 
 	public void addAcceptability(String languageReferenceSetId, String acceptabilityId) {
 		acceptabilityMap.put(languageReferenceSetId, acceptabilityId);
+	}
+
+	@Override
+	@JsonIgnore
+	public String getId() {
+		return descriptionId;
 	}
 
 	@JsonView(value = View.Component.class)
@@ -154,6 +166,22 @@ public class Description extends Entity {
 
 	public void setCaseSignificanceId(String caseSignificanceId) {
 		this.caseSignificanceId = caseSignificanceId;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+
+		Description that = (Description) o;
+
+		return descriptionId.equals(that.descriptionId);
+
+	}
+
+	@Override
+	public int hashCode() {
+		return descriptionId.hashCode();
 	}
 
 	@Override
