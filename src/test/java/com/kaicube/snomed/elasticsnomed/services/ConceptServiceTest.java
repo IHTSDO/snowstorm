@@ -135,6 +135,33 @@ public class ConceptServiceTest {
 	}
 
 	@Test
+	public void testOnlyUpdateWhatChanged() throws InterruptedException {
+		final String effectiveTime = "20160731";
+
+		conceptService.create(new Concept("1", effectiveTime, true, Concepts.CORE_MODULE, Concepts.PRIMITIVE)
+				.addDescription(new Description("11", effectiveTime, true, Concepts.CORE_MODULE, null, "en",
+						Concepts.FSN, "My Concept (finding)", Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE))
+				.addDescription(new Description("12", effectiveTime, true, Concepts.CORE_MODULE, null, "en",
+						Concepts.SYNONYM, "My Concept", Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE)),
+				"MAIN");
+
+		final Concept conceptAfterSave = conceptService.find("1", "MAIN");
+
+		conceptAfterSave.getDescription("11").setActive(false);
+		conceptService.update(conceptAfterSave, "MAIN");
+
+		final Concept conceptAfterUpdate = conceptService.find("1", "MAIN");
+
+		Assert.assertEquals("Concept document should not have been updated.",
+				conceptAfterSave.getInternalId(), conceptAfterUpdate.getInternalId());
+		Assert.assertEquals("Synonym document should not have been updated.",
+				conceptAfterSave.getDescription("12").getInternalId(), conceptAfterUpdate.getDescription("12").getInternalId());
+		Assert.assertNotEquals("FSN document should have been updated.",
+				conceptAfterSave.getDescription("11").getInternalId(), conceptAfterUpdate.getDescription("11").getInternalId());
+
+	}
+
+	@Test
 	public void testFindConceptOnParentBranchUsingBaseVersion() throws InterruptedException {
 		conceptService.create(new Concept("1", "one"), "MAIN");
 		conceptService.update(new Concept("1", "one1"), "MAIN");

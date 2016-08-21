@@ -1,5 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -8,7 +9,7 @@ import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 @Document(type = "member", indexName = "snomed")
-public class ReferenceSetMember extends Entity {
+public class ReferenceSetMember extends Component<ReferenceSetMember> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -44,6 +45,19 @@ public class ReferenceSetMember extends Entity {
 		this.moduleId = moduleId;
 		this.refsetId = refsetId;
 		this.referencedComponentId = referencedComponentId;
+	}
+
+	@Override
+	public boolean isComponentChanged(ReferenceSetMember that) {
+		return that == null
+				|| active != that.active
+				|| !moduleId.equals(that.moduleId);
+	}
+
+	@Override
+	@JsonIgnore
+	public String getId() {
+		return getMemberId();
 	}
 
 	public String getMemberId() {

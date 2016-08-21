@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Document(type = "description", indexName = "snomed")
-public class Description extends Component {
+public class Description extends Component<Description> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -54,6 +54,11 @@ public class Description extends Component {
 	private Map<String, String> acceptabilityMap;
 
 	public Description() {
+		term = "";
+		moduleId = "";
+		languageCode = "";
+		typeId = "";
+		caseSignificanceId = "";
 		acceptabilityMap = new HashMap<>();
 	}
 
@@ -79,6 +84,17 @@ public class Description extends Component {
 		this.typeId = typeId;
 		this.term = term;
 		this.caseSignificanceId = caseSignificanceId;
+	}
+
+	@Override
+	public boolean isComponentChanged(Description that) {
+		return that == null
+				|| active != that.active
+				|| !term.equals(that.term)
+				|| !moduleId.equals(that.moduleId)
+				|| !languageCode.equals(that.languageCode)
+				|| !typeId.equals(that.typeId)
+				|| !caseSignificanceId.equals(that.caseSignificanceId);
 	}
 
 	public void addAcceptability(String languageReferenceSetId, String acceptabilityId) {

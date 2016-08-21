@@ -9,7 +9,7 @@ import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 @Document(type = "relationship", indexName = "snomed")
-public class Relationship extends Component {
+public class Relationship extends Component<Relationship> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -54,13 +54,20 @@ public class Relationship extends Component {
 	private ConceptMini destination;
 
 	public Relationship() {
+		moduleId = "";
+		destinationId = "";
+		typeId = "";
+		characteristicTypeId = "";
+		modifierId = "";
 	}
 
 	public Relationship(String relationshipId) {
+		this();
 		this.relationshipId = relationshipId;
 	}
 
 	public Relationship(String id, String effectiveTime, boolean active, String moduleId, String sourceId, String destinationId, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
+		this();
 		this.relationshipId = id;
 		this.effectiveTime = effectiveTime;
 		this.active = active;
@@ -71,6 +78,18 @@ public class Relationship extends Component {
 		this.typeId = typeId;
 		this.characteristicTypeId = characteristicTypeId;
 		this.modifierId = modifierId;
+	}
+
+	@Override
+	public boolean isComponentChanged(Relationship that) {
+		return that == null
+				|| active != that.active
+				|| !moduleId.equals(that.moduleId)
+				|| !destinationId.equals(that.destinationId)
+				|| relationshipGroup != that.relationshipGroup
+				|| !typeId.equals(that.typeId)
+				|| !characteristicTypeId.equals(that.characteristicTypeId)
+				|| !modifierId.equals(that.modifierId);
 	}
 
 	@Override

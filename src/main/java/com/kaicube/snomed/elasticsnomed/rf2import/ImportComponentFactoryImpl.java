@@ -29,24 +29,28 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 		conceptPersistBuffer = new PersistBuffer<Concept>() {
 			@Override
 			public void persistCollection(Collection<Concept> entities) {
+				entities.stream().forEach(component -> component.setChanged(true));
 				conceptService.doSaveBatchConcepts(entities, commit);
 			}
 		};
 		descriptionPersistBuffer = new PersistBuffer<Description>() {
 			@Override
 			public void persistCollection(Collection<Description> entities) {
+				entities.stream().forEach(component -> component.setChanged(true));
 				conceptService.doSaveBatchDescriptions(entities, commit);
 			}
 		};
 		relationshipPersistBuffer = new PersistBuffer<Relationship>() {
 			@Override
 			public void persistCollection(Collection<Relationship> entities) {
+				entities.stream().forEach(component -> component.setChanged(true));
 				conceptService.doSaveBatchRelationships(entities, commit);
 			}
 		};
 		memberPersistBuffer = new PersistBuffer<ReferenceSetMember>() {
 			@Override
 			public void persistCollection(Collection<ReferenceSetMember> entities) {
+				entities.stream().forEach(component -> component.setChanged(true));
 				conceptService.doSaveBatchMembers(entities, commit);
 			}
 		};

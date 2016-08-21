@@ -14,7 +14,7 @@ import java.util.Set;
 
 @Document(type = "concept", indexName = "snomed")
 @JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "moduleId", "definitionStatusId", "descriptions", "relationships"})
-public class Concept extends Component {
+public class Concept extends Component<Concept> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -43,6 +43,8 @@ public class Concept extends Component {
 	private Set<Relationship> relationships;
 
 	public Concept() {
+		moduleId = "";
+		definitionStatusId = "";
 		descriptions = new HashSet<>();
 		relationships = new HashSet<>();
 	}
@@ -65,6 +67,14 @@ public class Concept extends Component {
 		this.active = active;
 		this.moduleId = moduleId;
 		this.definitionStatusId = definitionStatusId;
+	}
+
+	@Override
+	public boolean isComponentChanged(Concept that) {
+		return that == null
+				|| active != that.active
+				|| !moduleId.equals(that.moduleId)
+				|| !definitionStatusId.equals(that.definitionStatusId);
 	}
 
 	@JsonView(value = View.Component.class)

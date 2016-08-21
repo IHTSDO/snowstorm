@@ -1,5 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
+import com.google.common.collect.Sets;
 import com.kaicube.snomed.elasticsnomed.domain.*;
 import com.kaicube.snomed.elasticsnomed.repositories.ConceptRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.DescriptionRepository;
@@ -17,11 +18,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -256,6 +259,10 @@ public class ConceptService {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		if (find(conceptVersion.getConceptId(), path) != null) {
 			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
+		} else {
+			conceptVersion.setChanged(true);
+			markDeletionsAndUpdates(conceptVersion.getDescriptions(), Sets.newHashSet());
+			markDeletionsAndUpdates(conceptVersion.getRelationships(), Sets.newHashSet());
 		}
 		return doSave(conceptVersion, branch);
 	}
@@ -264,6 +271,8 @@ public class ConceptService {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		if (find(referenceSetMember.getMemberId(), path) != null) {
 			throw new IllegalArgumentException("Reference Set Member '" + referenceSetMember.getMemberId() + "' already exists on branch '" + path + "'.");
+		} else {
+			referenceSetMember.setChanged(true);
 		}
 		return doSave(referenceSetMember, branch);
 
@@ -278,19 +287,35 @@ public class ConceptService {
 			throw new IllegalArgumentException("Concept '" + conceptId + "' does not exist on branch '" + path + "'.");
 		}
 
-		recoverAndMarkDeletions(conceptVersion.getDescriptions(), existingConcept.getDescriptions());
-		recoverAndMarkDeletions(conceptVersion.getRelationships(), existingConcept.getRelationships());
-
-		return doSave(conceptVersion, branch);
+		conceptVersion.setChanged(conceptVersion.isComponentChanged(existingConcept));
+		if (conceptVersion.isChanged() |
+				markDeletionsAndUpdates(conceptVersion.getDescriptions(), existingConcept.getDescriptions()) |
+				markDeletionsAndUpdates(conceptVersion.getRelationships(), existingConcept.getRelationships())) {
+			return doSave(conceptVersion, branch);
+		} else {
+			logger.info("Nothing changed on concept {}", conceptId);
+		}
+		return existingConcept;
 	}
 
-	private <C extends Component> void recoverAndMarkDeletions(Set<C> newComponents, Set<C> existingComponents) {
+	private <C extends Component> boolean markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents) {
+		boolean anythingChanged = false;
+		// Mark deletions
 		for (C existingComponent : existingComponents) {
 			if (!newComponents.contains(existingComponent)) {
 				existingComponent.markDeleted();
 				newComponents.add(existingComponent);
+				anythingChanged = true;
 			}
 		}
+		// Mark updates
+		final Map<String, C> map = existingComponents.stream().collect(Collectors.toMap(Component::getId, Function.identity()));
+		for (C newComponent : newComponents) {
+			final C existingComponent = map.get(newComponent.getId());
+			newComponent.setChanged(newComponent.isComponentChanged(existingComponent));
+			anythingChanged = true;
+		}
+		return anythingChanged;
 	}
 
 	private Concept doSave(Concept concept, Branch branch) {
@@ -337,47 +362,35 @@ public class ConceptService {
 	}
 
 	public Iterable<Concept> doSaveBatchConcepts(Collection<Concept> concepts, Commit commit) {
-		if (!concepts.isEmpty()) {
-			logger.info("Saving batch of {} concepts", concepts.size());
-			final List<String> ids = concepts.stream().map(Concept::getConceptId).collect(Collectors.toList());
-			versionControlHelper.endOldVersions(commit, "conceptId", Concept.class, ids, this.conceptRepository);
-			versionControlHelper.setEntityMeta(concepts, commit);
-			return conceptRepository.save(concepts);
-		}
-		return Collections.emptyList();
+		return doSaveBatchComponents(concepts, commit, Concept.class, "conceptId", conceptRepository);
 	}
 
 	public void doSaveBatchDescriptions(Collection<Description> descriptions, Commit commit) {
-		if (!descriptions.isEmpty()) {
-			logger.info("Saving batch of {} descriptions", descriptions.size());
-			final List<String> ids = descriptions.stream().map(Description::getDescriptionId).collect(Collectors.toList());
-			versionControlHelper.endOldVersions(commit, "descriptionId", Description.class, ids, this.descriptionRepository);
-			versionControlHelper.removeDeleted(descriptions);
-			versionControlHelper.setEntityMeta(descriptions, commit);
-			descriptionRepository.save(descriptions);
-		}
+		doSaveBatchComponents(descriptions, commit, Description.class, "descriptionId", descriptionRepository);
 	}
 
 	public void doSaveBatchRelationships(Collection<Relationship> relationships, Commit commit) {
-		if (!relationships.isEmpty()) {
-			logger.info("Saving batch of {} relationships", relationships.size());
-			final List<String> ids = relationships.stream().map(Relationship::getRelationshipId).collect(Collectors.toList());
-			versionControlHelper.endOldVersions(commit, "relationshipId", Relationship.class, ids, this.relationshipRepository);
-			versionControlHelper.removeDeleted(relationships);
-			versionControlHelper.setEntityMeta(relationships, commit);
-			relationshipRepository.save(relationships);
-		}
+		doSaveBatchComponents(relationships, commit, Relationship.class, "relationshipId", relationshipRepository);
 	}
 
 	public Iterable<ReferenceSetMember> doSaveBatchMembers(Collection<ReferenceSetMember> members, Commit commit) {
-		if (!members.isEmpty()) {
-			logger.info("Saving batch of {} members", members.size());
-			final List<String> ids = members.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList());
-			versionControlHelper.endOldVersions(commit, "memberId", ReferenceSetMember.class, ids, this.referenceSetMemberRepository);
-			versionControlHelper.setEntityMeta(members, commit);
-			return referenceSetMemberRepository.save(members);
+		return doSaveBatchComponents(members, commit, ReferenceSetMember.class, "memberId", referenceSetMemberRepository);
+	}
+
+	public <C extends Component> Iterable<C> doSaveBatchComponents(Collection<C> components, Commit commit, Class<C> clazz, String idField, ElasticsearchCrudRepository<C, String> repository) {
+		final List<C> changedComponents = components.stream().filter(component -> component.isChanged() || component.isDeleted()).collect(Collectors.toList());
+		if (!changedComponents.isEmpty()) {
+			logger.info("Saving batch of {} {}", changedComponents.size(), clazz.getSimpleName());
+			final List<String> ids = changedComponents.stream().map(Component::getId).collect(Collectors.toList());
+			versionControlHelper.endOldVersions(commit, idField, clazz, ids, repository);
+			versionControlHelper.removeDeleted(changedComponents);
+			versionControlHelper.removeDeleted(components);
+			if (!changedComponents.isEmpty()) {
+				versionControlHelper.setEntityMeta(changedComponents, commit);
+				repository.save(changedComponents);
+			}
 		}
-		return Collections.emptyList();
+		return components;
 	}
 
 	public void postProcess(Commit commit) {
