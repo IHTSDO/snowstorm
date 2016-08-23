@@ -5,12 +5,7 @@ import com.kaicube.snomed.elasticsnomed.domain.Description;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
-import org.springframework.web.bind.annotation.RestController;
-
-import javax.servlet.http.HttpServletRequest;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 public class DescriptionController {
@@ -18,14 +13,12 @@ public class DescriptionController {
 	@Autowired
 	private ConceptService conceptService;
 
-	@RequestMapping("/**/descriptions")
+	@RequestMapping(value = "/{branch}/descriptions", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public Page<Description> findConcepts(@RequestParam String term,
-			@RequestParam(defaultValue = "0") int number, @RequestParam(defaultValue = "100") int size,
-			HttpServletRequest request) {
-		final String path = ControllerHelper.extractBranchPath(request, "/descriptions");
-		return new Page<>(conceptService.findDescriptions(path, term, new PageRequest(number, size)));
+	public Page<Description> findConcepts(@PathVariable String branch, @RequestParam String term,
+			@RequestParam(defaultValue = "0") int number, @RequestParam(defaultValue = "100") int size) {
+		return new Page<>(conceptService.findDescriptions(ControllerHelper.parseBranchPath(branch), term, new PageRequest(number, size)));
 	}
 
 }

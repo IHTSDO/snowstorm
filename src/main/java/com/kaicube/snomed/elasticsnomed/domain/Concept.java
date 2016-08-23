@@ -14,7 +14,7 @@ import java.util.Set;
 
 @Document(type = "concept", indexName = "snomed")
 @JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "moduleId", "definitionStatusId", "descriptions", "relationships"})
-public class Concept extends Component<Concept> {
+public class Concept extends Component<Concept> implements ConceptView {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -78,6 +78,7 @@ public class Concept extends Component<Concept> {
 	}
 
 	@JsonView(value = View.Component.class)
+	@Override
 	public String getFsn() {
 		for (Description description : descriptions) {
 			if (description.isActive() && description.getTypeId().equals(Concepts.FSN)) {
@@ -99,6 +100,7 @@ public class Concept extends Component<Concept> {
 		return this;
 	}
 
+	@Override
 	public Description getDescription(String descriptionId) {
 		for (Description description : descriptions) {
 			if (descriptionId.equals(description.getDescriptionId())) {
@@ -114,6 +116,7 @@ public class Concept extends Component<Concept> {
 		return conceptId;
 	}
 
+	@Override
 	public String getConceptId() {
 		return conceptId;
 	}
@@ -122,6 +125,7 @@ public class Concept extends Component<Concept> {
 		this.conceptId = conceptId;
 	}
 
+	@Override
 	public String getEffectiveTime() {
 		return effectiveTime;
 	}
@@ -130,6 +134,7 @@ public class Concept extends Component<Concept> {
 		this.effectiveTime = effectiveTime;
 	}
 
+	@Override
 	public boolean isActive() {
 		return active;
 	}
@@ -138,6 +143,7 @@ public class Concept extends Component<Concept> {
 		this.active = active;
 	}
 
+	@Override
 	public String getModuleId() {
 		return moduleId;
 	}
@@ -146,6 +152,7 @@ public class Concept extends Component<Concept> {
 		this.moduleId = moduleId;
 	}
 
+	@Override
 	public String getDefinitionStatusId() {
 		return definitionStatusId;
 	}
@@ -154,6 +161,7 @@ public class Concept extends Component<Concept> {
 		this.definitionStatusId = definitionStatusId;
 	}
 
+	@Override
 	public Set<Description> getDescriptions() {
 		return descriptions;
 	}
@@ -162,6 +170,7 @@ public class Concept extends Component<Concept> {
 		this.descriptions = descriptions;
 	}
 
+	@Override
 	public Set<Relationship> getRelationships() {
 		return relationships;
 	}

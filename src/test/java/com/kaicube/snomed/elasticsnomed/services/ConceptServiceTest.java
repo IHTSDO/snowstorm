@@ -1,7 +1,7 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
 import com.google.common.collect.Sets;
-import com.kaicube.snomed.elasticsnomed.App;
+import com.kaicube.snomed.elasticsnomed.Config;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
 import com.kaicube.snomed.elasticsnomed.domain.*;
 import org.junit.After;
@@ -21,7 +21,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = {App.class, TestConfig.class})
+@ContextConfiguration(classes = {Config.class, TestConfig.class})
 public class ConceptServiceTest {
 
 	public static final PageRequest PAGE_REQUEST = new PageRequest(0, 100);

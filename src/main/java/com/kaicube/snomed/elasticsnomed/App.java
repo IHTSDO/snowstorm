@@ -1,84 +1,15 @@
 package com.kaicube.snomed.elasticsnomed;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kaicube.snomed.elasticsnomed.rf2import.ImportService;
-import com.kaicube.snomed.elasticsnomed.services.BranchService;
-import com.kaicube.snomed.elasticsnomed.services.ConceptService;
-import com.kaicube.snomed.elasticsnomed.services.VersionControlHelper;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.context.annotation.Bean;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
-import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
+import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import javax.annotation.PostConstruct;
 
-@SpringBootApplication
-@EnableElasticsearchRepositories(basePackages = "com.kaicube.snomed.elasticsnomed.repositories")
-public class App {
-
-	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
-	private BranchService branchService;
-
-	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
-
-	@Autowired
-	private ImportService importService;
-
-	final Logger logger = LoggerFactory.getLogger(getClass());
-
-	@Bean // Use standalone Elasticsearch Server on localhost
-	public Client client() throws UnknownHostException {
-		final InetAddress localhost = InetAddress.getByName("localhost");
-		return TransportClient.builder().build()
-				.addTransportAddress(new InetSocketTransportAddress(localhost, 9300));
-	}
-
-	@Bean
-	public ObjectMapper getMapper() {
-		return Jackson2ObjectMapperBuilder
-				.json()
-				.defaultViewInclusion(false)
-				.failOnUnknownProperties(false)
-				.serializationInclusion(JsonInclude.Include.NON_NULL)
-				.build();
-	}
-
-	@Bean
-	public ConceptService getConceptService() {
-		return new ConceptService();
-	}
-
-	@Bean
-	public BranchService getBranchService() {
-		return new BranchService();
-	}
-
-	@Bean
-	public ImportService getImportService() {
-		return new ImportService();
-	}
-
-	@Bean
-	public VersionControlHelper getVersionControlHelper() {
-		return new VersionControlHelper();
-	}
+@EnableSwagger2
+public class App extends Config {
 
 	public static void main(String[] args) {
+		System.setProperty("org.apache.tomcat.util.buf.UDecoder.ALLOW_ENCODED_SLASH", "true"); // Swagger encodes the slash in branch paths
 		SpringApplication.run(App.class, args);
 	}
 

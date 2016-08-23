@@ -1,6 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.rf2import;
 
-import com.kaicube.snomed.elasticsnomed.App;
+import com.kaicube.snomed.elasticsnomed.Config;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
 import com.kaicube.snomed.elasticsnomed.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
@@ -26,7 +26,7 @@ import java.util.Map;
 import java.util.Set;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = {App.class, TestConfig.class})
+@ContextConfiguration(classes = {Config.class, TestConfig.class})
 public class ImportServiceTest {
 
 	@Autowired
