@@ -2,6 +2,7 @@ package com.kaicube.elasticversioncontrol.api;
 
 import com.kaicube.elasticversioncontrol.domain.Commit;
 import com.kaicube.elasticversioncontrol.domain.Component;
+import net.jodah.typetools.TypeResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,12 +21,15 @@ public class ComponentService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public <C extends Component> Iterable<C> doSaveBatchComponents(Collection<C> components, Commit commit, Class<C> clazz, String idField, ElasticsearchCrudRepository<C, String> repository) {
+	@SuppressWarnings("unchecked")
+	public <C extends Component> Iterable<C> doSaveBatchComponents(Collection<C> components, Commit commit, String idField, ElasticsearchCrudRepository<C, String> repository) {
+		final Class<?>[] classes = TypeResolver.resolveRawArguments(ElasticsearchCrudRepository.class, repository.getClass());
+		Class<C> componentClass = (Class<C>) classes[0];
 		final List<C> changedComponents = components.stream().filter(component -> component.isChanged() || component.isDeleted()).collect(Collectors.toList());
 		if (!changedComponents.isEmpty()) {
-			logger.info("Saving batch of {} {}", changedComponents.size(), clazz.getSimpleName());
+			logger.info("Saving batch of {} {}", changedComponents.size(), componentClass.getSimpleName());
 			final List<String> ids = changedComponents.stream().map(Component::getId).collect(Collectors.toList());
-			versionControlHelper.endOldVersions(commit, idField, clazz, ids, repository);
+			versionControlHelper.endOldVersions(commit, idField, componentClass, ids, repository);
 			versionControlHelper.removeDeleted(changedComponents);
 			versionControlHelper.removeDeleted(components);
 			if (!changedComponents.isEmpty()) {

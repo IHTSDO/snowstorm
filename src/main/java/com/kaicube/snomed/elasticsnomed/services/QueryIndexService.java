@@ -109,7 +109,7 @@ public class QueryIndexService extends ComponentService {
 	}
 
 	public void doSaveBatch(Collection<QueryIndexConcept> indexConcepts, Commit commit) {
-		doSaveBatchComponents(indexConcepts, commit, QueryIndexConcept.class, "conceptId", queryIndexConceptRepository);
+		doSaveBatchComponents(indexConcepts, commit, "conceptId", queryIndexConceptRepository);
 	}
 
 	public void deleteAll() {

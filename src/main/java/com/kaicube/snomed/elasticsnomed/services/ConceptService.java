@@ -367,19 +367,19 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Iterable<Concept> doSaveBatchConcepts(Collection<Concept> concepts, Commit commit) {
-		return doSaveBatchComponents(concepts, commit, Concept.class, "conceptId", conceptRepository);
+		return doSaveBatchComponents(concepts, commit, "conceptId", conceptRepository);
 	}
 
 	public void doSaveBatchDescriptions(Collection<Description> descriptions, Commit commit) {
-		doSaveBatchComponents(descriptions, commit, Description.class, "descriptionId", descriptionRepository);
+		doSaveBatchComponents(descriptions, commit, "descriptionId", descriptionRepository);
 	}
 
 	public void doSaveBatchRelationships(Collection<Relationship> relationships, Commit commit) {
-		doSaveBatchComponents(relationships, commit, Relationship.class, "relationshipId", relationshipRepository);
+		doSaveBatchComponents(relationships, commit, "relationshipId", relationshipRepository);
 	}
 
 	public Iterable<ReferenceSetMember> doSaveBatchMembers(Collection<ReferenceSetMember> members, Commit commit) {
-		return doSaveBatchComponents(members, commit, ReferenceSetMember.class, "memberId", referenceSetMemberRepository);
+		return doSaveBatchComponents(members, commit, "memberId", referenceSetMemberRepository);
 	}
 
 	public void postProcess(Commit commit) {
