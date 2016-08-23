@@ -1,4 +1,4 @@
-package com.kaicube.snomed.elasticsnomed.services;
+package com.kaicube.elasticversioncontrol.api;
 
 public class PathUtil {
 

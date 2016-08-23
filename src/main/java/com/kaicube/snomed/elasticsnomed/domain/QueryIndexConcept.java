@@ -1,11 +1,12 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
+import com.kaicube.elasticversioncontrol.domain.Component;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.util.Set;
 
 @Document(type = "concept", indexName = "snomed-index")
-public class QueryIndexConcept extends Entity {
+public class QueryIndexConcept extends Component<QueryIndexConcept> {
 
 	private Long conceptId;
 	private Set<Long> ancestors;
@@ -16,6 +17,17 @@ public class QueryIndexConcept extends Entity {
 	public QueryIndexConcept(Long conceptId, Set<Long> ancestorIds) {
 		this.conceptId = conceptId;
 		this.ancestors = ancestorIds;
+	}
+
+	@Override
+	public String getId() {
+		return conceptId.toString();
+	}
+
+	@Override
+	public boolean isComponentChanged(QueryIndexConcept that) {
+		return that == null
+				|| !ancestors.equals(that.ancestors);
 	}
 
 	public Long getConceptId() {

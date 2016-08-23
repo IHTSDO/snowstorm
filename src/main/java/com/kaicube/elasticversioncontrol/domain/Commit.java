@@ -1,4 +1,4 @@
-package com.kaicube.snomed.elasticsnomed.domain;
+package com.kaicube.elasticversioncontrol.domain;
 
 import java.util.Date;
 import java.util.HashSet;

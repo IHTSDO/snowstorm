@@ -1,8 +1,9 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
+import com.kaicube.elasticversioncontrol.api.BranchService;
+import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.Config;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
-import com.kaicube.snomed.elasticsnomed.domain.Branch;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;

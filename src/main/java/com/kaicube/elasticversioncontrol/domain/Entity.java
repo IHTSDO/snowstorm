@@ -1,7 +1,7 @@
-package com.kaicube.snomed.elasticsnomed.domain;
+package com.kaicube.elasticversioncontrol.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.kaicube.snomed.elasticsnomed.services.PathUtil;
+import com.kaicube.elasticversioncontrol.api.PathUtil;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;

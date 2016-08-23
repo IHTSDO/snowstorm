@@ -3,11 +3,11 @@ package com.kaicube.snomed.elasticsnomed;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
+import com.kaicube.elasticversioncontrol.api.BranchService;
+import com.kaicube.elasticversioncontrol.api.VersionControlHelper;
 import com.kaicube.snomed.elasticsnomed.rest.BranchPathUrlRewriteFilter;
 import com.kaicube.snomed.elasticsnomed.rf2import.ImportService;
-import com.kaicube.snomed.elasticsnomed.services.BranchService;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
-import com.kaicube.snomed.elasticsnomed.services.VersionControlHelper;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
@@ -31,7 +31,7 @@ import static com.google.common.base.Predicates.not;
 import static springfox.documentation.builders.PathSelectors.regex;
 
 @SpringBootApplication
-@EnableElasticsearchRepositories(basePackages = "com.kaicube.snomed.elasticsnomed.repositories")
+@EnableElasticsearchRepositories(basePackages = {"com.kaicube.elasticversioncontrol.repositories", "com.kaicube.snomed.elasticsnomed.repositories"})
 public class Config {
 
 	@Autowired

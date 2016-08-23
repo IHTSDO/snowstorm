@@ -1,11 +1,11 @@
 package com.kaicube.snomed.elasticsnomed.rf2import;
 
+import com.kaicube.elasticversioncontrol.api.BranchService;
+import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.Config;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
-import com.kaicube.snomed.elasticsnomed.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.domain.Description;
-import com.kaicube.snomed.elasticsnomed.services.BranchService;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
 import com.kaicube.snomed.elasticsnomed.services.QueryIndexService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;

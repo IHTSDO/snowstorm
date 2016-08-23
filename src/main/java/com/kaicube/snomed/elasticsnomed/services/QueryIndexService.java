@@ -1,6 +1,8 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
-import com.kaicube.snomed.elasticsnomed.domain.Commit;
+import com.kaicube.elasticversioncontrol.api.ComponentService;
+import com.kaicube.elasticversioncontrol.api.VersionControlHelper;
+import com.kaicube.elasticversioncontrol.domain.Commit;
 import com.kaicube.snomed.elasticsnomed.domain.Concepts;
 import com.kaicube.snomed.elasticsnomed.domain.QueryIndexConcept;
 import com.kaicube.snomed.elasticsnomed.domain.Relationship;
@@ -28,13 +30,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
 @Service
-public class QueryIndexService {
+public class QueryIndexService extends ComponentService {
 
 	@Autowired
 	private ElasticsearchTemplate elasticsearchTemplate;
@@ -95,7 +96,9 @@ public class QueryIndexService {
 		final ObjectIterator<ConceptImpl> iterator = concepts.iterator();
 		while (iterator.hasNext()) {
 			concept = iterator.next();
-			conceptsToSave.add(new QueryIndexConcept(concept.getId(), concept.getAncestorIds()));
+			final QueryIndexConcept indexConcept = new QueryIndexConcept(concept.getId(), concept.getAncestorIds());
+			indexConcept.setChanged(true);// TODO - Save only if changed.
+			conceptsToSave.add(indexConcept);
 			i++;
 			if (i % 1000 == 0) {
 				doSaveBatch(conceptsToSave, commit);
@@ -106,13 +109,7 @@ public class QueryIndexService {
 	}
 
 	public void doSaveBatch(Collection<QueryIndexConcept> indexConcepts, Commit commit) {
-		if (!indexConcepts.isEmpty()) {
-			logger.info("Saving batch of {} query-index-concepts", indexConcepts.size());
-			final List<Long> ids = indexConcepts.stream().map(QueryIndexConcept::getConceptId).collect(Collectors.toList());
-			versionControlHelper.endOldVersions(commit, "conceptId", QueryIndexConcept.class, ids, this.queryIndexConceptRepository);
-			versionControlHelper.setEntityMeta(indexConcepts, commit);
-			queryIndexConceptRepository.save(indexConcepts);
-		}
+		doSaveBatchComponents(indexConcepts, commit, QueryIndexConcept.class, "conceptId", queryIndexConceptRepository);
 	}
 
 	public void deleteAll() {

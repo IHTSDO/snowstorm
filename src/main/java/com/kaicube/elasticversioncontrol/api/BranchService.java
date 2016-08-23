@@ -1,10 +1,11 @@
-package com.kaicube.snomed.elasticsnomed.services;
+package com.kaicube.elasticversioncontrol.api;
 
 import com.google.common.collect.Lists;
-import com.kaicube.snomed.elasticsnomed.domain.Branch;
-import com.kaicube.snomed.elasticsnomed.domain.Commit;
-import com.kaicube.snomed.elasticsnomed.repositories.BranchRepository;
+import com.kaicube.elasticversioncontrol.domain.Branch;
+import com.kaicube.elasticversioncontrol.domain.Commit;
+import com.kaicube.elasticversioncontrol.repositories.BranchRepository;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +19,7 @@ import org.springframework.util.Assert;
 import java.util.Date;
 import java.util.List;
 
-import static com.kaicube.snomed.elasticsnomed.services.PathUtil.getParentPath;
+import static com.kaicube.elasticversioncontrol.api.PathUtil.getParentPath;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
@@ -65,7 +66,7 @@ public class BranchService {
 	public Branch findLatest(String path) {
 		final List<Branch> branches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
 				new BoolQueryBuilder()
-						.must(termQuery("path", PathUtil.flaten(path)))
+						.must(QueryBuilders.termQuery("path", PathUtil.flaten(path)))
 						.mustNot(existsQuery("end"))
 		).build(), Branch.class);
 

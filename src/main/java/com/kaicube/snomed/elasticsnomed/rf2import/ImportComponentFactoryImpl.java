@@ -1,7 +1,9 @@
 package com.kaicube.snomed.elasticsnomed.rf2import;
 
+import com.kaicube.elasticversioncontrol.api.BranchService;
+import com.kaicube.elasticversioncontrol.domain.Commit;
+import com.kaicube.elasticversioncontrol.domain.Entity;
 import com.kaicube.snomed.elasticsnomed.domain.*;
-import com.kaicube.snomed.elasticsnomed.services.BranchService;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
 import org.ihtsdo.otf.snomedboot.factory.ComponentFactory;
 

@@ -1,6 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.rf2import;
 
-import com.kaicube.snomed.elasticsnomed.services.BranchService;
+import com.kaicube.elasticversioncontrol.api.BranchService;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.ihtsdo.otf.snomedboot.ReleaseImporter;

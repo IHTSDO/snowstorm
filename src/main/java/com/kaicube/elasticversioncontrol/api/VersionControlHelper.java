@@ -1,9 +1,9 @@
-package com.kaicube.snomed.elasticsnomed.services;
+package com.kaicube.elasticversioncontrol.api;
 
-import com.kaicube.snomed.elasticsnomed.domain.Branch;
-import com.kaicube.snomed.elasticsnomed.domain.Commit;
-import com.kaicube.snomed.elasticsnomed.domain.Component;
-import com.kaicube.snomed.elasticsnomed.domain.Entity;
+import com.kaicube.elasticversioncontrol.domain.Branch;
+import com.kaicube.elasticversioncontrol.domain.Commit;
+import com.kaicube.elasticversioncontrol.domain.Entity;
+import com.kaicube.elasticversioncontrol.domain.Component;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
@@ -30,11 +30,11 @@ public class VersionControlHelper {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	QueryBuilder getBranchCriteriaWithinOpenCommit(Commit commit) {
+	public QueryBuilder getBranchCriteriaWithinOpenCommit(Commit commit) {
 		return getBranchCriteria(commit.getBranch(), commit.getTimepoint(), commit.getEntityVersionsReplaced());
 	}
 
-	QueryBuilder getBranchCriteria(String path) {
+	public QueryBuilder getBranchCriteria(String path) {
 		final Branch branch = branchService.findLatest(path);
 		if (branch == null) {
 			throw new IllegalArgumentException("Branch '" + path + "' does not exist.");

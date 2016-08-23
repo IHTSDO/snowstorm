@@ -1,4 +1,4 @@
-package com.kaicube.snomed.elasticsnomed.domain;
+package com.kaicube.elasticversioncontrol.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 

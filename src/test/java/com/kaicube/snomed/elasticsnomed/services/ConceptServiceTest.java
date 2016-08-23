@@ -1,6 +1,7 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
 import com.google.common.collect.Sets;
+import com.kaicube.elasticversioncontrol.api.BranchService;
 import com.kaicube.snomed.elasticsnomed.Config;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
 import com.kaicube.snomed.elasticsnomed.domain.*;

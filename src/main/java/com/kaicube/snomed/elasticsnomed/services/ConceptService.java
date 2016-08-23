@@ -1,6 +1,12 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
 import com.google.common.collect.Sets;
+import com.kaicube.elasticversioncontrol.api.BranchService;
+import com.kaicube.elasticversioncontrol.api.ComponentService;
+import com.kaicube.elasticversioncontrol.api.VersionControlHelper;
+import com.kaicube.elasticversioncontrol.domain.Branch;
+import com.kaicube.elasticversioncontrol.domain.Commit;
+import com.kaicube.elasticversioncontrol.domain.Component;
 import com.kaicube.snomed.elasticsnomed.domain.*;
 import com.kaicube.snomed.elasticsnomed.repositories.ConceptRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.DescriptionRepository;
@@ -18,7 +24,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
@@ -30,7 +35,7 @@ import java.util.stream.Collectors;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
-public class ConceptService {
+public class ConceptService extends ComponentService {
 
 	@Autowired
 	private ConceptRepository conceptRepository;
@@ -375,22 +380,6 @@ public class ConceptService {
 
 	public Iterable<ReferenceSetMember> doSaveBatchMembers(Collection<ReferenceSetMember> members, Commit commit) {
 		return doSaveBatchComponents(members, commit, ReferenceSetMember.class, "memberId", referenceSetMemberRepository);
-	}
-
-	public <C extends Component> Iterable<C> doSaveBatchComponents(Collection<C> components, Commit commit, Class<C> clazz, String idField, ElasticsearchCrudRepository<C, String> repository) {
-		final List<C> changedComponents = components.stream().filter(component -> component.isChanged() || component.isDeleted()).collect(Collectors.toList());
-		if (!changedComponents.isEmpty()) {
-			logger.info("Saving batch of {} {}", changedComponents.size(), clazz.getSimpleName());
-			final List<String> ids = changedComponents.stream().map(Component::getId).collect(Collectors.toList());
-			versionControlHelper.endOldVersions(commit, idField, clazz, ids, repository);
-			versionControlHelper.removeDeleted(changedComponents);
-			versionControlHelper.removeDeleted(components);
-			if (!changedComponents.isEmpty()) {
-				versionControlHelper.setEntityMeta(changedComponents, commit);
-				repository.save(changedComponents);
-			}
-		}
-		return components;
 	}
 
 	public void postProcess(Commit commit) {
