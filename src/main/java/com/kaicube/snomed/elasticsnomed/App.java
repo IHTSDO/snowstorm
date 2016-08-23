@@ -19,7 +19,7 @@ public class App extends Config {
 //		conceptService.deleteAll();
 //		branchService.deleteAll();
 //		branchService.create("MAIN");
-//		importService.importSnapshot("release/SnomedCT_RF2Release_INT_20160131", "MAIN");
+//		importService.importSnapshot("release/SnomedCT_RF2Release_INT_20160731", "MAIN");
 //		importService.importFull("release/SnomedCT_RF2Release_INT_20160131", "MAIN");
 	}
 
