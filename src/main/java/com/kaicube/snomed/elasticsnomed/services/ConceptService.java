@@ -78,6 +78,18 @@ public class ConceptService extends ComponentService {
 		return concept;
 	}
 
+	public boolean exists(String id, String path) {
+		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+
+		final BoolQueryBuilder builder = boolQuery()
+				.must(branchCriteria)
+				.must(queryStringQuery(id).field("conceptId"));
+
+		final Page<Concept> concepts = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+				.withQuery(builder).build(), Concept.class);
+		return concepts.getTotalElements() > 0;
+	}
+
 	public Page<Concept> findAll(String path, PageRequest pageRequest) {
 		return doFind(null, path, pageRequest);
 	}
@@ -272,7 +284,7 @@ public class ConceptService extends ComponentService {
 
 	public Concept create(Concept conceptVersion, String path) {
 		final Branch branch = branchService.findBranchOrThrow(path);
-		if (find(conceptVersion.getConceptId(), path) != null) {
+		if (exists(conceptVersion.getConceptId(), path)) {
 			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
 		} else {
 			conceptVersion.setChanged(true);
@@ -284,11 +296,8 @@ public class ConceptService extends ComponentService {
 
 	public ReferenceSetMember create(ReferenceSetMember referenceSetMember, String path) {
 		final Branch branch = branchService.findBranchOrThrow(path);
-		if (find(referenceSetMember.getMemberId(), path) != null) {
-			throw new IllegalArgumentException("Reference Set Member '" + referenceSetMember.getMemberId() + "' already exists on branch '" + path + "'.");
-		} else {
-			referenceSetMember.setChanged(true);
-		}
+		// TODO Check if already exists
+		referenceSetMember.setChanged(true);
 		return doSave(referenceSetMember, branch);
 
 	}
