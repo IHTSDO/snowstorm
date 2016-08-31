@@ -12,6 +12,8 @@ import com.kaicube.snomed.elasticsnomed.repositories.ConceptRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.DescriptionRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.ReferenceSetMemberRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.RelationshipRepository;
+import com.kaicube.snomed.elasticsnomed.util.TimerUtil;
+import org.apache.log4j.Level;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -107,7 +109,7 @@ public class ConceptService extends ComponentService {
 		}
 
 		// Fetch descriptions and Lang refsets
-		fetchDescriptions(branchCriteria, null, conceptMiniMap);
+		fetchDescriptions(branchCriteria, null, conceptMiniMap, null);
 
 		return conceptMiniMap.values();
 	}
@@ -126,7 +128,9 @@ public class ConceptService extends ComponentService {
 	}
 
 	private Page<Concept> doFind(String id, String path, PageRequest pageRequest) {
+		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		timer.checkpoint("get branch criteria");
 
 		final BoolQueryBuilder builder = boolQuery()
 				.must(branchCriteria);
@@ -139,6 +143,7 @@ public class ConceptService extends ComponentService {
 				.withPageable(pageRequest);
 
 		final Page<Concept> concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
+		timer.checkpoint("find concept");
 
 		Map<String, Concept> conceptIdMap = new HashMap<>();
 		for (Concept concept : concepts) {
@@ -161,6 +166,7 @@ public class ConceptService extends ComponentService {
 			relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId()));
 			relationship.setDestination(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
 		}
+		timer.checkpoint("get relationships");
 
 		// Fetch ConceptMini definition statuses
 		queryBuilder.withQuery(boolQuery()
@@ -171,13 +177,15 @@ public class ConceptService extends ComponentService {
 		for (Concept concept : conceptsForMini) {
 			conceptMiniMap.get(concept.getConceptId()).setDefinitionStatusId(concept.getDefinitionStatusId());
 		}
+		timer.checkpoint("get relationship def status");
 
-		fetchDescriptions(branchCriteria, conceptIdMap, conceptMiniMap);
+		fetchDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer);
+		timer.finish();
 
 		return concepts;
 	}
 
-	private void fetchDescriptions(QueryBuilder branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap) {
+	private void fetchDescriptions(QueryBuilder branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap, TimerUtil timer) {
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withPageable(PAGE_REQUEST_LARGE);
 
@@ -216,6 +224,7 @@ public class ConceptService extends ComponentService {
 				}
 			}
 		}
+		if (timer != null) timer.checkpoint("get descriptions");
 
 		// Fetch Lang Refset Members
 		queryBuilder.withQuery(boolQuery()
@@ -229,6 +238,7 @@ public class ConceptService extends ComponentService {
 			descriptionIdMap.get(langRefsetMember.getReferencedComponentId())
 					.addAcceptability(langRefsetMember.getRefsetId(), langRefsetMember.getAcceptabilityId());
 		}
+		if (timer != null) timer.checkpoint("get lang refset");
 	}
 
 	private ConceptMini getConceptMini(Map<String, ConceptMini> conceptMiniMap, String id) {
