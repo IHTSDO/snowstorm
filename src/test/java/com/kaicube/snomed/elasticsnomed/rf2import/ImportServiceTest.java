@@ -126,7 +126,7 @@ public class ImportServiceTest {
 		}
 		Assert.assertNotNull(description);
 		Assert.assertEquals("Bleeding", description.getTerm());
-		final Map<String, String> acceptabilityMap = description.getAcceptabilityMap();
+		final Map<String, String> acceptabilityMap = description.getAcceptabilityMapFromLangRefsetMembers();
 		Assert.assertEquals(1, acceptabilityMap.size());
 		Assert.assertEquals("900000000000548007", acceptabilityMap.get("900000000000508004"));
 

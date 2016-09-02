@@ -229,11 +229,11 @@ public class ConceptServiceTest {
 		Assert.assertEquals(1, savedConcept.getDescriptions().size());
 		final Description description = savedConcept.getDescriptions().iterator().next();
 		Assert.assertEquals("84923010", description.getDescriptionId());
-		Assert.assertEquals(0, description.getAcceptabilityMap().size());
+		Assert.assertEquals(0, description.getAcceptabilityMapFromLangRefsetMembers().size());
 	}
 
 	@Test
-	public void testSaveConceptWithDescriptionAndAcceptability() {
+	public void testSaveConceptWithDescriptionAndAcceptabilitySeparately() {
 		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
 		concept.addDescription(new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
 		conceptService.create(concept, "MAIN");
@@ -244,8 +244,26 @@ public class ConceptServiceTest {
 		Assert.assertEquals(1, savedConcept.getDescriptions().size());
 		final Description description = savedConcept.getDescriptions().iterator().next();
 		Assert.assertEquals("84923010", description.getDescriptionId());
-		Assert.assertEquals(1, description.getAcceptabilityMap().size());
-		Assert.assertEquals(Concepts.PREFERRED, description.getAcceptabilityMap().get("900000000000509007"));
+		Assert.assertEquals(1, description.getAcceptabilityMapFromLangRefsetMembers().size());
+		Assert.assertEquals(Concepts.PREFERRED, description.getAcceptabilityMapFromLangRefsetMembers().get("900000000000509007"));
+	}
+
+	@Test
+	public void testSaveConceptWithDescriptionAndAcceptabilityTogether() {
+		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
+		concept.addDescription(
+				new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
+						.addAcceptability("900000000000509007", Concepts.PREFERRED)
+		);
+		conceptService.create(concept, "MAIN");
+
+		final Concept savedConcept = conceptService.find("50960005", "MAIN");
+		Assert.assertNotNull(savedConcept);
+		Assert.assertEquals(1, savedConcept.getDescriptions().size());
+		final Description description = savedConcept.getDescriptions().iterator().next();
+		Assert.assertEquals("84923010", description.getDescriptionId());
+		Assert.assertEquals(1, description.getAcceptabilityMapFromLangRefsetMembers().size());
+		Assert.assertEquals(Concepts.PREFERRED, description.getAcceptabilityMapFromLangRefsetMembers().get("900000000000509007"));
 	}
 
 	@Test

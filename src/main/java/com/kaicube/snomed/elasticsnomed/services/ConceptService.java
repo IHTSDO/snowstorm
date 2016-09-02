@@ -68,7 +68,7 @@ public class ConceptService extends ComponentService {
 	private static final PageRequest PAGE_REQUEST_LARGE = new PageRequest(0, 10000);
 
 	public Concept find(String id, String path) {
-		final Page<Concept> concepts = doFind(id, path, new PageRequest(0, 10));
+		final Page<Concept> concepts = doFind(Collections.singleton(id), path, new PageRequest(0, 10));
 		if (concepts.getTotalElements() > 1) {
 			logger.error("Found more than one concept {}", concepts.getContent());
 			throw new IllegalStateException("More than one concept found for id " + id + " on branch " + path);
@@ -139,15 +139,15 @@ public class ConceptService extends ComponentService {
 		);
 	}
 
-	private Page<Concept> doFind(String id, String path, PageRequest pageRequest) {
+	private Page<Concept> doFind(Collection<String> ids, String path, PageRequest pageRequest) {
 		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 		timer.checkpoint("get branch criteria");
 
 		final BoolQueryBuilder builder = boolQuery()
 				.must(branchCriteria);
-		if (id != null) {
-			builder.must(queryStringQuery(id).field("conceptId"));
+		if (ids != null && !ids.isEmpty()) {
+			builder.must(termsQuery("conceptId", ids));
 		}
 
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
@@ -248,7 +248,7 @@ public class ConceptService extends ComponentService {
 		// Join Lang Refset Members
 		for (LanguageReferenceSetMember langRefsetMember : langRefsetMembers) {
 			descriptionIdMap.get(langRefsetMember.getReferencedComponentId())
-					.addAcceptability(langRefsetMember.getRefsetId(), langRefsetMember.getAcceptabilityId());
+					.addLanguageRefsetMember(langRefsetMember);
 		}
 		if (timer != null) timer.checkpoint("get lang refset");
 	}
@@ -306,20 +306,11 @@ public class ConceptService extends ComponentService {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final String conceptId = conceptVersion.getConceptId();
 		Assert.isTrue(!Strings.isNullOrEmpty(conceptId), "conceptId is required.");
-		final Concept existingConcept = find(conceptId, path);
-		if (existingConcept == null) {
+		if (!exists(conceptId, path)) {
 			throw new IllegalArgumentException("Concept '" + conceptId + "' does not exist on branch '" + path + "'.");
 		}
 
-		conceptVersion.setChanged(conceptVersion.isComponentChanged(existingConcept));
-		if (conceptVersion.isChanged() |
-				markDeletionsAndUpdates(conceptVersion.getDescriptions(), existingConcept.getDescriptions()) |
-				markDeletionsAndUpdates(conceptVersion.getRelationships(), existingConcept.getRelationships())) {
-			return doSave(conceptVersion, branch);
-		} else {
-			logger.info("Nothing changed on concept {}", conceptId);
-		}
-		return existingConcept;
+		return doSave(conceptVersion, branch);
 	}
 
 	private <C extends Component> boolean markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents) {
@@ -357,9 +348,64 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Iterable<Concept> doSaveBatchConceptsAndComponents(Collection<Concept> concepts, Commit commit) {
+		final List<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toList());
+		final Map<String, Concept> existingConceptsMap = new HashMap<>();
+		if (!conceptIds.isEmpty()) {
+			final List<Concept> existingConcepts = doFind(conceptIds, commit.getBranch().getFatPath(), PAGE_REQUEST_LARGE).getContent();
+			for (Concept existingConcept : existingConcepts) {
+				existingConceptsMap.put(existingConcept.getConceptId(), existingConcept);
+			}
+		}
+
 		List<Description> descriptions = new ArrayList<>();
 		List<Relationship> relationships = new ArrayList<>();
+		List<ReferenceSetMember> langRefsetMembers = new ArrayList<>();
 		for (Concept concept : concepts) {
+			final Concept existingConcept = existingConceptsMap.get(concept.getConceptId());
+			final Map<String, Description> existingDescriptions = new HashMap<>();
+
+			// Mark changed concepts as changed
+			if (existingConcept != null) {
+				concept.setChanged(concept.isComponentChanged(existingConcept));
+				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions());
+				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships());
+				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
+			} else {
+				concept.setChanged(true);
+				Sets.union(concept.getDescriptions(), concept.getRelationships()).stream().forEach(component -> component.setChanged(true));
+			}
+			for (Description description : concept.getDescriptions()) {
+				final Description existingDescription = existingDescriptions.get(description.getDescriptionId());
+				final Map<String, LanguageReferenceSetMember> members = new HashMap<>();
+				if (existingDescription != null) {
+					members.putAll(existingDescription.getLangRefsetMembers().stream().collect(Collectors.toMap(LanguageReferenceSetMember::getRefsetId, Function.identity())));
+					langRefsetMembers.addAll(members.values());
+				} else {
+					if (description.getDescriptionId() == null) {
+						description.setDescriptionId(IDService.getHackId());
+					}
+				}
+				for (Map.Entry<String, String> acceptability : description.getAcceptabilityMap().entrySet()) {
+					final LanguageReferenceSetMember existingMember = members.get(acceptability.getKey());
+					if (existingMember != null) {
+						if (!existingMember.getAcceptabilityId().equals(acceptability.getValue()) || !existingMember.isActive()) {
+							existingMember.setAcceptabilityId(acceptability.getValue());
+							existingMember.setActive(true);
+							existingMember.setChanged(true);
+							members.remove(acceptability.getKey());
+						}
+					} else {
+						final LanguageReferenceSetMember member = new LanguageReferenceSetMember(acceptability.getKey(), description.getId(), acceptability.getValue());
+						member.setChanged(true);
+						langRefsetMembers.add(member);
+					}
+				}
+				for (LanguageReferenceSetMember leftoverMember : members.values()) {
+					// TODO: make inactive if released
+					leftoverMember.markDeleted();
+				}
+			}
+
 			// Detach concept's components to be persisted separately
 			descriptions.addAll(concept.getDescriptions());
 			concept.getDescriptions().clear();
@@ -369,6 +415,7 @@ public class ConceptService extends ComponentService {
 
 		final Iterable<Concept> conceptsSaved = doSaveBatchConcepts(concepts, commit);
 		doSaveBatchDescriptions(descriptions, commit);
+		doSaveBatchMembers(langRefsetMembers, commit);
 		doSaveBatchRelationships(relationships, commit);
 
 		Map<String, Concept> conceptMap = new HashMap<>();

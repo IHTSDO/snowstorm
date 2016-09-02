@@ -6,6 +6,8 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 
+import java.util.UUID;
+
 @Document(type = "member", indexName = "snomed")
 public class LanguageReferenceSetMember extends ReferenceSetMember {
 
@@ -18,6 +20,11 @@ public class LanguageReferenceSetMember extends ReferenceSetMember {
 
 	public LanguageReferenceSetMember(String memberId, String effectiveTime, boolean active, String moduleId, String refsetId, String referencedComponentId, String acceptabilityId) {
 		super(memberId, effectiveTime, active, moduleId, refsetId, referencedComponentId);
+		this.acceptabilityId = acceptabilityId;
+	}
+
+	public LanguageReferenceSetMember(String refsetId, String referencedComponentId, String acceptabilityId) {
+		super(UUID.randomUUID().toString(), null, true, Concepts.CORE_MODULE, refsetId, referencedComponentId);
 		this.acceptabilityId = acceptabilityId;
 	}
 

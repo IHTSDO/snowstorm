@@ -1,6 +1,7 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.kaicube.elasticversioncontrol.domain.Component;
 import com.kaicube.snomed.elasticsnomed.rest.View;
@@ -10,7 +11,9 @@ import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 @Document(type = "description", indexName = "snomed")
 public class Description extends Component<Description> {
@@ -52,7 +55,12 @@ public class Description extends Component<Description> {
 	private String caseSignificanceId;
 
 	@JsonIgnore
+	// Populated when requesting an update
 	private Map<String, String> acceptabilityMap;
+
+	@JsonIgnore
+	// Populated when loading from store
+	private Set<LanguageReferenceSetMember> langRefsetMembers;
 
 	public Description() {
 		term = "";
@@ -61,6 +69,7 @@ public class Description extends Component<Description> {
 		typeId = "";
 		caseSignificanceId = "";
 		acceptabilityMap = new HashMap<>();
+		langRefsetMembers = new HashSet<>();
 	}
 
 	public Description(String term) {
@@ -98,8 +107,14 @@ public class Description extends Component<Description> {
 				|| !caseSignificanceId.equals(that.caseSignificanceId);
 	}
 
-	public void addAcceptability(String languageReferenceSetId, String acceptabilityId) {
+	public Description addAcceptability(String languageReferenceSetId, String acceptabilityId) {
 		acceptabilityMap.put(languageReferenceSetId, acceptabilityId);
+		return this;
+	}
+
+	public Description addLanguageRefsetMember(LanguageReferenceSetMember member) {
+		langRefsetMembers.add(member);
+		return this;
 	}
 
 	@Override
@@ -109,6 +124,19 @@ public class Description extends Component<Description> {
 	}
 
 	@JsonView(value = View.Component.class)
+	@JsonProperty(value = "acceptabilityMap")
+	public Map<String, String> getAcceptabilityMapFromLangRefsetMembers() {
+		Map<String, String> map = new HashMap<>();
+		for (LanguageReferenceSetMember member : langRefsetMembers) {
+			if (member.isActive()) map.put(member.getRefsetId(), member.getAcceptabilityId());
+		}
+		return map;
+	}
+
+	public Set<LanguageReferenceSetMember> getLangRefsetMembers() {
+		return langRefsetMembers;
+	}
+
 	public Map<String, String> getAcceptabilityMap() {
 		return acceptabilityMap;
 	}
