@@ -9,7 +9,6 @@ import com.kaicube.snomed.elasticsnomed.domain.Relationship;
 import com.kaicube.snomed.elasticsnomed.repositories.QueryIndexConceptRepository;
 import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
-import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.ihtsdo.otf.snomedboot.ComponentStore;
 import org.ihtsdo.otf.snomedboot.domain.Concept;
 import org.ihtsdo.otf.snomedboot.factory.ComponentFactory;
@@ -18,8 +17,6 @@ import org.ihtsdo.otf.snomedboot.factory.implementation.standard.ConceptImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -65,14 +62,11 @@ public class QueryIndexService extends ComponentService {
 
 	public void createTransitiveClosureForEveryConcept(Commit commit) {
 		logger.info("Calculating transitive closures");
-		Pageable pageable = new PageRequest(0, 10000);
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(versionControlHelper.getBranchCriteriaWithinOpenCommit(commit))
 						.must(termQuery("typeId", Concepts.ISA))
-				)
-				.withSort(new FieldSortBuilder("effectiveTime"))
-				.withPageable(pageable);
+				);
 
 		final ComponentStore componentStore = new ComponentStore();
 		ComponentFactory componentFactory = new ComponentFactoryImpl(componentStore);
@@ -81,8 +75,6 @@ public class QueryIndexService extends ComponentService {
 			relationshipStream.forEachRemaining(relationship -> {
 				if (relationship.isActive()) {
 					componentFactory.addConceptParent(relationship.getSourceId(), relationship.getDestinationId());
-				} else {
-					componentFactory.removeConceptParent(relationship.getSourceId(), relationship.getDestinationId());
 				}
 			});
 		}
