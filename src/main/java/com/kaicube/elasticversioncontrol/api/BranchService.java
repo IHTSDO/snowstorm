@@ -144,5 +144,11 @@ public class BranchService {
 		branchRepository.save(Lists.newArrayList(oldBranchTimespan, newBranchTimespan));
 	}
 
+	public void forceUnlock(String branchPath) {
+		Branch branch = findLatest(branchPath);
+		branch.setLocked(false);
+		branchRepository.save(branch);
+	}
+
 	// TODO - Implement commit rollback; simply delete all entities at commit timepoint from branch and remove write lock.
 }
