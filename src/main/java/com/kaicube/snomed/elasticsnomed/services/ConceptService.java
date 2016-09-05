@@ -444,6 +444,12 @@ public class ConceptService extends ComponentService {
 		return doSaveBatchComponents(members, commit, "memberId", referenceSetMemberRepository);
 	}
 
+	public void createTransitiveClosureForEveryConcept(String branch) {
+		final Commit commit = branchService.openCommit(branch);
+		postProcess(commit);
+		branchService.completeCommit(commit);
+	}
+
 	public void postProcess(Commit commit) {
 		queryIndexService.createTransitiveClosureForEveryConcept(commit);
 	}

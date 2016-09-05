@@ -51,4 +51,9 @@ public class ConceptController {
 		return conceptService.findConceptChildrenInferred(conceptId, ControllerHelper.parseBranchPath(branch));
 	}
 
+	@RequestMapping(value = "/{branch}/calculate-transitive-closure", method = RequestMethod.POST, produces = "application/json")
+	public void calculateTransitiveClosure(@PathVariable String branch) {
+		conceptService.createTransitiveClosureForEveryConcept(branch);
+	}
+
 }
