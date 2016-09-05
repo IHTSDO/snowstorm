@@ -39,6 +39,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 @Service
 public class ConceptService extends ComponentService {
 
+	public static final PageRequest LARGE_PAGE = new PageRequest(0, 10000);
 	@Autowired
 	private ConceptRepository conceptRepository;
 
@@ -108,6 +109,7 @@ public class ConceptService extends ComponentService {
 						.must(branchCriteria)
 						.must(termsQuery("conceptId", childrenIds))
 				)
+				.withPageable(LARGE_PAGE)
 				.build(), Concept.class
 		)) {
 			conceptStream.forEachRemaining(concept -> conceptMiniMap.put(concept.getConceptId(), new ConceptMini(concept).setLeafInferred(true)));
@@ -133,6 +135,7 @@ public class ConceptService extends ComponentService {
 						.must(destinationCriteria)
 						.must(termQuery("characteristicTypeId", Concepts.INFERRED))
 				)
+				.withPageable(LARGE_PAGE)
 				.build(), Relationship.class
 		);
 	}
@@ -167,7 +170,9 @@ public class ConceptService extends ComponentService {
 		// Fetch Relationships
 		queryBuilder.withQuery(boolQuery()
 				.must(termsQuery("sourceId", conceptIdMap.keySet()))
-				.must(branchCriteria));
+				.must(branchCriteria))
+				.withPageable(LARGE_PAGE);
+
 		// Join Relationships
 		try (final CloseableIterator<Relationship> relationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
 			relationships.forEachRemaining(relationship -> {
@@ -181,7 +186,8 @@ public class ConceptService extends ComponentService {
 		// Fetch ConceptMini definition statuses
 		queryBuilder.withQuery(boolQuery()
 				.must(termsQuery("conceptId", conceptMiniMap.keySet()))
-				.must(branchCriteria));
+				.must(branchCriteria))
+				.withPageable(LARGE_PAGE);
 		try (final CloseableIterator<Concept> conceptsForMini = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
 			conceptsForMini.forEachRemaining(concept -> {
 				conceptMiniMap.get(concept.getConceptId()).setDefinitionStatusId(concept.getDefinitionStatusId());
@@ -212,7 +218,8 @@ public class ConceptService extends ComponentService {
 
 		queryBuilder.withQuery(boolQuery()
 				.must(branchCriteria))
-				.withFilter(boolQuery().must(termsQuery("conceptId", allConceptIds)));
+				.withFilter(boolQuery().must(termsQuery("conceptId", allConceptIds)))
+				.withPageable(LARGE_PAGE);
 		Map<String, Description> descriptionIdMap = new HashMap<>();
 		// Join Descriptions
 		try (final CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(queryBuilder.build(), Description.class)) {
@@ -239,7 +246,8 @@ public class ConceptService extends ComponentService {
 		queryBuilder.withQuery(boolQuery()
 				.must(branchCriteria)
 				.must(termQuery("active", true)))
-				.withFilter(boolQuery().must(termsQuery("referencedComponentId", descriptionIdMap.keySet())));
+				.withFilter(boolQuery().must(termsQuery("referencedComponentId", descriptionIdMap.keySet())))
+				.withPageable(LARGE_PAGE);
 		// Join Lang Refset Members
 		try (final CloseableIterator<LanguageReferenceSetMember> langRefsetMembers = elasticsearchTemplate.stream(queryBuilder.build(), LanguageReferenceSetMember.class)) {
 			langRefsetMembers.forEachRemaining(langRefsetMember -> {
