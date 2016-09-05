@@ -25,7 +25,7 @@ public class ComponentService {
 	public <C extends Component> Iterable<C> doSaveBatchComponents(Collection<C> components, Commit commit, String idField, ElasticsearchCrudRepository<C, String> repository) {
 		final Class<?>[] classes = TypeResolver.resolveRawArguments(ElasticsearchCrudRepository.class, repository.getClass());
 		Class<C> componentClass = (Class<C>) classes[0];
-		final List<C> changedComponents = components.stream().filter(component -> component.isChanged() || component.isDeleted()).collect(Collectors.toList());
+		final List<C> changedComponents = getChangedComponents(components);
 		if (!changedComponents.isEmpty()) {
 			logger.info("Saving batch of {} {}", changedComponents.size(), componentClass.getSimpleName());
 			final List<String> ids = changedComponents.stream().map(Component::getId).collect(Collectors.toList());
@@ -38,6 +38,10 @@ public class ComponentService {
 			}
 		}
 		return components;
+	}
+
+	protected <C extends Component> List<C> getChangedComponents(Collection<C> components) {
+		return components.stream().filter(component -> component.isChanged() || component.isDeleted()).collect(Collectors.toList());
 	}
 
 }
