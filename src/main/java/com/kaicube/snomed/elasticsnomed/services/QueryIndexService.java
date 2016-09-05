@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
@@ -66,20 +67,23 @@ public class QueryIndexService extends ComponentService {
 				.withQuery(boolQuery()
 						.must(versionControlHelper.getBranchCriteriaWithinOpenCommit(commit))
 						.must(termQuery("typeId", Concepts.ISA))
+						.must(termQuery("characteristicTypeId", Concepts.INFERRED))
 				);
 
 		final ComponentStore componentStore = new ComponentStore();
 		ComponentFactory componentFactory = new ComponentFactoryImpl(componentStore);
 
+		final AtomicLong activeRelationshipCount = new AtomicLong(0);
 		try (final CloseableIterator<Relationship> relationshipStream = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
 			relationshipStream.forEachRemaining(relationship -> {
 				if (relationship.isActive()) {
 					componentFactory.addConceptParent(relationship.getSourceId(), relationship.getDestinationId());
+					activeRelationshipCount.incrementAndGet();
 				}
 			});
 		}
 
-		logger.info("Processing relationships.");
+		logger.info("Processed {} active relationships.", activeRelationshipCount.get());
 
 		final ObjectCollection<ConceptImpl> concepts = componentStore.getConcepts().values();
 		final List<QueryIndexConcept> conceptsToSave = new ArrayList<>();
@@ -92,7 +96,7 @@ public class QueryIndexService extends ComponentService {
 			indexConcept.setChanged(true);// TODO - Save only if changed.
 			conceptsToSave.add(indexConcept);
 			i++;
-			if (i % 1000 == 0) {
+			if (i % 100000 == 0) {
 				doSaveBatch(conceptsToSave, commit);
 				conceptsToSave.clear();
 			}
