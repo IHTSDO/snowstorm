@@ -2,20 +2,22 @@ package com.kaicube.elasticversioncontrol.api;
 
 import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.elasticversioncontrol.domain.Commit;
-import com.kaicube.elasticversioncontrol.domain.Entity;
 import com.kaicube.elasticversioncontrol.domain.Component;
+import com.kaicube.elasticversioncontrol.domain.Entity;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
+import org.springframework.data.util.CloseableIterator;
 import org.springframework.util.Assert;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -76,8 +78,8 @@ public class VersionControlHelper {
 	}
 
 	<T extends Entity> void endOldVersions(Commit commit, String idField, Class<T> clazz, Collection<? extends Object> ids, ElasticsearchCrudRepository repository) {
-		// Find versions replaced across all paths
-		final List<T> localVersionsToEnd = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+		// End versions of the entity on this path by setting end date
+		final NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(
 						new BoolQueryBuilder()
 								.must(termQuery("path", commit.getFlatBranchPath()))
@@ -88,35 +90,46 @@ public class VersionControlHelper {
 						new BoolQueryBuilder()
 								.must(termsQuery(idField, ids))
 				)
-				.withPageable(new PageRequest(0, 10000)) // FIXME: this is temporary
-				.build(), clazz);
-		if (!localVersionsToEnd.isEmpty()) {
-			for (Entity replacedVersion : localVersionsToEnd) {
-				replacedVersion.setEnd(commit.getTimepoint());
-			}
-			repository.save(localVersionsToEnd);
+				.build();
+
+		List<T> toSave = new ArrayList<>();
+		try (final CloseableIterator<T> localVersionsToEnd = elasticsearchTemplate.stream(query, clazz)) {
+			localVersionsToEnd.forEachRemaining(version -> {
+				version.setEnd(commit.getTimepoint());
+				toSave.add(version);
+			});
+		}
+		if (!toSave.isEmpty()) {
+			repository.save(toSave);
+			toSave.clear();
 		}
 
-		// Find versions to end across all paths
-		final List<? extends Entity> replacedVersions = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
-				new BoolQueryBuilder()
-						.must(getBranchCriteria(commit.getBranch().getFatPath()))
-						.must(rangeQuery("start").lt(commit.getTimepoint()))
-						.mustNot(existsQuery("end"))
-		)
+		// Hide versions of the entity on other paths from this branch
+		final NativeSearchQuery query2 = new NativeSearchQueryBuilder()
+				.withQuery(
+						new BoolQueryBuilder()
+								.must(getBranchCriteria(commit.getBranch().getFatPath()))
+								.must(rangeQuery("start").lt(commit.getTimepoint()))
+								.mustNot(existsQuery("end"))
+				)
 				.withFilter(
 						new BoolQueryBuilder()
 								.must(termsQuery(idField, ids))
 				)
-				.withPageable(new PageRequest(0, 10000)) // FIXME: this is temporary
-				.build(), clazz);
-		if (!replacedVersions.isEmpty()) {
-			for (Entity replacedVersion : replacedVersions) {
-				commit.addVersionReplaced(replacedVersion.getInternalId());
-			}
-			repository.save(replacedVersions);
+				.build();
+
+		AtomicLong replacedVersionsCount = new AtomicLong(0);
+		try (final CloseableIterator<T> replacedVersions = elasticsearchTemplate.stream(query2, clazz)) {
+			replacedVersions.forEachRemaining(version -> {
+				commit.addVersionReplaced(version.getInternalId());
+				toSave.add(version);
+				replacedVersionsCount.incrementAndGet();
+			});
 		}
-		logger.info("{} old versions of {} replaced.", replacedVersions.size(), clazz);
+		if (!toSave.isEmpty()) {
+			repository.save(toSave);// TODO: Why is this needed?
+		}
+		logger.info("{} old versions of {} replaced.", replacedVersionsCount.get(), clazz);
 	}
 
 	void setEntityMeta(Entity entity, Commit commit) {
