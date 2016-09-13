@@ -5,7 +5,7 @@ public class IDService {
 	// TODO - CIS Integration
 
 	public static String getHackId() {
-		return "" + Math.round(Math.random() * 1000000000f);
+		return ("" + Math.round(Math.random() * 100000000000f)).substring(0, 9);
 	}
 
 }
