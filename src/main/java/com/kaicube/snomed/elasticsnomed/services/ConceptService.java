@@ -286,6 +286,19 @@ public class ConceptService extends ComponentService {
 		return elasticsearchTemplate.queryForPage(build, Description.class);
 	}
 
+	public Collection<String> listChangedConceptIds(String path) {
+		final QueryBuilder branchCriteria = versionControlHelper.getChangesOnBranchCriteria(path);
+		final List<String> conceptIds = new ArrayList<>();
+		try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(
+				new NativeSearchQueryBuilder()
+						.withQuery(boolQuery().must(branchCriteria))
+						.withPageable(LARGE_PAGE)
+						.build(), Concept.class)) {
+			stream.forEachRemaining(concept -> conceptIds.add(concept.getConceptId()));
+		}
+		return conceptIds;
+	}
+
 	public Concept create(Concept conceptVersion, String path) {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		if (exists(conceptVersion.getConceptId(), path)) {

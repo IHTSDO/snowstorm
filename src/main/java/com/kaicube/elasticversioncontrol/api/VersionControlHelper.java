@@ -33,18 +33,28 @@ public class VersionControlHelper {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public QueryBuilder getBranchCriteriaWithinOpenCommit(Commit commit) {
-		return getBranchCriteria(commit.getBranch(), commit.getTimepoint(), commit.getEntityVersionsReplaced());
+		return getBranchCriteria(commit.getBranch(), commit.getTimepoint(), commit.getEntityVersionsReplaced(), false);
 	}
 
 	public QueryBuilder getBranchCriteria(String path) {
+		final Branch branch = getBranchOrThrow(path);
+		return getBranchCriteria(branch, branch.getHead(), branch.getVersionsReplaced(), false);
+	}
+
+	public QueryBuilder getChangesOnBranchCriteria(String path) {
+		final Branch branch = getBranchOrThrow(path);
+		return getBranchCriteria(branch, branch.getHead(), branch.getVersionsReplaced(), true);
+	}
+
+	private Branch getBranchOrThrow(String path) {
 		final Branch branch = branchService.findLatest(path);
 		if (branch == null) {
 			throw new IllegalArgumentException("Branch '" + path + "' does not exist.");
 		}
-		return getBranchCriteria(branch, branch.getHead(), branch.getVersionsReplaced());
+		return branch;
 	}
 
-	private BoolQueryBuilder getBranchCriteria(Branch branch, Date timepoint, Set<String> versionsReplaced) {
+	private BoolQueryBuilder getBranchCriteria(Branch branch, Date timepoint, Set<String> versionsReplaced, boolean onlyChangesOnBranch) {
 		final BoolQueryBuilder branchCriteria = boolQuery();
 		branchCriteria.should(
 				boolQuery()
@@ -53,7 +63,9 @@ public class VersionControlHelper {
 						.mustNot(existsQuery("end"))
 		);
 
-		addParentCriteriaRecursively(branchCriteria, branch, versionsReplaced);
+		if (!onlyChangesOnBranch) {
+			addParentCriteriaRecursively(branchCriteria, branch, versionsReplaced);
+		}
 
 		return branchCriteria;
 	}

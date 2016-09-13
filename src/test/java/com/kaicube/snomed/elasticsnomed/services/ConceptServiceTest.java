@@ -322,6 +322,23 @@ public class ConceptServiceTest {
 		Assert.assertEquals(1, concept1.getDescriptions().size());
 	}
 
+	@Test
+	public void testListChangedConceptsOnBranch() {
+		Assert.assertEquals(0, conceptService.listChangedConceptIds("MAIN").size());
+
+		branchService.create("MAIN/A");
+
+		createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
+		createConceptWithPathIdAndTerms("MAIN", "2", "Arm");
+
+		Assert.assertEquals(2, conceptService.listChangedConceptIds("MAIN").size());
+		Assert.assertEquals(0, conceptService.listChangedConceptIds("MAIN/A").size());
+
+		createConceptWithPathIdAndTerms("MAIN/A", "3", "Foot");
+
+		Assert.assertArrayEquals(new String[]{"3"}, conceptService.listChangedConceptIds("MAIN/A").toArray());
+	}
+
 	private void printAllDescriptions(String path) {
 		final Page<Description> descriptions = conceptService.findDescriptions(path, null, PAGE_REQUEST);
 		logger.info("Description on " + path);
