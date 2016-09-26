@@ -4,6 +4,7 @@ import org.apache.catalina.comet.CometEvent;
 import org.apache.catalina.comet.CometFilterChain;
 import org.apache.catalina.filters.RequestFilter;
 import org.apache.juli.logging.Log;
+import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
@@ -18,6 +19,7 @@ import javax.servlet.http.HttpServletRequestWrapper;
 public class BranchPathUrlRewriteFilter extends RequestFilter {
 
 	private final Set<String> delimiters;
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public BranchPathUrlRewriteFilter(Set<String> delimiters) {
 		this.delimiters = delimiters;
@@ -26,24 +28,39 @@ public class BranchPathUrlRewriteFilter extends RequestFilter {
 	@Override
 	public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
 		HttpServletRequest request = (HttpServletRequest) servletRequest;
-		String requestURI = request.getRequestURI();
-		String delimiterMatch = getDelimiterMatch(requestURI, delimiters);
-		if (delimiterMatch != null && !"true".equals(servletRequest.getAttribute("branch-path-filtered"))) {
-			final int i = requestURI.indexOf(delimiterMatch);
-			LoggerFactory.getLogger(getClass()).info("requestURI {}", requestURI);
-			final String finalRequestURI = "/" + requestURI.substring(1, i).replace("/", "|").replace("%2F", "|") + requestURI.substring(i);
-			LoggerFactory.getLogger(getClass()).info("finalRequestURI {}", finalRequestURI);
-			servletRequest = new HttpServletRequestWrapper(request) {
-				@Override
-				public String getRequestURI() {
-					return finalRequestURI;
-				}
-			};
-			servletRequest.setAttribute("branch-path-filtered", "true");
-			servletRequest.getRequestDispatcher(finalRequestURI).forward(servletRequest, servletResponse);
-		} else {
-			filterChain.doFilter(servletRequest, servletResponse);
+		if (!"true".equals(servletRequest.getAttribute("branch-path-filtered"))) {
+			String rewrittenRequestURI = rewriteUri(request.getRequestURI());
+			if (rewrittenRequestURI != null) {
+				logger.info("finalRequestURI {}", rewrittenRequestURI);
+				servletRequest = new HttpServletRequestWrapper(request) {
+					@Override
+					public String getRequestURI() {
+						return rewrittenRequestURI;
+					}
+				};
+				servletRequest.setAttribute("branch-path-filtered", "true");
+				servletRequest.getRequestDispatcher(rewrittenRequestURI).forward(servletRequest, servletResponse);
+				return;
+			}
 		}
+		filterChain.doFilter(servletRequest, servletResponse);
+	}
+
+	private String rewriteUri(String requestURI) {
+		if (requestURI != null) {
+			for (String delimiter : delimiters) {
+				final int i = requestURI.indexOf(delimiter);
+				if (i == 0) {
+					logger.info("requestURI {}", requestURI);
+					final int end = requestURI.indexOf("/", delimiter.length()) + i;
+					return delimiter + "/" + requestURI.substring(delimiter.length(), end).replace("/", "|").replace("%2F", "|") + requestURI.substring(end);
+				} else if (i > 0) {
+					logger.info("requestURI {}", requestURI);
+					return "/" + requestURI.substring(1, i).replace("/", "|").replace("%2F", "|") + requestURI.substring(i);
+				}
+			}
+		}
+		return null;
 	}
 
 	private String getDelimiterMatch(String requestURI, Set<String> delimiters) {
