@@ -5,7 +5,7 @@
 
 	<groupId>com.kaicube.snomed</groupId>
 	<artifactId>elastic-snomed</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
+	<version>0.0.2-SNAPSHOT</version>
 
 	<name>Snomed CT ElasticSearch</name>
 	<description>A Snomed CT ElasticSearch Server</description>
