@@ -10,7 +10,7 @@ import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 @Document(type = "member", indexName = "snomed")
-public class ReferenceSetMember extends Component<ReferenceSetMember> {
+public class ReferenceSetMember<C extends ReferenceSetMember> extends Component<C> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -49,10 +49,10 @@ public class ReferenceSetMember extends Component<ReferenceSetMember> {
 	}
 
 	@Override
-	public boolean isComponentChanged(ReferenceSetMember that) {
+	public boolean isComponentChanged(C that) {
 		return that == null
-				|| active != that.active
-				|| !moduleId.equals(that.moduleId);
+				|| active != that.isActive()
+				|| !moduleId.equals(that.getModuleId());
 	}
 
 	@Override

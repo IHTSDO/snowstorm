@@ -345,7 +345,9 @@ public class ConceptService extends ComponentService {
 		for (C newComponent : newComponents) {
 			final C existingComponent = map.get(newComponent.getId());
 			newComponent.setChanged(newComponent.isComponentChanged(existingComponent));
-			anythingChanged = true;
+			if (newComponent.isChanged()) {
+				anythingChanged = true;
+			}
 		}
 		return anythingChanged;
 	}
@@ -374,9 +376,9 @@ public class ConceptService extends ComponentService {
 			}
 		}
 
-		List<Description> descriptions = new ArrayList<>();
-		List<Relationship> relationships = new ArrayList<>();
-		List<ReferenceSetMember> langRefsetMembers = new ArrayList<>();
+		List<Description> descriptionsToPersist = new ArrayList<>();
+		List<Relationship> relationshipsToPersist = new ArrayList<>();
+		List<ReferenceSetMember> langRefsetMembersToPersist = new ArrayList<>();
 		for (Concept concept : concepts) {
 			final Concept existingConcept = existingConceptsMap.get(concept.getConceptId());
 			final Map<String, Description> existingDescriptions = new HashMap<>();
@@ -393,56 +395,61 @@ public class ConceptService extends ComponentService {
 			}
 			for (Description description : concept.getDescriptions()) {
 				final Description existingDescription = existingDescriptions.get(description.getDescriptionId());
-				final Map<String, LanguageReferenceSetMember> members = new HashMap<>();
+				final Map<String, LanguageReferenceSetMember> existingMembersToMatch = new HashMap<>();
 				if (existingDescription != null) {
-					members.putAll(existingDescription.getLangRefsetMembers().stream().collect(Collectors.toMap(LanguageReferenceSetMember::getRefsetId, Function.identity())));
-					langRefsetMembers.addAll(members.values());
+					existingMembersToMatch.putAll(existingDescription.getLangRefsetMembers().stream().collect(Collectors.toMap(LanguageReferenceSetMember::getRefsetId, Function.identity())));
+					langRefsetMembersToPersist.addAll(existingMembersToMatch.values());
 				} else {
 					if (description.getDescriptionId() == null) {
 						description.setDescriptionId(IDService.getHackId());
 					}
 				}
 				for (Map.Entry<String, String> acceptability : description.getAcceptabilityMap().entrySet()) {
-					final LanguageReferenceSetMember existingMember = members.get(acceptability.getKey());
+					final String acceptabilityValue = acceptability.getValue();
+					if (acceptabilityValue == null) {
+						throw new IllegalArgumentException("Acceptability values may not be null.");
+					}
+
+					final LanguageReferenceSetMember existingMember = existingMembersToMatch.get(acceptability.getKey());
 					if (existingMember != null) {
-						if (!existingMember.getAcceptabilityId().equals(acceptability.getValue()) || !existingMember.isActive()) {
-							existingMember.setAcceptabilityId(acceptability.getValue());
+						if (!acceptabilityValue.equals(existingMember.getAcceptabilityId()) || !existingMember.isActive()) {
+							existingMember.setAcceptabilityId(acceptabilityValue);
 							existingMember.setActive(true);
 							existingMember.setChanged(true);
-							members.remove(acceptability.getKey());
 						}
+						existingMembersToMatch.remove(acceptability.getKey());
 					} else {
-						final LanguageReferenceSetMember member = new LanguageReferenceSetMember(acceptability.getKey(), description.getId(), acceptability.getValue());
+						final LanguageReferenceSetMember member = new LanguageReferenceSetMember(acceptability.getKey(), description.getId(), acceptabilityValue);
 						member.setChanged(true);
-						langRefsetMembers.add(member);
+						langRefsetMembersToPersist.add(member);
 					}
 				}
-				for (LanguageReferenceSetMember leftoverMember : members.values()) {
+				for (LanguageReferenceSetMember leftoverMember : existingMembersToMatch.values()) {
 					// TODO: make inactive if released
 					leftoverMember.markDeleted();
 				}
 			}
 
 			// Detach concept's components to be persisted separately
-			descriptions.addAll(concept.getDescriptions());
+			descriptionsToPersist.addAll(concept.getDescriptions());
 			concept.getDescriptions().clear();
-			relationships.addAll(concept.getRelationships());
+			relationshipsToPersist.addAll(concept.getRelationships());
 			concept.getRelationships().clear();
 		}
 
 		final Iterable<Concept> conceptsSaved = doSaveBatchConcepts(concepts, commit);
-		doSaveBatchDescriptions(descriptions, commit);
-		doSaveBatchMembers(langRefsetMembers, commit);
-		doSaveBatchRelationships(relationships, commit);
+		doSaveBatchDescriptions(descriptionsToPersist, commit);
+		doSaveBatchMembers(langRefsetMembersToPersist, commit);
+		doSaveBatchRelationships(relationshipsToPersist, commit);
 
 		Map<String, Concept> conceptMap = new HashMap<>();
 		for (Concept concept : concepts) {
 			conceptMap.put(concept.getConceptId(), concept);
 		}
-		for (Description description : descriptions) {
+		for (Description description : descriptionsToPersist) {
 			conceptMap.get(description.getConceptId()).addDescription(description);
 		}
-		for (Relationship relationship : relationships) {
+		for (Relationship relationship : relationshipsToPersist) {
 			conceptMap.get(relationship.getSourceId()).addRelationship(relationship);
 		}
 

@@ -1,7 +1,10 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
 import java.util.Set;
 
+@JsonDeserialize(as = Concept.class)
 public interface ConceptView {
 	String getFsn();
 

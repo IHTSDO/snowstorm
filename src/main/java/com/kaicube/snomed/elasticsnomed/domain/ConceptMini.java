@@ -13,9 +13,13 @@ public class ConceptMini {
 	private String definitionStatusId;
 	private Boolean leafInferred;
 
-	public ConceptMini(String conceptId) {
-		this.conceptId = conceptId;
+	public ConceptMini() {
 		activeFsns = new HashSet<>();
+	}
+
+	public ConceptMini(String conceptId) {
+		this();
+		this.conceptId = conceptId;
 	}
 
 	public ConceptMini(Concept concept) {

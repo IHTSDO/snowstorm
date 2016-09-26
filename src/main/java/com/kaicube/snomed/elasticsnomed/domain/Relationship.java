@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.kaicube.elasticversioncontrol.domain.Component;
 import com.kaicube.snomed.elasticsnomed.rest.View;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
@@ -67,6 +69,8 @@ public class Relationship extends Component<Relationship> {
 
 	private ConceptMini destination;
 
+	private static final Logger logger = LoggerFactory.getLogger(Relationship.class);
+
 	public Relationship() {
 		moduleId = "";
 		destinationId = "";
@@ -96,7 +100,7 @@ public class Relationship extends Component<Relationship> {
 
 	@Override
 	public boolean isComponentChanged(Relationship that) {
-		return that == null
+		final boolean changed = that == null
 				|| active != that.active
 				|| !moduleId.equals(that.moduleId)
 				|| !destinationId.equals(that.destinationId)
@@ -104,6 +108,8 @@ public class Relationship extends Component<Relationship> {
 				|| !typeId.equals(that.typeId)
 				|| !characteristicTypeId.equals(that.characteristicTypeId)
 				|| !modifierId.equals(that.modifierId);
+		if (changed) logger.debug("Relationship changed:\n{}\n{}", this, that);
+		return changed;
 	}
 
 	@Override
@@ -119,6 +125,7 @@ public class Relationship extends Component<Relationship> {
 
 	public void setType(ConceptMini type) {
 		this.type = type;
+		this.typeId = type == null ? null : type.getConceptId();
 	}
 
 	@JsonView(value = View.Component.class)
@@ -128,6 +135,7 @@ public class Relationship extends Component<Relationship> {
 
 	public void setDestination(ConceptMini destination) {
 		this.destination = destination;
+		this.destinationId = destination == null ? null : destination.getConceptId();
 	}
 
 	public String getRelationshipId() {

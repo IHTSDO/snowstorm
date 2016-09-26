@@ -5,25 +5,25 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
 import com.kaicube.elasticversioncontrol.api.BranchService;
 import com.kaicube.elasticversioncontrol.api.VersionControlHelper;
+import com.kaicube.snomed.elasticsnomed.domain.*;
 import com.kaicube.snomed.elasticsnomed.rest.BranchPathUrlRewriteFilter;
 import com.kaicube.snomed.elasticsnomed.rf2import.ImportService;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.EntityMapper;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import springfox.documentation.builders.RequestHandlerSelectors;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 
@@ -34,19 +34,10 @@ import static springfox.documentation.builders.PathSelectors.regex;
 @EnableElasticsearchRepositories(basePackages = {"com.kaicube.elasticversioncontrol.repositories", "com.kaicube.snomed.elasticsnomed.repositories"})
 public class Config {
 
-	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
-	private BranchService branchService;
-
-	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
-
-	@Autowired
-	private ImportService importService;
-
-	final Logger logger = LoggerFactory.getLogger(getClass());
+	@Bean
+	public ElasticsearchTemplate elasticsearchTemplate() throws UnknownHostException {
+		return getElasticsearchTemplate(elasticSearchClient());
+	}
 
 	@Bean // Use standalone Elasticsearch Server on localhost
 	public Client elasticSearchClient() throws UnknownHostException {
@@ -56,13 +47,36 @@ public class Config {
 	}
 
 	@Bean
-	public ObjectMapper getMapper() {
+	public ObjectMapper getGeneralMapper() {
 		return Jackson2ObjectMapperBuilder
 				.json()
 				.defaultViewInclusion(false)
 				.failOnUnknownProperties(false)
 				.serializationInclusion(JsonInclude.Include.NON_NULL)
 				.build();
+	}
+
+	static ElasticsearchTemplate getElasticsearchTemplate(Client client) {
+		final ObjectMapper elasticSearchMapper = Jackson2ObjectMapperBuilder
+				.json()
+				.defaultViewInclusion(false)
+				.failOnUnknownProperties(false)
+				.serializationInclusion(JsonInclude.Include.NON_NULL)
+				.mixIn(Concept.class, ConceptStoreMixIn.class)
+				.mixIn(Description.class, DescriptionStoreMixIn.class)
+				.mixIn(Relationship.class, RelationshipStoreMixIn.class)
+				.build();
+
+		return new ElasticsearchTemplate(client, new EntityMapper() {
+			@Override
+			public String mapToString(Object o) throws IOException {
+				return elasticSearchMapper.writeValueAsString(o);
+			}
+			@Override
+			public <T> T mapToObject(String s, Class<T> aClass) throws IOException {
+				return elasticSearchMapper.readValue(s, aClass);
+			}
+		});
 	}
 
 	@Bean
@@ -88,7 +102,7 @@ public class Config {
 	@Bean
 	public FilterRegistrationBean getUrlRewriteFilter() {
 		// Encode branch paths in uri to allow request mapping to work
-		return new FilterRegistrationBean(new BranchPathUrlRewriteFilter(Sets.newHashSet("/concepts", "/descriptions")));
+		return new FilterRegistrationBean(new BranchPathUrlRewriteFilter(Sets.newHashSet("/concepts", "/descriptions", "/branches/")));
 	}
 
 	@Bean

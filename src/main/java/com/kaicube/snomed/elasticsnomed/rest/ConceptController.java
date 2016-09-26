@@ -11,6 +11,7 @@ import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
+import javax.validation.Valid;
 
 @RestController
 public class ConceptController {
@@ -38,7 +39,7 @@ public class ConceptController {
 	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.POST, produces = "application/json")
 	@JsonView(value = View.Component.class)
-	public ConceptView updateConcept(@PathVariable String branch, @PathVariable String conceptId, @RequestBody ConceptView concept) {
+	public ConceptView updateConcept(@PathVariable String branch, @PathVariable String conceptId, @RequestBody @Valid ConceptView concept) {
 		Assert.isTrue(concept.getConceptId() != null && conceptId != null && concept.getConceptId().equals(conceptId), "The conceptId in the " +
 				"path must match the one in the request body.");
 		return conceptService.update((Concept) concept, ControllerHelper.parseBranchPath(branch));

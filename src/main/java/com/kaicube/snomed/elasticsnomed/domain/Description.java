@@ -1,7 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.kaicube.elasticversioncontrol.domain.Component;
 import com.kaicube.snomed.elasticsnomed.rest.View;
@@ -67,12 +66,11 @@ public class Description extends Component<Description> {
 	@Size(min = 5, max = 18)
 	private String caseSignificanceId;
 
-	@JsonIgnore
 	// Populated when requesting an update
 	private Map<String, String> acceptabilityMap;
 
 	@JsonIgnore
-	// Populated when loading from store
+	// Populated manually when loading from store
 	private Set<LanguageReferenceSetMember> langRefsetMembers;
 
 	public Description() {
@@ -136,8 +134,6 @@ public class Description extends Component<Description> {
 		return descriptionId;
 	}
 
-	@JsonView(value = View.Component.class)
-	@JsonProperty(value = "acceptabilityMap")
 	public Map<String, String> getAcceptabilityMapFromLangRefsetMembers() {
 		Map<String, String> map = new HashMap<>();
 		for (LanguageReferenceSetMember member : langRefsetMembers) {
@@ -150,8 +146,17 @@ public class Description extends Component<Description> {
 		return langRefsetMembers;
 	}
 
+	@JsonView(value = View.Component.class)
 	public Map<String, String> getAcceptabilityMap() {
-		return acceptabilityMap;
+		if (!langRefsetMembers.isEmpty()) {
+			return getAcceptabilityMapFromLangRefsetMembers();
+		} else {
+			return acceptabilityMap;
+		}
+	}
+
+	public void setAcceptabilityMap(Map<String, String> acceptabilityMap) {
+		this.acceptabilityMap = acceptabilityMap;
 	}
 
 	public String getDescriptionId() {
