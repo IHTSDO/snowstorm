@@ -14,12 +14,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 
 @Document(type = "description", indexName = "snomed")
 public class Description extends Component<Description> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Size(min = 5, max = 18)
 	private String descriptionId;
 
 	@JsonView(value = View.Component.class)
@@ -28,6 +31,8 @@ public class Description extends Component<Description> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.analyzed)
+	@NotNull
+	@Size(min = 1, max = 255)
 	private String term;
 
 	@JsonView(value = View.Component.class)
@@ -40,18 +45,26 @@ public class Description extends Component<Description> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String moduleId;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@NotNull
+	@Size(min = 2, max = 2)
 	private String languageCode;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String typeId;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String caseSignificanceId;
 
 	@JsonIgnore

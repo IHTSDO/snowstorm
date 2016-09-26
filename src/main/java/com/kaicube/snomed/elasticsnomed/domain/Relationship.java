@@ -9,6 +9,9 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
+
 @Document(type = "relationship", indexName = "snomed")
 public class Relationship extends Component<Relationship> {
 
@@ -26,6 +29,8 @@ public class Relationship extends Component<Relationship> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String moduleId;
 
 	@JsonView(value = View.Component.class)
@@ -33,6 +38,8 @@ public class Relationship extends Component<Relationship> {
 	private String sourceId;
 
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String destinationId;
 
 	@JsonView(value = View.Component.class)
@@ -40,14 +47,20 @@ public class Relationship extends Component<Relationship> {
 	private int relationshipGroup;
 
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String typeId;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String characteristicTypeId;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String modifierId;
 
 	private ConceptMini type;

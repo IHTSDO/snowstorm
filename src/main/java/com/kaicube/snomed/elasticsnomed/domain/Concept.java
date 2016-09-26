@@ -12,6 +12,8 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.HashSet;
 import java.util.Set;
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 
 @Document(type = "concept", indexName = "snomed")
 @JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "moduleId", "definitionStatusId", "descriptions", "relationships"})
@@ -19,6 +21,7 @@ public class Concept extends Component<Concept> implements ConceptView {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Size(min = 5, max = 18)
 	private String conceptId;
 
 	@JsonView(value = View.Component.class)
@@ -31,10 +34,14 @@ public class Concept extends Component<Concept> implements ConceptView {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String moduleId;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String definitionStatusId;
 
 	@JsonView(value = View.Component.class)
