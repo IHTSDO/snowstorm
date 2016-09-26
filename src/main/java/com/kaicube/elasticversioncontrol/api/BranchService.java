@@ -144,10 +144,25 @@ public class BranchService {
 		branchRepository.save(Lists.newArrayList(oldBranchTimespan, newBranchTimespan));
 	}
 
-	public void forceUnlock(String branchPath) {
-		Branch branch = findLatest(branchPath);
-		branch.setLocked(false);
-		branchRepository.save(branch);
+	public void forceUnlock(String path) {
+		final List<Branch> branches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+				.withQuery(
+					new BoolQueryBuilder()
+							.must(QueryBuilders.termQuery("path", PathUtil.flaten(path)))
+					)
+				.withSort(
+						new FieldSortBuilder("start")
+				)
+				.withPageable(new PageRequest(0, 1))
+				.build(), Branch.class);
+
+		if (!branches.isEmpty()) {
+			final Branch branch = branches.get(0);
+			branch.setLocked(false);
+			branchRepository.save(branch);
+		} else {
+			throw new IllegalArgumentException("Branch not found " + path);
+		}
 	}
 
 	// TODO - Implement commit rollback; simply delete all entities at commit timepoint from branch and remove write lock.
