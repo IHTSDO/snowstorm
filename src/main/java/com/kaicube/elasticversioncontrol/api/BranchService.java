@@ -148,11 +148,9 @@ public class BranchService {
 		final List<Branch> branches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
 				.withQuery(
 					new BoolQueryBuilder()
-							.must(QueryBuilders.termQuery("path", PathUtil.flaten(path)))
+							.must(termQuery("path", PathUtil.flaten(path)))
+							.mustNot(existsQuery("end"))
 					)
-				.withSort(
-						new FieldSortBuilder("start")
-				)
 				.withPageable(new PageRequest(0, 1))
 				.build(), Branch.class);
 
