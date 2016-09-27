@@ -85,7 +85,7 @@ public class VersionControlHelper {
 					.must(boolQuery()
 							.should(boolQuery().mustNot(existsQuery("end")))
 							.should(rangeQuery("end").gt(base)))
-					.mustNot(termsQuery("internalId", versionsReplaced))
+					.mustNot(termsQuery("_id", versionsReplaced))
 			);
 			addParentCriteriaRecursively(branchCriteria, parentBranch, versionsReplaced);
 		}
@@ -133,24 +133,16 @@ public class VersionControlHelper {
 				.build();
 
 		AtomicLong replacedVersionsCount = new AtomicLong(0);
-		final Set<String> logIds = new HashSet<>();
 
 		Class classToLoad = clazz.equals(ReferenceSetMember.class) ? LanguageReferenceSetMember.class : clazz; // TODO: how can we do this implicitly
 
 		try (final CloseableIterator<T> replacedVersions = elasticsearchTemplate.stream(query2, classToLoad)) {
 			replacedVersions.forEachRemaining(version -> {
 				commit.addVersionReplaced(version.getInternalId());
-				if (logIds.size() < 20) {
-					logIds.add(version.getInternalId());
-				}
-				toSave.add(version);
 				replacedVersionsCount.incrementAndGet();
 			});
 		}
-		if (!toSave.isEmpty()) {
-			repository.save(toSave);// TODO: Why is this needed?
-		}
-		logger.info("{} old versions of {} replaced: {} (first 20).", replacedVersionsCount.get(), clazz, logIds);
+		logger.info("{} old versions of {} replaced.", replacedVersionsCount.get(), clazz);
 	}
 
 	void setEntityMeta(Entity entity, Commit commit) {
