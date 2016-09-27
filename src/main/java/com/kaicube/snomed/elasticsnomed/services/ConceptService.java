@@ -400,6 +400,12 @@ public class ConceptService extends ComponentService {
 			final Concept existingConcept = existingConceptsMap.get(concept.getConceptId());
 			final Map<String, Description> existingDescriptions = new HashMap<>();
 
+			// Inactivate relationships of inactive concept
+			if (!concept.isActive()) {
+				concept.getRelationships().stream()
+						.forEach(relationship -> relationship.setActive(false));
+			}
+
 			// Mark changed concepts as changed
 			if (existingConcept != null) {
 				concept.setChanged(concept.isComponentChanged(existingConcept));

@@ -180,6 +180,10 @@ public class Relationship extends Component<Relationship> {
 		return active;
 	}
 
+	public void setActive(boolean active) {
+		this.active = active;
+	}
+
 	public String getModuleId() {
 		return moduleId;
 	}
