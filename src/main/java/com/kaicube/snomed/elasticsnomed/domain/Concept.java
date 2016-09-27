@@ -15,8 +15,10 @@ import java.util.Set;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import static com.kaicube.snomed.elasticsnomed.domain.Concepts.*;
+
 @Document(type = "concept", indexName = "snomed")
-@JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "moduleId", "definitionStatusId", "descriptions", "relationships"})
+@JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "moduleId", "definitionStatus", "definitionStatusId", "descriptions", "relationships"})
 public class Concept extends Component<Concept> implements ConceptView {
 
 	@JsonView(value = View.Component.class)
@@ -38,7 +40,6 @@ public class Concept extends Component<Concept> implements ConceptView {
 	@Size(min = 5, max = 18)
 	private String moduleId;
 
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@NotNull
 	@Size(min = 5, max = 18)
@@ -94,6 +95,15 @@ public class Concept extends Component<Concept> implements ConceptView {
 			}
 		}
 		return null;
+	}
+
+	@JsonView(value = View.Component.class)
+	public String getDefinitionStatus() {
+		return definitionStatusNames.get(definitionStatusId);
+	}
+
+	public void setDefinitionStatus(String definitionStatusName) {
+		definitionStatusId = definitionStatusNames.inverse().get(definitionStatusName);
 	}
 
 	public Concept addDescription(Description description) {

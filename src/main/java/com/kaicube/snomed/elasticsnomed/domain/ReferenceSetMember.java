@@ -108,4 +108,20 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends Component<
 	public void setReferencedComponentId(String referencedComponentId) {
 		this.referencedComponentId = referencedComponentId;
 	}
+
+	@Override
+	public String toString() {
+		return "ReferenceSetMember{" +
+				"memberId='" + memberId + '\'' +
+				", effectiveTime='" + effectiveTime + '\'' +
+				", active=" + active +
+				", moduleId='" + moduleId + '\'' +
+				", refsetId='" + refsetId + '\'' +
+				", referencedComponentId='" + referencedComponentId + '\'' +
+				", internalId='" + getInternalId() + '\'' +
+				", start='" + getStart() + '\'' +
+				", end='" + getEnd() + '\'' +
+				", path='" + getPath() + '\'' +
+				'}';
+	}
 }

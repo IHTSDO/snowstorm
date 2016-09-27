@@ -15,4 +15,10 @@ public abstract class RelationshipStoreMixIn {
 	@JsonIgnore
 	abstract ConceptMini destination();
 
+	@JsonIgnore
+	abstract String getModifier();
+
+	@JsonIgnore
+	abstract String getCharacteristicType();
+
 }

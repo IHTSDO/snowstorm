@@ -9,4 +9,10 @@ public abstract class DescriptionStoreMixIn {
 	@JsonIgnore
 	abstract Map<String, String> getAcceptabilityMap();
 
+	@JsonIgnore
+	abstract String getType();
+
+	@JsonIgnore
+	abstract String getLang();
+
 }

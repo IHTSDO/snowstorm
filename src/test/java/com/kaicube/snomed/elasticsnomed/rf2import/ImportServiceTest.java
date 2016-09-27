@@ -6,6 +6,7 @@ import com.kaicube.snomed.elasticsnomed.Config;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.domain.Description;
+import com.kaicube.snomed.elasticsnomed.domain.LanguageReferenceSetMember;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
 import com.kaicube.snomed.elasticsnomed.services.QueryIndexService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
@@ -126,9 +127,9 @@ public class ImportServiceTest {
 		}
 		Assert.assertNotNull(description);
 		Assert.assertEquals("Bleeding", description.getTerm());
-		final Map<String, String> acceptabilityMap = description.getAcceptabilityMap();
-		Assert.assertEquals(1, acceptabilityMap.size());
-		Assert.assertEquals("900000000000548007", acceptabilityMap.get("900000000000508004"));
+		final Map<String, LanguageReferenceSetMember> members = description.getLangRefsetMembers();
+		Assert.assertEquals(1, members.size());
+		Assert.assertEquals("900000000000548007", members.get("900000000000508004").getAcceptabilityId());
 
 		Assert.assertEquals(4, conceptBleeding.getRelationships().size());
 

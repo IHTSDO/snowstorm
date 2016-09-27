@@ -59,4 +59,21 @@ public class LanguageReferenceSetMember extends ReferenceSetMember<LanguageRefer
 	public void setConceptId(String conceptId) {
 		this.conceptId = conceptId;
 	}
+
+	@Override
+	public String toString() {
+		return "LanguageReferenceSetMember{" +
+				"memberId='" + getMemberId() + '\'' +
+				", effectiveTime='" + getEffectiveTime() + '\'' +
+				", active=" + isActive() +
+				", moduleId='" + getModuleId() + '\'' +
+				", refsetId='" + getRefsetId() + '\'' +
+				", referencedComponentId='" + getReferencedComponentId() + '\'' +
+				", acceptabilityId='" + acceptabilityId + '\'' +
+				", internalId='" + getInternalId() + '\'' +
+				", start='" + getStart() + '\'' +
+				", end='" + getEnd() + '\'' +
+				", path='" + getPath() + '\'' +
+				'}';
+	}
 }

@@ -10,6 +10,12 @@ public abstract class ConceptStoreMixIn {
 	abstract String getId();
 
 	@JsonIgnore
+	abstract int getGroupId();
+
+	@JsonIgnore
+	abstract String getDefinitionStatus();
+
+	@JsonIgnore
 	abstract Set<Description> getDescriptions();
 
 	@JsonIgnore

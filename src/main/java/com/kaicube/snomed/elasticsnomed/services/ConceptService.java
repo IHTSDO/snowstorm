@@ -133,7 +133,7 @@ public class ConceptService extends ComponentService {
 						.must(termQuery("active", true))
 						.must(termQuery("typeId", Concepts.ISA))
 						.must(destinationCriteria)
-						.must(termQuery("characteristicTypeId", Concepts.INFERRED))
+						.must(termQuery("characteristicTypeId", Concepts.INFERRED_RELATIONSHIP))
 				)
 				.withPageable(LARGE_PAGE)
 				.build(), Relationship.class
@@ -178,7 +178,7 @@ public class ConceptService extends ComponentService {
 			relationships.forEachRemaining(relationship -> {
 				conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
 				relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId()));
-				relationship.setDestination(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
+				relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
 			});
 		}
 		timer.checkpoint("get relationships");
@@ -244,8 +244,7 @@ public class ConceptService extends ComponentService {
 
 		// Fetch Lang Refset Members
 		queryBuilder.withQuery(boolQuery()
-				.must(branchCriteria)
-				.must(termQuery("active", true)))
+				.must(branchCriteria))
 				.withFilter(boolQuery().must(termsQuery("referencedComponentId", descriptionIdMap.keySet())))
 				.withPageable(LARGE_PAGE);
 		// Join Lang Refset Members
@@ -397,7 +396,7 @@ public class ConceptService extends ComponentService {
 				final Description existingDescription = existingDescriptions.get(description.getDescriptionId());
 				final Map<String, LanguageReferenceSetMember> existingMembersToMatch = new HashMap<>();
 				if (existingDescription != null) {
-					existingMembersToMatch.putAll(existingDescription.getLangRefsetMembers().stream().collect(Collectors.toMap(LanguageReferenceSetMember::getRefsetId, Function.identity())));
+					existingMembersToMatch.putAll(existingDescription.getLangRefsetMembers());
 					langRefsetMembersToPersist.addAll(existingMembersToMatch.values());
 				} else {
 					if (description.getDescriptionId() == null) {
@@ -405,9 +404,9 @@ public class ConceptService extends ComponentService {
 					}
 				}
 				for (Map.Entry<String, String> acceptability : description.getAcceptabilityMap().entrySet()) {
-					final String acceptabilityValue = acceptability.getValue();
+					final String acceptabilityValue = Concepts.descriptionAcceptabilityNames.inverse().get(acceptability.getValue());
 					if (acceptabilityValue == null) {
-						throw new IllegalArgumentException("Acceptability values may not be null.");
+						throw new IllegalArgumentException("Acceptability value not recognised '" + acceptability.getValue() + "'.");
 					}
 
 					final LanguageReferenceSetMember existingMember = existingMembersToMatch.get(acceptability.getKey());

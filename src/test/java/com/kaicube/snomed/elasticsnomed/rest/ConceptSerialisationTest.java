@@ -1,9 +1,9 @@
 package com.kaicube.snomed.elasticsnomed.rest;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.kaicube.snomed.elasticsnomed.domain.ConceptView;
-import com.kaicube.snomed.elasticsnomed.domain.Description;
-import com.kaicube.snomed.elasticsnomed.domain.Relationship;
+import com.kaicube.snomed.elasticsnomed.domain.*;
+import org.json.JSONObject;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -11,17 +11,26 @@ import java.io.IOException;
 
 public class ConceptSerialisationTest {
 
-	private final ObjectMapper objectMapper = new ObjectMapper();
+	private final ObjectMapper generalObjectMapper = new ObjectMapper();
+
+	private final ObjectMapper storeObjectMapper = new ObjectMapper()
+			.addMixIn(Concept.class, ConceptStoreMixIn.class)
+			.addMixIn(Relationship.class, RelationshipStoreMixIn.class)
+			.addMixIn(Description.class, DescriptionStoreMixIn.class);
 
 	@Test
 	public void testDeserialisation() throws IOException {
-		final ConceptView concept = objectMapper.readValue(("{" +
+		final ConceptView concept = generalObjectMapper.readValue(("{" +
+				"'definitionStatus': 'PRIMITIVE'," +
 				"'descriptions': [{'descriptionId': '123', 'acceptabilityMap': {'a': 'b'}}]," +
 				"'relationships': [{'relationshipId': '200', " +
-				"	'type': {'conceptId': '116680003',\"definitionStatusId\": \"900000000000074008\"}," +
-				"	'destination': {'conceptId': '102263004',\"definitionStatusId\": \"900000000000074008\"}" +
+				"	'type': {'conceptId': '116680003',\"definitionStatus\": \"FULLY_DEFINED\"}," +
+				"	'target': {'conceptId': '102263004',\"definitionStatus\": \"PRIMITIVE\"}" +
 				"}]" +
 				"}").replace("'", "\""), ConceptView.class);
+
+		Assert.assertEquals("900000000000074008", concept.getDefinitionStatusId());
+
 		Assert.assertEquals(1, concept.getDescriptions().size());
 
 		final Description description = concept.getDescriptions().iterator().next();
@@ -34,6 +43,15 @@ public class ConceptSerialisationTest {
 		Assert.assertEquals("200", relationship.getRelationshipId());
 		Assert.assertEquals("116680003", relationship.getTypeId());
 		Assert.assertEquals("102263004", relationship.getDestinationId());
+	}
+
+	@Test
+	public void testStoreSerialisation() throws JsonProcessingException {
+		final String conceptJson = storeObjectMapper.writeValueAsString(new Concept("123", null, true, "33", "900000000000074008"));
+		final JSONObject c = new JSONObject(conceptJson);
+
+		Assert.assertEquals("900000000000074008", c.getString("definitionStatusId"));
+		Assert.assertTrue(c.isNull("definitionStatus"));
 	}
 
 }

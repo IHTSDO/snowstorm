@@ -244,8 +244,9 @@ public class ConceptServiceTest {
 		Assert.assertEquals(1, savedConcept.getDescriptions().size());
 		final Description description = savedConcept.getDescriptions().iterator().next();
 		Assert.assertEquals("84923010", description.getDescriptionId());
-		Assert.assertEquals(1, description.getAcceptabilityMapFromLangRefsetMembers().size());
-		Assert.assertEquals(Concepts.PREFERRED, description.getAcceptabilityMapFromLangRefsetMembers().get("900000000000509007"));
+		final Map<String, LanguageReferenceSetMember> members = description.getLangRefsetMembers();
+		Assert.assertEquals(1, members.size());
+		Assert.assertEquals(Concepts.PREFERRED, members.get("900000000000509007").getAcceptabilityId());
 	}
 
 	@Test
@@ -253,7 +254,7 @@ public class ConceptServiceTest {
 		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
 				new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
-						.addAcceptability("900000000000509007", Concepts.PREFERRED)
+						.addLanguageRefsetMember(new LanguageReferenceSetMember("900000000000509007", null, Concepts.PREFERRED))
 		);
 		conceptService.create(concept, "MAIN");
 
@@ -262,8 +263,10 @@ public class ConceptServiceTest {
 		Assert.assertEquals(1, savedConcept.getDescriptions().size());
 		final Description description = savedConcept.getDescriptions().iterator().next();
 		Assert.assertEquals("84923010", description.getDescriptionId());
-		Assert.assertEquals(1, description.getAcceptabilityMapFromLangRefsetMembers().size());
-		Assert.assertEquals(Concepts.PREFERRED, description.getAcceptabilityMapFromLangRefsetMembers().get("900000000000509007"));
+		final Map<String, LanguageReferenceSetMember> members = description.getLangRefsetMembers();
+		Assert.assertEquals(1, members.size());
+		Assert.assertEquals(Concepts.PREFERRED, members.get("900000000000509007").getAcceptabilityId());
+	}
 	}
 
 	@Test

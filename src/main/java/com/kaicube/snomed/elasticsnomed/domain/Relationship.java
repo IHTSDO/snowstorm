@@ -14,6 +14,8 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import static com.kaicube.snomed.elasticsnomed.domain.Concepts.*;
+
 @Document(type = "relationship", indexName = "snomed")
 public class Relationship extends Component<Relationship> {
 
@@ -44,7 +46,6 @@ public class Relationship extends Component<Relationship> {
 	@Size(min = 5, max = 18)
 	private String destinationId;
 
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Integer, index = FieldIndex.not_analyzed)
 	private int relationshipGroup;
 
@@ -53,13 +54,11 @@ public class Relationship extends Component<Relationship> {
 	@Size(min = 5, max = 18)
 	private String typeId;
 
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String characteristicTypeId;
 
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@NotNull
 	@Size(min = 5, max = 18)
@@ -67,7 +66,7 @@ public class Relationship extends Component<Relationship> {
 
 	private ConceptMini type;
 
-	private ConceptMini destination;
+	private ConceptMini target;
 
 	private static final Logger logger = LoggerFactory.getLogger(Relationship.class);
 
@@ -129,13 +128,40 @@ public class Relationship extends Component<Relationship> {
 	}
 
 	@JsonView(value = View.Component.class)
-	public ConceptMini destination() {
-		return destination;
+	public ConceptMini target() {
+		return target;
 	}
 
-	public void setDestination(ConceptMini destination) {
-		this.destination = destination;
-		this.destinationId = destination == null ? null : destination.getConceptId();
+	public void setTarget(ConceptMini target) {
+		this.target = target;
+		this.destinationId = target == null ? null : target.getConceptId();
+	}
+
+	@JsonView(value = View.Component.class)
+	public int getGroupId() {
+		return relationshipGroup;
+	}
+
+	public void setGroupId(int groupId) {
+		this.relationshipGroup = groupId;
+	}
+
+	@JsonView(value = View.Component.class)
+	public String getCharacteristicType() {
+		return relationshipCharacteristicTypeNames.get(characteristicTypeId);
+	}
+
+	public void setCharacteristicType(String characteristicTypeName) {
+		characteristicTypeId = relationshipCharacteristicTypeNames.inverse().get(characteristicTypeName);
+	}
+
+	@JsonView(value = View.Component.class)
+	public String getModifier() {
+		return relationshipModifierNames.get(modifierId);
+	}
+
+	public void setModifier(String modifierName) {
+		modifierId = relationshipModifierNames.inverse().get(modifierName);
 	}
 
 	public String getRelationshipId() {

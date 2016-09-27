@@ -67,7 +67,7 @@ public class QueryIndexService extends ComponentService {
 				.withQuery(boolQuery()
 						.must(versionControlHelper.getBranchCriteriaWithinOpenCommit(commit))
 						.must(termQuery("typeId", Concepts.ISA))
-						.must(termQuery("characteristicTypeId", Concepts.INFERRED))
+						.must(termQuery("characteristicTypeId", Concepts.INFERRED_RELATIONSHIP))
 				)
 				.withPageable(ConceptService.LARGE_PAGE);
 

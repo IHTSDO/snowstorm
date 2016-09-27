@@ -4,17 +4,19 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.kaicube.elasticversioncontrol.domain.Component;
 import com.kaicube.snomed.elasticsnomed.rest.View;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
+
+import static com.kaicube.snomed.elasticsnomed.domain.Concepts.*;
 
 @Document(type = "description", indexName = "snomed")
 public class Description extends Component<Description> {
@@ -48,19 +50,16 @@ public class Description extends Component<Description> {
 	@Size(min = 5, max = 18)
 	private String moduleId;
 
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@NotNull
 	@Size(min = 2, max = 2)
 	private String languageCode;
 
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String typeId;
 
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@NotNull
 	@Size(min = 5, max = 18)
@@ -71,7 +70,9 @@ public class Description extends Component<Description> {
 
 	@JsonIgnore
 	// Populated manually when loading from store
-	private Set<LanguageReferenceSetMember> langRefsetMembers;
+	private Map<String, LanguageReferenceSetMember> langRefsetMembers;
+
+	private static final Logger logger = LoggerFactory.getLogger(Description.class);
 
 	public Description() {
 		term = "";
@@ -80,7 +81,7 @@ public class Description extends Component<Description> {
 		typeId = "";
 		caseSignificanceId = "";
 		acceptabilityMap = new HashMap<>();
-		langRefsetMembers = new HashSet<>();
+		langRefsetMembers = new HashMap<>();
 	}
 
 	public Description(String term) {
@@ -118,13 +119,39 @@ public class Description extends Component<Description> {
 				|| !caseSignificanceId.equals(that.caseSignificanceId);
 	}
 
-	public Description addAcceptability(String languageReferenceSetId, String acceptabilityId) {
-		acceptabilityMap.put(languageReferenceSetId, acceptabilityId);
-		return this;
+	@JsonView(value = View.Component.class)
+	public String getType() {
+		return descriptionTypeNames.get(typeId);
+	}
+
+	public void setType(String type) {
+		typeId = descriptionTypeNames.inverse().get(type);
+	}
+
+	@JsonView(value = View.Component.class)
+	public String getCaseSignificance() {
+		return caseSignificanceNames.get(caseSignificanceId);
+	}
+
+	public void setCaseSignificance(String caseSignificance) {
+		caseSignificanceId = caseSignificanceNames.inverse().get(caseSignificance);
+	}
+
+	@JsonView(value = View.Component.class)
+	public String getLang() {
+		return languageCode;
+	}
+
+	public void setLang(String languageCode) {
+		this.languageCode = languageCode;
 	}
 
 	public Description addLanguageRefsetMember(LanguageReferenceSetMember member) {
-		langRefsetMembers.add(member);
+		member.setReferencedComponentId(descriptionId);
+		final LanguageReferenceSetMember previousMember = langRefsetMembers.put(member.getRefsetId(), member);
+		if (previousMember != null) {
+			logger.debug("Lang member replaced other:\n{}\n{}", member, previousMember);
+		}
 		return this;
 	}
 
@@ -136,13 +163,13 @@ public class Description extends Component<Description> {
 
 	public Map<String, String> getAcceptabilityMapFromLangRefsetMembers() {
 		Map<String, String> map = new HashMap<>();
-		for (LanguageReferenceSetMember member : langRefsetMembers) {
-			if (member.isActive()) map.put(member.getRefsetId(), member.getAcceptabilityId());
+		for (LanguageReferenceSetMember member : langRefsetMembers.values()) {
+			if (member.isActive()) map.put(member.getRefsetId(), descriptionAcceptabilityNames.get(member.getAcceptabilityId()));
 		}
 		return map;
 	}
 
-	public Set<LanguageReferenceSetMember> getLangRefsetMembers() {
+	public Map<String, LanguageReferenceSetMember> getLangRefsetMembers() {
 		return langRefsetMembers;
 	}
 
