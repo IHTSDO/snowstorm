@@ -78,15 +78,24 @@ public class ConceptService extends ComponentService {
 	}
 
 	public boolean exists(String id, String path) {
+		return getNonExistentConcepts(Collections.singleton(id), path).isEmpty();
+	}
+
+	public Collection<String> getNonExistentConcepts(Collection<String> ids, String path) {
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 		final BoolQueryBuilder builder = boolQuery()
 				.must(branchCriteria)
-				.must(queryStringQuery(id).field("conceptId"));
+				.must(termsQuery("conceptId", ids));
 
-		final Page<Concept> concepts = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
-				.withQuery(builder).build(), Concept.class);
-		return concepts.getTotalElements() > 0;
+		Set<String> conceptsNotFound = new HashSet<>(ids);
+		try (final CloseableIterator<Concept> conceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+						.withQuery(builder)
+						.withPageable(LARGE_PAGE)
+						.build(), Concept.class)) {
+			conceptStream.forEachRemaining(concept -> conceptsNotFound.remove(concept.getConceptId()));
+		}
+		return conceptsNotFound;
 	}
 
 	public Page<Concept> findAll(String path, PageRequest pageRequest) {
@@ -300,7 +309,7 @@ public class ConceptService extends ComponentService {
 
 	public Concept create(Concept conceptVersion, String path) {
 		final Branch branch = branchService.findBranchOrThrow(path);
-		if (exists(conceptVersion.getConceptId(), path)) {
+		if (conceptVersion.getConceptId() != null && exists(conceptVersion.getConceptId(), path)) {
 			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
 		} else {
 			conceptVersion.setChanged(true);
@@ -329,6 +338,11 @@ public class ConceptService extends ComponentService {
 		return doSave(conceptVersion, branch);
 	}
 
+	public Iterable<Concept> update(List<Concept> concepts, String path) {
+		final Branch branch = branchService.findBranchOrThrow(path);
+		return doSave(concepts, branch);
+	}
+
 	private <C extends Component> boolean markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents) {
 		boolean anythingChanged = false;
 		// Mark deletions
@@ -352,10 +366,14 @@ public class ConceptService extends ComponentService {
 	}
 
 	private Concept doSave(Concept concept, Branch branch) {
+		return doSave(Collections.singleton(concept), branch).iterator().next();
+	}
+
+	private Iterable<Concept> doSave(Collection<Concept> concepts, Branch branch) {
 		final Commit commit = branchService.openCommit(branch.getFatPath());
-		final Concept savedConcept = doSaveBatchConceptsAndComponents(Collections.singleton(concept), commit).iterator().next();
+		final Iterable<Concept> savedConcepts = doSaveBatchConceptsAndComponents(concepts, commit);
 		branchService.completeCommit(commit);
-		return savedConcept;
+		return savedConcepts;
 	}
 
 	private ReferenceSetMember doSave(ReferenceSetMember member, Branch branch) {
@@ -389,6 +407,9 @@ public class ConceptService extends ComponentService {
 				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships());
 				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
 			} else {
+				if (concept.getConceptId() == null) {
+					concept.setConceptId(IDService.getHackId());
+				}
 				concept.setChanged(true);
 				Sets.union(concept.getDescriptions(), concept.getRelationships()).stream().forEach(component -> component.setChanged(true));
 			}
@@ -428,6 +449,9 @@ public class ConceptService extends ComponentService {
 					leftoverMember.markDeleted();
 				}
 			}
+			concept.getRelationships().stream()
+					.filter(relationship -> relationship.getRelationshipId() == null)
+					.forEach(relationship -> relationship.setRelationshipId(IDService.getHackId()));
 
 			// Detach concept's components to be persisted separately
 			descriptionsToPersist.addAll(concept.getDescriptions());

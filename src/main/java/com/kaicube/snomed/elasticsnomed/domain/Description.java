@@ -265,13 +265,13 @@ public class Description extends Component<Description> {
 
 		Description that = (Description) o;
 
-		return descriptionId.equals(that.descriptionId);
+		return descriptionId != null ? descriptionId.equals(that.descriptionId) : that.descriptionId == null;
 
 	}
 
 	@Override
 	public int hashCode() {
-		return descriptionId.hashCode();
+		return descriptionId != null ? descriptionId.hashCode() : 0;
 	}
 
 	@Override

@@ -10,7 +10,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import javax.validation.Valid;
 
 @RestController
@@ -46,6 +48,15 @@ public class ConceptController {
 	}
 
 	@ResponseBody
+	@RequestMapping(value = "/{branch}/concepts/bulk", method = RequestMethod.POST, produces = "application/json")
+	@JsonView(value = View.Component.class)
+	public Iterable<Concept> updateConcepts(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts) {
+		List<Concept> conceptList = new ArrayList<>();
+		concepts.forEach(conceptView -> conceptList.add((Concept) conceptView));
+		return conceptService.update(conceptList, ControllerHelper.parseBranchPath(branch));
+	}
+
+	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/children", method = RequestMethod.GET, produces = "application/json")
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptChildren(@PathVariable String branch, @PathVariable String conceptId) {
@@ -54,7 +65,7 @@ public class ConceptController {
 
 	@RequestMapping(value = "/{branch}/calculate-transitive-closure", method = RequestMethod.POST, produces = "application/json")
 	public void calculateTransitiveClosure(@PathVariable String branch) {
-		conceptService.createTransitiveClosureForEveryConcept(branch);
+		conceptService.createTransitiveClosureForEveryConcept(ControllerHelper.parseBranchPath(branch));
 	}
 
 }

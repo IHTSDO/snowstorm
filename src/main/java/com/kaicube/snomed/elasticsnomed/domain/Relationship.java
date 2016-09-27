@@ -168,6 +168,10 @@ public class Relationship extends Component<Relationship> {
 		return relationshipId;
 	}
 
+	public void setRelationshipId(String relationshipId) {
+		this.relationshipId = relationshipId;
+	}
+
 	public String getEffectiveTime() {
 		return effectiveTime;
 	}
@@ -215,13 +219,12 @@ public class Relationship extends Component<Relationship> {
 
 		Relationship that = (Relationship) o;
 
-		return relationshipId.equals(that.relationshipId);
-
+		return relationshipId != null ? relationshipId.equals(that.relationshipId) : that.relationshipId == null;
 	}
 
 	@Override
 	public int hashCode() {
-		return relationshipId.hashCode();
+		return relationshipId != null ? relationshipId.hashCode() : 0;
 	}
 
 	@Override

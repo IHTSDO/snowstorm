@@ -25,7 +25,7 @@ public class ImportController {
 			@RequestParam(required = false) String stopImportAfterEffectiveTime) {
 		executorService.submit((Runnable) () -> {
 			try {
-				importService.importFull(releaseDirPath, branchPath, stopImportAfterEffectiveTime);
+				importService.importFull(releaseDirPath, ControllerHelper.parseBranchPath(branchPath), stopImportAfterEffectiveTime);
 			} catch (Exception e) {
 				logger.error("Import failed.", e);
 			}
