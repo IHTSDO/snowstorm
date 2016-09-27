@@ -198,9 +198,8 @@ public class ConceptService extends ComponentService {
 				.must(branchCriteria))
 				.withPageable(LARGE_PAGE);
 		try (final CloseableIterator<Concept> conceptsForMini = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
-			conceptsForMini.forEachRemaining(concept -> {
-				conceptMiniMap.get(concept.getConceptId()).setDefinitionStatusId(concept.getDefinitionStatusId());
-			});
+			conceptsForMini.forEachRemaining(concept ->
+					conceptMiniMap.get(concept.getConceptId()).setDefinitionStatusId(concept.getDefinitionStatusId()));
 		}
 		timer.checkpoint("get relationship def status");
 
@@ -258,9 +257,8 @@ public class ConceptService extends ComponentService {
 				.withPageable(LARGE_PAGE);
 		// Join Lang Refset Members
 		try (final CloseableIterator<LanguageReferenceSetMember> langRefsetMembers = elasticsearchTemplate.stream(queryBuilder.build(), LanguageReferenceSetMember.class)) {
-			langRefsetMembers.forEachRemaining(langRefsetMember -> {
-				descriptionIdMap.get(langRefsetMember.getReferencedComponentId()).addLanguageRefsetMember(langRefsetMember);
-			});
+			langRefsetMembers.forEachRemaining(langRefsetMember ->
+					descriptionIdMap.get(langRefsetMember.getReferencedComponentId()).addLanguageRefsetMember(langRefsetMember));
 		}
 		if (timer != null) timer.checkpoint("get lang refset");
 	}
