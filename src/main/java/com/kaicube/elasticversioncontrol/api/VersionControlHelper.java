@@ -4,6 +4,8 @@ import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.elasticversioncontrol.domain.Commit;
 import com.kaicube.elasticversioncontrol.domain.Component;
 import com.kaicube.elasticversioncontrol.domain.Entity;
+import com.kaicube.snomed.elasticsnomed.domain.LanguageReferenceSetMember;
+import com.kaicube.snomed.elasticsnomed.domain.ReferenceSetMember;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
@@ -58,7 +60,7 @@ public class VersionControlHelper {
 		final BoolQueryBuilder branchCriteria = boolQuery();
 		branchCriteria.should(
 				boolQuery()
-						.must(queryStringQuery(branch.getFlatPath()).field("path"))
+						.must(termQuery("path", branch.getFlatPath()))
 						.must(rangeQuery("start").lte(timepoint))
 						.mustNot(existsQuery("end"))
 		);
@@ -78,7 +80,7 @@ public class VersionControlHelper {
 			versionsReplaced.addAll(parentBranch.getVersionsReplaced());
 			final Date base = branch.getBase();
 			branchCriteria.should(boolQuery()
-					.must(queryStringQuery(parentBranch.getFlatPath()).field("path"))
+					.must(termQuery("path", parentBranch.getFlatPath()))
 					.must(rangeQuery("start").lte(base))
 					.must(boolQuery()
 							.should(boolQuery().mustNot(existsQuery("end")))
@@ -131,9 +133,16 @@ public class VersionControlHelper {
 				.build();
 
 		AtomicLong replacedVersionsCount = new AtomicLong(0);
-		try (final CloseableIterator<T> replacedVersions = elasticsearchTemplate.stream(query2, clazz)) {
+		final Set<String> logIds = new HashSet<>();
+
+		Class classToLoad = clazz.equals(ReferenceSetMember.class) ? LanguageReferenceSetMember.class : clazz; // TODO: how can we do this implicitly
+
+		try (final CloseableIterator<T> replacedVersions = elasticsearchTemplate.stream(query2, classToLoad)) {
 			replacedVersions.forEachRemaining(version -> {
 				commit.addVersionReplaced(version.getInternalId());
+				if (logIds.size() < 20) {
+					logIds.add(version.getInternalId());
+				}
 				toSave.add(version);
 				replacedVersionsCount.incrementAndGet();
 			});
@@ -141,7 +150,7 @@ public class VersionControlHelper {
 		if (!toSave.isEmpty()) {
 			repository.save(toSave);// TODO: Why is this needed?
 		}
-		logger.info("{} old versions of {} replaced.", replacedVersionsCount.get(), clazz);
+		logger.info("{} old versions of {} replaced: {} (first 20).", replacedVersionsCount.get(), clazz, logIds);
 	}
 
 	void setEntityMeta(Entity entity, Commit commit) {

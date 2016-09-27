@@ -267,6 +267,39 @@ public class ConceptServiceTest {
 		Assert.assertEquals(1, members.size());
 		Assert.assertEquals(Concepts.PREFERRED, members.get("900000000000509007").getAcceptabilityId());
 	}
+
+	@Test
+	public void testChangeDescriptionAcceptabilityOnChildBranch() {
+		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
+		concept.addDescription(
+				new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
+						.addLanguageRefsetMember(new LanguageReferenceSetMember("900000000000509007", null, Concepts.PREFERRED))
+		);
+		conceptService.create(concept, "MAIN");
+
+		// Check acceptability on MAIN
+		final Concept savedConcept1 = conceptService.find("50960005", "MAIN");
+		final Description description1 = savedConcept1.getDescriptions().iterator().next();
+		final Map<String, LanguageReferenceSetMember> members1 = description1.getLangRefsetMembers();
+		Assert.assertEquals(Concepts.PREFERRED, members1.get("900000000000509007").getAcceptabilityId());
+
+		// Update acceptability on MAIN/branch1
+		description1.addLanguageRefsetMember(new LanguageReferenceSetMember("900000000000509007", null, Concepts.ACCEPTABLE));
+		branchService.create("MAIN/branch1");
+		conceptService.update(savedConcept1, "MAIN/branch1");
+
+		// Check acceptability on MAIN/branch1
+		logger.info("Loading updated concept on MAIN/branch1");
+		final Concept savedConcept2 = conceptService.find("50960005", "MAIN/branch1");
+		final Description description2 = savedConcept2.getDescriptions().iterator().next();
+		final Map<String, LanguageReferenceSetMember> members2 = description2.getLangRefsetMembers();
+		Assert.assertEquals(Concepts.ACCEPTABLE, members2.get("900000000000509007").getAcceptabilityId());
+
+		// Check acceptability still the same on MAIN
+		final Concept savedConcept3 = conceptService.find("50960005", "MAIN");
+		final Description description3 = savedConcept3.getDescriptions().iterator().next();
+		final Map<String, LanguageReferenceSetMember> members3 = description3.getLangRefsetMembers();
+		Assert.assertEquals(Concepts.PREFERRED, members3.get("900000000000509007").getAcceptabilityId());
 	}
 
 	@Test
