@@ -13,7 +13,7 @@ public abstract class RelationshipStoreMixIn {
 	abstract ConceptMini type();
 
 	@JsonIgnore
-	abstract ConceptMini destination();
+	abstract ConceptMini target();
 
 	@JsonIgnore
 	abstract String getModifier();
