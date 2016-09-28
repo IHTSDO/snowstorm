@@ -7,13 +7,8 @@ import com.kaicube.snomed.elasticsnomed.domain.Concepts;
 import com.kaicube.snomed.elasticsnomed.domain.QueryIndexConcept;
 import com.kaicube.snomed.elasticsnomed.domain.Relationship;
 import com.kaicube.snomed.elasticsnomed.repositories.QueryIndexConceptRepository;
-import it.unimi.dsi.fastutil.objects.ObjectCollection;
-import it.unimi.dsi.fastutil.objects.ObjectIterator;
-import org.ihtsdo.otf.snomedboot.ComponentStore;
-import org.ihtsdo.otf.snomedboot.domain.Concept;
-import org.ihtsdo.otf.snomedboot.factory.ComponentFactory;
-import org.ihtsdo.otf.snomedboot.factory.implementation.standard.ComponentFactoryImpl;
-import org.ihtsdo.otf.snomedboot.factory.implementation.standard.ConceptImpl;
+import com.kaicube.snomed.elasticsnomed.services.transitiveclosure.GraphBuilder;
+import com.kaicube.snomed.elasticsnomed.services.transitiveclosure.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,14 +66,13 @@ public class QueryIndexService extends ComponentService {
 				)
 				.withPageable(ConceptService.LARGE_PAGE);
 
-		final ComponentStore componentStore = new ComponentStore();
-		ComponentFactory componentFactory = new ComponentFactoryImpl(componentStore);
+		final GraphBuilder graphBuilder = new GraphBuilder();
 
 		final AtomicLong activeRelationshipCount = new AtomicLong(0);
 		try (final CloseableIterator<Relationship> relationshipStream = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
 			relationshipStream.forEachRemaining(relationship -> {
 				if (relationship.isActive()) {
-					componentFactory.addConceptParent(relationship.getSourceId(), relationship.getDestinationId());
+					graphBuilder.addEdge(Long.parseLong(relationship.getSourceId()), Long.parseLong(relationship.getDestinationId()));
 					activeRelationshipCount.incrementAndGet();
 				}
 			});
@@ -86,15 +80,11 @@ public class QueryIndexService extends ComponentService {
 
 		logger.info("Processed {} active relationships.", activeRelationshipCount.get());
 
-		final ObjectCollection<ConceptImpl> concepts = componentStore.getConcepts().values();
 		final List<QueryIndexConcept> conceptsToSave = new ArrayList<>();
-		Concept concept;
 		int i = 0;
-		final ObjectIterator<ConceptImpl> iterator = concepts.iterator();
-		while (iterator.hasNext()) {
-			concept = iterator.next();
-			final QueryIndexConcept indexConcept = new QueryIndexConcept(concept.getId(), concept.getAncestorIds());
-			indexConcept.setChanged(true);// TODO - Save only if changed.
+		for (Node node : graphBuilder.getNodes()) {
+			final QueryIndexConcept indexConcept = new QueryIndexConcept(node.getId(), node.getTransitiveClosure());
+			indexConcept.setChanged(true);
 			conceptsToSave.add(indexConcept);
 			i++;
 			if (i % 100000 == 0) {
