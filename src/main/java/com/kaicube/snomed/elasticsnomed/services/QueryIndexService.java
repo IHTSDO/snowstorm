@@ -56,6 +56,21 @@ public class QueryIndexService extends ComponentService {
 		return concepts.isEmpty() ? null : concepts.get(0).getAncestors();
 	}
 
+	// TODO: This will be used when saving classification results.
+	public void performIncrementalTransitiveClosureUpdate() {
+		// Step: Grab existing nodes which will be updated
+		// Strategy: Load existing nodes where id or TC matches updated relationship source ids
+
+		// Step: Build existing graph
+		// Strategy: Load relationships of matched nodes and build existing graph(s)
+
+		// Step - Update graph
+		// Strategy: Add/remove edges from new commit
+
+		// Step: Save changes
+		// Strategy: Persist all nodes excluding root nodes but including the Snomed CT root
+	}
+
 	public void createTransitiveClosureForEveryConcept(Commit commit) {
 		logger.info("Calculating transitive closures");
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
