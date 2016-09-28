@@ -375,6 +375,40 @@ public class ConceptServiceTest {
 		Assert.assertArrayEquals(new String[]{"3"}, conceptService.listChangedConceptIds("MAIN/A").toArray());
 	}
 
+	@Test
+	public void testRestoreEffectiveTime() {
+		final String effectiveTime = "20170131";
+		final String conceptId = "50960005";
+		final String originalModuleId = "900000000000207008";
+		final String path = "MAIN";
+
+		final Concept concept = new Concept(conceptId, null, true, originalModuleId, "900000000000074008");
+		conceptService.create(concept, path);
+		conceptService.releaseSingleConceptForTest(concept, effectiveTime, path);
+
+		final Concept savedConcept = conceptService.find(conceptId, path);
+		Assert.assertEquals(effectiveTime, savedConcept.getEffectiveTime());
+		Assert.assertEquals(effectiveTime, savedConcept.getReleasedEffectiveTime());
+		Assert.assertEquals("true|900000000000207008|900000000000074008", savedConcept.getReleaseHash());
+		Assert.assertTrue(savedConcept.isReleased());
+
+		savedConcept.setModuleId("123");
+		conceptService.update(savedConcept, "MAIN");
+
+		final Concept conceptAfterUpdate = conceptService.find(conceptId, path);
+		Assert.assertNull(conceptAfterUpdate.getEffectiveTime());
+		Assert.assertEquals(effectiveTime, conceptAfterUpdate.getReleasedEffectiveTime());
+		Assert.assertTrue(conceptAfterUpdate.isReleased());
+
+		conceptAfterUpdate.setModuleId(originalModuleId);
+		conceptService.update(conceptAfterUpdate, "MAIN");
+
+		final Concept conceptWithRestoredDate = conceptService.find(conceptId, path);
+		Assert.assertEquals(effectiveTime, conceptWithRestoredDate.getEffectiveTime());
+		Assert.assertEquals(effectiveTime, conceptWithRestoredDate.getReleasedEffectiveTime());
+		Assert.assertTrue(conceptWithRestoredDate.isReleased());
+	}
+
 	private void printAllDescriptions(String path) {
 		final Page<Description> descriptions = conceptService.findDescriptions(path, null, PAGE_REQUEST);
 		logger.info("Description on " + path);

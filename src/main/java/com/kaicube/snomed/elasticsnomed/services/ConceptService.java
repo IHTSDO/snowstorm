@@ -6,7 +6,7 @@ import com.kaicube.elasticversioncontrol.api.ComponentService;
 import com.kaicube.elasticversioncontrol.api.VersionControlHelper;
 import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.elasticversioncontrol.domain.Commit;
-import com.kaicube.elasticversioncontrol.domain.Component;
+import com.kaicube.elasticversioncontrol.domain.DomainEntity;
 import com.kaicube.snomed.elasticsnomed.domain.*;
 import com.kaicube.snomed.elasticsnomed.repositories.ConceptRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.DescriptionRepository;
@@ -341,7 +341,7 @@ public class ConceptService extends ComponentService {
 		return doSave(concepts, branch);
 	}
 
-	private <C extends Component> boolean markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents) {
+	private <C extends SnomedComponent> boolean markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents) {
 		boolean anythingChanged = false;
 		// Mark deletions
 		for (C existingComponent : existingComponents) {
@@ -352,10 +352,16 @@ public class ConceptService extends ComponentService {
 			}
 		}
 		// Mark updates
-		final Map<String, C> map = existingComponents.stream().collect(Collectors.toMap(Component::getId, Function.identity()));
+		final Map<String, C> map = existingComponents.stream().collect(Collectors.toMap(DomainEntity::getId, Function.identity()));
 		for (C newComponent : newComponents) {
 			final C existingComponent = map.get(newComponent.getId());
 			newComponent.setChanged(newComponent.isComponentChanged(existingComponent));
+			if (existingComponent != null) {
+				newComponent.copyReleaseDetails(existingComponent);
+				newComponent.updateEffectiveTime();
+			} else {
+				newComponent.clearReleaseDetails();
+			}
 			if (newComponent.isChanged()) {
 				anythingChanged = true;
 			}
@@ -407,6 +413,9 @@ public class ConceptService extends ComponentService {
 			// Mark changed concepts as changed
 			if (existingConcept != null) {
 				concept.setChanged(concept.isComponentChanged(existingConcept));
+				concept.copyReleaseDetails(existingConcept);
+				concept.updateEffectiveTime();
+
 				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions());
 				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships());
 				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
@@ -415,6 +424,7 @@ public class ConceptService extends ComponentService {
 					concept.setConceptId(IDService.getHackId());
 				}
 				concept.setChanged(true);
+				concept.clearReleaseDetails();
 				Sets.union(concept.getDescriptions(), concept.getRelationships()).stream().forEach(component -> component.setChanged(true));
 			}
 			for (Description description : concept.getDescriptions()) {
@@ -422,29 +432,32 @@ public class ConceptService extends ComponentService {
 				final Map<String, LanguageReferenceSetMember> existingMembersToMatch = new HashMap<>();
 				if (existingDescription != null) {
 					existingMembersToMatch.putAll(existingDescription.getLangRefsetMembers());
-					langRefsetMembersToPersist.addAll(existingMembersToMatch.values());
 				} else {
 					if (description.getDescriptionId() == null) {
 						description.setDescriptionId(IDService.getHackId());
 					}
 				}
 				for (Map.Entry<String, String> acceptability : description.getAcceptabilityMap().entrySet()) {
-					final String acceptabilityValue = Concepts.descriptionAcceptabilityNames.inverse().get(acceptability.getValue());
-					if (acceptabilityValue == null) {
+					final String acceptabilityId = Concepts.descriptionAcceptabilityNames.inverse().get(acceptability.getValue());
+					if (acceptabilityId == null) {
 						throw new IllegalArgumentException("Acceptability value not recognised '" + acceptability.getValue() + "'.");
 					}
 
-					final LanguageReferenceSetMember existingMember = existingMembersToMatch.get(acceptability.getKey());
+					final String languageRefsetId = acceptability.getKey();
+					final LanguageReferenceSetMember existingMember = existingMembersToMatch.get(languageRefsetId);
 					if (existingMember != null) {
-						if (!acceptabilityValue.equals(existingMember.getAcceptabilityId()) || !existingMember.isActive()) {
-							existingMember.setAcceptabilityId(acceptabilityValue);
-							existingMember.setActive(true);
-							existingMember.setChanged(true);
-						}
-						existingMembersToMatch.remove(acceptability.getKey());
-					} else {
-						final LanguageReferenceSetMember member = new LanguageReferenceSetMember(acceptability.getKey(), description.getId(), acceptabilityValue);
+						final LanguageReferenceSetMember member = new LanguageReferenceSetMember(existingMember.getMemberId(), null, true,
+								existingMember.getModuleId(), languageRefsetId, description.getId(), acceptabilityId);
+
 						member.setChanged(true);
+						member.copyReleaseDetails(existingMember);
+						member.updateEffectiveTime();
+						langRefsetMembersToPersist.add(member);
+						existingMembersToMatch.remove(languageRefsetId);
+					} else {
+						final LanguageReferenceSetMember member = new LanguageReferenceSetMember(languageRefsetId, description.getId(), acceptabilityId);
+						member.setChanged(true);
+						member.clearReleaseDetails();
 						langRefsetMembersToPersist.add(member);
 					}
 				}
@@ -481,6 +494,18 @@ public class ConceptService extends ComponentService {
 		}
 
 		return conceptsSaved;
+	}
+
+	// TODO: Real release process
+	public void releaseSingleConceptForTest(Concept concept, String effectiveTime, String path) {
+		if (!exists(concept.getId(), path)) {
+			throw new IllegalArgumentException("Concept does not exist");
+		}
+		final Commit commit = branchService.openCommit(path);
+		concept.release(effectiveTime);
+		concept.setChanged(true);
+		doSaveBatchConcepts(Collections.singleton(concept), commit);
+		branchService.completeCommit(commit);
 	}
 
 	public Iterable<Concept> doSaveBatchConcepts(Collection<Concept> concepts, Commit commit) {

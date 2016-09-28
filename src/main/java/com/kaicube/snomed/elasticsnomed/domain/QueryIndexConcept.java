@@ -1,12 +1,12 @@
 package com.kaicube.snomed.elasticsnomed.domain;
 
-import com.kaicube.elasticversioncontrol.domain.Component;
+import com.kaicube.elasticversioncontrol.domain.DomainEntity;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.util.Set;
 
 @Document(type = "concept", indexName = "snomed-index")
-public class QueryIndexConcept extends Component<QueryIndexConcept> {
+public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 
 	private Long conceptId;
 	private Set<Long> ancestors;

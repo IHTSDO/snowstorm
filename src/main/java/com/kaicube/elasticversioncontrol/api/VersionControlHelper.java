@@ -2,7 +2,7 @@ package com.kaicube.elasticversioncontrol.api;
 
 import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.elasticversioncontrol.domain.Commit;
-import com.kaicube.elasticversioncontrol.domain.Component;
+import com.kaicube.elasticversioncontrol.domain.DomainEntity;
 import com.kaicube.elasticversioncontrol.domain.Entity;
 import com.kaicube.snomed.elasticsnomed.domain.LanguageReferenceSetMember;
 import com.kaicube.snomed.elasticsnomed.domain.ReferenceSetMember;
@@ -165,7 +165,7 @@ public class VersionControlHelper {
 		entity.clearInternalId();
 	}
 
-	public <C extends Component> void removeDeleted(Collection<C> entities) {
+	public <C extends DomainEntity> void removeDeleted(Collection<C> entities) {
 		entities.removeAll(entities.stream().filter(Entity::isDeleted).collect(Collectors.toSet()));
 	}
 }

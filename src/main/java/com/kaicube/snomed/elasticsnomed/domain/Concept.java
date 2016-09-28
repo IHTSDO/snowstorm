@@ -3,7 +3,6 @@ package com.kaicube.snomed.elasticsnomed.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
-import com.kaicube.elasticversioncontrol.domain.Component;
 import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -15,20 +14,16 @@ import java.util.Set;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
-import static com.kaicube.snomed.elasticsnomed.domain.Concepts.*;
+import static com.kaicube.snomed.elasticsnomed.domain.Concepts.definitionStatusNames;
 
 @Document(type = "concept", indexName = "snomed")
 @JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "moduleId", "definitionStatus", "definitionStatusId", "descriptions", "relationships"})
-public class Concept extends Component<Concept> implements ConceptView {
+public class Concept extends SnomedComponent<Concept> implements ConceptView {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@Size(min = 5, max = 18)
 	private String conceptId;
-
-	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
-	private String effectiveTime;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
@@ -72,7 +67,7 @@ public class Concept extends Component<Concept> implements ConceptView {
 	public Concept(String conceptId, String effectiveTime, boolean active, String moduleId, String definitionStatusId) {
 		this();
 		this.conceptId = conceptId;
-		this.effectiveTime = effectiveTime;
+		setEffectiveTime(effectiveTime);
 		this.active = active;
 		this.moduleId = moduleId;
 		this.definitionStatusId = definitionStatusId;
@@ -84,6 +79,11 @@ public class Concept extends Component<Concept> implements ConceptView {
 				|| active != that.active
 				|| !moduleId.equals(that.moduleId)
 				|| !definitionStatusId.equals(that.definitionStatusId);
+	}
+
+	@Override
+	protected Object[] getReleaseHashObjects() {
+		return new Object[]{active, moduleId, definitionStatusId};
 	}
 
 	@JsonView(value = View.Component.class)
@@ -144,15 +144,6 @@ public class Concept extends Component<Concept> implements ConceptView {
 	}
 
 	@Override
-	public String getEffectiveTime() {
-		return effectiveTime;
-	}
-
-	public void setEffectiveTime(String effectiveTime) {
-		this.effectiveTime = effectiveTime;
-	}
-
-	@Override
 	public boolean isActive() {
 		return active;
 	}
@@ -201,7 +192,7 @@ public class Concept extends Component<Concept> implements ConceptView {
 	public String toString() {
 		return "Concept{" +
 				"conceptId='" + conceptId + '\'' +
-				", effectiveTime='" + effectiveTime + '\'' +
+				", effectiveTime='" + getEffectiveTime() + '\'' +
 				", active=" + active +
 				", moduleId='" + moduleId + '\'' +
 				", definitionStatusId='" + definitionStatusId + '\'' +

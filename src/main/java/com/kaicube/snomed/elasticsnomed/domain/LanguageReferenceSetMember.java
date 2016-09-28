@@ -44,6 +44,11 @@ public class LanguageReferenceSetMember extends ReferenceSetMember<LanguageRefer
 		return changed;
 	}
 
+	@Override
+	protected Object[] getReleaseHashObjects() {
+		return new Object[] {isActive(), getModuleId(), acceptabilityId};
+	}
+
 	public String getAcceptabilityId() {
 		return acceptabilityId;
 	}

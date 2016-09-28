@@ -2,7 +2,7 @@ package com.kaicube.elasticversioncontrol.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
-public abstract class Component<C> extends Entity {
+public abstract class DomainEntity<C> extends Entity {
 
 	@JsonIgnore
 	private boolean changed;

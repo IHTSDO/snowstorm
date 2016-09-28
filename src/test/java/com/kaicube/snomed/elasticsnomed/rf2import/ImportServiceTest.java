@@ -117,6 +117,10 @@ public class ImportServiceTest {
 		importService.importSnapshot(getClass().getResource("/MiniCT_INT_GB_20140131").getPath(), branchPath);
 
 		final Concept conceptBleeding = conceptService.find("131148009", branchPath);
+		Assert.assertTrue(conceptBleeding.isReleased());
+		Assert.assertEquals("20050131", conceptBleeding.getEffectiveTime());
+		Assert.assertEquals("true|900000000000207008|900000000000073002", conceptBleeding.getReleaseHash());
+
 		final Set<Description> descriptions = conceptBleeding.getDescriptions();
 		Assert.assertEquals(2, descriptions.size());
 		Description description = null;

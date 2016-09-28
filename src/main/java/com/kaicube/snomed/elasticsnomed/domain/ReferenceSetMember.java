@@ -2,7 +2,6 @@ package com.kaicube.snomed.elasticsnomed.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
-import com.kaicube.elasticversioncontrol.domain.Component;
 import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -10,15 +9,11 @@ import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 @Document(type = "member", indexName = "snomed")
-public class ReferenceSetMember<C extends ReferenceSetMember> extends Component<C> {
+public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComponent<C> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String memberId;
-
-	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
-	private String effectiveTime;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
@@ -41,7 +36,7 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends Component<
 
 	public ReferenceSetMember(String memberId, String effectiveTime, boolean active, String moduleId, String refsetId, String referencedComponentId) {
 		this.memberId = memberId;
-		this.effectiveTime = effectiveTime;
+		setEffectiveTime(effectiveTime);
 		this.active = active;
 		this.moduleId = moduleId;
 		this.refsetId = refsetId;
@@ -56,6 +51,11 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends Component<
 	}
 
 	@Override
+	protected Object[] getReleaseHashObjects() {
+		return new Object[] {active, moduleId};
+	}
+
+	@Override
 	@JsonIgnore
 	public String getId() {
 		return getMemberId();
@@ -67,14 +67,6 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends Component<
 
 	public void setMemberId(String memberId) {
 		this.memberId = memberId;
-	}
-
-	public String getEffectiveTime() {
-		return effectiveTime;
-	}
-
-	public void setEffectiveTime(String effectiveTime) {
-		this.effectiveTime = effectiveTime;
 	}
 
 	public boolean isActive() {
@@ -113,7 +105,7 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends Component<
 	public String toString() {
 		return "ReferenceSetMember{" +
 				"memberId='" + memberId + '\'' +
-				", effectiveTime='" + effectiveTime + '\'' +
+				", effectiveTime='" + getEffectiveTime() + '\'' +
 				", active=" + active +
 				", moduleId='" + moduleId + '\'' +
 				", refsetId='" + refsetId + '\'' +

@@ -2,7 +2,6 @@ package com.kaicube.snomed.elasticsnomed.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
-import com.kaicube.elasticversioncontrol.domain.Component;
 import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,18 +13,15 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
-import static com.kaicube.snomed.elasticsnomed.domain.Concepts.*;
+import static com.kaicube.snomed.elasticsnomed.domain.Concepts.relationshipCharacteristicTypeNames;
+import static com.kaicube.snomed.elasticsnomed.domain.Concepts.relationshipModifierNames;
 
 @Document(type = "relationship", indexName = "snomed")
-public class Relationship extends Component<Relationship> {
+public class Relationship extends SnomedComponent<Relationship> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String relationshipId;
-
-	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
-	private String effectiveTime;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
@@ -86,7 +82,7 @@ public class Relationship extends Component<Relationship> {
 	public Relationship(String id, String effectiveTime, boolean active, String moduleId, String sourceId, String destinationId, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
 		this();
 		this.relationshipId = id;
-		this.effectiveTime = effectiveTime;
+		setEffectiveTime(effectiveTime);
 		this.active = active;
 		this.moduleId = moduleId;
 		this.sourceId = sourceId;
@@ -109,6 +105,11 @@ public class Relationship extends Component<Relationship> {
 				|| !modifierId.equals(that.modifierId);
 		if (changed) logger.debug("Relationship changed:\n{}\n{}", this, that);
 		return changed;
+	}
+
+	@Override
+	protected Object[] getReleaseHashObjects() {
+		return new Object[] {active, moduleId, destinationId, relationshipGroup, typeId, characteristicTypeId, modifierId};
 	}
 
 	@Override
@@ -172,10 +173,6 @@ public class Relationship extends Component<Relationship> {
 		this.relationshipId = relationshipId;
 	}
 
-	public String getEffectiveTime() {
-		return effectiveTime;
-	}
-
 	public boolean isActive() {
 		return active;
 	}
@@ -235,7 +232,7 @@ public class Relationship extends Component<Relationship> {
 	public String toString() {
 		return "Relationship{" +
 				"relationshipId='" + relationshipId + '\'' +
-				", effectiveTime='" + effectiveTime + '\'' +
+				", effectiveTime='" + getEffectiveTime() + '\'' +
 				", active=" + active +
 				", moduleId='" + moduleId + '\'' +
 				", sourceId='" + sourceId + '\'' +

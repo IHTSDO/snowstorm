@@ -77,24 +77,39 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 	@Override
 	public void createConcept(String conceptId, String effectiveTime, String active, String moduleId, String definitionStatusId) {
 		final Concept concept = new Concept(conceptId, effectiveTime, isActive(active), moduleId, definitionStatusId);
+		if (effectiveTime != null) {
+			concept.release(effectiveTime);
+		}
 		conceptPersistBuffer.save(concept);
 	}
 
 	@Override
 	public void addRelationship(String id, String effectiveTime, String active, String moduleId, String sourceId,
 			String destinationId, String relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
-		relationshipPersistBuffer.save(new Relationship(id, effectiveTime, isActive(active), moduleId, sourceId,
-				destinationId, Integer.parseInt(relationshipGroup), typeId, characteristicTypeId, modifierId));
+		final Relationship relationship = new Relationship(id, effectiveTime, isActive(active), moduleId, sourceId,
+				destinationId, Integer.parseInt(relationshipGroup), typeId, characteristicTypeId, modifierId);
+		if (effectiveTime != null) {
+			relationship.release(effectiveTime);
+		}
+		relationshipPersistBuffer.save(relationship);
 	}
 
 	@Override
 	public void addDescription(String id, String effectiveTime, String active, String moduleId, String conceptId, String languageCode, String typeId, String term, String caseSignificanceId) {
-		descriptionPersistBuffer.save(new Description(id, effectiveTime, isActive(active), moduleId, conceptId, languageCode, typeId, term, caseSignificanceId));
+		final Description description = new Description(id, effectiveTime, isActive(active), moduleId, conceptId, languageCode, typeId, term, caseSignificanceId);
+		if (effectiveTime != null) {
+			description.release(effectiveTime);
+		}
+		descriptionPersistBuffer.save(description);
 	}
 
 	@Override
 	public void addReferenceSetMember(String id, String effectiveTime, String active, String moduleId, String refsetId, String referencedComponentId, String... otherValues) {
-		memberPersistBuffer.save(new LanguageReferenceSetMember(id, effectiveTime, isActive(active), moduleId, refsetId, referencedComponentId, otherValues[0]));
+		final LanguageReferenceSetMember member = new LanguageReferenceSetMember(id, effectiveTime, isActive(active), moduleId, refsetId, referencedComponentId, otherValues[0]);
+		if (effectiveTime != null) {
+			member.release(effectiveTime);
+		}
+		memberPersistBuffer.save(member);
 	}
 
 	@Override

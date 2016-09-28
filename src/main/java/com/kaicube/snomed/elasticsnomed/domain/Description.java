@@ -2,7 +2,6 @@ package com.kaicube.snomed.elasticsnomed.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
-import com.kaicube.elasticversioncontrol.domain.Component;
 import com.kaicube.snomed.elasticsnomed.rest.View;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +18,7 @@ import javax.validation.constraints.Size;
 import static com.kaicube.snomed.elasticsnomed.domain.Concepts.*;
 
 @Document(type = "description", indexName = "snomed")
-public class Description extends Component<Description> {
+public class Description extends SnomedComponent<Description> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -39,10 +38,6 @@ public class Description extends Component<Description> {
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String conceptId;
-
-	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
-	private String effectiveTime;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -98,7 +93,7 @@ public class Description extends Component<Description> {
 	public Description(String id, String effectiveTime, boolean active, String moduleId, String conceptId, String languageCode, String typeId, String term, String caseSignificanceId) {
 		this();
 		this.descriptionId = id;
-		this.effectiveTime = effectiveTime;
+		setEffectiveTime(effectiveTime);
 		this.active = active;
 		this.moduleId = moduleId;
 		this.conceptId = conceptId;
@@ -117,6 +112,11 @@ public class Description extends Component<Description> {
 				|| !languageCode.equals(that.languageCode)
 				|| !typeId.equals(that.typeId)
 				|| !caseSignificanceId.equals(that.caseSignificanceId);
+	}
+
+	@Override
+	protected Object[] getReleaseHashObjects() {
+		return new Object[] {active, term, moduleId, languageCode, typeId, caseSignificanceId};
 	}
 
 	@JsonView(value = View.Component.class)
@@ -218,14 +218,6 @@ public class Description extends Component<Description> {
 		this.conceptId = conceptId;
 	}
 
-	public String getEffectiveTime() {
-		return effectiveTime;
-	}
-
-	public void setEffectiveTime(String effectiveTime) {
-		this.effectiveTime = effectiveTime;
-	}
-
 	public String getModuleId() {
 		return moduleId;
 	}
@@ -281,7 +273,7 @@ public class Description extends Component<Description> {
 				", active=" + active +
 				", term='" + term + '\'' +
 				", conceptId='" + conceptId + '\'' +
-				", effectiveTime='" + effectiveTime + '\'' +
+				", effectiveTime='" + getEffectiveTime() + '\'' +
 				", moduleId='" + moduleId + '\'' +
 				", languageCode='" + languageCode + '\'' +
 				", typeId='" + typeId + '\'' +
