@@ -225,8 +225,8 @@ public class ConceptService extends ComponentService {
 		}
 
 		queryBuilder.withQuery(boolQuery()
-				.must(branchCriteria))
-				.withFilter(boolQuery().must(termsQuery("conceptId", allConceptIds)))
+				.must(branchCriteria)
+				.must(termsQuery("conceptId", allConceptIds)))
 				.withPageable(LARGE_PAGE);
 		Map<String, Description> descriptionIdMap = new HashMap<>();
 		// Join Descriptions
@@ -252,8 +252,8 @@ public class ConceptService extends ComponentService {
 
 		// Fetch Lang Refset Members
 		queryBuilder.withQuery(boolQuery()
-				.must(branchCriteria))
-				.withFilter(boolQuery().must(termsQuery("referencedComponentId", descriptionIdMap.keySet())))
+				.must(branchCriteria)
+				.must(termsQuery("referencedComponentId", descriptionIdMap.keySet())))
 				.withPageable(LARGE_PAGE);
 		// Join Lang Refset Members
 		try (final CloseableIterator<LanguageReferenceSetMember> langRefsetMembers = elasticsearchTemplate.stream(queryBuilder.build(), LanguageReferenceSetMember.class)) {
