@@ -116,6 +116,18 @@
 			<name>jcenter</name>
 			<url>https://jcenter.bintray.com/</url>
 		</repository>
+		<repository>
+			<id>ihtsdo-releases</id>
+			<releases><enabled>true</enabled></releases>
+			<snapshots><enabled>false</enabled></snapshots>
+			<url>https://maven.ihtsdotools.org/content/repositories/releases/</url>
+		</repository>
+		<repository>
+			<id>ihtsdo-snapshots</id>
+			<releases><enabled>false</enabled></releases>
+			<snapshots><enabled>true</enabled></snapshots>
+			<url>https://maven.ihtsdotools.org/content/repositories/snapshots/</url>
+		</repository>
 	</repositories>
 	<pluginRepositories>
 		<pluginRepository>
