@@ -48,6 +48,16 @@ public class VersionControlHelper {
 		return getBranchCriteria(branch, branch.getHead(), branch.getVersionsReplaced(), true);
 	}
 
+	public BoolQueryBuilder getUpdatesOnBranchDuringRangeCriteria(String path, Date start, Date end) {
+		final Branch branch = getBranchOrThrow(path);
+		return boolQuery()
+				.must(termQuery("path", branch.getFlatPath()))
+				.must(boolQuery()
+						.should(rangeQuery("start").gte(start).lte(end))
+						.should(rangeQuery("end").gte(start).lte(end))
+				);
+	}
+
 	private Branch getBranchOrThrow(String path) {
 		final Branch branch = branchService.findLatest(path);
 		if (branch == null) {

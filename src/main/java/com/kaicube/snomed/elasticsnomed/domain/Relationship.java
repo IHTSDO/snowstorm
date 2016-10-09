@@ -79,6 +79,12 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.relationshipId = relationshipId;
 	}
 
+	public Relationship(String typeId, String destinationId) {
+		this();
+		this.typeId = typeId;
+		this.destinationId = destinationId;
+	}
+
 	public Relationship(String id, String effectiveTime, boolean active, String moduleId, String sourceId, String destinationId, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
 		this();
 		this.relationshipId = id;
@@ -95,7 +101,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	@Override
 	public boolean isComponentChanged(Relationship that) {
-		final boolean changed = that == null
+		return that == null
 				|| active != that.active
 				|| !moduleId.equals(that.moduleId)
 				|| !destinationId.equals(that.destinationId)
@@ -103,8 +109,6 @@ public class Relationship extends SnomedComponent<Relationship> {
 				|| !typeId.equals(that.typeId)
 				|| !characteristicTypeId.equals(that.characteristicTypeId)
 				|| !modifierId.equals(that.modifierId);
-		if (changed) logger.debug("Relationship changed:\n{}\n{}", this, that);
-		return changed;
 	}
 
 	@Override

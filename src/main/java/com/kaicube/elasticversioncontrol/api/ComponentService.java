@@ -6,6 +6,7 @@ import net.jodah.typetools.TypeResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,8 @@ public class ComponentService {
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
+
+	public static final PageRequest LARGE_PAGE = new PageRequest(0, 10000);
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 

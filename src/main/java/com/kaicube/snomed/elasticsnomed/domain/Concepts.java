@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableBiMap;
 
 public class Concepts {
 
+	public static final String SNOMEDCT_ROOT = "138875005";
 	public static final String CORE_MODULE = "900000000000207008";
 
 	public static final String PRIMITIVE = "900000000000074008";
@@ -15,6 +16,9 @@ public class Concepts {
 
 	public static final String ACCEPTABLE = "900000000000549004";
 	public static final String PREFERRED = "900000000000548007";
+
+	public static final String US_EN_LANG_REFSET = "900000000000509007";
+	public static final String GB_EN_LANG_REFSET = "900000000000508004";
 
 	public static final String ISA = "116680003";
 

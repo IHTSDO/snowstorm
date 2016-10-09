@@ -19,17 +19,18 @@ public class Branch extends Entity {
 	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
 	private Date head;
 
+	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
+	private Date lastPromotion;
+
 	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
 	private boolean locked;
 
+	// The internal ids of entities visible on ancestor branches which have been replaced or deleted on this branch
 	private Set<String> versionsReplaced;
-
-	private Set<String> entitiesRemoved;
 
 	public Branch() {
 		head = new Date();
 		versionsReplaced = new HashSet<>();
-		entitiesRemoved = new HashSet<>();
 	}
 
 	public Branch(String path) {
@@ -37,15 +38,15 @@ public class Branch extends Entity {
 		setPath(path);
 	}
 
+	public boolean isParent(Branch otherBranch) {
+		final String childPath = otherBranch.getFatPath();
+		final int endIndex = childPath.lastIndexOf("/");
+		return endIndex > 0 && getFatPath().equals(childPath.substring(0, endIndex));
+	}
+
 	public void addVersionsReplaced(Set<String> internalIds) {
 		if (notMAIN()) {
 			versionsReplaced.addAll(internalIds);
-		}
-	}
-
-	public void addEntitiesRemoved(Set<String> internalIds) {
-		if (notMAIN()) {
-			entitiesRemoved.addAll(internalIds);
 		}
 	}
 
@@ -74,6 +75,14 @@ public class Branch extends Entity {
 		return head;
 	}
 
+	public Date getLastPromotion() {
+		return lastPromotion;
+	}
+
+	public void setLastPromotion(Date lastPromotion) {
+		this.lastPromotion = lastPromotion;
+	}
+
 	public void setLocked(boolean locked) {
 		this.locked = locked;
 	}
@@ -86,8 +95,8 @@ public class Branch extends Entity {
 		return versionsReplaced;
 	}
 
-	public Set<String> getEntitiesRemoved() {
-		return entitiesRemoved;
+	public void setVersionsReplaced(Set<String> versionsReplaced) {
+		this.versionsReplaced = versionsReplaced;
 	}
 
 	@Override
@@ -99,7 +108,6 @@ public class Branch extends Entity {
 				", start=" + getMillis(getStart()) +
 				", end=" + getMillis(getEnd()) +
 				", versionsReplaced=" + versionsReplaced +
-				", entitiesRemoved=" + entitiesRemoved +
 				'}';
 	}
 

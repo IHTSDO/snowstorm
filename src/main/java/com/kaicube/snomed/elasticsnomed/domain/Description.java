@@ -81,7 +81,6 @@ public class Description extends SnomedComponent<Description> {
 
 	public Description(String term) {
 		this();
-		this.descriptionId = term.hashCode() + "";
 		this.term = term;
 	}
 
@@ -133,8 +132,9 @@ public class Description extends SnomedComponent<Description> {
 		return caseSignificanceNames.get(caseSignificanceId);
 	}
 
-	public void setCaseSignificance(String caseSignificance) {
+	public Description setCaseSignificance(String caseSignificance) {
 		caseSignificanceId = caseSignificanceNames.inverse().get(caseSignificance);
+		return this;
 	}
 
 	@JsonView(value = View.Component.class)
@@ -144,6 +144,10 @@ public class Description extends SnomedComponent<Description> {
 
 	public void setLang(String languageCode) {
 		this.languageCode = languageCode;
+	}
+
+	public void clearLanguageRefsetMembers() {
+		langRefsetMembers.clear();
 	}
 
 	public Description addLanguageRefsetMember(LanguageReferenceSetMember member) {
@@ -182,8 +186,9 @@ public class Description extends SnomedComponent<Description> {
 		}
 	}
 
-	public void setAcceptabilityMap(Map<String, String> acceptabilityMap) {
+	public Description setAcceptabilityMap(Map<String, String> acceptabilityMap) {
 		this.acceptabilityMap = acceptabilityMap;
+		return this;
 	}
 
 	public String getDescriptionId() {

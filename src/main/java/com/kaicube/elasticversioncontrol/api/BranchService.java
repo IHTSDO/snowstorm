@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.elasticversioncontrol.domain.Commit;
 import com.kaicube.elasticversioncontrol.repositories.BranchRepository;
+import com.kaicube.snomed.elasticsnomed.domain.review.BranchState;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.FieldSortBuilder;
@@ -138,7 +139,6 @@ public class BranchService {
 		newBranchTimespan.setHead(timepoint);
 		newBranchTimespan.addVersionsReplaced(oldBranchTimespan.getVersionsReplaced());
 		newBranchTimespan.addVersionsReplaced(commit.getEntityVersionsReplaced());
-		newBranchTimespan.addEntitiesRemoved(oldBranchTimespan.getEntitiesRemoved());
 		logger.debug("Ending branch timespan {}", oldBranchTimespan);
 		logger.debug("Starting branch timespan {}", newBranchTimespan);
 		branchRepository.save(Lists.newArrayList(oldBranchTimespan, newBranchTimespan));
@@ -161,6 +161,11 @@ public class BranchService {
 		} else {
 			throw new IllegalArgumentException("Branch not found " + path);
 		}
+	}
+
+	public boolean isBranchStateCurrent(BranchState branchState) {
+		final Branch branch = findBranchOrThrow(branchState.getPath());
+		return branch.getBase().getTime() == branchState.getBaseTimestamp() && branch.getHead().getTime() == branchState.getHeadTimestamp();
 	}
 
 	// TODO - Implement commit rollback; simply delete all entities at commit timepoint from branch and remove write lock.

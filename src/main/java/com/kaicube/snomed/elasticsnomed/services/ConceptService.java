@@ -39,7 +39,6 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 @Service
 public class ConceptService extends ComponentService {
 
-	public static final PageRequest LARGE_PAGE = new PageRequest(0, 10000);
 	@Autowired
 	private ConceptRepository conceptRepository;
 
@@ -90,9 +89,9 @@ public class ConceptService extends ComponentService {
 
 		Set<String> conceptsNotFound = new HashSet<>(ids);
 		try (final CloseableIterator<Concept> conceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-						.withQuery(builder)
-						.withPageable(LARGE_PAGE)
-						.build(), Concept.class)) {
+				.withQuery(builder)
+				.withPageable(LARGE_PAGE)
+				.build(), Concept.class)) {
 			conceptStream.forEachRemaining(concept -> conceptsNotFound.remove(concept.getConceptId()));
 		}
 		return conceptsNotFound;
@@ -339,6 +338,7 @@ public class ConceptService extends ComponentService {
 		if (conceptVersion.getConceptId() != null && exists(conceptVersion.getConceptId(), path)) {
 			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
 		} else {
+			// TODO - this block is no longer needed
 			conceptVersion.setChanged(true);
 			markDeletionsAndUpdates(conceptVersion.getDescriptions(), Sets.newHashSet());
 			markDeletionsAndUpdates(conceptVersion.getRelationships(), Sets.newHashSet());
