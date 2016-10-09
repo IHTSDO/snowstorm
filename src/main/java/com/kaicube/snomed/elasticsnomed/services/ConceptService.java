@@ -478,10 +478,13 @@ public class ConceptService extends ComponentService {
 						final LanguageReferenceSetMember member = new LanguageReferenceSetMember(existingMember.getMemberId(), null, true,
 								existingMember.getModuleId(), languageRefsetId, description.getId(), acceptabilityId);
 
-						member.setChanged(true);
-						member.copyReleaseDetails(existingMember);
-						member.updateEffectiveTime();
-						langRefsetMembersToPersist.add(member);
+						if (member.isComponentChanged(existingMember)) {
+							member.setChanged(true);
+							member.copyReleaseDetails(existingMember);
+							member.updateEffectiveTime();
+							langRefsetMembersToPersist.add(member);
+						}
+
 						existingMembersToMatch.remove(languageRefsetId);
 					} else {
 						final LanguageReferenceSetMember member = new LanguageReferenceSetMember(languageRefsetId, description.getId(), acceptabilityId);
