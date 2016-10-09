@@ -1,5 +1,7 @@
 package com.kaicube.snomed.elasticsnomed;
 
+import com.kaicube.elasticversioncontrol.domain.Branch;
+import com.kaicube.snomed.elasticsnomed.domain.*;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
 import org.springframework.context.annotation.Bean;
@@ -15,7 +17,14 @@ public class TestConfig {
 
 	@Bean
 	public ElasticsearchTemplate elasticsearchTemplate() throws UnknownHostException {
-		return Config.getElasticsearchTemplate(elasticSearchClient());
+		final ElasticsearchTemplate elasticsearchTemplate = Config.getElasticsearchTemplate(elasticSearchClient());
+		elasticsearchTemplate.deleteIndex(Concept.class);
+		elasticsearchTemplate.deleteIndex(Description.class);
+		elasticsearchTemplate.deleteIndex(Relationship.class);
+		elasticsearchTemplate.deleteIndex(ReferenceSetMember.class);
+		elasticsearchTemplate.deleteIndex(QueryIndexConcept.class);
+		elasticsearchTemplate.deleteIndex(Branch.class);
+		return elasticsearchTemplate;
 	}
 
 	@Bean // Use embedded Elastic search Server
