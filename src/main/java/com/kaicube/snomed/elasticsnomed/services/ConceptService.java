@@ -496,6 +496,7 @@ public class ConceptService extends ComponentService {
 				for (LanguageReferenceSetMember leftoverMember : existingMembersToMatch.values()) {
 					// TODO: make inactive if released
 					leftoverMember.markDeleted();
+					langRefsetMembersToPersist.add(leftoverMember);
 				}
 			}
 			concept.getRelationships().stream()
