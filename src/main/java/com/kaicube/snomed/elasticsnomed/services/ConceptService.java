@@ -305,6 +305,35 @@ public class ConceptService extends ComponentService {
 		return conceptIds;
 	}
 
+	public void deleteConceptAndComponents(String conceptId, String path, boolean force) {
+		final Commit commit = branchService.openCommit(path);
+		final Concept concept = find(conceptId, path);
+		if (concept == null) {
+			throw new IllegalArgumentException("Concept " + conceptId + " not found.");
+		}
+		if (concept.isReleased() && !force) {
+			throw new IllegalStateException("Released concept will not be deleted.");
+		}
+
+		// Mark concept and components as deleted
+		concept.markDeleted();
+		Set<ReferenceSetMember> langRefsetMembersToPersist = new HashSet<>();
+		concept.getDescriptions().forEach(description -> {
+			description.markDeleted();
+			description.getLangRefsetMembers().values().forEach(member -> {
+				member.markDeleted();
+				langRefsetMembersToPersist.add(member);
+			});
+		});
+		concept.getRelationships().forEach(Relationship::markDeleted);
+
+		// Persist deletion
+		doSaveBatchConcepts(Sets.newHashSet(concept), commit);
+		doSaveBatchDescriptions(concept.getDescriptions(), commit);
+		doSaveBatchMembers(langRefsetMembersToPersist, commit);
+		doSaveBatchRelationships(concept.getRelationships(), commit);
+	}
+
 	public Concept create(Concept conceptVersion, String path) {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		if (conceptVersion.getConceptId() != null && exists(conceptVersion.getConceptId(), path)) {
