@@ -337,11 +337,6 @@ public class ConceptService extends ComponentService {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		if (conceptVersion.getConceptId() != null && exists(conceptVersion.getConceptId(), path)) {
 			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
-		} else {
-			// TODO - this block is no longer needed
-			conceptVersion.setChanged(true);
-			markDeletionsAndUpdates(conceptVersion.getDescriptions(), Sets.newHashSet());
-			markDeletionsAndUpdates(conceptVersion.getRelationships(), Sets.newHashSet());
 		}
 		return doSave(conceptVersion, branch);
 	}
