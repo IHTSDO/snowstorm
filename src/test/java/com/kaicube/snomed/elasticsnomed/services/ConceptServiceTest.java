@@ -359,23 +359,6 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testListChangedConceptsOnBranch() {
-		Assert.assertEquals(0, conceptService.listChangedConceptIds("MAIN").size());
-
-		branchService.create("MAIN/A");
-
-		createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
-		createConceptWithPathIdAndTerms("MAIN", "2", "Arm");
-
-		Assert.assertEquals(2, conceptService.listChangedConceptIds("MAIN").size());
-		Assert.assertEquals(0, conceptService.listChangedConceptIds("MAIN/A").size());
-
-		createConceptWithPathIdAndTerms("MAIN/A", "3", "Foot");
-
-		Assert.assertArrayEquals(new String[]{"3"}, conceptService.listChangedConceptIds("MAIN/A").toArray());
-	}
-
-	@Test
 	public void testRestoreEffectiveTime() {
 		final String effectiveTime = "20170131";
 		final String conceptId = "50960005";
