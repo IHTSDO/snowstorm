@@ -2,7 +2,7 @@ package com.kaicube.snomed.elasticsnomed;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Sets;
+import com.google.common.collect.Lists;
 import com.kaicube.elasticversioncontrol.api.BranchService;
 import com.kaicube.elasticversioncontrol.api.VersionControlHelper;
 import com.kaicube.snomed.elasticsnomed.domain.*;
@@ -102,7 +102,13 @@ public class Config {
 	@Bean
 	public FilterRegistrationBean getUrlRewriteFilter() {
 		// Encode branch paths in uri to allow request mapping to work
-		return new FilterRegistrationBean(new BranchPathUrlRewriteFilter(Sets.newHashSet("/concepts", "/descriptions", "/branches/")));
+		return new FilterRegistrationBean(new BranchPathUrlRewriteFilter(Lists.newArrayList(
+				"/branches/(.*)/children",
+				"/branches/(.*)",
+				"/browser/(.*)/concepts",
+				"/browser/(.*)/concepts",
+				"/(.*)/descriptions"
+		)));
 	}
 
 	@Bean

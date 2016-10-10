@@ -1,16 +1,17 @@
 package com.kaicube.snomed.elasticsnomed.rest.pojo;
 
-import javax.validation.constraints.Min;
+import org.hibernate.validator.constraints.Length;
+
 import javax.validation.constraints.NotNull;
 
 public class CreateReviewRequest {
 
 	@NotNull
-	@Min(4)
+	@Length(min = 4)
 	private String source;
 
 	@NotNull
-	@Min(4)
+	@Length(min = 4)
 	private String target;
 
 	public CreateReviewRequest() {

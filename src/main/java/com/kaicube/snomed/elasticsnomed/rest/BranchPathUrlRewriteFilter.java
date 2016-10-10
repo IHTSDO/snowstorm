@@ -8,7 +8,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.servlet.FilterChain;
 import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
@@ -18,11 +22,12 @@ import javax.servlet.http.HttpServletRequestWrapper;
 
 public class BranchPathUrlRewriteFilter extends RequestFilter {
 
-	private final Set<String> delimiters;
+	private final List<Pattern> patterns;
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public BranchPathUrlRewriteFilter(Set<String> delimiters) {
-		this.delimiters = delimiters;
+	public BranchPathUrlRewriteFilter(List<String> patternStrings) {
+		patterns = new ArrayList<>();
+		patternStrings.forEach(pattern -> patterns.add(Pattern.compile(pattern)));
 	}
 
 	@Override
@@ -46,17 +51,14 @@ public class BranchPathUrlRewriteFilter extends RequestFilter {
 		filterChain.doFilter(servletRequest, servletResponse);
 	}
 
-	private String rewriteUri(String requestURI) {
+	protected String rewriteUri(String requestURI) {
 		if (requestURI != null) {
-			for (String delimiter : delimiters) {
-				final int i = requestURI.indexOf(delimiter);
-				if (i == 0) {
-					logger.info("requestURI {}", requestURI);
-					final int end = requestURI.indexOf("/", delimiter.length()) + i;
-					return delimiter + "/" + requestURI.substring(delimiter.length(), end).replace("/", "|").replace("%2F", "|") + requestURI.substring(end);
-				} else if (i > 0) {
-					logger.info("requestURI {}", requestURI);
-					return "/" + requestURI.substring(1, i).replace("/", "|").replace("%2F", "|") + requestURI.substring(i);
+			for (Pattern pattern : patterns) {
+				final Matcher matcher = pattern.matcher(requestURI);
+				if (matcher.matches()) {
+					logger.info("requestURI {} matches pattern {}", requestURI, pattern);
+					final String path = matcher.group(1);
+					return requestURI.replace(path, path.replace("/", "|").replace("%2F", "|"));
 				}
 			}
 		}
