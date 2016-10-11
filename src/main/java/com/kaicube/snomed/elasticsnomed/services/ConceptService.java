@@ -1,5 +1,6 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.kaicube.elasticversioncontrol.api.BranchService;
 import com.kaicube.elasticversioncontrol.api.ComponentService;
@@ -149,13 +150,14 @@ public class ConceptService extends ComponentService {
 	}
 
 	private Page<Concept> doFind(Collection<String> ids, String path, PageRequest pageRequest) {
-		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
+		final TimerUtil timer = new TimerUtil("Find concept", Level.INFO);
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 		timer.checkpoint("get branch criteria");
 
 		final BoolQueryBuilder builder = boolQuery()
 				.must(branchCriteria);
 		if (ids != null && !ids.isEmpty()) {
+			// TODO - use CLAUSE_LIMIT here
 			builder.must(termsQuery("conceptId", ids));
 		}
 
@@ -176,31 +178,36 @@ public class ConceptService extends ComponentService {
 		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
 
 		// Fetch Relationships
-		queryBuilder.withQuery(boolQuery()
-				.must(termsQuery("sourceId", conceptIdMap.keySet()))
-				.must(branchCriteria))
-				.withPageable(LARGE_PAGE);
+		for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
+			queryBuilder.withQuery(boolQuery()
+					.must(termsQuery("sourceId", conceptIds))
+					.must(branchCriteria))
+					.withPageable(LARGE_PAGE);
+			try (final CloseableIterator<Relationship> relationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
+				relationships.forEachRemaining(relationship -> {
+					// Join Relationships
+					conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
 
-		// Join Relationships
-		try (final CloseableIterator<Relationship> relationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
-			relationships.forEachRemaining(relationship -> {
-				conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
-				relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId()));
-				relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
-			});
+					// Add placeholders for relationship type and target details
+					relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId()));
+					relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
+				});
+			}
 		}
-		timer.checkpoint("get relationships");
+		timer.checkpoint("get relationships " + getFetchCount(conceptIdMap.size()));
 
 		// Fetch ConceptMini definition statuses
-		queryBuilder.withQuery(boolQuery()
-				.must(termsQuery("conceptId", conceptMiniMap.keySet()))
-				.must(branchCriteria))
-				.withPageable(LARGE_PAGE);
-		try (final CloseableIterator<Concept> conceptsForMini = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
-			conceptsForMini.forEachRemaining(concept ->
-					conceptMiniMap.get(concept.getConceptId()).setDefinitionStatusId(concept.getDefinitionStatusId()));
+		for (List<String> conceptIds : Iterables.partition(conceptMiniMap.keySet(), CLAUSE_LIMIT)) {
+			queryBuilder.withQuery(boolQuery()
+					.must(termsQuery("conceptId", conceptIds))
+					.must(branchCriteria))
+					.withPageable(LARGE_PAGE);
+			try (final CloseableIterator<Concept> conceptsForMini = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
+				conceptsForMini.forEachRemaining(concept ->
+						conceptMiniMap.get(concept.getConceptId()).setDefinitionStatusId(concept.getDefinitionStatusId()));
+			}
 		}
-		timer.checkpoint("get relationship def status");
+		timer.checkpoint("get relationship def status " + getFetchCount(conceptMiniMap.size()));
 
 		fetchDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer);
 		timer.finish();
@@ -211,7 +218,6 @@ public class ConceptService extends ComponentService {
 	private void fetchDescriptions(QueryBuilder branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap, TimerUtil timer) {
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 
-		// Fetch Descriptions
 		final Set<String> allConceptIds = new HashSet<>();
 		if (conceptIdMap != null) {
 			allConceptIds.addAll(conceptIdMap.keySet());
@@ -223,43 +229,54 @@ public class ConceptService extends ComponentService {
 			return;
 		}
 
-		queryBuilder.withQuery(boolQuery()
-				.must(branchCriteria)
-				.must(termsQuery("conceptId", allConceptIds)))
-				.withPageable(LARGE_PAGE);
+		// Fetch Descriptions
 		Map<String, Description> descriptionIdMap = new HashMap<>();
-		// Join Descriptions
-		try (final CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(queryBuilder.build(), Description.class)) {
-			descriptions.forEachRemaining(description -> {
-				descriptionIdMap.put(description.getDescriptionId(), description);
-				final String descriptionConceptId = description.getConceptId();
-				if (conceptIdMap != null) {
-					final Concept concept = conceptIdMap.get(descriptionConceptId);
-					if (concept != null) {
-						concept.addDescription(description);
+		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
+			queryBuilder.withQuery(boolQuery()
+					.must(branchCriteria)
+					.must(termsQuery("conceptId", conceptIds)))
+					.withPageable(LARGE_PAGE);
+			try (final CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(queryBuilder.build(), Description.class)) {
+				descriptions.forEachRemaining(description -> {
+					// Join Descriptions
+					final String descriptionConceptId = description.getConceptId();
+					if (conceptIdMap != null) {
+						final Concept concept = conceptIdMap.get(descriptionConceptId);
+						if (concept != null) {
+							concept.addDescription(description);
+						}
 					}
-				}
-				if (conceptMiniMap != null) {
-					final ConceptMini conceptMini = conceptMiniMap.get(descriptionConceptId);
-					if (conceptMini != null && Concepts.FSN.equals(description.getTypeId()) && description.isActive()) {
-						conceptMini.addActiveFsn(description);
+					if (conceptMiniMap != null) {
+						final ConceptMini conceptMini = conceptMiniMap.get(descriptionConceptId);
+						if (conceptMini != null && Concepts.FSN.equals(description.getTypeId()) && description.isActive()) {
+							conceptMini.addActiveFsn(description);
+						}
 					}
-				}
-			});
+
+					// Store Descriptions for Lang Refset join
+					descriptionIdMap.put(description.getDescriptionId(), description);
+				});
+			}
 		}
-		if (timer != null) timer.checkpoint("get descriptions");
+		if (timer != null) timer.checkpoint("get descriptions " + getFetchCount(allConceptIds.size()));
 
 		// Fetch Lang Refset Members
-		queryBuilder.withQuery(boolQuery()
-				.must(branchCriteria)
-				.must(termsQuery("referencedComponentId", descriptionIdMap.keySet())))
-				.withPageable(LARGE_PAGE);
-		// Join Lang Refset Members
-		try (final CloseableIterator<LanguageReferenceSetMember> langRefsetMembers = elasticsearchTemplate.stream(queryBuilder.build(), LanguageReferenceSetMember.class)) {
-			langRefsetMembers.forEachRemaining(langRefsetMember ->
-					descriptionIdMap.get(langRefsetMember.getReferencedComponentId()).addLanguageRefsetMember(langRefsetMember));
+		for (List<String> descriptionIds : Iterables.partition(descriptionIdMap.keySet(), CLAUSE_LIMIT)) {
+			queryBuilder.withQuery(boolQuery()
+					.must(branchCriteria)
+					.must(termsQuery("referencedComponentId", descriptionIds)))
+					.withPageable(LARGE_PAGE);
+			// Join Lang Refset Members
+			try (final CloseableIterator<LanguageReferenceSetMember> langRefsetMembers = elasticsearchTemplate.stream(queryBuilder.build(), LanguageReferenceSetMember.class)) {
+				langRefsetMembers.forEachRemaining(langRefsetMember ->
+						descriptionIdMap.get(langRefsetMember.getReferencedComponentId()).addLanguageRefsetMember(langRefsetMember));
+			}
 		}
-		if (timer != null) timer.checkpoint("get lang refset");
+		if (timer != null) timer.checkpoint("get lang refset " + getFetchCount(descriptionIdMap.size()));
+	}
+
+	private String getFetchCount(int size) {
+		return "(" + ((size / CLAUSE_LIMIT) + 1) + " fetches)";
 	}
 
 	private ConceptMini getConceptMini(Map<String, ConceptMini> conceptMiniMap, String id) {

@@ -21,6 +21,7 @@ public class ComponentService {
 	private VersionControlHelper versionControlHelper;
 
 	public static final PageRequest LARGE_PAGE = new PageRequest(0, 10000);
+	public static final int CLAUSE_LIMIT = 800;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
