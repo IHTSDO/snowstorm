@@ -14,6 +14,8 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.List;
 
+import static com.kaicube.elasticversioncontrol.domain.Branch.BranchState.*;
+
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = {Config.class, TestConfig.class})
 public class BranchServiceTest {
@@ -25,7 +27,8 @@ public class BranchServiceTest {
 	public void testCreateFindBranches() throws Exception {
 		Assert.assertNull(branchService.findLatest("MAIN"));
 
-		branchService.create("MAIN");
+		final Branch branch = branchService.create("MAIN");
+		Assert.assertEquals(UP_TO_DATE, branch.getState());
 
 		final Branch main = branchService.findLatest("MAIN");
 		Assert.assertNotNull(main);
@@ -33,12 +36,14 @@ public class BranchServiceTest {
 		Assert.assertNotNull(main.getBase());
 		Assert.assertNotNull(main.getHead());
 		Assert.assertEquals("MAIN", main.getFatPath());
+		Assert.assertEquals(UP_TO_DATE, main.getState());
 
 		Assert.assertNull(branchService.findLatest("MAIN/A"));
 		branchService.create("MAIN/A");
 		final Branch a = branchService.findLatest("MAIN/A");
 		Assert.assertNotNull(a);
 		Assert.assertEquals("MAIN/A", a.getFatPath());
+		Assert.assertEquals(UP_TO_DATE, a.getState());
 
 		Assert.assertNotNull(branchService.findLatest("MAIN"));
 	}
@@ -89,6 +94,37 @@ public class BranchServiceTest {
 		Assert.assertEquals(2, cChildren.size());
 		Assert.assertEquals("MAIN/C/something", cChildren.get(0).getFatPath());
 		Assert.assertEquals("MAIN/C/something/thing", cChildren.get(1).getFatPath());
+	}
+
+	@Test
+	public void testBranchState() {
+		branchService.create("MAIN");
+		branchService.create("MAIN/A");
+		branchService.create("MAIN/B");
+
+		assertBranchState("MAIN", UP_TO_DATE);
+		assertBranchState("MAIN/A", UP_TO_DATE);
+		assertBranchState("MAIN/B", UP_TO_DATE);
+
+		makeEmptyCommit("MAIN/A");
+
+		assertBranchState("MAIN", UP_TO_DATE);
+		assertBranchState("MAIN/A", FORWARD);
+		assertBranchState("MAIN/B", UP_TO_DATE);
+
+		makeEmptyCommit("MAIN");
+
+		assertBranchState("MAIN", UP_TO_DATE);
+		assertBranchState("MAIN/A", DIVERGED);
+		assertBranchState("MAIN/B", BEHIND);
+	}
+
+	private void assertBranchState(String path, Branch.BranchState status) {
+		Assert.assertEquals(status, branchService.findLatest(path).getState());
+	}
+
+	private void makeEmptyCommit(String path) {
+		branchService.completeCommit(branchService.openCommit(path));
 	}
 
 	@After

@@ -28,6 +28,12 @@ public class Branch extends Entity {
 	// The internal ids of entities visible on ancestor branches which have been replaced or deleted on this branch
 	private Set<String> versionsReplaced;
 
+	private BranchState state;
+
+	public enum BranchState {
+		UP_TO_DATE, FORWARD, BEHIND, DIVERGED;
+	}
+
 	public Branch() {
 		head = new Date();
 		versionsReplaced = new HashSet<>();
@@ -36,6 +42,24 @@ public class Branch extends Entity {
 	public Branch(String path) {
 		this();
 		setPath(path);
+	}
+
+	public void updateState(Date parentBranchHead) {
+		final long parentHeadTimestamp = parentBranchHead.getTime();
+		final boolean updatesOnBranch = getHeadTimestamp() > getBaseTimestamp();
+		if (parentHeadTimestamp <= getBaseTimestamp()) {
+			if (updatesOnBranch) {
+				state = BranchState.FORWARD;
+			} else {
+				state = BranchState.UP_TO_DATE;
+			}
+		} else {
+			if (updatesOnBranch) {
+				state = BranchState.DIVERGED;
+			} else {
+				state = BranchState.BEHIND;
+			}
+		}
 	}
 
 	public boolean isParent(Branch otherBranch) {
@@ -52,6 +76,14 @@ public class Branch extends Entity {
 
 	private boolean notMAIN() {
 		return !"MAIN".equals(getPath());
+	}
+
+	public long getBaseTimestamp() {
+		return base.getTime();
+	}
+
+	public long getHeadTimestamp() {
+		return head.getTime();
 	}
 
 	@JsonIgnore
@@ -97,6 +129,15 @@ public class Branch extends Entity {
 
 	public void setVersionsReplaced(Set<String> versionsReplaced) {
 		this.versionsReplaced = versionsReplaced;
+	}
+
+	public BranchState getState() {
+		return state;
+	}
+
+	public Branch setState(BranchState state) {
+		this.state = state;
+		return this;
 	}
 
 	@Override

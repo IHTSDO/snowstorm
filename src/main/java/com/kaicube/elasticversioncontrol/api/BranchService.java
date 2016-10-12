@@ -6,7 +6,6 @@ import com.kaicube.elasticversioncontrol.domain.Commit;
 import com.kaicube.elasticversioncontrol.repositories.BranchRepository;
 import com.kaicube.snomed.elasticsnomed.domain.review.BranchState;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,12 +51,12 @@ public class BranchService {
 			logger.debug("Parent branch {}", parentBranch);
 		}
 
-		final Branch branch = new Branch(path);
+		Branch branch = new Branch(path);
 		branch.setBase(commit);
 		branch.setHead(commit);
 		branch.setStart(commit);
 		logger.debug("Persisting branch {}", branch);
-		return branchRepository.save(branch);
+		return doSave(branch).setState(Branch.BranchState.UP_TO_DATE);
 	}
 
 	public void deleteAll() {
@@ -65,14 +64,49 @@ public class BranchService {
 	}
 
 	public Branch findLatest(String path) {
+		final String flatPath = PathUtil.flaten(path);
+		final boolean pathIsMain = path.equals("MAIN");
+
+		final BoolQueryBuilder pathClauses = boolQuery().should(termQuery("path", flatPath));
+		if (!pathIsMain) {
+			// Pick up the parent branch too
+			pathClauses.should(termQuery("path", PathUtil.flaten(PathUtil.getParentPath(PathUtil.fatten(path)))));
+		}
+
 		final List<Branch> branches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
 				new BoolQueryBuilder()
-						.must(QueryBuilders.termQuery("path", PathUtil.flaten(path)))
+						.must(pathClauses)
 						.mustNot(existsQuery("end"))
 		).build(), Branch.class);
 
-		Assert.isTrue(branches.size() < 2, "There should not be more than one version of a branch with no end date.");
-		return branches.isEmpty() ? null : branches.get(0);
+		Branch branch = null;
+		Branch parentBranch = null;
+
+		for (Branch b : branches) {
+			if (b.getPath().equals(flatPath)) {
+				if (branch != null) {
+					return illegalState("There should not be more than one version of branch " + path + " with no end date.");
+				}
+				branch = b;
+			} else {
+				parentBranch = b;
+			}
+		}
+
+		if (branch == null) {
+			return null;
+		}
+
+		if (pathIsMain) {
+			return branch.setState(Branch.BranchState.UP_TO_DATE);
+		}
+
+		if (parentBranch == null) {
+			return illegalState("Parent branch of " + path + " not found.");
+		}
+
+		branch.updateState(parentBranch.getHead());
+		return branch;
 	}
 
 	public Branch findBranchOrThrow(String path) {
@@ -122,7 +156,7 @@ public class BranchService {
 		}
 
 		branch.setLocked(true);
-		branch = branchRepository.save(branch);
+		branch = doSave(branch);
 
 		return new Commit(branch);
 	}
@@ -157,7 +191,7 @@ public class BranchService {
 		if (!branches.isEmpty()) {
 			final Branch branch = branches.get(0);
 			branch.setLocked(false);
-			branchRepository.save(branch);
+			doSave(branch);
 		} else {
 			throw new IllegalArgumentException("Branch not found " + path);
 		}
@@ -166,6 +200,16 @@ public class BranchService {
 	public boolean isBranchStateCurrent(BranchState branchState) {
 		final Branch branch = findBranchOrThrow(branchState.getPath());
 		return branch.getBase().getTime() == branchState.getBaseTimestamp() && branch.getHead().getTime() == branchState.getHeadTimestamp();
+	}
+
+	private Branch doSave(Branch branch) {
+		branch.setState(null);
+		return branchRepository.save(branch);
+	}
+
+	private Branch illegalState(String message) {
+		logger.error(message);
+		throw new IllegalStateException(message);
 	}
 
 	// TODO - Implement commit rollback; simply delete all entities at commit timepoint from branch and remove write lock.
