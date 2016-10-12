@@ -64,6 +64,7 @@ public class BranchService {
 	}
 
 	public Branch findLatest(String path) {
+		Assert.notNull(path, "The path argument is required, it must not be null.");
 		final String flatPath = PathUtil.flaten(path);
 		final boolean pathIsMain = path.equals("MAIN");
 
