@@ -1,6 +1,7 @@
-package com.kaicube.snomed.elasticsnomed.domain;
+package com.kaicube.snomed.elasticsnomed.repositories.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.kaicube.snomed.elasticsnomed.domain.ConceptMini;
 
 import java.util.Map;
 

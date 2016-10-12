@@ -1,6 +1,8 @@
-package com.kaicube.snomed.elasticsnomed.domain;
+package com.kaicube.snomed.elasticsnomed.repositories.config;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.kaicube.snomed.elasticsnomed.domain.Description;
+import com.kaicube.snomed.elasticsnomed.domain.Relationship;
 
 import java.util.Set;
 
