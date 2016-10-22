@@ -331,6 +331,7 @@ public class ConceptService extends ComponentService {
 		}
 
 		// Mark concept and components as deleted
+		logger.info("Deleting concept {} on branch {} at timepoint {}", concept.getConceptId(), path, commit.getTimepoint());
 		concept.markDeleted();
 		Set<ReferenceSetMember> langRefsetMembersToPersist = new HashSet<>();
 		concept.getDescriptions().forEach(description -> {
@@ -347,6 +348,7 @@ public class ConceptService extends ComponentService {
 		doSaveBatchDescriptions(concept.getDescriptions(), commit);
 		doSaveBatchMembers(langRefsetMembersToPersist, commit);
 		doSaveBatchRelationships(concept.getRelationships(), commit);
+		branchService.completeCommit(commit);
 	}
 
 	public Concept create(Concept conceptVersion, String path) {
