@@ -47,6 +47,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 	private Set<Relationship> relationships;
 
 	public Concept() {
+		active = true;
 		moduleId = "";
 		definitionStatusId = "";
 		descriptions = new HashSet<>();

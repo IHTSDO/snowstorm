@@ -15,6 +15,10 @@ public abstract class DomainEntity<C> extends Entity {
 		this.changed = changed;
 	}
 
+	public void markChanged() {
+		setChanged(true);
+	}
+
 	public boolean isChanged() {
 		return changed;
 	}

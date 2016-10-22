@@ -20,12 +20,12 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 
 @Service
 public class BranchMergeService {
@@ -130,46 +130,15 @@ public class BranchMergeService {
 				return;
 			}
 
-			// Find same concepts viewable on target
-			List<Concept> conceptsOnTargetToEnd = new ArrayList<>();
-			try (final CloseableIterator<Concept> concepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(versionControlHelper.getBranchCriteria(target))
-							.must(termsQuery("conceptId", conceptsToPromoteMap.keySet()))
-					)
-					.withPageable(firstThousand)
-					.build(), Concept.class)) {
-
-				concepts.forEachRemaining(concept -> {
-					// If concept exists on target then end
-					// else add to target versionsReplaced
-					if (concept.getFatPath().equals(target)) {
-						concept.setEnd(commit.getTimepoint());
-						concept.clearInternalId();
-						conceptsOnTargetToEnd.add(concept);
-					} else {
-						commit.addVersionReplaced(concept.getInternalId());
-					}
-				});
-			}
-			if (!conceptsOnTargetToEnd.isEmpty()) {
-				conceptRepository.save(conceptsOnTargetToEnd);
-				conceptsOnTargetToEnd.clear();
-			}
+			final Collection<Concept> conceptsToPromote = conceptsToPromoteMap.values();
 
 			// End concepts on source
-			final Collection<Concept> conceptsToPromote = conceptsToPromoteMap.values();
 			conceptsToPromote.forEach(concept -> concept.setEnd(commit.getTimepoint()));
 			conceptRepository.save(conceptsToPromote);
 
-			// Save new concept versions on target
-			conceptsToPromote.forEach(concept -> {
-				concept.clearInternalId();
-				concept.setPath(target);
-				concept.setStart(commit.getTimepoint());
-				concept.setEnd(null);
-			});
-			conceptRepository.save(conceptsToPromote);
+			// Save concept on target
+			conceptsToPromote.forEach(Concept::markChanged);
+			conceptService.doSaveBatchConcepts(conceptsToPromote, commit);
 		}
 		branchService.completeCommit(commit);
 	}

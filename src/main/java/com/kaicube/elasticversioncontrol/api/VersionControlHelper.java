@@ -175,6 +175,7 @@ public class VersionControlHelper {
 	private void doSetEntityMeta(Commit commit, Entity entity) {
 		entity.setPath(commit.getFlatBranchPath());
 		entity.setStart(commit.getTimepoint());
+		entity.setEnd(null);
 		entity.clearInternalId();
 	}
 
