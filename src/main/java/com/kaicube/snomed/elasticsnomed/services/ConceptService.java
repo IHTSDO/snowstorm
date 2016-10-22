@@ -14,6 +14,10 @@ import com.kaicube.snomed.elasticsnomed.repositories.DescriptionRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.ReferenceSetMemberRepository;
 import com.kaicube.snomed.elasticsnomed.repositories.RelationshipRepository;
 import com.kaicube.snomed.elasticsnomed.util.TimerUtil;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongArraySet;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import org.apache.log4j.Level;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -35,6 +39,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
@@ -268,10 +273,10 @@ public class ConceptService extends ComponentService {
 		if (timer != null) timer.checkpoint("get descriptions " + getFetchCount(allConceptIds.size()));
 
 		// Fetch Lang Refset Members
-		for (List<String> descriptionIds : Iterables.partition(descriptionIdMap.keySet(), CLAUSE_LIMIT)) {
+		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
 			queryBuilder.withQuery(boolQuery()
 					.must(branchCriteria)
-					.must(termsQuery("referencedComponentId", descriptionIds)))
+					.must(termsQuery("conceptId", conceptIds)))
 					.withPageable(LARGE_PAGE);
 			// Join Lang Refset Members
 			try (final CloseableIterator<LanguageReferenceSetMember> langRefsetMembers = elasticsearchTemplate.stream(queryBuilder.build(), LanguageReferenceSetMember.class)) {
@@ -279,7 +284,7 @@ public class ConceptService extends ComponentService {
 						descriptionIdMap.get(langRefsetMember.getReferencedComponentId()).addLanguageRefsetMember(langRefsetMember));
 			}
 		}
-		if (timer != null) timer.checkpoint("get lang refset " + getFetchCount(descriptionIdMap.size()));
+		if (timer != null) timer.checkpoint("get lang refset " + getFetchCount(allConceptIds.size()));
 	}
 
 	private String getFetchCount(int size) {
@@ -350,14 +355,6 @@ public class ConceptService extends ComponentService {
 			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
 		}
 		return doSave(conceptVersion, branch);
-	}
-
-	public ReferenceSetMember create(ReferenceSetMember referenceSetMember, String path) {
-		final Branch branch = branchService.findBranchOrThrow(path);
-		// TODO Check if already exists
-		referenceSetMember.setChanged(true);
-		return doSave(referenceSetMember, branch);
-
 	}
 
 	public Concept update(Concept conceptVersion, String path) {
@@ -494,10 +491,10 @@ public class ConceptService extends ComponentService {
 							member.updateEffectiveTime();
 							langRefsetMembersToPersist.add(member);
 						}
-
 						existingMembersToMatch.remove(languageRefsetId);
 					} else {
 						final LanguageReferenceSetMember member = new LanguageReferenceSetMember(languageRefsetId, description.getId(), acceptabilityId);
+						member.setConceptId(concept.getConceptId());
 						member.setChanged(true);
 						member.clearReleaseDetails();
 						langRefsetMembersToPersist.add(member);
@@ -522,8 +519,8 @@ public class ConceptService extends ComponentService {
 
 		final Iterable<Concept> conceptsSaved = doSaveBatchConcepts(concepts, commit);
 		doSaveBatchDescriptions(descriptionsToPersist, commit);
-		doSaveBatchMembers(langRefsetMembersToPersist, commit);
 		doSaveBatchRelationships(relationshipsToPersist, commit);
+		doSaveBatchMembers(langRefsetMembersToPersist, commit);
 
 		Map<String, Concept> conceptMap = new HashMap<>();
 		for (Concept concept : concepts) {
@@ -564,6 +561,44 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Iterable<ReferenceSetMember> doSaveBatchMembers(Collection<ReferenceSetMember> members, Commit commit) {
+		// Set conceptId on members where appropriate
+		List<ReferenceSetMember> descriptionMembers = new ArrayList<>();
+		LongSet descriptionIds = new LongArraySet();
+		members.stream()
+				.filter(member -> IDService.isDescriptionId(member.getReferencedComponentId()))
+				.filter(member -> member.getConceptId() == null)
+				.forEach(member -> {
+					descriptionMembers.add(member);
+					descriptionIds.add(parseLong(member.getReferencedComponentId()));
+				});
+
+		if (descriptionIds.size() != 0) {
+			final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
+
+			Long2ObjectMap descriptionMap = new Long2ObjectOpenHashMap<>();
+			for (List<Long> descriptionIdsSegment : Iterables.partition(descriptionIds, CLAUSE_LIMIT)) {
+				queryBuilder
+						.withQuery(boolQuery()
+								.must(termsQuery("descriptionId", descriptionIdsSegment))
+								.must(versionControlHelper.getBranchCriteriaWithinOpenCommit(commit)))
+						.withPageable(LARGE_PAGE);
+				try (final CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(queryBuilder.build(), Description.class)) {
+					descriptions.forEachRemaining(description ->
+							descriptionMap.put(parseLong(description.getDescriptionId()), description));
+				}
+			}
+
+			descriptionMembers.parallelStream().forEach(member -> {
+				Description description = (Description) descriptionMap.get(parseLong(member.getReferencedComponentId()));
+				if (description == null) {
+					logger.warn("Refset member refers to description which does not exist, this will not be persisted {} -> {}", member.getId(), member.getReferencedComponentId());
+					members.remove(member);
+					return;
+				}
+				member.setConceptId(description.getConceptId());
+			});
+		}
+
 		return doSaveBatchComponents(members, commit, "memberId", referenceSetMemberRepository);
 	}
 

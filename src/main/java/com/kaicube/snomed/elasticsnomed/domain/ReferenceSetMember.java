@@ -31,6 +31,9 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String referencedComponentId;
 
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	private String conceptId;
+
 	public ReferenceSetMember() {
 	}
 
@@ -101,6 +104,14 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		this.referencedComponentId = referencedComponentId;
 	}
 
+	public String getConceptId() {
+		return conceptId;
+	}
+
+	public void setConceptId(String conceptId) {
+		this.conceptId = conceptId;
+	}
+
 	@Override
 	public String toString() {
 		return "ReferenceSetMember{" +
@@ -110,6 +121,7 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 				", moduleId='" + moduleId + '\'' +
 				", refsetId='" + refsetId + '\'' +
 				", referencedComponentId='" + referencedComponentId + '\'' +
+				", conceptId='" + conceptId + '\'' +
 				", internalId='" + getInternalId() + '\'' +
 				", start='" + getStart() + '\'' +
 				", end='" + getEnd() + '\'' +

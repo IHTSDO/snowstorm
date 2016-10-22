@@ -21,13 +21,17 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 	private PersistBuffer<Description> descriptionPersistBuffer;
 	private PersistBuffer<Relationship> relationshipPersistBuffer;
 	private PersistBuffer<ReferenceSetMember> memberPersistBuffer;
-	private Set<PersistBuffer> persistBuffers;
+	private List<PersistBuffer> persistBuffers;
+	private List<PersistBuffer> coreComponentPersistBuffers;
+
+	private boolean coreComponentsFlushed;
 
 	public ImportComponentFactoryImpl(ConceptService conceptService, BranchService branchService, String path) {
 		this.conceptService = conceptService;
 		this.branchService = branchService;
 		this.path = path;
-		persistBuffers = new HashSet<>();
+		persistBuffers = new ArrayList<>();
+		coreComponentPersistBuffers = new ArrayList<>();
 		conceptPersistBuffer = new PersistBuffer<Concept>() {
 			@Override
 			public void persistCollection(Collection<Concept> entities) {
@@ -35,6 +39,8 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 				conceptService.doSaveBatchConcepts(entities, commit);
 			}
 		};
+		coreComponentPersistBuffers.add(conceptPersistBuffer);
+
 		descriptionPersistBuffer = new PersistBuffer<Description>() {
 			@Override
 			public void persistCollection(Collection<Description> entities) {
@@ -42,6 +48,8 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 				conceptService.doSaveBatchDescriptions(entities, commit);
 			}
 		};
+		coreComponentPersistBuffers.add(descriptionPersistBuffer);
+
 		relationshipPersistBuffer = new PersistBuffer<Relationship>() {
 			@Override
 			public void persistCollection(Collection<Relationship> entities) {
@@ -49,9 +57,17 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 				conceptService.doSaveBatchRelationships(entities, commit);
 			}
 		};
+		coreComponentPersistBuffers.add(relationshipPersistBuffer);
+
 		memberPersistBuffer = new PersistBuffer<ReferenceSetMember>() {
 			@Override
 			public void persistCollection(Collection<ReferenceSetMember> entities) {
+				synchronized (this) {
+					if (!coreComponentsFlushed) {
+						coreComponentPersistBuffers.forEach(PersistBuffer::flush);
+						coreComponentsFlushed = true;
+					}
+				}
 				entities.stream().forEach(component -> component.setChanged(true));
 				conceptService.doSaveBatchMembers(entities, commit);
 			}

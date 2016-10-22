@@ -5,6 +5,7 @@ import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.Config;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
+import com.kaicube.snomed.elasticsnomed.domain.Concepts;
 import com.kaicube.snomed.elasticsnomed.domain.Description;
 import com.kaicube.snomed.elasticsnomed.domain.LanguageReferenceSetMember;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
@@ -87,6 +88,8 @@ public class ImportServiceTest {
 		Assert.assertNotNull(description1237157018in2002);
 		Assert.assertEquals("SNOMED CT July 2002 Release: 20020731 [R]", description1237157018in2002.getTerm());
 		Assert.assertEquals(true, description1237157018in2002.isActive());
+		Assert.assertEquals(1, description1237157018in2002.getAcceptabilityMap().size());
+		Assert.assertEquals(Concepts.descriptionAcceptabilityNames.inverse().get("900000000000549004"), description1237157018in2002.getAcceptabilityMap().get("900000000000508004"));
 
 		path = "MAIN/20030131";
 		Assert.assertEquals(89, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());

@@ -39,7 +39,10 @@ public class VersionControlHelper {
 	}
 
 	public QueryBuilder getBranchCriteria(String path) {
-		final Branch branch = getBranchOrThrow(path);
+		return getBranchCriteria(getBranchOrThrow(path));
+	}
+
+	public QueryBuilder getBranchCriteria(Branch branch) {
 		return getBranchCriteria(branch, branch.getHead(), branch.getVersionsReplaced(), false);
 	}
 
