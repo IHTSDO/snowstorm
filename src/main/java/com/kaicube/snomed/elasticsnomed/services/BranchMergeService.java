@@ -90,7 +90,7 @@ public class BranchMergeService {
 			}
 		} else {
 			// Promotion
-			if (sourceBranch.getHeadTimestamp() == sourceBranch.getBaseTimestamp()) {
+			if (!sourceBranch.isContainsContent()) {
 				throw new IllegalStateException("This promotion is not meaningful, the child branch does not have any unpromoted changes.");
 			}
 			if (sourceBranch.getBaseTimestamp() != targetBranch.getHeadTimestamp()) {
