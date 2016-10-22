@@ -12,10 +12,14 @@ public class Commit {
 
 	private Set<String> entityVersionsReplaced;
 
+	private CommitType commitType;
+	private String sourceBranchPath;
+
 	public Commit(Branch branch) {
 		this.branch = branch;
 		this.timepoint = new Date();
 		entityVersionsReplaced = new HashSet<>();
+		commitType = CommitType.CONTENT;
 	}
 
 	public Branch getBranch() {
@@ -24,6 +28,14 @@ public class Commit {
 
 	public Date getTimepoint() {
 		return timepoint;
+	}
+
+	public CommitType getCommitType() {
+		return commitType;
+	}
+
+	public void setCommitType(CommitType commitType) {
+		this.commitType = commitType;
 	}
 
 	@Override
@@ -44,5 +56,17 @@ public class Commit {
 
 	public Set<String> getEntityVersionsReplaced() {
 		return entityVersionsReplaced;
+	}
+
+	public void setSourceBranchPath(String sourceBranchPath) {
+		this.sourceBranchPath = sourceBranchPath;
+	}
+
+	public String getSourceBranchPath() {
+		return sourceBranchPath;
+	}
+
+	public enum CommitType {
+		CONTENT, REBASE, PROMOTION
 	}
 }

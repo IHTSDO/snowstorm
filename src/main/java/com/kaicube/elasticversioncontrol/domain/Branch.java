@@ -25,6 +25,9 @@ public class Branch extends Entity {
 	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
 	private boolean locked;
 
+	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
+	private boolean containsContent;
+
 	// The internal ids of entities visible on ancestor branches which have been replaced or deleted on this branch
 	private Set<String> versionsReplaced;
 
@@ -46,15 +49,14 @@ public class Branch extends Entity {
 
 	public void updateState(Date parentBranchHead) {
 		final long parentHeadTimestamp = parentBranchHead.getTime();
-		final boolean updatesOnBranch = getHeadTimestamp() > getBaseTimestamp();
 		if (parentHeadTimestamp <= getBaseTimestamp()) {
-			if (updatesOnBranch) {
+			if (containsContent) {
 				state = BranchState.FORWARD;
 			} else {
 				state = BranchState.UP_TO_DATE;
 			}
 		} else {
-			if (updatesOnBranch) {
+			if (containsContent) {
 				state = BranchState.DIVERGED;
 			} else {
 				state = BranchState.BEHIND;
@@ -121,6 +123,14 @@ public class Branch extends Entity {
 
 	public boolean isLocked() {
 		return locked;
+	}
+
+	public boolean isContainsContent() {
+		return containsContent;
+	}
+
+	public void setContainsContent(boolean containsContent) {
+		this.containsContent = containsContent;
 	}
 
 	public Set<String> getVersionsReplaced() {

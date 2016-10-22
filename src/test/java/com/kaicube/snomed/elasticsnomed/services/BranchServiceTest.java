@@ -100,22 +100,26 @@ public class BranchServiceTest {
 	public void testBranchState() {
 		branchService.create("MAIN");
 		branchService.create("MAIN/A");
+		branchService.create("MAIN/A/A1");
 		branchService.create("MAIN/B");
 
 		assertBranchState("MAIN", UP_TO_DATE);
 		assertBranchState("MAIN/A", UP_TO_DATE);
+		assertBranchState("MAIN/A/A1", UP_TO_DATE);
 		assertBranchState("MAIN/B", UP_TO_DATE);
 
 		makeEmptyCommit("MAIN/A");
 
 		assertBranchState("MAIN", UP_TO_DATE);
 		assertBranchState("MAIN/A", FORWARD);
+		assertBranchState("MAIN/A/A1", BEHIND);
 		assertBranchState("MAIN/B", UP_TO_DATE);
 
 		makeEmptyCommit("MAIN");
 
 		assertBranchState("MAIN", UP_TO_DATE);
 		assertBranchState("MAIN/A", DIVERGED);
+		assertBranchState("MAIN/A/A1", BEHIND);
 		assertBranchState("MAIN/B", BEHIND);
 	}
 

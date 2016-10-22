@@ -139,6 +139,11 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 		return conceptId;
 	}
 
+	@JsonIgnore
+	public Long getConceptIdAsLong() {
+		return conceptId == null ? null : Long.parseLong(conceptId);
+	}
+
 	public void setConceptId(String conceptId) {
 		this.conceptId = conceptId;
 	}
@@ -197,8 +202,8 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 				", moduleId='" + moduleId + '\'' +
 				", definitionStatusId='" + definitionStatusId + '\'' +
 				", internalId='" + getInternalId() + '\'' +
-				", start='" + getStart() + '\'' +
-				", end='" + getEnd() + '\'' +
+				", start='" + getStartDebugFormat() + '\'' +
+				", end='" + getEndDebugFormat() + '\'' +
 				", path='" + getPath() + '\'' +
 				'}';
 	}

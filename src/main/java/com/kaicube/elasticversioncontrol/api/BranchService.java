@@ -1,6 +1,6 @@
 package com.kaicube.elasticversioncontrol.api;
 
-import com.google.common.collect.Lists;
+import com.google.common.base.Strings;
 import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.elasticversioncontrol.domain.Commit;
 import com.kaicube.elasticversioncontrol.repositories.BranchRepository;
@@ -16,6 +16,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
@@ -38,13 +39,14 @@ public class BranchService {
 		Assert.isTrue(!path.contains("_"), "Branch path may not contain the underscore character.");
 
 		logger.debug("Creating branch {}", path);
-		Date commit = new Date();
+		Date commitTimepoint = new Date();
 		if (findLatest(path) != null) {
 			throw new IllegalArgumentException("Branch '" + path + "' already exists.");
 		}
 		final String parentPath = getParentPath(path);
+		Branch parentBranch = null;
 		if (parentPath != null) {
-			final Branch parentBranch = findLatest(parentPath);
+			parentBranch = findLatest(parentPath);
 			if (parentBranch == null) {
 				throw new IllegalStateException("Parent branch '" + parentPath + "' does not exist.");
 			}
@@ -52,9 +54,9 @@ public class BranchService {
 		}
 
 		Branch branch = new Branch(path);
-		branch.setBase(commit);
-		branch.setHead(commit);
-		branch.setStart(commit);
+		branch.setBase(parentBranch == null ? commitTimepoint : parentBranch.getHead());
+		branch.setHead(commitTimepoint);
+		branch.setStart(commitTimepoint);
 		logger.debug("Persisting branch {}", branch);
 		return doSave(branch).setState(Branch.BranchState.UP_TO_DATE);
 	}
@@ -150,16 +152,26 @@ public class BranchService {
 				.build(), Branch.class);
 	}
 
-	public synchronized Commit openCommit(String path) {
+	public boolean branchesHaveParentChildRelationship(Branch branchA, Branch branchB) {
+		return branchA.isParent(branchB) || branchB.isParent(branchA);
+
+	}
+
+	public Commit openCommit(String path) {
 		Branch branch = findLatest(path);
+		branch = lockBranch(branch);
+		return new Commit(branch);
+	}
+
+	// TODO Make this work in a clustered environment
+	private synchronized Branch lockBranch(Branch branch) {
 		if (branch.isLocked()) {
 			throw new IllegalStateException("Branch already locked");
 		}
 
 		branch.setLocked(true);
 		branch = doSave(branch);
-
-		return new Commit(branch);
+		return branch;
 	}
 
 	public synchronized void completeCommit(Commit commit) {
@@ -168,18 +180,52 @@ public class BranchService {
 		oldBranchTimespan.setEnd(timepoint);
 		oldBranchTimespan.setLocked(false);
 
-		final Branch newBranchTimespan = new Branch(oldBranchTimespan.getPath());
+		final String path = oldBranchTimespan.getPath();
+		final Branch newBranchTimespan = new Branch(path);
 		newBranchTimespan.setBase(oldBranchTimespan.getBase());
 		newBranchTimespan.setStart(timepoint);
 		newBranchTimespan.setHead(timepoint);
 		newBranchTimespan.addVersionsReplaced(oldBranchTimespan.getVersionsReplaced());
 		newBranchTimespan.addVersionsReplaced(commit.getEntityVersionsReplaced());
+
+		final List<Branch> newBranchVersionsToSave = new ArrayList<>();
+		newBranchVersionsToSave.add(oldBranchTimespan);
+		newBranchVersionsToSave.add(newBranchTimespan);
+
+		final Commit.CommitType commitType = commit.getCommitType();
+		newBranchTimespan.setContainsContent(commitType != Commit.CommitType.REBASE || oldBranchTimespan.isContainsContent());
+		if (commitType == Commit.CommitType.REBASE) {
+			if (!PathUtil.isRoot(path)) {
+				// Update base to parent head
+				final Branch parent = findAtTimepointOrThrow(PathUtil.getParentPath(path), timepoint);
+				newBranchTimespan.setBase(parent.getHead());
+			}
+		} else if (commitType == Commit.CommitType.PROMOTION) {
+			final String sourceBranchPath = commit.getSourceBranchPath();
+			if (Strings.isNullOrEmpty(sourceBranchPath)) {
+				throw new IllegalArgumentException("The sourceBranchPath must be set for a commit of type " + Commit.CommitType.PROMOTION);
+			}
+			// Update source branch base to parent head
+			// Clear versions replaced on source
+			final Branch oldSourceBranch = findAtTimepointOrThrow(sourceBranchPath, timepoint);
+			oldSourceBranch.setEnd(timepoint);
+			newBranchVersionsToSave.add(oldSourceBranch);
+
+			Branch newSourceBranch = new Branch(sourceBranchPath);
+			newSourceBranch.setBase(timepoint);
+			newSourceBranch.setStart(timepoint);
+			newSourceBranch.setHead(timepoint);
+			newSourceBranch.setContainsContent(false);
+			newBranchVersionsToSave.add(newSourceBranch);
+			logger.debug("Updating branch base and clearing versionsReplaced {}", newSourceBranch);
+		}
+
 		logger.debug("Ending branch timespan {}", oldBranchTimespan);
 		logger.debug("Starting branch timespan {}", newBranchTimespan);
-		branchRepository.save(Lists.newArrayList(oldBranchTimespan, newBranchTimespan));
+		branchRepository.save(newBranchVersionsToSave);
 	}
 
-	public void forceUnlock(String path) {
+	public void unlock(String path) {
 		final List<Branch> branches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
 				.withQuery(
 					new BoolQueryBuilder()

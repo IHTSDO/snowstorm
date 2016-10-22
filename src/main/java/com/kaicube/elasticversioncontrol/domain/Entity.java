@@ -61,12 +61,20 @@ public class Entity {
 		return start;
 	}
 
+	public String getStartDebugFormat() {
+		return start == null ? null : start.toString() + ", " + start.getTime();
+	}
+
 	public void setStart(Date start) {
 		this.start = start;
 	}
 
 	public Date getEnd() {
 		return end;
+	}
+
+	public String getEndDebugFormat() {
+		return end == null ? null : end.toString() + ", " + end.getTime();
 	}
 
 	public void setEnd(Date end) {

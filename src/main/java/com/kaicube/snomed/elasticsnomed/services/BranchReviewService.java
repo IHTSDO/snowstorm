@@ -10,10 +10,7 @@ import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.domain.Description;
 import com.kaicube.snomed.elasticsnomed.domain.LanguageReferenceSetMember;
 import com.kaicube.snomed.elasticsnomed.domain.Relationship;
-import com.kaicube.snomed.elasticsnomed.domain.review.BranchReview;
-import com.kaicube.snomed.elasticsnomed.domain.review.BranchReviewConceptChanges;
-import com.kaicube.snomed.elasticsnomed.domain.review.BranchState;
-import com.kaicube.snomed.elasticsnomed.domain.review.ReviewStatus;
+import com.kaicube.snomed.elasticsnomed.domain.review.*;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +22,8 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static com.kaicube.elasticversioncontrol.api.ComponentService.LARGE_PAGE;
@@ -42,29 +41,162 @@ public class BranchReviewService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
+	private ConceptService conceptService;
+
+	@Autowired
+	private BranchMergeService branchMergeService;
+
+	@Autowired
 	private ElasticsearchTemplate elasticsearchTemplate;
+
+	private final ExecutorService executorService = Executors.newCachedThreadPool();
+
+	private final Map<String, BranchReview> reviewIndex = new HashMap<>();
+
+	// TODO: Move to elasticsearch storage to allow access from any termserver instance in a cluster
+	private final Cache<String, BranchReview> reviewStore = CacheBuilder.newBuilder()
+			.expireAfterWrite(12, TimeUnit.HOURS)
+			.removalListener(removalNotification -> {
+				// When review expires remove from index map
+				BranchReview review = (BranchReview) removalNotification.getValue();
+				final BranchState source = review.getSource();
+				final BranchState target = review.getTarget();
+				final String reviewIndexKey = getReviewIndexKey(source.getPath(), source.getHeadTimestamp(), target.getPath(), target.getHeadTimestamp());
+				reviewIndex.remove(reviewIndexKey);
+			})
+			.build();
+
+	private final Cache<String, MergeReview> mergeReviewStore = CacheBuilder.newBuilder()
+			.expireAfterWrite(12, TimeUnit.HOURS)
+			.build();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	final Cache<String, BranchReview> reviewStore = CacheBuilder.newBuilder()
-			.expireAfterWrite(48, TimeUnit.HOURS)
-			.build();
-
-	public BranchReview createReview(String source, String target) {
+	public MergeReview createMergeReview(String source, String target) {
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
 		final Branch targetBranch = branchService.findBranchOrThrow(target);
-		final boolean sourceIsParent = sourceBranch.isParent(targetBranch);
+		if (!sourceBranch.isParent(targetBranch)) {
+			throw new IllegalArgumentException("A merge review should only be used during rebase, not promotion.");
+		}
+		final BranchReview sourceToTarget = getCreateReview(sourceBranch, targetBranch);
+		final BranchReview targetToSource = getCreateReview(targetBranch, sourceBranch);
+		final MergeReview mergeReview = new MergeReview(UUID.randomUUID().toString(), source, target,
+				sourceToTarget.getId(), targetToSource.getId());
+		mergeReview.setStatus(ReviewStatus.PENDING);
+		executorService.submit((Runnable) () -> {
+			sourceToTarget.getChanges();
+			targetToSource.getChanges();
+			mergeReview.setStatus(ReviewStatus.CURRENT);
+		});
+		mergeReviewStore.put(mergeReview.getId(), mergeReview);
+		return mergeReview;
+	}
 
+	public MergeReview getMergeReview(String id) {
+		final MergeReview mergeReview = mergeReviewStore.getIfPresent(id);
+		if (mergeReview != null && mergeReview.getStatus() == ReviewStatus.CURRENT) {
+			// Only check one merge review - they will both have the same status.
+			final ReviewStatus newStatus = reviewStore.getIfPresent(mergeReview.getSourceToTargetReviewId()).getStatus();
+			mergeReview.setStatus(newStatus);
+		}
+		return mergeReview;
+	}
+
+	public MergeReview getMergeReviewOrThrow(String id) {
+		final MergeReview mergeReview = getMergeReview(id);
+		if (mergeReview == null) {
+			throw new IllegalArgumentException("Merge review " + id + " does not exist.");
+		}
+		return mergeReview;
+	}
+
+	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(String id) {
+		final MergeReview mergeReview = getMergeReviewOrThrow(id);
+		assertMergeReviewCurrent(mergeReview);
+
+		final Sets.SetView<Long> conceptsChangedInBoth = getConflictingConceptIds(mergeReview);
+
+		final Collection<Concept> conceptOnSource = conceptService.find(mergeReview.getSourcePath(), conceptsChangedInBoth);
+		final Collection<Concept> conceptOnTarget = conceptService.find(mergeReview.getTargetPath(), conceptsChangedInBoth);
+
+		final Map<Long, MergeReviewConceptVersions> conflicts = new HashMap<>();
+		conceptOnSource.stream().forEach(concept -> conflicts.put(concept.getConceptIdAsLong(), new MergeReviewConceptVersions(concept)));
+		conceptOnTarget.stream().forEach(targetConcept -> {
+			final MergeReviewConceptVersions conceptVersions = conflicts.get(targetConcept.getConceptIdAsLong());
+			conceptVersions.setTargetConcept(targetConcept);
+			conceptVersions.setAutoMergedConcept(autoMergeConcept(conceptVersions.getSourceConcept(), targetConcept));
+		});
+
+		return conflicts.values();
+	}
+
+	public void applyMergeReview(String mergeReviewId) {
+		final MergeReview mergeReview = getMergeReviewOrThrow(mergeReviewId);
+		assertMergeReviewCurrent(mergeReview);
+
+		// Check all conflicts manaully merged
+		final Map<Long, Concept> manuallyMergedConcepts = mergeReview.getManuallyMergedConcepts();
+		final Sets.SetView<Long> conflictingConceptIds = getConflictingConceptIds(mergeReview);
+		final Set<Long> conflictsRemaining = new HashSet<>(conflictingConceptIds);
+		conflictsRemaining.removeAll(manuallyMergedConcepts.keySet());
+		if (!conflictsRemaining.isEmpty()) {
+			throw new IllegalStateException("Not all conflicting concepts have been resolved. Unresolved: " + conflictsRemaining);
+		}
+		if (manuallyMergedConcepts.keySet().size() > conflictingConceptIds.size()) {
+			throw new IllegalStateException("There are more manually merged concepts than conflicts. Can not proceed.");
+		}
+
+		// Perform rebase merge
+		branchMergeService.mergeBranchSync(mergeReview.getSourcePath(), mergeReview.getTargetPath(), manuallyMergedConcepts.values());
+	}
+
+	private void assertMergeReviewCurrent(MergeReview mergeReview) {
+		if (mergeReview.getStatus() != ReviewStatus.CURRENT) {
+			throw new IllegalStateException("Merge review state is not current");
+		}
+	}
+
+	private Sets.SetView<Long> getConflictingConceptIds(MergeReview mergeReview) {
+		final BranchReview sourceToTargetReview = reviewStore.getIfPresent(mergeReview.getSourceToTargetReviewId());
+		final BranchReview targetToSourceReview = reviewStore.getIfPresent(mergeReview.getSourceToTargetReviewId());
+		return Sets.intersection(sourceToTargetReview.getChanges().getChangedConcepts(), targetToSourceReview.getChanges().getChangedConcepts());
+	}
+
+	private Concept autoMergeConcept(Concept sourceConcept, Concept targetConcept) {
+		// TODO - Is providing an auto-merged concept required?
+		return sourceConcept;
+	}
+
+	public BranchReview getCreateReview(String source, String target) {
+		final Branch sourceBranch = branchService.findBranchOrThrow(source);
+		final Branch targetBranch = branchService.findBranchOrThrow(target);
+		return getCreateReview(sourceBranch, targetBranch);
+	}
+
+	public BranchReview getCreateReview(Branch sourceBranch, Branch targetBranch) {
+		final String reviewIndexKey = getReviewIndexKey(sourceBranch.getFatPath(), sourceBranch.getHeadTimestamp(),
+				targetBranch.getFatPath(), targetBranch.getHeadTimestamp());
+
+		final BranchReview existingReview = reviewIndex.get(reviewIndexKey);
+		if (existingReview != null) {
+			return existingReview;
+		}
+
+		return createReview(sourceBranch, targetBranch, reviewIndexKey);
+	}
+
+	private BranchReview createReview(Branch sourceBranch, Branch targetBranch, String reviewIndexKey) {
 		// Validate arguments
-		if (!sourceIsParent && !targetBranch.isParent(sourceBranch)) {
+		if (!branchService.branchesHaveParentChildRelationship(sourceBranch, targetBranch)) {
 			throw new IllegalArgumentException("The source or target branch must be the direct parent of the other.");
 		}
 
 		// Create review
 		final BranchReview branchReview = new BranchReview(UUID.randomUUID().toString(), new Date(), ReviewStatus.CURRENT,
-				new BranchState(sourceBranch), new BranchState(targetBranch), sourceIsParent);
+				new BranchState(sourceBranch), new BranchState(targetBranch), sourceBranch.isParent(targetBranch));
 
 		reviewStore.put(branchReview.getId(), branchReview);
+		reviewIndex.put(reviewIndexKey, branchReview);
 		return branchReview;
 	}
 
@@ -195,6 +327,10 @@ public class BranchReviewService {
 		final Sets.SetView<Long> conceptsModified = Sets.difference(Sets.difference(conceptsWithComponentChange, conceptsCreated), conceptsDeleted);
 
 		return new BranchReviewConceptChanges(null, conceptsCreated, conceptsModified, conceptsDeleted);
+	}
+
+	private String getReviewIndexKey(String sourcePath, Long sourceHeadTimestamp, String targetPath, Long headTimestamp) {
+		return sourcePath + "@" + sourceHeadTimestamp + "->" + targetPath + "@" + headTimestamp;
 	}
 
 	private NativeSearchQuery componentsReplacedCriteria(Set<String> versionsReplaced) {

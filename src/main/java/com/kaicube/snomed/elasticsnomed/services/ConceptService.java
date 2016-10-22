@@ -69,12 +69,19 @@ public class ConceptService extends ComponentService {
 	public Concept find(String id, String path) {
 		final Page<Concept> concepts = doFind(Collections.singleton(id), path, new PageRequest(0, 10));
 		if (concepts.getTotalElements() > 1) {
-			logger.error("Found more than one concept {}", concepts.getContent());
+			final Branch latestBranch = branchService.findLatest(path);
+			final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+			logger.error("Found more than one concept {} on branch (latest) {} using criteria {}",
+					concepts.getContent(), latestBranch, branchCriteria);
 			throw new IllegalStateException("More than one concept found for id " + id + " on branch " + path);
 		}
 		Concept concept = concepts.getTotalElements() == 0 ? null : concepts.iterator().next();
 		logger.info("Find id:{}, path:{} found:{}", id, path, concept);
 		return concept;
+	}
+
+	public Collection<Concept> find(String path, Collection<? extends Object> ids) {
+		return doFind(ids, path, new PageRequest(0, ids.size())).getContent();
 	}
 
 	public boolean exists(String id, String path) {
@@ -149,7 +156,7 @@ public class ConceptService extends ComponentService {
 		);
 	}
 
-	private Page<Concept> doFind(Collection<String> ids, String path, PageRequest pageRequest) {
+	private Page<Concept> doFind(Collection<? extends Object> ids, String path, PageRequest pageRequest) {
 		final TimerUtil timer = new TimerUtil("Find concept", Level.INFO);
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 		timer.checkpoint("get branch criteria");
@@ -413,6 +420,10 @@ public class ConceptService extends ComponentService {
 		final ReferenceSetMember savedMember = doSaveBatchMembers(Collections.singleton(member), commit).iterator().next();
 		branchService.completeCommit(commit);
 		return savedMember;
+	}
+
+	public void updateWithinCommit(Collection<Concept> concepts, Commit commit) {
+		doSaveBatchConceptsAndComponents(concepts, commit);
 	}
 
 	public Iterable<Concept> doSaveBatchConceptsAndComponents(Collection<Concept> concepts, Commit commit) {

@@ -54,7 +54,6 @@ public class Concepts {
 			.put(ENTIRE_TERM_CASE_SENSITIVE, "ENTIRE_TERM_CASE_SENSITIVE")
 			.put(CASE_INSENSITIVE, "CASE_INSENSITIVE")
 			.put(INITIAL_CHARACTER_CASE_INSENSITIVE, "INITIAL_CHARACTER_CASE_INSENSITIVE")
-			.put(SYNONYM, "SYNONYM")
 			.build();
 
 	public static final BiMap<String, String> relationshipCharacteristicTypeNames = new ImmutableBiMap.Builder<String, String>()
