@@ -31,6 +31,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
@@ -70,6 +71,15 @@ public class ConceptService extends ComponentService {
 	private QueryIndexService queryIndexService;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
+
+	public Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> getComponentTypeRepoMap() {
+		Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> map = new LinkedHashMap<>();
+		map.put(Concept.class, conceptRepository);
+		map.put(Description.class, descriptionRepository);
+		map.put(Relationship.class, relationshipRepository);
+		map.put(ReferenceSetMember.class, referenceSetMemberRepository);
+		return map;
+	}
 
 	public Concept find(String id, String path) {
 		final Page<Concept> concepts = doFind(Collections.singleton(id), path, new PageRequest(0, 10));
@@ -602,6 +612,20 @@ public class ConceptService extends ComponentService {
 		}
 
 		return doSaveBatchComponents(members, commit, "memberId", referenceSetMemberRepository);
+	}
+
+	public <T extends SnomedComponent> void doSaveBatchComponents(Collection<T> components, Class<T> type, Commit commit) {
+		if (type.equals(Concept.class)) {
+			doSaveBatchConcepts((Collection<Concept>) components, commit);
+		} else if (type.equals(Description.class)) {
+			doSaveBatchDescriptions((Collection<Description>) components, commit);
+		} else if (type.equals(Relationship.class)) {
+			doSaveBatchRelationships((Collection<Relationship>) components, commit);
+		} else if (ReferenceSetMember.class.isAssignableFrom(type)) {
+			doSaveBatchMembers((Collection<ReferenceSetMember>) components, commit);
+		} else {
+			throw new IllegalArgumentException("SnomedComponent type " + type + " not regognised");
+		}
 	}
 
 	public void createTransitiveClosureForEveryConcept(String branch) {

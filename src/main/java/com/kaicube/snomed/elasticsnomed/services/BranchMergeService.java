@@ -4,26 +4,24 @@ import com.kaicube.elasticversioncontrol.api.BranchService;
 import com.kaicube.elasticversioncontrol.api.VersionControlHelper;
 import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.elasticversioncontrol.domain.Commit;
+import com.kaicube.elasticversioncontrol.domain.DomainEntity;
 import com.kaicube.snomed.elasticsnomed.domain.BranchMergeJob;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.domain.JobStatus;
+import com.kaicube.snomed.elasticsnomed.domain.SnomedComponent;
 import com.kaicube.snomed.elasticsnomed.domain.review.BranchReview;
 import com.kaicube.snomed.elasticsnomed.domain.review.ReviewStatus;
-import com.kaicube.snomed.elasticsnomed.repositories.ConceptRepository;
 import com.kaicube.snomed.elasticsnomed.rest.pojo.MergeRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -38,9 +36,6 @@ public class BranchMergeService {
 
 	@Autowired
 	private ConceptService conceptService;
-
-	@Autowired
-	private ConceptRepository conceptRepository;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -114,33 +109,34 @@ public class BranchMergeService {
 			commit.setCommitType(Commit.CommitType.PROMOTION);
 			commit.setSourceBranchPath(source);
 
-			// Load all concepts on source
-			Map<Long, Concept> conceptsToPromoteMap = new HashMap<>();
-			final PageRequest firstThousand = new PageRequest(0, 1000);
-			try (final CloseableIterator<Concept> concepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-					.withQuery(versionControlHelper.getChangesOnBranchCriteria(source))
-					.withPageable(firstThousand)
-					.build(), Concept.class)) {
-
-				concepts.forEachRemaining(concept -> conceptsToPromoteMap.put(concept.getConceptIdAsLong(), concept));
-			}
-			logger.debug("Found {} concepts to promote.", conceptsToPromoteMap.size());
-
-			if (conceptsToPromoteMap.isEmpty()) {
-				return;
-			}
-
-			final Collection<Concept> conceptsToPromote = conceptsToPromoteMap.values();
-
-			// End concepts on source
-			conceptsToPromote.forEach(concept -> concept.setEnd(commit.getTimepoint()));
-			conceptRepository.save(conceptsToPromote);
-
-			// Save concept on target
-			conceptsToPromote.forEach(Concept::markChanged);
-			conceptService.doSaveBatchConcepts(conceptsToPromote, commit);
+			final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = conceptService.getComponentTypeRepoMap();
+			componentTypeRepoMap.entrySet().parallelStream().forEach(entry ->  promoteEntities(source, commit, entry.getKey(), entry.getValue()));
 		}
 		branchService.completeCommit(commit);
+	}
+
+	private <T extends SnomedComponent> void promoteEntities(String source, Commit commit, Class<T> entityClass, ElasticsearchCrudRepository<T, String> entityRepository) {
+		// Load all entities on source
+		List<T> toPromote = new ArrayList<>();
+		try (final CloseableIterator<T> entities = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(versionControlHelper.getChangesOnBranchCriteria(source))
+				.withPageable(ConceptService.LARGE_PAGE)
+				.build(), entityClass)) {
+
+			entities.forEachRemaining(toPromote::add);
+			if (toPromote.isEmpty()) {
+				return;
+			}
+			logger.info("Promoting batch of {} {}.", toPromote.size(), entityClass);
+
+			// End entities on source
+			toPromote.forEach(concept -> concept.setEnd(commit.getTimepoint()));
+			entityRepository.save(toPromote);
+
+			// Save concept on target
+			toPromote.forEach(DomainEntity::markChanged);
+			conceptService.doSaveBatchComponents(toPromote, entityClass, commit);
+		}
 	}
 
 	private void checkBranchReview(MergeRequest mergeRequest, String sourceBranchPath, String targetBranchPath) {
