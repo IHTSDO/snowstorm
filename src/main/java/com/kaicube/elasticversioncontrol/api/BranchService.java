@@ -154,13 +154,32 @@ public class BranchService {
 
 	public boolean branchesHaveParentChildRelationship(Branch branchA, Branch branchB) {
 		return branchA.isParent(branchB) || branchB.isParent(branchA);
-
 	}
 
 	public Commit openCommit(String path) {
+		return openCommit(path, Commit.CommitType.CONTENT);
+	}
+
+	public Commit openCommit(String path, Commit.CommitType commitType) {
 		Branch branch = findLatest(path);
 		branch = lockBranch(branch);
-		return new Commit(branch);
+		return new Commit(branch, commitType);
+	}
+
+	public Commit openRebaseCommit(String path) {
+		final Commit commit = openCommit(path, Commit.CommitType.REBASE);
+		final Branch branch = commit.getBranch();
+		final String fatPath = branch.getFatPath();
+		if (!PathUtil.isRoot(fatPath)) {
+			final String parentPath = PathUtil.getParentPath(fatPath);
+			final Branch parentBranch = findAtTimepointOrThrow(parentPath, commit.getTimepoint());
+			branch.setBase(parentBranch.getHead());
+		}
+		return commit;
+	}
+
+	public Commit openPromotionCommit(String path) {
+		return openCommit(path, Commit.CommitType.PROMOTION);
 	}
 
 	// TODO Make this work in a clustered environment
@@ -194,13 +213,7 @@ public class BranchService {
 
 		final Commit.CommitType commitType = commit.getCommitType();
 		newBranchTimespan.setContainsContent(commitType != Commit.CommitType.REBASE || oldBranchTimespan.isContainsContent());
-		if (commitType == Commit.CommitType.REBASE) {
-			if (!PathUtil.isRoot(path)) {
-				// Update base to parent head
-				final Branch parent = findAtTimepointOrThrow(PathUtil.getParentPath(path), timepoint);
-				newBranchTimespan.setBase(parent.getHead());
-			}
-		} else if (commitType == Commit.CommitType.PROMOTION) {
+		if (commitType == Commit.CommitType.PROMOTION) {
 			final String sourceBranchPath = commit.getSourceBranchPath();
 			if (Strings.isNullOrEmpty(sourceBranchPath)) {
 				throw new IllegalArgumentException("The sourceBranchPath must be set for a commit of type " + Commit.CommitType.PROMOTION);

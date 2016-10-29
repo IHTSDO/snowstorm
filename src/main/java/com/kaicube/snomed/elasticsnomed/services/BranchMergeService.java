@@ -103,18 +103,18 @@ public class BranchMergeService {
 
 		// TODO: Lock both branches
 		// TODO: Use commit rollback in catch block
-		final Commit commit = branchService.openCommit(targetBranch.getPath());
+		Commit commit;
 		if (rebase) {
 			// Rebase
 			logger.info("Performing rebase {} -> {}", source, target);
-			commit.setCommitType(Commit.CommitType.REBASE);
+			commit = branchService.openRebaseCommit(targetBranch.getPath());
 			if (manuallyMergedConcepts != null && !manuallyMergedConcepts.isEmpty()) {
 				conceptService.updateWithinCommit(manuallyMergedConcepts, commit);
 			}
 		} else {
 			// Promotion
 			logger.info("Performing promotion {} -> {}", source, target);
-			commit.setCommitType(Commit.CommitType.PROMOTION);
+			commit = branchService.openPromotionCommit(targetBranch.getPath());
 			commit.setSourceBranchPath(source);
 
 			final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = conceptService.getComponentTypeRepoMap();

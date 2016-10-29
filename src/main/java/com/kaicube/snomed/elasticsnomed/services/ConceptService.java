@@ -171,16 +171,25 @@ public class ConceptService extends ComponentService {
 		);
 	}
 
-	private Page<Concept> doFind(Collection<? extends Object> ids, String path, PageRequest pageRequest) {
-		final TimerUtil timer = new TimerUtil("Find concept", Level.INFO);
+	private Page<Concept> doFind(Collection<? extends Object> conceptIds, Commit commit, PageRequest pageRequest) {
+		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteriaWithinOpenCommit(commit);
+		return doFind(conceptIds, branchCriteria, pageRequest);
+	}
+
+	private Page<Concept> doFind(Collection<? extends Object> conceptIds, String path, PageRequest pageRequest) {
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		return doFind(conceptIds, branchCriteria, pageRequest);
+	}
+
+	private Page<Concept> doFind(Collection<? extends Object> conceptIdsToFind, QueryBuilder branchCriteria, PageRequest pageRequest) {
+		final TimerUtil timer = new TimerUtil("Find concept", Level.TRACE);
 		timer.checkpoint("get branch criteria");
 
 		final BoolQueryBuilder builder = boolQuery()
 				.must(branchCriteria);
-		if (ids != null && !ids.isEmpty()) {
+		if (conceptIdsToFind != null && !conceptIdsToFind.isEmpty()) {
 			// TODO - use CLAUSE_LIMIT here
-			builder.must(termsQuery("conceptId", ids));
+			builder.must(termsQuery("conceptId", conceptIdsToFind));
 		}
 
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
@@ -385,7 +394,7 @@ public class ConceptService extends ComponentService {
 		return doSave(concepts, branch);
 	}
 
-	private <C extends SnomedComponent> boolean markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents) {
+	private <C extends SnomedComponent> boolean markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents, boolean rebase) {
 		boolean anythingChanged = false;
 		// Mark deletions
 		for (C existingComponent : existingComponents) {
@@ -399,7 +408,7 @@ public class ConceptService extends ComponentService {
 		final Map<String, C> map = existingComponents.stream().collect(Collectors.toMap(DomainEntity::getId, Function.identity()));
 		for (C newComponent : newComponents) {
 			final C existingComponent = map.get(newComponent.getId());
-			newComponent.setChanged(newComponent.isComponentChanged(existingComponent));
+			newComponent.setChanged(newComponent.isComponentChanged(existingComponent) || rebase);
 			if (existingComponent != null) {
 				newComponent.copyReleaseDetails(existingComponent);
 				newComponent.updateEffectiveTime();
@@ -436,10 +445,11 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Iterable<Concept> doSaveBatchConceptsAndComponents(Collection<Concept> concepts, Commit commit) {
+		final boolean savingMergedConcepts = commit.isRebase();
 		final List<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toList());
 		final Map<String, Concept> existingConceptsMap = new HashMap<>();
 		if (!conceptIds.isEmpty()) {
-			final List<Concept> existingConcepts = doFind(conceptIds, commit.getBranch().getFatPath(), new PageRequest(0, conceptIds.size())).getContent();
+			final List<Concept> existingConcepts = doFind(conceptIds, commit, new PageRequest(0, conceptIds.size())).getContent();
 			for (Concept existingConcept : existingConcepts) {
 				existingConceptsMap.put(existingConcept.getConceptId(), existingConcept);
 			}
@@ -460,12 +470,12 @@ public class ConceptService extends ComponentService {
 
 			// Mark changed concepts as changed
 			if (existingConcept != null) {
-				concept.setChanged(concept.isComponentChanged(existingConcept));
+				concept.setChanged(concept.isComponentChanged(existingConcept) || savingMergedConcepts);
 				concept.copyReleaseDetails(existingConcept);
 				concept.updateEffectiveTime();
 
-				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions());
-				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships());
+				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions(), savingMergedConcepts);
+				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships(), savingMergedConcepts);
 				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
 			} else {
 				if (concept.getConceptId() == null) {
@@ -497,7 +507,7 @@ public class ConceptService extends ComponentService {
 						final LanguageReferenceSetMember member = new LanguageReferenceSetMember(existingMember.getMemberId(), null, true,
 								existingMember.getModuleId(), languageRefsetId, description.getId(), acceptabilityId);
 
-						if (member.isComponentChanged(existingMember)) {
+						if (member.isComponentChanged(existingMember) || savingMergedConcepts) {
 							member.setChanged(true);
 							member.copyReleaseDetails(existingMember);
 							member.updateEffectiveTime();

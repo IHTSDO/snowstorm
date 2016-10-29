@@ -135,7 +135,7 @@ public class VersionControlHelper {
 		final NativeSearchQuery query2 = new NativeSearchQueryBuilder()
 				.withQuery(
 						new BoolQueryBuilder()
-								.must(getBranchCriteria(commit.getBranch().getFatPath()))
+								.must(getBranchCriteriaWithinOpenCommit(commit))
 								.must(rangeQuery("start").lt(commit.getTimepoint()))
 								.mustNot(existsQuery("end"))
 				)

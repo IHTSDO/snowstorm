@@ -15,11 +15,11 @@ public class Commit {
 	private CommitType commitType;
 	private String sourceBranchPath;
 
-	public Commit(Branch branch) {
+	public Commit(Branch branch, CommitType commitType) {
 		this.branch = branch;
 		this.timepoint = new Date();
 		entityVersionsReplaced = new HashSet<>();
-		commitType = CommitType.CONTENT;
+		this.commitType = commitType;
 	}
 
 	public Branch getBranch() {
@@ -32,10 +32,6 @@ public class Commit {
 
 	public CommitType getCommitType() {
 		return commitType;
-	}
-
-	public void setCommitType(CommitType commitType) {
-		this.commitType = commitType;
 	}
 
 	@Override
@@ -64,6 +60,10 @@ public class Commit {
 
 	public String getSourceBranchPath() {
 		return sourceBranchPath;
+	}
+
+	public boolean isRebase() {
+		return CommitType.REBASE == commitType;
 	}
 
 	public enum CommitType {

@@ -15,6 +15,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import java.util.Collections;
+import java.util.List;
+
 import static org.junit.Assert.assertEquals;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -163,7 +166,8 @@ public class BranchMergeServiceTest {
 
 
 		// - Rebase A2
-		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", null);
+		final List<Concept> emptyListOfConflictMerges = Collections.emptyList();// Merge review will result in nothing to merge
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", emptyListOfConflictMerges);
 
 		// MAIN can't see
 		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, concept1, false);
@@ -208,7 +212,7 @@ public class BranchMergeServiceTest {
 
 
 		// - Rebase A2 and promote to A
-		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", null);
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", emptyListOfConflictMerges);
 		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
 
 		// MAIN can see concept1 but not concept2
@@ -239,6 +243,111 @@ public class BranchMergeServiceTest {
 		// MAIN/A is up to date
 		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.UP_TO_DATE, concept1, true);
 		assertConceptVisible("MAIN/A", concept2);
+	}
+
+	@Test(expected = IllegalArgumentException.class)
+	public void testConflictWithoutManualMergeSupplied() {
+		final String concept1 = "100";
+		final Concept concept = new Concept(concept1);
+		conceptService.create(concept, "MAIN/A/A1");
+		conceptService.create(concept, "MAIN/A");
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", null);
+	}
+
+	@Test
+	public void testConflictConceptMergeChangesFromLeft() {
+		final String conceptId = "100";
+		final Description description = new Description("One");
+
+		setupConflictSituation(
+				new Concept(conceptId, "9001").addDescription(description),
+				new Concept(conceptId, "9002").addDescription(description),
+				new Concept(conceptId, "9003").addDescription(description));
+
+		// Rebase the diverged branch supplying the manually merged concept
+		final Concept conceptFromLeft = new Concept(conceptId, "9002").addDescription(description);
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromLeft));
+
+		Assert.assertEquals("9002", conceptService.find(conceptId, "MAIN/A/A2").getModuleId());
+
+		// Promote the branch (no conflicts at this point)
+		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
+		Assert.assertEquals("9002", conceptService.find(conceptId, "MAIN/A").getModuleId());
+	}
+
+	@Test
+	public void testConflictConceptMergeChangesFromRight() {
+		final String conceptId = "100";
+		final Description description = new Description("One");
+
+		setupConflictSituation(
+				new Concept(conceptId, "9001").addDescription(description),
+				new Concept(conceptId, "9002").addDescription(description),
+				new Concept(conceptId, "9003").addDescription(description));
+
+		// Rebase the diverged branch supplying the manually merged concept
+		final Concept conceptFromRight = new Concept(conceptId, "9003").addDescription(description);
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromRight));
+
+		final String conceptFromMergedA2 = conceptService.find(conceptId, "MAIN/A/A2").getModuleId();
+		Assert.assertEquals("9003", conceptFromMergedA2);
+
+		// Promote the branch (no conflicts at this point)
+		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
+		Assert.assertEquals("9003", conceptService.find(conceptId, "MAIN/A").getModuleId());
+	}
+
+	@Test
+	public void testConflictConceptMergeChangesFromNowhere() {
+		final String conceptId = "100";
+		final Description description = new Description("One");
+
+		setupConflictSituation(
+				new Concept(conceptId, "9001").addDescription(description),
+				new Concept(conceptId, "9002").addDescription(description),
+				new Concept(conceptId, "9003").addDescription(description));
+
+		// Rebase the diverged branch supplying the manually merged concept
+		final Concept conceptFromRight = new Concept(conceptId, "9099").addDescription(description);
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromRight));
+
+		Assert.assertEquals("9099", conceptService.find(conceptId, "MAIN/A/A2").getModuleId());
+
+		// Promote the branch (no conflicts at this point)
+		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
+		Assert.assertEquals("9099", conceptService.find(conceptId, "MAIN/A").getModuleId());
+	}
+
+	/**
+	 * Set up a content conflict situation.
+	 * Three versions of the same concept should be given.
+	 * parentConcept is saved to branch MAIN/A and rebased to MAIN/A/A2
+	 * leftConcept is then saved and promoted from MAIN/A/A1 to MAIN/A.
+	 * rightConcept is then saved to MAIN/A/A2.
+	 * At that point MAIN/A/A2 has a conflict in the rebase.
+	 * @param parentConcept
+	 * @param leftConcept
+	 * @param rightConcept
+	 */
+	private void setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept) {
+		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
+		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
+		assertBranchState("MAIN/A/A2", Branch.BranchState.UP_TO_DATE);
+
+		// - Create concept on A
+		conceptService.create(parentConcept, "MAIN/A");
+
+		// - Rebase A1 and A2
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", null);
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", null);
+
+		// Update concept on A1 and promote
+		conceptService.update(leftConcept, "MAIN/A/A1");
+		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", null);
+
+		// Update concept on A2 and rebase, providing manually merged concept
+		conceptService.update(rightConcept, "MAIN/A/A2");
+		assertBranchState("MAIN/A/A2", Branch.BranchState.DIVERGED);
 	}
 
 	private Concept assertBranchStateAndConceptVisibility(String path, Branch.BranchState expectedBranchState,

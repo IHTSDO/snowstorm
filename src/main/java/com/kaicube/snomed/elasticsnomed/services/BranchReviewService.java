@@ -134,7 +134,7 @@ public class BranchReviewService {
 		final MergeReview mergeReview = getMergeReviewOrThrow(mergeReviewId);
 		assertMergeReviewCurrent(mergeReview);
 
-		// Check all conflicts manaully merged
+		// Check all conflicts manually merged
 		final Map<Long, Concept> manuallyMergedConcepts = mergeReview.getManuallyMergedConcepts();
 		final Sets.SetView<Long> conflictingConceptIds = getConflictingConceptIds(mergeReview);
 		final Set<Long> conflictsRemaining = new HashSet<>(conflictingConceptIds);
