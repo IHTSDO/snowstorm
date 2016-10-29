@@ -44,14 +44,20 @@ public class BranchMergeService {
 	private ElasticsearchTemplate elasticsearchTemplate;
 
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
-
+	private static final String USE_BRANCH_REVIEW = "The target branch is diverged, please use the branch review endpoint instead.";
 	private static final Logger logger = LoggerFactory.getLogger(BranchMergeService.class);
 
 	public BranchMergeJob mergeBranchAsync(MergeRequest mergeRequest) {
 		final String source = mergeRequest.getSource();
 		final String target = mergeRequest.getTarget();
+		BranchReview branchReview = null;
 		if (mergeRequest.getReviewId() != null) {
-			checkBranchReview(mergeRequest, source, target);
+			branchReview = checkBranchReview(mergeRequest, source, target);
+		}
+
+		final Branch targetBranch = branchService.findBranchOrThrow(target);
+		if (targetBranch.getState() == Branch.BranchState.DIVERGED && branchReview == null) {
+			throw new IllegalArgumentException(USE_BRANCH_REVIEW);
 		}
 
 		BranchMergeJob mergeJob = new BranchMergeJob(source, target, JobStatus.SCHEDULED);
@@ -82,6 +88,8 @@ public class BranchMergeService {
 			// Rebase
 			if (sourceBranch.getHeadTimestamp() == targetBranch.getBaseTimestamp()) {
 				throw new IllegalStateException("This rebase is not meaningful, the child branch already has the parent's changes.");
+			} else if (targetBranch.getState() == Branch.BranchState.DIVERGED && manuallyMergedConcepts == null) {
+				throw new IllegalArgumentException(USE_BRANCH_REVIEW);
 			}
 		} else {
 			// Promotion
@@ -139,7 +147,7 @@ public class BranchMergeService {
 		}
 	}
 
-	private void checkBranchReview(MergeRequest mergeRequest, String sourceBranchPath, String targetBranchPath) {
+	private BranchReview checkBranchReview(MergeRequest mergeRequest, String sourceBranchPath, String targetBranchPath) {
 		BranchReview branchReview = reviewService.getBranchReview(mergeRequest.getReviewId());
 		if (branchReview == null) {
 			throw new IllegalArgumentException("Branch review " + mergeRequest.getReviewId() + " does not exist.");
@@ -152,5 +160,6 @@ public class BranchMergeService {
 		if (!branchReview.getStatus().equals(ReviewStatus.CURRENT)) {
 			throw new IllegalStateException("The specified branch review is not in CURRENT status.");
 		}
+		return branchReview;
 	}
 }
