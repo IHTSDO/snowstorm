@@ -19,7 +19,6 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.util.Assert;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -128,6 +127,7 @@ public class VersionControlHelper {
 		}
 		if (!toSave.isEmpty()) {
 			repository.save(toSave);
+			logger.debug("Ended {} {} {}", toSave.size(), clazz.getSimpleName(), toSave.stream().map(Entity::getInternalId).collect(Collectors.toList()));
 			toSave.clear();
 		}
 
@@ -137,7 +137,6 @@ public class VersionControlHelper {
 						new BoolQueryBuilder()
 								.must(getBranchCriteriaWithinOpenCommit(commit))
 								.must(rangeQuery("start").lt(commit.getTimepoint()))
-								.mustNot(existsQuery("end"))
 				)
 				.withFilter(
 						new BoolQueryBuilder()
@@ -145,17 +144,17 @@ public class VersionControlHelper {
 				)
 				.build();
 
-		AtomicLong replacedVersionsCount = new AtomicLong(0);
-
 		Class classToLoad = clazz.equals(ReferenceSetMember.class) ? LanguageReferenceSetMember.class : clazz; // TODO: how can we do this implicitly
 
+		Set<String> versionsReplaced = new HashSet<>();
 		try (final CloseableIterator<T> replacedVersions = elasticsearchTemplate.stream(query2, classToLoad)) {
 			replacedVersions.forEachRemaining(version -> {
-				commit.addVersionReplaced(version.getInternalId());
-				replacedVersionsCount.incrementAndGet();
+				versionsReplaced.add(version.getInternalId());
 			});
 		}
-		logger.info("{} old versions of {} replaced.", replacedVersionsCount.get(), clazz);
+		commit.addVersionsReplaced(versionsReplaced);
+
+		logger.debug("Replaced {} {} {}", versionsReplaced.size(), clazz.getSimpleName(), versionsReplaced);
 	}
 
 	void setEntityMeta(Entity entity, Commit commit) {

@@ -1,10 +1,12 @@
 package com.kaicube.snomed.elasticsnomed.services;
 
+import com.google.common.collect.Iterables;
 import com.kaicube.elasticversioncontrol.api.BranchService;
 import com.kaicube.elasticversioncontrol.api.VersionControlHelper;
 import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.elasticversioncontrol.domain.Commit;
 import com.kaicube.elasticversioncontrol.domain.DomainEntity;
+import com.kaicube.elasticversioncontrol.domain.Entity;
 import com.kaicube.snomed.elasticsnomed.domain.BranchMergeJob;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.domain.JobStatus;
@@ -24,6 +26,11 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
+
+import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 
 @Service
 public class BranchMergeService {
@@ -114,34 +121,66 @@ public class BranchMergeService {
 		} else {
 			// Promotion
 			logger.info("Performing promotion {} -> {}", source, target);
-			commit = branchService.openPromotionCommit(targetBranch.getPath());
-			commit.setSourceBranchPath(source);
+			commit = branchService.openPromotionCommit(targetBranch.getPath(), source);
 
+			final Set<String> versionsReplaced = sourceBranch.getVersionsReplaced();
 			final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = conceptService.getComponentTypeRepoMap();
-			componentTypeRepoMap.entrySet().parallelStream().forEach(entry ->  promoteEntities(source, commit, entry.getKey(), entry.getValue()));
+			componentTypeRepoMap.entrySet().parallelStream().forEach(entry ->  promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
 		}
 		branchService.completeCommit(commit);
 	}
 
-	private <T extends SnomedComponent> void promoteEntities(String source, Commit commit, Class<T> entityClass, ElasticsearchCrudRepository<T, String> entityRepository) {
+	private <T extends SnomedComponent> void promoteEntities(String source, Commit commit, Class<T> entityClass,
+			ElasticsearchCrudRepository<T, String> entityRepository, Set<String> versionsReplaced) {
+
+		final String targetFlatPath = commit.getBranch().getFlatPath();
+
+		// End entities on target which have been replaced on source branch
+		List<T> toEnd = new ArrayList<>();
+		for (List<String> versionsReplacedSegment : Iterables.partition(versionsReplaced, 1)) {
+			try (final CloseableIterator<T> entitiesToEnd = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(termQuery("path", targetFlatPath))
+							.must(termsQuery("_id", versionsReplacedSegment))
+					)
+					.withPageable(ConceptService.LARGE_PAGE)
+					.build(), entityClass)) {
+
+				entitiesToEnd.forEachRemaining(entity -> {
+					if (entity.getEnd() == null) {
+						toEnd.add(entity);
+					}
+				});
+			}
+		}
+		if (!toEnd.isEmpty()) {
+			// End entities on target
+			toEnd.forEach(entity -> entity.setEnd(commit.getTimepoint()));
+			entityRepository.save(toEnd);
+
+			commit.getEntityVersionsReplaced().removeAll(toEnd.stream().map(Entity::getInternalId).collect(Collectors.toList()));
+
+			logger.debug("Ended {} {} {}", versionsReplaced.size(), entityClass.getSimpleName(), versionsReplaced);
+		}
+
 		// Load all entities on source
-		List<T> toPromote = new ArrayList<>();
 		try (final CloseableIterator<T> entities = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(versionControlHelper.getChangesOnBranchCriteria(source))
 				.withPageable(ConceptService.LARGE_PAGE)
 				.build(), entityClass)) {
 
+			List<T> toPromote = new ArrayList<>();
 			entities.forEachRemaining(toPromote::add);
 			if (toPromote.isEmpty()) {
 				return;
 			}
-			logger.info("Promoting batch of {} {}.", toPromote.size(), entityClass);
+			logger.info("Promoting {} {} {}", toPromote.size(), entityClass.getSimpleName(), toPromote.stream().map(Entity::getInternalId).collect(Collectors.toList()));
 
 			// End entities on source
-			toPromote.forEach(concept -> concept.setEnd(commit.getTimepoint()));
+			toPromote.forEach(entity -> entity.setEnd(commit.getTimepoint()));
 			entityRepository.save(toPromote);
 
-			// Save concept on target
+			// Save entities on target
 			toPromote.forEach(DomainEntity::markChanged);
 			conceptService.doSaveBatchComponents(toPromote, entityClass, commit);
 		}

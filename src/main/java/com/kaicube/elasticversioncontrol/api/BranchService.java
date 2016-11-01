@@ -178,8 +178,10 @@ public class BranchService {
 		return commit;
 	}
 
-	public Commit openPromotionCommit(String path) {
-		return openCommit(path, Commit.CommitType.PROMOTION);
+	public Commit openPromotionCommit(String path, String sourcePath) {
+		final Commit commit = openCommit(path, Commit.CommitType.PROMOTION);
+		commit.setSourceBranchPath(sourcePath);
+		return commit;
 	}
 
 	// TODO Make this work in a clustered environment
@@ -222,6 +224,7 @@ public class BranchService {
 			// Clear versions replaced on source
 			final Branch oldSourceBranch = findAtTimepointOrThrow(sourceBranchPath, timepoint);
 			oldSourceBranch.setEnd(timepoint);
+			newBranchTimespan.addVersionsReplaced(oldSourceBranch.getVersionsReplaced());
 			newBranchVersionsToSave.add(oldSourceBranch);
 
 			Branch newSourceBranch = new Branch(sourceBranchPath);

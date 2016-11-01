@@ -7,9 +7,12 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class Entity {
+
+	public static final SimpleDateFormat DEBUG_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 
 	@Id
 	@Field(index = FieldIndex.not_analyzed)
@@ -62,7 +65,7 @@ public class Entity {
 	}
 
 	public String getStartDebugFormat() {
-		return start == null ? null : start.toString() + ", " + start.getTime();
+		return start == null ? null : DEBUG_DATE_FORMAT.format(start);
 	}
 
 	public void setStart(Date start) {
@@ -74,7 +77,7 @@ public class Entity {
 	}
 
 	public String getEndDebugFormat() {
-		return end == null ? null : end.toString() + ", " + end.getTime();
+		return end == null ? null : DEBUG_DATE_FORMAT.format(end);
 	}
 
 	public void setEnd(Date end) {

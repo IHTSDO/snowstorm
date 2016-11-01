@@ -46,6 +46,10 @@ public class Commit {
 		return branch.getFlatPath();
 	}
 
+	public void addVersionsReplaced(Set<String> internalIds) {
+		entityVersionsReplaced.addAll(internalIds);
+	}
+
 	public void addVersionReplaced(String internalId) {
 		entityVersionsReplaced.add(internalId);
 	}

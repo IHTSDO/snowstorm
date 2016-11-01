@@ -318,6 +318,60 @@ public class BranchMergeServiceTest {
 		Assert.assertEquals("9099", conceptService.find(conceptId, "MAIN/A").getModuleId());
 	}
 
+	@Test
+	public void testConflictDescriptionsNewOnBothSides() {
+		final String conceptId = "100";
+
+		setupConflictSituation(
+				new Concept(conceptId, "9001").addDescription(new Description("101", "Orig")),
+
+				new Concept(conceptId, "9002").addDescription(new Description("101", "Orig"))
+						.addDescription(new Description("201", "New Left")),
+
+				new Concept(conceptId, "9003").addDescription(new Description("101", "Orig"))
+						.addDescription(new Description("301", "New Right")));
+
+		// Rebase the diverged branch supplying the manually merged concept
+		final Concept conceptMerge = new Concept(conceptId, "9099");
+		conceptMerge.addDescription(new Description("101", "Orig"));
+		conceptMerge.addDescription(new Description("201", "New Left"));
+		conceptMerge.addDescription(new Description("301", "New Right"));
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptMerge));
+
+		Assert.assertEquals(3, conceptService.find(conceptId, "MAIN/A/A2").getDescriptions().size());
+
+		// Promote the branch (no conflicts at this point)
+		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
+		Assert.assertEquals(3, conceptService.find(conceptId, "MAIN/A").getDescriptions().size());
+	}
+
+	@Test
+	public void testConflictDescriptionsNewOnBothSidesAllDeletedInManualMerge() {
+		final String conceptId = "100";
+
+		setupConflictSituation(
+				new Concept(conceptId, "9001").addDescription(new Description("101", "Orig")),
+
+				new Concept(conceptId, "9002").addDescription(new Description("101", "Orig"))
+						.addDescription(new Description("201", "New Left")),
+
+				new Concept(conceptId, "9003").addDescription(new Description("101", "Orig"))
+						.addDescription(new Description("301", "New Right")));
+
+		Assert.assertEquals(2, conceptService.find(conceptId, "MAIN/A").getDescriptions().size());
+		Assert.assertEquals(2, conceptService.find(conceptId, "MAIN/A/A2").getDescriptions().size());
+
+		// Rebase the diverged branch supplying the manually merged concept
+		final Concept conceptMerge = new Concept(conceptId, "9099");
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptMerge));
+
+		Assert.assertEquals(0, conceptService.find(conceptId, "MAIN/A/A2").getDescriptions().size());
+
+		// Promote the branch (no conflicts at this point)
+		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
+		Assert.assertEquals(0, conceptService.find(conceptId, "MAIN/A").getDescriptions().size());
+	}
+
 	/**
 	 * Set up a content conflict situation.
 	 * Three versions of the same concept should be given.

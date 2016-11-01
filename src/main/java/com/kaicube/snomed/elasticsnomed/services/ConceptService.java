@@ -88,6 +88,7 @@ public class ConceptService extends ComponentService {
 			final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 			logger.error("Found more than one concept {} on branch (latest) {} using criteria {}",
 					concepts.getContent(), latestBranch, branchCriteria);
+			concepts.forEach(c -> logger.info("id:{} path:{}, start:{}, end:{}", c.getInternalId(), c.getFatPath(), c.getStartDebugFormat(), c.getEndDebugFormat()));
 			throw new IllegalStateException("More than one concept found for id " + id + " on branch " + path);
 		}
 		Concept concept = concepts.getTotalElements() == 0 ? null : concepts.iterator().next();
