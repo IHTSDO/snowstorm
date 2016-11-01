@@ -379,6 +379,19 @@ public class ConceptService extends ComponentService {
 		return doSave(conceptVersion, branch);
 	}
 
+	public Iterable<Concept> create(List<Concept> concepts, String path) {
+		final Branch branch = branchService.findBranchOrThrow(path);
+		final Set<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toSet());
+		if (!conceptIds.isEmpty()) {
+			final Collection<String> nonExistentConcepts = getNonExistentConcepts(conceptIds, path);
+			conceptIds.removeAll(nonExistentConcepts);
+			if (!conceptIds.isEmpty()) {
+				throw new IllegalArgumentException("Some concepts already exist on branch '" + path + "', " + conceptIds);
+			}
+		}
+		return doSave(concepts, branch);
+	}
+
 	public Concept update(Concept conceptVersion, String path) {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final String conceptId = conceptVersion.getConceptId();
@@ -450,9 +463,11 @@ public class ConceptService extends ComponentService {
 		final List<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toList());
 		final Map<String, Concept> existingConceptsMap = new HashMap<>();
 		if (!conceptIds.isEmpty()) {
-			final List<Concept> existingConcepts = doFind(conceptIds, commit, new PageRequest(0, conceptIds.size())).getContent();
-			for (Concept existingConcept : existingConcepts) {
-				existingConceptsMap.put(existingConcept.getConceptId(), existingConcept);
+			for (List<String> conceptIdPartition : Iterables.partition(conceptIds, 500)) {
+				final List<Concept> existingConcepts = doFind(conceptIdPartition, commit, new PageRequest(0, conceptIds.size())).getContent();
+				for (Concept existingConcept : existingConcepts) {
+					existingConceptsMap.put(existingConcept.getConceptId(), existingConcept);
+				}
 			}
 		}
 
@@ -487,6 +502,7 @@ public class ConceptService extends ComponentService {
 				Sets.union(concept.getDescriptions(), concept.getRelationships()).stream().forEach(component -> component.setChanged(true));
 			}
 			for (Description description : concept.getDescriptions()) {
+				description.setConceptId(concept.getConceptId());
 				final Description existingDescription = existingDescriptions.get(description.getDescriptionId());
 				final Map<String, LanguageReferenceSetMember> existingMembersToMatch = new HashMap<>();
 				if (existingDescription != null) {
@@ -529,6 +545,8 @@ public class ConceptService extends ComponentService {
 					langRefsetMembersToPersist.add(leftoverMember);
 				}
 			}
+			concept.getRelationships().stream()
+					.forEach(relationship -> relationship.setSourceId(concept.getConceptId()));
 			concept.getRelationships().stream()
 					.filter(relationship -> relationship.getRelationshipId() == null)
 					.forEach(relationship -> relationship.setRelationshipId(IDService.getHackId()));
