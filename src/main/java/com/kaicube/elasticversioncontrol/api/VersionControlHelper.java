@@ -4,8 +4,6 @@ import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.elasticversioncontrol.domain.Commit;
 import com.kaicube.elasticversioncontrol.domain.DomainEntity;
 import com.kaicube.elasticversioncontrol.domain.Entity;
-import com.kaicube.snomed.elasticsnomed.domain.LanguageReferenceSetMember;
-import com.kaicube.snomed.elasticsnomed.domain.ReferenceSetMember;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
@@ -144,10 +142,8 @@ public class VersionControlHelper {
 				)
 				.build();
 
-		Class classToLoad = clazz.equals(ReferenceSetMember.class) ? LanguageReferenceSetMember.class : clazz; // TODO: how can we do this implicitly
-
 		Set<String> versionsReplaced = new HashSet<>();
-		try (final CloseableIterator<T> replacedVersions = elasticsearchTemplate.stream(query2, classToLoad)) {
+		try (final CloseableIterator<T> replacedVersions = elasticsearchTemplate.stream(query2, clazz)) {
 			replacedVersions.forEachRemaining(version -> {
 				versionsReplaced.add(version.getInternalId());
 			});
