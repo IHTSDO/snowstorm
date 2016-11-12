@@ -138,7 +138,9 @@ public class ImportServiceTest {
 		Assert.assertEquals(1, members.size());
 		Assert.assertEquals("900000000000548007", members.get("900000000000508004").getAcceptabilityId());
 
-		Assert.assertEquals(4, conceptBleeding.getRelationships().size());
+		Assert.assertEquals(7, conceptBleeding.getRelationships().size());
+		Assert.assertEquals(4, conceptBleeding.getRelationships().stream().filter(r -> r.getCharacteristicTypeId().equals(Concepts.INFERRED_RELATIONSHIP)).count());
+		Assert.assertEquals(3, conceptBleeding.getRelationships().stream().filter(r -> r.getCharacteristicTypeId().equals(Concepts.STATED_RELATIONSHIP)).count());
 
 		final Page<Concept> conceptPage = conceptService.findAll(branchPath, new PageRequest(0, 200));
 		Assert.assertEquals(102, conceptPage.getNumberOfElements());
@@ -153,7 +155,7 @@ public class ImportServiceTest {
 		Assert.assertNotNull(conceptMechanicalAbnormality);
 
 		Assert.assertEquals(2, conceptMechanicalAbnormality.getDescriptions().size());
-		Assert.assertEquals(4, conceptMechanicalAbnormality.getRelationships().size());
+		Assert.assertEquals(7, conceptMechanicalAbnormality.getRelationships().size());
 	}
 
 	@Before
