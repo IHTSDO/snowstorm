@@ -1,6 +1,7 @@
 package com.kaicube.snomed.elasticsnomed.rf2import;
 
 import com.kaicube.elasticversioncontrol.api.BranchService;
+import com.kaicube.snomed.elasticsnomed.domain.Concepts;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.ihtsdo.otf.snomedboot.ReleaseImporter;
@@ -11,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class ImportService {
 
 	public static final LoadingProfile DEFAULT_LOADING_PROFILE = LoadingProfile.complete.withoutAllRefsets()
+			.withRefset(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET)
+			.withFullRefsetMemberObjects()
 			.withRefset(ConceptConstants.US_EN_LANGUAGE_REFERENCE_SET)
 			.withRefset(ConceptConstants.GB_EN_LANGUAGE_REFERENCE_SET);
 

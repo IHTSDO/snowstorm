@@ -239,7 +239,7 @@ public class ConceptServiceTest {
 		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
 				new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
-						.addLanguageRefsetMember(new LanguageReferenceSetMember("900000000000509007", null, Concepts.PREFERRED))
+						.addLanguageRefsetMember("900000000000509007", Concepts.PREFERRED)
 		);
 		conceptService.create(concept, "MAIN");
 
@@ -248,9 +248,9 @@ public class ConceptServiceTest {
 		assertEquals(1, savedConcept.getDescriptions().size());
 		final Description description = savedConcept.getDescriptions().iterator().next();
 		assertEquals("84923010", description.getDescriptionId());
-		final Map<String, LanguageReferenceSetMember> members = description.getLangRefsetMembers();
+		final Map<String, ReferenceSetMember> members = description.getLangRefsetMembers();
 		assertEquals(1, members.size());
-		assertEquals(Concepts.PREFERRED, members.get("900000000000509007").getAcceptabilityId());
+		assertEquals(Concepts.PREFERRED, members.get("900000000000509007").getAdditionalField("acceptabilityId"));
 	}
 
 	@Test
@@ -258,18 +258,18 @@ public class ConceptServiceTest {
 		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
 				new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
-						.addLanguageRefsetMember(new LanguageReferenceSetMember("900000000000509007", null, Concepts.PREFERRED))
+						.addLanguageRefsetMember("900000000000509007", Concepts.PREFERRED)
 		);
 		conceptService.create(concept, "MAIN");
 
 		// Check acceptability on MAIN
 		final Concept savedConcept1 = conceptService.find("50960005", "MAIN");
 		final Description description1 = savedConcept1.getDescriptions().iterator().next();
-		final Map<String, LanguageReferenceSetMember> members1 = description1.getLangRefsetMembers();
-		assertEquals(Concepts.PREFERRED, members1.get("900000000000509007").getAcceptabilityId());
+		final Map<String, ReferenceSetMember> members1 = description1.getLangRefsetMembers();
+		assertEquals(Concepts.PREFERRED, members1.get("900000000000509007").getAdditionalField("acceptabilityId"));
 
 		// Update acceptability on MAIN/branch1
-		description1.addLanguageRefsetMember(new LanguageReferenceSetMember("900000000000509007", null, Concepts.ACCEPTABLE));
+		description1.addLanguageRefsetMember("900000000000509007", Concepts.ACCEPTABLE);
 		branchService.create("MAIN/branch1");
 		conceptService.update(savedConcept1, "MAIN/branch1");
 
@@ -277,14 +277,14 @@ public class ConceptServiceTest {
 		logger.info("Loading updated concept on MAIN/branch1");
 		final Concept savedConcept2 = conceptService.find("50960005", "MAIN/branch1");
 		final Description description2 = savedConcept2.getDescriptions().iterator().next();
-		final Map<String, LanguageReferenceSetMember> members2 = description2.getLangRefsetMembers();
-		assertEquals(Concepts.ACCEPTABLE, members2.get("900000000000509007").getAcceptabilityId());
+		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembers();
+		assertEquals(Concepts.ACCEPTABLE, members2.get("900000000000509007").getAdditionalField("acceptabilityId"));
 
 		// Check acceptability still the same on MAIN
 		final Concept savedConcept3 = conceptService.find("50960005", "MAIN");
 		final Description description3 = savedConcept3.getDescriptions().iterator().next();
-		final Map<String, LanguageReferenceSetMember> members3 = description3.getLangRefsetMembers();
-		assertEquals(Concepts.PREFERRED, members3.get("900000000000509007").getAcceptabilityId());
+		final Map<String, ReferenceSetMember> members3 = description3.getLangRefsetMembers();
+		assertEquals(Concepts.PREFERRED, members3.get("900000000000509007").getAdditionalField("acceptabilityId"));
 	}
 
 	@Test

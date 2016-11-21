@@ -36,6 +36,56 @@ public class Concepts {
 	public static final String EXISTENTIAL = "900000000000451002";
 	public static final String UNIVERSAL = "900000000000452009";
 
+	// Inactivation
+	public static final String CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET = "900000000000489007";
+	public static final String DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET = "900000000000490003";
+
+	// Component inactivation reasons
+	public static final String DUPLICATE = "900000000000482003";
+	public static final String OUTDATED = "900000000000483008";
+	public static final String AMBIGUOUS = "900000000000484002";
+	public static final String ERRONEOUS = "900000000000485001";
+	public static final String LIMITED = "900000000000486000";
+	public static final String MOVED_ELSEWHERE = "900000000000487009";
+	public static final String PENDING_MOVE = "900000000000492006";
+	public static final String INAPPROPRIATE = "900000000000494007";
+	public static final String CONCEPT_NON_CURRENT = "900000000000495008";
+
+	// Historical reference sets
+	public static final String REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION = "900000000000523009";
+	public static final String REFSET_MOVED_TO_ASSOCIATION = "900000000000524003";
+	public static final String REFSET_MOVED_FROM_ASSOCIATION = "900000000000525002";
+	public static final String REFSET_REPLACED_BY_ASSOCIATION = "900000000000526001";
+	public static final String REFSET_SAME_AS_ASSOCIATION = "900000000000527005";
+	public static final String REFSET_WAS_A_ASSOCIATION = "900000000000528000";
+	public static final String REFSET_SIMILAR_TO_ASSOCIATION = "900000000000529008";
+	public static final String REFSET_ALTERNATIVE_ASSOCIATION = "900000000000530003";
+	public static final String REFSET_REFERS_TO_ASSOCIATION = "900000000000531004";
+
+	public static final BiMap<String, String> inactivationIndicatorNames = new ImmutableBiMap.Builder<String, String>()
+			.put(DUPLICATE, "DUPLICATE")
+			.put(OUTDATED, "OUTDATED")
+			.put(AMBIGUOUS, "AMBIGUOUS")
+			.put(ERRONEOUS, "ERRONEOUS")
+			.put(LIMITED, "LIMITED")
+			.put(MOVED_ELSEWHERE, "MOVED_ELSEWHERE")
+			.put(PENDING_MOVE, "PENDING_MOVE")
+			.put(INAPPROPRIATE, "INAPPROPRIATE")
+			.put(CONCEPT_NON_CURRENT, "CONCEPT_NON_CURRENT")
+			.build();
+
+	public static final BiMap<String, String> historicalAssociationNames = new ImmutableBiMap.Builder<String, String>()
+			.put(REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION, "REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION")
+			.put(REFSET_MOVED_TO_ASSOCIATION, "REFSET_MOVED_TO_ASSOCIATION")
+			.put(REFSET_MOVED_FROM_ASSOCIATION, "REFSET_MOVED_FROM_ASSOCIATION")
+			.put(REFSET_REPLACED_BY_ASSOCIATION, "REFSET_REPLACED_BY_ASSOCIATION")
+			.put(REFSET_SAME_AS_ASSOCIATION, "REFSET_SAME_AS_ASSOCIATION")
+			.put(REFSET_WAS_A_ASSOCIATION, "REFSET_WAS_A_ASSOCIATION")
+			.put(REFSET_SIMILAR_TO_ASSOCIATION, "REFSET_SIMILAR_TO_ASSOCIATION")
+			.put(REFSET_ALTERNATIVE_ASSOCIATION, "REFSET_ALTERNATIVE_ASSOCIATION")
+			.put(REFSET_REFERS_TO_ASSOCIATION, "REFSET_REFERS_TO_ASSOCIATION")
+			.build();
+
 	public static final BiMap<String, String> definitionStatusNames = new ImmutableBiMap.Builder<String, String>()
 			.put(PRIMITIVE, "PRIMITIVE")
 			.put(FULLY_DEFINED, "FULLY_DEFINED")

@@ -3,11 +3,18 @@ package com.kaicube.snomed.elasticsnomed.rf2import;
 import com.kaicube.elasticversioncontrol.api.BranchService;
 import com.kaicube.elasticversioncontrol.domain.Commit;
 import com.kaicube.elasticversioncontrol.domain.Entity;
-import com.kaicube.snomed.elasticsnomed.domain.*;
+import com.kaicube.snomed.elasticsnomed.domain.Concept;
+import com.kaicube.snomed.elasticsnomed.domain.Description;
+import com.kaicube.snomed.elasticsnomed.domain.ReferenceSetMember;
+import com.kaicube.snomed.elasticsnomed.domain.Relationship;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
 import org.ihtsdo.otf.snomedboot.factory.ComponentFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 public class ImportComponentFactoryImpl implements ComponentFactory {
 
@@ -25,6 +32,8 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 	private List<PersistBuffer> coreComponentPersistBuffers;
 
 	private boolean coreComponentsFlushed;
+
+	private Logger logger = LoggerFactory.getLogger(ImportComponentFactoryImpl.class);
 
 	public ImportComponentFactoryImpl(ConceptService conceptService, BranchService branchService, String path) {
 		this.conceptService = conceptService;
@@ -120,8 +129,11 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 	}
 
 	@Override
-	public void addReferenceSetMember(String id, String effectiveTime, String active, String moduleId, String refsetId, String referencedComponentId, String... otherValues) {
-		final LanguageReferenceSetMember member = new LanguageReferenceSetMember(id, effectiveTime, isActive(active), moduleId, refsetId, referencedComponentId, otherValues[0]);
+	public void addReferenceSetMember(String[] fieldNames, String id, String effectiveTime, String active, String moduleId, String refsetId, String referencedComponentId, String... otherValues) {
+		ReferenceSetMember member = new ReferenceSetMember(id, effectiveTime, isActive(active), moduleId, refsetId, referencedComponentId);
+		for (int i = 6; i < fieldNames.length; i++) {
+			member.setAdditionalField(fieldNames[i], otherValues[i - 6]);
+		}
 		if (effectiveTime != null) {
 			member.release(effectiveTime);
 		}
@@ -129,11 +141,11 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 	}
 
 	@Override
-	public void addConceptParent(String sourceId, String parentId) {
+	public void addInferredConceptParent(String sourceId, String parentId) {
 	}
 
 	@Override
-	public void removeConceptParent(String sourceId, String destinationId) {
+	public void removeInferredConceptParent(String sourceId, String destinationId) {
 	}
 
 	@Override

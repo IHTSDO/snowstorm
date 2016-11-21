@@ -4,10 +4,7 @@ import com.kaicube.elasticversioncontrol.api.BranchService;
 import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.Config;
 import com.kaicube.snomed.elasticsnomed.TestConfig;
-import com.kaicube.snomed.elasticsnomed.domain.Concept;
-import com.kaicube.snomed.elasticsnomed.domain.Concepts;
-import com.kaicube.snomed.elasticsnomed.domain.Description;
-import com.kaicube.snomed.elasticsnomed.domain.LanguageReferenceSetMember;
+import com.kaicube.snomed.elasticsnomed.domain.*;
 import com.kaicube.snomed.elasticsnomed.services.ConceptService;
 import com.kaicube.snomed.elasticsnomed.services.QueryIndexService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
@@ -89,7 +86,7 @@ public class ImportServiceTest {
 		Assert.assertEquals("SNOMED CT July 2002 Release: 20020731 [R]", description1237157018in2002.getTerm());
 		Assert.assertEquals(true, description1237157018in2002.isActive());
 		Assert.assertEquals(1, description1237157018in2002.getAcceptabilityMap().size());
-		Assert.assertEquals(Concepts.descriptionAcceptabilityNames.inverse().get("900000000000549004"), description1237157018in2002.getAcceptabilityMap().get("900000000000508004"));
+		Assert.assertEquals(Concepts.descriptionAcceptabilityNames.get("900000000000549004"), description1237157018in2002.getAcceptabilityMap().get("900000000000508004"));
 
 		path = "MAIN/20030131";
 		Assert.assertEquals(89, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
@@ -102,6 +99,7 @@ public class ImportServiceTest {
 		Assert.assertNotNull(description1237157018in2003);
 		Assert.assertEquals("SNOMED CT July 2002 Release: 20020731 [R]", description1237157018in2003.getTerm());
 		Assert.assertEquals(false, description1237157018in2003.isActive());
+		Assert.assertEquals(0, description1237157018in2003.getAcceptabilityMap().size());
 
 		path = "MAIN/20140131";
 		Assert.assertEquals(102, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
@@ -134,9 +132,9 @@ public class ImportServiceTest {
 		}
 		Assert.assertNotNull(description);
 		Assert.assertEquals("Bleeding", description.getTerm());
-		final Map<String, LanguageReferenceSetMember> members = description.getLangRefsetMembers();
+		final Map<String, ReferenceSetMember> members = description.getLangRefsetMembers();
 		Assert.assertEquals(1, members.size());
-		Assert.assertEquals("900000000000548007", members.get("900000000000508004").getAcceptabilityId());
+		Assert.assertEquals("900000000000548007", members.get("900000000000508004").getAdditionalField("acceptabilityId"));
 
 		Assert.assertEquals(7, conceptBleeding.getRelationships().size());
 		Assert.assertEquals(4, conceptBleeding.getRelationships().stream().filter(r -> r.getCharacteristicTypeId().equals(Concepts.INFERRED_RELATIONSHIP)).count());
@@ -156,6 +154,14 @@ public class ImportServiceTest {
 
 		Assert.assertEquals(2, conceptMechanicalAbnormality.getDescriptions().size());
 		Assert.assertEquals(7, conceptMechanicalAbnormality.getRelationships().size());
+
+		// Test inactivation refset loading
+		final Concept inactiveConcept = conceptService.find("118225008", branchPath);
+		Assert.assertEquals(false, inactiveConcept.isActive());
+		final ReferenceSetMember inactivationIndicator = inactiveConcept.getInactivationIndicatorMember();
+		Assert.assertNotNull("Inactivation indicator should not be null", inactivationIndicator);
+		Assert.assertEquals("900000000000484002", inactivationIndicator.getAdditionalField("valueId"));
+		Assert.assertEquals("AMBIGUOUS", inactiveConcept.getInactivationIndicator());
 	}
 
 	@Before

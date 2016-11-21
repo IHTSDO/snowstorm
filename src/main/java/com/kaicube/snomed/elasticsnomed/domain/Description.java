@@ -65,7 +65,7 @@ public class Description extends SnomedComponent<Description> {
 
 	@JsonIgnore
 	// Populated manually when loading from store
-	private Map<String, LanguageReferenceSetMember> langRefsetMembers;
+	private Map<String, ReferenceSetMember> langRefsetMembers;
 
 	private static final Logger logger = LoggerFactory.getLogger(Description.class);
 
@@ -150,9 +150,19 @@ public class Description extends SnomedComponent<Description> {
 		langRefsetMembers.clear();
 	}
 
-	public Description addLanguageRefsetMember(LanguageReferenceSetMember member) {
+	public Description addLanguageRefsetMember(ReferenceSetMember member) {
 		member.setReferencedComponentId(descriptionId);
-		final LanguageReferenceSetMember previousMember = langRefsetMembers.put(member.getRefsetId(), member);
+		final ReferenceSetMember previousMember = langRefsetMembers.put(member.getRefsetId(), member);
+		if (previousMember != null) {
+			logger.debug("Lang member replaced other:\n{}\n{}", member, previousMember);
+		}
+		return this;
+	}
+
+	public Description addLanguageRefsetMember(String refsetId, String acceptability) {
+		final ReferenceSetMember member = new ReferenceSetMember(refsetId, descriptionId);
+		member.setAdditionalField("acceptabilityId", acceptability);
+		final ReferenceSetMember previousMember = langRefsetMembers.put(member.getRefsetId(), member);
 		if (previousMember != null) {
 			logger.debug("Lang member replaced other:\n{}\n{}", member, previousMember);
 		}
@@ -167,13 +177,13 @@ public class Description extends SnomedComponent<Description> {
 
 	public Map<String, String> getAcceptabilityMapFromLangRefsetMembers() {
 		Map<String, String> map = new HashMap<>();
-		for (LanguageReferenceSetMember member : langRefsetMembers.values()) {
-			if (member.isActive()) map.put(member.getRefsetId(), descriptionAcceptabilityNames.get(member.getAcceptabilityId()));
+		for (ReferenceSetMember member : langRefsetMembers.values()) {
+			if (member.isActive()) map.put(member.getRefsetId(), descriptionAcceptabilityNames.get(member.getAdditionalField("acceptabilityId")));
 		}
 		return map;
 	}
 
-	public Map<String, LanguageReferenceSetMember> getLangRefsetMembers() {
+	public Map<String, ReferenceSetMember> getLangRefsetMembers() {
 		return langRefsetMembers;
 	}
 

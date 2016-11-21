@@ -8,11 +8,15 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 @Document(type = "member", indexName = "snomed")
 public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComponent<C> {
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)// TODO Consider not indexing this (FieldIndex.no)
 	private String memberId;
 
 	@JsonView(value = View.Component.class)
@@ -31,13 +35,21 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String referencedComponentId;
 
+	// Used when the referencedComponentId is a description (or possibly a relationship later)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String conceptId;
 
+	@JsonView(value = View.Component.class)
+	@Field(type = FieldType.Object)
+	private Map<String, String> additionalFields;
+
 	public ReferenceSetMember() {
+		additionalFields = new HashMap<>();
 	}
 
-	public ReferenceSetMember(String memberId, String effectiveTime, boolean active, String moduleId, String refsetId, String referencedComponentId) {
+	public ReferenceSetMember(String memberId, String effectiveTime, boolean active, String moduleId, String refsetId,
+			String referencedComponentId) {
+		this();
 		this.memberId = memberId;
 		setEffectiveTime(effectiveTime);
 		this.active = active;
@@ -46,17 +58,31 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		this.referencedComponentId = referencedComponentId;
 	}
 
+	public ReferenceSetMember(String refsetId, String referencedComponentId) {
+		this(UUID.randomUUID().toString(), null, true, Concepts.CORE_MODULE, refsetId, referencedComponentId);
+	}
+
 	@Override
 	public boolean isComponentChanged(C that) {
 		return that == null
 				|| active != that.isActive()
-				|| !moduleId.equals(that.getModuleId());
+				|| !moduleId.equals(that.getModuleId())
+				|| !additionalFields.equals(that.getAdditionalFields());
 	}
 
 	@Override
 	protected Object[] getReleaseHashObjects() {
 		return new Object[] {active, moduleId};
 	}
+
+	public String getAdditionalField(String fieldName) {
+		return getAdditionalFields().get(fieldName);
+	}
+
+	public void setAdditionalField(String fieldName, String value) {
+		getAdditionalFields().put(fieldName, value);
+	}
+
 
 	@Override
 	@JsonIgnore
@@ -112,6 +138,14 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		this.conceptId = conceptId;
 	}
 
+	public Map<String, String> getAdditionalFields() {
+		return additionalFields;
+	}
+
+	public void setAdditionalFields(Map<String, String> additionalFields) {
+		this.additionalFields = additionalFields;
+	}
+
 	@Override
 	public String toString() {
 		return "ReferenceSetMember{" +
@@ -121,6 +155,7 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 				", moduleId='" + moduleId + '\'' +
 				", refsetId='" + refsetId + '\'' +
 				", referencedComponentId='" + referencedComponentId + '\'' +
+				", additionalFields='" + additionalFields + '\'' +
 				", conceptId='" + conceptId + '\'' +
 				", internalId='" + getInternalId() + '\'' +
 				", start='" + getStart() + '\'' +
@@ -128,4 +163,5 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 				", path='" + getPath() + '\'' +
 				'}';
 	}
+
 }

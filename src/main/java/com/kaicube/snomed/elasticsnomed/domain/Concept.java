@@ -17,7 +17,7 @@ import javax.validation.constraints.Size;
 import static com.kaicube.snomed.elasticsnomed.domain.Concepts.definitionStatusNames;
 
 @Document(type = "concept", indexName = "snomed")
-@JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "moduleId", "definitionStatus", "definitionStatusId", "descriptions", "relationships"})
+@JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "inactivationIndicator", "moduleId", "definitionStatus", "definitionStatusId", "descriptions", "relationships"})
 public class Concept extends SnomedComponent<Concept> implements ConceptView {
 
 	@JsonView(value = View.Component.class)
@@ -28,6 +28,9 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
 	private boolean active;
+
+	@JsonIgnore
+	private ReferenceSetMember inactivationIndicatorMember;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -99,6 +102,14 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 	}
 
 	@JsonView(value = View.Component.class)
+	public String getInactivationIndicator() {
+		if (inactivationIndicatorMember != null) {
+			return Concepts.inactivationIndicatorNames.get(inactivationIndicatorMember.getAdditionalField("valueId"));
+		}
+		return null;
+	}
+
+	@JsonView(value = View.Component.class)
 	public String getDefinitionStatus() {
 		return definitionStatusNames.get(definitionStatusId);
 	}
@@ -156,6 +167,15 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 
 	public void setActive(boolean active) {
 		this.active = active;
+	}
+
+	@JsonIgnore
+	public ReferenceSetMember getInactivationIndicatorMember() {
+		return inactivationIndicatorMember;
+	}
+
+	public void setInactivationIndicatorMember(ReferenceSetMember inactivationIndicatorMember) {
+		this.inactivationIndicatorMember = inactivationIndicatorMember;
 	}
 
 	@Override

@@ -8,7 +8,7 @@ import com.kaicube.elasticversioncontrol.api.VersionControlHelper;
 import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.snomed.elasticsnomed.domain.Concept;
 import com.kaicube.snomed.elasticsnomed.domain.Description;
-import com.kaicube.snomed.elasticsnomed.domain.LanguageReferenceSetMember;
+import com.kaicube.snomed.elasticsnomed.domain.ReferenceSetMember;
 import com.kaicube.snomed.elasticsnomed.domain.Relationship;
 import com.kaicube.snomed.elasticsnomed.domain.review.*;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -270,8 +270,8 @@ public class BranchReviewService {
 				stream.forEachRemaining(relationship -> conceptsWithComponentChange.add(parseLong(relationship.getSourceId())));
 			}
 			Set<Long> descriptionIds = new HashSet<>();
-			try (final CloseableIterator<LanguageReferenceSetMember> stream =
-						 elasticsearchTemplate.stream(componentsReplacedCriteria(versionsReplaced), LanguageReferenceSetMember.class)) {
+			try (final CloseableIterator<ReferenceSetMember> stream =
+						 elasticsearchTemplate.stream(componentsReplacedCriteria(versionsReplaced), ReferenceSetMember.class)) {
 				stream.forEachRemaining(member -> descriptionIds.add(parseLong(member.getReferencedComponentId())));
 			}
 			try (final CloseableIterator<Description> stream =
@@ -307,8 +307,8 @@ public class BranchReviewService {
 			stream.forEachRemaining(relationship -> conceptsWithComponentChange.add(parseLong(relationship.getSourceId())));
 		}
 		Set<Long> descriptionIds = new HashSet<>();
-		try (final CloseableIterator<LanguageReferenceSetMember> stream =
-					 elasticsearchTemplate.stream(newSearchQuery(branchUpdatesCriteria), LanguageReferenceSetMember.class)) {
+		try (final CloseableIterator<ReferenceSetMember> stream =
+					 elasticsearchTemplate.stream(newSearchQuery(branchUpdatesCriteria), ReferenceSetMember.class)) {
 			stream.forEachRemaining(member -> descriptionIds.add(parseLong(member.getReferencedComponentId())));
 		}
 		// Fetch descriptions from any visible branch to get the lang refset's concept id.

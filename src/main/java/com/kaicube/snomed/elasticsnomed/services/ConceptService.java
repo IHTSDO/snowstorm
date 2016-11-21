@@ -9,10 +9,7 @@ import com.kaicube.elasticversioncontrol.domain.Branch;
 import com.kaicube.elasticversioncontrol.domain.Commit;
 import com.kaicube.elasticversioncontrol.domain.DomainEntity;
 import com.kaicube.snomed.elasticsnomed.domain.*;
-import com.kaicube.snomed.elasticsnomed.repositories.ConceptRepository;
-import com.kaicube.snomed.elasticsnomed.repositories.DescriptionRepository;
-import com.kaicube.snomed.elasticsnomed.repositories.ReferenceSetMemberRepository;
-import com.kaicube.snomed.elasticsnomed.repositories.RelationshipRepository;
+import com.kaicube.snomed.elasticsnomed.repositories.*;
 import com.kaicube.snomed.elasticsnomed.util.TimerUtil;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -153,7 +150,7 @@ public class ConceptService extends ComponentService {
 		}
 
 		// Fetch descriptions and Lang refsets
-		fetchDescriptions(branchCriteria, null, conceptMiniMap, null);
+		fetchDescriptions(branchCriteria, null, conceptMiniMap, null, false);
 
 		return conceptMiniMap.values();
 	}
@@ -183,7 +180,7 @@ public class ConceptService extends ComponentService {
 	}
 
 	private Page<Concept> doFind(Collection<? extends Object> conceptIdsToFind, QueryBuilder branchCriteria, PageRequest pageRequest) {
-		final TimerUtil timer = new TimerUtil("Find concept", Level.TRACE);
+		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
 		timer.checkpoint("get branch criteria");
 
 		final BoolQueryBuilder builder = boolQuery()
@@ -241,13 +238,15 @@ public class ConceptService extends ComponentService {
 		}
 		timer.checkpoint("get relationship def status " + getFetchCount(conceptMiniMap.size()));
 
-		fetchDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer);
+		fetchDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer, true);
 		timer.finish();
 
 		return concepts;
 	}
 
-	private void fetchDescriptions(QueryBuilder branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap, TimerUtil timer) {
+	private void fetchDescriptions(QueryBuilder branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap,
+			TimerUtil timer, boolean fetchInactivationInfo) {
+
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 
 		final Set<String> allConceptIds = new HashSet<>();
@@ -292,14 +291,32 @@ public class ConceptService extends ComponentService {
 		}
 		if (timer != null) timer.checkpoint("get descriptions " + getFetchCount(allConceptIds.size()));
 
+		// Fetch Inactivation Indicators
+		if (conceptIdMap != null && fetchInactivationInfo) {
+			for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
+				queryBuilder.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termQuery("refsetId", Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET))
+						.must(termsQuery("referencedComponentId", conceptIds)))
+						.withPageable(LARGE_PAGE);
+				// Join Lang Refset Members
+				try (final CloseableIterator<ReferenceSetMember> members = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
+					members.forEachRemaining(member ->
+							conceptIdMap.get(member.getReferencedComponentId()).setInactivationIndicatorMember(member));
+				}
+			}
+			if (timer != null) timer.checkpoint("get inactivation refset " + getFetchCount(conceptIdMap.keySet().size()));
+		}
+
 		// Fetch Lang Refset Members
 		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
 			queryBuilder.withQuery(boolQuery()
 					.must(branchCriteria)
+					.must(termsQuery("refsetId", Concepts.US_EN_LANG_REFSET, Concepts.GB_EN_LANG_REFSET)) // TODO: Replace with ECL selection
 					.must(termsQuery("conceptId", conceptIds)))
 					.withPageable(LARGE_PAGE);
 			// Join Lang Refset Members
-			try (final CloseableIterator<LanguageReferenceSetMember> langRefsetMembers = elasticsearchTemplate.stream(queryBuilder.build(), LanguageReferenceSetMember.class)) {
+			try (final CloseableIterator<ReferenceSetMember> langRefsetMembers = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
 				langRefsetMembers.forEachRemaining(langRefsetMember ->
 						descriptionIdMap.get(langRefsetMember.getReferencedComponentId()).addLanguageRefsetMember(langRefsetMember));
 			}
@@ -504,7 +521,7 @@ public class ConceptService extends ComponentService {
 			for (Description description : concept.getDescriptions()) {
 				description.setConceptId(concept.getConceptId());
 				final Description existingDescription = existingDescriptions.get(description.getDescriptionId());
-				final Map<String, LanguageReferenceSetMember> existingMembersToMatch = new HashMap<>();
+				final Map<String, ReferenceSetMember> existingMembersToMatch = new HashMap<>();
 				if (existingDescription != null) {
 					existingMembersToMatch.putAll(existingDescription.getLangRefsetMembers());
 				} else {
@@ -519,10 +536,12 @@ public class ConceptService extends ComponentService {
 					}
 
 					final String languageRefsetId = acceptability.getKey();
-					final LanguageReferenceSetMember existingMember = existingMembersToMatch.get(languageRefsetId);
+					final ReferenceSetMember existingMember = existingMembersToMatch.get(languageRefsetId);
 					if (existingMember != null) {
-						final LanguageReferenceSetMember member = new LanguageReferenceSetMember(existingMember.getMemberId(), null, true,
-								existingMember.getModuleId(), languageRefsetId, description.getId(), acceptabilityId);
+						final ReferenceSetMember member = new ReferenceSetMember(existingMember.getMemberId(), null, true,
+								existingMember.getModuleId(), languageRefsetId, description.getId());
+						member.setAdditionalField("acceptabilityId", acceptabilityId);
+						member.setConceptId(concept.getConceptId());
 
 						if (member.isComponentChanged(existingMember) || savingMergedConcepts) {
 							member.setChanged(true);
@@ -532,14 +551,15 @@ public class ConceptService extends ComponentService {
 						}
 						existingMembersToMatch.remove(languageRefsetId);
 					} else {
-						final LanguageReferenceSetMember member = new LanguageReferenceSetMember(languageRefsetId, description.getId(), acceptabilityId);
+						final ReferenceSetMember member = new ReferenceSetMember(languageRefsetId, description.getId());
+						member.setAdditionalField("acceptabilityId", acceptabilityId);
 						member.setConceptId(concept.getConceptId());
 						member.setChanged(true);
 						member.clearReleaseDetails();
 						langRefsetMembersToPersist.add(member);
 					}
 				}
-				for (LanguageReferenceSetMember leftoverMember : existingMembersToMatch.values()) {
+				for (ReferenceSetMember leftoverMember : existingMembersToMatch.values()) {
 					// TODO: make inactive if released
 					leftoverMember.markDeleted();
 					langRefsetMembersToPersist.add(leftoverMember);
