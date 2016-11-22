@@ -9,7 +9,9 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -31,6 +33,9 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 
 	@JsonIgnore
 	private ReferenceSetMember inactivationIndicatorMember;
+
+	@JsonIgnore
+	private Set<ReferenceSetMember> associationTargets;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -105,6 +110,34 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 	public String getInactivationIndicator() {
 		if (inactivationIndicatorMember != null) {
 			return Concepts.inactivationIndicatorNames.get(inactivationIndicatorMember.getAdditionalField("valueId"));
+		}
+		return null;
+	}
+
+	public void addAssociationTarget(ReferenceSetMember member) {
+		if (associationTargets == null) {
+			associationTargets = new HashSet<>();
+		}
+		associationTargets.add(member);
+	}
+
+	public Map<String, Set<String>> getAssociationTargets() {
+		if (associationTargets != null) {
+			Map<String, Set<String>> map = new HashMap<>();
+			associationTargets.stream().filter(ReferenceSetMember::isActive).forEach(member -> {
+				final String refsetId = member.getRefsetId();
+				String association = Concepts.historicalAssociationNames.get(refsetId);
+				if (association == null) {
+					association = refsetId;
+				}
+				Set<String> associationType = map.get(association);
+				if (associationType == null) {
+					associationType = new HashSet<>();
+					map.put(association, associationType);
+				}
+				associationType.add(member.getAdditionalField("targetComponentId"));
+			});
+			return map;
 		}
 		return null;
 	}

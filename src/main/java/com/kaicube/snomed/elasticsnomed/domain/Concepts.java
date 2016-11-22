@@ -2,6 +2,9 @@ package com.kaicube.snomed.elasticsnomed.domain;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableSet;
+
+import java.util.Set;
 
 public class Concepts {
 
@@ -75,15 +78,20 @@ public class Concepts {
 			.build();
 
 	public static final BiMap<String, String> historicalAssociationNames = new ImmutableBiMap.Builder<String, String>()
-			.put(REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION, "REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION")
-			.put(REFSET_MOVED_TO_ASSOCIATION, "REFSET_MOVED_TO_ASSOCIATION")
-			.put(REFSET_MOVED_FROM_ASSOCIATION, "REFSET_MOVED_FROM_ASSOCIATION")
-			.put(REFSET_REPLACED_BY_ASSOCIATION, "REFSET_REPLACED_BY_ASSOCIATION")
-			.put(REFSET_SAME_AS_ASSOCIATION, "REFSET_SAME_AS_ASSOCIATION")
-			.put(REFSET_WAS_A_ASSOCIATION, "REFSET_WAS_A_ASSOCIATION")
-			.put(REFSET_SIMILAR_TO_ASSOCIATION, "REFSET_SIMILAR_TO_ASSOCIATION")
-			.put(REFSET_ALTERNATIVE_ASSOCIATION, "REFSET_ALTERNATIVE_ASSOCIATION")
-			.put(REFSET_REFERS_TO_ASSOCIATION, "REFSET_REFERS_TO_ASSOCIATION")
+			.put(REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION, "POSSIBLY_EQUIVALENT_TO")
+			.put(REFSET_MOVED_TO_ASSOCIATION, "MOVED_TO")
+			.put(REFSET_MOVED_FROM_ASSOCIATION, "MOVED_FROM")
+			.put(REFSET_REPLACED_BY_ASSOCIATION, "REPLACED_BY")
+			.put(REFSET_SAME_AS_ASSOCIATION, "SAME_AS")
+			.put(REFSET_WAS_A_ASSOCIATION, "WAS_A")
+			.put(REFSET_SIMILAR_TO_ASSOCIATION, "SIMILAR_TO")
+			.put(REFSET_ALTERNATIVE_ASSOCIATION, "ALTERNATIVE")
+			.put(REFSET_REFERS_TO_ASSOCIATION, "REFERS_TO")
+			.build();
+
+	public static final Set<String> inactivationAndAssociationRefsets = new ImmutableSet.Builder<String>()
+			.addAll(Concepts.historicalAssociationNames.keySet())
+			.add(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET)
 			.build();
 
 	public static final BiMap<String, String> definitionStatusNames = new ImmutableBiMap.Builder<String, String>()

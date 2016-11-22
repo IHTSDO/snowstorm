@@ -162,6 +162,15 @@ public class ImportServiceTest {
 		Assert.assertNotNull("Inactivation indicator should not be null", inactivationIndicator);
 		Assert.assertEquals("900000000000484002", inactivationIndicator.getAdditionalField("valueId"));
 		Assert.assertEquals("AMBIGUOUS", inactiveConcept.getInactivationIndicator());
+
+		final Map<String, Set<String>> associationTargets = inactiveConcept.getAssociationTargets();
+		Assert.assertNotNull(associationTargets);
+		Assert.assertEquals(1, associationTargets.size());
+		final Set<String> possibly_equivalent_to = associationTargets.get("POSSIBLY_EQUIVALENT_TO");
+		Assert.assertEquals(3, possibly_equivalent_to.size());
+		Assert.assertTrue(possibly_equivalent_to.contains("118222006"));
+		Assert.assertTrue(possibly_equivalent_to.contains("413350009"));
+		Assert.assertTrue(possibly_equivalent_to.contains("250171008"));
 	}
 
 	@Before

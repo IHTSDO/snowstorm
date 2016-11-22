@@ -12,10 +12,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class ImportService {
 
 	public static final LoadingProfile DEFAULT_LOADING_PROFILE = LoadingProfile.complete.withoutAllRefsets()
-			.withRefset(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET)
 			.withFullRefsetMemberObjects()
 			.withRefset(ConceptConstants.US_EN_LANGUAGE_REFERENCE_SET)
-			.withRefset(ConceptConstants.GB_EN_LANGUAGE_REFERENCE_SET);
+			.withRefset(ConceptConstants.GB_EN_LANGUAGE_REFERENCE_SET)
+			.withRefset(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET)
+			.withRefsets(Concepts.historicalAssociationNames.keySet().toArray(new String[Concepts.historicalAssociationNames.size()]));
 
 	@Autowired
 	private ConceptService conceptService;

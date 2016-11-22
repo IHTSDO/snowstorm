@@ -296,13 +296,18 @@ public class ConceptService extends ComponentService {
 			for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
 				queryBuilder.withQuery(boolQuery()
 						.must(branchCriteria)
-						.must(termQuery("refsetId", Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET))
+						.must(termsQuery("refsetId", Concepts.inactivationAndAssociationRefsets))
 						.must(termsQuery("referencedComponentId", conceptIds)))
 						.withPageable(LARGE_PAGE);
-				// Join Lang Refset Members
+				// Join Members
 				try (final CloseableIterator<ReferenceSetMember> members = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
-					members.forEachRemaining(member ->
-							conceptIdMap.get(member.getReferencedComponentId()).setInactivationIndicatorMember(member));
+					members.forEachRemaining(member -> {
+						if (member.getRefsetId().equals(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET)) {
+							conceptIdMap.get(member.getReferencedComponentId()).setInactivationIndicatorMember(member);
+						} else {
+							conceptIdMap.get(member.getReferencedComponentId()).addAssociationTarget(member);
+						}
+					});
 				}
 			}
 			if (timer != null) timer.checkpoint("get inactivation refset " + getFetchCount(conceptIdMap.keySet().size()));
