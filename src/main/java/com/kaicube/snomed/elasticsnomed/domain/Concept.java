@@ -121,6 +121,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 		associationTargets.add(member);
 	}
 
+	@JsonView(value = View.Component.class)
 	public Map<String, Set<String>> getAssociationTargets() {
 		if (associationTargets != null) {
 			Map<String, Set<String>> map = new HashMap<>();

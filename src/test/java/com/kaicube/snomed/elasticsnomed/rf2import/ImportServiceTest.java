@@ -171,6 +171,9 @@ public class ImportServiceTest {
 		Assert.assertTrue(possibly_equivalent_to.contains("118222006"));
 		Assert.assertTrue(possibly_equivalent_to.contains("413350009"));
 		Assert.assertTrue(possibly_equivalent_to.contains("250171008"));
+
+		final Description inactiveDescription = inactiveConcept.getDescription("697843019");
+		Assert.assertEquals("CONCEPT_NON_CURRENT", inactiveDescription.getInactivationIndicator());
 	}
 
 	@Before

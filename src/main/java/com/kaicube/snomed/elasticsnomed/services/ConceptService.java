@@ -292,25 +292,37 @@ public class ConceptService extends ComponentService {
 		if (timer != null) timer.checkpoint("get descriptions " + getFetchCount(allConceptIds.size()));
 
 		// Fetch Inactivation Indicators
-		if (conceptIdMap != null && fetchInactivationInfo) {
-			for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
+		if (fetchInactivationInfo) {
+			Set<String> componentIds;
+			if (conceptIdMap != null) {
+				componentIds = Sets.union(conceptIdMap.keySet(), descriptionIdMap.keySet());
+			} else {
+				componentIds = descriptionIdMap.keySet();
+			}
+			for (List<String> componentIdsSegment : Iterables.partition(componentIds, CLAUSE_LIMIT)) {
 				queryBuilder.withQuery(boolQuery()
 						.must(branchCriteria)
 						.must(termsQuery("refsetId", Concepts.inactivationAndAssociationRefsets))
-						.must(termsQuery("referencedComponentId", conceptIds)))
+						.must(termsQuery("referencedComponentId", componentIdsSegment)))
 						.withPageable(LARGE_PAGE);
 				// Join Members
 				try (final CloseableIterator<ReferenceSetMember> members = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
 					members.forEachRemaining(member -> {
-						if (member.getRefsetId().equals(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET)) {
-							conceptIdMap.get(member.getReferencedComponentId()).setInactivationIndicatorMember(member);
-						} else {
-							conceptIdMap.get(member.getReferencedComponentId()).addAssociationTarget(member);
+						switch (member.getRefsetId()) {
+							case Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET:
+								conceptIdMap.get(member.getReferencedComponentId()).setInactivationIndicatorMember(member);
+								break;
+							case Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET:
+								descriptionIdMap.get(member.getReferencedComponentId()).setInactivationIndicatorMember(member);
+								break;
+							default:
+								conceptIdMap.get(member.getReferencedComponentId()).addAssociationTarget(member);
+								break;
 						}
 					});
 				}
 			}
-			if (timer != null) timer.checkpoint("get inactivation refset " + getFetchCount(conceptIdMap.keySet().size()));
+			if (timer != null) timer.checkpoint("get inactivation refset " + getFetchCount(componentIds.size()));
 		}
 
 		// Fetch Lang Refset Members

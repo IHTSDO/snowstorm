@@ -67,6 +67,9 @@ public class Description extends SnomedComponent<Description> {
 	// Populated manually when loading from store
 	private Map<String, ReferenceSetMember> langRefsetMembers;
 
+	@JsonIgnore
+	private ReferenceSetMember inactivationIndicatorMember;
+
 	private static final Logger logger = LoggerFactory.getLogger(Description.class);
 
 	public Description() {
@@ -201,6 +204,14 @@ public class Description extends SnomedComponent<Description> {
 		return this;
 	}
 
+	@JsonView(value = View.Component.class)
+	public String getInactivationIndicator() {
+		if (inactivationIndicatorMember != null) {
+			return Concepts.inactivationIndicatorNames.get(inactivationIndicatorMember.getAdditionalField("valueId"));
+		}
+		return null;
+	}
+
 	public String getDescriptionId() {
 		return descriptionId;
 	}
@@ -263,6 +274,14 @@ public class Description extends SnomedComponent<Description> {
 
 	public void setCaseSignificanceId(String caseSignificanceId) {
 		this.caseSignificanceId = caseSignificanceId;
+	}
+
+	public ReferenceSetMember getInactivationIndicatorMember() {
+		return inactivationIndicatorMember;
+	}
+
+	public void setInactivationIndicatorMember(ReferenceSetMember inactivationIndicatorMember) {
+		this.inactivationIndicatorMember = inactivationIndicatorMember;
 	}
 
 	@Override

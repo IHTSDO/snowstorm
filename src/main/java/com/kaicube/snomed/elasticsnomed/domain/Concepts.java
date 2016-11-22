@@ -90,8 +90,9 @@ public class Concepts {
 			.build();
 
 	public static final Set<String> inactivationAndAssociationRefsets = new ImmutableSet.Builder<String>()
-			.addAll(Concepts.historicalAssociationNames.keySet())
 			.add(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET)
+			.add(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET)
+			.addAll(Concepts.historicalAssociationNames.keySet())
 			.build();
 
 	public static final BiMap<String, String> definitionStatusNames = new ImmutableBiMap.Builder<String, String>()
