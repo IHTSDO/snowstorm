@@ -10,6 +10,12 @@
 	<name>Snomed CT ElasticSearch</name>
 	<description>A Snomed CT ElasticSearch Server</description>
 
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>1.4.0.M3</version>
+	</parent>
+
 	<properties>
 		<java.version>1.8</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -17,22 +23,16 @@
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<slf4j.version>1.7.5</slf4j.version>
 		<spring.version>4.3.0.RC2</spring.version>
-		<spring-boot.version>1.4.0.M3</spring-boot.version>
-		<elasticsearch.version>2.3.3</elasticsearch.version>
+		<spring-boot.version>${parent.version}</spring-boot.version>
+		<snomed-boot.version>1.0.4</snomed-boot.version>
 	</properties>
-
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>1.4.0.M3</version>
-	</parent>
 
 	<dependencies>
 		<!-- RF2 Import -->
 		<dependency>
 			<groupId>org.ihtsdo.otf</groupId>
 			<artifactId>snomed-boot</artifactId>
-			<version>1.0.4-SNAPSHOT</version>
+			<version>${snomed-boot.version}</version>
 			<exclusions>
 				<exclusion>
 					<groupId>com.google.collections</groupId>
