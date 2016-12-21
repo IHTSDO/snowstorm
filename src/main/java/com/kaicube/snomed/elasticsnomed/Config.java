@@ -44,7 +44,7 @@ public class Config {
 
 	@Bean // Use standalone Elasticsearch Server on localhost
 	public Client elasticSearchClient() throws UnknownHostException {
-		final InetAddress localhost = InetAddress.getByName("localhost");
+		final InetAddress localhost = InetAddress.getLoopbackAddress();
 		return TransportClient.builder().build()
 				.addTransportAddress(new InetSocketTransportAddress(localhost, 9300));
 	}
