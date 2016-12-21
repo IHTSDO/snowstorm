@@ -23,7 +23,7 @@
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<slf4j.version>1.7.5</slf4j.version>
 		<spring.version>4.3.0.RC2</spring.version>
-		<spring-boot.version>${parent.version}</spring-boot.version>
+		<spring-boot.version>${project.parent.version}</spring-boot.version>
 		<snomed-boot.version>1.0.4</snomed-boot.version>
 	</properties>
 
