@@ -44,7 +44,7 @@
 		<dependency>
 			<groupId>io.kaicode</groupId>
 			<artifactId>elasticvc</artifactId>
-			<version>0.1.0-SNAPSHOT</version>
+			<version>${elasticvc.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
