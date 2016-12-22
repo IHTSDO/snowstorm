@@ -25,6 +25,7 @@
 		<spring.version>4.3.0.RC2</spring.version>
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
 		<snomed-boot.version>1.0.4</snomed-boot.version>
+		<elasticvc.version>0.1.0-SNAPSHOT</elasticvc.version>
 	</properties>
 
 	<dependencies>
@@ -40,7 +41,11 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
-
+		<dependency>
+			<groupId>io.kaicode</groupId>
+			<artifactId>elasticvc</artifactId>
+			<version>0.1.0-SNAPSHOT</version>
+		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-data-elasticsearch</artifactId>
@@ -97,12 +102,20 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
-					<mainClass>com.kaicube.snomed.elasticsnomed.App</mainClass>
+					<mainClass>org.ihtsdo.elasticsnomed.App</mainClass>
 				</configuration>
 			</plugin>
 		</plugins>
 	</build>
 	<repositories>
+		<repository>
+			<id>elasticvc-mvn-repo</id>
+			<url>https://raw.github.com/kaicode/elasticvc/mvn-repo/</url>
+			<snapshots>
+				<enabled>true</enabled>
+				<updatePolicy>always</updatePolicy>
+			</snapshots>
+		</repository>
 		<repository>
 			<id>spring-milestones</id>
 			<name>Spring Milestones</name>
