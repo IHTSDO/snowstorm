@@ -311,15 +311,22 @@ public class ConceptService extends ComponentService {
 				// Join Members
 				try (final CloseableIterator<ReferenceSetMember> members = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
 					members.forEachRemaining(member -> {
+						String referencedComponentId = member.getReferencedComponentId();
 						switch (member.getRefsetId()) {
 							case Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET:
-								conceptIdMap.get(member.getReferencedComponentId()).setInactivationIndicatorMember(member);
+								conceptIdMap.get(referencedComponentId).setInactivationIndicatorMember(member);
 								break;
 							case Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET:
-								descriptionIdMap.get(member.getReferencedComponentId()).setInactivationIndicatorMember(member);
+								descriptionIdMap.get(referencedComponentId).setInactivationIndicatorMember(member);
 								break;
 							default:
-								conceptIdMap.get(member.getReferencedComponentId()).addAssociationTarget(member);
+								Concept concept = conceptIdMap.get(referencedComponentId);
+								if (concept != null) {
+									concept.addAssociationTarget(member);
+								} else {
+									logger.warn("Association ReferenceSetMember {} references concept {} " +
+											"which is not in scope.", member.getId(), referencedComponentId);
+								}
 								break;
 						}
 					});
@@ -365,6 +372,7 @@ public class ConceptService extends ComponentService {
 		final BoolQueryBuilder builder = boolQuery()
 				.must(branchCriteria);
 		if (!Strings.isNullOrEmpty(term)) {
+			builder.must(simpleQueryStringQuery(term).field("term"));
 			builder.must(simpleQueryStringQuery(term).field("term"));
 		}
 

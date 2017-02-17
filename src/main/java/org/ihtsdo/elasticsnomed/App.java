@@ -40,9 +40,10 @@ public class App extends Config {
 //		conceptService.deleteAll();
 //		branchService.deleteAll();
 //		branchService.create("MAIN");
-//		importService.importSnapshot("release/xSnomedCT_RF2Release_INT_20170131", "MAIN");
+//		String releasePath = "release/SnomedCT_InternationalRF2_Production_20170131";
+//		importService.importSnapshot(releasePath, "MAIN");
 //		 or
-//		importService.importFull("release/SnomedCT_RF2Release_INT_20160131", "MAIN");
+//		importService.importFull(releasePath, "MAIN");
 	}
 
 }
