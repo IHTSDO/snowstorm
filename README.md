@@ -1,4 +1,4 @@
-Elastic Snomed
+Elastic Snomed (Proof Of Concept In Progress)
 ==============
 
 SNOMED CT Authoring server built on Elasticsearch.
