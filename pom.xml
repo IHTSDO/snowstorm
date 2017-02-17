@@ -74,6 +74,11 @@
 			<artifactId>hibernate-validator</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>io.kaicode</groupId>
+			<artifactId>branch-path-uri-rewrite-filter</artifactId>
+			<version>1.0.1</version>
+		</dependency>
+		<dependency>
 			<groupId>io.springfox</groupId>
 			<artifactId>springfox-swagger2</artifactId>
 			<version>2.5.0</version>

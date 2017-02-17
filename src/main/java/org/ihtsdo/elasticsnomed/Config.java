@@ -2,21 +2,20 @@ package org.ihtsdo.elasticsnomed;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.ihtsdo.elasticsnomed.domain.Concept;
-import org.ihtsdo.elasticsnomed.domain.Description;
-import org.ihtsdo.elasticsnomed.repositories.config.ConceptStoreMixIn;
-import org.ihtsdo.elasticsnomed.repositories.config.DescriptionStoreMixIn;
-import org.ihtsdo.elasticsnomed.repositories.config.RelationshipStoreMixIn;
-import org.ihtsdo.elasticsnomed.rest.BranchPathUrlRewriteFilter;
-import org.ihtsdo.elasticsnomed.rf2import.ImportService;
-import org.ihtsdo.elasticsnomed.services.ConceptService;
-import org.ihtsdo.elasticsnomed.domain.Relationship;
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.ihtsdo.elasticsnomed.domain.Concept;
+import org.ihtsdo.elasticsnomed.domain.Description;
+import org.ihtsdo.elasticsnomed.domain.Relationship;
+import org.ihtsdo.elasticsnomed.repositories.config.ConceptStoreMixIn;
+import org.ihtsdo.elasticsnomed.repositories.config.DescriptionStoreMixIn;
+import org.ihtsdo.elasticsnomed.repositories.config.RelationshipStoreMixIn;
+import org.ihtsdo.elasticsnomed.rf2import.ImportService;
+import org.ihtsdo.elasticsnomed.services.ConceptService;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -111,13 +110,13 @@ public class Config {
 	@Bean
 	public FilterRegistrationBean getUrlRewriteFilter() {
 		// Encode branch paths in uri to allow request mapping to work
-		return new FilterRegistrationBean(new BranchPathUrlRewriteFilter(Lists.newArrayList(
+		return new FilterRegistrationBean(new BranchPathUriRewriteFilter(
 				"/branches/(.*)/children",
 				"/branches/(.*)",
 				"/browser/(.*)/concepts",
 				"/browser/(.*)/concepts",
 				"/(.*)/descriptions"
-		)));
+		));
 	}
 
 	@Bean
