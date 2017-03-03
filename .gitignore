@@ -3,3 +3,4 @@ target
 data
 *.iml
 release
+application-*.properties
