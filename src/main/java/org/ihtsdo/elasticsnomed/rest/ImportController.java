@@ -1,5 +1,6 @@
 package org.ihtsdo.elasticsnomed.rest;
 
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.ihtsdo.elasticsnomed.rf2import.ImportService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +26,7 @@ public class ImportController {
 			@RequestParam(required = false) String stopImportAfterEffectiveTime) {
 		executorService.submit((Runnable) () -> {
 			try {
-				importService.importFull(releaseDirPath, ControllerHelper.parseBranchPath(branchPath), stopImportAfterEffectiveTime);
+				importService.importFull(releaseDirPath, BranchPathUriUtil.parseBranchPath(branchPath), stopImportAfterEffectiveTime);
 			} catch (Exception e) {
 				logger.error("Import failed.", e);
 			}

@@ -1,6 +1,7 @@
 package org.ihtsdo.elasticsnomed.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.ihtsdo.elasticsnomed.domain.Concept;
 import org.ihtsdo.elasticsnomed.domain.ConceptMini;
 import org.ihtsdo.elasticsnomed.domain.ConceptView;
@@ -28,14 +29,14 @@ public class ConceptController {
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "0") int number,
 			@RequestParam(defaultValue = "100") int size) {
-		return new Page<>(conceptService.findAll(ControllerHelper.parseBranchPath(branch), new PageRequest(number, size)));
+		return new Page<>(conceptService.findAll(BranchPathUriUtil.parseBranchPath(branch), new PageRequest(number, size)));
 	}
 
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.GET, produces = "application/json")
 	@JsonView(value = View.Component.class)
 	public ConceptView findConcept(@PathVariable String branch, @PathVariable String conceptId) {
-		return conceptService.find(conceptId, ControllerHelper.parseBranchPath(branch));
+		return conceptService.find(conceptId, BranchPathUriUtil.parseBranchPath(branch));
 	}
 
 	@ResponseBody
@@ -44,7 +45,7 @@ public class ConceptController {
 	public ConceptView updateConcept(@PathVariable String branch, @PathVariable String conceptId, @RequestBody @Valid ConceptView concept) {
 		Assert.isTrue(concept.getConceptId() != null && conceptId != null && concept.getConceptId().equals(conceptId), "The conceptId in the " +
 				"path must match the one in the request body.");
-		return conceptService.update((Concept) concept, ControllerHelper.parseBranchPath(branch));
+		return conceptService.update((Concept) concept, BranchPathUriUtil.parseBranchPath(branch));
 	}
 
 	@ResponseBody
@@ -53,19 +54,19 @@ public class ConceptController {
 	public Iterable<Concept> updateConcepts(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts) {
 		List<Concept> conceptList = new ArrayList<>();
 		concepts.forEach(conceptView -> conceptList.add((Concept) conceptView));
-		return conceptService.update(conceptList, ControllerHelper.parseBranchPath(branch));
+		return conceptService.update(conceptList, BranchPathUriUtil.parseBranchPath(branch));
 	}
 
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/children", method = RequestMethod.GET, produces = "application/json")
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptChildren(@PathVariable String branch, @PathVariable String conceptId) {
-		return conceptService.findConceptChildrenInferred(conceptId, ControllerHelper.parseBranchPath(branch));
+		return conceptService.findConceptChildrenInferred(conceptId, BranchPathUriUtil.parseBranchPath(branch));
 	}
 
 	@RequestMapping(value = "/{branch}/calculate-transitive-closure", method = RequestMethod.POST, produces = "application/json")
 	public void calculateTransitiveClosure(@PathVariable String branch) {
-		conceptService.createTransitiveClosureForEveryConcept(ControllerHelper.parseBranchPath(branch));
+		conceptService.createTransitiveClosureForEveryConcept(BranchPathUriUtil.parseBranchPath(branch));
 	}
 
 }

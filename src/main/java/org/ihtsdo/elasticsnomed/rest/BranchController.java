@@ -2,6 +2,7 @@ package org.ihtsdo.elasticsnomed.rest;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.ihtsdo.elasticsnomed.domain.BranchMergeJob;
 import org.ihtsdo.elasticsnomed.rest.pojo.MergeRequest;
 import org.ihtsdo.elasticsnomed.services.BranchMergeService;
@@ -31,20 +32,20 @@ public class BranchController {
 	@RequestMapping(value = "/branches", method = RequestMethod.POST, produces = "application/json")
 	@ResponseBody
 	public Branch createBranch(@RequestParam String branchPath) {
-		return branchService.create(ControllerHelper.parseBranchPath(branchPath));
+		return branchService.create(BranchPathUriUtil.parseBranchPath(branchPath));
 	}
 
 	@ApiOperation("Retrieve a single branch")
 	@RequestMapping(value = "/branches/{path}", method = RequestMethod.GET, produces = "application/json")
 	@ResponseBody
 	public Branch retrieveBranch(@PathVariable String path) {
-		return branchService.findBranchOrThrow(ControllerHelper.parseBranchPath(path));
+		return branchService.findBranchOrThrow(BranchPathUriUtil.parseBranchPath(path));
 	}
 
 	@RequestMapping(value = "/branches/{path}/actions/unlock", method = RequestMethod.POST, produces = "application/json")
 	@ResponseBody
 	public void unlockBranch(@PathVariable String path) {
-		branchService.unlock(ControllerHelper.parseBranchPath(path));
+		branchService.unlock(BranchPathUriUtil.parseBranchPath(path));
 	}
 
 	@RequestMapping(value = "/merges", method = RequestMethod.POST, produces = "application/json")
