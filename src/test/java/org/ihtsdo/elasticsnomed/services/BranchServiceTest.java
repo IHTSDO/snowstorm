@@ -2,10 +2,8 @@ package org.ihtsdo.elasticsnomed.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
-import org.ihtsdo.elasticsnomed.Config;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,9 +13,10 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.util.List;
 
 import static io.kaicode.elasticvc.domain.Branch.BranchState.*;
+import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = {Config.class, TestConfig.class})
+@ContextConfiguration(classes = TestConfig.class)
 public class BranchServiceTest {
 
 	@Autowired
@@ -25,35 +24,36 @@ public class BranchServiceTest {
 
 	@Test
 	public void testCreateFindBranches() throws Exception {
-		Assert.assertNull(branchService.findLatest("MAIN"));
+		assertNull(branchService.findLatest("MAIN"));
 
 		final Branch branch = branchService.create("MAIN");
-		Assert.assertEquals(UP_TO_DATE, branch.getState());
+		assertEquals(UP_TO_DATE, branch.getState());
 
 		final Branch main = branchService.findLatest("MAIN");
-		Assert.assertNotNull(main);
-		Assert.assertNotNull(main.getFatPath());
-		Assert.assertNotNull(main.getBase());
-		Assert.assertNotNull(main.getHead());
-		Assert.assertEquals("MAIN", main.getFatPath());
-		Assert.assertEquals(UP_TO_DATE, main.getState());
+		assertNotNull(main);
+		assertNotNull(main.getInternalId());
+		assertNotNull(main.getFatPath());
+		assertNotNull(main.getBase());
+		assertNotNull(main.getHead());
+		assertEquals("MAIN", main.getFatPath());
+		assertEquals(UP_TO_DATE, main.getState());
 
-		Assert.assertNull(branchService.findLatest("MAIN/A"));
+		assertNull(branchService.findLatest("MAIN/A"));
 		branchService.create("MAIN/A");
 		final Branch a = branchService.findLatest("MAIN/A");
-		Assert.assertNotNull(a);
-		Assert.assertEquals("MAIN/A", a.getFatPath());
-		Assert.assertEquals(UP_TO_DATE, a.getState());
+		assertNotNull(a);
+		assertEquals("MAIN/A", a.getFatPath());
+		assertEquals(UP_TO_DATE, a.getState());
 
-		Assert.assertNotNull(branchService.findLatest("MAIN"));
+		assertNotNull(branchService.findLatest("MAIN"));
 	}
 
 	@Test
 	public void testFindAll() {
-		Assert.assertEquals(0, branchService.findAll().size());
+		assertEquals(0, branchService.findAll().size());
 
 		branchService.create("MAIN");
-		Assert.assertEquals(1, branchService.findAll().size());
+		assertEquals(1, branchService.findAll().size());
 
 		branchService.create("MAIN/A");
 		branchService.create("MAIN/A/AA");
@@ -63,19 +63,19 @@ public class BranchServiceTest {
 		branchService.create("MAIN/B");
 
 		final List<Branch> branches = branchService.findAll();
-		Assert.assertEquals(7, branches.size());
+		assertEquals(7, branches.size());
 
-		Assert.assertEquals("MAIN", branches.get(0).getFatPath());
-		Assert.assertEquals("MAIN/A", branches.get(1).getFatPath());
-		Assert.assertEquals("MAIN/C/something/thing", branches.get(6).getFatPath());
+		assertEquals("MAIN", branches.get(0).getFatPath());
+		assertEquals("MAIN/A", branches.get(1).getFatPath());
+		assertEquals("MAIN/C/something/thing", branches.get(6).getFatPath());
 	}
 
 	@Test
 	public void testFindChildren() {
-		Assert.assertEquals(0, branchService.findAll().size());
+		assertEquals(0, branchService.findAll().size());
 
 		branchService.create("MAIN");
-		Assert.assertEquals(0, branchService.findChildren("MAIN").size());
+		assertEquals(0, branchService.findChildren("MAIN").size());
 
 		branchService.create("MAIN/A");
 		branchService.create("MAIN/A/AA");
@@ -85,15 +85,15 @@ public class BranchServiceTest {
 		branchService.create("MAIN/B");
 
 		final List<Branch> mainChildren = branchService.findChildren("MAIN");
-		Assert.assertEquals(6, mainChildren.size());
+		assertEquals(6, mainChildren.size());
 
-		Assert.assertEquals("MAIN/A", mainChildren.get(0).getFatPath());
-		Assert.assertEquals("MAIN/C/something/thing", mainChildren.get(5).getFatPath());
+		assertEquals("MAIN/A", mainChildren.get(0).getFatPath());
+		assertEquals("MAIN/C/something/thing", mainChildren.get(5).getFatPath());
 
 		final List<Branch> cChildren = branchService.findChildren("MAIN/C");
-		Assert.assertEquals(2, cChildren.size());
-		Assert.assertEquals("MAIN/C/something", cChildren.get(0).getFatPath());
-		Assert.assertEquals("MAIN/C/something/thing", cChildren.get(1).getFatPath());
+		assertEquals(2, cChildren.size());
+		assertEquals("MAIN/C/something", cChildren.get(0).getFatPath());
+		assertEquals("MAIN/C/something/thing", cChildren.get(1).getFatPath());
 	}
 
 	@Test
@@ -124,7 +124,7 @@ public class BranchServiceTest {
 	}
 
 	private void assertBranchState(String path, Branch.BranchState status) {
-		Assert.assertEquals(status, branchService.findLatest(path).getState());
+		assertEquals(status, branchService.findLatest(path).getState());
 	}
 
 	private void makeEmptyCommit(String path) {

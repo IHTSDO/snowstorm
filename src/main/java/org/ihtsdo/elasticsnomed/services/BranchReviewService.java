@@ -4,19 +4,19 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.ihtsdo.elasticsnomed.domain.Concept;
 import org.ihtsdo.elasticsnomed.domain.Description;
 import org.ihtsdo.elasticsnomed.domain.ReferenceSetMember;
 import org.ihtsdo.elasticsnomed.domain.Relationship;
-import io.kaicode.elasticvc.api.ComponentService;
 import org.ihtsdo.elasticsnomed.domain.review.*;
-import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
@@ -47,7 +47,7 @@ public class BranchReviewService {
 	private BranchMergeService branchMergeService;
 
 	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
 

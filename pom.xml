@@ -13,19 +13,21 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>1.4.0.M3</version>
+		<version>1.5.1.RELEASE</version>
 	</parent>
 
 	<properties>
 		<java.version>1.8</java.version>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
-		<slf4j.version>1.7.5</slf4j.version>
-		<spring.version>4.3.0.RC2</spring.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
+		<spring-data-jest.version>2.3.0.RELEASE</spring-data-jest.version>
+		<jest.version>2.0.4</jest.version>
 		<snomed-boot.version>1.0.4</snomed-boot.version>
 		<elasticvc.version>0.1.0-SNAPSHOT</elasticvc.version>
+		<slf4j.version>1.7.5</slf4j.version>
 	</properties>
 
 	<dependencies>
@@ -47,8 +49,40 @@
 			<version>${elasticvc.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-elasticsearch</artifactId>
+			<groupId>org.springframework.data</groupId>
+			<artifactId>spring-data-elasticsearch</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.searchbox</groupId>
+			<artifactId>jest</artifactId>
+			<version>${jest.version}</version>
+			<exclusions>
+				<exclusion>
+					<groupId>commons-logging</groupId>
+					<artifactId>commons-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>com.github.vanroy</groupId>
+			<artifactId>spring-boot-starter-data-jest</artifactId>
+			<version>${spring-data-jest.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>vc.inreach.aws</groupId>
+			<artifactId>aws-signing-request-interceptor</artifactId>
+			<version>0.0.14</version>
+			<exclusions>
+				<exclusion>
+					<groupId>com.amazonaws</groupId>
+					<artifactId>*</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-aws-autoconfigure</artifactId>
+			<version>1.1.3.RELEASE</version>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

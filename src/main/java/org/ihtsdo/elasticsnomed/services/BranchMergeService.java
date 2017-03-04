@@ -17,7 +17,7 @@ import org.ihtsdo.elasticsnomed.rest.pojo.MergeRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.data.util.CloseableIterator;
@@ -28,9 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class BranchMergeService {
@@ -48,7 +46,7 @@ public class BranchMergeService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
 	private static final String USE_BRANCH_REVIEW = "The target branch is diverged, please use the branch review endpoint instead.";

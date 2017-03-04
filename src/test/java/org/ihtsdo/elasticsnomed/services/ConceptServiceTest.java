@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.assertEquals;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = {Config.class, TestConfig.class})
+@ContextConfiguration(classes = TestConfig.class)
 public class ConceptServiceTest {
 
 	public static final PageRequest PAGE_REQUEST = new PageRequest(0, 100);

@@ -21,7 +21,7 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = {Config.class, TestConfig.class})
+@ContextConfiguration(classes = TestConfig.class)
 public class BranchMergeServiceTest {
 
 	@Autowired

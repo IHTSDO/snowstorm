@@ -8,12 +8,6 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
-import org.ihtsdo.elasticsnomed.repositories.ConceptRepository;
-import org.ihtsdo.elasticsnomed.util.TimerUtil;
-import org.ihtsdo.elasticsnomed.domain.*;
-import org.ihtsdo.elasticsnomed.repositories.DescriptionRepository;
-import org.ihtsdo.elasticsnomed.repositories.ReferenceSetMemberRepository;
-import org.ihtsdo.elasticsnomed.repositories.RelationshipRepository;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
@@ -23,12 +17,18 @@ import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
+import org.ihtsdo.elasticsnomed.domain.*;
+import org.ihtsdo.elasticsnomed.repositories.ConceptRepository;
+import org.ihtsdo.elasticsnomed.repositories.DescriptionRepository;
+import org.ihtsdo.elasticsnomed.repositories.ReferenceSetMemberRepository;
+import org.ihtsdo.elasticsnomed.repositories.RelationshipRepository;
+import org.ihtsdo.elasticsnomed.util.TimerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
@@ -65,7 +65,7 @@ public class ConceptService extends ComponentService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 
 	@Autowired
 	private QueryIndexService queryIndexService;

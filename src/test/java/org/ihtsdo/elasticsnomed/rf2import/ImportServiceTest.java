@@ -2,14 +2,13 @@ package org.ihtsdo.elasticsnomed.rf2import;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
-import org.ihtsdo.elasticsnomed.Config;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.domain.Concept;
+import org.ihtsdo.elasticsnomed.domain.Concepts;
 import org.ihtsdo.elasticsnomed.domain.Description;
 import org.ihtsdo.elasticsnomed.domain.ReferenceSetMember;
 import org.ihtsdo.elasticsnomed.services.ConceptService;
 import org.ihtsdo.elasticsnomed.services.QueryIndexService;
-import org.ihtsdo.elasticsnomed.domain.Concepts;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.After;
 import org.junit.Assert;
@@ -27,8 +26,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.Assert.assertNull;
+
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = {Config.class, TestConfig.class})
+@ContextConfiguration(classes = TestConfig.class)
 public class ImportServiceTest {
 
 	@Autowired
@@ -74,7 +75,7 @@ public class ImportServiceTest {
 
 		String path = "MAIN/20020131";
 		Assert.assertEquals(88, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
-		Assert.assertNull(conceptService.find("370136006", path));
+		assertNull(conceptService.find("370136006", path));
 
 		path = "MAIN/20020731";
 		Assert.assertEquals(89, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());

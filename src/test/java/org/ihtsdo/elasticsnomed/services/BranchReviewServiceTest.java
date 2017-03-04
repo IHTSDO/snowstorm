@@ -1,7 +1,6 @@
 package org.ihtsdo.elasticsnomed.services;
 
 import io.kaicode.elasticvc.api.BranchService;
-import org.ihtsdo.elasticsnomed.Config;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.domain.Concept;
 import org.ihtsdo.elasticsnomed.domain.Concepts;
@@ -14,14 +13,15 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
 
 @RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = {Config.class, TestConfig.class})
+@ContextConfiguration(classes = TestConfig.class)
 public class BranchReviewServiceTest {
 
 	@Autowired
@@ -32,9 +32,6 @@ public class BranchReviewServiceTest {
 
 	@Autowired
 	private BranchService branchService;
-
-	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
 
 	private Date setupStartTime;
 

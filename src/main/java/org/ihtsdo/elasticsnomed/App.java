@@ -7,10 +7,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import springfox.documentation.builders.RequestHandlerSelectors;
+import springfox.documentation.spi.DocumentationType;
+import springfox.documentation.spring.web.plugins.Docket;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import javax.annotation.PostConstruct;
+
+import static com.google.common.base.Predicates.not;
+import static springfox.documentation.builders.PathSelectors.regex;
 
 @EnableSwagger2
 public class App extends Config {
@@ -22,7 +33,7 @@ public class App extends Config {
 	private BranchService branchService;
 
 	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 
 	@Autowired
 	private ImportService importService;

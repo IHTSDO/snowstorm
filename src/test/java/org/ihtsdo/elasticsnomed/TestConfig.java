@@ -2,34 +2,32 @@ package org.ihtsdo.elasticsnomed;
 
 import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.elasticsnomed.domain.*;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.common.settings.Settings;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.PropertySource;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 
+import javax.annotation.PostConstruct;
 import java.net.UnknownHostException;
 
-import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
+@PropertySource("application-test.properties")
+public class TestConfig extends Config {
 
-@Configuration
-public class TestConfig {
+	@Autowired
+	private ElasticsearchOperations elasticsearchTemplate;
 
-	@Bean
-	public ElasticsearchTemplate elasticsearchTemplate() throws UnknownHostException {
-		final ElasticsearchTemplate elasticsearchTemplate = Config.getElasticsearchTemplate(elasticSearchClient());
+	private Logger logger = LoggerFactory.getLogger(getClass());
+
+	@PostConstruct
+	public void cleanUp() throws UnknownHostException {
+		logger.info("Deleting all existing entities before tests start");
 		elasticsearchTemplate.deleteIndex(Concept.class);
 		elasticsearchTemplate.deleteIndex(Description.class);
 		elasticsearchTemplate.deleteIndex(Relationship.class);
 		elasticsearchTemplate.deleteIndex(ReferenceSetMember.class);
 		elasticsearchTemplate.deleteIndex(QueryIndexConcept.class);
 		elasticsearchTemplate.deleteIndex(Branch.class);
-		return elasticsearchTemplate;
-	}
-
-	@Bean // Use embedded Elastic search Server
-	public Client elasticSearchClient() throws UnknownHostException {
-		return nodeBuilder().local(true).settings(Settings.builder().put("path.home", "target/data").build()).node().client();
 	}
 
 }

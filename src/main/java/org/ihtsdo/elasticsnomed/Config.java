@@ -2,12 +2,12 @@ package org.ihtsdo.elasticsnomed;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.vanroy.springdata.jest.JestElasticsearchTemplate;
+import com.github.vanroy.springdata.jest.mapper.DefaultJestResultsMapper;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
-import org.elasticsearch.client.Client;
-import org.elasticsearch.client.transport.TransportClient;
-import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import io.searchbox.client.JestClient;
 import org.ihtsdo.elasticsnomed.domain.Concept;
 import org.ihtsdo.elasticsnomed.domain.Description;
 import org.ihtsdo.elasticsnomed.domain.Relationship;
@@ -16,11 +16,15 @@ import org.ihtsdo.elasticsnomed.repositories.config.DescriptionStoreMixIn;
 import org.ihtsdo.elasticsnomed.repositories.config.RelationshipStoreMixIn;
 import org.ihtsdo.elasticsnomed.rf2import.ImportService;
 import org.ihtsdo.elasticsnomed.services.ConceptService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.EntityMapper;
+import org.springframework.data.elasticsearch.core.convert.MappingElasticsearchConverter;
+import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchMappingContext;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import springfox.documentation.builders.RequestHandlerSelectors;
@@ -28,13 +32,12 @@ import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 
 import static com.google.common.base.Predicates.not;
 import static springfox.documentation.builders.PathSelectors.regex;
 
-@SpringBootApplication
+@SpringBootApplication(exclude = {ElasticsearchAutoConfiguration.class, ElasticsearchDataAutoConfiguration.class})
 @EnableElasticsearchRepositories(
 		basePackages = {
 				"io.kaicode.elasticvc.repositories",
@@ -42,29 +45,11 @@ import static springfox.documentation.builders.PathSelectors.regex;
 		})
 public class Config {
 
-	@Bean
-	public ElasticsearchTemplate elasticsearchTemplate() throws UnknownHostException {
-		return getElasticsearchTemplate(elasticSearchClient());
-	}
-
-	@Bean // Use standalone Elasticsearch Server on localhost
-	public Client elasticSearchClient() throws UnknownHostException {
-		final InetAddress localhost = InetAddress.getLoopbackAddress();
-		return TransportClient.builder().build()
-				.addTransportAddress(new InetSocketTransportAddress(localhost, 9300));
-	}
+	@Autowired
+	private JestClient jestClient;
 
 	@Bean
-	public ObjectMapper getGeneralMapper() {
-		return Jackson2ObjectMapperBuilder
-				.json()
-				.defaultViewInclusion(false)
-				.failOnUnknownProperties(false)
-				.serializationInclusion(JsonInclude.Include.NON_NULL)
-				.build();
-	}
-
-	static ElasticsearchTemplate getElasticsearchTemplate(Client client) {
+	public JestElasticsearchTemplate elasticsearchTemplate() throws UnknownHostException {
 		final ObjectMapper elasticSearchMapper = Jackson2ObjectMapperBuilder
 				.json()
 				.defaultViewInclusion(false)
@@ -75,16 +60,32 @@ public class Config {
 				.mixIn(Relationship.class, RelationshipStoreMixIn.class)
 				.build();
 
-		return new ElasticsearchTemplate(client, new EntityMapper() {
-			@Override
-			public String mapToString(Object o) throws IOException {
-				return elasticSearchMapper.writeValueAsString(o);
-			}
-			@Override
-			public <T> T mapToObject(String s, Class<T> aClass) throws IOException {
-				return elasticSearchMapper.readValue(s, aClass);
-			}
-		});
+		SimpleElasticsearchMappingContext mappingContext = new SimpleElasticsearchMappingContext();
+
+		return new JestElasticsearchTemplate(
+				jestClient,
+				new MappingElasticsearchConverter(mappingContext),
+				new DefaultJestResultsMapper(mappingContext, new EntityMapper() {
+					@Override
+					public String mapToString(Object o) throws IOException {
+						return elasticSearchMapper.writeValueAsString(o);
+					}
+					@Override
+					public <T> T mapToObject(String s, Class<T> aClass) throws IOException {
+						return elasticSearchMapper.readValue(s, aClass);
+					}
+				})
+		);
+	}
+
+	@Bean
+	public ObjectMapper getGeneralMapper() {
+		return Jackson2ObjectMapperBuilder
+				.json()
+				.defaultViewInclusion(false)
+				.failOnUnknownProperties(false)
+				.serializationInclusion(JsonInclude.Include.NON_NULL)
+				.build();
 	}
 
 	@Bean

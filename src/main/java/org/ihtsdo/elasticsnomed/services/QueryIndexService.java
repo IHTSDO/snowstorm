@@ -3,17 +3,17 @@ package org.ihtsdo.elasticsnomed.services;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.ihtsdo.elasticsnomed.domain.Concepts;
 import org.ihtsdo.elasticsnomed.domain.QueryIndexConcept;
 import org.ihtsdo.elasticsnomed.domain.Relationship;
 import org.ihtsdo.elasticsnomed.repositories.QueryIndexConceptRepository;
 import org.ihtsdo.elasticsnomed.services.transitiveclosure.GraphBuilder;
 import org.ihtsdo.elasticsnomed.services.transitiveclosure.Node;
-import org.elasticsearch.index.query.QueryBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
@@ -32,7 +32,7 @@ import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 public class QueryIndexService extends ComponentService {
 
 	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
+	private ElasticsearchOperations elasticsearchTemplate;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;

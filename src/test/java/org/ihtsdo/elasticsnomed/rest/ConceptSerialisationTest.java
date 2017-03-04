@@ -9,6 +9,7 @@ import org.ihtsdo.elasticsnomed.repositories.config.DescriptionStoreMixIn;
 import org.ihtsdo.elasticsnomed.repositories.config.RelationshipStoreMixIn;
 import org.ihtsdo.elasticsnomed.domain.Description;
 import org.ihtsdo.elasticsnomed.domain.Relationship;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.Assert;
 import org.junit.Test;
@@ -52,7 +53,7 @@ public class ConceptSerialisationTest {
 	}
 
 	@Test
-	public void testStoreSerialisation() throws JsonProcessingException {
+	public void testStoreSerialisation() throws JsonProcessingException, JSONException {
 		final String conceptJson = storeObjectMapper.writeValueAsString(new Concept("123", null, true, "33", "900000000000074008"));
 		final JSONObject c = new JSONObject(conceptJson);
 
