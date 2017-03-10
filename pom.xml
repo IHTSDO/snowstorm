@@ -7,8 +7,8 @@
 	<artifactId>elastic-snomed</artifactId>
 	<version>0.0.2-SNAPSHOT</version>
 
-	<name>Snomed CT ElasticSearch</name>
-	<description>A Snomed CT ElasticSearch Server</description>
+	<name>Elastic SNOMED</name>
+	<description>SNOMED CT Terminology Server Using Elasticsearch</description>
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>
