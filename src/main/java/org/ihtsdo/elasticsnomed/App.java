@@ -3,25 +3,15 @@ package org.ihtsdo.elasticsnomed;
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.rf2import.ImportService;
 import org.ihtsdo.elasticsnomed.services.ConceptService;
+import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
-import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
-import springfox.documentation.builders.RequestHandlerSelectors;
-import springfox.documentation.spi.DocumentationType;
-import springfox.documentation.spring.web.plugins.Docket;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import javax.annotation.PostConstruct;
-
-import static com.google.common.base.Predicates.not;
-import static springfox.documentation.builders.PathSelectors.regex;
 
 @EnableSwagger2
 public class App extends Config {
@@ -47,14 +37,24 @@ public class App extends Config {
 
 	@PostConstruct
 	public void run() throws Exception {
-		// Uncomment to import the international edition from disk at startup
-//		conceptService.deleteAll();
-//		branchService.deleteAll();
-//		branchService.create("MAIN");
-//		String releasePath = "release/SnomedCT_InternationalRF2_Production_20170131";
-//		importService.importSnapshot(releasePath, "MAIN");
-//		 or
-//		importService.importFull(releasePath, "MAIN");
+		new Thread(() -> {
+			try {
+				Thread.sleep(1000 * 10);
+				// Uncomment to import the international edition from disk at startup
+				logger.info("Attempting delete all");
+				conceptService.deleteAll();
+				branchService.deleteAll();
+				logger.info("Delete all complete");
+				logger.info("Creating MAIN");
+				branchService.create("MAIN");
+				String releasePath = "release/SnomedCT_InternationalRF2_Production_20170131";
+				importService.importSnapshot(releasePath, "MAIN");
+			} catch (ReleaseImportException e) {
+				e.printStackTrace();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+		}).start();
 	}
 
 }
