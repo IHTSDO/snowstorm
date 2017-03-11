@@ -1,6 +1,7 @@
 package org.ihtsdo.elasticsnomed.services;
 
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
@@ -37,6 +38,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import java.util.*;
+import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -716,10 +718,25 @@ public class ConceptService extends ComponentService {
 	}
 
 	public void deleteAll() {
-		conceptRepository.deleteAll();
-		descriptionRepository.deleteAll();
-		relationshipRepository.deleteAll();
-		referenceSetMemberRepository.deleteAll();
-		queryIndexService.deleteAll();
+		ExecutorService executorService = Executors.newCachedThreadPool();
+		List<Future> futures = Lists.newArrayList(
+				executorService.submit(() -> conceptRepository.deleteAll()),
+				executorService.submit(() -> descriptionRepository.deleteAll()),
+				executorService.submit(() -> relationshipRepository.deleteAll()),
+				executorService.submit(() -> referenceSetMemberRepository.deleteAll()),
+				executorService.submit(() -> queryIndexService.deleteAll())
+		);
+		for (int i = 0; i < futures.size(); i++) {
+			getWithTimeoutOrCancel(futures.get(i), i);
+		}
+	}
+
+	private void getWithTimeoutOrCancel(Future<?> future, int index) {
+		try {
+			future.get(20, TimeUnit.SECONDS);
+		} catch (InterruptedException | ExecutionException | TimeoutException e) {
+			logger.info("Canceling deletion of type {}.", index);
+			future.cancel(true);
+		}
 	}
 }
