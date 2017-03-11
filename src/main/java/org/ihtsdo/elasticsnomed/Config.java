@@ -21,6 +21,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
+import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.elasticsearch.core.EntityMapper;
 import org.springframework.data.elasticsearch.core.convert.MappingElasticsearchConverter;
@@ -37,7 +38,10 @@ import java.net.UnknownHostException;
 import static com.google.common.base.Predicates.not;
 import static springfox.documentation.builders.PathSelectors.regex;
 
-@SpringBootApplication(exclude = {ElasticsearchAutoConfiguration.class, ElasticsearchDataAutoConfiguration.class})
+@SpringBootApplication(
+		exclude = {ElasticsearchAutoConfiguration.class,
+				ElasticsearchDataAutoConfiguration.class,
+				ContextStackAutoConfiguration.class})
 @EnableElasticsearchRepositories(
 		basePackages = {
 				"io.kaicode.elasticvc.repositories",
