@@ -12,6 +12,7 @@ public class ConceptMini {
 	private Set<Description> activeFsns;
 	private String definitionStatusId;
 	private Boolean leafInferred;
+	private Boolean leafStated;
 
 	public ConceptMini() {
 		activeFsns = new HashSet<>();
@@ -62,6 +63,28 @@ public class ConceptMini {
 
 	public ConceptMini setLeafInferred(Boolean leafInferred) {
 		this.leafInferred = leafInferred;
+		return this;
+	}
+
+	@JsonView(value = View.Component.class)
+	public Boolean getLeafStated() {
+		return leafStated;
+	}
+
+	public ConceptMini setLeafStated(Boolean leafStated) {
+		this.leafStated = leafStated;
+		return this;
+	}
+
+	public ConceptMini setLeaf(Relationship.CharacteristicType relationshipType, boolean bool) {
+		switch (relationshipType) {
+			case inferred:
+				setLeafInferred(bool);
+				break;
+			case stated:
+				setLeafStated(bool);
+				break;
+		}
 		return this;
 	}
 }

@@ -125,12 +125,12 @@ public class ConceptService extends ComponentService {
 		return doFind(null, path, pageRequest);
 	}
 
-	public Collection<ConceptMini> findConceptChildrenInferred(String conceptId, String path) {
+	public Collection<ConceptMini> findConceptChildren(String conceptId, String path, Relationship.CharacteristicType relationshipType) {
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 
-		// Gather inferred children ids
+		// Gather children ids
 		final Set<String> childrenIds = new HashSet<>();
-		try (final CloseableIterator<Relationship> relationshipStream = openRelationshipStream(branchCriteria, termQuery("destinationId", conceptId))) {
+		try (final CloseableIterator<Relationship> relationshipStream = openRelationshipStream(branchCriteria, termQuery("destinationId", conceptId), relationshipType)) {
 			relationshipStream.forEachRemaining(relationship -> childrenIds.add(relationship.getSourceId()));
 		}
 
@@ -144,28 +144,29 @@ public class ConceptService extends ComponentService {
 				.withPageable(LARGE_PAGE)
 				.build(), Concept.class
 		)) {
-			conceptStream.forEachRemaining(concept -> conceptMiniMap.put(concept.getConceptId(), new ConceptMini(concept).setLeafInferred(true)));
+			conceptStream.forEachRemaining(concept -> conceptMiniMap.put(concept.getConceptId(), new ConceptMini(concept).setLeaf(relationshipType, true)));
 		}
 
-		// Find inferred children of the inferred children to set the isLeafInferred flag
-		try (final CloseableIterator<Relationship> relationshipStream = openRelationshipStream(branchCriteria, termsQuery("destinationId", childrenIds))) {
-			relationshipStream.forEachRemaining(relationship -> conceptMiniMap.get(relationship.getDestinationId()).setLeafInferred(false));
+		// Find children of the children to set the isLeaf flag
+		try (final CloseableIterator<Relationship> relationshipStream = openRelationshipStream(branchCriteria, termsQuery("destinationId", childrenIds), relationshipType)) {
+			relationshipStream.forEachRemaining(relationship -> conceptMiniMap.get(relationship.getDestinationId()).setLeaf(relationshipType, false));
 		}
-
 		// Fetch descriptions and Lang refsets
 		fetchDescriptions(branchCriteria, null, conceptMiniMap, null, false);
 
 		return conceptMiniMap.values();
 	}
 
-	private CloseableIterator<Relationship> openRelationshipStream(QueryBuilder branchCriteria, QueryBuilder destinationCriteria) {
+	private CloseableIterator<Relationship> openRelationshipStream(QueryBuilder branchCriteria,
+																   QueryBuilder destinationCriteria,
+																   Relationship.CharacteristicType relationshipType) {
 		return elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria)
 						.must(termQuery("active", true))
 						.must(termQuery("typeId", Concepts.ISA))
 						.must(destinationCriteria)
-						.must(termQuery("characteristicTypeId", Concepts.INFERRED_RELATIONSHIP))
+						.must(termQuery("characteristicTypeId", relationshipType.getConceptId()))
 				)
 				.withPageable(LARGE_PAGE)
 				.build(), Relationship.class
