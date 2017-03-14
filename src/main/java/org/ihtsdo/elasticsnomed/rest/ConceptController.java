@@ -65,6 +65,16 @@ public class ConceptController {
 		return conceptService.findConceptChildren(conceptId, BranchPathUriUtil.parseBranchPath(branch), form);
 	}
 
+	@ResponseBody
+	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/parents", method = RequestMethod.GET, produces = "application/json")
+	@JsonView(value = View.Component.class)
+	public Collection<ConceptMini> findConceptParents(@PathVariable String branch,
+													   @PathVariable String conceptId,
+													   @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
+
+		return conceptService.findConceptParents(conceptId, BranchPathUriUtil.parseBranchPath(branch), form);
+	}
+
 	@RequestMapping(value = "/{branch}/calculate-transitive-closure", method = RequestMethod.POST, produces = "application/json")
 	public void calculateTransitiveClosure(@PathVariable String branch) {
 		conceptService.createTransitiveClosureForEveryConcept(BranchPathUriUtil.parseBranchPath(branch));
