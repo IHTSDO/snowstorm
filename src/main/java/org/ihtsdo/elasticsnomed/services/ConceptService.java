@@ -180,15 +180,26 @@ public class ConceptService extends ComponentService {
 
 	private Page<Concept> doFind(Collection<? extends Object> conceptIds, Commit commit, PageRequest pageRequest) {
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteriaWithinOpenCommit(commit);
-		return doFind(conceptIds, branchCriteria, pageRequest);
+		return doFind(conceptIds, branchCriteria, pageRequest, true, true);
 	}
 
 	private Page<Concept> doFind(Collection<? extends Object> conceptIds, String path, PageRequest pageRequest) {
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
-		return doFind(conceptIds, branchCriteria, pageRequest);
+		return doFind(conceptIds, branchCriteria, pageRequest, true, true);
 	}
 
-	private Page<Concept> doFind(Collection<? extends Object> conceptIdsToFind, QueryBuilder branchCriteria, PageRequest pageRequest) {
+	public Map<String, ConceptMini> findConceptMinis(String path, Set<String> conceptIds) {
+		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		Page<Concept> concepts = doFind(conceptIds, branchCriteria, new PageRequest(0, conceptIds.size()), false, false);
+		return concepts.getContent().stream().map(c -> new ConceptMini(c)).collect(Collectors.toMap(ConceptMini::getConceptId, Function.identity()));
+	}
+
+	private Page<Concept> doFind(Collection<? extends Object> conceptIdsToFind,
+								 QueryBuilder branchCriteria,
+								 PageRequest pageRequest,
+								 boolean includeRelationships,
+								 boolean includeDescriptionInactivationInfo) {
+
 		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
 		timer.checkpoint("get branch criteria");
 
@@ -215,24 +226,26 @@ public class ConceptService extends ComponentService {
 
 		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
 
-		// Fetch Relationships
-		for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
-			queryBuilder.withQuery(boolQuery()
-					.must(termsQuery("sourceId", conceptIds))
-					.must(branchCriteria))
-					.withPageable(LARGE_PAGE);
-			try (final CloseableIterator<Relationship> relationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
-				relationships.forEachRemaining(relationship -> {
-					// Join Relationships
-					conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
+		if (includeRelationships) {
+			// Fetch Relationships
+			for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
+				queryBuilder.withQuery(boolQuery()
+						.must(termsQuery("sourceId", conceptIds))
+						.must(branchCriteria))
+						.withPageable(LARGE_PAGE);
+				try (final CloseableIterator<Relationship> relationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
+					relationships.forEachRemaining(relationship -> {
+						// Join Relationships
+						conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
 
-					// Add placeholders for relationship type and target details
-					relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId()));
-					relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
-				});
+						// Add placeholders for relationship type and target details
+						relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId()));
+						relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
+					});
+				}
 			}
+			timer.checkpoint("get relationships " + getFetchCount(conceptIdMap.size()));
 		}
-		timer.checkpoint("get relationships " + getFetchCount(conceptIdMap.size()));
 
 		// Fetch ConceptMini definition statuses
 		for (List<String> conceptIds : Iterables.partition(conceptMiniMap.keySet(), CLAUSE_LIMIT)) {
@@ -247,7 +260,7 @@ public class ConceptService extends ComponentService {
 		}
 		timer.checkpoint("get relationship def status " + getFetchCount(conceptMiniMap.size()));
 
-		fetchDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer, true);
+		fetchDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer, includeDescriptionInactivationInfo);
 		timer.finish();
 
 		return concepts;

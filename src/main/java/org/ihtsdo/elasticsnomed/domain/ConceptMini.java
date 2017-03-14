@@ -5,6 +5,7 @@ import org.ihtsdo.elasticsnomed.rest.View;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class ConceptMini {
 
@@ -13,6 +14,8 @@ public class ConceptMini {
 	private String definitionStatusId;
 	private Boolean leafInferred;
 	private Boolean leafStated;
+	private String moduleId;
+	private Boolean active;
 
 	public ConceptMini() {
 		activeFsns = new HashSet<>();
@@ -25,7 +28,13 @@ public class ConceptMini {
 
 	public ConceptMini(Concept concept) {
 		this(concept.getConceptId());
+		active = concept.isActive();
 		definitionStatusId = concept.getDefinitionStatusId();
+		moduleId = concept.getModuleId();
+		Set<Description> descriptions = concept.getDescriptions();
+		if (descriptions != null) {
+			activeFsns = descriptions.stream().filter(d -> d.isActive() && Concepts.FSN.equals(d.getTypeId())).collect(Collectors.toSet());
+		}
 	}
 
 	public void addActiveFsn(Description fsn) {
@@ -56,6 +65,18 @@ public class ConceptMini {
 	}
 
 
+	public ConceptMini setLeaf(Relationship.CharacteristicType relationshipType, boolean bool) {
+		switch (relationshipType) {
+			case inferred:
+				setLeafInferred(bool);
+				break;
+			case stated:
+				setLeafStated(bool);
+				break;
+		}
+		return this;
+	}
+
 	@JsonView(value = View.Component.class)
 	public Boolean getLeafInferred() {
 		return leafInferred;
@@ -76,15 +97,21 @@ public class ConceptMini {
 		return this;
 	}
 
-	public ConceptMini setLeaf(Relationship.CharacteristicType relationshipType, boolean bool) {
-		switch (relationshipType) {
-			case inferred:
-				setLeafInferred(bool);
-				break;
-			case stated:
-				setLeafStated(bool);
-				break;
-		}
-		return this;
+	@JsonView(value = View.Component.class)
+	public String getModuleId() {
+		return moduleId;
+	}
+
+	public void setModuleId(String moduleId) {
+		this.moduleId = moduleId;
+	}
+
+	@JsonView(value = View.Component.class)
+	public Boolean getActive() {
+		return active;
+	}
+
+	public void setActive(Boolean active) {
+		this.active = active;
 	}
 }
