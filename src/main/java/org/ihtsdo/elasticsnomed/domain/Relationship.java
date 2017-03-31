@@ -16,7 +16,7 @@ import javax.validation.constraints.Size;
 import static org.ihtsdo.elasticsnomed.domain.Concepts.relationshipCharacteristicTypeNames;
 import static org.ihtsdo.elasticsnomed.domain.Concepts.relationshipModifierNames;
 
-@Document(type = "relationship", indexName = "snomed")
+@Document(type = "relationship", indexName = "snomed", shards = 8)
 public class Relationship extends SnomedComponent<Relationship> {
 
 	@JsonView(value = View.Component.class)

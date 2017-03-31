@@ -15,7 +15,7 @@ import java.util.Map;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
-@Document(type = "description", indexName = "snomed")
+@Document(type = "description", indexName = "snomed", shards = 8)
 public class Description extends SnomedComponent<Description> {
 
 	@JsonView(value = View.Component.class)

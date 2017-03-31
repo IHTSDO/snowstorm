@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-@Document(type = "member", indexName = "snomed")
+@Document(type = "member", indexName = "snomed", shards = 8)
 public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComponent<C> {
 
 	@JsonView(value = View.Component.class)
