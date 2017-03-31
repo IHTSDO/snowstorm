@@ -7,6 +7,8 @@ import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
@@ -14,7 +16,7 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 import javax.annotation.PostConstruct;
 
 @EnableSwagger2
-public class App extends Config {
+public class App extends Config implements ApplicationRunner {
 
 	@Autowired
 	private ConceptService conceptService;
@@ -35,12 +37,19 @@ public class App extends Config {
 		SpringApplication.run(App.class, args);
 	}
 
-	@PostConstruct
-	public void run() throws Exception {
+	@Override
+	public void run(ApplicationArguments applicationArguments) throws Exception {
+		if (applicationArguments.containsOption("clean-import")) {
+			// import the international edition from disk at startup
+			deleteAllAndImportInternationalEditionFromDisk();
+		}
+	}
+
+	@SuppressWarnings("unused")
+	private void deleteAllAndImportInternationalEditionFromDisk() {
 		new Thread(() -> {
 			try {
 				Thread.sleep(1000 * 10);
-				// Uncomment to import the international edition from disk at startup
 				logger.info("Attempting delete all");
 				conceptService.deleteAll();
 				branchService.deleteAll();
@@ -49,10 +58,8 @@ public class App extends Config {
 				branchService.create("MAIN");
 				String releasePath = "release/SnomedCT_InternationalRF2_Production_20170131";
 				importService.importSnapshot(releasePath, "MAIN");
-			} catch (ReleaseImportException e) {
-				e.printStackTrace();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
+			} catch (ReleaseImportException | InterruptedException e) {
+				logger.error("Import failed", e);
 			}
 		}).start();
 	}
