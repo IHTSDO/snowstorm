@@ -17,7 +17,7 @@ public class DescriptionController {
 	@RequestMapping(value = "/{branch}/descriptions", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public Page<Description> findConcepts(@PathVariable String branch, @RequestParam String term,
+	public Page<Description> findConcepts(@PathVariable String branch, @RequestParam(required = false) String term,
 										  @RequestParam(defaultValue = "0") int number, @RequestParam(defaultValue = "100") int size) {
 		return new Page<>(conceptService.findDescriptions(BranchPathUriUtil.parseBranchPath(branch), term, new PageRequest(number, size)));
 	}
