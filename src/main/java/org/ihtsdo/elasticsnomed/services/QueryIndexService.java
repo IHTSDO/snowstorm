@@ -31,6 +31,8 @@ import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 @Service
 public class QueryIndexService extends ComponentService {
 
+	public static final int BATCH_SAVE_SIZE = 5000;
+
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
 
@@ -103,7 +105,7 @@ public class QueryIndexService extends ComponentService {
 			indexConcept.setChanged(true);
 			conceptsToSave.add(indexConcept);
 			i++;
-			if (i % 100000 == 0) {
+			if (i % BATCH_SAVE_SIZE == 0) {
 				doSaveBatch(conceptsToSave, commit);
 				conceptsToSave.clear();
 			}

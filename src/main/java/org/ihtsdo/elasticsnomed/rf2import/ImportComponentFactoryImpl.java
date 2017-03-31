@@ -18,7 +18,7 @@ import java.util.List;
 
 public class ImportComponentFactoryImpl implements ComponentFactory {
 
-	public static final int FLUSH_INTERVAL = 1000;
+	public static final int FLUSH_INTERVAL = 5000;
 	private final ConceptService conceptService;
 	private final BranchService branchService;
 	private final String path;
