@@ -5,7 +5,7 @@ SNOMED CT Authoring server built on Elasticsearch.
 
 Development Setup
 -----------------
-Install and run Elasticsearch [2.2.0](https://www.elastic.co/downloads/past-releases/elasticsearch-2-2-0) (Feb 2016)
+Install and run Elasticsearch [2.4.4](https://www.elastic.co/downloads/past-releases/elasticsearch-2-4-4) (Jan 2017)
 
 Either run the Spring Boot 'App.java' in your IDE
 or from the command line:
