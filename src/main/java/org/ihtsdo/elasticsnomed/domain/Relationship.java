@@ -19,6 +19,21 @@ import static org.ihtsdo.elasticsnomed.domain.Concepts.relationshipModifierNames
 @Document(type = "relationship", indexName = "snomed", shards = 8)
 public class Relationship extends SnomedComponent<Relationship> {
 
+	public enum CharacteristicType {
+
+		inferred(Concepts.INFERRED_RELATIONSHIP), stated(Concepts.STATED_RELATIONSHIP);
+
+		String conceptId;
+
+		CharacteristicType(String conceptId) {
+			this.conceptId = conceptId;
+		}
+
+		public String getConceptId() {
+			return conceptId;
+		}
+	}
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String relationshipId;

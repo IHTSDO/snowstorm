@@ -2,9 +2,7 @@ package org.ihtsdo.elasticsnomed.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import org.ihtsdo.elasticsnomed.domain.Concept;
-import org.ihtsdo.elasticsnomed.domain.ConceptMini;
-import org.ihtsdo.elasticsnomed.domain.ConceptView;
+import org.ihtsdo.elasticsnomed.domain.*;
 import org.ihtsdo.elasticsnomed.services.ConceptService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -60,8 +58,21 @@ public class ConceptController {
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/children", method = RequestMethod.GET, produces = "application/json")
 	@JsonView(value = View.Component.class)
-	public Collection<ConceptMini> findConceptChildren(@PathVariable String branch, @PathVariable String conceptId) {
-		return conceptService.findConceptChildrenInferred(conceptId, BranchPathUriUtil.parseBranchPath(branch));
+	public Collection<ConceptMini> findConceptChildren(@PathVariable String branch,
+													   @PathVariable String conceptId,
+													   @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
+
+		return conceptService.findConceptChildren(conceptId, BranchPathUriUtil.parseBranchPath(branch), form);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/parents", method = RequestMethod.GET, produces = "application/json")
+	@JsonView(value = View.Component.class)
+	public Collection<ConceptMini> findConceptParents(@PathVariable String branch,
+													   @PathVariable String conceptId,
+													   @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
+
+		return conceptService.findConceptParents(conceptId, BranchPathUriUtil.parseBranchPath(branch), form);
 	}
 
 	@RequestMapping(value = "/{branch}/calculate-transitive-closure", method = RequestMethod.POST, produces = "application/json")

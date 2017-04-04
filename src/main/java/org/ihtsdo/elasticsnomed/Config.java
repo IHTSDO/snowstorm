@@ -117,10 +117,11 @@ public class Config {
 		// Encode branch paths in uri to allow request mapping to work
 		return new FilterRegistrationBean(new BranchPathUriRewriteFilter(
 				"/branches/(.*)/children",
+				"/branches/(.*)/parents",
 				"/branches/(.*)",
 				"/browser/(.*)/concepts",
 				"/browser/(.*)/concepts",
-				"/(.*)/descriptions"
+				"/browser/(.*)/descriptions"
 		));
 	}
 
