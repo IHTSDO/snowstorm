@@ -1,0 +1,292 @@
+{
+    "userId": "snowowl",
+    "commitComment": "snowowl updating concept Abdominal somatic dysfunction (finding)",
+    "branchPath": "MAIN/CONREQEXT/CONREQEXT-442",
+    "commitTimestamp": 1456944223426,
+    "changes": {
+        "416390003": {
+            "concept": {
+                "effectiveTime": "2005-07-31T00:00:00Z",
+                "moduleId": "900000000000207008",
+                "active": true,
+                "conceptId": "416390003",
+                "fsn": "416390003",
+                "definitionStatus": "PRIMITIVE",
+                "descriptions": [
+                    {
+                        "effectiveTime": "2005-07-31T00:00:00Z",
+                        "moduleId": "900000000000207008",
+                        "active": true,
+                        "descriptionId": "2548900017",
+                        "conceptId": "416390003",
+                        "type": "SYNONYM",
+                        "lang": "en",
+                        "term": "Abdominal somatic dysfunction",
+                        "caseSignificance": "INITIAL_CHARACTER_CASE_INSENSITIVE",
+                        "acceptabilityMap": {
+                            "900000000000508004": "PREFERRED",
+                            "900000000000509007": "PREFERRED"
+                        }
+                    },
+                    {
+                        "moduleId": "900000000000207008",
+                        "active": true,
+                        "descriptionId": "3305227015",
+                        "conceptId": "416390003",
+                        "type": "FSN",
+                        "lang": "en",
+                        "term": "Somatic dysfunction of abdomen (finding)",
+                        "caseSignificance": "INITIAL_CHARACTER_CASE_INSENSITIVE",
+                        "acceptabilityMap": {
+                            "900000000000508004": "PREFERRED",
+                            "900000000000509007": "PREFERRED"
+                        }
+                    },
+                    {
+                        "moduleId": "900000000000207008",
+                        "active": false,
+                        "descriptionId": "2546600013",
+                        "conceptId": "416390003",
+                        "type": "FSN",
+                        "lang": "en",
+                        "term": "Abdominal somatic dysfunction (finding)",
+                        "caseSignificance": "INITIAL_CHARACTER_CASE_INSENSITIVE"
+                    },
+                    {
+                        "moduleId": "900000000000207008",
+                        "active": true,
+                        "descriptionId": "3305226012",
+                        "conceptId": "416390003",
+                        "type": "SYNONYM",
+                        "lang": "en",
+                        "term": "Somatic dysfunction of abdomen",
+                        "caseSignificance": "INITIAL_CHARACTER_CASE_INSENSITIVE",
+                        "acceptabilityMap": {
+                            "900000000000508004": "ACCEPTABLE",
+                            "900000000000509007": "ACCEPTABLE"
+                        }
+                    }
+                ],
+                "relationships": [
+                    {
+                        "effectiveTime": "2005-07-31T00:00:00Z",
+                        "moduleId": "900000000000207008",
+                        "active": true,
+                        "relationshipId": "2766706028",
+                        "type": {
+                            "conceptId": "116680003",
+                            "fsn": "116680003"
+                        },
+                        "target": {
+                            "effectiveTime": "2002-01-31T00:00:00Z",
+                            "moduleId": "900000000000207008",
+                            "active": true,
+                            "conceptId": "47135001",
+                            "fsn": "47135001",
+                            "definitionStatus": "PRIMITIVE"
+                        },
+                        "sourceId": "416390003",
+                        "groupId": 0,
+                        "characteristicType": "INFERRED_RELATIONSHIP",
+                        "modifier": "EXISTENTIAL"
+                    },
+                    {
+                        "effectiveTime": "2005-07-31T00:00:00Z",
+                        "moduleId": "900000000000207008",
+                        "active": true,
+                        "relationshipId": "2766707021",
+                        "type": {
+                            "conceptId": "116680003",
+                            "fsn": "116680003"
+                        },
+                        "target": {
+                            "effectiveTime": "2002-01-31T00:00:00Z",
+                            "moduleId": "900000000000207008",
+                            "active": true,
+                            "conceptId": "87505004",
+                            "fsn": "87505004",
+                            "definitionStatus": "FULLY_DEFINED"
+                        },
+                        "sourceId": "416390003",
+                        "groupId": 0,
+                        "characteristicType": "INFERRED_RELATIONSHIP",
+                        "modifier": "EXISTENTIAL"
+                    },
+                    {
+                        "effectiveTime": "2008-07-31T00:00:00Z",
+                        "moduleId": "900000000000207008",
+                        "active": false,
+                        "relationshipId": "2780860026",
+                        "type": {
+                            "conceptId": "116676008",
+                            "fsn": "116676008"
+                        },
+                        "target": {
+                            "effectiveTime": "2002-01-31T00:00:00Z",
+                            "moduleId": "900000000000207008",
+                            "active": true,
+                            "conceptId": "49755003",
+                            "fsn": "49755003",
+                            "definitionStatus": "PRIMITIVE"
+                        },
+                        "sourceId": "416390003",
+                        "groupId": 1,
+                        "characteristicType": "INFERRED_RELATIONSHIP",
+                        "modifier": "EXISTENTIAL"
+                    },
+                    {
+                        "effectiveTime": "2008-07-31T00:00:00Z",
+                        "moduleId": "900000000000207008",
+                        "active": false,
+                        "relationshipId": "2780861027",
+                        "type": {
+                            "conceptId": "363698007",
+                            "fsn": "363698007"
+                        },
+                        "target": {
+                            "effectiveTime": "2002-01-31T00:00:00Z",
+                            "moduleId": "900000000000207008",
+                            "active": true,
+                            "conceptId": "113345001",
+                            "fsn": "113345001",
+                            "definitionStatus": "PRIMITIVE"
+                        },
+                        "sourceId": "416390003",
+                        "groupId": 1,
+                        "characteristicType": "INFERRED_RELATIONSHIP",
+                        "modifier": "EXISTENTIAL"
+                    },
+                    {
+                        "effectiveTime": "2008-07-31T00:00:00Z",
+                        "moduleId": "900000000000207008",
+                        "active": true,
+                        "relationshipId": "3355648028",
+                        "type": {
+                            "conceptId": "116676008",
+                            "fsn": "116676008"
+                        },
+                        "target": {
+                            "effectiveTime": "2002-01-31T00:00:00Z",
+                            "moduleId": "900000000000207008",
+                            "active": true,
+                            "conceptId": "49755003",
+                            "fsn": "49755003",
+                            "definitionStatus": "PRIMITIVE"
+                        },
+                        "sourceId": "416390003",
+                        "groupId": 1,
+                        "characteristicType": "INFERRED_RELATIONSHIP",
+                        "modifier": "EXISTENTIAL"
+                    },
+                    {
+                        "effectiveTime": "2008-07-31T00:00:00Z",
+                        "moduleId": "900000000000207008",
+                        "active": true,
+                        "relationshipId": "3463202025",
+                        "type": {
+                            "conceptId": "363698007",
+                            "fsn": "363698007"
+                        },
+                        "target": {
+                            "effectiveTime": "2002-01-31T00:00:00Z",
+                            "moduleId": "900000000000207008",
+                            "active": true,
+                            "conceptId": "113345001",
+                            "fsn": "113345001",
+                            "definitionStatus": "PRIMITIVE"
+                        },
+                        "sourceId": "416390003",
+                        "groupId": 1,
+                        "characteristicType": "INFERRED_RELATIONSHIP",
+                        "modifier": "EXISTENTIAL"
+                    },
+                    {
+                        "effectiveTime": "2008-07-31T00:00:00Z",
+                        "moduleId": "900000000000207008",
+                        "active": true,
+                        "relationshipId": "3916428027",
+                        "type": {
+                            "conceptId": "116680003",
+                            "fsn": "116680003"
+                        },
+                        "target": {
+                            "effectiveTime": "2002-01-31T00:00:00Z",
+                            "moduleId": "900000000000207008",
+                            "active": true,
+                            "conceptId": "47135001",
+                            "fsn": "47135001",
+                            "definitionStatus": "PRIMITIVE"
+                        },
+                        "sourceId": "416390003",
+                        "groupId": 0,
+                        "characteristicType": "STATED_RELATIONSHIP",
+                        "modifier": "EXISTENTIAL"
+                    },
+                    {
+                        "effectiveTime": "2008-07-31T00:00:00Z",
+                        "moduleId": "900000000000207008",
+                        "active": true,
+                        "relationshipId": "4310636022",
+                        "type": {
+                            "conceptId": "363698007",
+                            "fsn": "363698007"
+                        },
+                        "target": {
+                            "effectiveTime": "2002-01-31T00:00:00Z",
+                            "moduleId": "900000000000207008",
+                            "active": true,
+                            "conceptId": "113345001",
+                            "fsn": "113345001",
+                            "definitionStatus": "PRIMITIVE"
+                        },
+                        "sourceId": "416390003",
+                        "groupId": 1,
+                        "characteristicType": "STATED_RELATIONSHIP",
+                        "modifier": "EXISTENTIAL"
+                    },
+                    {
+                        "effectiveTime": "2008-07-31T00:00:00Z",
+                        "moduleId": "900000000000207008",
+                        "active": true,
+                        "relationshipId": "4446257020",
+                        "type": {
+                            "conceptId": "116676008",
+                            "fsn": "116676008"
+                        },
+                        "target": {
+                            "effectiveTime": "2002-01-31T00:00:00Z",
+                            "moduleId": "900000000000207008",
+                            "active": true,
+                            "conceptId": "49755003",
+                            "fsn": "49755003",
+                            "definitionStatus": "PRIMITIVE"
+                        },
+                        "sourceId": "416390003",
+                        "groupId": 1,
+                        "characteristicType": "STATED_RELATIONSHIP",
+                        "modifier": "EXISTENTIAL"
+                    }
+                ],
+                "isLeafStated": true,
+                "isLeafInferred": true
+            },
+            "changes": [
+                {
+                    "componentType": "Description",
+                    "componentId": "2546600013",
+                    "type": "UPDATE"
+                },
+                {
+                    "componentType": "Description",
+                    "componentId": "3305226012",
+                    "type": "CREATE"
+                },
+                {
+                    "componentType": "Description",
+                    "componentId": "3305227015",
+                    "type": "CREATE"
+                }
+            ]
+        }
+    }
+}

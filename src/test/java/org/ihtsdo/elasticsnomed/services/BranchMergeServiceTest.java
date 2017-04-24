@@ -2,7 +2,6 @@ package org.ihtsdo.elasticsnomed.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
-import org.ihtsdo.elasticsnomed.Config;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.domain.Concept;
 import org.ihtsdo.elasticsnomed.domain.Description;
