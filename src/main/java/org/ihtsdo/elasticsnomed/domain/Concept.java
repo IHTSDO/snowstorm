@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
@@ -208,6 +209,10 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 
 	public void setInactivationIndicatorMember(ReferenceSetMember inactivationIndicatorMember) {
 		this.inactivationIndicatorMember = inactivationIndicatorMember;
+	}
+
+	public Set<Relationship> getRelationshipsWithDestination(String conceptId) {
+		return relationships.stream().filter(r -> conceptId.equals(r.getDestinationId())).collect(Collectors.toSet());
 	}
 
 	@Override

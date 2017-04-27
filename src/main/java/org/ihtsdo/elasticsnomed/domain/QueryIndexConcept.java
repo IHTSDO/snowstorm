@@ -5,7 +5,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.util.Set;
 
-@Document(type = "concept", indexName = "snomed-index", shards = 8)
+@Document(type = "concept-index", indexName = "snomed-index", shards = 8)
 public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 
 	private Long conceptId;
@@ -17,6 +17,11 @@ public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 	public QueryIndexConcept(Long conceptId, Set<Long> ancestorIds) {
 		this.conceptId = conceptId;
 		this.ancestors = ancestorIds;
+	}
+
+	@Override
+	public boolean isChanged() {
+		return true;
 	}
 
 	@Override

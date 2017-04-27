@@ -4,6 +4,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
@@ -37,6 +38,7 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
+import javax.annotation.PostConstruct;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
@@ -46,7 +48,7 @@ import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
-public class ConceptService extends ComponentService {
+public class ConceptService extends ComponentService implements CommitListener {
 
 	@Autowired
 	private ConceptRepository conceptRepository;
@@ -73,6 +75,11 @@ public class ConceptService extends ComponentService {
 	private QueryIndexService queryIndexService;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
+
+	@PostConstruct
+	public void init() {
+		branchService.addCommitListener(this);
+	}
 
 	public Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> getComponentTypeRepoMap() {
 		Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> map = new LinkedHashMap<>();
@@ -181,7 +188,7 @@ public class ConceptService extends ComponentService {
 	}
 
 	private Page<Concept> doFind(Collection<? extends Object> conceptIds, Commit commit, PageRequest pageRequest) {
-		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteriaWithinOpenCommit(commit);
+		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 		return doFind(conceptIds, branchCriteria, pageRequest, true, true);
 	}
 
@@ -469,7 +476,7 @@ public class ConceptService extends ComponentService {
 		return doSave(conceptVersion, branch);
 	}
 
-	public Iterable<Concept> update(List<Concept> concepts, String path) {
+	public Iterable<Concept> createUpdate(List<Concept> concepts, String path) {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		return doSave(concepts, branch);
 	}
@@ -690,7 +697,7 @@ public class ConceptService extends ComponentService {
 				queryBuilder
 						.withQuery(boolQuery()
 								.must(termsQuery("descriptionId", descriptionIdsSegment))
-								.must(versionControlHelper.getBranchCriteriaWithinOpenCommit(commit)))
+								.must(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit)))
 						.withPageable(LARGE_PAGE);
 				try (final CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(queryBuilder.build(), Description.class)) {
 					descriptions.forEachRemaining(description ->
@@ -726,14 +733,9 @@ public class ConceptService extends ComponentService {
 		}
 	}
 
-	public void createTransitiveClosureForEveryConcept(String branch) {
-		final Commit commit = branchService.openCommit(branch);
-		postProcess(commit);
-		branchService.completeCommit(commit);
-	}
-
-	public void postProcess(Commit commit) {
-		queryIndexService.createTransitiveClosureForEveryConcept(commit);
+	@Override
+	public void preCommitCompletion(Commit commit) {
+		queryIndexService.updateStatedTransitiveClosure(commit);
 	}
 
 	public void deleteAll() {

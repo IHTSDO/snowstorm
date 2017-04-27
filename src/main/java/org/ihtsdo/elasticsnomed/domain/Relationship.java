@@ -79,13 +79,12 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	private ConceptMini target;
 
-	private static final Logger logger = LoggerFactory.getLogger(Relationship.class);
-
 	public Relationship() {
+		active = true;
 		moduleId = "";
 		destinationId = "";
 		typeId = "";
-		characteristicTypeId = "";
+		characteristicTypeId = Concepts.STATED_RELATIONSHIP;
 		modifierId = "";
 	}
 

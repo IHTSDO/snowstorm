@@ -2,7 +2,6 @@ package org.ihtsdo.elasticsnomed.services;
 
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
-import org.ihtsdo.elasticsnomed.Config;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.domain.*;
 import org.junit.After;
@@ -21,6 +20,8 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.ihtsdo.elasticsnomed.domain.Concepts.ISA;
+import static org.ihtsdo.elasticsnomed.domain.Concepts.SNOMEDCT_ROOT;
 import static org.junit.Assert.assertEquals;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -380,23 +381,23 @@ public class ConceptServiceTest {
 	@Test
 	public void testCreateUpdate10KConcepts() {
 		branchService.create("MAIN/A");
+		conceptService.create(new Concept(SNOMEDCT_ROOT), "MAIN/A");
 
 		List<Concept> concepts = new ArrayList<>();
-
 		final int tenThousand = 10 * 1000;
 		for (int i = 0; i < tenThousand; i++) {
 			concepts.add(
 					new Concept(null, Concepts.CORE_MODULE)
 							.addDescription(new Description("Concept " + i))
 							.addDescription(new Description("Concept " + i + "(finding)"))
-							.addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING))
+							.addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT))
 			);
 		}
 
 		final Iterable<Concept> conceptsCreated = conceptService.create(concepts, "MAIN/A");
 
 		final Page<Concept> page = conceptService.findAll("MAIN/A", new PageRequest(0, 100));
-		assertEquals(tenThousand, page.getTotalElements());
+		assertEquals(concepts.size() + 1, page.getTotalElements());
 		assertEquals(Concepts.CORE_MODULE, page.getContent().get(50).getModuleId());
 
 		final String anotherModule = "123123";
@@ -406,11 +407,24 @@ public class ConceptServiceTest {
 			toUpdate.add(concept);
 		});
 
-		conceptService.update(toUpdate, "MAIN/A");
+		conceptService.createUpdate(toUpdate, "MAIN/A");
 
 		final Page<Concept> pageAfterUpdate = conceptService.findAll("MAIN/A", new PageRequest(0, 100));
-		assertEquals(tenThousand, pageAfterUpdate.getTotalElements());
-		assertEquals(anotherModule, pageAfterUpdate.getContent().get(50).getModuleId());
+		assertEquals(tenThousand + 1, pageAfterUpdate.getTotalElements());
+		Concept someConcept = pageAfterUpdate.getContent().get(50);
+		if (someConcept.getId().equals(SNOMEDCT_ROOT)) {
+			someConcept = pageAfterUpdate.getContent().get(51);
+		}
+		assertEquals(anotherModule, someConcept.getModuleId());
+		assertEquals(1, someConcept.getRelationships().size());
+
+		// Move all concepts in hierarchy
+		conceptService.create(new Concept(Concepts.CLINICAL_FINDING).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/A");
+		concepts.forEach(c -> {
+			c.getRelationships().iterator().next().setActive(false);
+			c.addRelationship(new Relationship(ISA, Concepts.CLINICAL_FINDING));
+		});
+		conceptService.createUpdate(concepts, "MAIN/A");
 	}
 
 	private void printAllDescriptions(String path) {

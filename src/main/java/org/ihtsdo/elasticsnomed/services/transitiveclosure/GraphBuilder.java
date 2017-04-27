@@ -7,8 +7,8 @@ public class GraphBuilder {
 
 	private Long2ObjectMap<Node> nodeLookup = new Long2ObjectOpenHashMap<>();
 
-	public void addEdge(Long sourceId, Long destinationId) {
-		getCreateNode(sourceId).addEdge(getCreateNode(destinationId));
+	public void addParent(Long sourceId, Long destinationId) {
+		getCreateNode(sourceId).addParent(getCreateNode(destinationId));
 	}
 
 	private Node getCreateNode(Long id) {
@@ -22,5 +22,16 @@ public class GraphBuilder {
 
 	public Iterable<Node> getNodes() {
 		return nodeLookup.values();
+	}
+
+	public int getNodeCount() {
+		return nodeLookup.size();
+	}
+
+	public void removeParent(long source, long destination) {
+		final Node node = nodeLookup.get(source);
+		if (node != null) {
+			node.removeParent(destination);
+		}
 	}
 }

@@ -93,11 +93,6 @@ public class Config {
 	}
 
 	@Bean
-	public ConceptService getConceptService() {
-		return new ConceptService();
-	}
-
-	@Bean
 	public BranchService getBranchService() {
 		return new BranchService();
 	}

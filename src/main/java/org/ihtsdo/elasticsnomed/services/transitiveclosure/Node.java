@@ -30,8 +30,12 @@ public class Node {
 		return id;
 	}
 
-	public void addEdge(Node parent) {
+	public void addParent(Node parent) {
 		parents.add(parent);
+	}
+
+	public void removeParent(long parentId) {
+		parents.remove(new Node(parentId));
 	}
 
 	@Override

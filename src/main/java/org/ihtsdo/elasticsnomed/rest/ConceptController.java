@@ -52,7 +52,7 @@ public class ConceptController {
 	public Iterable<Concept> updateConcepts(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts) {
 		List<Concept> conceptList = new ArrayList<>();
 		concepts.forEach(conceptView -> conceptList.add((Concept) conceptView));
-		return conceptService.update(conceptList, BranchPathUriUtil.parseBranchPath(branch));
+		return conceptService.createUpdate(conceptList, BranchPathUriUtil.parseBranchPath(branch));
 	}
 
 	@ResponseBody
@@ -73,11 +73,6 @@ public class ConceptController {
 													   @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
 
 		return conceptService.findConceptParents(conceptId, BranchPathUriUtil.parseBranchPath(branch), form);
-	}
-
-	@RequestMapping(value = "/{branch}/calculate-transitive-closure", method = RequestMethod.POST, produces = "application/json")
-	public void calculateTransitiveClosure(@PathVariable String branch) {
-		conceptService.createTransitiveClosureForEveryConcept(BranchPathUriUtil.parseBranchPath(branch));
 	}
 
 }
