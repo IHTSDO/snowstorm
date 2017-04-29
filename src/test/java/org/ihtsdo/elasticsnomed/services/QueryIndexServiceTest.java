@@ -97,7 +97,7 @@ public class QueryIndexServiceTest {
 
 	private void assertTC(Concept concept, Concept... ancestors) {
 		Set<Long> expectedAncestors = Arrays.stream(ancestors).map(Concept::getConceptIdAsLong).collect(Collectors.toSet());
-		Assert.assertEquals(expectedAncestors, service.retrieveAncestors(concept.getId(),"MAIN"));
+		Assert.assertEquals(expectedAncestors, service.retrieveAncestors(concept.getId(),"MAIN", true));
 	}
 
 }

@@ -109,9 +109,9 @@ public class ImportServiceTest {
 		Assert.assertEquals(102, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
 		Assert.assertEquals(102, conceptService.findAll("MAIN", new PageRequest(0, 10)).getTotalElements());
 
-		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryIndexService.retrieveAncestors("131148009", "MAIN/20020131"));
-		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryIndexService.retrieveAncestors("131148009", "MAIN/20050131"));
-		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryIndexService.retrieveAncestors("131148009", "MAIN/20060131"));
+		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryIndexService.retrieveAncestors("131148009", "MAIN/20020131", false));
+		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryIndexService.retrieveAncestors("131148009", "MAIN/20050131", false));
+		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryIndexService.retrieveAncestors("131148009", "MAIN/20060131", false));
 	}
 
 	@Test

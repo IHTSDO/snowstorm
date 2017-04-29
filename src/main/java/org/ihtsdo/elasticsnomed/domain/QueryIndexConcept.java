@@ -10,13 +10,15 @@ public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 
 	private Long conceptId;
 	private Set<Long> ancestors;
+	private boolean stated;
 
 	public QueryIndexConcept() {
 	}
 
-	public QueryIndexConcept(Long conceptId, Set<Long> ancestorIds) {
+	public QueryIndexConcept(Long conceptId, Set<Long> ancestorIds, boolean stated) {
 		this.conceptId = conceptId;
 		this.ancestors = ancestorIds;
+		this.stated = stated;
 	}
 
 	@Override
@@ -51,11 +53,20 @@ public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 		this.ancestors = ancestors;
 	}
 
+	public boolean isStated() {
+		return stated;
+	}
+
+	public void setStated(boolean stated) {
+		this.stated = stated;
+	}
+
 	@Override
 	public String toString() {
 		return "QueryIndexConcept{" +
 				"conceptId=" + conceptId +
 				", ancestors=" + ancestors +
+				", stated=" + stated +
 				", internalId='" + getInternalId() + '\'' +
 				", start='" + getStart() + '\'' +
 				", end='" + getEnd() + '\'' +

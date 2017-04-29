@@ -3,13 +3,11 @@ package org.ihtsdo.elasticsnomed.services;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
-import org.elasticsearch.index.query.QueryBuilders;
 import org.ihtsdo.elasticsnomed.domain.Concepts;
 import org.ihtsdo.elasticsnomed.domain.QueryIndexConcept;
 import org.ihtsdo.elasticsnomed.domain.Relationship;
 import org.ihtsdo.elasticsnomed.repositories.QueryIndexConceptRepository;
 import org.ihtsdo.elasticsnomed.services.transitiveclosure.GraphBuilder;
-import org.ihtsdo.elasticsnomed.services.transitiveclosure.Node;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,11 +41,12 @@ public class QueryIndexService extends ComponentService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public Set<Long> retrieveAncestors(String conceptId, String path) {
+	public Set<Long> retrieveAncestors(String conceptId, String path, boolean stated) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(versionControlHelper.getBranchCriteria(path))
 						.must(termQuery("conceptId", conceptId))
+						.must(termQuery("stated", stated))
 				)
 				.build();
 		final List<QueryIndexConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryIndexConcept.class).getContent();
@@ -61,8 +60,24 @@ public class QueryIndexService extends ComponentService {
 		return concepts.get(0).getAncestors();
 	}
 
-	public void updateStatedTransitiveClosure(Commit commit) {
-		logger.info("Performing incremental update of stated transitive closures");
+	public void updateStatedAndInferredTransitiveClosures(Commit commit) {
+		updateTransitiveClosure(commit, true);
+		updateTransitiveClosure(commit, false);
+	}
+
+	public void updateTransitiveClosure(Commit commit, boolean stated) {
+		String formName;
+		Set<String> characteristicTypeIds = new HashSet<>();
+		if (stated) {
+			formName = "stated";
+			characteristicTypeIds.add(Concepts.STATED_RELATIONSHIP);
+			characteristicTypeIds.add(Concepts.ADDITIONAL_RELATIONSHIP);
+		} else {
+			formName = "inferred";
+			characteristicTypeIds.add(Concepts.INFERRED_RELATIONSHIP);
+		}
+
+		logger.info("Performing incremental update of {} transitive closures", formName);
 		final String branchPath = commit.getBranch().getFatPath();
 
 		// Step: Collect source and destination of changed is-a relationships
@@ -71,13 +86,18 @@ public class QueryIndexService extends ComponentService {
 				.withQuery(boolQuery()
 						.must(versionControlHelper.getBranchCriteriaOpenCommitChangesOnly(commit))
 						.must(termQuery("typeId", Concepts.ISA))
-						.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP))
+						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
 				)
 				.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
 			changedInferredIsARelationships.forEachRemaining(relationship -> {
 				relevantConceptIds.add(parseLong(relationship.getSourceId()));
 				relevantConceptIds.add(parseLong(relationship.getDestinationId()));
 			});
+		}
+
+		if (relevantConceptIds.isEmpty()) {
+			logger.info("No {} changes found. Nothing to do.", formName);
+			return;
 		}
 
 		// Step: Identify existing nodes which will be touched
@@ -106,7 +126,7 @@ public class QueryIndexService extends ComponentService {
 						.must(versionControlHelper.getBranchCriteria(branchPath))
 						.must(termQuery("active", true))
 						.must(termQuery("typeId", Concepts.ISA))
-						.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP))
+						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
 				)
 				.withFilter(boolQuery().must(termsQuery("sourceId", existingNodes)))
 				.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
@@ -125,7 +145,7 @@ public class QueryIndexService extends ComponentService {
 				.withQuery(boolQuery()
 						.must(versionControlHelper.getBranchCriteriaOpenCommitChangesOnly(commit))
 						.must(termQuery("typeId", Concepts.ISA))
-						.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP))
+						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
 				)
 				.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
 			existingInferredIsARelationships.forEachRemaining(relationship -> {
@@ -138,23 +158,20 @@ public class QueryIndexService extends ComponentService {
 				}
 			});
 		}
-		logger.info("{} is-a relationships added, {} removed.", relationshipsAdded.get(), relationshipsRemoved.get());
+		logger.info("{} {} is-a relationships added, {} removed.", relationshipsAdded.get(), formName, relationshipsRemoved.get());
 
 
 		// Step: Save changes
-		// Strategy: Persist all nodes excluding root nodes but including the Snomed CT root
 		Set<QueryIndexConcept> indexConceptsToSave = new HashSet<>();
 		graphBuilder.getNodes().forEach(node -> {
 			final Set<Long> transitiveClosure = node.getTransitiveClosure();
 			final Long nodeId = node.getId();
-			if (!transitiveClosure.isEmpty() || nodeId.toString().equals(Concepts.SNOMEDCT_ROOT)) {
-				indexConceptsToSave.add(new QueryIndexConcept(nodeId, transitiveClosure));
-			}
+			indexConceptsToSave.add(new QueryIndexConcept(nodeId, transitiveClosure, stated));
 		});
 		if (!indexConceptsToSave.isEmpty()) {
 			doSaveBatch(indexConceptsToSave, commit);
 		}
-		logger.info("{} concept transitive closures updated.", indexConceptsToSave.size());
+		logger.info("{} {} concept transitive closures updated.", indexConceptsToSave.size(), formName);
 	}
 
 	public void doSaveBatch(Collection<QueryIndexConcept> indexConcepts, Commit commit) {

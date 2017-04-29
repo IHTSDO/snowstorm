@@ -735,7 +735,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 	@Override
 	public void preCommitCompletion(Commit commit) {
-		queryIndexService.updateStatedTransitiveClosure(commit);
+		queryIndexService.updateStatedAndInferredTransitiveClosures(commit);
 	}
 
 	public void deleteAll() {
