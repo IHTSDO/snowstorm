@@ -15,10 +15,10 @@ public class ControllerAdvice {
 
 	private static final Logger logger = LoggerFactory.getLogger(ControllerAdvice.class);
 
-	@ExceptionHandler(IllegalArgumentException.class)
+	@ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class})
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	@ResponseBody
-	public Map<String,Object> handleIndexNotFoundException(IllegalArgumentException exception) {
+	public Map<String,Object> handleIllegalArgumentException(Exception exception) {
 		HashMap<String, Object> result = new HashMap<>();
 		result.put("error", HttpStatus.BAD_REQUEST);
 		result.put("message", exception.getMessage());
