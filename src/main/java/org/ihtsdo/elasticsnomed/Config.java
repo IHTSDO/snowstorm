@@ -114,9 +114,8 @@ public class Config {
 				"/branches/(.*)/children",
 				"/branches/(.*)/parents",
 				"/branches/(.*)",
-				"/browser/(.*)/concepts",
-				"/browser/(.*)/concepts",
-				"/browser/(.*)/descriptions"
+				"/browser/(.*)/concepts.*",
+				"/browser/(.*)/descriptions.*"
 		));
 	}
 
