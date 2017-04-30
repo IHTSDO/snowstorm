@@ -78,7 +78,7 @@ public class ConceptMini {
 	}
 
 	@JsonView(value = View.Component.class)
-	public Boolean getLeafInferred() {
+	public Boolean getIsLeafInferred() {
 		return leafInferred;
 	}
 
@@ -88,7 +88,7 @@ public class ConceptMini {
 	}
 
 	@JsonView(value = View.Component.class)
-	public Boolean getLeafStated() {
+	public Boolean getIsLeafStated() {
 		return leafStated;
 	}
 
