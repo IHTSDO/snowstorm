@@ -4,6 +4,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.ihtsdo.elasticsnomed.domain.BranchMergeJob;
+import org.ihtsdo.elasticsnomed.rest.pojo.CreateBranchRequest;
 import org.ihtsdo.elasticsnomed.rest.pojo.MergeRequest;
 import org.ihtsdo.elasticsnomed.services.BranchMergeService;
 import io.swagger.annotations.ApiOperation;
@@ -31,8 +32,8 @@ public class BranchController {
 
 	@RequestMapping(value = "/branches", method = RequestMethod.POST, produces = "application/json")
 	@ResponseBody
-	public Branch createBranch(@RequestParam String branchPath) {
-		return branchService.create(BranchPathUriUtil.parseBranchPath(branchPath));
+	public Branch createBranch(@RequestBody CreateBranchRequest request) {
+		return branchService.create(request.getBranchPath());
 	}
 
 	@ApiOperation("Retrieve a single branch")
