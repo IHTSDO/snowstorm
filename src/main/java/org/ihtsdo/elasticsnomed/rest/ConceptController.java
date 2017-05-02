@@ -38,7 +38,7 @@ public class ConceptController {
 	}
 
 	@ResponseBody
-	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.POST, produces = "application/json")
+	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.PUT, produces = "application/json")
 	@JsonView(value = View.Component.class)
 	public ConceptView updateConcept(@PathVariable String branch, @PathVariable String conceptId, @RequestBody @Valid ConceptView concept) {
 		Assert.isTrue(concept.getConceptId() != null && conceptId != null && concept.getConceptId().equals(conceptId), "The conceptId in the " +
