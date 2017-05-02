@@ -27,7 +27,8 @@ public class DescriptionController {
 	@JsonView(value = View.Component.class)
 	public List<DescriptionSearchResult> findConcepts(@PathVariable String branch, @RequestParam(required = false) String query,
 													  @RequestParam(defaultValue = "0") int number, @RequestParam(defaultValue = "50") int size) {
-		org.springframework.data.domain.Page<Description> page = conceptService.findDescriptions(BranchPathUriUtil.parseBranchPath(branch), query, new PageRequest(number, size));
+		branch = BranchPathUriUtil.parseBranchPath(branch);
+		org.springframework.data.domain.Page<Description> page = conceptService.findDescriptions(branch, query, new PageRequest(number, size));
 		Set<String> conceptIds = page.getContent().stream().map(Description::getConceptId).collect(Collectors.toSet());
 		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds);
 
