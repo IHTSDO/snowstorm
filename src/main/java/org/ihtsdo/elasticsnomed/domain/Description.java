@@ -71,6 +71,7 @@ public class Description extends SnomedComponent<Description> {
 	private static final Logger logger = LoggerFactory.getLogger(Description.class);
 
 	public Description() {
+		active = true;
 		term = "";
 		moduleId = "";
 		languageCode = "";

@@ -20,8 +20,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.ihtsdo.elasticsnomed.domain.Concepts.ISA;
-import static org.ihtsdo.elasticsnomed.domain.Concepts.SNOMEDCT_ROOT;
+import static org.ihtsdo.elasticsnomed.domain.Concepts.*;
 import static org.junit.Assert.assertEquals;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -92,22 +91,44 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testDeleteRelationship() {
+	public void testCreateDeleteRelationship() {
+		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), "MAIN");
+		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), "MAIN");
+
 		final Concept concept = conceptService.create(
 				new Concept("1")
-						.addRelationship(new Relationship("1"))
-						.addRelationship(new Relationship("2"))
-						.addRelationship(new Relationship("3"))
+						.addRelationship(new Relationship("1", ISA, SNOMEDCT_ROOT))
+						.addRelationship(new Relationship("2", ISA, SNOMEDCT_ROOT))
+						.addRelationship(new Relationship("3", ISA, SNOMEDCT_ROOT))
 				, "MAIN");
 
+		Relationship createdRelationship = concept.getRelationships().iterator().next();
+		assertEquals("Creation response should contain FSN within relationship type", "Is a (attribute)", createdRelationship.type().getFsn());
+		assertEquals("Creation response should contain definition status within relationship type", "PRIMITIVE", createdRelationship.type().getDefinitionStatus());
+		assertEquals("Creation response should contain FSN within relationship target", "SNOMED CT Concept", createdRelationship.target().getFsn());
+		assertEquals("Creation response should contain definition status within relationship target", "PRIMITIVE", createdRelationship.target().getDefinitionStatus());
+
 		assertEquals(3, concept.getRelationships().size());
-		assertEquals(3, conceptService.find("1", "MAIN").getRelationships().size());
+		Concept foundConcept = conceptService.find("1", "MAIN");
+		assertEquals(3, foundConcept.getRelationships().size());
+
+		Relationship foundRelationship = foundConcept.getRelationships().iterator().next();
+		assertEquals("Find response should contain FSN within relationship type", "Is a (attribute)", foundRelationship.type().getFsn());
+		assertEquals("Find response should contain definition status within relationship type", "PRIMITIVE", foundRelationship.type().getDefinitionStatus());
+		assertEquals("Find response should contain FSN within relationship target", "SNOMED CT Concept", foundRelationship.target().getFsn());
+		assertEquals("Find response should contain definition status within relationship target", "PRIMITIVE", foundRelationship.target().getDefinitionStatus());
 
 		concept.getRelationships().remove(new Relationship("3"));
 		final Concept updatedConcept = conceptService.update(concept, "MAIN");
 
 		assertEquals(2, updatedConcept.getRelationships().size());
 		assertEquals(2, conceptService.find("1", "MAIN").getRelationships().size());
+
+		Relationship updatedRelationship = foundConcept.getRelationships().iterator().next();
+		assertEquals("Update response should contain FSN within relationship type", "Is a (attribute)", updatedRelationship.type().getFsn());
+		assertEquals("Update response should contain definition status within relationship type", "PRIMITIVE", updatedRelationship.type().getDefinitionStatus());
+		assertEquals("Update response should contain FSN within relationship target", "SNOMED CT Concept", updatedRelationship.target().getFsn());
+		assertEquals("Update response should contain definition status within relationship target", "PRIMITIVE", updatedRelationship.target().getDefinitionStatus());
 	}
 
 	@Test
@@ -468,6 +489,12 @@ public class ConceptServiceTest {
 
 	private Set<String> toTermSet(Collection<Description> descriptions) {
 		return descriptions.stream().map(Description::getTerm).collect(Collectors.toSet());
+	}
+
+	private Description fsn(String term) {
+		Description description = new Description(term);
+		description.setTypeId(FSN);
+		return description;
 	}
 
 	@After

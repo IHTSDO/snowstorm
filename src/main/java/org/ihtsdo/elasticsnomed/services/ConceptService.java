@@ -200,7 +200,19 @@ public class ConceptService extends ComponentService implements CommitListener {
 	public Map<String, ConceptMini> findConceptMinis(String path, Set<String> conceptIds) {
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 		Page<Concept> concepts = doFind(conceptIds, branchCriteria, new PageRequest(0, conceptIds.size()), false, false);
-		return concepts.getContent().stream().map(c -> new ConceptMini(c)).collect(Collectors.toMap(ConceptMini::getConceptId, Function.identity()));
+		return concepts.getContent().stream().map(ConceptMini::new).collect(Collectors.toMap(ConceptMini::getConceptId, Function.identity()));
+	}
+
+	private void populateConceptMinis(QueryBuilder branchCriteria, Map<String, ConceptMini> minisToPopulate) {
+		if (!minisToPopulate.isEmpty()) {
+			Set<String> conceptIds = minisToPopulate.keySet();
+			Page<Concept> concepts = doFind(conceptIds, branchCriteria, new PageRequest(0, conceptIds.size()), false, false);
+			concepts.getContent().forEach(c -> {
+				ConceptMini conceptMini = minisToPopulate.get(c.getConceptId());
+				conceptMini.setDefinitionStatus(c.getDefinitionStatus());
+				conceptMini.addActiveFsns(c.getDescriptions().stream().filter(d -> d.isActive() && d.getTypeId().equals(Concepts.FSN)).collect(Collectors.toSet()));
+			});
+		}
 	}
 
 	private Page<Concept> doFind(Collection<? extends Object> conceptIdsToFind,
@@ -553,8 +565,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 			// Inactivate relationships of inactive concept
 			if (!concept.isActive()) {
-				concept.getRelationships().stream()
-						.forEach(relationship -> relationship.setActive(false));
+				concept.getRelationships().forEach(relationship -> relationship.setActive(false));
 			}
 
 			// Mark changed concepts as changed
@@ -621,7 +632,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 					langRefsetMembersToPersist.add(leftoverMember);
 				}
 			}
-			concept.getRelationships().stream()
+			concept.getRelationships()
 					.forEach(relationship -> relationship.setSourceId(concept.getConceptId()));
 			concept.getRelationships().stream()
 					.filter(relationship -> relationship.getRelationshipId() == null)
@@ -646,9 +657,13 @@ public class ConceptService extends ComponentService implements CommitListener {
 		for (Description description : descriptionsToPersist) {
 			conceptMap.get(description.getConceptId()).addDescription(description);
 		}
+		Map<String, ConceptMini> minisToLoad = new HashMap<>();
 		for (Relationship relationship : relationshipsToPersist) {
 			conceptMap.get(relationship.getSourceId()).addRelationship(relationship);
+			relationship.setType(getConceptMini(minisToLoad, relationship.getTypeId()));
+			relationship.setTarget(getConceptMini(minisToLoad, relationship.getDestinationId()));
 		}
+		populateConceptMinis(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit), minisToLoad);
 
 		return conceptsSaved;
 	}

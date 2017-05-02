@@ -99,6 +99,12 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.destinationId = destinationId;
 	}
 
+	public Relationship(String relationshipId, String typeId, String destinationId) {
+		this(relationshipId);
+		this.typeId = typeId;
+		this.destinationId = destinationId;
+	}
+
 	public Relationship(String id, String effectiveTime, boolean active, String moduleId, String sourceId, String destinationId, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
 		this();
 		this.relationshipId = id;

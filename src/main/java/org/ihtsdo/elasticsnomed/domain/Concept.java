@@ -229,8 +229,9 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 		return definitionStatusId;
 	}
 
-	public void setDefinitionStatusId(String definitionStatusId) {
+	public Concept setDefinitionStatusId(String definitionStatusId) {
 		this.definitionStatusId = definitionStatusId;
+		return this;
 	}
 
 	@Override

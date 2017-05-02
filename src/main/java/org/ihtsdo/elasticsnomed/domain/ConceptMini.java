@@ -3,6 +3,7 @@ package org.ihtsdo.elasticsnomed.domain;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.ihtsdo.elasticsnomed.rest.View;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -39,6 +40,10 @@ public class ConceptMini {
 
 	public void addActiveFsn(Description fsn) {
 		activeFsns.add(fsn);
+	}
+
+	public void addActiveFsns(Collection<Description> fsns) {
+		activeFsns.addAll(fsns);
 	}
 
 	@JsonView(value = View.Component.class)
