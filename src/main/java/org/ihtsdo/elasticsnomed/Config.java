@@ -23,6 +23,7 @@ import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDa
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.EntityMapper;
 import org.springframework.data.elasticsearch.core.convert.MappingElasticsearchConverter;
 import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchMappingContext;
@@ -51,6 +52,8 @@ public class Config {
 
 	@Autowired
 	private JestClient jestClient;
+
+	public static final PageRequest PAGE_OF_ONE = new PageRequest(0, 1);
 
 	@Bean
 	public JestElasticsearchTemplate elasticsearchTemplate() throws UnknownHostException {
@@ -116,6 +119,7 @@ public class Config {
 				"/branches/(.*)",
 				"/browser/(.*)/concepts.*",
 				"/browser/(.*)/descriptions.*",
+				"/(.*)/concepts/.*",
 				"/browser/(.*)/validate/concept"
 		));
 	}

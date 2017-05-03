@@ -25,9 +25,6 @@ public class App extends Config implements ApplicationRunner {
 	private BranchService branchService;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
-
-	@Autowired
 	private ImportService importService;
 
 	final Logger logger = LoggerFactory.getLogger(getClass());

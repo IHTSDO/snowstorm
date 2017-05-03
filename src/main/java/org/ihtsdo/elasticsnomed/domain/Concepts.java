@@ -17,6 +17,7 @@ public class Concepts {
 
 	public static final String FSN = "900000000000003001";
 	public static final String SYNONYM = "900000000000013009";
+	public static final String TEXT_DEFINITION = "900000000000550004";
 
 	public static final String ACCEPTABLE = "900000000000549004";
 	public static final String PREFERRED = "900000000000548007";
