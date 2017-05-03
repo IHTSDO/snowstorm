@@ -2,11 +2,13 @@ package org.ihtsdo.elasticsnomed.services;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.ihtsdo.elasticsnomed.domain.Concept;
 import org.ihtsdo.elasticsnomed.domain.Description;
@@ -83,10 +85,15 @@ public class BranchReviewService {
 		final MergeReview mergeReview = new MergeReview(UUID.randomUUID().toString(), source, target,
 				sourceToTarget.getId(), targetToSource.getId());
 		mergeReview.setStatus(ReviewStatus.PENDING);
-		executorService.submit((Runnable) () -> {
-			sourceToTarget.getChanges();
-			targetToSource.getChanges();
-			mergeReview.setStatus(ReviewStatus.CURRENT);
+		executorService.submit(() -> {
+			try {
+				getBranchReviewConceptChanges(sourceToTarget.getId());
+				getBranchReviewConceptChanges(targetToSource.getId());
+				mergeReview.setStatus(ReviewStatus.CURRENT);
+			} catch (Exception e) {
+				mergeReview.setStatus(ReviewStatus.FAILED);
+				logger.error("Collecting branch review changes failed.", e);
+			}
 		});
 		mergeReviewStore.put(mergeReview.getId(), mergeReview);
 		return mergeReview;
@@ -114,7 +121,7 @@ public class BranchReviewService {
 		final MergeReview mergeReview = getMergeReviewOrThrow(id);
 		assertMergeReviewCurrent(mergeReview);
 
-		final Sets.SetView<Long> conceptsChangedInBoth = getConflictingConceptIds(mergeReview);
+		final Set<Long> conceptsChangedInBoth = getConflictingConceptIds(mergeReview);
 
 		final Collection<Concept> conceptOnSource = conceptService.find(mergeReview.getSourcePath(), conceptsChangedInBoth);
 		final Collection<Concept> conceptOnTarget = conceptService.find(mergeReview.getTargetPath(), conceptsChangedInBoth);
@@ -136,7 +143,7 @@ public class BranchReviewService {
 
 		// Check all conflicts manually merged
 		final Map<Long, Concept> manuallyMergedConcepts = mergeReview.getManuallyMergedConcepts();
-		final Sets.SetView<Long> conflictingConceptIds = getConflictingConceptIds(mergeReview);
+		final Set<Long> conflictingConceptIds = getConflictingConceptIds(mergeReview);
 		final Set<Long> conflictsRemaining = new HashSet<>(conflictingConceptIds);
 		conflictsRemaining.removeAll(manuallyMergedConcepts.keySet());
 		if (!conflictsRemaining.isEmpty()) {
@@ -156,7 +163,7 @@ public class BranchReviewService {
 		}
 	}
 
-	private Sets.SetView<Long> getConflictingConceptIds(MergeReview mergeReview) {
+	private Set<Long> getConflictingConceptIds(MergeReview mergeReview) {
 		final BranchReview sourceToTargetReview = reviewStore.getIfPresent(mergeReview.getSourceToTargetReviewId());
 		final BranchReview targetToSourceReview = reviewStore.getIfPresent(mergeReview.getSourceToTargetReviewId());
 		return Sets.intersection(sourceToTargetReview.getChanges().getChangedConcepts(), targetToSourceReview.getChanges().getChangedConcepts());
@@ -258,11 +265,14 @@ public class BranchReviewService {
 
 	public BranchReviewConceptChanges createConceptChangeReportOnBranchForTimeRange(String path, Date start, Date end, boolean sourceIsParent) {
 
+		logger.info("Creating change report: branch {} time range {} to {}", path, start, end);
+
 		// Find components of each type that are on the target branch and have been ended on the source branch
-		final Set<Long> conceptsWithEndedVersions = new HashSet<>();
-		final Set<Long> conceptsWithNewVersions = new HashSet<>();
-		final Set<Long> conceptsWithComponentChange = new HashSet<>();
+		final Set<Long> conceptsWithEndedVersions = new LongOpenHashSet();
+		final Set<Long> conceptsWithNewVersions = new LongOpenHashSet();
+		final Set<Long> conceptsWithComponentChange = new LongOpenHashSet();
 		if (!sourceIsParent) {
+			logger.info("Collecting versions replaced for change report: branch {} time range {} to {}", path, start, end);
 			// Technique: Iterate child's 'versionsReplaced' set
 			final Set<String> versionsReplaced = branchService.findBranchOrThrow(path).getVersionsReplaced();
 			try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(versionsReplaced), Concept.class)) {
@@ -291,6 +301,7 @@ public class BranchReviewService {
 		}
 
 		// Find new versions of each component type and collect the conceptId they relate to
+		logger.info("Collecting concept changes for change report: branch {} time range {} to {}", path, start, end);
 		final BoolQueryBuilder branchUpdatesCriteria = versionControlHelper.getUpdatesOnBranchDuringRangeCriteria(path, start, end);
 		try (final CloseableIterator<Concept> stream =
 					 elasticsearchTemplate.stream(newSearchQuery(branchUpdatesCriteria), Concept.class)) {
@@ -303,33 +314,41 @@ public class BranchReviewService {
 				}
 			});
 		}
+		logger.info("Collecting description changes for change report: branch {} time range {} to {}", path, start, end);
 		try (final CloseableIterator<Description> stream =
 					 elasticsearchTemplate.stream(newSearchQuery(branchUpdatesCriteria), Description.class)) {
 			stream.forEachRemaining(description -> conceptsWithComponentChange.add(parseLong(description.getConceptId())));
 		}
+		logger.info("Collecting relationship changes for change report: branch {} time range {} to {}", path, start, end);
 		try (final CloseableIterator<Relationship> stream =
 					 elasticsearchTemplate.stream(newSearchQuery(branchUpdatesCriteria), Relationship.class)) {
 			stream.forEachRemaining(relationship -> conceptsWithComponentChange.add(parseLong(relationship.getSourceId())));
 		}
+		logger.info("Collecting refset member changes for change report: branch {} time range {} to {}", path, start, end);
 		Set<Long> descriptionIds = new HashSet<>();
 		try (final CloseableIterator<ReferenceSetMember> stream =
 					 elasticsearchTemplate.stream(newSearchQuery(branchUpdatesCriteria), ReferenceSetMember.class)) {
 			stream.forEachRemaining(member -> descriptionIds.add(parseLong(member.getReferencedComponentId())));
 		}
+		logger.info("Collecting refset member description changes for change report: branch {} time range {} to {}", path, start, end);
 		// Fetch descriptions from any visible branch to get the lang refset's concept id.
-		try (final CloseableIterator<Description> stream =
-					 elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(versionControlHelper.getBranchCriteria(path))
-						.must(termsQuery("descriptionId", descriptionIds)))
-				.withPageable(ComponentService.LARGE_PAGE)
-				.build(), Description.class)) {
-			stream.forEachRemaining(description -> conceptsWithComponentChange.add(parseLong(description.getConceptId())));
+		for (List<Long> descriptionIdPartition : Iterables.partition(descriptionIds, 10000)) {
+			try (final CloseableIterator<Description> stream =
+						 elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+								 .withQuery(boolQuery()
+										 .must(versionControlHelper.getBranchCriteria(path))
+										 .must(termsQuery("descriptionId", descriptionIdPartition)))
+								 .withPageable(ComponentService.LARGE_PAGE)
+								 .build(), Description.class)) {
+				stream.forEachRemaining(description -> conceptsWithComponentChange.add(parseLong(description.getConceptId())));
+			}
 		}
 
 		final Sets.SetView<Long> conceptsDeleted = Sets.difference(conceptsWithEndedVersions, conceptsWithNewVersions);
 		final Sets.SetView<Long> conceptsCreated = Sets.difference(conceptsWithNewVersions, conceptsWithEndedVersions);
 		final Sets.SetView<Long> conceptsModified = Sets.difference(Sets.difference(conceptsWithComponentChange, conceptsCreated), conceptsDeleted);
+
+		logger.info("Change report complete for branch {} time range {} to {}", path, start, end);
 
 		return new BranchReviewConceptChanges(null, conceptsCreated, conceptsModified, conceptsDeleted);
 	}
