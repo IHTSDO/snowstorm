@@ -35,6 +35,9 @@ public class ConceptServiceTest {
 	@Autowired
 	private ConceptService conceptService;
 
+	@Autowired
+	private DescriptionService descriptionService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Before
@@ -319,20 +322,20 @@ public class ConceptServiceTest {
 		createConceptWithPathIdAndTerms("MAIN", "4", "Foot");
 		createConceptWithPathIdAndTerms("MAIN", "5", "Footwear");
 
-		final List<Description> content = conceptService.findDescriptions("MAIN", "Foo* cr*", PAGE_REQUEST).getContent();
+		final List<Description> content = descriptionService.findDescriptions("MAIN", "Foo* cr*", PAGE_REQUEST, conceptService).getContent();
 		assertSearchResults(content, 5, "Foot cramp", "Foot cramps");
 
-		final List<Description> fooMatches = conceptService.findDescriptions("MAIN", "Foo*", PAGE_REQUEST).getContent();
+		final List<Description> fooMatches = descriptionService.findDescriptions("MAIN", "Foo*", PAGE_REQUEST, conceptService).getContent();
 		assertSearchResults(fooMatches, 5);
 
 		branchService.create("MAIN/A");
 
 		createConceptWithPathIdAndTerms("MAIN/A", "8", "Foot care");
 
-		final List<Description> footOnMain = conceptService.findDescriptions("MAIN", "Foot", PAGE_REQUEST).getContent();
+		final List<Description> footOnMain = descriptionService.findDescriptions("MAIN", "Foot", PAGE_REQUEST, conceptService).getContent();
 		assertEquals(4, footOnMain.size());
 
-		final List<Description> footOnA = conceptService.findDescriptions("MAIN/A", "Foot", PAGE_REQUEST).getContent();
+		final List<Description> footOnA = descriptionService.findDescriptions("MAIN/A", "Foot", PAGE_REQUEST, conceptService).getContent();
 		assertEquals(5, footOnA.size());
 		Assert.assertTrue(toTermSet(footOnA).contains("Foot care"));
 	}
@@ -341,8 +344,8 @@ public class ConceptServiceTest {
 	public void testLatestVersionMatch() {
 		createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
 
-		assertEquals(1, conceptService.findDescriptions("MAIN", "Heart", PAGE_REQUEST).getNumberOfElements());
-		assertEquals(0, conceptService.findDescriptions("MAIN", "Bone", PAGE_REQUEST).getNumberOfElements());
+		assertEquals(1, descriptionService.findDescriptions("MAIN", "Heart", PAGE_REQUEST, conceptService).getNumberOfElements());
+		assertEquals(0, descriptionService.findDescriptions("MAIN", "Bone", PAGE_REQUEST, conceptService).getNumberOfElements());
 
 		// Create branch (base point is now)
 		branchService.create("MAIN/A");
@@ -352,14 +355,14 @@ public class ConceptServiceTest {
 		concept.getDescriptions().iterator().next().setTerm("Bone");
 		conceptService.update(concept, "MAIN");
 
-		assertEquals(0, conceptService.findDescriptions("MAIN", "Heart", PAGE_REQUEST).getNumberOfElements());
-		assertEquals(1, conceptService.findDescriptions("MAIN", "Bone", PAGE_REQUEST).getNumberOfElements());
+		assertEquals(0, descriptionService.findDescriptions("MAIN", "Heart", PAGE_REQUEST, conceptService).getNumberOfElements());
+		assertEquals(1, descriptionService.findDescriptions("MAIN", "Bone", PAGE_REQUEST, conceptService).getNumberOfElements());
 
 		printAllDescriptions("MAIN");
 		printAllDescriptions("MAIN/A");
 
-		assertEquals("Branch A should see old version of concept because of old base point.", 1, conceptService.findDescriptions("MAIN/A", "Heart", PAGE_REQUEST).getNumberOfElements());
-		assertEquals("Branch A should not see new version of concept because of old base point.", 0, conceptService.findDescriptions("MAIN/A", "Bone", PAGE_REQUEST).getNumberOfElements());
+		assertEquals("Branch A should see old version of concept because of old base point.", 1, descriptionService.findDescriptions("MAIN/A", "Heart", PAGE_REQUEST, conceptService).getNumberOfElements());
+		assertEquals("Branch A should not see new version of concept because of old base point.", 0, descriptionService.findDescriptions("MAIN/A", "Bone", PAGE_REQUEST, conceptService).getNumberOfElements());
 
 		final Concept concept1 = conceptService.find("1", "MAIN");
 		assertEquals(1, concept1.getDescriptions().size());
@@ -449,7 +452,7 @@ public class ConceptServiceTest {
 	}
 
 	private void printAllDescriptions(String path) {
-		final Page<Description> descriptions = conceptService.findDescriptions(path, null, PAGE_REQUEST);
+		final Page<Description> descriptions = descriptionService.findDescriptions(path, null, PAGE_REQUEST, conceptService);
 		logger.info("Description on " + path);
 		for (Description description : descriptions) {
 			logger.info("{}", description);

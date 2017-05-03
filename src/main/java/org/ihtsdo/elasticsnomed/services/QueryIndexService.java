@@ -1,8 +1,11 @@
 package org.ihtsdo.elasticsnomed.services;
 
+import com.google.common.collect.Iterables;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.domain.Concepts;
 import org.ihtsdo.elasticsnomed.domain.QueryIndexConcept;
 import org.ihtsdo.elasticsnomed.domain.Relationship;
@@ -11,6 +14,7 @@ import org.ihtsdo.elasticsnomed.services.transitiveclosure.GraphBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -19,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
@@ -39,6 +44,9 @@ public class QueryIndexService extends ComponentService {
 	@Autowired
 	private QueryIndexConceptRepository queryIndexConceptRepository;
 
+	@Autowired
+	private BranchService branchService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Set<Long> retrieveAncestors(String conceptId, String path, boolean stated) {
@@ -48,6 +56,7 @@ public class QueryIndexService extends ComponentService {
 						.must(termQuery("conceptId", conceptId))
 						.must(termQuery("stated", stated))
 				)
+				.withPageable(LARGE_PAGE)
 				.build();
 		final List<QueryIndexConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryIndexConcept.class).getContent();
 		if (concepts.size() > 1) {
@@ -58,6 +67,19 @@ public class QueryIndexService extends ComponentService {
 			throw new IllegalArgumentException(String.format("Concept %s not found on branch %s", conceptId, path));
 		}
 		return concepts.get(0).getAncestors();
+	}
+
+	public Set<Long> retrieveDescendants(String conceptId, QueryBuilder branchCriteria, boolean stated) {
+		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termQuery("ancestors", conceptId))
+						.must(termQuery("stated", stated))
+				)
+				.withPageable(LARGE_PAGE)
+				.build();
+		final List<QueryIndexConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryIndexConcept.class).getContent();
+		return concepts.stream().map(QueryIndexConcept::getConceptId).collect(Collectors.toSet());
 	}
 
 	public void updateStatedAndInferredTransitiveClosures(Commit commit) {

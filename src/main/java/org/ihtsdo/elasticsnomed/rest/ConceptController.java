@@ -38,6 +38,14 @@ public class ConceptController {
 	}
 
 	@ResponseBody
+	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descendants", method = RequestMethod.GET, produces = "application/json")
+	@JsonView(value = View.Component.class)
+	public ItemsPage<ConceptMiniNestedFsn> findConceptDescendants(@PathVariable String branch, @PathVariable String conceptId) {
+		Collection<ConceptMini> descendants = conceptService.findConceptDescendants(conceptId, BranchPathUriUtil.parseBranchPath(branch), Relationship.CharacteristicType.stated);
+		return new ItemsPage<>(ControllerHelper.nestConceptMiniFsn(descendants));
+	}
+
+	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.PUT, produces = "application/json")
 	@JsonView(value = View.Component.class)
 	public ConceptView updateConcept(@PathVariable String branch, @PathVariable String conceptId, @RequestBody @Valid ConceptView concept) {

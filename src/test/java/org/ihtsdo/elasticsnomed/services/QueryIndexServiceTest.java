@@ -38,6 +38,8 @@ public class QueryIndexServiceTest {
 		branchService.create("MAIN");
 	}
 
+	// TODO: Test and implement TC update after relationship deletion.
+
 	@Test
 	public void testIncrementalStatedTransitiveClosureUpdate() throws Exception {
 		// Create three nodes, each parent of the next
