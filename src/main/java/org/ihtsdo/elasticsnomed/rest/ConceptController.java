@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.ihtsdo.elasticsnomed.domain.*;
 import org.ihtsdo.elasticsnomed.services.ConceptService;
+import org.ihtsdo.elasticsnomed.services.QueryIndexService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.util.Assert;
@@ -19,6 +20,9 @@ public class ConceptController {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private QueryIndexService queryIndexService;
 
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET, produces = "application/json")
 	@ResponseBody
@@ -81,6 +85,11 @@ public class ConceptController {
 													   @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
 
 		return conceptService.findConceptParents(conceptId, BranchPathUriUtil.parseBranchPath(branch), form);
+	}
+
+	@RequestMapping(value = "/rebuild/{branch}", method = RequestMethod.POST)
+	public void rebuildBranchTransitiveClosure(@PathVariable String branch) {
+		queryIndexService.rebuildStatedAndInferredTransitiveClosures(branch);
 	}
 
 }

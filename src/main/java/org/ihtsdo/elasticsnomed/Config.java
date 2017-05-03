@@ -116,7 +116,9 @@ public class Config {
 		return new FilterRegistrationBean(new BranchPathUriRewriteFilter(
 				"/branches/(.*)/children",
 				"/branches/(.*)/parents",
+				"/branches/(.*)/actions/.*",
 				"/branches/(.*)",
+				"/rebuild/(.*)",
 				"/browser/(.*)/concepts.*",
 				"/browser/(.*)/descriptions.*",
 				"/(.*)/concepts/.*",
