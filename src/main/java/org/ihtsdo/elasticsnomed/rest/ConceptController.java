@@ -3,8 +3,10 @@ package org.ihtsdo.elasticsnomed.rest;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.ihtsdo.elasticsnomed.domain.*;
+import org.ihtsdo.elasticsnomed.rest.pojo.InboundRelationshipsResult;
 import org.ihtsdo.elasticsnomed.services.ConceptService;
 import org.ihtsdo.elasticsnomed.services.QueryIndexService;
+import org.ihtsdo.elasticsnomed.services.RelationshipService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.util.Assert;
@@ -20,6 +22,9 @@ public class ConceptController {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private RelationshipService relationshipService;
 
 	@Autowired
 	private QueryIndexService queryIndexService;
@@ -47,6 +52,14 @@ public class ConceptController {
 	public ItemsPage<ConceptMiniNestedFsn> findConceptDescendants(@PathVariable String branch, @PathVariable String conceptId) {
 		Collection<ConceptMini> descendants = conceptService.findConceptDescendants(conceptId, BranchPathUriUtil.parseBranchPath(branch), Relationship.CharacteristicType.stated);
 		return new ItemsPage<>(ControllerHelper.nestConceptMiniFsn(descendants));
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "/{branch}/concepts/{conceptId}/inbound-relationships", method = RequestMethod.GET, produces = "application/json")
+	@JsonView(value = View.Component.class)
+	public InboundRelationshipsResult findConceptInboundRelationships(@PathVariable String branch, @PathVariable String conceptId) {
+		List<Relationship> inboundRelationships = relationshipService.findInboundRelationships(conceptId, BranchPathUriUtil.parseBranchPath(branch), null);
+		return new InboundRelationshipsResult(inboundRelationships);
 	}
 
 	@ResponseBody

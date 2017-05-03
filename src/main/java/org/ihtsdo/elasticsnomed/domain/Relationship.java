@@ -75,6 +75,8 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@Size(min = 5, max = 18)
 	private String modifierId;
 
+	private ConceptMini source;
+
 	private ConceptMini type;
 
 	private ConceptMini target;
@@ -140,6 +142,16 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@JsonIgnore
 	public String getId() {
 		return relationshipId;
+	}
+
+	@JsonView(value = View.Component.class)
+	public ConceptMini source() {
+		return source;
+	}
+
+	public void setSource(ConceptMini source) {
+		this.source = source;
+		this.sourceId = source != null ? null : source.getConceptId();
 	}
 
 	@JsonView(value = View.Component.class)
