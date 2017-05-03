@@ -3,6 +3,7 @@ package org.ihtsdo.elasticsnomed.rest;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.ihtsdo.elasticsnomed.domain.*;
+import org.ihtsdo.elasticsnomed.rest.pojo.ConceptDescriptionsResult;
 import org.ihtsdo.elasticsnomed.rest.pojo.InboundRelationshipsResult;
 import org.ihtsdo.elasticsnomed.services.ConceptService;
 import org.ihtsdo.elasticsnomed.services.QueryIndexService;
@@ -44,6 +45,13 @@ public class ConceptController {
 	@JsonView(value = View.Component.class)
 	public ConceptView findConcept(@PathVariable String branch, @PathVariable String conceptId) {
 		return conceptService.find(conceptId, BranchPathUriUtil.parseBranchPath(branch));
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descriptions", method = RequestMethod.GET, produces = "application/json")
+	@JsonView(value = View.Component.class)
+	public ConceptDescriptionsResult findConceptDescriptions(@PathVariable String branch, @PathVariable String conceptId) {
+		return new ConceptDescriptionsResult(conceptService.find(conceptId, BranchPathUriUtil.parseBranchPath(branch)).getDescriptions());
 	}
 
 	@ResponseBody
