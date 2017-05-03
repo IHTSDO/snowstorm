@@ -49,18 +49,18 @@ public class BranchReviewController {
 
 	@ResponseBody
 	@RequestMapping(value = "/merge-reviews/{id}", method = RequestMethod.GET, produces = "application/json")
-	public MergeReview getMergeReview(@RequestParam String id) {
+	public MergeReview getMergeReview(@PathVariable String id) {
 		return reviewService.getMergeReview(id);
 	}
 
 	@ResponseBody
 	@RequestMapping(value = "/merge-reviews/{id}/details", method = RequestMethod.GET, produces = "application/json")
-	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(@RequestParam String id) {
+	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(@PathVariable String id) {
 		return reviewService.getMergeReviewConflictingConcepts(id);
 	}
 
 	@RequestMapping(value = "/merge-reviews/{id}/{conceptId}", method = RequestMethod.POST, produces = "application/json")
-	public void getMergeReviewConflictingConcepts(@RequestParam String id, @RequestBody Concept manuallyMergedConcept) {
+	public void getMergeReviewConflictingConcepts(@PathVariable String id, @PathVariable String conceptId, @RequestBody Concept manuallyMergedConcept) {
 		final MergeReview mergeReview = reviewService.getMergeReviewOrThrow(id);
 		mergeReview.putManuallyMergedConcept(manuallyMergedConcept);
 	}
