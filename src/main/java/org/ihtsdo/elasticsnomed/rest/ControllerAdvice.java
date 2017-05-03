@@ -1,5 +1,6 @@
 package org.ihtsdo.elasticsnomed.rest;
 
+import io.kaicode.elasticvc.api.BranchNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -21,6 +22,16 @@ public class ControllerAdvice {
 	public Map<String,Object> handleIllegalArgumentException(Exception exception) {
 		HashMap<String, Object> result = new HashMap<>();
 		result.put("error", HttpStatus.BAD_REQUEST);
+		result.put("message", exception.getMessage());
+		return result;
+	}
+
+	@ExceptionHandler(BranchNotFoundException.class)
+	@ResponseStatus(HttpStatus.NOT_FOUND)
+	@ResponseBody
+	public Map<String,Object> handleBranchNotFoundException(BranchNotFoundException exception) {
+		HashMap<String, Object> result = new HashMap<>();
+		result.put("error", HttpStatus.NOT_FOUND);
 		result.put("message", exception.getMessage());
 		return result;
 	}
