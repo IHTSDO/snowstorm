@@ -52,6 +52,11 @@ public class ConceptMini {
 	}
 
 	@JsonView(value = View.Component.class)
+	public String getId() {
+		return conceptId;
+	}
+
+	@JsonView(value = View.Component.class)
 	public String getFsn() {
 		return activeFsns.isEmpty() ? null : activeFsns.iterator().next().getTerm();
 	}

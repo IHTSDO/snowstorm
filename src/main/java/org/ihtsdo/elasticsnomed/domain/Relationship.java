@@ -1,6 +1,7 @@
 package org.ihtsdo.elasticsnomed.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.ihtsdo.elasticsnomed.rest.View;
 import org.slf4j.Logger;
@@ -143,6 +144,12 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@Override
 	@JsonIgnore
 	public String getId() {
+		return relationshipId;
+	}
+
+	@JsonView(value = View.Component.class)
+	@JsonProperty("id")
+	public String getRelId() {
 		return relationshipId;
 	}
 

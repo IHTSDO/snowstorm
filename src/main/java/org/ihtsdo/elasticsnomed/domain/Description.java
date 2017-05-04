@@ -48,6 +48,7 @@ public class Description extends SnomedComponent<Description> {
 	@Size(min = 2, max = 2)
 	private String languageCode;
 
+	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@NotNull
 	@Size(min = 5, max = 18)
