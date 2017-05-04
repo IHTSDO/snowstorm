@@ -7,6 +7,7 @@ import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.domain.Concept;
 import org.ihtsdo.elasticsnomed.domain.Concepts;
 import org.ihtsdo.elasticsnomed.services.ConceptService;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -55,6 +56,12 @@ public class ConceptDroolsValidationServiceTest {
 		} catch (RuleExecutorException e) {
 			// good
 		}
+	}
+
+	@After
+	public void tearDown() {
+		conceptService.deleteAll();
+		branchService.deleteAll();
 	}
 
 }

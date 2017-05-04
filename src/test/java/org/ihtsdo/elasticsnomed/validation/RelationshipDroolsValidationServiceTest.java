@@ -7,6 +7,7 @@ import org.ihtsdo.elasticsnomed.domain.Concept;
 import org.ihtsdo.elasticsnomed.domain.Concepts;
 import org.ihtsdo.elasticsnomed.domain.Relationship;
 import org.ihtsdo.elasticsnomed.services.ConceptService;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -52,6 +53,12 @@ public class RelationshipDroolsValidationServiceTest {
 		Assert.assertTrue(service.hasActiveInboundStatedRelationship("1", Concepts.ISA));
 		Assert.assertFalse(service.hasActiveInboundStatedRelationship("1", "123"));
 		Assert.assertFalse(service.hasActiveInboundStatedRelationship("2", Concepts.ISA));
+	}
+
+	@After
+	public void tearDown() {
+		conceptService.deleteAll();
+		branchService.deleteAll();
 	}
 
 }
