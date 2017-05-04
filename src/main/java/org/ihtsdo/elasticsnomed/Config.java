@@ -122,6 +122,7 @@ public class Config {
 				"/browser/(.*)/concepts.*",
 				"/browser/(.*)/descriptions.*",
 				"/(.*)/concepts/.*",
+				"/(.*)/members.*",
 				"/browser/(.*)/validate/concept"
 		));
 	}
