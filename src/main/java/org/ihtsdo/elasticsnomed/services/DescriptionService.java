@@ -146,8 +146,15 @@ public class DescriptionService extends ComponentService {
 					.withPageable(LARGE_PAGE);
 			// Join Lang Refset Members
 			try (final CloseableIterator<ReferenceSetMember> langRefsetMembers = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
-				langRefsetMembers.forEachRemaining(langRefsetMember ->
-						descriptionIdMap.get(langRefsetMember.getReferencedComponentId()).addLanguageRefsetMember(langRefsetMember));
+				langRefsetMembers.forEachRemaining(langRefsetMember -> {
+					Description description = descriptionIdMap.get(langRefsetMember.getReferencedComponentId());
+						if (description != null) {
+							description.addLanguageRefsetMember(langRefsetMember);
+						} else {
+							logger.error("Description {} for lang refset member {} not found on branch {}!",
+									langRefsetMember.getReferencedComponentId(), langRefsetMember.getMemberId(), branchCriteria.toString().replace("\n", ""));
+						}
+					});
 			}
 		}
 		if (timer != null) timer.checkpoint("get lang refset " + getFetchCount(allConceptIds.size()));
