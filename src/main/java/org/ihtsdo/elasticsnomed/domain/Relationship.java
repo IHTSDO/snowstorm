@@ -52,6 +52,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String sourceId;
 
+	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@NotNull
 	@Size(min = 5, max = 18)
@@ -60,6 +61,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@Field(type = FieldType.Integer, index = FieldIndex.not_analyzed)
 	private int relationshipGroup;
 
+	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@NotNull
 	@Size(min = 5, max = 18)
@@ -151,7 +153,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public void setSource(ConceptMini source) {
 		this.source = source;
-		this.sourceId = source != null ? null : source.getConceptId();
+		this.sourceId = source == null ? null : source.getConceptId();
 	}
 
 	@JsonView(value = View.Component.class)
