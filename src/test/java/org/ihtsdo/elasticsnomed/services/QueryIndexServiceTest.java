@@ -5,6 +5,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.domain.Concept;
 import org.ihtsdo.elasticsnomed.domain.Relationship;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -100,6 +101,12 @@ public class QueryIndexServiceTest {
 	private void assertTC(Concept concept, Concept... ancestors) {
 		Set<Long> expectedAncestors = Arrays.stream(ancestors).map(Concept::getConceptIdAsLong).collect(Collectors.toSet());
 		Assert.assertEquals(expectedAncestors, service.retrieveAncestors(concept.getId(),"MAIN", true));
+	}
+
+	@After
+	public void tearDown() {
+		conceptService.deleteAll();
+		branchService.deleteAll();
 	}
 
 }

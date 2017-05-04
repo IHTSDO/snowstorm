@@ -41,7 +41,6 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -533,19 +532,19 @@ public class ConceptService extends ComponentService implements CommitListener {
 		}
 
 		final Iterable<Concept> conceptsSaved = doSaveBatchConcepts(concepts, commit);
-		doSaveBatchDescriptions(descriptionsToPersist, commit);
-		doSaveBatchRelationships(relationshipsToPersist, commit);
+		Iterable<Description> descriptionsSaved = doSaveBatchDescriptions(descriptionsToPersist, commit);
+		Iterable<Relationship> relationshipsSaved = doSaveBatchRelationships(relationshipsToPersist, commit);
 		doSaveBatchMembers(langRefsetMembersToPersist, commit);
 
 		Map<String, Concept> conceptMap = new HashMap<>();
-		for (Concept concept : concepts) {
+		for (Concept concept : conceptsSaved) {
 			conceptMap.put(concept.getConceptId(), concept);
 		}
-		for (Description description : descriptionsToPersist) {
+		for (Description description : descriptionsSaved) {
 			conceptMap.get(description.getConceptId()).addDescription(description);
 		}
 		Map<String, ConceptMini> minisToLoad = new HashMap<>();
-		for (Relationship relationship : relationshipsToPersist) {
+		for (Relationship relationship : relationshipsSaved) {
 			conceptMap.get(relationship.getSourceId()).addRelationship(relationship);
 			relationship.setType(getConceptMini(minisToLoad, relationship.getTypeId()));
 			relationship.setTarget(getConceptMini(minisToLoad, relationship.getDestinationId()));
@@ -567,18 +566,42 @@ public class ConceptService extends ComponentService implements CommitListener {
 		branchService.completeCommit(commit);
 	}
 
+	/**
+	 * Persists concept updates within commit.
+	 * @param concepts
+	 * @param commit
+	 * @return List of persisted components with updated metadata and filtered by deleted status.
+	 */
 	public Iterable<Concept> doSaveBatchConcepts(Collection<Concept> concepts, Commit commit) {
 		return doSaveBatchComponents(concepts, commit, "conceptId", conceptRepository);
 	}
 
-	public void doSaveBatchDescriptions(Collection<Description> descriptions, Commit commit) {
-		doSaveBatchComponents(descriptions, commit, "descriptionId", descriptionRepository);
+	/**
+	 * Persists description updates within commit.
+	 * @param descriptions
+	 * @param commit
+	 * @return List of persisted components with updated metadata and filtered by deleted status.
+	 */
+	public Iterable<Description> doSaveBatchDescriptions(Collection<Description> descriptions, Commit commit) {
+		return doSaveBatchComponents(descriptions, commit, "descriptionId", descriptionRepository);
 	}
 
-	public void doSaveBatchRelationships(Collection<Relationship> relationships, Commit commit) {
-		doSaveBatchComponents(relationships, commit, "relationshipId", relationshipRepository);
+	/**
+	 * Persists relationships updates within commit.
+	 * @param relationships
+	 * @param commit
+	 * @return List of persisted components with updated metadata and filtered by deleted status.
+	 */
+	public Iterable<Relationship> doSaveBatchRelationships(Collection<Relationship> relationships, Commit commit) {
+		return doSaveBatchComponents(relationships, commit, "relationshipId", relationshipRepository);
 	}
 
+	/**
+	 * Persists members updates within commit.
+	 * @param members
+	 * @param commit
+	 * @return List of persisted components with updated metadata and filtered by deleted status.
+	 */
 	public Iterable<ReferenceSetMember> doSaveBatchMembers(Collection<ReferenceSetMember> members, Commit commit) {
 		// Set conceptId on members where appropriate
 		List<ReferenceSetMember> descriptionMembers = new ArrayList<>();
