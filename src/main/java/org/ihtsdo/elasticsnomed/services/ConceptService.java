@@ -28,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -246,18 +247,29 @@ public class ConceptService extends ComponentService implements CommitListener {
 		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
 		timer.checkpoint("get branch criteria");
 
-		final BoolQueryBuilder builder = boolQuery()
-				.must(branchCriteria);
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
+
+		Page<Concept> concepts;
 		if (conceptIdsToFind != null && !conceptIdsToFind.isEmpty()) {
-			// TODO - use CLAUSE_LIMIT here
-			builder.must(termsQuery("conceptId", conceptIdsToFind));
+			List<Concept> allConcepts = new ArrayList<>();
+			Page<Concept> tempPage = null;
+			for (List<? extends Object> conceptIdsToFindSegment : Iterables.partition(conceptIdsToFind, CLAUSE_LIMIT)) {
+				queryBuilder
+						.withQuery(boolQuery()
+								.must(branchCriteria)
+								.must(termsQuery("conceptId", conceptIdsToFindSegment))
+						)
+						.withPageable(new PageRequest(0, conceptIdsToFindSegment.size()));
+				tempPage = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
+				allConcepts.addAll(tempPage.getContent());
+			}
+			concepts = new PageImpl<>(allConcepts, pageRequest, tempPage.getTotalElements());
+		} else {
+			queryBuilder
+					.withQuery(boolQuery().must(branchCriteria))
+					.withPageable(pageRequest);
+			concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
 		}
-
-		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(builder)
-				.withPageable(pageRequest);
-
-		final Page<Concept> concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
 		timer.checkpoint("find concept");
 
 		Map<String, Concept> conceptIdMap = new HashMap<>();
