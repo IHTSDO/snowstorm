@@ -7,7 +7,10 @@ public class IDService {
 	// TODO - CIS Integration
 
 	public static String getHackId() {
-		return ("" + Math.round(Math.random() * 100000000000000f)).substring(0, 9);
+		String id;
+		while ((id = "" + Math.round(Math.random() * 100000000000000f)).length() < 9) {
+		}
+		return id.substring(0, 9);
 	}
 
 	public static boolean isConceptId(String sctid) {
