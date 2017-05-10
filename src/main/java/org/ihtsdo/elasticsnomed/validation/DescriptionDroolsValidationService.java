@@ -7,7 +7,7 @@ import org.ihtsdo.drools.domain.Description;
 import org.ihtsdo.elasticsnomed.domain.Concepts;
 import org.ihtsdo.elasticsnomed.domain.Relationship;
 import org.ihtsdo.elasticsnomed.services.DescriptionService;
-import org.ihtsdo.elasticsnomed.services.QueryIndexService;
+import org.ihtsdo.elasticsnomed.services.QueryService;
 import org.ihtsdo.elasticsnomed.validation.domain.DroolsDescription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,7 +35,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	private final QueryBuilder branchCriteria;
 	private ElasticsearchOperations elasticsearchTemplate;
 	private final DescriptionService descriptionService;
-	private final QueryIndexService queryIndexService;
+	private final QueryService queryService;
 
 	@Value("${validation.resourceFiles.path}")
 	private String testResourcesPath;
@@ -50,13 +50,13 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 									   VersionControlHelper versionControlHelper,
 									   ElasticsearchOperations elasticsearchTemplate,
 									   DescriptionService descriptionService,
-									   QueryIndexService queryIndexService) {
+									   QueryService queryService) {
 		this.branchPath = branchPath;
 		this.branchCriteria = branchCriteria;
 		this.versionControlHelper = versionControlHelper;
 		this.elasticsearchTemplate = elasticsearchTemplate;
 		this.descriptionService = descriptionService;
-		this.queryIndexService = queryIndexService;
+		this.queryService = queryService;
 	}
 
 	@PostConstruct
@@ -110,7 +110,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 				LOGGER.info("Found stated hierarchy id {}", conceptHierarchyRootId);
 
 				return matchingDescriptions.stream().filter(d -> {
-					Set<Long> matchingDescriptionAncestors = queryIndexService.retrieveAncestors(d.getConceptId(), branchPath, true);
+					Set<Long> matchingDescriptionAncestors = queryService.retrieveAncestors(d.getConceptId(), branchPath, true);
 					return matchingDescriptionAncestors.contains(new Long(conceptHierarchyRootId));
 				}).collect(Collectors.toSet());
 			}
@@ -213,7 +213,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 
 		// Search ancestors of stated is-a relationships
 		String firstStatedParentId = statedIsARelationships.iterator().next().getDestinationId();
-		Set<Long> statedAncestors = queryIndexService.retrieveAncestors(firstStatedParentId, branchPath, true);
+		Set<Long> statedAncestors = queryService.retrieveAncestors(firstStatedParentId, branchPath, true);
 		statedHierarchyRoot = Sets.intersection(hierarchyRootIds, statedAncestors);
 		if (!statedHierarchyRoot.isEmpty()) {
 			return statedHierarchyRoot.iterator().next();

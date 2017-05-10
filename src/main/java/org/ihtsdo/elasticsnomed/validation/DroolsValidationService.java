@@ -7,7 +7,7 @@ import org.ihtsdo.drools.RuleExecutor;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.elasticsnomed.domain.Concept;
 import org.ihtsdo.elasticsnomed.services.DescriptionService;
-import org.ihtsdo.elasticsnomed.services.QueryIndexService;
+import org.ihtsdo.elasticsnomed.services.QueryService;
 import org.ihtsdo.elasticsnomed.validation.domain.DroolsConcept;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,7 +31,7 @@ public class DroolsValidationService {
 	private DescriptionService descriptionService;
 
 	@Autowired
-	private QueryIndexService queryIndexService;
+	private QueryService queryService;
 
 	private RuleExecutor ruleExecutor;
 
@@ -47,7 +47,7 @@ public class DroolsValidationService {
 		DroolsConcept droolsConcept = new DroolsConcept(concept);
 		Set<String> ruleSetNames = Sets.newHashSet("common-authoring", "int-authoring"); // TODO: Pick up from branch metadata
 		ConceptDroolsValidationService conceptService = new ConceptDroolsValidationService(branchPath, branchCriteria, elasticsearchOperations);
-		DescriptionDroolsValidationService descriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, versionControlHelper, elasticsearchOperations, this.descriptionService, queryIndexService);
+		DescriptionDroolsValidationService descriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, versionControlHelper, elasticsearchOperations, this.descriptionService, queryService);
 		RelationshipDroolsValidationService relationshipService = new RelationshipDroolsValidationService(branchCriteria, elasticsearchOperations);
 		return ruleExecutor.execute(ruleSetNames, droolsConcept, conceptService, descriptionService, relationshipService, false, false);
 	}

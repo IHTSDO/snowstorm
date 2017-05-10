@@ -8,7 +8,7 @@ import org.ihtsdo.elasticsnomed.domain.Concepts;
 import org.ihtsdo.elasticsnomed.domain.Description;
 import org.ihtsdo.elasticsnomed.domain.ReferenceSetMember;
 import org.ihtsdo.elasticsnomed.services.ConceptService;
-import org.ihtsdo.elasticsnomed.services.QueryIndexService;
+import org.ihtsdo.elasticsnomed.services.QueryService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.After;
 import org.junit.Assert;
@@ -42,7 +42,7 @@ public class ImportServiceTest {
 	private ConceptService conceptService;
 
 	@Autowired
-	private QueryIndexService queryIndexService;
+	private QueryService queryService;
 
 	@Test
 	public void testImportFull() throws ReleaseImportException {
@@ -109,9 +109,9 @@ public class ImportServiceTest {
 		Assert.assertEquals(102, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
 		Assert.assertEquals(102, conceptService.findAll("MAIN", new PageRequest(0, 10)).getTotalElements());
 
-		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryIndexService.retrieveAncestors("131148009", "MAIN/20020131", false));
-		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryIndexService.retrieveAncestors("131148009", "MAIN/20050131", false));
-		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryIndexService.retrieveAncestors("131148009", "MAIN/20060131", false));
+		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryService.retrieveAncestors("131148009", "MAIN/20020131", false));
+		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/20050131", false));
+		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/20060131", false));
 	}
 
 	@Test

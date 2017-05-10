@@ -26,7 +26,7 @@ public class TestConfig extends Config {
 		elasticsearchTemplate.deleteIndex(Description.class);
 		elasticsearchTemplate.deleteIndex(Relationship.class);
 		elasticsearchTemplate.deleteIndex(ReferenceSetMember.class);
-		elasticsearchTemplate.deleteIndex(QueryIndexConcept.class);
+		elasticsearchTemplate.deleteIndex(QueryConcept.class);
 		elasticsearchTemplate.deleteIndex(Branch.class);
 	}
 

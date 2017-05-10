@@ -6,7 +6,7 @@ import org.ihtsdo.elasticsnomed.domain.*;
 import org.ihtsdo.elasticsnomed.rest.pojo.ConceptDescriptionsResult;
 import org.ihtsdo.elasticsnomed.rest.pojo.InboundRelationshipsResult;
 import org.ihtsdo.elasticsnomed.services.ConceptService;
-import org.ihtsdo.elasticsnomed.services.QueryIndexService;
+import org.ihtsdo.elasticsnomed.services.QueryService;
 import org.ihtsdo.elasticsnomed.services.RelationshipService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -28,7 +28,7 @@ public class ConceptController {
 	private RelationshipService relationshipService;
 
 	@Autowired
-	private QueryIndexService queryIndexService;
+	private QueryService queryService;
 
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET, produces = "application/json")
 	@ResponseBody
@@ -110,7 +110,7 @@ public class ConceptController {
 
 	@RequestMapping(value = "/rebuild/{branch}", method = RequestMethod.POST)
 	public void rebuildBranchTransitiveClosure(@PathVariable String branch) {
-		queryIndexService.rebuildStatedAndInferredTransitiveClosures(branch);
+		queryService.rebuildStatedAndInferredTransitiveClosures(branch);
 	}
 
 }

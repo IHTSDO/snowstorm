@@ -23,10 +23,10 @@ import static org.ihtsdo.elasticsnomed.domain.Concepts.SNOMEDCT_ROOT;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class QueryIndexServiceTest {
+public class QueryServiceTest {
 
 	@Autowired
-	private QueryIndexService service;
+	private QueryService service;
 
 	@Autowired
 	private BranchService branchService;

@@ -8,8 +8,8 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.Set;
 
-@Document(type = "concept-index", indexName = "snomed-index", shards = 8)
-public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
+@Document(type = "query-concept", indexName = "snomed-index", shards = 8)
+public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String conceptIdForm;
@@ -23,10 +23,10 @@ public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
 	private boolean stated;
 
-	public QueryIndexConcept() {
+	public QueryConcept() {
 	}
 
-	public QueryIndexConcept(Long conceptId, Set<Long> ancestorIds, boolean stated) {
+	public QueryConcept(Long conceptId, Set<Long> ancestorIds, boolean stated) {
 		this.conceptId = conceptId;
 		this.ancestors = ancestorIds;
 		this.stated = stated;
@@ -48,7 +48,7 @@ public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 	}
 
 	@Override
-	public boolean isComponentChanged(QueryIndexConcept that) {
+	public boolean isComponentChanged(QueryConcept that) {
 		return that == null
 				|| !ancestors.equals(that.ancestors);
 	}
@@ -87,7 +87,7 @@ public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 
 	@Override
 	public String toString() {
-		return "QueryIndexConcept{" +
+		return "QueryConcept{" +
 				"conceptIdForm=" + conceptIdForm +
 				", conceptId=" + conceptId +
 				", ancestors=" + ancestors +

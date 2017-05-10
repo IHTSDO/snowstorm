@@ -8,7 +8,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.domain.Concepts;
-import org.ihtsdo.elasticsnomed.domain.QueryIndexConcept;
+import org.ihtsdo.elasticsnomed.domain.QueryConcept;
 import org.ihtsdo.elasticsnomed.domain.Relationship;
 import org.ihtsdo.elasticsnomed.repositories.QueryIndexConceptRepository;
 import org.ihtsdo.elasticsnomed.services.transitiveclosure.GraphBuilder;
@@ -34,7 +34,7 @@ import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
-public class QueryIndexService extends ComponentService {
+public class QueryService extends ComponentService {
 
 	public static final int BATCH_SAVE_SIZE = 10000;
 
@@ -61,7 +61,7 @@ public class QueryIndexService extends ComponentService {
 				)
 				.withPageable(LARGE_PAGE)
 				.build();
-		final List<QueryIndexConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryIndexConcept.class).getContent();
+		final List<QueryConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class).getContent();
 		if (concepts.size() > 1) {
 			logger.error("More than one index concept found {}", concepts);
 			throw new IllegalStateException("More than one query-index-concept found for id " + conceptId + " on branch " + path + ".");
@@ -81,8 +81,8 @@ public class QueryIndexService extends ComponentService {
 				)
 				.withPageable(LARGE_PAGE)
 				.build();
-		final List<QueryIndexConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryIndexConcept.class).getContent();
-		return concepts.stream().map(QueryIndexConcept::getConceptId).collect(Collectors.toSet());
+		final List<QueryConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class).getContent();
+		return concepts.stream().map(QueryConcept::getConceptId).collect(Collectors.toSet());
 	}
 
 	public void rebuildStatedAndInferredTransitiveClosures(String branch) {
@@ -152,24 +152,24 @@ public class QueryIndexService extends ComponentService {
 					.withFilter(boolQuery()
 							.should(termsQuery("conceptId", Sets.union(updateSource, updateDestination))))
 					.withPageable(ConceptService.LARGE_PAGE).build();
-			try (final CloseableIterator<QueryIndexConcept> existingIndexConcepts = elasticsearchTemplate.stream(query, QueryIndexConcept.class)) {
+			try (final CloseableIterator<QueryConcept> existingIndexConcepts = elasticsearchTemplate.stream(query, QueryConcept.class)) {
 				existingIndexConcepts.forEachRemaining(indexConcept -> existingAncestors.addAll(indexConcept.getAncestors()));
 			}
-			timer.checkpoint("Collect existingAncestors from QueryIndexConcept.");
+			timer.checkpoint("Collect existingAncestors from QueryConcept.");
 
 			// Step: Identify existing descendants
 			// Strategy: Find existing nodes where TC matches updated relationship source ids
-			try (final CloseableIterator<QueryIndexConcept> existingIndexConcepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+			try (final CloseableIterator<QueryConcept> existingIndexConcepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(branchCriteriaForAlreadyCommittedContent)
 							.must(termsQuery("stated", stated))
 					)
 					.withFilter(boolQuery()
 							.should(termsQuery("ancestors", updateSource)))
-					.withPageable(ConceptService.LARGE_PAGE).build(), QueryIndexConcept.class)) {
+					.withPageable(ConceptService.LARGE_PAGE).build(), QueryConcept.class)) {
 				existingIndexConcepts.forEachRemaining(indexConcept -> existingDescendants.add(indexConcept.getConceptId()));
 			}
-			timer.checkpoint("Collect existingDescendants from QueryIndexConcept.");
+			timer.checkpoint("Collect existingDescendants from QueryConcept.");
 		}
 
 		logger.info("{} existing ancestors and {} existing descendants of updated relationships identified.", existingAncestors.size(), existingDescendants.size());
@@ -228,17 +228,17 @@ public class QueryIndexService extends ComponentService {
 
 
 		// Step: Save changes
-		Set<QueryIndexConcept> indexConceptsToSave = new HashSet<>();
+		Set<QueryConcept> indexConceptsToSave = new HashSet<>();
 		graphBuilder.getNodes().forEach(node -> {
 			if (newGraph || node.isAncestorOrSelfUpdated()) {
 				final Set<Long> transitiveClosure = node.getTransitiveClosure();
 				final Long nodeId = node.getId();
-				indexConceptsToSave.add(new QueryIndexConcept(nodeId, transitiveClosure, stated));
+				indexConceptsToSave.add(new QueryConcept(nodeId, transitiveClosure, stated));
 			}
 		});
 		if (!indexConceptsToSave.isEmpty()) {
-			for (List<QueryIndexConcept> queryIndexConcepts : Iterables.partition(indexConceptsToSave, BATCH_SAVE_SIZE)) {
-				doSaveBatch(queryIndexConcepts, commit);
+			for (List<QueryConcept> queryConcepts : Iterables.partition(indexConceptsToSave, BATCH_SAVE_SIZE)) {
+				doSaveBatch(queryConcepts, commit);
 			}
 		}
 		timer.checkpoint("Save updated QueryIndexConcepts");
@@ -247,7 +247,7 @@ public class QueryIndexService extends ComponentService {
 		timer.finish();
 	}
 
-	private void doSaveBatch(Collection<QueryIndexConcept> indexConcepts, Commit commit) {
+	private void doSaveBatch(Collection<QueryConcept> indexConcepts, Commit commit) {
 		doSaveBatchComponents(indexConcepts, commit, "conceptIdForm", queryIndexConceptRepository);
 	}
 

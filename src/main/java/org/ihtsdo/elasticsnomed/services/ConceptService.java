@@ -74,7 +74,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 	private ElasticsearchOperations elasticsearchTemplate;
 
 	@Autowired
-	private QueryIndexService queryIndexService;
+	private QueryService queryService;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -170,7 +170,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 	public Collection<ConceptMini> findConceptDescendants(String conceptId, String path, Relationship.CharacteristicType form) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
-		Set<Long> descendants = queryIndexService.retrieveDescendants(conceptId, branchCriteria, form == Relationship.CharacteristicType.stated);
+		Set<Long> descendants = queryService.retrieveDescendants(conceptId, branchCriteria, form == Relationship.CharacteristicType.stated);
 		if (descendants.isEmpty()) {
 			return Collections.emptySet();
 		}
@@ -681,7 +681,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 	@Override
 	public void preCommitCompletion(Commit commit) {
-		queryIndexService.updateStatedAndInferredTransitiveClosures(commit);
+		queryService.updateStatedAndInferredTransitiveClosures(commit);
 	}
 
 	public void deleteAll() {
@@ -691,7 +691,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 				executorService.submit(() -> descriptionRepository.deleteAll()),
 				executorService.submit(() -> relationshipRepository.deleteAll()),
 				executorService.submit(() -> referenceSetMemberRepository.deleteAll()),
-				executorService.submit(() -> queryIndexService.deleteAll())
+				executorService.submit(() -> queryService.deleteAll())
 		);
 		for (int i = 0; i < futures.size(); i++) {
 			getWithTimeoutOrCancel(futures.get(i), i);
