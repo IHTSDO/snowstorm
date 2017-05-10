@@ -38,6 +38,9 @@ public class ConceptServiceTest {
 	@Autowired
 	private DescriptionService descriptionService;
 
+	@Autowired
+	private RelationshipService relationshipService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Before
@@ -423,6 +426,9 @@ public class ConceptServiceTest {
 		final Page<Concept> page = conceptService.findAll("MAIN/A", new PageRequest(0, 100));
 		assertEquals(concepts.size() + 1, page.getTotalElements());
 		assertEquals(Concepts.CORE_MODULE, page.getContent().get(50).getModuleId());
+
+		Collection<ConceptMini> conceptDescendants = conceptService.findConceptDescendants(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated);
+		assertEquals(10 * 1000, conceptDescendants.size());
 
 		final String anotherModule = "123123";
 		List<Concept> toUpdate = new ArrayList<>();
