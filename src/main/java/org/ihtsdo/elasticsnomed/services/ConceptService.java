@@ -170,6 +170,9 @@ public class ConceptService extends ComponentService implements CommitListener {
 	public Collection<ConceptMini> findConceptDescendants(String conceptId, String path, Relationship.CharacteristicType form) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 		Set<Long> descendants = queryIndexService.retrieveDescendants(conceptId, branchCriteria, form == Relationship.CharacteristicType.stated);
+		if (descendants.isEmpty()) {
+			return Collections.emptySet();
+		}
 		Set<String> descendantIds = descendants.stream().map(Object::toString).collect(Collectors.toSet());
 		Map<String, ConceptMini> conceptMinis = findConceptMinis(branchCriteria, descendantIds);
 		return conceptMinis.values();
@@ -207,11 +210,17 @@ public class ConceptService extends ComponentService implements CommitListener {
 	}
 
 	public Map<String, ConceptMini> findConceptMinis(String path, Set<String> conceptIds) {
+		if (conceptIds.isEmpty()) {
+			return Collections.emptyMap();
+		}
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 		return findConceptMinis(branchCriteria, conceptIds);
 	}
 
 	public Map<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, Set<String> conceptIds) {
+		if (conceptIds.isEmpty()) {
+			return Collections.emptyMap();
+		}
 		Page<Concept> concepts = doFind(conceptIds, branchCriteria, new PageRequest(0, conceptIds.size()), false, false);
 		return concepts.getContent().stream().map(ConceptMini::new).collect(Collectors.toMap(ConceptMini::getConceptId, Function.identity()));
 	}
