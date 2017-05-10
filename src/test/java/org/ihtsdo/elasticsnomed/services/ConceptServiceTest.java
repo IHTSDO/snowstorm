@@ -430,6 +430,9 @@ public class ConceptServiceTest {
 		Collection<ConceptMini> conceptDescendants = conceptService.findConceptDescendants(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated);
 		assertEquals(10 * 1000, conceptDescendants.size());
 
+		List<Relationship> inboundRelationships = relationshipService.findInboundRelationships(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated);
+		assertEquals(10 * 1000, inboundRelationships.size());
+
 		final String anotherModule = "123123";
 		List<Concept> toUpdate = new ArrayList<>();
 		conceptsCreated.forEach(concept -> {
