@@ -1,6 +1,5 @@
 package org.ihtsdo.elasticsnomed.services;
 
-import com.google.common.collect.Collections2;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
@@ -13,30 +12,31 @@ import org.ihtsdo.elasticsnomed.domain.QueryIndexConcept;
 import org.ihtsdo.elasticsnomed.domain.Relationship;
 import org.ihtsdo.elasticsnomed.repositories.QueryIndexConceptRepository;
 import org.ihtsdo.elasticsnomed.services.transitiveclosure.GraphBuilder;
+import org.ihtsdo.elasticsnomed.services.transitiveclosure.Node;
 import org.ihtsdo.elasticsnomed.util.TimerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class QueryIndexService extends ComponentService {
 
-	public static final int BATCH_SAVE_SIZE = 5000;
+	public static final int BATCH_SAVE_SIZE = 10000;
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
@@ -114,13 +114,13 @@ public class QueryIndexService extends ComponentService {
 		logger.info("Performing {} of {} transitive closures", rebuild ? "rebuild" : "incremental update", formName);
 
 		TimerUtil timer = new TimerUtil("TC index " + formName);
+		Set<Long> updateSource = new HashSet<>();
 		Set<Long> existingAncestors = new HashSet<>();
 		Set<Long> existingDescendants = new HashSet<>();
 		QueryBuilder branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteria(commit.getBranch().getFatPath());
 		timer.checkpoint("get branch criteria");
 		if (!rebuild) {
 			// Step: Collect source and destinations of changed is-a relationships
-			Set<Long> updateSource = new HashSet<>();
 			Set<Long> updateDestination = new HashSet<>();
 			try (final CloseableIterator<Relationship> changedInferredIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
@@ -150,12 +150,10 @@ public class QueryIndexService extends ComponentService {
 							.must(termsQuery("stated", stated))
 					)
 					.withFilter(boolQuery()
-							.should(termsQuery("conceptId", updateDestination)))
+							.should(termsQuery("conceptId", Sets.union(updateSource, updateDestination))))
 					.withPageable(ConceptService.LARGE_PAGE).build();
 			try (final CloseableIterator<QueryIndexConcept> existingIndexConcepts = elasticsearchTemplate.stream(query, QueryIndexConcept.class)) {
-				existingIndexConcepts.forEachRemaining(indexConcept -> {
-					existingAncestors.addAll(indexConcept.getAncestors());
-				});
+				existingIndexConcepts.forEachRemaining(indexConcept -> existingAncestors.addAll(indexConcept.getAncestors()));
 			}
 			timer.checkpoint("Collect existingAncestors from QueryIndexConcept.");
 
@@ -169,9 +167,7 @@ public class QueryIndexService extends ComponentService {
 					.withFilter(boolQuery()
 							.should(termsQuery("ancestors", updateSource)))
 					.withPageable(ConceptService.LARGE_PAGE).build(), QueryIndexConcept.class)) {
-				existingIndexConcepts.forEachRemaining(indexConcept -> {
-					existingDescendants.add(indexConcept.getConceptId());
-				});
+				existingIndexConcepts.forEachRemaining(indexConcept -> existingDescendants.add(indexConcept.getConceptId()));
 			}
 			timer.checkpoint("Collect existingDescendants from QueryIndexConcept.");
 		}
@@ -190,7 +186,8 @@ public class QueryIndexService extends ComponentService {
 				)
 				.withPageable(ConceptService.LARGE_PAGE);
 		if (!rebuild) {
-			queryBuilder.withFilter(boolQuery().must(termsQuery("sourceId", Sets.union(existingAncestors, existingDescendants))));
+			queryBuilder.withFilter(boolQuery().must(termsQuery("sourceId",
+					Sets.union(Sets.union(existingAncestors, existingDescendants), updateSource))));
 		}
 		try (final CloseableIterator<Relationship> existingInferredIsARelationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
 			existingInferredIsARelationships.forEachRemaining(relationship ->
@@ -205,19 +202,23 @@ public class QueryIndexService extends ComponentService {
 		// Strategy: Add/remove edges from new commit
 		AtomicLong relationshipsAdded = new AtomicLong();
 		AtomicLong relationshipsRemoved = new AtomicLong();
-		try (final CloseableIterator<Relationship> existingInferredIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		boolean newGraph = graphBuilder.getNodeCount() == 0;
+		try (final CloseableIterator<Relationship> newInferredIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(relationshipBranchCriteria)
 						.must(termQuery("typeId", Concepts.ISA))
 						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
 				)
 				.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
-			existingInferredIsARelationships.forEachRemaining(relationship -> {
+			newInferredIsARelationships.forEachRemaining(relationship -> {
 				if (relationship.isActive()) {
-					graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
+					graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId())).markUpdated();
 					relationshipsAdded.incrementAndGet();
 				} else {
-					graphBuilder.removeParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
+					Node node = graphBuilder.removeParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
+					if (node != null) {
+						node.markUpdated();
+					}
 					relationshipsRemoved.incrementAndGet();
 				}
 			});
@@ -229,12 +230,14 @@ public class QueryIndexService extends ComponentService {
 		// Step: Save changes
 		Set<QueryIndexConcept> indexConceptsToSave = new HashSet<>();
 		graphBuilder.getNodes().forEach(node -> {
-			final Set<Long> transitiveClosure = node.getTransitiveClosure();
-			final Long nodeId = node.getId();
-			indexConceptsToSave.add(new QueryIndexConcept(nodeId, transitiveClosure, stated));
+			if (newGraph || node.isAncestorOrSelfUpdated()) {
+				final Set<Long> transitiveClosure = node.getTransitiveClosure();
+				final Long nodeId = node.getId();
+				indexConceptsToSave.add(new QueryIndexConcept(nodeId, transitiveClosure, stated));
+			}
 		});
 		if (!indexConceptsToSave.isEmpty()) {
-			for (List<QueryIndexConcept> queryIndexConcepts : Iterables.partition(indexConceptsToSave, 10000)) {
+			for (List<QueryIndexConcept> queryIndexConcepts : Iterables.partition(indexConceptsToSave, BATCH_SAVE_SIZE)) {
 				doSaveBatch(queryIndexConcepts, commit);
 			}
 		}
@@ -244,8 +247,8 @@ public class QueryIndexService extends ComponentService {
 		timer.finish();
 	}
 
-	public void doSaveBatch(Collection<QueryIndexConcept> indexConcepts, Commit commit) {
-		doSaveBatchComponents(indexConcepts, commit, "conceptId", queryIndexConceptRepository);
+	private void doSaveBatch(Collection<QueryIndexConcept> indexConcepts, Commit commit) {
+		doSaveBatchComponents(indexConcepts, commit, "conceptIdForm", queryIndexConceptRepository);
 	}
 
 	public void deleteAll() {

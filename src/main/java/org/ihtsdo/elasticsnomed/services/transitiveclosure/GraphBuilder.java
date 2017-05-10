@@ -7,8 +7,10 @@ public class GraphBuilder {
 
 	private Long2ObjectMap<Node> nodeLookup = new Long2ObjectOpenHashMap<>();
 
-	public void addParent(Long sourceId, Long destinationId) {
-		getCreateNode(sourceId).addParent(getCreateNode(destinationId));
+	public Node addParent(Long sourceId, Long destinationId) {
+		Node createNode = getCreateNode(sourceId);
+		createNode.addParent(getCreateNode(destinationId));
+		return createNode;
 	}
 
 	private Node getCreateNode(Long id) {
@@ -28,10 +30,11 @@ public class GraphBuilder {
 		return nodeLookup.size();
 	}
 
-	public void removeParent(long source, long destination) {
+	public Node removeParent(long source, long destination) {
 		final Node node = nodeLookup.get(source);
 		if (node != null) {
 			node.removeParent(destination);
 		}
+		return node;
 	}
 }

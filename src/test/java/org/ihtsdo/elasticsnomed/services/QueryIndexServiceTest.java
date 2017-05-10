@@ -95,6 +95,30 @@ public class QueryIndexServiceTest {
 		assertTC(pizzaWithTopping_4, pizza_2, food_5, root);
 		assertTC(brick_10, root);
 
+		// Give part of the tree a second parent
+		System.out.println("Give 2 as second parent of 10.");
+		pizza_2.getRelationships().add(new Relationship(ISA, brick_10.getId()));
+		conceptService.update(pizza_2, branch);
+
+		assertTC(root);
+		assertTC(food_5, root);
+		assertTC(pizza_2, food_5, root, brick_10);
+		assertTC(cheesePizza_3, pizzaWithTopping_4, pizza_2, food_5, root, brick_10);
+		assertTC(pizzaWithTopping_4, pizza_2, food_5, root, brick_10);
+		assertTC(brick_10, root);
+
+		// Remove second parent
+		System.out.println("Remove second parent from 2.");
+		pizza_2.getRelationshipsWithDestination(brick_10.getId()).iterator().next().setActive(false);
+		conceptService.update(pizza_2, branch);
+
+		assertTC(root);
+		assertTC(food_5, root);
+		assertTC(pizza_2, food_5, root);
+		assertTC(cheesePizza_3, pizzaWithTopping_4, pizza_2, food_5, root);
+		assertTC(pizzaWithTopping_4, pizza_2, food_5, root);
+		assertTC(brick_10, root);
+
 		// Move all those nodes back under root
 		System.out.println("Move 2 and descendants from 5 back to root.");
 		pizza_2.getRelationshipsWithDestination(food_5.getId()).iterator().next().setActive(false);

@@ -11,6 +11,9 @@ import java.util.Set;
 @Document(type = "concept-index", indexName = "snomed-index", shards = 8)
 public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	private String conceptIdForm;
+
 	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed)
 	private Long conceptId;
 
@@ -27,6 +30,11 @@ public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 		this.conceptId = conceptId;
 		this.ancestors = ancestorIds;
 		this.stated = stated;
+		updateConceptIdForm();
+	}
+
+	private void updateConceptIdForm() {
+		this.conceptIdForm = conceptId + (stated ? "_s" : "_i");
 	}
 
 	@Override
@@ -36,7 +44,7 @@ public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 
 	@Override
 	public String getId() {
-		return conceptId.toString();
+		return conceptIdForm;
 	}
 
 	@Override
@@ -49,20 +57,28 @@ public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 		return conceptId;
 	}
 
-	public void setConceptId(Long conceptId) {
-		this.conceptId = conceptId;
-	}
-
 	public Set<Long> getAncestors() {
 		return ancestors;
 	}
 
-	public void setAncestors(Set<Long> ancestors) {
-		this.ancestors = ancestors;
-	}
-
 	public boolean isStated() {
 		return stated;
+	}
+
+	public void setConceptIdForm(String conceptIdForm) {
+		this.conceptIdForm = conceptIdForm;
+	}
+
+	public String getConceptIdForm() {
+		return conceptIdForm;
+	}
+
+	public void setConceptId(Long conceptId) {
+		this.conceptId = conceptId;
+	}
+
+	public void setAncestors(Set<Long> ancestors) {
+		this.ancestors = ancestors;
 	}
 
 	public void setStated(boolean stated) {
@@ -72,7 +88,8 @@ public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 	@Override
 	public String toString() {
 		return "QueryIndexConcept{" +
-				"conceptId=" + conceptId +
+				"conceptIdForm=" + conceptIdForm +
+				", conceptId=" + conceptId +
 				", ancestors=" + ancestors +
 				", stated=" + stated +
 				", internalId='" + getInternalId() + '\'' +

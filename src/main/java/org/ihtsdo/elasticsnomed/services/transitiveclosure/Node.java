@@ -7,8 +7,9 @@ public class Node {
 
 	private final Long id;
 	private final Set<Node> parents;
+	private boolean updated;
 
-	public Node(Long id) {
+	Node(Long id) {
 		this.id = id;
 		parents = new HashSet<>();
 	}
@@ -30,12 +31,32 @@ public class Node {
 		return id;
 	}
 
-	public void addParent(Node parent) {
+	void addParent(Node parent) {
 		parents.add(parent);
 	}
 
-	public void removeParent(long parentId) {
+	void removeParent(long parentId) {
 		parents.remove(new Node(parentId));
+	}
+
+	public boolean isAncestorOrSelfUpdated() {
+		return isAncestorOrSelfUpdated(this);
+	}
+
+	private boolean isAncestorOrSelfUpdated(Node node) {
+		if (node.updated) {
+			return true;
+		}
+		for (Node parent : node.parents) {
+			if (parent.isAncestorOrSelfUpdated()) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public void markUpdated() {
+		this.updated = true;
 	}
 
 	@Override
