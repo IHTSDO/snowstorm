@@ -2,14 +2,22 @@ package org.ihtsdo.elasticsnomed.domain;
 
 import io.kaicode.elasticvc.domain.DomainEntity;
 import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldIndex;
+import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.Set;
 
 @Document(type = "concept-index", indexName = "snomed-index", shards = 8)
 public class QueryIndexConcept extends DomainEntity<QueryIndexConcept> {
 
+	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed)
 	private Long conceptId;
+
+	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed)
 	private Set<Long> ancestors;
+
+	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
 	private boolean stated;
 
 	public QueryIndexConcept() {
