@@ -7,6 +7,8 @@ import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.SortOrder;
 import org.ihtsdo.elasticsnomed.domain.Concepts;
 import org.ihtsdo.elasticsnomed.domain.QueryConcept;
 import org.ihtsdo.elasticsnomed.domain.Relationship;
@@ -94,7 +96,7 @@ public class QueryService extends ComponentService {
 	}
 
 	void updateStatedAndInferredTransitiveClosures(Commit commit) {
-		QueryBuilder relationshipBranchCriteria = versionControlHelper.getBranchCriteriaOpenCommitChangesOnly(commit);
+		QueryBuilder relationshipBranchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
 		updateTransitiveClosure(true, relationshipBranchCriteria, commit, false);
 		updateTransitiveClosure(false, relationshipBranchCriteria, commit, false);
 	}
@@ -190,9 +192,11 @@ public class QueryService extends ComponentService {
 					Sets.union(Sets.union(existingAncestors, existingDescendants), updateSource))));
 		}
 		try (final CloseableIterator<Relationship> existingInferredIsARelationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
-			existingInferredIsARelationships.forEachRemaining(relationship ->
-					graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()))
-			);
+			existingInferredIsARelationships.forEachRemaining(relationship -> {
+				if (relationship.getEnd() == null) {
+					graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
+				}
+			});
 		}
 		timer.checkpoint("Build existing nodes from Relationships.");
 		logger.info("{} existing nodes loaded.", graphBuilder.getNodeCount());
@@ -209,17 +213,29 @@ public class QueryService extends ComponentService {
 						.must(termQuery("typeId", Concepts.ISA))
 						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
 				)
+				.withSort(new FieldSortBuilder("start").order(SortOrder.ASC))
 				.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
 			newInferredIsARelationships.forEachRemaining(relationship -> {
-				if (relationship.isActive()) {
-					graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId())).markUpdated();
-					relationshipsAdded.incrementAndGet();
-				} else {
-					Node node = graphBuilder.removeParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
-					if (node != null) {
-						node.markUpdated();
+				boolean ignore = false;
+				boolean justDeleted = false;
+				if (relationship.getEnd() != null) {
+					if (commit.getEntityVersionsDeleted().contains(relationship.getId())) {
+						justDeleted = true;
+					} else {
+						ignore = true;
 					}
-					relationshipsRemoved.incrementAndGet();
+				}
+				if (!ignore) {
+					if (!justDeleted && relationship.isActive()){
+						graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId())).markUpdated();
+						relationshipsAdded.incrementAndGet();
+					} else{
+						Node node = graphBuilder.removeParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
+						if (node != null) {
+							node.markUpdated();
+						}
+						relationshipsRemoved.incrementAndGet();
+					}
 				}
 			});
 		}

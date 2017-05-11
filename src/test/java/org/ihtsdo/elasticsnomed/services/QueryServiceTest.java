@@ -39,8 +39,6 @@ public class QueryServiceTest {
 		branchService.create("MAIN");
 	}
 
-	// TODO: Test and implement TC update after relationship deletion.
-
 	@Test
 	public void testIncrementalStatedTransitiveClosureUpdate() throws Exception {
 		// Create three nodes, each parent of the next
@@ -107,9 +105,34 @@ public class QueryServiceTest {
 		assertTC(pizzaWithTopping_4, pizza_2, food_5, root, brick_10);
 		assertTC(brick_10, root);
 
-		// Remove second parent
-		System.out.println("Remove second parent from 2.");
+		// Remove second parent via relationship inactivation
+		System.out.println("Remove second parent from 2 via relationship inactivation.");
 		pizza_2.getRelationshipsWithDestination(brick_10.getId()).iterator().next().setActive(false);
+		conceptService.update(pizza_2, branch);
+
+		assertTC(root);
+		assertTC(food_5, root);
+		assertTC(pizza_2, food_5, root);
+		assertTC(cheesePizza_3, pizzaWithTopping_4, pizza_2, food_5, root);
+		assertTC(pizzaWithTopping_4, pizza_2, food_5, root);
+		assertTC(brick_10, root);
+
+		// Give part of the tree a second parent again
+		System.out.println("Give 2 as second parent of 10 again.");
+		pizza_2.getRelationshipsWithDestination(brick_10.getId()).iterator().next().setActive(true);
+		conceptService.update(pizza_2, branch);
+
+		assertTC(root);
+		assertTC(food_5, root);
+		assertTC(pizza_2, food_5, root, brick_10);
+		assertTC(cheesePizza_3, pizzaWithTopping_4, pizza_2, food_5, root, brick_10);
+		assertTC(pizzaWithTopping_4, pizza_2, food_5, root, brick_10);
+		assertTC(brick_10, root);
+
+
+		// Remove second parent via relationship deletion
+		System.out.println("Remove second parent from 2 via relationship deletion.");
+		pizza_2.getRelationships().remove(pizza_2.getRelationshipsWithDestination(brick_10.getId()).iterator().next());
 		conceptService.update(pizza_2, branch);
 
 		assertTC(root);

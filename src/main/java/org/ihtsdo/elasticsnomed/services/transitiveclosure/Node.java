@@ -35,7 +35,7 @@ public class Node {
 		parents.add(parent);
 	}
 
-	void removeParent(long parentId) {
+	void removeParent(Long parentId) {
 		parents.remove(new Node(parentId));
 	}
 
