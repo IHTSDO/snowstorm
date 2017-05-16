@@ -20,6 +20,7 @@ import javax.validation.Valid;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 public class ConceptController {
@@ -105,10 +106,22 @@ public class ConceptController {
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/parents", method = RequestMethod.GET, produces = "application/json")
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptParents(@PathVariable String branch,
-													   @PathVariable String conceptId,
-													   @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
+													  @PathVariable String conceptId,
+													  @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
 
 		return conceptService.findConceptParents(conceptId, BranchPathUriUtil.parseBranchPath(branch), form);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/ancestors", method = RequestMethod.GET, produces = "application/json")
+	@JsonView(value = View.Component.class)
+	public Collection<ConceptMini> findConceptAncestors(@PathVariable String branch,
+													  @PathVariable String conceptId,
+													  @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
+
+		String branchPath = BranchPathUriUtil.parseBranchPath(branch);
+		Set<Long> ancestorIds = queryService.retrieveAncestors(conceptId, branchPath, form == Relationship.CharacteristicType.stated);
+		return conceptService.findConceptMinis(branchPath, ancestorIds).values();
 	}
 
 	@RequestMapping(value = "/rebuild/{branch}", method = RequestMethod.POST)
