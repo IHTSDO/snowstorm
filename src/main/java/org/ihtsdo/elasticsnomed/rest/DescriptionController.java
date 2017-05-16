@@ -2,11 +2,11 @@ package org.ihtsdo.elasticsnomed.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import org.ihtsdo.elasticsnomed.domain.ConceptMini;
-import org.ihtsdo.elasticsnomed.domain.Description;
+import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
+import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.ihtsdo.elasticsnomed.rest.pojo.DescriptionSearchResult;
-import org.ihtsdo.elasticsnomed.services.ConceptService;
-import org.ihtsdo.elasticsnomed.services.DescriptionService;
+import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
+import org.ihtsdo.elasticsnomed.core.data.services.DescriptionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;

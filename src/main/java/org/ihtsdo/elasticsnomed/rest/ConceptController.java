@@ -2,21 +2,24 @@ package org.ihtsdo.elasticsnomed.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import org.ihtsdo.elasticsnomed.domain.*;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
+import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
+import org.ihtsdo.elasticsnomed.core.data.domain.ConceptView;
+import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.rest.pojo.ConceptDescriptionsResult;
 import org.ihtsdo.elasticsnomed.rest.pojo.InboundRelationshipsResult;
-import org.ihtsdo.elasticsnomed.services.ConceptService;
-import org.ihtsdo.elasticsnomed.services.QueryService;
-import org.ihtsdo.elasticsnomed.services.RelationshipService;
+import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
+import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
+import org.ihtsdo.elasticsnomed.core.data.services.RelationshipService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import javax.validation.Valid;
 
 @RestController
 public class ConceptController {

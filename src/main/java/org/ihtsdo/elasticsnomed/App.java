@@ -1,8 +1,8 @@
 package org.ihtsdo.elasticsnomed;
 
 import io.kaicode.elasticvc.api.BranchService;
-import org.ihtsdo.elasticsnomed.rf2import.ImportService;
-import org.ihtsdo.elasticsnomed.services.ConceptService;
+import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
+import org.ihtsdo.elasticsnomed.core.rf2import.ImportService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,10 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
-
-import javax.annotation.PostConstruct;
 
 @EnableSwagger2
 public class App extends Config implements ApplicationRunner {

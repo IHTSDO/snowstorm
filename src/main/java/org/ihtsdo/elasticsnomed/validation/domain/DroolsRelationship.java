@@ -1,6 +1,6 @@
 package org.ihtsdo.elasticsnomed.validation.domain;
 
-import org.ihtsdo.elasticsnomed.domain.Relationship;
+import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 
 public class DroolsRelationship implements org.ihtsdo.drools.domain.Relationship {
 

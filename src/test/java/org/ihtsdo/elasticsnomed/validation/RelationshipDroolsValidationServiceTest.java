@@ -3,10 +3,10 @@ package org.ihtsdo.elasticsnomed.validation;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.ihtsdo.elasticsnomed.TestConfig;
-import org.ihtsdo.elasticsnomed.domain.Concept;
-import org.ihtsdo.elasticsnomed.domain.Concepts;
-import org.ihtsdo.elasticsnomed.domain.Relationship;
-import org.ihtsdo.elasticsnomed.services.ConceptService;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
+import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
+import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -16,8 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-
-import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)

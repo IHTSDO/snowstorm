@@ -1,7 +1,7 @@
 package org.ihtsdo.elasticsnomed.rest;
 
 import io.kaicode.elasticvc.api.BranchNotFoundException;
-import org.ihtsdo.elasticsnomed.services.NotFoundException;
+import org.ihtsdo.elasticsnomed.core.data.services.NotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;

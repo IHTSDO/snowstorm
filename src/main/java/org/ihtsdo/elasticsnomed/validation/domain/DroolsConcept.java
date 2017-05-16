@@ -1,6 +1,6 @@
 package org.ihtsdo.elasticsnomed.validation.domain;
 
-import org.ihtsdo.elasticsnomed.domain.Concept;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 
 import java.util.Collection;
 import java.util.HashSet;

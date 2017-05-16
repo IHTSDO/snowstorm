@@ -1,6 +1,6 @@
 package org.ihtsdo.elasticsnomed.rest;
 
-import org.ihtsdo.elasticsnomed.domain.ConceptMini;
+import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

@@ -3,9 +3,9 @@
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>com.kaicube.snomed</groupId>
-	<artifactId>elastic-snomed</artifactId>
-	<version>0.0.2-SNAPSHOT</version>
+	<groupId>org.ihtsdo</groupId>
+	<artifactId>elasticsnomed</artifactId>
+	<version>0.5.0-SNAPSHOT</version>
 
 	<name>Elastic SNOMED</name>
 	<description>SNOMED CT Terminology Server Using Elasticsearch</description>
@@ -31,8 +31,8 @@
 	</properties>
 
 	<dependencies>
-		<!-- RF2 Import -->
 		<dependency>
+			<!-- For RF2 Import -->
 			<groupId>org.ihtsdo.otf</groupId>
 			<artifactId>snomed-boot</artifactId>
 			<version>${snomed-boot.version}</version>
@@ -44,6 +44,7 @@
 			</exclusions>
 		</dependency>
 		<dependency>
+			<!-- Branching and Version Control on top of Elasticsearch -->
 			<groupId>io.kaicode</groupId>
 			<artifactId>elasticvc</artifactId>
 			<version>${elasticvc.version}</version>

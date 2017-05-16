@@ -1,12 +1,12 @@
 package org.ihtsdo.elasticsnomed.rest;
 
-import org.ihtsdo.elasticsnomed.domain.Concept;
-import org.ihtsdo.elasticsnomed.domain.review.BranchReview;
-import org.ihtsdo.elasticsnomed.domain.review.BranchReviewConceptChanges;
-import org.ihtsdo.elasticsnomed.domain.review.MergeReview;
-import org.ihtsdo.elasticsnomed.domain.review.MergeReviewConceptVersions;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
+import org.ihtsdo.elasticsnomed.core.data.domain.review.BranchReview;
+import org.ihtsdo.elasticsnomed.core.data.domain.review.BranchReviewConceptChanges;
+import org.ihtsdo.elasticsnomed.core.data.domain.review.MergeReview;
+import org.ihtsdo.elasticsnomed.core.data.domain.review.MergeReviewConceptVersions;
 import org.ihtsdo.elasticsnomed.rest.pojo.CreateReviewRequest;
-import org.ihtsdo.elasticsnomed.services.BranchReviewService;
+import org.ihtsdo.elasticsnomed.core.data.services.BranchReviewService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

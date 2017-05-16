@@ -1,7 +1,7 @@
 package org.ihtsdo.elasticsnomed.rest.pojo;
 
 import com.fasterxml.jackson.annotation.JsonView;
-import org.ihtsdo.elasticsnomed.domain.Relationship;
+import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.rest.View;
 
 import java.util.List;

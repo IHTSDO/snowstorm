@@ -1,11 +1,10 @@
 package org.ihtsdo.elasticsnomed.rest;
 
-import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.ihtsdo.drools.response.InvalidContent;
-import org.ihtsdo.elasticsnomed.domain.Concept;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.validation.DroolsValidationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;

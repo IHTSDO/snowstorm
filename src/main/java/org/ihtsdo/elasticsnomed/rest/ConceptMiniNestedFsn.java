@@ -1,7 +1,7 @@
 package org.ihtsdo.elasticsnomed.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
-import org.ihtsdo.elasticsnomed.domain.ConceptMini;
+import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
 
 public class ConceptMiniNestedFsn {
 

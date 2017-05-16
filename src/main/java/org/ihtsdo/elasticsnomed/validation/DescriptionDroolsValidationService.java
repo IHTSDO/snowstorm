@@ -4,10 +4,10 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.drools.domain.Description;
-import org.ihtsdo.elasticsnomed.domain.Concepts;
-import org.ihtsdo.elasticsnomed.domain.Relationship;
-import org.ihtsdo.elasticsnomed.services.DescriptionService;
-import org.ihtsdo.elasticsnomed.services.QueryService;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
+import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
+import org.ihtsdo.elasticsnomed.core.data.services.DescriptionService;
+import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
 import org.ihtsdo.elasticsnomed.validation.domain.DroolsDescription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +70,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	public Set<String> getFSNs(Set<String> conceptIds, String... languageRefsetIds) {
 		return descriptionService.fetchDescriptions(branchPath, conceptIds).stream()
 				.filter(d -> d.getTypeId().equals(Concepts.FSN))
-				.map(org.ihtsdo.elasticsnomed.domain.Description::getTerm)
+				.map(org.ihtsdo.elasticsnomed.core.data.domain.Description::getTerm)
 				.collect(Collectors.toSet());
 	}
 
@@ -92,7 +92,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 						.must(termQuery("term", exactTerm))
 				)
 				.build();
-		List<org.ihtsdo.elasticsnomed.domain.Description> matches = elasticsearchTemplate.queryForList(query, org.ihtsdo.elasticsnomed.domain.Description.class);
+		List<org.ihtsdo.elasticsnomed.core.data.domain.Description> matches = elasticsearchTemplate.queryForList(query, org.ihtsdo.elasticsnomed.core.data.domain.Description.class);
 		return matches.stream().map(DroolsDescription::new).collect(Collectors.toSet());
 	}
 

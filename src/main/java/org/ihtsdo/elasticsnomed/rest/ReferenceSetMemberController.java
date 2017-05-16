@@ -1,19 +1,13 @@
 package org.ihtsdo.elasticsnomed.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
-import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import org.ihtsdo.elasticsnomed.domain.*;
-import org.ihtsdo.elasticsnomed.services.ConceptService;
-import org.ihtsdo.elasticsnomed.services.ReferenceSetMemberService;
+import org.ihtsdo.elasticsnomed.core.data.domain.ReferenceSetMember;
+import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Collections;
 
 @RestController
 public class ReferenceSetMemberController {

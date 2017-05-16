@@ -1,17 +1,17 @@
 package org.ihtsdo.elasticsnomed.validation.domain;
 
 import org.ihtsdo.drools.domain.Description;
-import org.ihtsdo.elasticsnomed.domain.Concepts;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class DroolsDescription implements Description {
 
-	private final org.ihtsdo.elasticsnomed.domain.Description description;
+	private final org.ihtsdo.elasticsnomed.core.data.domain.Description description;
 	private Map<String, String> acceptabilityMapWithIds;
 
-	public DroolsDescription(org.ihtsdo.elasticsnomed.domain.Description description) {
+	public DroolsDescription(org.ihtsdo.elasticsnomed.core.data.domain.Description description) {
 		this.description = description;
 
 		Map<String, String> acceptabilityMapWithConstants = description.getAcceptabilityMap();

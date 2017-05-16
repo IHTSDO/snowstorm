@@ -1,7 +1,7 @@
 package org.ihtsdo.elasticsnomed;
 
 import io.kaicode.elasticvc.domain.Branch;
-import org.ihtsdo.elasticsnomed.domain.*;
+import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

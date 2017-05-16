@@ -1,7 +1,7 @@
 package org.ihtsdo.elasticsnomed.rest;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import org.ihtsdo.elasticsnomed.rf2import.ImportService;
+import org.ihtsdo.elasticsnomed.core.rf2import.ImportService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,7 +1,7 @@
 package org.ihtsdo.elasticsnomed.rest.pojo;
 
 import com.fasterxml.jackson.annotation.JsonView;
-import org.ihtsdo.elasticsnomed.domain.ConceptMini;
+import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
 import org.ihtsdo.elasticsnomed.rest.View;
 
 public class DescriptionSearchResult {

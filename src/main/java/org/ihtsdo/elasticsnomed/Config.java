@@ -8,14 +8,13 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
 import io.searchbox.client.JestClient;
-import org.ihtsdo.elasticsnomed.domain.Concept;
-import org.ihtsdo.elasticsnomed.domain.Description;
-import org.ihtsdo.elasticsnomed.domain.Relationship;
-import org.ihtsdo.elasticsnomed.repositories.config.ConceptStoreMixIn;
-import org.ihtsdo.elasticsnomed.repositories.config.DescriptionStoreMixIn;
-import org.ihtsdo.elasticsnomed.repositories.config.RelationshipStoreMixIn;
-import org.ihtsdo.elasticsnomed.rf2import.ImportService;
-import org.ihtsdo.elasticsnomed.services.ConceptService;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
+import org.ihtsdo.elasticsnomed.core.data.domain.Description;
+import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
+import org.ihtsdo.elasticsnomed.core.data.repositories.config.ConceptStoreMixIn;
+import org.ihtsdo.elasticsnomed.core.data.repositories.config.DescriptionStoreMixIn;
+import org.ihtsdo.elasticsnomed.core.data.repositories.config.RelationshipStoreMixIn;
+import org.ihtsdo.elasticsnomed.core.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
@@ -45,8 +44,8 @@ import static springfox.documentation.builders.PathSelectors.regex;
 				ContextStackAutoConfiguration.class})
 @EnableElasticsearchRepositories(
 		basePackages = {
-				"io.kaicode.elasticvc.repositories",
-				"org.ihtsdo.elasticsnomed.repositories"
+				"org.ihtsdo.elasticsnomed.core.data.repositories",
+				"io.kaicode.elasticvc.repositories"
 		})
 public class Config {
 
