@@ -1,10 +1,13 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
+import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
 import org.ihtsdo.elasticsnomed.core.data.domain.Description;
+import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -31,6 +34,9 @@ public class BranchMergeServiceTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private QueryService queryService;
 
 	@Before
 	public void setup() {
@@ -111,11 +117,11 @@ public class BranchMergeServiceTest {
 		final String concept1 = "100";
 		final String concept2 = "200";
 		conceptService.create(new Concept(concept1)
-				.addDescription(new Description("One")),
+						.addDescription(new Description("One")),
 				"MAIN/A/A1");
 		conceptService.create(new Concept(concept2)
-				.addDescription(new Description("21", "Two1"))
-				.addDescription(new Description("22", "Two2")),
+						.addDescription(new Description("21", "Two1"))
+						.addDescription(new Description("22", "Two2")),
 				"MAIN/A/A2");
 
 		// MAIN can't see concepts
@@ -242,6 +248,47 @@ public class BranchMergeServiceTest {
 		// MAIN/A is up to date
 		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.UP_TO_DATE, concept1, true);
 		assertConceptVisible("MAIN/A", concept2);
+	}
+
+	@Test
+	public void testRebaseCapturesChangesAcrossBranchesForTransitiveClosureIncrementalUpdate() {
+		assertBranchState("MAIN", Branch.BranchState.UP_TO_DATE);
+		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
+		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
+
+		// MAIN: 1 Root
+		System.out.println("// MAIN: 1 Root");
+		conceptService.create(new Concept("1"), "MAIN");
+
+		// MAIN: 2 -> 1
+		System.out.println("// MAIN: 2 -> 1");
+		conceptService.create(new Concept("2").addRelationship(new Relationship(Concepts.ISA, "1")), "MAIN");
+
+		// Rebase MAIN/A
+		System.out.println("// Rebase MAIN/A");
+		assertBranchState("MAIN/A", Branch.BranchState.BEHIND);
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", null);
+
+		// MAIN: 4 -> 1
+		System.out.println("// MAIN: 4 -> 1");
+		conceptService.create(new Concept("4").addRelationship(new Relationship(Concepts.ISA, "1")), "MAIN");
+
+		// MAIN: 2 -> 4
+		System.out.println("// MAIN: 2 -> 4");
+		conceptService.update(new Concept("2").addRelationship(new Relationship(Concepts.ISA, "4")), "MAIN");
+		Assert.assertEquals(Sets.newHashSet(1L, 4L), queryService.retrieveAncestors("2", "MAIN", true));
+
+		// MAIN/A: 3 -> 2
+		System.out.println("// MAIN/A: 3 -> 2");
+		conceptService.create(new Concept("3").addRelationship(new Relationship(Concepts.ISA, "2")), "MAIN/A");
+		Assert.assertEquals(Sets.newHashSet(1L, 2L), queryService.retrieveAncestors("3", "MAIN/A", true));
+
+		// Rebase MAIN/A
+		assertBranchState("MAIN/A", Branch.BranchState.DIVERGED);
+
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+
+		Assert.assertEquals(Sets.newHashSet(1L, 4L, 2L), queryService.retrieveAncestors("3", "MAIN/A", true));
 	}
 
 	@Test(expected = IllegalArgumentException.class)
@@ -404,7 +451,7 @@ public class BranchMergeServiceTest {
 	}
 
 	private Concept assertBranchStateAndConceptVisibility(String path, Branch.BranchState expectedBranchState,
-			String conceptId, boolean expectedVisible) {
+														  String conceptId, boolean expectedVisible) {
 		assertBranchState(path, expectedBranchState);
 		if (expectedVisible) {
 			return assertConceptVisible(path, conceptId);

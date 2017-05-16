@@ -52,9 +52,13 @@ public class QueryService extends ComponentService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Set<Long> retrieveAncestors(String conceptId, String path, boolean stated) {
+		return retrieveAncestors(versionControlHelper.getBranchCriteria(path), path, stated, conceptId);
+	}
+
+	public Set<Long> retrieveAncestors(QueryBuilder branchCriteria, String path, boolean stated, String conceptId) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(versionControlHelper.getBranchCriteria(path))
+						.must(branchCriteria)
 						.must(termQuery("conceptId", conceptId))
 						.must(termQuery("stated", stated))
 				)
@@ -71,11 +75,32 @@ public class QueryService extends ComponentService {
 		return concepts.get(0).getAncestors();
 	}
 
-	public Set<Long> retrieveDescendants(String conceptId, QueryBuilder branchCriteria, boolean stated) {
+	public Set<Long> retrieveAllAncestors(QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptId) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria)
-						.must(termQuery("ancestors", conceptId))
+						.must(termsQuery("conceptId", conceptId))
+						.must(termQuery("stated", stated))
+				)
+				.withPageable(LARGE_PAGE)
+				.build();
+		final List<QueryConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class).getContent();
+		Set<Long> allAncestors = new HashSet<>();
+		for (QueryConcept concept : concepts) {
+			allAncestors.addAll(concept.getAncestors());
+		}
+		return allAncestors;
+	}
+
+	public Set<Long> retrieveDescendants(String conceptId, QueryBuilder branchCriteria, boolean stated) {
+		return retrieveAllDescendants(branchCriteria, stated, Collections.singleton(conceptId));
+	}
+
+	public Set<Long> retrieveAllDescendants(QueryBuilder branchCriteria, boolean stated, Collection<? extends Object> conceptIds) {
+		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termsQuery("ancestors", conceptIds))
 						.must(termQuery("stated", stated))
 				)
 				.withPageable(LARGE_PAGE)
@@ -190,9 +215,7 @@ public class QueryService extends ComponentService {
 		}
 		try (final CloseableIterator<Relationship> existingInferredIsARelationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
 			existingInferredIsARelationships.forEachRemaining(relationship -> {
-				if (relationship.getEnd() == null) {
-					graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
-				}
+				graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
 			});
 		}
 		timer.checkpoint("Build existing nodes from Relationships.");
