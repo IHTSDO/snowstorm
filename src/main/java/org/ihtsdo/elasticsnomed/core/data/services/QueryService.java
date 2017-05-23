@@ -4,7 +4,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
+import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
@@ -19,9 +21,9 @@ import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.*;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
@@ -110,20 +112,74 @@ public class QueryService extends ComponentService {
 	}
 
 	public void rebuildStatedAndInferredTransitiveClosures(String branch) {
+		// TODO: Only use on MAIN
 		Commit commit = branchService.openCommit(branch);
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
-		updateTransitiveClosure(true, branchCriteria, commit, true);
-		updateTransitiveClosure(false, branchCriteria, commit, true);
+		updateTransitiveClosure(true, branchCriteria, Collections.emptySet(), commit, true);
+		updateTransitiveClosure(false, branchCriteria, Collections.emptySet(), commit, true);
 		branchService.completeCommit(commit);
 	}
 
 	void updateStatedAndInferredTransitiveClosures(Commit commit) {
-		QueryBuilder relationshipBranchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
-		updateTransitiveClosure(true, relationshipBranchCriteria, commit, false);
-		updateTransitiveClosure(false, relationshipBranchCriteria, commit, false);
+		if (commit.isRebase()) {
+			Branch branch = commit.getBranch();
+			String fatPath = branch.getFatPath();
+			removeQConceptChangesOnBranch(commit, branch, fatPath);
+
+			Page<QueryConcept> page = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder().withQuery(versionControlHelper.getChangesOnBranchCriteria(branch)).build(), QueryConcept.class);
+			System.out.println("total QueryConcept on path = " + page.getTotalElements());
+
+			QueryBuilder changesBranchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch);
+			Set<String> parentVersionsReplacedOnBranch = branch.getVersionsReplaced();
+			updateTransitiveClosure(true, changesBranchCriteria, parentVersionsReplacedOnBranch, commit, false);
+			updateTransitiveClosure(false, changesBranchCriteria, parentVersionsReplacedOnBranch, commit, false);
+		} else {
+			QueryBuilder changesBranchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
+			Set<String> parentVersionsReplacedDuringCommit = commit.getEntityVersionsDeleted();
+			updateTransitiveClosure(true, changesBranchCriteria, parentVersionsReplacedDuringCommit, commit, false);
+			updateTransitiveClosure(false, changesBranchCriteria, parentVersionsReplacedDuringCommit, commit, false);
+		}
 	}
 
-	private void updateTransitiveClosure(boolean stated, QueryBuilder relationshipBranchCriteria, Commit commit, boolean rebuild) {
+	private void removeQConceptChangesOnBranch(Commit commit, Branch branch, String fatPath) {
+		// End versions on branch
+		QueryBuilder branchCriteria = versionControlHelper.getChangesOnBranchCriteria(fatPath);
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(branchCriteria)
+				.withPageable(LARGE_PAGE);
+		try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(queryBuilder.build(), QueryConcept.class)) {
+			List<QueryConcept> deletionBatch = new ArrayList<>();
+			stream.forEachRemaining(queryConcept -> {
+				queryConcept.markDeleted();
+				deletionBatch.add(queryConcept);
+				if (deletionBatch.size() == BATCH_SAVE_SIZE) {
+					deleteBatch(commit, deletionBatch);
+					deletionBatch.clear();
+				}
+			});
+			if (!deletionBatch.isEmpty()) {
+				deleteBatch(commit, deletionBatch);
+			}
+		}
+
+		// Restore versions from parent branches which were ended on this branch
+		NativeSearchQueryBuilder endedVersionsQuery = new NativeSearchQueryBuilder()
+				.withQuery(termsQuery("_id", branch.getVersionsReplaced()))
+				.withPageable(LARGE_PAGE);
+		try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(endedVersionsQuery.build(), QueryConcept.class)) {
+			Set<String> queryConceptVersionsEnded = new HashSet<>();
+			stream.forEachRemaining(c -> queryConceptVersionsEnded.add(c.getInternalId()));
+			branch.getVersionsReplaced().removeAll(queryConceptVersionsEnded);
+			logger.info("Restored visibility of {} query concepts from parents", queryConceptVersionsEnded.size());
+		}
+	}
+
+	private Iterable<QueryConcept> deleteBatch(Commit commit, List<QueryConcept> deletionBatch) {
+		logger.info("Ending {} query concepts", deletionBatch.size());
+		return doSaveBatchComponents(deletionBatch, commit, "conceptIdForm", queryIndexConceptRepository);
+	}
+
+	private void updateTransitiveClosure(boolean stated, QueryBuilder changesBranchCriteria, Set<String> deletionsToProcess, Commit commit, boolean rebuild) {
 		String formName;
 		Set<String> characteristicTypeIds = new HashSet<>();
 		if (stated) {
@@ -141,19 +197,26 @@ public class QueryService extends ComponentService {
 		Set<Long> updateSource = new HashSet<>();
 		Set<Long> existingAncestors = new HashSet<>();
 		Set<Long> existingDescendants = new HashSet<>();
-		QueryBuilder branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteria(commit.getBranch().getFatPath());
+
+
+		// If rebase this should be a view onto the new parent state
+		String committedContentPath = commit.getBranch().getFatPath();
+		if (commit.isRebase()) {
+			committedContentPath = PathUtil.getParentPath(committedContentPath);
+		}
+		QueryBuilder branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteria(committedContentPath);
 		timer.checkpoint("get branch criteria");
 		if (!rebuild) {
 			// Step: Collect source and destinations of changed is-a relationships
 			Set<Long> updateDestination = new HashSet<>();
-			try (final CloseableIterator<Relationship> changedInferredIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+			try (final CloseableIterator<Relationship> changedIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
-							.must(relationshipBranchCriteria)
+							.must(changesBranchCriteria)
 							.must(termQuery("typeId", Concepts.ISA))
 							.must(termsQuery("characteristicTypeId", characteristicTypeIds))
 					)
 					.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
-				changedInferredIsARelationships.forEachRemaining(relationship -> {
+				changedIsARelationships.forEachRemaining(relationship -> {
 					updateSource.add(parseLong(relationship.getSourceId()));
 					updateDestination.add(parseLong(relationship.getDestinationId()));
 				});
@@ -177,7 +240,10 @@ public class QueryService extends ComponentService {
 							.should(termsQuery("conceptId", Sets.union(updateSource, updateDestination))))
 					.withPageable(ConceptService.LARGE_PAGE).build();
 			try (final CloseableIterator<QueryConcept> existingIndexConcepts = elasticsearchTemplate.stream(query, QueryConcept.class)) {
-				existingIndexConcepts.forEachRemaining(indexConcept -> existingAncestors.addAll(indexConcept.getAncestors()));
+				existingIndexConcepts.forEachRemaining(indexConcept -> {
+					existingAncestors.addAll(indexConcept.getAncestors());
+
+				});
 			}
 			timer.checkpoint("Collect existingAncestors from QueryConcept.");
 
@@ -229,7 +295,7 @@ public class QueryService extends ComponentService {
 		boolean newGraph = graphBuilder.getNodeCount() == 0;
 		try (final CloseableIterator<Relationship> newInferredIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(relationshipBranchCriteria)
+						.must(changesBranchCriteria)
 						.must(termQuery("typeId", Concepts.ISA))
 						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
 				)
@@ -239,7 +305,7 @@ public class QueryService extends ComponentService {
 				boolean ignore = false;
 				boolean justDeleted = false;
 				if (relationship.getEnd() != null) {
-					if (commit.getEntityVersionsDeleted().contains(relationship.getId())) {
+					if (deletionsToProcess.contains(relationship.getId())) {
 						justDeleted = true;
 					} else {
 						ignore = true;

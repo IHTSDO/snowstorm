@@ -284,10 +284,12 @@ public class BranchMergeServiceTest {
 		Assert.assertEquals(Sets.newHashSet(1L, 2L), queryService.retrieveAncestors("3", "MAIN/A", true));
 
 		// Rebase MAIN/A
+		System.out.println("// Rebase MAIN/A");
 		assertBranchState("MAIN/A", Branch.BranchState.DIVERGED);
 
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
 
+		Assert.assertEquals(Sets.newHashSet(1L, 4L), queryService.retrieveAncestors("2", "MAIN/A", true));
 		Assert.assertEquals(Sets.newHashSet(1L, 4L, 2L), queryService.retrieveAncestors("3", "MAIN/A", true));
 	}
 
