@@ -1,6 +1,6 @@
 target
 .*
-data
 *.iml
-release
+/data
+/release
 application-*.properties
