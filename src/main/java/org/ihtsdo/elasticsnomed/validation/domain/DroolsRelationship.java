@@ -47,6 +47,11 @@ public class DroolsRelationship implements org.ihtsdo.drools.domain.Relationship
 
 	@Override
 	public boolean isPublished() {
+		return relationship.getEffectiveTime() != null;
+	}
+
+	@Override
+	public boolean isReleased() {
 		return relationship.isReleased();
 	}
 

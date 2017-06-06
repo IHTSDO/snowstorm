@@ -60,6 +60,11 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 
 	@Override
 	public boolean isPublished() {
+		return concept.getEffectiveTime() != null;
+	}
+
+	@Override
+	public boolean isReleased() {
 		return concept.isReleased();
 	}
 
