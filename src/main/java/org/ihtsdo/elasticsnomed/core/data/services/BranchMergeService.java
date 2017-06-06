@@ -78,6 +78,10 @@ public class BranchMergeService {
 	}
 
 	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts) {
+		mergeBranchSync(source, target, manuallyMergedConcepts, false);
+	}
+
+	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts, boolean permissive) {
 		logger.info("Request merge {} -> {}", source, target);
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
 		final Branch targetBranch = branchService.findBranchOrThrow(target);
@@ -91,17 +95,17 @@ public class BranchMergeService {
 		final boolean rebase = sourceBranch.isParent(targetBranch);
 		if (rebase) {
 			// Rebase
-			if (sourceBranch.getHeadTimestamp() == targetBranch.getBaseTimestamp()) {
+			if (sourceBranch.getHeadTimestamp() == targetBranch.getBaseTimestamp() && !permissive) {
 				throw new IllegalStateException("This rebase is not meaningful, the child branch already has the parent's changes.");
-			} else if (targetBranch.getState() == Branch.BranchState.DIVERGED && manuallyMergedConcepts == null) {
+			} else if (targetBranch.getState() == Branch.BranchState.DIVERGED && manuallyMergedConcepts == null && !permissive) {
 				throw new IllegalArgumentException(USE_BRANCH_REVIEW);
 			}
 		} else {
 			// Promotion
-			if (!sourceBranch.isContainsContent()) {
+			if (!sourceBranch.isContainsContent() && !permissive) {
 				throw new IllegalStateException("This promotion is not meaningful, the child branch does not have any unpromoted changes.");
 			}
-			if (sourceBranch.getBaseTimestamp() != targetBranch.getHeadTimestamp()) {
+			if (sourceBranch.getBaseTimestamp() != targetBranch.getHeadTimestamp() && !permissive) {
 				throw new IllegalStateException("Child branch must be rebased before promoted.");
 			}
 		}

@@ -395,6 +395,20 @@ public class ConceptService extends ComponentService implements CommitListener {
 		return doSave(conceptVersion, branch);
 	}
 
+	public void update(Collection<Concept> conceptVersions, String path) {
+		final Branch branch = branchService.findBranchOrThrow(path);
+		for (Concept conceptVersion : conceptVersions) {
+			Assert.isTrue(!Strings.isNullOrEmpty(conceptVersion.getConceptId()), "conceptId is required.");
+		}
+		Set<String> conceptIds = conceptVersions.stream().map(Concept::getConceptId).collect(Collectors.toSet());
+		Collection<String> nonExistentConceptIds = getNonExistentConcepts(conceptIds, path);
+		if (!nonExistentConceptIds.isEmpty()) {
+			throw new IllegalArgumentException("The following concepts do not exist on branch '" + path + "': " + nonExistentConceptIds);
+		}
+
+		doSave(conceptVersions, branch);
+	}
+
 	public Iterable<Concept> createUpdate(List<Concept> concepts, String path) {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		return doSave(concepts, branch);
