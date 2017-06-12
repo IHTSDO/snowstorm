@@ -41,6 +41,9 @@ public class ConceptServiceTest {
 	@Autowired
 	private RelationshipService relationshipService;
 
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Before
@@ -94,6 +97,63 @@ public class ConceptServiceTest {
 		assertEquals(3, conceptService.find("1", "MAIN").getDescriptions().size());
 		assertEquals(3, conceptService.find("1", "MAIN/one/one-1").getDescriptions().size());
 		assertEquals(3, conceptService.find("1", "MAIN/two").getDescriptions().size());
+	}
+
+	@Test
+	public void testDeleteLangMembersDuringDescriptionDeletion() {
+		Concept concept = new Concept("123");
+		Description fsn = fsn("Is a (attribute)");
+		conceptService.create(concept
+				.addDescription(
+						fsn
+								.addLanguageRefsetMember(Concepts.GB_EN_LANG_REFSET, Concepts.PREFERRED)
+								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED)
+
+				), "MAIN");
+		String descriptionId = fsn.getDescriptionId();
+		Assert.assertNotNull(descriptionId);
+
+		List<ReferenceSetMember> acceptabilityMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, null, new PageRequest(0, 10)).getContent();
+		Assert.assertEquals(2, acceptabilityMembers.size());
+		Assert.assertTrue(acceptabilityMembers.get(0).isActive());
+		Assert.assertTrue(acceptabilityMembers.get(1).isActive());
+
+		concept.getDescriptions().clear();
+
+		conceptService.update(concept, "MAIN");
+
+		List<ReferenceSetMember> acceptabilityMembersAfterDescriptionDeletion = referenceSetMemberService.findMembers("MAIN", descriptionId, null, new PageRequest(0, 10)).getContent();
+		Assert.assertEquals(0, acceptabilityMembersAfterDescriptionDeletion.size());
+	}
+
+	@Test
+	public void testInactivateLangMembersDuringDescriptionInactivation() {
+		Concept concept = new Concept("123");
+		Description fsn = fsn("Is a (attribute)");
+		conceptService.create(concept
+				.addDescription(
+						fsn
+								.addLanguageRefsetMember(Concepts.GB_EN_LANG_REFSET, Concepts.PREFERRED)
+								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED)
+
+				), "MAIN");
+		String descriptionId = fsn.getDescriptionId();
+		Assert.assertNotNull(descriptionId);
+
+		List<ReferenceSetMember> acceptabilityMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, null, new PageRequest(0, 10)).getContent();
+		Assert.assertEquals(2, acceptabilityMembers.size());
+		Assert.assertTrue(acceptabilityMembers.get(0).isActive());
+		Assert.assertTrue(acceptabilityMembers.get(1).isActive());
+
+		concept.getDescriptions().iterator().next().setActive(false);
+
+		Concept updated = conceptService.update(concept, "MAIN");
+		Assert.assertEquals(1, updated.getDescriptions().size());
+		Description updatedDescription = updated.getDescriptions().iterator().next();
+		Assert.assertFalse(updatedDescription.isActive());
+
+		List<ReferenceSetMember> acceptabilityMembersAfterDescriptionDeletion = referenceSetMemberService.findMembers("MAIN", descriptionId, null, new PageRequest(0, 10)).getContent();
+		Assert.assertEquals(0, acceptabilityMembersAfterDescriptionDeletion.size());
 	}
 
 	@Test

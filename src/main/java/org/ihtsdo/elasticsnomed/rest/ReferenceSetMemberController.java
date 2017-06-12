@@ -22,7 +22,8 @@ public class ReferenceSetMemberController {
 														   @RequestParam String targetComponent,
 														   @RequestParam(defaultValue = "0") int page,
 														   @RequestParam(defaultValue = "50") int size) {
-		return new ItemsPage<>(memberService.findMembers(BranchPathUriUtil.parseBranchPath(branch), targetComponent, new PageRequest(page, size)));
+		return new ItemsPage<>(memberService.findMembers(BranchPathUriUtil.parseBranchPath(branch), null, targetComponent, new PageRequest(page, size)));
+	}
 	}
 
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.DELETE)

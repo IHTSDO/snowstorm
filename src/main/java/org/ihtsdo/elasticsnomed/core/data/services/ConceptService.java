@@ -31,6 +31,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.data.util.CloseableIterator;
@@ -395,20 +396,6 @@ public class ConceptService extends ComponentService implements CommitListener {
 		return doSave(conceptVersion, branch);
 	}
 
-	public void update(Collection<Concept> conceptVersions, String path) {
-		final Branch branch = branchService.findBranchOrThrow(path);
-		for (Concept conceptVersion : conceptVersions) {
-			Assert.isTrue(!Strings.isNullOrEmpty(conceptVersion.getConceptId()), "conceptId is required.");
-		}
-		Set<String> conceptIds = conceptVersions.stream().map(Concept::getConceptId).collect(Collectors.toSet());
-		Collection<String> nonExistentConceptIds = getNonExistentConcepts(conceptIds, path);
-		if (!nonExistentConceptIds.isEmpty()) {
-			throw new IllegalArgumentException("The following concepts do not exist on branch '" + path + "': " + nonExistentConceptIds);
-		}
-
-		doSave(conceptVersions, branch);
-	}
-
 	public Iterable<Concept> createUpdate(List<Concept> concepts, String path) {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		return doSave(concepts, branch);
@@ -517,6 +504,9 @@ public class ConceptService extends ComponentService implements CommitListener {
 						description.setDescriptionId(IDService.getHackId());
 					}
 				}
+				if (!description.isActive()) {
+					description.clearLanguageRefsetMembers();
+				}
 				for (Map.Entry<String, String> acceptability : description.getAcceptabilityMap().entrySet()) {
 					final String acceptabilityId = Concepts.descriptionAcceptabilityNames.inverse().get(acceptability.getValue());
 					if (acceptabilityId == null) {
@@ -548,8 +538,11 @@ public class ConceptService extends ComponentService implements CommitListener {
 					}
 				}
 				for (ReferenceSetMember leftoverMember : existingMembersToMatch.values()) {
-					// TODO: make inactive if released
-					leftoverMember.markDeleted();
+					if (leftoverMember.isReleased()) {
+						leftoverMember.setActive(false);
+					} else {
+						leftoverMember.markDeleted();
+					}
 					langRefsetMembersToPersist.add(leftoverMember);
 				}
 			}
@@ -570,6 +563,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		Iterable<Description> descriptionsSaved = doSaveBatchDescriptions(descriptionsToPersist, commit);
 		Iterable<Relationship> relationshipsSaved = doSaveBatchRelationships(relationshipsToPersist, commit);
 		doSaveBatchMembers(langRefsetMembersToPersist, commit);
+		doDeleteMembersWhereReferencedComponentDeleted(commit.getEntityVersionsDeleted(), commit);
 
 		Map<String, Concept> conceptMap = new HashMap<>();
 		for (Concept concept : conceptsSaved) {
@@ -677,6 +671,27 @@ public class ConceptService extends ComponentService implements CommitListener {
 		}
 
 		return doSaveBatchComponents(members, commit, "memberId", referenceSetMemberRepository);
+	}
+
+	private void doDeleteMembersWhereReferencedComponentDeleted(Set<String> entityVersionsDeleted, Commit commit) {
+		NativeSearchQuery query = new NativeSearchQueryBuilder()
+				.withQuery(
+						boolQuery()
+								.must(versionControlHelper.getBranchCriteria(commit.getBranch()))
+								.must(termsQuery("referencedComponentId", entityVersionsDeleted))
+				).withPageable(LARGE_PAGE).build();
+
+		List<ReferenceSetMember> membersToDelete = new ArrayList<>();
+		try (CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(query, ReferenceSetMember.class)) {
+			stream.forEachRemaining(member -> {
+				member.markDeleted();
+				membersToDelete.add(member);
+			});
+		}
+
+		for (List<ReferenceSetMember> membersBatch : Iterables.partition(membersToDelete, 500)) {
+			doSaveBatchComponents(membersBatch, ReferenceSetMember.class, commit);
+		}
 	}
 
 	public <T extends SnomedComponent> void doSaveBatchComponents(Collection<T> components, Class<T> type, Commit commit) {

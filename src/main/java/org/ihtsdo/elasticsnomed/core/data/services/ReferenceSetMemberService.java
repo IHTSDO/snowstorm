@@ -37,11 +37,15 @@ public class ReferenceSetMemberService extends ComponentService {
 	@Autowired
 	private ReferenceSetMemberRepository memberRepository;
 
-	public Page<ReferenceSetMember> findMembers(String branch, String targetComponentId, PageRequest pageRequest) {
+	public Page<ReferenceSetMember> findMembers(String branch, String referencedComponentId, String targetComponentId, PageRequest pageRequest) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		BoolQueryBuilder query = boolQuery().must(branchCriteria)
 				.must(termQuery("active", true));
 
+
+		if (!Strings.isNullOrEmpty(referencedComponentId)) {
+			query.must(termQuery("referencedComponentId", referencedComponentId));
+		}
 		if (!Strings.isNullOrEmpty(targetComponentId)) {
 			query.must(termQuery("additionalFields.targetComponentId", targetComponentId));
 		}
