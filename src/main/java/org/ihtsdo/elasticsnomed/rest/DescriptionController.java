@@ -26,7 +26,7 @@ public class DescriptionController {
 	@Autowired
 	private DescriptionService descriptionService;
 
-	@RequestMapping(value = "browser/{branch}/descriptions", method = RequestMethod.GET)
+	@RequestMapping(value = "browser/{branch}/descriptions", method = RequestMethod.GET, produces = "application/json")
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public List<DescriptionSearchResult> findConcepts(@PathVariable String branch, @RequestParam(required = false) String query,
@@ -43,6 +43,13 @@ public class DescriptionController {
 		// return new Page<>(new PageImpl<>(results, new PageRequest(number, size), page.getTotalElements()));
 
 		return results;
+	}
+
+	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.GET, produces = "application/json")
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public Description fetchDescription(@PathVariable String branch, @PathVariable String descriptionId) {
+		return descriptionService.fetchDescription(BranchPathUriUtil.parseBranchPath(branch), descriptionId);
 	}
 
 }

@@ -178,4 +178,16 @@ public class DescriptionService extends ComponentService {
 		final NativeSearchQuery build = queryBuilder.build();
 		return elasticsearchTemplate.queryForPage(build, Description.class);
 	}
+
+	public Description fetchDescription(String path, String descriptionId) {
+		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		BoolQueryBuilder query = boolQuery().must(branchCriteria)
+				.must(termsQuery("descriptionId", descriptionId));
+		List<Description> descriptions = elasticsearchTemplate.queryForList(
+				new NativeSearchQueryBuilder().withQuery(query).build(), Description.class);
+		if (!descriptions.isEmpty()) {
+			return descriptions.get(0);
+		}
+		return null;
+	}
 }
