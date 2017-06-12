@@ -1,5 +1,6 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.services.authoringmirror.ConceptChange;
@@ -9,7 +10,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -27,6 +33,9 @@ public class AuthoringMirrorService {
 
 	@Autowired
 	private BranchMergeService branchMergeService;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	private static final Pattern BRANCH_MERGE_COMMIT_COMMENT_PATTERN = Pattern.compile("^(.*) performed merge of (MAIN[^ ]*) to (MAIN[^ ]*)$");
 
@@ -57,6 +66,25 @@ public class AuthoringMirrorService {
 			branchMergeService.mergeBranchSync(sourceBranch, targetBranch, null, true);
 		} else {
 			logger.warn("Could not mirror traceability event - unrecognised activity.", activity);
+		}
+	}
+
+	public void receiveActivityFile(MultipartFile traceabilityLogFile) throws IOException {
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(traceabilityLogFile.getInputStream()))) {
+			String line;
+			long lineNum = 0;
+			try {
+				while ((line = reader.readLine()) != null) {
+					lineNum++;
+					int i = line.indexOf("{");
+					if (i >= 0) {
+						TraceabilityActivity traceabilityActivity = objectMapper.readValue(line.substring(i), TraceabilityActivity.class);
+						receiveActivity(traceabilityActivity);
+					}
+				}
+			} catch (IOException e) {
+				throw new IOException("Failed to read line " + lineNum + " of traceability log file.", e);
+			}
 		}
 	}
 }
