@@ -24,6 +24,13 @@ public class ReferenceSetMemberController {
 														   @RequestParam(defaultValue = "50") int size) {
 		return new ItemsPage<>(memberService.findMembers(BranchPathUriUtil.parseBranchPath(branch), null, targetComponent, new PageRequest(page, size)));
 	}
+
+	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.GET, produces = "application/json")
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public ReferenceSetMember fetchMember(@PathVariable String branch,
+										  @PathVariable String uuid) {
+		return memberService.findMember(BranchPathUriUtil.parseBranchPath(branch), uuid);
 	}
 
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.DELETE)

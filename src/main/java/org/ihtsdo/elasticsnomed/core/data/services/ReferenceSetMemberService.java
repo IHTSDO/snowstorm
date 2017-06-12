@@ -54,6 +54,18 @@ public class ReferenceSetMemberService extends ComponentService {
 				.withQuery(query).withPageable(pageRequest).build(), ReferenceSetMember.class);
 	}
 
+	public ReferenceSetMember findMember(String branch, String uuid) {
+		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BoolQueryBuilder query = boolQuery().must(branchCriteria)
+				.must(termQuery("memberId", uuid));
+		List<ReferenceSetMember> referenceSetMembers = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+				.withQuery(query).build(), ReferenceSetMember.class);
+		if (!referenceSetMembers.isEmpty()) {
+			return referenceSetMembers.get(0);
+		}
+		return null;
+	}
+
 	public void deleteMember(String branch, String uuid) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		List<ReferenceSetMember> matches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
