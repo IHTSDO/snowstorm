@@ -3,6 +3,7 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
+import org.ihtsdo.elasticsnomed.core.data.services.authoringmirror.ComponentChange;
 import org.ihtsdo.elasticsnomed.core.data.services.authoringmirror.ConceptChange;
 import org.ihtsdo.elasticsnomed.core.data.services.authoringmirror.TraceabilityActivity;
 import org.slf4j.Logger;
@@ -43,26 +44,37 @@ public class AuthoringMirrorService {
 
 	public void receiveActivity(TraceabilityActivity activity) {
 		String branchPath = activity.getBranchPath();
-		Assert.hasLength(branchPath, "Branch path is required.");
-		if (branchService.findLatest(branchPath) == null) {
-			branchService.create(branchPath);
-		}
-
 		String commitComment = activity.getCommitComment();
 		Matcher matcher = BRANCH_MERGE_COMMIT_COMMENT_PATTERN.matcher(commitComment);
 
 		Map<String, ConceptChange> changes = activity.getChanges();
 		if (changes != null && !changes.isEmpty()) {
+			Assert.hasLength(branchPath, "Branch path is required.");
+			if (branchService.findLatest(branchPath) == null) {
+				branchService.recursiveCreate(branchPath);
+			}
+
 			logger.info("Mirroring traceability content change.");
-			List<Concept> concepts = changes.values().stream().map(ConceptChange::getConcept).collect(Collectors.toList());
-			conceptService.update(concepts, branchPath);
+			changes.values().forEach(conceptChange -> {
+				conceptChange.getChanges().forEach(componentChange -> {
+					if ("Concept".equals(componentChange.getComponentType()) && "DELETE".equals(componentChange.getType())) {
+						String componentId = componentChange.getComponentId();
+						if (conceptService.exists(componentId, branchPath)) {
+							conceptService.deleteConceptAndComponents(componentId, branchPath, true);
+						}
+					}
+				});
+			});
+			List<Concept> conceptsToCreateUpdate = changes.values().stream().filter(componentChange -> componentChange.getConcept() != null).map(ConceptChange::getConcept).collect(Collectors.toList());
+			if (!conceptsToCreateUpdate.isEmpty()) {
+				conceptService.createUpdate(conceptsToCreateUpdate, branchPath);
+			}
 		} else if (matcher.matches()) {
 			logger.info("Mirroring traceability branch operation.");
 			// Could be a branch rebase or promotion
 			// We have to parse the commit comment to get the information. This is brittle.
 			String sourceBranch = matcher.group(2);
 			String targetBranch = matcher.group(3);
-			Assert.isTrue(branchPath.equals(targetBranch));
 			branchMergeService.mergeBranchSync(sourceBranch, targetBranch, null, true);
 		} else {
 			logger.warn("Could not mirror traceability event - unrecognised activity.", activity);

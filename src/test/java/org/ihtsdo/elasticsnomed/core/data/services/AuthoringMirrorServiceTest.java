@@ -50,6 +50,22 @@ public class AuthoringMirrorServiceTest {
 	}
 
 	@Test
+	public void testConceptDeletion() throws IOException {
+		String branch = "MAIN/TRAIN/TRAIN-80";
+		branchService.recursiveCreate(branch);
+		String conceptId = "734723005";
+		conceptService.create(new Concept(conceptId), branch);
+		Assert.assertTrue(conceptService.exists(conceptId, branch));
+
+		consumeActivity("/traceability-mirror/concept-deletion/");
+
+		Assert.assertFalse(conceptService.exists(conceptId, branch));
+
+		// Attempting to delete again should not throw an error
+		consumeActivity("/traceability-mirror/concept-deletion/");
+	}
+
+	@Test
 	public void testBranchRebase() throws InterruptedException, IOException {
 		branchService.create("MAIN");
 		branchService.create("MAIN/PROJECT-A");
@@ -65,6 +81,23 @@ public class AuthoringMirrorServiceTest {
 		Assert.assertEquals(
 				branchService.findLatest("MAIN").getHead(),
 				branchService.findLatest("MAIN/PROJECT-A").getBase());
+	}
+
+	@Test
+	public void testBranchRebaseWithTempBranchName() throws InterruptedException, IOException {
+		branchService.recursiveCreate("MAIN/CMTTWO/CMTTWO-417");
+		Thread.sleep(100);
+		testUtil.emptyCommit("MAIN/CMTTWO");
+
+		Assert.assertNotEquals(
+				branchService.findLatest("MAIN/CMTTWO").getHead(),
+				branchService.findLatest("MAIN/CMTTWO/CMTTWO-417").getBase());
+
+		consumeActivity("/traceability-mirror/branch-rebase-with-temp-branch/");
+
+		Assert.assertEquals(
+				branchService.findLatest("MAIN/CMTTWO").getHead(),
+				branchService.findLatest("MAIN/CMTTWO/CMTTWO-417").getBase());
 	}
 
 	@Test
