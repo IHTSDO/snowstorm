@@ -50,6 +50,13 @@ public class AuthoringMirrorServiceTest {
 	}
 
 	@Test
+	public void testDescriptionInactivation() throws IOException {
+		String testPath = "/traceability-mirror/description-inactivation/";
+		String branchPath = "MAIN/TESTINT1/TESTINT1-11";
+		runTest(testPath, branchPath, 1);
+	}
+
+	@Test
 	public void testConceptDeletion() throws IOException {
 		String branch = "MAIN/TRAIN/TRAIN-80";
 		branchService.recursiveCreate(branch);
@@ -152,8 +159,8 @@ public class AuthoringMirrorServiceTest {
 		Assert.assertEquals(expected.getModuleId(), actual.getModuleId());
 		Assert.assertEquals(expected.getDefinitionStatusId(), actual.getDefinitionStatusId());
 
-		// TODO Check inactivationIndicatorMember
-		// TODO Check associationTargets
+		Assert.assertEquals(expected.getInactivationIndicator(), actual.getInactivationIndicator());
+		Assert.assertEquals(expected.getAssociationTargets(), actual.getAssociationTargets());
 
 		// Descriptions
 		Assert.assertEquals(expected.getDescriptions().size(), actual.getDescriptions().size());
@@ -172,9 +179,13 @@ public class AuthoringMirrorServiceTest {
 			Assert.assertEquals(expectedDescription.getTypeId(), actualDescription.getTypeId());
 			Assert.assertEquals(expectedDescription.getCaseSignificanceId(), actualDescription.getCaseSignificanceId());
 			Assert.assertEquals(expectedDescription.getAcceptabilityMap(), actualDescription.getAcceptabilityMap());
-
-			// TODO Check inactivationIndicatorMember
-
+			Assert.assertEquals(expectedDescription.getInactivationIndicator(), actualDescription.getInactivationIndicator());
+			if (!expectedDescription.isActive()) {
+				System.out.println("Description inactive " + descriptionId);
+				System.out.println("Expected indicator " + expectedDescription.getInactivationIndicator());
+				System.out.println("Actual indicator " + actualDescription.getInactivationIndicator());
+				System.out.println("Actual indicator member " + actualDescription.getInactivationIndicatorMember());
+			}
 		}
 
 		// Relationships
@@ -186,14 +197,20 @@ public class AuthoringMirrorServiceTest {
 			Relationship actualRelationship = actualRelationshipsMap.get(relationshipId);
 
 			Assert.assertNotNull(actualRelationship);
-//			Assert.assertEquals();
-			// TODO: finish relationships
+			Assert.assertEquals(expectedRelationship.isActive(), actualRelationship.isActive());
+			Assert.assertEquals(expectedRelationship.getModuleId(), actualRelationship.getModuleId());
+			Assert.assertEquals(expectedRelationship.getSourceId(), actualRelationship.getSourceId());
+			Assert.assertEquals(expectedRelationship.getDestinationId(), actualRelationship.getDestinationId());
+			Assert.assertEquals(expectedRelationship.getGroupId(), actualRelationship.getGroupId());
+			Assert.assertEquals(expectedRelationship.getTypeId(), actualRelationship.getTypeId());
+			Assert.assertEquals(expectedRelationship.getCharacteristicTypeId(), actualRelationship.getCharacteristicTypeId());
+			Assert.assertEquals(expectedRelationship.getModifierId(), actualRelationship.getModifierId());
 		}
 
 	}
 
 	private void setupTest(String testPath, String branchPath) throws IOException {
-		testUtil.createBranchAndParents(branchPath);
+		branchService.recursiveCreate(branchPath);
 		File testFiles = new File("src/test/resources" + testPath);
 		File[] files = testFiles.listFiles(file -> file.isFile() && file.getName().endsWith("-before.json"));
 		org.springframework.util.Assert.notNull(files);
