@@ -466,7 +466,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 		List<Description> descriptionsToPersist = new ArrayList<>();
 		List<Relationship> relationshipsToPersist = new ArrayList<>();
-		List<ReferenceSetMember> langRefsetMembersToPersist = new ArrayList<>();
+		List<ReferenceSetMember> refsetMembersToPersist = new ArrayList<>();
 		for (Concept concept : concepts) {
 			final Concept existingConcept = existingConceptsMap.get(concept.getConceptId());
 			final Map<String, Description> existingDescriptions = new HashMap<>();
@@ -491,7 +491,10 @@ public class ConceptService extends ComponentService implements CommitListener {
 				}
 				concept.setChanged(true);
 				concept.clearReleaseDetails();
-				Sets.union(concept.getDescriptions(), concept.getRelationships()).stream().forEach(component -> component.setChanged(true));
+				Sets.union(concept.getDescriptions(), concept.getRelationships()).forEach(component -> {
+					component.setChanged(true);
+					component.clearReleaseDetails();
+				});
 			}
 			for (Description description : concept.getDescriptions()) {
 				description.setConceptId(concept.getConceptId());
@@ -507,6 +510,31 @@ public class ConceptService extends ComponentService implements CommitListener {
 				if (!description.isActive()) {
 					description.clearLanguageRefsetMembers();
 				}
+
+				// Description inactivation indicator changes
+				String newIndicator = description.getInactivationIndicator();
+				String existingIndicator = existingDescription == null ? null : existingDescription.getInactivationIndicator();
+				if (existingIndicator != null && (newIndicator == null || !newIndicator.equals(existingIndicator))) {
+					// Make existing indicator inactive
+					ReferenceSetMember existingIndicatorMember = existingDescription.getInactivationIndicatorMember();
+					existingIndicatorMember.setActive(false);
+					existingIndicatorMember.markChanged();
+					refsetMembersToPersist.add(existingIndicatorMember);
+				}
+				if (newIndicator != null && (existingIndicator == null || !newIndicator.equals(existingIndicator))) {
+					// Create new indicator
+					String newIndicatorId = Concepts.inactivationIndicatorNames.inverse().get(newIndicator);
+					if (newIndicatorId == null) {
+						throw new IllegalArgumentException("Description inactivation indicator not recognised '" + newIndicator + "'.");
+					}
+					ReferenceSetMember newIndicatorMember = new ReferenceSetMember(description.getModuleId(), Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, description.getId());
+					newIndicatorMember.setAdditionalField("valueId", newIndicatorId);
+					newIndicatorMember.setChanged(true);
+					description.setInactivationIndicatorMember(newIndicatorMember);
+					refsetMembersToPersist.add(newIndicatorMember);
+				}
+
+				// Description acceptability / language reference set changes
 				for (Map.Entry<String, String> acceptability : description.getAcceptabilityMap().entrySet()) {
 					final String acceptabilityId = Concepts.descriptionAcceptabilityNames.inverse().get(acceptability.getValue());
 					if (acceptabilityId == null) {
@@ -525,25 +553,20 @@ public class ConceptService extends ComponentService implements CommitListener {
 							member.setChanged(true);
 							member.copyReleaseDetails(existingMember);
 							member.updateEffectiveTime();
-							langRefsetMembersToPersist.add(member);
+							refsetMembersToPersist.add(member);
 						}
 						existingMembersToMatch.remove(languageRefsetId);
 					} else {
-						final ReferenceSetMember member = new ReferenceSetMember(languageRefsetId, description.getId());
+						final ReferenceSetMember member = new ReferenceSetMember(description.getModuleId(), languageRefsetId, description.getId());
 						member.setAdditionalField("acceptabilityId", acceptabilityId);
 						member.setConceptId(concept.getConceptId());
 						member.setChanged(true);
-						member.clearReleaseDetails();
-						langRefsetMembersToPersist.add(member);
+						refsetMembersToPersist.add(member);
 					}
 				}
 				for (ReferenceSetMember leftoverMember : existingMembersToMatch.values()) {
-					if (leftoverMember.isReleased()) {
-						leftoverMember.setActive(false);
-					} else {
-						leftoverMember.markDeleted();
-					}
-					langRefsetMembersToPersist.add(leftoverMember);
+					leftoverMember.setActive(false);
+					refsetMembersToPersist.add(leftoverMember);
 				}
 			}
 			concept.getRelationships()
@@ -562,7 +585,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		final Iterable<Concept> conceptsSaved = doSaveBatchConcepts(concepts, commit);
 		Iterable<Description> descriptionsSaved = doSaveBatchDescriptions(descriptionsToPersist, commit);
 		Iterable<Relationship> relationshipsSaved = doSaveBatchRelationships(relationshipsToPersist, commit);
-		doSaveBatchMembers(langRefsetMembersToPersist, commit);
+		doSaveBatchMembers(refsetMembersToPersist, commit);
 		doDeleteMembersWhereReferencedComponentDeleted(commit.getEntityVersionsDeleted(), commit);
 
 		Map<String, Concept> conceptMap = new HashMap<>();
@@ -627,15 +650,23 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 	/**
 	 * Persists members updates within commit.
+	 * Inactive members which have not been released will be deleted
 	 * @param members
 	 * @param commit
 	 * @return List of persisted components with updated metadata and filtered by deleted status.
 	 */
 	public Iterable<ReferenceSetMember> doSaveBatchMembers(Collection<ReferenceSetMember> members, Commit commit) {
+
+		// Delete inactive unreleased members
+		members.stream()
+				.filter(member -> !member.isActive() && !member.isReleased())
+				.forEach(ReferenceSetMember::markDeleted);
+
 		// Set conceptId on members where appropriate
 		List<ReferenceSetMember> descriptionMembers = new ArrayList<>();
 		LongSet descriptionIds = new LongArraySet();
 		members.stream()
+				.filter(member -> !member.isDeleted())
 				.filter(member -> IDService.isDescriptionId(member.getReferencedComponentId()))
 				.filter(member -> member.getConceptId() == null)
 				.forEach(member -> {

@@ -127,7 +127,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testInactivateLangMembersDuringDescriptionInactivation() {
+	public void testDescriptionInactivation() {
 		Concept concept = new Concept("123");
 		Description fsn = fsn("Is a (attribute)");
 		conceptService.create(concept
@@ -145,15 +145,25 @@ public class ConceptServiceTest {
 		Assert.assertTrue(acceptabilityMembers.get(0).isActive());
 		Assert.assertTrue(acceptabilityMembers.get(1).isActive());
 
-		concept.getDescriptions().iterator().next().setActive(false);
+		Description descriptionToInactivate = concept.getDescriptions().iterator().next();
+		descriptionToInactivate.setActive(false);
+		descriptionToInactivate.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.OUTDATED));
 
 		Concept updated = conceptService.update(concept, "MAIN");
 		Assert.assertEquals(1, updated.getDescriptions().size());
 		Description updatedDescription = updated.getDescriptions().iterator().next();
 		Assert.assertFalse(updatedDescription.isActive());
+		Assert.assertEquals(updatedDescription.getInactivationIndicator(), Concepts.inactivationIndicatorNames.get(Concepts.OUTDATED));
+		ReferenceSetMember inactivationIndicatorMember = updatedDescription.getInactivationIndicatorMember();
+		Assert.assertNotNull(inactivationIndicatorMember);
+		Assert.assertEquals(inactivationIndicatorMember.getRefsetId(), Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET);
+		Assert.assertEquals(inactivationIndicatorMember.getReferencedComponentId(), updatedDescription.getDescriptionId());
+		Assert.assertEquals(inactivationIndicatorMember.getAdditionalField("valueId"), Concepts.OUTDATED);
 
-		List<ReferenceSetMember> acceptabilityMembersAfterDescriptionDeletion = referenceSetMemberService.findMembers("MAIN", descriptionId, null, new PageRequest(0, 10)).getContent();
-		Assert.assertEquals(0, acceptabilityMembersAfterDescriptionDeletion.size());
+		List<ReferenceSetMember> membersAfterDescriptionInactivation = referenceSetMemberService.findMembers("MAIN", descriptionId, null, new PageRequest(0, 10)).getContent();
+		Assert.assertEquals(1, membersAfterDescriptionInactivation.size());
+		ReferenceSetMember actualMember = membersAfterDescriptionInactivation.get(0);
+		Assert.assertEquals(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, actualMember.getRefsetId());
 	}
 
 	@Test

@@ -58,8 +58,8 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		this.referencedComponentId = referencedComponentId;
 	}
 
-	public ReferenceSetMember(String refsetId, String referencedComponentId) {
-		this(UUID.randomUUID().toString(), null, true, Concepts.CORE_MODULE, refsetId, referencedComponentId);
+	public ReferenceSetMember(String moduleId, String refsetId, String referencedComponentId) {
+		this(UUID.randomUUID().toString(), null, true, moduleId, refsetId, referencedComponentId);
 	}
 
 	@Override

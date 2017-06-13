@@ -69,6 +69,10 @@ public class Description extends SnomedComponent<Description> {
 	@JsonIgnore
 	private ReferenceSetMember inactivationIndicatorMember;
 
+	@JsonIgnore
+	// Populated when requesting an update
+	private String inactivationIndicatorName;
+
 	private static final Logger logger = LoggerFactory.getLogger(Description.class);
 
 	public Description() {
@@ -163,7 +167,7 @@ public class Description extends SnomedComponent<Description> {
 	}
 
 	public Description addLanguageRefsetMember(String refsetId, String acceptability) {
-		final ReferenceSetMember member = new ReferenceSetMember(refsetId, descriptionId);
+		final ReferenceSetMember member = new ReferenceSetMember(moduleId, refsetId, descriptionId);
 		member.setAdditionalField("acceptabilityId", acceptability);
 		final ReferenceSetMember previousMember = langRefsetMembers.put(member.getRefsetId(), member);
 		if (previousMember != null) {
@@ -206,10 +210,14 @@ public class Description extends SnomedComponent<Description> {
 
 	@JsonView(value = View.Component.class)
 	public String getInactivationIndicator() {
-		if (inactivationIndicatorMember != null) {
+		if (inactivationIndicatorMember != null && inactivationIndicatorMember.isActive()) {
 			return Concepts.inactivationIndicatorNames.get(inactivationIndicatorMember.getAdditionalField("valueId"));
 		}
-		return null;
+		return inactivationIndicatorName;
+	}
+
+	public void setInactivationIndicator(String inactivationIndicatorName) {
+		this.inactivationIndicatorName = inactivationIndicatorName;
 	}
 
 	public String getDescriptionId() {
