@@ -38,7 +38,11 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	private String inactivationIndicatorName;
 
 	@JsonIgnore
-	private Set<ReferenceSetMember> associationTargets;
+	private Set<ReferenceSetMember> associationTargetMembers;
+
+	@JsonIgnore
+	// Populated when requesting an update
+	private Map<String, Set<String>> associationTargetStrings;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -121,33 +125,41 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		this.inactivationIndicatorName = inactivationIndicatorName;
 	}
 
-	public void addAssociationTarget(ReferenceSetMember member) {
-		if (associationTargets == null) {
-			associationTargets = new HashSet<>();
+	public void addAssociationTargetMember(ReferenceSetMember member) {
+		if (associationTargetMembers == null) {
+			associationTargetMembers = new HashSet<>();
 		}
-		associationTargets.add(member);
+		associationTargetMembers.add(member);
 	}
 
 	@JsonView(value = View.Component.class)
 	public Map<String, Set<String>> getAssociationTargets() {
-		if (associationTargets != null) {
+		if (associationTargetMembers != null) {
 			Map<String, Set<String>> map = new HashMap<>();
-			associationTargets.stream().filter(ReferenceSetMember::isActive).forEach(member -> {
+			associationTargetMembers.stream().filter(ReferenceSetMember::isActive).forEach(member -> {
 				final String refsetId = member.getRefsetId();
 				String association = Concepts.historicalAssociationNames.get(refsetId);
 				if (association == null) {
 					association = refsetId;
 				}
-				Set<String> associationType = map.get(association);
-				if (associationType == null) {
-					associationType = new HashSet<>();
-					map.put(association, associationType);
-				}
+				Set<String> associationType = map.computeIfAbsent(association, k -> new HashSet<>());
 				associationType.add(member.getAdditionalField("targetComponentId"));
 			});
 			return map;
 		}
-		return null;
+		return associationTargetStrings;
+	}
+
+	public void setAssociationTargets(Map<String, Set<String>> associationTargetStrings) {
+		this.associationTargetStrings = associationTargetStrings;
+	}
+
+	public Set<ReferenceSetMember> getAssociationTargetMembers() {
+		return associationTargetMembers;
+	}
+
+	public void setAssociationTargetMembers(Set<ReferenceSetMember> associationTargetMembers) {
+		this.associationTargetMembers = associationTargetMembers;
 	}
 
 	@JsonView(value = View.Component.class)

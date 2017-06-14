@@ -23,6 +23,7 @@ import org.ihtsdo.elasticsnomed.core.data.repositories.ConceptRepository;
 import org.ihtsdo.elasticsnomed.core.data.repositories.DescriptionRepository;
 import org.ihtsdo.elasticsnomed.core.data.repositories.ReferenceSetMemberRepository;
 import org.ihtsdo.elasticsnomed.core.data.repositories.RelationshipRepository;
+import org.ihtsdo.elasticsnomed.core.util.MapUtil;
 import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -499,6 +500,56 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 			// Concept inactivation indicator changes
 			updateInactivationIndicator(concept, existingConcept, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET);
+
+			// Concept association changes
+			Map<String, Set<String>> newAssociations = concept.getAssociationTargets();
+			Map<String, Set<String>> existingAssociations = existingConcept == null ? null : existingConcept.getAssociationTargets();
+			if (existingAssociations != null && !MapUtil.containsAllKeysAndSetsAreSupersets(newAssociations, existingAssociations)) {
+				// One or more existing associations need to be made inactive
+
+				Set<ReferenceSetMember> existingConceptAssociationTargetMembers = existingConcept.getAssociationTargetMembers();
+				if (newAssociations == null) {
+					newAssociations = new HashMap<>();
+				}
+				for (String associationName : existingAssociations.keySet()) {
+					Set<String> existingAssociationsOfType = existingAssociations.get(associationName);
+					Set<String> newAssociationsOfType = newAssociations.get(associationName);
+					for (String existingAssociationOfType : existingAssociationsOfType) {
+						if (newAssociationsOfType == null || !newAssociationsOfType.contains(existingAssociationOfType)) {
+							// Existing association should be made inactive
+							String associationRefsetId = Concepts.historicalAssociationNames.inverse().get(associationName);
+							for (ReferenceSetMember existingMember : existingConceptAssociationTargetMembers) {
+								if (existingMember.isActive() && existingMember.getRefsetId().equals(associationRefsetId)
+										&& existingAssociationOfType.equals(existingMember.getAdditionalField("targetComponentId"))) {
+									existingMember.setActive(false);
+									existingMember.markChanged();
+									refsetMembersToPersist.add(existingMember);
+								}
+							}
+						}
+					}
+				}
+			}
+			if (newAssociations != null) {
+				Map<String, Set<String>> missingKeyValues = MapUtil.collectMissingKeyValues(existingAssociations, newAssociations);
+				if (!missingKeyValues.isEmpty()) {
+					// One or more new associations need to be created
+					for (String associationName : missingKeyValues.keySet()) {
+						Set<String> missingValues = missingKeyValues.get(associationName);
+						for (String missingValue : missingValues) {
+							String associationRefsetId = Concepts.historicalAssociationNames.inverse().get(associationName);
+							if (associationRefsetId == null) {
+								throw new IllegalArgumentException("Concept association reference set not recognised '" + associationName + "'.");
+							}
+							ReferenceSetMember newTargetMember = new ReferenceSetMember(concept.getModuleId(), associationRefsetId, concept.getId());
+							newTargetMember.setAdditionalField("targetComponentId", missingValue);
+							newTargetMember.markChanged();
+							refsetMembersToPersist.add(newTargetMember);
+							concept.addAssociationTargetMember(newTargetMember);
+						}
+					}
+				}
+			}
 
 			for (Description description : concept.getDescriptions()) {
 				description.setConceptId(concept.getConceptId());

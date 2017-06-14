@@ -340,20 +340,47 @@ public class ConceptServiceTest {
 		Concept savedConcept = conceptService.create(concept, "MAIN");
 
 		savedConcept.setActive(false);
-		savedConcept.setInactivationIndicatorName(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
 
-		// TODO maintain AssociationTargets via concept
-//		savedConcept.getAssociationTargets().put("SAME_AS", Collections.singleton("87100004"));
+		// Set inactivation indicator using strings
+		savedConcept.setInactivationIndicatorName(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
+		assertNull(savedConcept.getInactivationIndicatorMember());
+
+		// Set association target using strings
+		HashMap<String, Set<String>> associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION), Collections.singleton("87100004"));
+		savedConcept.setAssociationTargets(associationTargetStrings);
+		assertNull(savedConcept.getAssociationTargetMembers());
 
 		Concept inactiveConcept = conceptService.update(savedConcept, "MAIN");
 
 		assertFalse(inactiveConcept.isActive());
+
+		// Check inactivation indicator string
 		assertEquals("DUPLICATE", inactiveConcept.getInactivationIndicator());
+
+		// Check inactivation indicator reference set member was created
 		ReferenceSetMember inactivationIndicatorMember = inactiveConcept.getInactivationIndicatorMember();
 		assertNotNull(inactivationIndicatorMember);
 		assertTrue(inactivationIndicatorMember.isActive());
 		assertEquals(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, inactivationIndicatorMember.getRefsetId());
 		assertEquals(Concepts.DUPLICATE, inactivationIndicatorMember.getAdditionalField("valueId"));
+
+		// Check association target strings
+		Map<String, Set<String>> associationTargetsAfter = inactiveConcept.getAssociationTargets();
+		assertNotNull(associationTargetsAfter);
+		assertEquals(1, associationTargetsAfter.size());
+		assertEquals(Collections.singleton("87100004"), associationTargetsAfter.get(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION)));
+
+		// Check association target reference set member was created
+		Set<ReferenceSetMember> associationTargetMembers = inactiveConcept.getAssociationTargetMembers();
+		assertNotNull(associationTargetMembers);
+		assertEquals(1, associationTargetMembers.size());
+		ReferenceSetMember associationTargetMember = associationTargetMembers.iterator().next();
+		assertTrue(associationTargetMember.isActive());
+		assertEquals(Concepts.REFSET_SAME_AS_ASSOCIATION, associationTargetMember.getRefsetId());
+		assertEquals(concept.getModuleId(), associationTargetMember.getModuleId());
+		assertEquals(concept.getId(), associationTargetMember.getReferencedComponentId());
+		assertEquals("87100004", associationTargetMember.getAdditionalField("targetComponentId"));
 
 		assertFalse(inactiveConcept.getRelationships().iterator().next().isActive());
 		assertTrue(inactiveConcept.getDescriptions().iterator().next().isActive());

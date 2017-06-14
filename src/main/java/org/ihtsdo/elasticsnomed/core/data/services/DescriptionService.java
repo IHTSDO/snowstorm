@@ -124,7 +124,7 @@ public class DescriptionService extends ComponentService {
 							default:
 								Concept concept = conceptIdMap.get(referencedComponentId);
 								if (concept != null) {
-									concept.addAssociationTarget(member);
+									concept.addAssociationTargetMember(member);
 								} else {
 									logger.warn("Association ReferenceSetMember {} references concept {} " +
 											"which is not in scope.", member.getId(), referencedComponentId);
