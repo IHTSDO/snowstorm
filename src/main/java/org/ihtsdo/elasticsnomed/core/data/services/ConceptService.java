@@ -496,6 +496,10 @@ public class ConceptService extends ComponentService implements CommitListener {
 					component.clearReleaseDetails();
 				});
 			}
+
+			// Concept inactivation indicator changes
+			updateInactivationIndicator(concept, existingConcept, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET);
+
 			for (Description description : concept.getDescriptions()) {
 				description.setConceptId(concept.getConceptId());
 				final Description existingDescription = existingDescriptions.get(description.getDescriptionId());
@@ -512,27 +516,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 				}
 
 				// Description inactivation indicator changes
-				String newIndicator = description.getInactivationIndicator();
-				String existingIndicator = existingDescription == null ? null : existingDescription.getInactivationIndicator();
-				if (existingIndicator != null && (newIndicator == null || !newIndicator.equals(existingIndicator))) {
-					// Make existing indicator inactive
-					ReferenceSetMember existingIndicatorMember = existingDescription.getInactivationIndicatorMember();
-					existingIndicatorMember.setActive(false);
-					existingIndicatorMember.markChanged();
-					refsetMembersToPersist.add(existingIndicatorMember);
-				}
-				if (newIndicator != null && (existingIndicator == null || !newIndicator.equals(existingIndicator))) {
-					// Create new indicator
-					String newIndicatorId = Concepts.inactivationIndicatorNames.inverse().get(newIndicator);
-					if (newIndicatorId == null) {
-						throw new IllegalArgumentException("Description inactivation indicator not recognised '" + newIndicator + "'.");
-					}
-					ReferenceSetMember newIndicatorMember = new ReferenceSetMember(description.getModuleId(), Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, description.getId());
-					newIndicatorMember.setAdditionalField("valueId", newIndicatorId);
-					newIndicatorMember.setChanged(true);
-					description.setInactivationIndicatorMember(newIndicatorMember);
-					refsetMembersToPersist.add(newIndicatorMember);
-				}
+				updateInactivationIndicator(description, existingDescription, refsetMembersToPersist, Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET);
 
 				// Description acceptability / language reference set changes
 				for (Map.Entry<String, String> acceptability : description.getAcceptabilityMap().entrySet()) {
@@ -604,6 +588,34 @@ public class ConceptService extends ComponentService implements CommitListener {
 		populateConceptMinis(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit), minisToLoad);
 
 		return conceptsSaved;
+	}
+
+	private void updateInactivationIndicator(SnomedComponentWithInactivationIndicator newComponent,
+														   SnomedComponentWithInactivationIndicator existingComponent,
+														   Collection<ReferenceSetMember> refsetMembersToPersist,
+														   String indicatorReferenceSet) {
+
+		String newIndicator = newComponent.getInactivationIndicator();
+		String existingIndicator = existingComponent == null ? null : existingComponent.getInactivationIndicator();
+		if (existingIndicator != null && (newIndicator == null || !newIndicator.equals(existingIndicator))) {
+			// Make existing indicator inactive
+			ReferenceSetMember existingIndicatorMember = existingComponent.getInactivationIndicatorMember();
+			existingIndicatorMember.setActive(false);
+			existingIndicatorMember.markChanged();
+			refsetMembersToPersist.add(existingIndicatorMember);
+		}
+		if (newIndicator != null && (existingIndicator == null || !newIndicator.equals(existingIndicator))) {
+			// Create new indicator
+			String newIndicatorId = Concepts.inactivationIndicatorNames.inverse().get(newIndicator);
+			if (newIndicatorId == null) {
+				throw new IllegalArgumentException(newComponent.getClass().getSimpleName() + " inactivation indicator not recognised '" + newIndicator + "'.");
+			}
+			ReferenceSetMember newIndicatorMember = new ReferenceSetMember(newComponent.getModuleId(), indicatorReferenceSet, newComponent.getId());
+			newIndicatorMember.setAdditionalField("valueId", newIndicatorId);
+			newIndicatorMember.setChanged(true);
+			refsetMembersToPersist.add(newIndicatorMember);
+			newComponent.setInactivationIndicatorMember(newIndicatorMember);
+		}
 	}
 
 	// TODO: Real release process

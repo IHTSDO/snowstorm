@@ -19,7 +19,7 @@ import javax.validation.constraints.Size;
 
 @Document(type = "concept", indexName = "snomed", shards = 8)
 @JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "inactivationIndicator", "moduleId", "definitionStatus", "definitionStatusId", "descriptions", "relationships"})
-public class Concept extends SnomedComponent<Concept> implements ConceptView {
+public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -32,6 +32,10 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 
 	@JsonIgnore
 	private ReferenceSetMember inactivationIndicatorMember;
+
+	@JsonIgnore
+	// Populated when requesting an update
+	private String inactivationIndicatorName;
 
 	@JsonIgnore
 	private Set<ReferenceSetMember> associationTargets;
@@ -107,10 +111,14 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView {
 
 	@JsonView(value = View.Component.class)
 	public String getInactivationIndicator() {
-		if (inactivationIndicatorMember != null) {
+		if (inactivationIndicatorMember != null && inactivationIndicatorMember.isActive()) {
 			return Concepts.inactivationIndicatorNames.get(inactivationIndicatorMember.getAdditionalField("valueId"));
 		}
-		return null;
+		return inactivationIndicatorName;
+	}
+
+	public void setInactivationIndicatorName(String inactivationIndicatorName) {
+		this.inactivationIndicatorName = inactivationIndicatorName;
 	}
 
 	public void addAssociationTarget(ReferenceSetMember member) {

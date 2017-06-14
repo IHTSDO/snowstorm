@@ -16,7 +16,7 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
 @Document(type = "description", indexName = "snomed", shards = 8)
-public class Description extends SnomedComponent<Description> {
+public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)

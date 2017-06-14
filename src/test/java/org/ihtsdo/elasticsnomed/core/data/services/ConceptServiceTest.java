@@ -21,7 +21,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.ihtsdo.elasticsnomed.core.data.domain.Concepts.*;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -152,7 +152,7 @@ public class ConceptServiceTest {
 		Concept updated = conceptService.update(concept, "MAIN");
 		Assert.assertEquals(1, updated.getDescriptions().size());
 		Description updatedDescription = updated.getDescriptions().iterator().next();
-		Assert.assertFalse(updatedDescription.isActive());
+		assertFalse(updatedDescription.isActive());
 		Assert.assertEquals(updatedDescription.getInactivationIndicator(), Concepts.inactivationIndicatorNames.get(Concepts.OUTDATED));
 		ReferenceSetMember inactivationIndicatorMember = updatedDescription.getInactivationIndicatorMember();
 		Assert.assertNotNull(inactivationIndicatorMember);
@@ -330,6 +330,33 @@ public class ConceptServiceTest {
 		final Description description = savedConcept.getDescriptions().iterator().next();
 		assertEquals("84923010", description.getDescriptionId());
 		assertEquals(0, description.getAcceptabilityMapFromLangRefsetMembers().size());
+	}
+
+	@Test
+	public void testConceptInactivation() {
+		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
+		concept.addRelationship(new Relationship(ISA, "107658001"));
+		Concept savedConcept = conceptService.create(concept, "MAIN");
+
+		savedConcept.setActive(false);
+		savedConcept.setInactivationIndicatorName(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
+
+		// TODO maintain AssociationTargets via concept
+//		savedConcept.getAssociationTargets().put("SAME_AS", Collections.singleton("87100004"));
+
+		Concept inactiveConcept = conceptService.update(savedConcept, "MAIN");
+
+		assertFalse(inactiveConcept.isActive());
+		assertEquals("DUPLICATE", inactiveConcept.getInactivationIndicator());
+		ReferenceSetMember inactivationIndicatorMember = inactiveConcept.getInactivationIndicatorMember();
+		assertNotNull(inactivationIndicatorMember);
+		assertTrue(inactivationIndicatorMember.isActive());
+		assertEquals(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, inactivationIndicatorMember.getRefsetId());
+		assertEquals(Concepts.DUPLICATE, inactivationIndicatorMember.getAdditionalField("valueId"));
+
+		assertFalse(inactiveConcept.getRelationships().iterator().next().isActive());
+		assertTrue(inactiveConcept.getDescriptions().iterator().next().isActive());
 	}
 
 	@Test
