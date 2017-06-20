@@ -16,7 +16,7 @@ public class MRCMController {
 	@Autowired
 	private MRCMService mrcmService;
 
-	@ApiOperation("Retrieve a single branch")
+	@ApiOperation("Retrieve MRCM domain attributes applicable for the given parents.")
 	@RequestMapping(value = "/mrcm/{path}/domain-attributes", method = RequestMethod.GET, produces = "application/json")
 	@ResponseBody
 	public Collection<ConceptMini> retrieveBranch(@PathVariable String path, @RequestParam Set<Long> parentIds) {
