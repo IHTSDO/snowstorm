@@ -1,0 +1,136 @@
+{
+  "effectiveTime": "20020131",
+  "moduleId": "900000000000207008",
+  "active": true,
+  "released": true,
+  "conceptId": "361083003",
+  "fsn": "Normal anatomy (body structure)",
+  "definitionStatus": "PRIMITIVE",
+  "preferredSynonym": "Normal anatomy",
+  "descriptions": [
+    {
+      "effectiveTime": "20170731",
+      "moduleId": "900000000000207008",
+      "active": true,
+      "released": true,
+      "descriptionId": "477208012",
+      "conceptId": "361083003",
+      "type": "SYNONYM",
+      "lang": "en",
+      "term": "Normal anatomy",
+      "caseSignificance": "CASE_INSENSITIVE",
+      "acceptabilityMap": {
+        "900000000000508004": "PREFERRED",
+        "900000000000509007": "PREFERRED"
+      }
+    },
+    {
+      "effectiveTime": "20170731",
+      "moduleId": "900000000000207008",
+      "active": true,
+      "released": true,
+      "descriptionId": "1228355010",
+      "conceptId": "361083003",
+      "type": "SYNONYM",
+      "lang": "en",
+      "term": "Normal gross anatomical structure",
+      "caseSignificance": "CASE_INSENSITIVE",
+      "acceptabilityMap": {
+        "900000000000508004": "ACCEPTABLE",
+        "900000000000509007": "ACCEPTABLE"
+      }
+    },
+    {
+      "effectiveTime": "20170731",
+      "moduleId": "900000000000207008",
+      "active": true,
+      "released": true,
+      "descriptionId": "741926013",
+      "conceptId": "361083003",
+      "type": "FSN",
+      "lang": "en",
+      "term": "Normal anatomy (body structure)",
+      "caseSignificance": "CASE_INSENSITIVE",
+      "acceptabilityMap": {
+        "900000000000508004": "PREFERRED",
+        "900000000000509007": "PREFERRED"
+      }
+    }
+  ],
+  "relationships": [
+    {
+      "effectiveTime": "20060731",
+      "moduleId": "900000000000207008",
+      "active": false,
+      "released": true,
+      "relationshipId": "170699026",
+      "type": {
+        "conceptId": "116680003",
+        "fsn": "Is a (attribute)"
+      },
+      "target": {
+        "effectiveTime": "20060731",
+        "moduleId": "900000000000207008",
+        "active": false,
+        "released": true,
+        "conceptId": "257728006",
+        "fsn": "Anatomical concepts (body structure)",
+        "definitionStatus": "PRIMITIVE"
+      },
+      "sourceId": "361083003",
+      "groupId": 0,
+      "characteristicType": "INFERRED_RELATIONSHIP",
+      "modifier": "EXISTENTIAL"
+    },
+    {
+      "effectiveTime": "20080731",
+      "moduleId": "900000000000207008",
+      "active": true,
+      "released": true,
+      "relationshipId": "3979163029",
+      "type": {
+        "conceptId": "116680003",
+        "fsn": "Is a (attribute)"
+      },
+      "target": {
+        "effectiveTime": "20020131",
+        "moduleId": "900000000000207008",
+        "active": true,
+        "released": true,
+        "conceptId": "123037004",
+        "fsn": "Body structure (body structure)",
+        "definitionStatus": "PRIMITIVE"
+      },
+      "sourceId": "361083003",
+      "groupId": 0,
+      "characteristicType": "STATED_RELATIONSHIP",
+      "modifier": "EXISTENTIAL"
+    },
+    {
+      "effectiveTime": "20060731",
+      "moduleId": "900000000000207008",
+      "active": true,
+      "released": true,
+      "relationshipId": "2941230021",
+      "type": {
+        "conceptId": "116680003",
+        "fsn": "Is a (attribute)"
+      },
+      "target": {
+        "effectiveTime": "20020131",
+        "moduleId": "900000000000207008",
+        "active": true,
+        "released": true,
+        "conceptId": "123037004",
+        "fsn": "Body structure (body structure)",
+        "definitionStatus": "PRIMITIVE"
+      },
+      "sourceId": "361083003",
+      "groupId": 0,
+      "characteristicType": "INFERRED_RELATIONSHIP",
+      "modifier": "EXISTENTIAL"
+    }
+  ],
+  "isLeafStated": true,
+  "isLeafInferred": true
+}

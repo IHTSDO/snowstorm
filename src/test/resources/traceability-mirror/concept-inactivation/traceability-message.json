@@ -1,0 +1,181 @@
+{
+  "userId": "kkewley",
+  "commitComment": "kkewley Bulk update.",
+  "branchPath": "MAIN/TESTINT1/TESTINT1-11",
+  "commitTimestamp": 1497386782420,
+  "changes": {
+    "361083003": {
+      "concept": {
+        "moduleId": "900000000000207008",
+        "active": false,
+        "released": false,
+        "conceptId": "361083003",
+        "fsn": "361083003",
+        "definitionStatus": "PRIMITIVE",
+        "inactivationIndicator": "DUPLICATE",
+        "associationTargets": {
+          "empty": false
+        },
+        "descriptions": [
+          {
+            "effectiveTime": "2017-07-31T00:00:00Z",
+            "moduleId": "900000000000207008",
+            "active": true,
+            "released": false,
+            "descriptionId": "741926013",
+            "conceptId": "361083003",
+            "type": "FSN",
+            "lang": "en",
+            "term": "Normal anatomy (body structure)",
+            "caseSignificance": "CASE_INSENSITIVE",
+            "acceptabilityMap": {
+              "900000000000508004": "PREFERRED",
+              "900000000000509007": "PREFERRED"
+            },
+            "inactivationIndicator": "CONCEPT_NON_CURRENT"
+          },
+          {
+            "effectiveTime": "2017-07-31T00:00:00Z",
+            "moduleId": "900000000000207008",
+            "active": true,
+            "released": false,
+            "descriptionId": "1228355010",
+            "conceptId": "361083003",
+            "type": "SYNONYM",
+            "lang": "en",
+            "term": "Normal gross anatomical structure",
+            "caseSignificance": "CASE_INSENSITIVE",
+            "acceptabilityMap": {
+              "900000000000508004": "ACCEPTABLE",
+              "900000000000509007": "ACCEPTABLE"
+            },
+            "inactivationIndicator": "CONCEPT_NON_CURRENT"
+          },
+          {
+            "effectiveTime": "2017-07-31T00:00:00Z",
+            "moduleId": "900000000000207008",
+            "active": true,
+            "released": false,
+            "descriptionId": "477208012",
+            "conceptId": "361083003",
+            "type": "SYNONYM",
+            "lang": "en",
+            "term": "Normal anatomy",
+            "caseSignificance": "CASE_INSENSITIVE",
+            "acceptabilityMap": {
+              "900000000000508004": "PREFERRED",
+              "900000000000509007": "PREFERRED"
+            },
+            "inactivationIndicator": "CONCEPT_NON_CURRENT"
+          }
+        ],
+        "relationships": [
+          {
+            "effectiveTime": "2006-07-31T00:00:00Z",
+            "moduleId": "900000000000207008",
+            "active": false,
+            "released": false,
+            "relationshipId": "170699026",
+            "type": {
+              "conceptId": "116680003",
+              "fsn": "116680003"
+            },
+            "target": {
+              "effectiveTime": "2006-07-31T00:00:00Z",
+              "moduleId": "900000000000207008",
+              "active": false,
+              "released": false,
+              "conceptId": "257728006",
+              "fsn": "257728006",
+              "definitionStatus": "PRIMITIVE"
+            },
+            "sourceId": "361083003",
+            "groupId": 0,
+            "characteristicType": "INFERRED_RELATIONSHIP",
+            "modifier": "EXISTENTIAL"
+          },
+          {
+            "moduleId": "900000000000207008",
+            "active": false,
+            "released": false,
+            "relationshipId": "2941230021",
+            "type": {
+              "conceptId": "116680003",
+              "fsn": "116680003"
+            },
+            "target": {
+              "effectiveTime": "2002-01-31T00:00:00Z",
+              "moduleId": "900000000000207008",
+              "active": true,
+              "released": false,
+              "conceptId": "123037004",
+              "fsn": "123037004",
+              "definitionStatus": "PRIMITIVE"
+            },
+            "sourceId": "361083003",
+            "groupId": 0,
+            "characteristicType": "INFERRED_RELATIONSHIP",
+            "modifier": "EXISTENTIAL"
+          },
+          {
+            "moduleId": "900000000000207008",
+            "active": false,
+            "released": false,
+            "relationshipId": "3979163029",
+            "type": {
+              "conceptId": "116680003",
+              "fsn": "116680003"
+            },
+            "target": {
+              "effectiveTime": "2002-01-31T00:00:00Z",
+              "moduleId": "900000000000207008",
+              "active": true,
+              "released": false,
+              "conceptId": "123037004",
+              "fsn": "123037004",
+              "definitionStatus": "PRIMITIVE"
+            },
+            "sourceId": "361083003",
+            "groupId": 0,
+            "characteristicType": "STATED_RELATIONSHIP",
+            "modifier": "EXISTENTIAL"
+          }
+        ],
+        "isLeafStated": true,
+        "isLeafInferred": true
+      },
+      "changes": [
+        {
+          "componentType": "Description",
+          "componentId": "741926013",
+          "type": "UPDATE"
+        },
+        {
+          "componentType": "Concept",
+          "componentId": "361083003",
+          "type": "INACTIVATE"
+        },
+        {
+          "componentType": "Description",
+          "componentId": "477208012",
+          "type": "UPDATE"
+        },
+        {
+          "componentType": "Relationship",
+          "componentId": "3979163029",
+          "type": "INACTIVATE"
+        },
+        {
+          "componentType": "Description",
+          "componentId": "1228355010",
+          "type": "UPDATE"
+        },
+        {
+          "componentType": "Relationship",
+          "componentId": "2941230021",
+          "type": "INACTIVATE"
+        }
+      ]
+    }
+  }
+}
