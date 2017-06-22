@@ -2,7 +2,11 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 
 import com.google.common.base.Strings;
 
+import java.util.regex.Pattern;
+
 public class IDService {
+
+	public static final Pattern SCTID_PATTERN = Pattern.compile("\\d{7,18}");
 
 	// TODO - CIS Integration
 
@@ -14,11 +18,11 @@ public class IDService {
 	}
 
 	public static boolean isConceptId(String sctid) {
-		return "0".equals(getPartitionIdPart(sctid));
+		return sctid != null && SCTID_PATTERN.matcher(sctid).matches() && "0".equals(getPartitionIdPart(sctid));
 	}
 
 	public static boolean isDescriptionId(String sctid) {
-		return "1".equals(getPartitionIdPart(sctid));
+		return sctid != null && SCTID_PATTERN.matcher(sctid).matches() && "1".equals(getPartitionIdPart(sctid));
 	}
 
 	private static String getPartitionIdPart(String sctid) {

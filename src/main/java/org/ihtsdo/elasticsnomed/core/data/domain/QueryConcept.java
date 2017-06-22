@@ -8,6 +8,9 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.Set;
 
+/**
+ * Represents an active concept with fields to assist logical searching.
+ */
 @Document(type = "query-concept", indexName = "snomed-index", shards = 8)
 public class QueryConcept extends DomainEntity<QueryConcept> {
 

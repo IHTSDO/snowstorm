@@ -8,12 +8,13 @@ import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
-import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
-import org.ihtsdo.elasticsnomed.core.data.domain.QueryConcept;
-import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
+import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.repositories.QueryIndexConceptRepository;
 import org.ihtsdo.elasticsnomed.core.data.services.transitiveclosure.GraphBuilder;
 import org.ihtsdo.elasticsnomed.core.data.services.transitiveclosure.Node;
@@ -22,8 +23,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.query.*;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
@@ -37,7 +40,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 @Service
 public class QueryService extends ComponentService {
 
-	public static final int BATCH_SAVE_SIZE = 10000;
+	private static final int BATCH_SAVE_SIZE = 10000;
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
@@ -51,7 +54,88 @@ public class QueryService extends ComponentService {
 	@Autowired
 	private BranchService branchService;
 
+	@Autowired
+	private ConceptService conceptService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	public Collection<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath) {
+		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+
+		String termPrefix = conceptQuery.getTermPrefix();
+		if (termPrefix != null && termPrefix.length() < 3) {
+			return Collections.emptySet();
+		}
+
+		final List<Long> termConceptIds = new LongArrayList();
+		if (termPrefix != null) {
+			logger.info("Lexical search");
+			// Search for descriptions matching the term prefix
+			BoolQueryBuilder boolQueryBuilder = boolQuery();
+			NativeSearchQueryBuilder termSearchQuery = new NativeSearchQueryBuilder()
+					.withQuery(boolQueryBuilder
+							.must(branchCriteria)
+							.must(termQuery("active", true))
+							.must(termQuery("typeId", Concepts.FSN))
+					);
+
+			if (conceptQuery.hasLogicalConditions()) {
+				termSearchQuery.withPageable(LARGE_PAGE);
+			} else {
+				termSearchQuery.withPageable(new PageRequest(0, 50));
+			}
+
+			if (IDService.isConceptId(termPrefix)) {
+				boolQueryBuilder.must(termQuery("conceptId", termPrefix));
+			} else {
+				if (termPrefix.endsWith("*")) {
+					// Strip wildcard
+					termPrefix = termPrefix.replaceFirst("\\*$", "");
+				}
+				boolQueryBuilder.must(prefixQuery("term", termPrefix));
+				termSearchQuery.withSort(SortBuilders.scoreSort());
+			}
+
+			try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(termSearchQuery.build(), Description.class)) {
+				stream.forEachRemaining(d -> termConceptIds.add(parseLong(d.getConceptId())));
+			}
+			logger.info("First term concept {}", !termConceptIds.isEmpty() ? termConceptIds.get(0) : null);
+		}
+
+		if (conceptQuery.hasLogicalConditions()) {
+			logger.info("Logical search");
+			NativeSearchQuery logicalSearchQuery = new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteria)
+							.must(conceptQuery.getRootBuilder())
+					).withFilter(boolQuery().must(termsQuery("conceptId", termConceptIds)))
+					.withPageable(new PageRequest(0, 50))
+					.build();
+
+			Page<QueryConcept> queryConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery, QueryConcept.class);
+			List<Long> ids = queryConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
+
+			logger.info("Gather minis");
+			Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, ids);
+
+			if (termPrefix != null) {
+				// Recreate term score ordering
+				List<ConceptMini> minis = new ArrayList<>();
+				for (Long termConceptId : termConceptIds) {
+					ConceptMini conceptMini = conceptMiniMap.get(termConceptId.toString());
+					if (conceptMini != null) {
+						minis.add(conceptMini);
+					}
+				}
+				return minis;
+			}
+
+			return conceptMiniMap.values();
+		}
+
+		logger.info("Gather minis");
+		return conceptService.findConceptMinis(branchCriteria, termConceptIds).values();
+	}
 
 	public Set<Long> retrieveAncestors(String conceptId, String path, boolean stated) {
 		return retrieveAncestors(versionControlHelper.getBranchCriteria(path), path, stated, conceptId);
@@ -355,5 +439,63 @@ public class QueryService extends ComponentService {
 
 	public void deleteAll() {
 		queryIndexConceptRepository.deleteAll();
+	}
+
+	/**
+	 * Creates a ConceptQueryBuilder for use with search methods.
+	 * @param stated If the stated or inferred form should be used in any logical conditions.
+	 * @return a new ConceptQueryBuilder
+	 */
+	public ConceptQueryBuilder createQueryBuilder(boolean stated) {
+		return new ConceptQueryBuilder(stated);
+	}
+
+	public final class ConceptQueryBuilder {
+
+		private final BoolQueryBuilder rootBuilder;
+		private final BoolQueryBuilder logicalConditionBuilder;
+		private String termPrefix;
+
+		private ConceptQueryBuilder(boolean stated) {
+			rootBuilder = boolQuery();
+			logicalConditionBuilder = boolQuery();
+			rootBuilder.must(termQuery("stated", stated));
+			rootBuilder.must(logicalConditionBuilder);
+		}
+
+		public void self(Long conceptId) {
+			logger.info("conceptId = {}", conceptId);
+			logicalConditionBuilder.should(termQuery("conceptId", conceptId));
+		}
+
+		public void descendant(Long conceptId) {
+			logger.info("ancestors = {}", conceptId);
+			logicalConditionBuilder.should(termQuery("ancestors", conceptId));
+		}
+
+		public void selfOrDescendant(Long conceptId) {
+			self(conceptId);
+			descendant(conceptId);
+		}
+
+		/**
+		 * Term prefix has a minimum length of 3 characters.
+		 * @param termPrefix
+		 */
+		public void termPrefix(String termPrefix) {
+			this.termPrefix = termPrefix;
+		}
+
+		private BoolQueryBuilder getRootBuilder() {
+			return rootBuilder;
+		}
+
+		private String getTermPrefix() {
+			return termPrefix;
+		}
+
+		private boolean hasLogicalConditions() {
+			return logicalConditionBuilder.hasClauses();
+		}
 	}
 }

@@ -18,9 +18,11 @@ public class IDServiceTest {
 		Assert.assertFalse(IDService.isConceptId(""));
 		Assert.assertFalse(IDService.isConceptId("123123"));
 		Assert.assertFalse(IDService.isConceptId("123120"));
-		Assert.assertTrue(IDService.isConceptId("123101"));
-		Assert.assertTrue(IDService.isConceptId("123001"));
+		Assert.assertTrue(IDService.isConceptId("1234101"));
+		Assert.assertTrue(IDService.isConceptId("1234001"));
 		Assert.assertFalse(IDService.isConceptId("101"));
+		Assert.assertFalse(IDService.isConceptId("a123101"));
+		Assert.assertFalse(IDService.isConceptId("12 3101"));
 	}
 
 }
