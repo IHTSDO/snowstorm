@@ -1,5 +1,6 @@
 package org.ihtsdo.elasticsnomed.core.data.domain;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonRawValue;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.ihtsdo.elasticsnomed.rest.View;
@@ -58,11 +59,16 @@ public class ConceptMini {
 		return conceptId;
 	}
 
+	public String getFsn() {
+		return activeFsns.isEmpty() ? null : activeFsns.iterator().next().getTerm();
+	}
+
 	@JsonView(value = View.Component.class)
 	@JsonRawValue
-	public String getFsn() {
-		String term = activeFsns.isEmpty() ? null : activeFsns.iterator().next().getTerm();
-		return nestFsn ? "{ \"term\": \"" + term + "\" }" : "\"term\"";
+	@JsonProperty("fsn")
+	public String getJsonFsn() {
+		String term = getFsn();
+		return nestFsn ? "{ \"term\": \"" + term + "\" }" : "\"" + term + "\"";
 	}
 
 	public void setDefinitionStatusId(String definitionStatusId) {
