@@ -8,7 +8,7 @@ public class IDServiceTest {
 	@Test
 	public void testGetHackId() {
 		final String id = IDService.getHackId();
-		Assert.assertEquals(9, id.length());
+		Assert.assertEquals(15, id.length());
 		Assert.assertFalse(id.contains("."));
 	}
 

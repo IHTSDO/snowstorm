@@ -12,9 +12,9 @@ public class IDService {
 
 	public static String getHackId() {
 		String id;
-		while ((id = "" + Math.round(Math.random() * 100000000000000f)).length() < 9) {
+		while ((id = "" + Math.round(Math.random() * 100000000000000000f)).length() < 15) {
 		}
-		return id.substring(0, 9);
+		return id.substring(0, 15);
 	}
 
 	public static boolean isConceptId(String sctid) {
