@@ -123,6 +123,7 @@ public class Config {
 				"/(.*)/concepts/.*",
 				"/(.*)/members.*",
 				"/mrcm/(.*)/domain-attributes",
+				"/mrcm/(.*)/attribute-values.*",
 				"/browser/(.*)/validate/concept"
 		));
 	}

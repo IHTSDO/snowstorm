@@ -2,6 +2,7 @@ package org.ihtsdo.elasticsnomed.mrcm;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import org.ihtsdo.elasticsnomed.mrcm.model.MRCM;
 import org.ihtsdo.elasticsnomed.mrcm.model.load.*;
 import org.ihtsdo.elasticsnomed.mrcm.model.load.Attribute;
 import org.ihtsdo.elasticsnomed.mrcm.model.load.Domain;
@@ -17,8 +18,9 @@ public class MRCMLoader {
 
 	private static Logger logger = LoggerFactory.getLogger(MRCMLoader.class);
 
-	public Set<org.ihtsdo.elasticsnomed.mrcm.model.Domain> load() throws IOException {
+	public MRCM load() throws IOException {
 		Map<Long, org.ihtsdo.elasticsnomed.mrcm.model.Domain> domainMap = new HashMap<>();
+		Map<Long, org.ihtsdo.elasticsnomed.mrcm.model.Attribute> attributeMap = new HashMap<>();
 
 		logger.info("Loading MRCM file.");
 		XmlMapper mapper = new XmlMapper();
@@ -39,18 +41,19 @@ public class MRCMLoader {
 						k -> new org.ihtsdo.elasticsnomed.mrcm.model.Domain(domainConceptId, loadDomain.getInclusionType()));
 
 				org.ihtsdo.elasticsnomed.mrcm.model.Attribute attribute = new org.ihtsdo.elasticsnomed.mrcm.model.Attribute(loadAttribute.getConceptId(), loadAttribute.getInclusionType());
+				attributeMap.put(attribute.getConceptId(), attribute);
 				domain.getAttributes().add(attribute);
 
 				logger.info("attribute " + loadAttribute.getConceptId());
 				Range range = predicate1.getRange();
 				Long rangeConcepId = range.getConceptId();
-				logger.info("range");
+				logger.debug("range");
 				if (rangeConcepId != null) {
-					logger.info("- " + rangeConcepId);
+					logger.debug("- " + rangeConcepId);
 					attribute.getRangeSet().add(new org.ihtsdo.elasticsnomed.mrcm.model.Range(rangeConcepId, range.getInclusionType()));
 				} else {
 					for (Children rangeChild : range.getChildren()) {
-						logger.info("+- " + rangeChild.getConceptId());
+						logger.debug("+- " + rangeChild.getConceptId());
 						attribute.getRangeSet().add(new org.ihtsdo.elasticsnomed.mrcm.model.Range(rangeChild.getConceptId(), rangeChild.getInclusionType()));
 					}
 				}
@@ -58,6 +61,9 @@ public class MRCMLoader {
 				logger.info("Lexical constraint will be ignored.");
 			}
 		}
-		return new HashSet<>(domainMap.values());
+		MRCM mrcm = new MRCM();
+		mrcm.setDomainMap(domainMap);
+		mrcm.setAttributeMap(attributeMap);
+		return mrcm;
 	}
 }

@@ -6,9 +6,8 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
-import org.ihtsdo.elasticsnomed.mrcm.model.Attribute;
-import org.ihtsdo.elasticsnomed.mrcm.model.Domain;
-import org.ihtsdo.elasticsnomed.mrcm.model.InclusionType;
+import org.ihtsdo.elasticsnomed.mrcm.model.*;
+import org.ihtsdo.elasticsnomed.rest.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +16,8 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static java.lang.Long.parseLong;
 
 @Service
 public class MRCMService {
@@ -30,18 +31,18 @@ public class MRCMService {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
-	private Set<Domain> domains;
+	private MRCM mrcm;
 
 	@PostConstruct
 	public void load() throws IOException {
-		this.domains = new MRCMLoader().load();
+		this.mrcm = new MRCMLoader().load();
 	}
 
 	public Collection<ConceptMini> retrieveDomainAttributes(String branchPath, Set<Long> parentIds) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Set<Long> allAncestors = queryService.retrieveAllAncestors(branchCriteria, false, parentIds);
 
-		Set<Domain> matchedDomains = domains.stream().filter(d -> {
+		Set<Domain> matchedDomains = mrcm.getDomainMap().values().stream().filter(d -> {
 			Long domainConceptId = d.getConceptId();
 			InclusionType inclusionType = d.getInclusionType();
 			if ((inclusionType == InclusionType.SELF || inclusionType == InclusionType.SELF_OR_DESCENDANT)
@@ -67,6 +68,34 @@ public class MRCMService {
 		allMatchedAttributeIds.addAll(descendantAttributes);
 
 		return conceptService.findConceptMinis(branchCriteria, allMatchedAttributeIds).values();
+	}
+
+
+	public Collection<ConceptMini> retrieveAttributeValues(String branchPath, String attributeId, String termPrefix) {
+		Attribute attribute = mrcm.getAttributeMap().get(parseLong(attributeId));
+		if (attribute == null) {
+			throw new IllegalArgumentException("MRCM Attribute " + attributeId + " not found.");
+		}
+
+		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);
+		for (Range range : attribute.getRangeSet()) {
+			Long conceptId = range.getConceptId();
+			InclusionType inclusionType = range.getInclusionType();
+			switch (inclusionType) {
+				case SELF:
+					queryBuilder.self(conceptId);
+					break;
+				case DESCENDANT:
+					queryBuilder.descendant(conceptId);
+					break;
+				case SELF_OR_DESCENDANT:
+					queryBuilder.selfOrDescendant(conceptId);
+					break;
+			}
+		}
+
+		queryBuilder.termPrefix(termPrefix);
+		return queryService.search(queryBuilder, branchPath);
 	}
 
 	public static void main(String[] args) throws IOException {
