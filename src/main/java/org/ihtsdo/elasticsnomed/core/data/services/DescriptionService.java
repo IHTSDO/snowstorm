@@ -160,7 +160,7 @@ public class DescriptionService extends ComponentService {
 		if (timer != null) timer.checkpoint("get lang refset " + getFetchCount(allConceptIds.size()));
 	}
 
-	public Page<Description> findDescriptions(String path, String term, PageRequest pageRequest, ConceptService conceptService) {
+	public Page<Description> findDescriptions(String path, String term, PageRequest pageRequest) {
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 		final BoolQueryBuilder builder = boolQuery()
