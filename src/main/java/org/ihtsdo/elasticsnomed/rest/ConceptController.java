@@ -84,6 +84,18 @@ public class ConceptController {
 	}
 
 	@ResponseBody
+	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.POST, produces = "application/json")
+	@JsonView(value = View.Component.class)
+	public ConceptView createConcept(@PathVariable String branch, @RequestBody @Valid ConceptView concept) {
+		return conceptService.create((Concept) concept, BranchPathUriUtil.parseBranchPath(branch));
+	}
+
+	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.DELETE)
+	public void deleteConcept(@PathVariable String branch, @PathVariable String conceptId) {
+		conceptService.deleteConceptAndComponents(conceptId, BranchPathUriUtil.parseBranchPath(branch), false);
+	}
+
+	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/bulk", method = RequestMethod.POST, produces = "application/json")
 	@JsonView(value = View.Component.class)
 	public Iterable<Concept> updateConcepts(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts) {
