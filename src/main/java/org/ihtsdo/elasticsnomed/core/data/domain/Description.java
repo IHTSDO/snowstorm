@@ -10,10 +10,10 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-import java.util.HashMap;
-import java.util.Map;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
+import java.util.HashMap;
+import java.util.Map;
 
 @Document(type = "description", indexName = "snomed", shards = 8)
 public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator {
@@ -313,13 +313,25 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 		Description that = (Description) o;
 
-		return descriptionId != null ? descriptionId.equals(that.descriptionId) : that.descriptionId == null;
+		if (descriptionId != null && descriptionId.equals(that.descriptionId)) {
+			return true;
+		}
 
+		if (term != null ? !term.equals(that.term) : that.term != null) return false;
+		if (languageCode != null ? !languageCode.equals(that.languageCode) : that.languageCode != null) return false;
+		return typeId != null ? typeId.equals(that.typeId) : that.typeId == null;
 	}
 
 	@Override
 	public int hashCode() {
-		return descriptionId != null ? descriptionId.hashCode() : 0;
+		int result = descriptionId != null ? descriptionId.hashCode() : 0;
+		if (result != 0) {
+			return result;
+		}
+		result = 31 * result + (term != null ? term.hashCode() : 0);
+		result = 31 * result + (languageCode != null ? languageCode.hashCode() : 0);
+		result = 31 * result + (typeId != null ? typeId.hashCode() : 0);
+		return result;
 	}
 
 	@Override

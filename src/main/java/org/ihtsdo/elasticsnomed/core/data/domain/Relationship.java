@@ -263,12 +263,29 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 		Relationship that = (Relationship) o;
 
-		return relationshipId != null ? relationshipId.equals(that.relationshipId) : that.relationshipId == null;
+		if (relationshipId != null && relationshipId.equals(that.relationshipId)) {
+			return true;
+		}
+
+		if (relationshipGroup != that.relationshipGroup) return false;
+		if (sourceId != null ? !sourceId.equals(that.sourceId) : that.sourceId != null) return false;
+		if (destinationId != null ? !destinationId.equals(that.destinationId) : that.destinationId != null) return false;
+		if (typeId != null ? !typeId.equals(that.typeId) : that.typeId != null) return false;
+		return characteristicTypeId != null ? characteristicTypeId.equals(that.characteristicTypeId) : that.characteristicTypeId == null;
 	}
 
 	@Override
 	public int hashCode() {
-		return relationshipId != null ? relationshipId.hashCode() : 0;
+		int result = relationshipId != null ? relationshipId.hashCode() : 0;
+		if (result != 0) {
+			return result;
+		}
+		result = 31 * result + (sourceId != null ? sourceId.hashCode() : 0);
+		result = 31 * result + (destinationId != null ? destinationId.hashCode() : 0);
+		result = 31 * result + relationshipGroup;
+		result = 31 * result + (typeId != null ? typeId.hashCode() : 0);
+		result = 31 * result + (characteristicTypeId != null ? characteristicTypeId.hashCode() : 0);
+		return result;
 	}
 
 	@Override
