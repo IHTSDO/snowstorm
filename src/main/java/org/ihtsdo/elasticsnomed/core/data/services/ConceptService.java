@@ -347,20 +347,30 @@ public class ConceptService extends ComponentService implements CommitListener {
 		// Mark concept and components as deleted
 		logger.info("Deleting concept {} on branch {} at timepoint {}", concept.getConceptId(), path, commit.getTimepoint());
 		concept.markDeleted();
-		Set<ReferenceSetMember> langRefsetMembersToPersist = new HashSet<>();
+		Set<ReferenceSetMember> membersToDelete = new HashSet<>();
 		concept.getDescriptions().forEach(description -> {
 			description.markDeleted();
-			description.getLangRefsetMembers().values().forEach(member -> {
-				member.markDeleted();
-				langRefsetMembersToPersist.add(member);
-			});
+			membersToDelete.addAll(description.getLangRefsetMembers().values());
+			ReferenceSetMember inactivationIndicatorMember = description.getInactivationIndicatorMember();
+			if (inactivationIndicatorMember != null) {
+				membersToDelete.add(inactivationIndicatorMember);
+			}
 		});
+		ReferenceSetMember inactivationIndicatorMember = concept.getInactivationIndicatorMember();
+		if (inactivationIndicatorMember != null) {
+			inactivationIndicatorMember.markDeleted();
+		}
+		Set<ReferenceSetMember> associationTargetMembers = concept.getAssociationTargetMembers();
+		if (associationTargetMembers != null) {
+			membersToDelete.addAll(associationTargetMembers);
+		}
 		concept.getRelationships().forEach(Relationship::markDeleted);
 
 		// Persist deletion
 		doSaveBatchConcepts(Sets.newHashSet(concept), commit);
 		doSaveBatchDescriptions(concept.getDescriptions(), commit);
-		doSaveBatchMembers(langRefsetMembersToPersist, commit);
+		membersToDelete.forEach(ReferenceSetMember::markDeleted);
+		doSaveBatchMembers(membersToDelete, commit);
 		doSaveBatchRelationships(concept.getRelationships(), commit);
 		branchService.completeCommit(commit);
 	}
