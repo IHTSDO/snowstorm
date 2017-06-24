@@ -33,6 +33,9 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	@Size(min = 1, max = 255)
 	private String term;
 
+	@Field(type = FieldType.Integer)
+	private int termLen;
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String conceptId;
@@ -88,7 +91,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public Description(String term) {
 		this();
-		this.term = term;
+		setTerm(term);
 	}
 
 	public Description(String id, String term) {
@@ -105,7 +108,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		this.conceptId = conceptId;
 		this.languageCode = languageCode;
 		this.typeId = typeId;
-		this.term = term;
+		setTerm(term);
 		this.caseSignificanceId = caseSignificanceId;
 	}
 
@@ -242,6 +245,17 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public void setTerm(String term) {
 		this.term = term;
+		if (term != null) {
+			termLen = term.length();
+		}
+	}
+
+	public void setTermLen(int termLen) {
+		this.termLen = termLen;
+	}
+
+	public int getTermLen() {
+		return termLen;
 	}
 
 	public String getConceptId() {

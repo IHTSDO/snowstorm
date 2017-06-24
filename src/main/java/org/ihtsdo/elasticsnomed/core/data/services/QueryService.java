@@ -9,6 +9,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
@@ -62,13 +63,13 @@ public class QueryService extends ComponentService {
 	public Collection<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 
-		String termPrefix = conceptQuery.getTermPrefix();
-		if (termPrefix != null && termPrefix.length() < 3) {
+		String term = conceptQuery.getTermPrefix();
+		if (term != null && term.length() < 3) {
 			return Collections.emptySet();
 		}
 
 		final List<Long> termConceptIds = new LongArrayList();
-		if (termPrefix != null) {
+		if (term != null) {
 			logger.info("Lexical search");
 			// Search for descriptions matching the term prefix
 			BoolQueryBuilder boolQueryBuilder = boolQuery();
@@ -79,46 +80,48 @@ public class QueryService extends ComponentService {
 							.must(termQuery("typeId", Concepts.FSN))
 					);
 
+			DescriptionService.addTermClauses(term, boolQueryBuilder);
+
+			NativeSearchQuery query = termSearchQuery.build();
+			DescriptionService.addTermSort(query);
+
 			if (conceptQuery.hasLogicalConditions()) {
-				termSearchQuery.withPageable(LARGE_PAGE);
+				try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(query, Description.class)) {
+					stream.forEachRemaining(d -> termConceptIds.add(parseLong(d.getConceptId())));
+				}
 			} else {
 				termSearchQuery.withPageable(new PageRequest(0, 50));
+				List<Description> descriptions = elasticsearchTemplate.queryForPage(query, Description.class).getContent();
+				descriptions.forEach(d -> termConceptIds.add(parseLong(d.getConceptId())));
 			}
 
-			if (IDService.isConceptId(termPrefix)) {
-				boolQueryBuilder.must(termQuery("conceptId", termPrefix));
-			} else {
-				if (termPrefix.endsWith("*")) {
-					// Strip wildcard
-					termPrefix = termPrefix.replaceFirst("\\*$", "");
-				}
-				boolQueryBuilder.must(prefixQuery("term", termPrefix));
-				termSearchQuery.withSort(SortBuilders.scoreSort());
-			}
-
-			try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(termSearchQuery.build(), Description.class)) {
-				stream.forEachRemaining(d -> termConceptIds.add(parseLong(d.getConceptId())));
-			}
 			logger.info("First term concept {}", !termConceptIds.isEmpty() ? termConceptIds.get(0) : null);
 		}
 
 		if (conceptQuery.hasLogicalConditions()) {
 			logger.info("Logical search");
-			NativeSearchQuery logicalSearchQuery = new NativeSearchQueryBuilder()
+			NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(branchCriteria)
 							.must(conceptQuery.getRootBuilder())
-					).withFilter(boolQuery().must(termsQuery("conceptId", termConceptIds)))
-					.withPageable(new PageRequest(0, 50))
-					.build();
+					)
+					.withPageable(new PageRequest(0, 50));
 
-			Page<QueryConcept> queryConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery, QueryConcept.class);
+			if (term != null) {
+				List<Long> values = termConceptIds.subList(0, termConceptIds.size() >= 50 ? 50 : termConceptIds.size());
+				logger.info("logical filter size {} - {}", values.size(), values);
+				logicalSearchQuery.withFilter(boolQuery().must(termsQuery("conceptId", values)));
+			}
+
+			Page<QueryConcept> queryConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery.build(), QueryConcept.class);
 			List<Long> ids = queryConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
+
+			logger.info("logical ids size {} - {}", ids.size(), ids);
 
 			logger.info("Gather minis");
 			Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, ids);
 
-			if (termPrefix != null) {
+			if (term != null) {
 				// Recreate term score ordering
 				List<ConceptMini> minis = new ArrayList<>();
 				for (Long termConceptId : termConceptIds) {

@@ -1,6 +1,5 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
-import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
@@ -18,7 +17,6 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static org.ihtsdo.elasticsnomed.core.data.domain.Concepts.*;
 import static org.junit.Assert.*;
@@ -26,8 +24,6 @@ import static org.junit.Assert.*;
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
 public class ConceptServiceTest {
-
-	public static final PageRequest PAGE_REQUEST = new PageRequest(0, 100);
 
 	@Autowired
 	private BranchService branchService;
@@ -44,11 +40,14 @@ public class ConceptServiceTest {
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
 
+	private ServiceTestUtil testUtil;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Before
 	public void setup() {
 		branchService.create("MAIN");
+		testUtil = new ServiceTestUtil(conceptService);
 	}
 
 	@Test
@@ -209,18 +208,18 @@ public class ConceptServiceTest {
 
 	@Test
 	public void testMultipleConceptVersionsOnOneBranch() {
-		assertEquals(0, conceptService.findAll("MAIN", PAGE_REQUEST).getTotalElements());
+		assertEquals(0, conceptService.findAll("MAIN", ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 		conceptService.create(new Concept("1", "one"), "MAIN");
 
 		final Concept concept1 = conceptService.find("1", "MAIN");
 		assertEquals("one", concept1.getModuleId());
-		assertEquals(1, conceptService.findAll("MAIN", PAGE_REQUEST).getTotalElements());
+		assertEquals(1, conceptService.findAll("MAIN", ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
 		conceptService.update(new Concept("1", "oneee"), "MAIN");
 
 		final Concept concept1Version2 = conceptService.find("1", "MAIN");
 		assertEquals("oneee", concept1Version2.getModuleId());
-		assertEquals(1, conceptService.findAll("MAIN", PAGE_REQUEST).getTotalElements());
+		assertEquals(1, conceptService.findAll("MAIN", ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 	}
 
 	@Test
@@ -298,17 +297,17 @@ public class ConceptServiceTest {
 		assertEquals("orig value", conceptService.find("1", "MAIN/A/A1").getModuleId());
 		assertEquals("updated value", conceptService.find("1", "MAIN/A/A2").getModuleId());
 
-		final Page<Concept> allOnGrandChild = conceptService.findAll("MAIN/A/A1", PAGE_REQUEST);
+		final Page<Concept> allOnGrandChild = conceptService.findAll("MAIN/A/A1", ServiceTestUtil.PAGE_REQUEST);
 		assertEquals(1, allOnGrandChild.getTotalElements());
 		assertEquals("orig value", allOnGrandChild.getContent().get(0).getModuleId());
 
-		final Page<Concept> allOnChild = conceptService.findAll("MAIN/A", PAGE_REQUEST);
+		final Page<Concept> allOnChild = conceptService.findAll("MAIN/A", ServiceTestUtil.PAGE_REQUEST);
 		assertEquals(1, allOnChild.getTotalElements());
 		assertEquals("updated value", allOnChild.getContent().get(0).getModuleId());
 
 		conceptService.update(new Concept("1", "updated value for A"), "MAIN/A");
 
-		final Page<Concept> allOnChildAfterSecondUpdate = conceptService.findAll("MAIN/A", PAGE_REQUEST);
+		final Page<Concept> allOnChildAfterSecondUpdate = conceptService.findAll("MAIN/A", ServiceTestUtil.PAGE_REQUEST);
 		assertEquals(1, allOnChildAfterSecondUpdate.getTotalElements());
 		assertEquals("updated value for A", allOnChildAfterSecondUpdate.getContent().get(0).getModuleId());
 
@@ -440,39 +439,11 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testDescriptionSearch() {
-		createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
-		createConceptWithPathIdAndTerms("MAIN", "2", "Lung");
-		createConceptWithPathIdAndTerms("MAIN", "6", "Foot cramps");
-		createConceptWithPathIdAndTerms("MAIN", "7", "Foot cramp");
-		createConceptWithPathIdAndTerms("MAIN", "3", "Foot bone");
-		createConceptWithPathIdAndTerms("MAIN", "4", "Foot");
-		createConceptWithPathIdAndTerms("MAIN", "5", "Footwear");
-
-		final List<Description> content = descriptionService.findDescriptions("MAIN", "Foo* cr*", PAGE_REQUEST).getContent();
-		assertSearchResults(content, 5, "Foot cramp", "Foot cramps");
-
-		final List<Description> fooMatches = descriptionService.findDescriptions("MAIN", "Foo*", PAGE_REQUEST).getContent();
-		assertSearchResults(fooMatches, 5);
-
-		branchService.create("MAIN/A");
-
-		createConceptWithPathIdAndTerms("MAIN/A", "8", "Foot care");
-
-		final List<Description> footOnMain = descriptionService.findDescriptions("MAIN", "Foot", PAGE_REQUEST).getContent();
-		assertEquals(4, footOnMain.size());
-
-		final List<Description> footOnA = descriptionService.findDescriptions("MAIN/A", "Foot", PAGE_REQUEST).getContent();
-		assertEquals(5, footOnA.size());
-		Assert.assertTrue(toTermSet(footOnA).contains("Foot care"));
-	}
-
-	@Test
 	public void testLatestVersionMatch() {
-		createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
+		testUtil.createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
 
-		assertEquals(1, descriptionService.findDescriptions("MAIN", "Heart", PAGE_REQUEST).getNumberOfElements());
-		assertEquals(0, descriptionService.findDescriptions("MAIN", "Bone", PAGE_REQUEST).getNumberOfElements());
+		assertEquals(1, descriptionService.findDescriptions("MAIN", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
+		assertEquals(0, descriptionService.findDescriptions("MAIN", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
 
 		// Create branch (base point is now)
 		branchService.create("MAIN/A");
@@ -482,14 +453,14 @@ public class ConceptServiceTest {
 		concept.getDescriptions().iterator().next().setTerm("Bone");
 		conceptService.update(concept, "MAIN");
 
-		assertEquals(0, descriptionService.findDescriptions("MAIN", "Heart", PAGE_REQUEST).getNumberOfElements());
-		assertEquals(1, descriptionService.findDescriptions("MAIN", "Bone", PAGE_REQUEST).getNumberOfElements());
+		assertEquals(0, descriptionService.findDescriptions("MAIN", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
+		assertEquals(1, descriptionService.findDescriptions("MAIN", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
 
 		printAllDescriptions("MAIN");
 		printAllDescriptions("MAIN/A");
 
-		assertEquals("Branch A should see old version of concept because of old base point.", 1, descriptionService.findDescriptions("MAIN/A", "Heart", PAGE_REQUEST).getNumberOfElements());
-		assertEquals("Branch A should not see new version of concept because of old base point.", 0, descriptionService.findDescriptions("MAIN/A", "Bone", PAGE_REQUEST).getNumberOfElements());
+		assertEquals("Branch A should see old version of concept because of old base point.", 1, descriptionService.findDescriptions("MAIN/A", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
+		assertEquals("Branch A should not see new version of concept because of old base point.", 0, descriptionService.findDescriptions("MAIN/A", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
 
 		final Concept concept1 = conceptService.find("1", "MAIN");
 		assertEquals(1, concept1.getDescriptions().size());
@@ -585,46 +556,11 @@ public class ConceptServiceTest {
 	}
 
 	private void printAllDescriptions(String path) {
-		final Page<Description> descriptions = descriptionService.findDescriptions(path, null, PAGE_REQUEST);
+		final Page<Description> descriptions = descriptionService.findDescriptions(path, null, ServiceTestUtil.PAGE_REQUEST);
 		logger.info("Description on " + path);
 		for (Description description : descriptions) {
 			logger.info("{}", description);
 		}
-	}
-
-	private void assertSearchResults(List<Description> content, int expectedSize, String... topHitsUnordered) {
-		try {
-			assertEquals(expectedSize, content.size());
-			final HashSet<String> topHitSet = Sets.newHashSet(topHitsUnordered);
-			for (int i = 0; i < topHitsUnordered.length; i++) {
-				final String term = content.get(i++).getTerm();
-				Assert.assertTrue("Hit " + i + " '" + term + "' within expected top hits.", topHitSet.contains(term));
-			}
-		} catch (AssertionError e) {
-			printAll(content);
-			throw e;
-		}
-	}
-
-	private void createConceptWithPathIdAndTerms(String path, String conceptId, String... terms) {
-		final Concept concept = new Concept(conceptId);
-		for (String term : terms) {
-			final Description description = new Description(term);
-			description.setDescriptionId(UUID.randomUUID().toString());
-			concept.addDescription(description);
-		}
-		conceptService.create(concept, path);
-	}
-
-	private void printAll(List<Description> content) {
-		logger.info(content.size() + " descriptions:");
-		for (Description description : content) {
-			logger.info(description.getTerm());
-		}
-	}
-
-	private Set<String> toTermSet(Collection<Description> descriptions) {
-		return descriptions.stream().map(Description::getTerm).collect(Collectors.toSet());
 	}
 
 	private Description fsn(String term) {

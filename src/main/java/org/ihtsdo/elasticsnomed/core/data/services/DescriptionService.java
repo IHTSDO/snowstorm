@@ -1,5 +1,6 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
+import com.github.vanroy.springdata.jest.JestElasticsearchTemplate;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.ComponentService;
@@ -7,7 +8,6 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
 import org.slf4j.Logger;
@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -24,9 +25,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.simpleQueryStringQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class DescriptionService extends ComponentService {
@@ -163,20 +162,40 @@ public class DescriptionService extends ComponentService {
 	public Page<Description> findDescriptions(String path, String term, PageRequest pageRequest) {
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 
-		final BoolQueryBuilder builder = boolQuery()
-				.must(branchCriteria);
-		if (!Strings.isNullOrEmpty(term)) {
-			builder.must(simpleQueryStringQuery(term).field("term"));
-			builder.must(simpleQueryStringQuery(term).field("term"));
-		}
+		final BoolQueryBuilder builder = boolQuery();
+		builder.must(branchCriteria);
+		addTermClauses(term, builder);
 
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(builder)
-				.withSort(SortBuilders.scoreSort())
 				.withPageable(pageRequest);
 
-		final NativeSearchQuery build = queryBuilder.build();
-		return elasticsearchTemplate.queryForPage(build, Description.class);
+		return elasticsearchTemplate.queryForPage(addTermSort(queryBuilder.build()), Description.class);
+	}
+
+	protected static BoolQueryBuilder addTermClauses(String term, BoolQueryBuilder boolBuilder) {
+		if (IDService.isConceptId(term)) {
+			boolBuilder.must(termQuery("conceptId", term));
+		} else {
+			if (!Strings.isNullOrEmpty(term)) {
+				String[] split = term.split(" ");
+				for (String word : split) {
+					word = word.trim();
+					if (!word.isEmpty()) {
+						if (!word.contains("*")) {
+							word += "*";
+						}
+						boolBuilder.must(simpleQueryStringQuery(word).field("term"));
+					}
+				}
+			}
+		}
+		return boolBuilder;
+	}
+
+	protected static NativeSearchQuery addTermSort(NativeSearchQuery query) {
+		query.addSort(new Sort("_score", "termLen"));
+		return query;
 	}
 
 	public Description fetchDescription(String path, String descriptionId) {
