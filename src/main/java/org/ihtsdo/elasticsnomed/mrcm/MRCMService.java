@@ -7,7 +7,6 @@ import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
 import org.ihtsdo.elasticsnomed.mrcm.model.*;
-import org.ihtsdo.elasticsnomed.rest.Page;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -33,7 +32,6 @@ public class MRCMService {
 
 	private MRCM mrcm;
 
-	@PostConstruct
 	public void load() throws IOException {
 		this.mrcm = new MRCMLoader().load();
 	}

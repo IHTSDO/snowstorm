@@ -3,6 +3,7 @@ package org.ihtsdo.elasticsnomed;
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.rf2import.ImportService;
+import org.ihtsdo.elasticsnomed.mrcm.MRCMService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,9 @@ public class App extends Config implements ApplicationRunner {
 	@Autowired
 	private ImportService importService;
 
+	@Autowired
+	private MRCMService mrcmService;
+
 	final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public static void main(String[] args) {
@@ -33,6 +37,7 @@ public class App extends Config implements ApplicationRunner {
 
 	@Override
 	public void run(ApplicationArguments applicationArguments) throws Exception {
+		mrcmService.load();
 		if (applicationArguments.containsOption("clean-import")) {
 			// import the international edition from disk at startup
 			deleteAllAndImportInternationalEditionFromDisk();

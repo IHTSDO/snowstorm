@@ -4,15 +4,13 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import org.ihtsdo.elasticsnomed.mrcm.model.MRCM;
 import org.ihtsdo.elasticsnomed.mrcm.model.load.*;
-import org.ihtsdo.elasticsnomed.mrcm.model.load.Attribute;
-import org.ihtsdo.elasticsnomed.mrcm.model.load.Domain;
-import org.ihtsdo.elasticsnomed.mrcm.model.load.Range;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class MRCMLoader {
 
