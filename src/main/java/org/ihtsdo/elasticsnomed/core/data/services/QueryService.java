@@ -93,6 +93,8 @@ public class QueryService extends ComponentService {
 				termSearchQuery.withPageable(new PageRequest(0, 50));
 				List<Description> descriptions = elasticsearchTemplate.queryForPage(query, Description.class).getContent();
 				descriptions.forEach(d -> termConceptIds.add(parseLong(d.getConceptId())));
+				logger.info("Gather minis");
+				return conceptService.findConceptMinis(branchCriteria, termConceptIds).values();
 			}
 
 			logger.info("First term concept {}", !termConceptIds.isEmpty() ? termConceptIds.get(0) : null);
@@ -135,9 +137,7 @@ public class QueryService extends ComponentService {
 
 			return conceptMiniMap.values();
 		}
-
-		logger.info("Gather minis");
-		return conceptService.findConceptMinis(branchCriteria, termConceptIds).values();
+		return Collections.emptySet();
 	}
 
 	public Set<Long> retrieveAncestors(String conceptId, String path, boolean stated) {
@@ -209,6 +209,7 @@ public class QueryService extends ComponentService {
 
 	void updateStatedAndInferredTransitiveClosures(Commit commit) {
 		if (commit.isRebase()) {
+			// Recreate query index using new parent base point + content on this branch
 			Branch branch = commit.getBranch();
 			String fatPath = branch.getFatPath();
 			removeQConceptChangesOnBranch(commit, branch, fatPath);
@@ -221,11 +222,189 @@ public class QueryService extends ComponentService {
 			updateTransitiveClosure(true, changesBranchCriteria, parentVersionsReplacedOnBranch, commit, false);
 			updateTransitiveClosure(false, changesBranchCriteria, parentVersionsReplacedOnBranch, commit, false);
 		} else {
+			// Update query index using changes in the last commit
 			QueryBuilder changesBranchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
 			Set<String> parentVersionsReplacedDuringCommit = commit.getEntityVersionsDeleted();
 			updateTransitiveClosure(true, changesBranchCriteria, parentVersionsReplacedDuringCommit, commit, false);
 			updateTransitiveClosure(false, changesBranchCriteria, parentVersionsReplacedDuringCommit, commit, false);
 		}
+	}
+
+	private void updateTransitiveClosure(boolean stated, QueryBuilder changesBranchCriteria, Set<String> deletionsToProcess, Commit commit, boolean rebuild) {
+		// Note: Searches within this method use a filter clause for collections of identifiers because these
+		//       can become larger than the maximum permitted query criteria.
+
+		String formName;
+		Set<String> characteristicTypeIds = new HashSet<>();
+		if (stated) {
+			formName = "stated";
+			characteristicTypeIds.add(Concepts.STATED_RELATIONSHIP);
+			characteristicTypeIds.add(Concepts.ADDITIONAL_RELATIONSHIP);
+		} else {
+			formName = "inferred";
+			characteristicTypeIds.add(Concepts.INFERRED_RELATIONSHIP);
+		}
+
+		logger.info("Performing {} of {} transitive closures", rebuild ? "rebuild" : "incremental update", formName);
+
+		TimerUtil timer = new TimerUtil("TC index " + formName);
+		Set<Long> updateSource = new HashSet<>();
+		Set<Long> updateDestination = new HashSet<>();
+		Set<Long> existingAncestors = new HashSet<>();
+		Set<Long> existingDescendants = new HashSet<>();
+
+		String committedContentPath = commit.getBranch().getFatPath();
+		if (commit.isRebase()) {
+			// When rebasing this is a view onto the new parent state
+			committedContentPath = PathUtil.getParentPath(committedContentPath);
+		}
+		QueryBuilder branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteria(committedContentPath);
+		timer.checkpoint("get branch criteria");
+		if (!rebuild) {
+			// Step: Collect source and destinations of changed is-a relationships
+			try (final CloseableIterator<Relationship> changedIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(changesBranchCriteria)
+							.must(termQuery("typeId", Concepts.ISA))
+							.must(termsQuery("characteristicTypeId", characteristicTypeIds))
+					)
+					.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
+				changedIsARelationships.forEachRemaining(relationship -> {
+					updateSource.add(parseLong(relationship.getSourceId()));
+					updateDestination.add(parseLong(relationship.getDestinationId()));
+				});
+			}
+			timer.checkpoint("Collect changed relationships.");
+
+			if (updateSource.isEmpty()) {
+				logger.info("No TC {} changes found. Nothing to do.", formName);
+				return;
+			}
+
+			// Identify parts of the graph nodes are moving from or to
+
+			// Step: Identify existing TC of updated nodes
+			// Strategy: Find existing nodes where ID matches updated relationship source or destination ids, record TC
+			NativeSearchQuery query = new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteriaForAlreadyCommittedContent)
+							.must(termsQuery("stated", stated))
+					)
+					.withFilter(boolQuery()
+							.must(termsQuery("conceptId", Sets.union(updateSource, updateDestination))))
+					.withPageable(ConceptService.LARGE_PAGE).build();
+			try (final CloseableIterator<QueryConcept> existingIndexConcepts = elasticsearchTemplate.stream(query, QueryConcept.class)) {
+				existingIndexConcepts.forEachRemaining(indexConcept -> {
+					existingAncestors.addAll(indexConcept.getAncestors());
+				});
+			}
+			timer.checkpoint("Collect existingAncestors from QueryConcept.");
+
+			// Step: Identify existing descendants
+			// Strategy: Find existing nodes where TC matches updated relationship source ids
+			try (final CloseableIterator<QueryConcept> existingIndexConcepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteriaForAlreadyCommittedContent)
+							.must(termsQuery("stated", stated))
+					)
+					.withFilter(boolQuery()
+							.must(termsQuery("ancestors", updateSource)))
+					.withPageable(ConceptService.LARGE_PAGE).build(), QueryConcept.class)) {
+				existingIndexConcepts.forEachRemaining(indexConcept -> existingDescendants.add(indexConcept.getConceptId()));
+			}
+			timer.checkpoint("Collect existingDescendants from QueryConcept.");
+
+			logger.info("{} existing ancestors and {} existing descendants of updated relationships identified.", existingAncestors.size(), existingDescendants.size());
+		}
+
+		// Step: Build existing graph
+		// Strategy: Find relationships of existing TC and descendant nodes and build existing graph(s)
+		final GraphBuilder graphBuilder = new GraphBuilder();
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteriaForAlreadyCommittedContent)
+						.must(termQuery("active", true))
+						.must(termQuery("typeId", Concepts.ISA))
+						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
+				)
+				.withPageable(ConceptService.LARGE_PAGE);
+		if (!rebuild) {
+			Set<Long> nodesToLoad = new HashSet<>();
+			nodesToLoad.addAll(existingAncestors);
+			nodesToLoad.addAll(existingDescendants);
+			nodesToLoad.addAll(updateSource);
+			nodesToLoad.addAll(updateDestination);
+			queryBuilder.withFilter(boolQuery().must(termsQuery("sourceId", nodesToLoad)));
+		}
+		try (final CloseableIterator<Relationship> existingInferredIsARelationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
+			existingInferredIsARelationships.forEachRemaining(relationship -> {
+				graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
+			});
+		}
+		timer.checkpoint("Build existing nodes from Relationships.");
+		logger.info("{} existing nodes loaded.", graphBuilder.getNodeCount());
+
+
+		// Step - Update graph
+		// Strategy: Add/remove edges from new commit
+		AtomicLong relationshipsAdded = new AtomicLong();
+		AtomicLong relationshipsRemoved = new AtomicLong();
+		boolean newGraph = graphBuilder.getNodeCount() == 0;
+		try (final CloseableIterator<Relationship> newInferredIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(changesBranchCriteria)
+						.must(termQuery("typeId", Concepts.ISA))
+						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
+				)
+				.withSort(new FieldSortBuilder("start").order(SortOrder.ASC))
+				.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
+			newInferredIsARelationships.forEachRemaining(relationship -> {
+				boolean ignore = false;
+				boolean justDeleted = false;
+				if (relationship.getEnd() != null) {
+					if (deletionsToProcess.contains(relationship.getId())) {
+						justDeleted = true;
+					} else {
+						ignore = true;
+					}
+				}
+				if (!ignore) {
+					if (!justDeleted && relationship.isActive()){
+						graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()))
+								.markUpdated();
+						relationshipsAdded.incrementAndGet();
+					} else{
+						Node node = graphBuilder.removeParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
+						if (node != null) {
+							node.markUpdated();
+						}
+						relationshipsRemoved.incrementAndGet();
+					}
+				}
+			});
+		}
+		timer.checkpoint("Update graph using changed Relationships.");
+		logger.info("{} {} is-a relationships added, {} removed.", relationshipsAdded.get(), formName, relationshipsRemoved.get());
+
+
+		// Step: Save changes
+		Set<QueryConcept> indexConceptsToSave = new HashSet<>();
+		graphBuilder.getNodes().forEach(node -> {
+			if (newGraph || node.isAncestorOrSelfUpdated()) {
+				final Set<Long> transitiveClosure = node.getTransitiveClosure();
+				final Long nodeId = node.getId();
+				indexConceptsToSave.add(new QueryConcept(nodeId, transitiveClosure, stated));
+			}
+		});
+		if (!indexConceptsToSave.isEmpty()) {
+			for (List<QueryConcept> queryConcepts : Iterables.partition(indexConceptsToSave, BATCH_SAVE_SIZE)) {
+				doSaveBatch(queryConcepts, commit);
+			}
+		}
+		timer.checkpoint("Save updated QueryIndexConcepts");
+		logger.info("{} {} concept transitive closures updated.", indexConceptsToSave.size(), formName);
+
+		timer.finish();
 	}
 
 	private void removeQConceptChangesOnBranch(Commit commit, Branch branch, String fatPath) {
@@ -264,176 +443,6 @@ public class QueryService extends ComponentService {
 	private Iterable<QueryConcept> deleteBatch(Commit commit, List<QueryConcept> deletionBatch) {
 		logger.info("Ending {} query concepts", deletionBatch.size());
 		return doSaveBatchComponents(deletionBatch, commit, "conceptIdForm", queryIndexConceptRepository);
-	}
-
-	private void updateTransitiveClosure(boolean stated, QueryBuilder changesBranchCriteria, Set<String> deletionsToProcess, Commit commit, boolean rebuild) {
-		String formName;
-		Set<String> characteristicTypeIds = new HashSet<>();
-		if (stated) {
-			formName = "stated";
-			characteristicTypeIds.add(Concepts.STATED_RELATIONSHIP);
-			characteristicTypeIds.add(Concepts.ADDITIONAL_RELATIONSHIP);
-		} else {
-			formName = "inferred";
-			characteristicTypeIds.add(Concepts.INFERRED_RELATIONSHIP);
-		}
-
-		logger.info("Performing {} of {} transitive closures", rebuild ? "rebuild" : "incremental update", formName);
-
-		TimerUtil timer = new TimerUtil("TC index " + formName);
-		Set<Long> updateSource = new HashSet<>();
-		Set<Long> existingAncestors = new HashSet<>();
-		Set<Long> existingDescendants = new HashSet<>();
-
-
-		// If rebase this should be a view onto the new parent state
-		String committedContentPath = commit.getBranch().getFatPath();
-		if (commit.isRebase()) {
-			committedContentPath = PathUtil.getParentPath(committedContentPath);
-		}
-		QueryBuilder branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteria(committedContentPath);
-		timer.checkpoint("get branch criteria");
-		if (!rebuild) {
-			// Step: Collect source and destinations of changed is-a relationships
-			Set<Long> updateDestination = new HashSet<>();
-			try (final CloseableIterator<Relationship> changedIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(changesBranchCriteria)
-							.must(termQuery("typeId", Concepts.ISA))
-							.must(termsQuery("characteristicTypeId", characteristicTypeIds))
-					)
-					.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
-				changedIsARelationships.forEachRemaining(relationship -> {
-					updateSource.add(parseLong(relationship.getSourceId()));
-					updateDestination.add(parseLong(relationship.getDestinationId()));
-				});
-			}
-			existingAncestors.addAll(updateDestination);
-			timer.checkpoint("Collect changed relationships.");
-
-			if (updateSource.isEmpty()) {
-				logger.info("No {} changes found. Nothing to do.", formName);
-				return;
-			}
-
-			// Step: Identify existing TC of updated nodes
-			// Strategy: Find existing nodes where ID matches updated relationship source ids, record TC
-			NativeSearchQuery query = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(branchCriteriaForAlreadyCommittedContent)
-							.must(termsQuery("stated", stated))
-					)
-					.withFilter(boolQuery()
-							.should(termsQuery("conceptId", Sets.union(updateSource, updateDestination))))
-					.withPageable(ConceptService.LARGE_PAGE).build();
-			try (final CloseableIterator<QueryConcept> existingIndexConcepts = elasticsearchTemplate.stream(query, QueryConcept.class)) {
-				existingIndexConcepts.forEachRemaining(indexConcept -> {
-					existingAncestors.addAll(indexConcept.getAncestors());
-
-				});
-			}
-			timer.checkpoint("Collect existingAncestors from QueryConcept.");
-
-			// Step: Identify existing descendants
-			// Strategy: Find existing nodes where TC matches updated relationship source ids
-			try (final CloseableIterator<QueryConcept> existingIndexConcepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(branchCriteriaForAlreadyCommittedContent)
-							.must(termsQuery("stated", stated))
-					)
-					.withFilter(boolQuery()
-							.should(termsQuery("ancestors", updateSource)))
-					.withPageable(ConceptService.LARGE_PAGE).build(), QueryConcept.class)) {
-				existingIndexConcepts.forEachRemaining(indexConcept -> existingDescendants.add(indexConcept.getConceptId()));
-			}
-			timer.checkpoint("Collect existingDescendants from QueryConcept.");
-		}
-
-		logger.info("{} existing ancestors and {} existing descendants of updated relationships identified.", existingAncestors.size(), existingDescendants.size());
-
-		// Step: Build existing graph
-		// Strategy: Find relationships of existing TC and descendant nodes and build existing graph(s)
-		final GraphBuilder graphBuilder = new GraphBuilder();
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteriaForAlreadyCommittedContent)
-						.must(termQuery("active", true))
-						.must(termQuery("typeId", Concepts.ISA))
-						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
-				)
-				.withPageable(ConceptService.LARGE_PAGE);
-		if (!rebuild) {
-			queryBuilder.withFilter(boolQuery().must(termsQuery("sourceId",
-					Sets.union(Sets.union(existingAncestors, existingDescendants), updateSource))));
-		}
-		try (final CloseableIterator<Relationship> existingInferredIsARelationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
-			existingInferredIsARelationships.forEachRemaining(relationship -> {
-				graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
-			});
-		}
-		timer.checkpoint("Build existing nodes from Relationships.");
-		logger.info("{} existing nodes loaded.", graphBuilder.getNodeCount());
-
-
-		// Step - Update graph
-		// Strategy: Add/remove edges from new commit
-		AtomicLong relationshipsAdded = new AtomicLong();
-		AtomicLong relationshipsRemoved = new AtomicLong();
-		boolean newGraph = graphBuilder.getNodeCount() == 0;
-		try (final CloseableIterator<Relationship> newInferredIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(changesBranchCriteria)
-						.must(termQuery("typeId", Concepts.ISA))
-						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
-				)
-				.withSort(new FieldSortBuilder("start").order(SortOrder.ASC))
-				.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
-			newInferredIsARelationships.forEachRemaining(relationship -> {
-				boolean ignore = false;
-				boolean justDeleted = false;
-				if (relationship.getEnd() != null) {
-					if (deletionsToProcess.contains(relationship.getId())) {
-						justDeleted = true;
-					} else {
-						ignore = true;
-					}
-				}
-				if (!ignore) {
-					if (!justDeleted && relationship.isActive()){
-						graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId())).markUpdated();
-						relationshipsAdded.incrementAndGet();
-					} else{
-						Node node = graphBuilder.removeParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
-						if (node != null) {
-							node.markUpdated();
-						}
-						relationshipsRemoved.incrementAndGet();
-					}
-				}
-			});
-		}
-		timer.checkpoint("Update graph using changed Relationships.");
-		logger.info("{} {} is-a relationships added, {} removed.", relationshipsAdded.get(), formName, relationshipsRemoved.get());
-
-
-		// Step: Save changes
-		Set<QueryConcept> indexConceptsToSave = new HashSet<>();
-		graphBuilder.getNodes().forEach(node -> {
-			if (newGraph || node.isAncestorOrSelfUpdated()) {
-				final Set<Long> transitiveClosure = node.getTransitiveClosure();
-				final Long nodeId = node.getId();
-				indexConceptsToSave.add(new QueryConcept(nodeId, transitiveClosure, stated));
-			}
-		});
-		if (!indexConceptsToSave.isEmpty()) {
-			for (List<QueryConcept> queryConcepts : Iterables.partition(indexConceptsToSave, BATCH_SAVE_SIZE)) {
-				doSaveBatch(queryConcepts, commit);
-			}
-		}
-		timer.checkpoint("Save updated QueryIndexConcepts");
-		logger.info("{} {} concept transitive closures updated.", indexConceptsToSave.size(), formName);
-
-		timer.finish();
 	}
 
 	private void doSaveBatch(Collection<QueryConcept> indexConcepts, Commit commit) {

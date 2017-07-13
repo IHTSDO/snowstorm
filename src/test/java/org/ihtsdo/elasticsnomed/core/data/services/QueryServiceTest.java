@@ -156,6 +156,53 @@ public class QueryServiceTest {
 		assertTC(brick_10, root);
 	}
 
+	@Test
+	public void testDestinationHierarchyBranchTCInherited() {
+		// Create two hierarchy branches of three and four concepts in length under the root
+		Concept root = new Concept(SNOMEDCT_ROOT);
+
+		Concept n11 = new Concept("11").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept n12 = new Concept("12").addRelationship(new Relationship(ISA, n11.getId()));
+		Concept n13 = new Concept("13").addRelationship(new Relationship(ISA, n12.getId()));
+
+		Concept n21 = new Concept("21").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept n22 = new Concept("22").addRelationship(new Relationship(ISA, n21.getId()));
+		Concept n23 = new Concept("23").addRelationship(new Relationship(ISA, n22.getId()));
+		Concept n24 = new Concept("24").addRelationship(new Relationship(ISA, n23.getId()));
+
+		String branch = "MAIN";
+		conceptService.create(Lists.newArrayList(root, n11, n12, n13, n21, n22, n23, n24), branch);
+
+		assertTC(root);
+
+		assertTC(n11, root);
+		assertTC(n12, n11, root);// n12 starts under n11
+		assertTC(n13, n12, n11, root);
+
+		assertTC(n21, root);
+		assertTC(n22, n21, root);
+		assertTC(n23, n22, n21, root);
+		assertTC(n24, n23, n22, n21, root);
+
+
+		// Move part of first branch to end of second branch and assert that the full transitive closure is realised
+		n12.getRelationships().clear();
+		n12.getRelationships().add(new Relationship(ISA, n23.getId()));
+		conceptService.update(n12, branch);
+
+		assertTC(root);
+
+		assertTC(n11, root);
+
+		assertTC(n21, root);
+		assertTC(n22, n21, root);
+		assertTC(n23, n22, n21, root);
+		assertTC(n24, n23, n22, n21, root);
+
+		assertTC(n12, n23, n22, n21, root);// n12 ends up under n23, inheriting it's TC
+		assertTC(n13, n12, n23, n22, n21, root);
+	}
+
 	private void assertTC(Concept concept, Concept... ancestors) {
 		Set<Long> expectedAncestors = Arrays.stream(ancestors).map(Concept::getConceptIdAsLong).collect(Collectors.toSet());
 		Assert.assertEquals(expectedAncestors, service.retrieveAncestors(concept.getId(),"MAIN", true));
