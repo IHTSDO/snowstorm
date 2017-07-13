@@ -54,6 +54,8 @@ public class Concepts {
 	public static final String PENDING_MOVE = "900000000000492006";
 	public static final String INAPPROPRIATE = "900000000000494007";
 	public static final String CONCEPT_NON_CURRENT = "900000000000495008";
+	public static final String NONCONFORMANCE_TO_EDITORIAL_POLICY = "723277005";
+	public static final String NOT_SEMANTICALLY_EQUIVALENT = "723278000";
 
 	// Historical reference sets
 	public static final String REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION = "900000000000523009";
@@ -76,6 +78,8 @@ public class Concepts {
 			.put(PENDING_MOVE, "PENDING_MOVE")
 			.put(INAPPROPRIATE, "INAPPROPRIATE")
 			.put(CONCEPT_NON_CURRENT, "CONCEPT_NON_CURRENT")
+			.put(NONCONFORMANCE_TO_EDITORIAL_POLICY, "NONCONFORMANCE_TO_EDITORIAL_POLICY")
+			.put(NOT_SEMANTICALLY_EQUIVALENT, "NOT_SEMANTICALLY_EQUIVALENT")
 			.build();
 
 	public static final BiMap<String, String> historicalAssociationNames = new ImmutableBiMap.Builder<String, String>()
