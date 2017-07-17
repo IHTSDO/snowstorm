@@ -77,10 +77,11 @@ public class ReferenceSetMemberService extends ComponentService {
 			throw new NotFoundException(String.format("Reference set member %s not found on branch %s", uuid, branch));
 		}
 
-		Commit commit = branchService.openCommit(branch);
-		ReferenceSetMember member = matches.get(0);
-		member.markDeleted();
-		doSaveBatchComponents(Collections.singleton(member), commit, "memberId", memberRepository);
-		branchService.completeCommit(commit);
+		try (Commit commit = branchService.openCommit(branch)) {
+			ReferenceSetMember member = matches.get(0);
+			member.markDeleted();
+			doSaveBatchComponents(Collections.singleton(member), commit, "memberId", memberRepository);
+			commit.markSuccessful();
+		}
 	}
 }

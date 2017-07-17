@@ -111,25 +111,25 @@ public class BranchMergeService {
 		}
 
 		// TODO: Lock both branches
-		// TODO: Use commit rollback in catch block
-		Commit commit;
 		if (rebase) {
 			// Rebase
 			logger.info("Performing rebase {} -> {}", source, target);
-			commit = branchService.openRebaseCommit(targetBranch.getPath());
-			if (manuallyMergedConcepts != null && !manuallyMergedConcepts.isEmpty()) {
-				conceptService.updateWithinCommit(manuallyMergedConcepts, commit);
+			try (Commit commit = branchService.openRebaseCommit(targetBranch.getPath())) {
+				if (manuallyMergedConcepts != null && !manuallyMergedConcepts.isEmpty()) {
+					conceptService.updateWithinCommit(manuallyMergedConcepts, commit);
+				}
+				commit.markSuccessful();
 			}
 		} else {
 			// Promotion
 			logger.info("Performing promotion {} -> {}", source, target);
-			commit = branchService.openPromotionCommit(targetBranch.getPath(), source);
-
-			final Set<String> versionsReplaced = sourceBranch.getVersionsReplaced();
-			final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = conceptService.getComponentTypeRepoMap();
-			componentTypeRepoMap.entrySet().parallelStream().forEach(entry ->  promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
+			try (Commit commit = branchService.openPromotionCommit(targetBranch.getPath(), source)) {
+				final Set<String> versionsReplaced = sourceBranch.getVersionsReplaced();
+				final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = conceptService.getComponentTypeRepoMap();
+				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
+				commit.markSuccessful();
+			}
 		}
-		branchService.completeCommit(commit);
 	}
 
 	private <T extends SnomedComponent> void promoteEntities(String source, Commit commit, Class<T> entityClass,

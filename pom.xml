@@ -26,7 +26,7 @@
 		<spring-data-jest.version>2.3.0.RELEASE</spring-data-jest.version>
 		<jest.version>2.0.4</jest.version>
 		<snomed-boot.version>1.0.4</snomed-boot.version>
-		<elasticvc.version>0.1.1-SNAPSHOT</elasticvc.version>
+		<elasticvc.version>1.1.0</elasticvc.version>
 		<slf4j.version>1.7.5</slf4j.version>
 	</properties>
 

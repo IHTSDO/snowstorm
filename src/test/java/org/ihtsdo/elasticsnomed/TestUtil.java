@@ -12,7 +12,8 @@ public class TestUtil {
 	private BranchService branchService;
 
 	public void emptyCommit(String branchPath) {
-		Commit commit = branchService.openCommit(branchPath);
-		branchService.completeCommit(commit);
+		try (Commit commit = branchService.openCommit(branchPath)) {
+			commit.markSuccessful();
+		}
 	}
 }

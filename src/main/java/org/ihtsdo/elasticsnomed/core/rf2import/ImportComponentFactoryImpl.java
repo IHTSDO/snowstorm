@@ -95,7 +95,8 @@ public class ImportComponentFactoryImpl implements ComponentFactory {
 
 	protected void completeImportCommit() {
 		persistBuffers.stream().forEach(PersistBuffer::flush);
-		branchService.completeCommit(commit);
+		commit.markSuccessful();
+		commit.close();
 	}
 
 	@Override

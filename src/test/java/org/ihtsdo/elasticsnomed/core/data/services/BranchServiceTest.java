@@ -2,6 +2,7 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.junit.After;
 import org.junit.Test;
@@ -128,7 +129,9 @@ public class BranchServiceTest {
 	}
 
 	private void makeEmptyCommit(String path) {
-		branchService.completeCommit(branchService.openCommit(path));
+		try (Commit commit = branchService.openCommit(path)) {
+			commit.markSuccessful();
+		}
 	}
 
 	@After

@@ -200,11 +200,12 @@ public class QueryService extends ComponentService {
 
 	public void rebuildStatedAndInferredTransitiveClosures(String branch) {
 		// TODO: Only use on MAIN
-		Commit commit = branchService.openCommit(branch);
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
-		updateTransitiveClosure(true, branchCriteria, Collections.emptySet(), commit, true);
-		updateTransitiveClosure(false, branchCriteria, Collections.emptySet(), commit, true);
-		branchService.completeCommit(commit);
+		try (Commit commit = branchService.openCommit(branch)) {
+			QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
+			updateTransitiveClosure(true, branchCriteria, Collections.emptySet(), commit, true);
+			updateTransitiveClosure(false, branchCriteria, Collections.emptySet(), commit, true);
+			commit.markSuccessful();
+		}
 	}
 
 	void updateStatedAndInferredTransitiveClosures(Commit commit) {

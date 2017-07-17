@@ -117,8 +117,7 @@ public class AuthoringMirrorServiceTest {
 
 	@Test
 	public void testBranchPromotion() throws InterruptedException, IOException {
-		branchService.create("MAIN");
-		branchService.create("MAIN/PROJECT-A");
+		branchService.recursiveCreate("MAIN/PROJECT-A");
 		Thread.sleep(100);
 		testUtil.emptyCommit("MAIN/PROJECT-A");
 
