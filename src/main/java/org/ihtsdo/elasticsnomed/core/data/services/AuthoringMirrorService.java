@@ -75,6 +75,13 @@ public class AuthoringMirrorService {
 			// We have to parse the commit comment to get the information. This is brittle.
 			String sourceBranch = matcher.group(2);
 			String targetBranch = matcher.group(3);
+			if (branchService.findLatest(sourceBranch) == null) {
+				logger.warn("Source branch does not exist for merge operation {} -> {}, skipping.", sourceBranch, targetBranch);
+				return;
+			} else if (branchService.findLatest(targetBranch) == null) {
+				logger.warn("Target branch does not exist for merge operation {} -> {}, skipping.", sourceBranch, targetBranch);
+				return;
+			}
 			branchMergeService.mergeBranchSync(sourceBranch, targetBranch, null, true);
 		} else {
 			logger.warn("Could not mirror traceability event - unrecognised activity.", activity);
