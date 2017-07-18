@@ -79,7 +79,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 	@Autowired
 	private QueryService queryService;
 
-	@Value("${commit.transitive-closure.disable}")
+	@Value("${commit.transitive-closure.disable:false}")
 	private boolean disableTransitiveClosure;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
