@@ -1,6 +1,8 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
+import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
+import org.elasticsearch.common.collect.MapBuilder;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.junit.After;
@@ -147,22 +149,43 @@ public class ConceptServiceTest {
 		Description descriptionToInactivate = concept.getDescriptions().iterator().next();
 		descriptionToInactivate.setActive(false);
 		descriptionToInactivate.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.OUTDATED));
+		Map<String, Set<String>> associationTargets = new HashMap<>();
+		associationTargets.put("REFERS_TO", Collections.singleton("321667001"));
+		descriptionToInactivate.setAssociationTargets(associationTargets);
 
 		Concept updated = conceptService.update(concept, "MAIN");
 		Assert.assertEquals(1, updated.getDescriptions().size());
 		Description updatedDescription = updated.getDescriptions().iterator().next();
 		assertFalse(updatedDescription.isActive());
-		Assert.assertEquals(updatedDescription.getInactivationIndicator(), Concepts.inactivationIndicatorNames.get(Concepts.OUTDATED));
+		Assert.assertEquals(Concepts.inactivationIndicatorNames.get(Concepts.OUTDATED), updatedDescription.getInactivationIndicator());
 		ReferenceSetMember inactivationIndicatorMember = updatedDescription.getInactivationIndicatorMember();
 		Assert.assertNotNull(inactivationIndicatorMember);
-		Assert.assertEquals(inactivationIndicatorMember.getRefsetId(), Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET);
-		Assert.assertEquals(inactivationIndicatorMember.getReferencedComponentId(), updatedDescription.getDescriptionId());
-		Assert.assertEquals(inactivationIndicatorMember.getAdditionalField("valueId"), Concepts.OUTDATED);
+		Assert.assertEquals(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, inactivationIndicatorMember.getRefsetId());
+		Assert.assertEquals(updatedDescription.getDescriptionId(), inactivationIndicatorMember.getReferencedComponentId());
+		Assert.assertEquals(Concepts.OUTDATED, inactivationIndicatorMember.getAdditionalField("valueId"));
+		Set<ReferenceSetMember> associationTargetMembers = updatedDescription.getAssociationTargetMembers();
+		Assert.assertNotNull(associationTargetMembers);
+		assertEquals(1, associationTargetMembers.size());
+		ReferenceSetMember associationTargetMember = associationTargetMembers.iterator().next();
+		assertEquals(Concepts.REFSET_REFERS_TO_ASSOCIATION, associationTargetMember.getRefsetId());
+		assertTrue(associationTargetMember.isActive());
+		assertEquals(descriptionToInactivate.getDescriptionId(), associationTargetMember.getReferencedComponentId());
+		assertEquals("321667001", associationTargetMember.getAdditionalField("targetComponentId"));
 
 		List<ReferenceSetMember> membersAfterDescriptionInactivation = referenceSetMemberService.findMembers("MAIN", descriptionId, null, new PageRequest(0, 10)).getContent();
-		Assert.assertEquals(1, membersAfterDescriptionInactivation.size());
-		ReferenceSetMember actualMember = membersAfterDescriptionInactivation.get(0);
-		Assert.assertEquals(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, actualMember.getRefsetId());
+		Assert.assertEquals(2, membersAfterDescriptionInactivation.size());
+		boolean descriptionInactivationIndicatorMemberFound = false;
+		boolean refersToMemberFound = false;
+		for (ReferenceSetMember actualMember : membersAfterDescriptionInactivation) {
+			if (Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET.equals(actualMember.getRefsetId())) {
+				descriptionInactivationIndicatorMemberFound = true;
+			}
+			if (Concepts.REFSET_REFERS_TO_ASSOCIATION.equals(actualMember.getRefsetId())) {
+				refersToMemberFound = true;
+			}
+		}
+		assertTrue(descriptionInactivationIndicatorMemberFound);
+		assertTrue(refersToMemberFound);
 	}
 
 	@Test

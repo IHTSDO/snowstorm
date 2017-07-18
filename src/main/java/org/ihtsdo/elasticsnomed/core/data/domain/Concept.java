@@ -19,7 +19,7 @@ import javax.validation.constraints.Size;
 
 @Document(type = "concept", indexName = "snomed", shards = 8)
 @JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "inactivationIndicator", "moduleId", "definitionStatus", "definitionStatusId", "descriptions", "relationships"})
-public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator {
+public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -157,10 +157,6 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public Set<ReferenceSetMember> getAssociationTargetMembers() {
 		return associationTargetMembers;
-	}
-
-	public void setAssociationTargetMembers(Set<ReferenceSetMember> associationTargetMembers) {
-		this.associationTargetMembers = associationTargetMembers;
 	}
 
 	@JsonView(value = View.Component.class)

@@ -95,7 +95,7 @@ public class DescriptionService extends ComponentService {
 		}
 		if (timer != null) timer.checkpoint("get descriptions " + getFetchCount(allConceptIds.size()));
 
-		// Fetch Inactivation Indicators
+		// Fetch Inactivation Indicators and Associations
 		if (fetchInactivationInfo) {
 			Set<String> componentIds;
 			if (conceptIdMap != null) {
@@ -121,12 +121,24 @@ public class DescriptionService extends ComponentService {
 								descriptionIdMap.get(referencedComponentId).setInactivationIndicatorMember(member);
 								break;
 							default:
-								Concept concept = conceptIdMap.get(referencedComponentId);
-								if (concept != null) {
-									concept.addAssociationTargetMember(member);
+								if (IDService.isConceptId(referencedComponentId)) {
+									Concept concept = conceptIdMap.get(referencedComponentId);
+									if (concept != null) {
+										concept.addAssociationTargetMember(member);
+									} else {
+										logger.warn("Association ReferenceSetMember {} references concept {} " +
+												"which is not in scope.", member.getId(), referencedComponentId);
+									}
+								} else if (IDService.isDescriptionId(referencedComponentId)) {
+									Description description = descriptionIdMap.get(referencedComponentId);
+									if (description != null) {
+										description.addAssociationTargetMember(member);
+									} else {
+										logger.warn("Association ReferenceSetMember {} references concept {} " +
+												"which is not in scope.", member.getId(), referencedComponentId);
+									}
 								} else {
-									logger.warn("Association ReferenceSetMember {} references concept {} " +
-											"which is not in scope.", member.getId(), referencedComponentId);
+									logger.error("Association ReferenceSetMember {} references unexpected component type {}", member.getId(), referencedComponentId);
 								}
 								break;
 						}

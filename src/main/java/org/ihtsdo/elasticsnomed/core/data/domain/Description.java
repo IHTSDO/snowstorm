@@ -13,10 +13,12 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 @Document(type = "description", indexName = "snomed", shards = 8)
-public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator {
+public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -75,6 +77,13 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	@JsonIgnore
 	// Populated when requesting an update
 	private String inactivationIndicatorName;
+
+	@JsonIgnore
+	private Set<ReferenceSetMember> associationTargetMembers;
+
+	@JsonIgnore
+	// Populated when requesting an update
+	private Map<String, Set<String>> associationTargetStrings;
 
 	private static final Logger logger = LoggerFactory.getLogger(Description.class);
 
@@ -221,6 +230,39 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public void setInactivationIndicator(String inactivationIndicatorName) {
 		this.inactivationIndicatorName = inactivationIndicatorName;
+	}
+
+	public void addAssociationTargetMember(ReferenceSetMember member) {
+		if (associationTargetMembers == null) {
+			associationTargetMembers = new HashSet<>();
+		}
+		associationTargetMembers.add(member);
+	}
+
+	@JsonView(value = View.Component.class)
+	public Map<String, Set<String>> getAssociationTargets() {
+		if (associationTargetMembers != null) {
+			Map<String, Set<String>> map = new HashMap<>();
+			associationTargetMembers.stream().filter(ReferenceSetMember::isActive).forEach(member -> {
+				final String refsetId = member.getRefsetId();
+				String association = Concepts.historicalAssociationNames.get(refsetId);
+				if (association == null) {
+					association = refsetId;
+				}
+				Set<String> associationType = map.computeIfAbsent(association, k -> new HashSet<>());
+				associationType.add(member.getAdditionalField("targetComponentId"));
+			});
+			return map;
+		}
+		return associationTargetStrings;
+	}
+
+	public void setAssociationTargets(Map<String, Set<String>> associationTargetStrings) {
+		this.associationTargetStrings = associationTargetStrings;
+	}
+
+	public Set<ReferenceSetMember> getAssociationTargetMembers() {
+		return associationTargetMembers;
 	}
 
 	public String getDescriptionId() {
