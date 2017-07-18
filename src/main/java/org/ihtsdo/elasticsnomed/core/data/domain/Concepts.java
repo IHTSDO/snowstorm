@@ -108,6 +108,7 @@ public class Concepts {
 	public static final BiMap<String, String> descriptionTypeNames = new ImmutableBiMap.Builder<String, String>()
 			.put(FSN, "FSN")
 			.put(SYNONYM, "SYNONYM")
+			.put(TEXT_DEFINITION, "TEXT_DEFINITION")
 			.build();
 
 	public static final BiMap<String, String> descriptionAcceptabilityNames = new ImmutableBiMap.Builder<String, String>()
