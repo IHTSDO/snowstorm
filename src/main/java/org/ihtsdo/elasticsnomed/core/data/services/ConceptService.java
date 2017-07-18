@@ -28,6 +28,7 @@ import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -77,6 +78,9 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 	@Autowired
 	private QueryService queryService;
+
+	@Value("${commit.transitive-closure.disable}")
+	private boolean disableTransitiveClosure;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -818,7 +822,11 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 	@Override
 	public void preCommitCompletion(Commit commit) {
-		queryService.updateStatedAndInferredTransitiveClosures(commit);
+		if (disableTransitiveClosure) {
+			logger.info("Transitive closure calculation disabled.");
+		} else {
+			queryService.updateStatedAndInferredTransitiveClosures(commit);
+		}
 	}
 
 	public void deleteAll() {
