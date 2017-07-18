@@ -19,10 +19,20 @@ public class ReferenceSetMemberController {
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
-														   @RequestParam String targetComponent,
+														   @RequestParam(required = false) String referenceSet,
+														   @RequestParam(required = false) String referencedComponentId,
+														   @RequestParam(required = false) Boolean active,
+														   @RequestParam(required = false) String targetComponent,
 														   @RequestParam(defaultValue = "0") int page,
 														   @RequestParam(defaultValue = "50") int size) {
-		return new ItemsPage<>(memberService.findMembers(BranchPathUriUtil.parseBranchPath(branch), null, targetComponent, new PageRequest(page, size)));
+		return new ItemsPage<>(
+				memberService.findMembers(
+						BranchPathUriUtil.parseBranchPath(branch),
+						active,
+						referenceSet,
+						referencedComponentId,
+						targetComponent,
+						new PageRequest(page, size)));
 	}
 
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.GET, produces = "application/json")

@@ -1,8 +1,6 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
-import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
-import org.elasticsearch.common.collect.MapBuilder;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.junit.After;
@@ -114,7 +112,7 @@ public class ConceptServiceTest {
 		String descriptionId = fsn.getDescriptionId();
 		Assert.assertNotNull(descriptionId);
 
-		List<ReferenceSetMember> acceptabilityMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, null, new PageRequest(0, 10)).getContent();
+		List<ReferenceSetMember> acceptabilityMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, new PageRequest(0, 10)).getContent();
 		Assert.assertEquals(2, acceptabilityMembers.size());
 		Assert.assertTrue(acceptabilityMembers.get(0).isActive());
 		Assert.assertTrue(acceptabilityMembers.get(1).isActive());
@@ -123,7 +121,7 @@ public class ConceptServiceTest {
 
 		conceptService.update(concept, "MAIN");
 
-		List<ReferenceSetMember> acceptabilityMembersAfterDescriptionDeletion = referenceSetMemberService.findMembers("MAIN", descriptionId, null, new PageRequest(0, 10)).getContent();
+		List<ReferenceSetMember> acceptabilityMembersAfterDescriptionDeletion = referenceSetMemberService.findMembers("MAIN", descriptionId, new PageRequest(0, 10)).getContent();
 		Assert.assertEquals(0, acceptabilityMembersAfterDescriptionDeletion.size());
 	}
 
@@ -141,7 +139,7 @@ public class ConceptServiceTest {
 		String descriptionId = fsn.getDescriptionId();
 		Assert.assertNotNull(descriptionId);
 
-		List<ReferenceSetMember> acceptabilityMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, null, new PageRequest(0, 10)).getContent();
+		List<ReferenceSetMember> acceptabilityMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, new PageRequest(0, 10)).getContent();
 		Assert.assertEquals(2, acceptabilityMembers.size());
 		Assert.assertTrue(acceptabilityMembers.get(0).isActive());
 		Assert.assertTrue(acceptabilityMembers.get(1).isActive());
@@ -172,7 +170,7 @@ public class ConceptServiceTest {
 		assertEquals(descriptionToInactivate.getDescriptionId(), associationTargetMember.getReferencedComponentId());
 		assertEquals("321667001", associationTargetMember.getAdditionalField("targetComponentId"));
 
-		List<ReferenceSetMember> membersAfterDescriptionInactivation = referenceSetMemberService.findMembers("MAIN", descriptionId, null, new PageRequest(0, 10)).getContent();
+		List<ReferenceSetMember> membersAfterDescriptionInactivation = referenceSetMemberService.findMembers("MAIN", descriptionId, new PageRequest(0, 10)).getContent();
 		Assert.assertEquals(2, membersAfterDescriptionInactivation.size());
 		boolean descriptionInactivationIndicatorMemberFound = false;
 		boolean refersToMemberFound = false;
