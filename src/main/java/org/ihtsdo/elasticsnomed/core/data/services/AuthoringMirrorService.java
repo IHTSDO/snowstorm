@@ -84,7 +84,7 @@ public class AuthoringMirrorService {
 			}
 			branchMergeService.mergeBranchSync(sourceBranch, targetBranch, null, true);
 		} else {
-			logger.warn("Could not mirror traceability event - unrecognised activity.", activity);
+			logger.warn("Could not mirror traceability event - unrecognised activity {} '{}'.", activity.getCommitTimestamp(), activity.getCommitComment());
 		}
 	}
 
