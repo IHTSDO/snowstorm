@@ -97,6 +97,7 @@ public class AuthoringMirrorService {
 					lineNum++;
 					int i = line.indexOf("{");
 					if (i >= 0) {
+						line = line.replace("\"empty\":false", "");
 						TraceabilityActivity traceabilityActivity = objectMapper.readValue(line.substring(i), TraceabilityActivity.class);
 						receiveActivity(traceabilityActivity);
 					}
