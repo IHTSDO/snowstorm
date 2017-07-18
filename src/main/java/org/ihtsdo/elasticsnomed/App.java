@@ -2,7 +2,7 @@ package org.ihtsdo.elasticsnomed;
 
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
-import org.ihtsdo.elasticsnomed.core.rf2import.ImportService;
+import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
 import org.ihtsdo.elasticsnomed.mrcm.MRCMService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.slf4j.Logger;

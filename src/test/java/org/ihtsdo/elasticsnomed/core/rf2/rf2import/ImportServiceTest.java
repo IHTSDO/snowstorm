@@ -1,4 +1,4 @@
-package org.ihtsdo.elasticsnomed.core.rf2import;
+package org.ihtsdo.elasticsnomed.core.rf2.rf2import;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
