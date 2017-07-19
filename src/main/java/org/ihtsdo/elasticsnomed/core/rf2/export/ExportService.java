@@ -3,8 +3,11 @@ package org.ihtsdo.elasticsnomed.core.rf2.export;
 import com.google.common.io.Files;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
 import org.ihtsdo.elasticsnomed.core.data.domain.Description;
+import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
@@ -32,18 +35,24 @@ public class ExportService {
 	private ElasticsearchOperations elasticsearchTemplate;
 
 	public void exportRF2Archive(String branchPath, String filenameEffectiveDate, ExportType exportType, OutputStream outputStream) throws ExportException {
-		BoolQueryBuilder contentQuery = boolQuery()
-				.must(versionControlHelper.getBranchCriteria(branchPath));
-		if (exportType == ExportType.DELTA) {
-			contentQuery.mustNot(existsQuery("effectiveTime"));
-		}
+		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 
 		File tempExportFile = null;
 		try {
 			tempExportFile = File.createTempFile("export-" + new Date().getTime(), ".zip");
 			try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(tempExportFile))) {
-				exportComponents(Concept.class, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream, contentQuery);
-				exportComponents(Description.class, "Terminology/", "sct2_Description_", filenameEffectiveDate, exportType, zipOutputStream, contentQuery);
+				// Write Concepts
+				exportComponents(Concept.class, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria));
+
+				// Write Descriptions
+				exportComponents(Description.class, "Terminology/", "sct2_Description_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria));
+
+				// TODO Write Language Reference Set
+
+				// Write Stated Relationships
+				BoolQueryBuilder contentQuery = getContentQuery(exportType, branchCriteria);
+				contentQuery.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
+				exportComponents(Relationship.class, "Terminology/", "sct2_StatedRelationship_", filenameEffectiveDate, exportType, zipOutputStream, contentQuery);
 			}
 			Files.copy(tempExportFile, outputStream);
 		} catch (IOException e) {
@@ -53,6 +62,14 @@ public class ExportService {
 				tempExportFile.delete();
 			}
 		}
+	}
+
+	private BoolQueryBuilder getContentQuery(ExportType exportType, QueryBuilder branchCriteria) {
+		BoolQueryBuilder contentQuery = boolQuery().must(branchCriteria);
+		if (exportType == ExportType.DELTA) {
+			contentQuery.mustNot(existsQuery("effectiveTime"));
+		}
+		return contentQuery;
 	}
 
 	private <T> void exportComponents(Class<T> componentClass, String entryDirectory, String entryFilenamePrefix, String filenameEffectiveDate, ExportType exportType, ZipOutputStream zipOutputStream, BoolQueryBuilder contentQuery) {
@@ -85,6 +102,9 @@ public class ExportService {
 		}
 		if (componentClass.equals(Description.class)) {
 			return (ExportWriter<T>) new DescriptionExportWriter(getBufferedWriter(outputStream));
+		}
+		if (componentClass.equals(Relationship.class)) {
+			return (ExportWriter<T>) new RelationshipExportWriter(getBufferedWriter(outputStream));
 		}
 		throw new UnsupportedOperationException("Not able to export component of type " + componentClass.getCanonicalName());
 	}

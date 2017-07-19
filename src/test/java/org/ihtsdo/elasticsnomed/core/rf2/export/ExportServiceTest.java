@@ -2,10 +2,7 @@ package org.ihtsdo.elasticsnomed.core.rf2.export;
 
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.TestConfig;
-import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
-import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
-import org.ihtsdo.elasticsnomed.core.data.domain.Description;
-import org.ihtsdo.elasticsnomed.core.data.domain.ReferenceSetMember;
+import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.util.StreamUtils;
 import org.junit.Before;
@@ -46,12 +43,14 @@ public class ExportServiceTest {
 
 		String conceptId = "123001";
 		String descriptionId = "124011";
+
 		Concept concept = new Concept(conceptId, "", true, Concepts.CORE_MODULE, Concepts.PRIMITIVE);
 		concept.addDescription(
 				new Description(descriptionId, "", true, Concepts.CORE_MODULE, conceptId, "en", Concepts.FSN, "Bleeding (finding)", Concepts.CASE_INSENSITIVE)
 						.addLanguageRefsetMember(
 								new ReferenceSetMember("80001d7e-b1b9-56ac-9768-308cabe31117", "", true, Concepts.CORE_MODULE, Concepts.GB_EN_LANG_REFSET, descriptionId)
 										.setAdditionalField("acceptabilityId", Concepts.PREFERRED)));
+		concept.addRelationship(new Relationship("125021", "", true, Concepts.CORE_MODULE, conceptId, "100001", 0, Concepts.ISA, Concepts.STATED_RELATIONSHIP, Concepts.EXISTENTIAL));
 
 		Set<Description> descriptions = concept.getDescriptions();
 		assertEquals(1, descriptions.size());
@@ -96,6 +95,13 @@ public class ExportServiceTest {
 			assertEquals(2, lines.size());
 			assertEquals(DescriptionExportWriter.HEADER, lines.get(0));
 			assertEquals("124011\t\t1\t900000000000207008\t123001\ten\t900000000000003001\tBleeding (finding)\t900000000000448009", lines.get(1));
+
+			ZipEntry relationships = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/sct2_StatedRelationship_Delta_20180131.txt", relationships.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(RelationshipExportWriter.HEADER, lines.get(0));
+			assertEquals("125021\t\t1\t900000000000207008\t123001\t100001\t0\t116680003\t900000000000010007\t900000000000451002", lines.get(1));
 		}
 	}
 
