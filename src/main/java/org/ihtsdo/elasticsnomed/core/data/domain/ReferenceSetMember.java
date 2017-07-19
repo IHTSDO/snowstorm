@@ -16,7 +16,7 @@ import java.util.UUID;
 public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComponent<C> {
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)// TODO Consider not indexing this (FieldIndex.no)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String memberId;
 
 	@JsonView(value = View.Component.class)
