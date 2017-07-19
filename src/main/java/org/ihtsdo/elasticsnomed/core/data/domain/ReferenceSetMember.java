@@ -79,8 +79,9 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		return getAdditionalFields().get(fieldName);
 	}
 
-	public void setAdditionalField(String fieldName, String value) {
+	public ReferenceSetMember<C> setAdditionalField(String fieldName, String value) {
 		getAdditionalFields().put(fieldName, value);
+		return this;
 	}
 
 
