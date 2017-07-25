@@ -22,6 +22,7 @@ public class Concepts {
 	public static final String ACCEPTABLE = "900000000000549004";
 	public static final String PREFERRED = "900000000000548007";
 
+	public static final String LANG_REFSET = "900000000000506000";
 	public static final String US_EN_LANG_REFSET = "900000000000509007";
 	public static final String GB_EN_LANG_REFSET = "900000000000508004";
 

@@ -15,6 +15,8 @@ import java.util.UUID;
 @Document(type = "member", indexName = "snomed", shards = 8)
 public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComponent<C> {
 
+	public static final String FIELD_REFSET_ID = "refsetId";
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String memberId;

@@ -14,11 +14,14 @@ import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.ConceptStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.DescriptionStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.RelationshipStoreMixIn;
+import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetTypesConfigurationService;
 import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -47,6 +50,7 @@ import static springfox.documentation.builders.PathSelectors.regex;
 				"org.ihtsdo.elasticsnomed.core.data.repositories",
 				"io.kaicode.elasticvc.repositories"
 		})
+@EnableConfigurationProperties
 public class Config {
 
 	@Autowired
@@ -107,6 +111,12 @@ public class Config {
 	@Bean
 	public VersionControlHelper getVersionControlHelper() {
 		return new VersionControlHelper();
+	}
+
+	@Bean
+	@ConfigurationProperties(prefix = "refset")
+	public ReferenceSetTypesConfigurationService getReferenceSetTypesService() {
+		return new ReferenceSetTypesConfigurationService();
 	}
 
 	@Bean
