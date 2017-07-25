@@ -694,14 +694,32 @@ public class ConceptService extends ComponentService implements CommitListener {
 	}
 
 	// TODO: Real release process
-	public void releaseSingleConceptForTest(Concept concept, String effectiveTime, String path) {
-		if (!exists(concept.getId(), path)) {
-			throw new IllegalArgumentException("Concept does not exist");
+	public void releaseConceptsForTest(String effectiveTime, String path, Concept... concepts) {
+		for (Concept concept : concepts) {
+			if (!exists(concept.getId(), path)) {
+				throw new IllegalArgumentException("Concept does not exist, id '" + concept.getId() + "'");
+			}
 		}
 		try (final Commit commit = branchService.openCommit(path)) {
-			concept.release(effectiveTime);
-			concept.setChanged(true);
-			doSaveBatchConcepts(Collections.singleton(concept), commit);
+			Set<Description> descriptionsToSave = new HashSet<>();
+			Set<Relationship> relationshipsToSave = new HashSet<>();
+			for (Concept concept : concepts) {
+				concept.release(effectiveTime);
+				concept.markChanged();
+				for (Description description : concept.getDescriptions()) {
+					description.release(effectiveTime);
+					description.markChanged();
+					descriptionsToSave.add(description);
+				}
+				for (Relationship relationship : concept.getRelationships()) {
+					relationship.release(effectiveTime);
+					relationship.markChanged();
+					relationshipsToSave.add(relationship);
+				}
+			}
+			doSaveBatchConcepts(Sets.newHashSet(concepts), commit);
+			doSaveBatchDescriptions(descriptionsToSave, commit);
+			doSaveBatchRelationships(relationshipsToSave, commit);
 			commit.markSuccessful();
 		}
 	}

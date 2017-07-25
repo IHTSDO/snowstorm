@@ -496,7 +496,7 @@ public class ConceptServiceTest {
 
 		final Concept concept = new Concept(conceptId, null, true, originalModuleId, "900000000000074008");
 		conceptService.create(concept, path);
-		conceptService.releaseSingleConceptForTest(concept, effectiveTime, path);
+		conceptService.releaseConceptsForTest(effectiveTime, path, concept);
 
 		final Concept savedConcept = conceptService.find(conceptId, path);
 		assertEquals(effectiveTime, savedConcept.getEffectiveTime());
