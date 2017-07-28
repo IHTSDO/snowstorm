@@ -124,6 +124,18 @@ public class BranchServiceTest {
 		assertBranchState("MAIN/B", BEHIND);
 	}
 
+	@Test
+	public void testExists() {
+		branchService.create("MAIN");
+		branchService.create("MAIN/AA");
+
+		assertTrue(branchService.exists("MAIN"));
+		assertTrue(branchService.exists("MAIN/AA"));
+		assertFalse(branchService.exists("THING"));
+		assertFalse(branchService.exists("MAIN/B"));
+		assertFalse(branchService.exists("MAIN/AA/B"));
+	}
+
 	private void assertBranchState(String path, Branch.BranchState status) {
 		assertEquals(status, branchService.findLatest(path).getState());
 	}
