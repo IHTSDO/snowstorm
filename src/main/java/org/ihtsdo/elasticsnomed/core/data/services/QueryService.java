@@ -40,6 +40,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 public class QueryService extends ComponentService {
 
 	private static final int BATCH_SAVE_SIZE = 10000;
+	public static final PageRequest PAGE_OF_ONE = new PageRequest(0, 1);
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
@@ -144,6 +145,19 @@ public class QueryService extends ComponentService {
 
 	public Set<Long> retrieveAncestors(String conceptId, String path, boolean stated) {
 		return retrieveAncestors(versionControlHelper.getBranchCriteria(path), path, stated, conceptId);
+	}
+
+	public Set<Long> retrieveParents(QueryBuilder branchCriteria, String path, boolean stated, String conceptId) {
+		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termQuery("conceptId", conceptId))
+						.must(termQuery("stated", stated))
+				)
+				.withPageable(PAGE_OF_ONE)
+				.build();
+		List<QueryConcept> concepts = elasticsearchTemplate.queryForList(searchQuery, QueryConcept.class);
+		return concepts.isEmpty() ? Collections.emptySet() : concepts.get(0).getParents();
 	}
 
 	public Set<Long> retrieveAncestors(QueryBuilder branchCriteria, String path, boolean stated, String conceptId) {
@@ -395,8 +409,9 @@ public class QueryService extends ComponentService {
 		graphBuilder.getNodes().forEach(node -> {
 			if (newGraph || node.isAncestorOrSelfUpdated()) {
 				final Set<Long> transitiveClosure = node.getTransitiveClosure();
+				final Set<Long> parentIds = node.getParents().stream().map(Node::getId).collect(Collectors.toSet());
 				final Long nodeId = node.getId();
-				indexConceptsToSave.add(new QueryConcept(nodeId, transitiveClosure, stated));
+				indexConceptsToSave.add(new QueryConcept(nodeId, parentIds, transitiveClosure, stated));
 			}
 		});
 		if (!indexConceptsToSave.isEmpty()) {

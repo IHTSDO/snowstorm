@@ -15,6 +15,7 @@ import java.util.Set;
 public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	public static final String CONCEPT_ID_FIELD = "conceptId";
+	public static final String PARENTS_FIELD = "parents";
 	public static final String ANCESTORS_FIELD = "ancestors";
 	public static final String STATED_FIELD = "stated";
 
@@ -25,6 +26,9 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	private Long conceptId;
 
 	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed)
+	private Set<Long> parents;
+
+	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed)
 	private Set<Long> ancestors;
 
 	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
@@ -33,8 +37,9 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	public QueryConcept() {
 	}
 
-	public QueryConcept(Long conceptId, Set<Long> ancestorIds, boolean stated) {
+	public QueryConcept(Long conceptId, Set<Long> parentIds, Set<Long> ancestorIds, boolean stated) {
 		this.conceptId = conceptId;
+		this.parents = parentIds;
 		this.ancestors = ancestorIds;
 		this.stated = stated;
 		updateConceptIdForm();
@@ -64,6 +69,10 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		return conceptId;
 	}
 
+	public Set<Long> getParents() {
+		return parents;
+	}
+
 	public Set<Long> getAncestors() {
 		return ancestors;
 	}
@@ -84,6 +93,10 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		this.conceptId = conceptId;
 	}
 
+	public void setParents(Set<Long> parents) {
+		this.parents = parents;
+	}
+
 	public void setAncestors(Set<Long> ancestors) {
 		this.ancestors = ancestors;
 	}
@@ -97,6 +110,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		return "QueryConcept{" +
 				"conceptIdForm=" + conceptIdForm +
 				", conceptId=" + conceptId +
+				", parents=" + parents +
 				", ancestors=" + ancestors +
 				", stated=" + stated +
 				", internalId='" + getInternalId() + '\'' +

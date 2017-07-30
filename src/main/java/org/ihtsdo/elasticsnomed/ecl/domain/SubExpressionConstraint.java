@@ -49,7 +49,7 @@ public class SubExpressionConstraint implements ConceptSelector {
 			if (operator != null) {
 				switch (operator) {
 					case childof:
-						throw new UnsupportedOperationException("Child of is not supported");
+						query.must(termQuery(QueryConcept.PARENTS_FIELD, conceptId));
 					case descendantorselfof:
 						// <<
 						query.must(
@@ -63,7 +63,7 @@ public class SubExpressionConstraint implements ConceptSelector {
 						query.must(termQuery(QueryConcept.ANCESTORS_FIELD, conceptId));
 						break;
 					case parentof:
-						throw new UnsupportedOperationException("Parent of is not supported");
+						return queryService.retrieveParents(branchCriteria, path, stated, conceptId);
 					case ancestororselfof:
 						query.must(
 								boolQuery()

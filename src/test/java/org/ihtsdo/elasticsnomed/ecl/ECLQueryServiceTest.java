@@ -20,6 +20,8 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.ihtsdo.elasticsnomed.core.data.domain.Concepts.CLINICAL_FINDING;
+import static org.ihtsdo.elasticsnomed.core.data.domain.Concepts.SNOMEDCT_ROOT;
 import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -40,6 +42,10 @@ public class ECLQueryServiceTest {
 
 	private QueryBuilder branchCriteria;
 	private static final String MAIN = "MAIN";
+	private static final String BLEEDING = "131148009";
+	private static final String ASSOCIATED_MORPHOLOGY = "116676008";
+	private static final String HEMORRHAGE = "50960005";
+	private static final String DISEASE = "64572001";
 
 	@Before
 	public void setup() {
@@ -47,8 +53,13 @@ public class ECLQueryServiceTest {
 
 		List<Concept> concepts = new ArrayList<>();
 
-		concepts.add(new Concept(Concepts.SNOMEDCT_ROOT));
-		concepts.add(new Concept(Concepts.CLINICAL_FINDING).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)));
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		concepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept(BLEEDING)
+				.addRelationship(new Relationship(Concepts.ISA, CLINICAL_FINDING))
+				.addRelationship(new Relationship(ASSOCIATED_MORPHOLOGY, HEMORRHAGE))
+		);
+		concepts.add(new Concept(DISEASE).addRelationship(new Relationship(Concepts.ISA, CLINICAL_FINDING)));
 
 		conceptService.create(concepts, MAIN);
 
@@ -59,24 +70,60 @@ public class ECLQueryServiceTest {
 	public void selectByDescendantAndAncestorOperators() throws Exception {
 		boolean stated = true;
 		assertEquals(
-				Sets.newHashSet(Concepts.SNOMEDCT_ROOT),
-				strings(eclQueryService.selectConceptIds(Concepts.SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
+				Sets.newHashSet(SNOMEDCT_ROOT),
+				strings(eclQueryService.selectConceptIds(SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
 
 		assertEquals(
-				Sets.newHashSet(Concepts.CLINICAL_FINDING),
-				strings(eclQueryService.selectConceptIds("<" + Concepts.SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
+				Sets.newHashSet(CLINICAL_FINDING, BLEEDING, DISEASE),
+				strings(eclQueryService.selectConceptIds("<" + SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
 
 		assertEquals(
-				Sets.newHashSet(Concepts.SNOMEDCT_ROOT, Concepts.CLINICAL_FINDING),
-				strings(eclQueryService.selectConceptIds("<<" + Concepts.SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
+				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING, BLEEDING, DISEASE),
+				strings(eclQueryService.selectConceptIds("<<" + SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
 
 		assertEquals(
-				Sets.newHashSet(Concepts.SNOMEDCT_ROOT),
-				strings(eclQueryService.selectConceptIds(">" + Concepts.CLINICAL_FINDING, branchCriteria, MAIN, stated)));
+				Sets.newHashSet(SNOMEDCT_ROOT),
+				strings(eclQueryService.selectConceptIds(">" + CLINICAL_FINDING, branchCriteria, MAIN, stated)));
 
 		assertEquals(
-				Sets.newHashSet(Concepts.SNOMEDCT_ROOT, Concepts.CLINICAL_FINDING),
-				strings(eclQueryService.selectConceptIds(">>" + Concepts.CLINICAL_FINDING, branchCriteria, MAIN, stated)));
+				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING),
+				strings(eclQueryService.selectConceptIds(">>" + CLINICAL_FINDING, branchCriteria, MAIN, stated)));
+
+		assertEquals(
+				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING, BLEEDING),
+				strings(eclQueryService.selectConceptIds(">>" + BLEEDING, branchCriteria, MAIN, stated)));
+	}
+
+	@Test
+	public void selectParents() throws Exception {
+		boolean stated = true;
+		assertEquals(
+				Sets.newHashSet(),
+				strings(eclQueryService.selectConceptIds(">!" + SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
+
+		assertEquals(
+				Sets.newHashSet(SNOMEDCT_ROOT),
+				strings(eclQueryService.selectConceptIds(">!" + CLINICAL_FINDING, branchCriteria, MAIN, stated)));
+
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING),
+				strings(eclQueryService.selectConceptIds(">!" + BLEEDING, branchCriteria, MAIN, stated)));
+	}
+
+	@Test
+	public void selectChildren() throws Exception {
+		boolean stated = true;
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING),
+				strings(eclQueryService.selectConceptIds("<!" + SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
+
+		assertEquals(
+				Sets.newHashSet(BLEEDING, DISEASE),
+				strings(eclQueryService.selectConceptIds("<!" + CLINICAL_FINDING, branchCriteria, MAIN, stated)));
+
+		assertEquals(
+				Sets.newHashSet(),
+				strings(eclQueryService.selectConceptIds("<!" + BLEEDING, branchCriteria, MAIN, stated)));
 	}
 
 	private Set<String> strings(Collection<Long> ids) {
