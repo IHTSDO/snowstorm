@@ -9,11 +9,9 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.repositories.QueryIndexConceptRepository;
@@ -138,6 +136,10 @@ public class QueryService extends ComponentService {
 			return conceptMiniMap.values();
 		}
 		return Collections.emptySet();
+	}
+
+	public CloseableIterator<QueryConcept> stream(NativeSearchQuery searchQuery) {
+		return elasticsearchTemplate.stream(searchQuery, QueryConcept.class);
 	}
 
 	public Set<Long> retrieveAncestors(String conceptId, String path, boolean stated) {

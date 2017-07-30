@@ -14,6 +14,10 @@ import java.util.Set;
 @Document(type = "query-concept", indexName = "snomed-index", shards = 8)
 public class QueryConcept extends DomainEntity<QueryConcept> {
 
+	public static final String CONCEPT_ID_FIELD = "conceptId";
+	public static final String ANCESTORS_FIELD = "ancestors";
+	public static final String STATED_FIELD = "stated";
+
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String conceptIdForm;
 
