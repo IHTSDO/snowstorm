@@ -25,7 +25,7 @@
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
 		<spring-data-jest.version>2.3.0.RELEASE</spring-data-jest.version>
 		<jest.version>2.0.4</jest.version>
-		<snomed-boot.version>1.0.4</snomed-boot.version>
+		<snomed-boot.version>1.3.0</snomed-boot.version>
 		<elasticvc.version>1.2.1</elasticvc.version>
 		<slf4j.version>1.7.5</slf4j.version>
 	</properties>
@@ -33,7 +33,7 @@
 	<dependencies>
 		<dependency>
 			<!-- For RF2 Import -->
-			<groupId>org.ihtsdo.otf</groupId>
+			<groupId>org.snomed.otf</groupId>
 			<artifactId>snomed-boot</artifactId>
 			<version>${snomed-boot.version}</version>
 			<exclusions>
