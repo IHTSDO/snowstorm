@@ -7,6 +7,8 @@ import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.ihtsdo.otf.snomedboot.ReleaseImporter;
 import org.ihtsdo.otf.snomedboot.domain.ConceptConstants;
 import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 public class ImportService {
@@ -25,22 +27,25 @@ public class ImportService {
 	@Autowired
 	private BranchService branchService;
 
+	private Logger logger = LoggerFactory.getLogger(getClass());
+
 	public void importFull(String releaseDirPath, String branchPath) throws ReleaseImportException {
 		importFull(releaseDirPath, branchPath, null);
 	}
 
 	public void importFull(String releaseDirPath, String branchPath, String stopImportAfterEffectiveTime) throws ReleaseImportException {
-		conceptService.deleteAll();
-		branchService.deleteAll();
-		branchService.create("MAIN");
+		logger.info("Starting RF2 import on branch {}", branchPath);
 		FullImportComponentFactoryImpl componentFactory = new FullImportComponentFactoryImpl(conceptService, branchService, branchPath, stopImportAfterEffectiveTime);
 		ReleaseImporter releaseImporter = new ReleaseImporter();
 		releaseImporter.loadFullReleaseFiles(releaseDirPath, DEFAULT_LOADING_PROFILE, componentFactory);
+		logger.info("Completed RF2 import on branch {}", branchPath);
 	}
 
 	public void importSnapshot(String releaseDirPath, String branchPath) throws ReleaseImportException {
+		logger.info("Starting RF2 import on branch {}", branchPath);
 		ImportComponentFactoryImpl componentFactory = new ImportComponentFactoryImpl(conceptService, branchService, branchPath);
 		ReleaseImporter releaseImporter = new ReleaseImporter();
 		releaseImporter.loadSnapshotReleaseFiles(releaseDirPath, DEFAULT_LOADING_PROFILE, componentFactory);
+		logger.info("Completed RF2 import on branch {}", branchPath);
 	}
 }
