@@ -50,7 +50,7 @@ public class BranchController {
 	}
 
 	@RequestMapping(value = "/merges", method = RequestMethod.POST, produces = "application/json")
-	public ResponseEntity<Object> mergeBranch(@RequestBody MergeRequest mergeRequest) {
+	public ResponseEntity<Void> mergeBranch(@RequestBody MergeRequest mergeRequest) {
 		BranchMergeJob mergeJob = branchMergeService.mergeBranchAsync(mergeRequest);
 		return ControllerHelper.getCreatedResponse(mergeJob.getId());
 	}

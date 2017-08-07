@@ -1,5 +1,6 @@
 package org.ihtsdo.elasticsnomed.rest;
 
+import org.elasticsearch.common.Strings;
 import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -10,9 +11,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class ControllerHelper {
+class ControllerHelper {
 
-	public static ResponseEntity<Object> getCreatedResponse(String id) {
+	static ResponseEntity<Void> getCreatedResponse(String id) {
 		HttpHeaders httpHeaders = new HttpHeaders();
 		httpHeaders.setLocation(ServletUriComponentsBuilder
 				.fromCurrentRequest().path("/{id}")
@@ -20,7 +21,21 @@ public class ControllerHelper {
 		return new ResponseEntity<>(httpHeaders, HttpStatus.CREATED);
 	}
 
-	public static List<ConceptMiniNestedFsn> nestConceptMiniFsn(Collection<ConceptMini> minis) {
+	static List<ConceptMiniNestedFsn> nestConceptMiniFsn(Collection<ConceptMini> minis) {
 		return minis.stream().map(ConceptMiniNestedFsn::new).collect(Collectors.toList());
+	}
+
+	static String requiredParam(String value, String paramName) {
+		if (Strings.isNullOrEmpty(value)) {
+			throw new IllegalArgumentException(paramName + " is a required parameter.");
+		}
+		return value;
+	}
+
+	static <T> T requiredParam(T value, String paramName) {
+		if (value == null) {
+			throw new IllegalArgumentException(paramName + " is a required parameter.");
+		}
+		return value;
 	}
 }

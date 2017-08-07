@@ -5,14 +5,14 @@ import org.ihtsdo.elasticsnomed.core.data.domain.review.BranchReview;
 import org.ihtsdo.elasticsnomed.core.data.domain.review.BranchReviewConceptChanges;
 import org.ihtsdo.elasticsnomed.core.data.domain.review.MergeReview;
 import org.ihtsdo.elasticsnomed.core.data.domain.review.MergeReviewConceptVersions;
-import org.ihtsdo.elasticsnomed.rest.pojo.CreateReviewRequest;
 import org.ihtsdo.elasticsnomed.core.data.services.BranchReviewService;
+import org.ihtsdo.elasticsnomed.rest.pojo.CreateReviewRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collection;
 import javax.validation.Valid;
+import java.util.Collection;
 
 @RestController
 public class BranchReviewController {
@@ -22,7 +22,7 @@ public class BranchReviewController {
 
 	@ResponseBody
 	@RequestMapping(value = "/reviews", method = RequestMethod.POST, produces = "application/json")
-	public ResponseEntity<Object> createBranchReview(@RequestBody @Valid CreateReviewRequest createReviewRequest) {
+	public ResponseEntity<Void> createBranchReview(@RequestBody @Valid CreateReviewRequest createReviewRequest) {
 		BranchReview branchReview = reviewService.getCreateReview(createReviewRequest.getSource(), createReviewRequest.getTarget());
 		final String id = branchReview.getId();
 		return ControllerHelper.getCreatedResponse(id);
@@ -42,7 +42,7 @@ public class BranchReviewController {
 
 	@ResponseBody
 	@RequestMapping(value = "/merge-reviews", method = RequestMethod.POST, produces = "application/json")
-	public ResponseEntity<Object> createMergeReview(@RequestBody @Valid CreateReviewRequest createReviewRequest) {
+	public ResponseEntity<Void> createMergeReview(@RequestBody @Valid CreateReviewRequest createReviewRequest) {
 		MergeReview mergeReview = reviewService.createMergeReview(createReviewRequest.getSource(), createReviewRequest.getTarget());
 		return ControllerHelper.getCreatedResponse(mergeReview.getId());
 	}

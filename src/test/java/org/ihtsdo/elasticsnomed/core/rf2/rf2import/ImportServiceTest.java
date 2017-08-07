@@ -50,7 +50,8 @@ public class ImportServiceTest {
 		branchService.create(branchPath);
 		Assert.assertEquals(1, branchService.findAll().size());
 
-		importService.importFull(getClass().getResource("/MiniCT_INT_GB_20140131").getPath(), branchPath);
+		String importId = importService.createJob(ImportType.FULL, branchPath);
+		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
 
 		final List<Branch> branches = branchService.findAll();
 		Assert.assertEquals(26, branches.size());
@@ -119,7 +120,9 @@ public class ImportServiceTest {
 		branchService.create("MAIN");
 		final String branchPath = "MAIN/import";
 		branchService.create(branchPath);
-		importService.importSnapshot(getClass().getResource("/MiniCT_INT_GB_20140131").getPath(), branchPath);
+		String importId = importService.createJob(ImportType.SNAPSHOT, branchPath);
+		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
+
 
 		final Concept conceptBleeding = conceptService.find("131148009", branchPath);
 		Assert.assertTrue(conceptBleeding.isReleased());

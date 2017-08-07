@@ -37,6 +37,8 @@ import springfox.documentation.spring.web.plugins.Docket;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.google.common.base.Predicates.not;
 import static springfox.documentation.builders.PathSelectors.regex;
@@ -57,6 +59,11 @@ public class Config {
 	private JestClient jestClient;
 
 	public static final PageRequest PAGE_OF_ONE = new PageRequest(0, 1);
+
+	@Bean
+	public ExecutorService taskExecutor() {
+		return Executors.newCachedThreadPool();
+	}
 
 	@Bean
 	public JestElasticsearchTemplate elasticsearchTemplate() throws UnknownHostException {
