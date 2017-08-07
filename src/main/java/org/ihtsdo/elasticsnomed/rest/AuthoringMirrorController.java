@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
+@RequestMapping(produces = "application/json")
 public class AuthoringMirrorController {
 
 	@Autowired

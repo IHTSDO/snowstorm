@@ -15,13 +15,11 @@ import java.io.IOException;
 import static org.ihtsdo.elasticsnomed.rest.ControllerHelper.requiredParam;
 
 @RestController
-@RequestMapping("/imports")
+@RequestMapping(value = "/imports", produces = "application/json")
 public class ImportController {
 
 	@Autowired
 	private ImportService importService;
-
-	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@RequestMapping(method = RequestMethod.POST)
 	@ResponseBody

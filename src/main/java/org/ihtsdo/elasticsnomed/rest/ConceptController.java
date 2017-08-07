@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Set;
 
 @RestController
+@RequestMapping(produces = "application/json")
 public class ConceptController {
 
 	@Autowired
@@ -34,7 +35,7 @@ public class ConceptController {
 	@Autowired
 	private QueryService queryService;
 
-	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Page<? extends ConceptView> findConcepts(
@@ -45,21 +46,21 @@ public class ConceptController {
 	}
 
 	@ResponseBody
-	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public ConceptView findConcept(@PathVariable String branch, @PathVariable String conceptId) {
 		return conceptService.find(conceptId, BranchPathUriUtil.parseBranchPath(branch));
 	}
 
 	@ResponseBody
-	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descriptions", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descriptions", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public ConceptDescriptionsResult findConceptDescriptions(@PathVariable String branch, @PathVariable String conceptId) {
 		return new ConceptDescriptionsResult(conceptService.find(conceptId, BranchPathUriUtil.parseBranchPath(branch)).getDescriptions());
 	}
 
 	@ResponseBody
-	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descendants", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descendants", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ConceptMiniNestedFsn> findConceptDescendants(@PathVariable String branch, @PathVariable String conceptId) {
 		Collection<ConceptMini> descendants = conceptService.findConceptDescendants(conceptId, BranchPathUriUtil.parseBranchPath(branch), Relationship.CharacteristicType.stated);
@@ -67,7 +68,7 @@ public class ConceptController {
 	}
 
 	@ResponseBody
-	@RequestMapping(value = "/{branch}/concepts/{conceptId}/inbound-relationships", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/{branch}/concepts/{conceptId}/inbound-relationships", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public InboundRelationshipsResult findConceptInboundRelationships(@PathVariable String branch, @PathVariable String conceptId) {
 		List<Relationship> inboundRelationships = relationshipService.findInboundRelationships(conceptId, BranchPathUriUtil.parseBranchPath(branch), null);
@@ -75,7 +76,7 @@ public class ConceptController {
 	}
 
 	@ResponseBody
-	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.PUT, produces = "application/json")
+	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.PUT)
 	@JsonView(value = View.Component.class)
 	public ConceptView updateConcept(@PathVariable String branch, @PathVariable String conceptId, @RequestBody @Valid ConceptView concept) {
 		Assert.isTrue(concept.getConceptId() != null && conceptId != null && concept.getConceptId().equals(conceptId), "The conceptId in the " +
@@ -84,7 +85,7 @@ public class ConceptController {
 	}
 
 	@ResponseBody
-	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.POST, produces = "application/json")
+	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.POST)
 	@JsonView(value = View.Component.class)
 	public ConceptView createConcept(@PathVariable String branch, @RequestBody @Valid ConceptView concept) {
 		return conceptService.create((Concept) concept, BranchPathUriUtil.parseBranchPath(branch));
@@ -96,7 +97,7 @@ public class ConceptController {
 	}
 
 	@ResponseBody
-	@RequestMapping(value = "/browser/{branch}/concepts/bulk", method = RequestMethod.POST, produces = "application/json")
+	@RequestMapping(value = "/browser/{branch}/concepts/bulk", method = RequestMethod.POST)
 	@JsonView(value = View.Component.class)
 	public Iterable<Concept> updateConcepts(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts) {
 		List<Concept> conceptList = new ArrayList<>();
@@ -105,7 +106,7 @@ public class ConceptController {
 	}
 
 	@ResponseBody
-	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/children", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/children", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptChildren(@PathVariable String branch,
 													   @PathVariable String conceptId,
@@ -115,7 +116,7 @@ public class ConceptController {
 	}
 
 	@ResponseBody
-	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/parents", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/parents", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptParents(@PathVariable String branch,
 													  @PathVariable String conceptId,
@@ -125,7 +126,7 @@ public class ConceptController {
 	}
 
 	@ResponseBody
-	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/ancestors", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/ancestors", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptAncestors(@PathVariable String branch,
 													  @PathVariable String conceptId,

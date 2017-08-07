@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@RequestMapping(produces = "application/json")
 public class BranchController {
 
 	@Autowired
@@ -24,32 +25,32 @@ public class BranchController {
 	private BranchMergeService branchMergeService;
 
 	@ApiOperation("Retrieve all branches")
-	@RequestMapping(value = "/branches", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/branches", method = RequestMethod.GET)
 	@ResponseBody
 	public List<Branch> retrieveAllBranches() {
 		return branchService.findAll();
 	}
 
-	@RequestMapping(value = "/branches", method = RequestMethod.POST, produces = "application/json")
+	@RequestMapping(value = "/branches", method = RequestMethod.POST)
 	@ResponseBody
 	public Branch createBranch(@RequestBody CreateBranchRequest request) {
 		return branchService.create(request.getBranchPath());
 	}
 
 	@ApiOperation("Retrieve a single branch")
-	@RequestMapping(value = "/branches/{path}", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/branches/{path}", method = RequestMethod.GET)
 	@ResponseBody
 	public Branch retrieveBranch(@PathVariable String path) {
 		return branchService.findBranchOrThrow(BranchPathUriUtil.parseBranchPath(path));
 	}
 
-	@RequestMapping(value = "/branches/{path}/actions/unlock", method = RequestMethod.POST, produces = "application/json")
+	@RequestMapping(value = "/branches/{path}/actions/unlock", method = RequestMethod.POST)
 	@ResponseBody
 	public void unlockBranch(@PathVariable String path) {
 		branchService.unlock(BranchPathUriUtil.parseBranchPath(path));
 	}
 
-	@RequestMapping(value = "/merges", method = RequestMethod.POST, produces = "application/json")
+	@RequestMapping(value = "/merges", method = RequestMethod.POST)
 	public ResponseEntity<Void> mergeBranch(@RequestBody MergeRequest mergeRequest) {
 		BranchMergeJob mergeJob = branchMergeService.mergeBranchAsync(mergeRequest);
 		return ControllerHelper.getCreatedResponse(mergeJob.getId());

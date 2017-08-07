@@ -18,6 +18,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
+@RequestMapping(produces = "application/json")
 public class DescriptionController {
 
 	@Autowired
@@ -26,7 +27,7 @@ public class DescriptionController {
 	@Autowired
 	private DescriptionService descriptionService;
 
-	@RequestMapping(value = "browser/{branch}/descriptions", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "browser/{branch}/descriptions", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public List<DescriptionSearchResult> findConcepts(@PathVariable String branch, @RequestParam(required = false) String query,
@@ -45,7 +46,7 @@ public class DescriptionController {
 		return results;
 	}
 
-	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Description fetchDescription(@PathVariable String branch, @PathVariable String descriptionId) {

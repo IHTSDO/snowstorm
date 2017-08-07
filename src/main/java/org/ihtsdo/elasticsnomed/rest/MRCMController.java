@@ -11,13 +11,14 @@ import java.util.Collection;
 import java.util.Set;
 
 @RestController
+@RequestMapping(produces = "application/json")
 public class MRCMController {
 
 	@Autowired
 	private MRCMService mrcmService;
 
 	@ApiOperation("Retrieve MRCM domain attributes applicable for the given parents.")
-	@RequestMapping(value = "/mrcm/{path}/domain-attributes", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/mrcm/{path}/domain-attributes", method = RequestMethod.GET)
 	@ResponseBody
 	public Collection<ConceptMini> retrieveDomainAttributes(@PathVariable String path, @RequestParam Set<Long> parentIds) {
 		String branchPath = BranchPathUriUtil.parseBranchPath(path);
@@ -25,7 +26,7 @@ public class MRCMController {
 	}
 
 	@ApiOperation("Retrieve valid values for the given attribute and term prefix.")
-	@RequestMapping(value = "/mrcm/{path}/attribute-values/{attributeId}", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/mrcm/{path}/attribute-values/{attributeId}", method = RequestMethod.GET)
 	@ResponseBody
 	public ItemsPage<ConceptMini> retrieveAttributeValues(@PathVariable String path, @PathVariable String attributeId, @RequestParam String termPrefix) {
 		String branchPath = BranchPathUriUtil.parseBranchPath(path);
