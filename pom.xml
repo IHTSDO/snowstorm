@@ -156,6 +156,53 @@
 			</plugin>
 		</plugins>
 	</build>
+	<profiles>
+		<profile>
+			<id>deb</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.vafer</groupId>
+						<artifactId>jdeb</artifactId>
+						<version>1.1.1</version>
+						<executions>
+							<execution>
+								<phase>package</phase>
+								<goals>
+									<goal>jdeb</goal>
+								</goals>
+								<configuration>
+									<deb>${project.build.directory}/${project.artifactId}-${project.version}-all.deb</deb>
+									<controlDir>${basedir}/src/deb/control</controlDir>
+									<snapshotExpand>true</snapshotExpand>
+									<snapshotEnv>BUILD_NUMBER</snapshotEnv>
+									<verbose>true</verbose>
+									<classifier>all</classifier>
+									<signPackage>false</signPackage>
+									<dataSet>
+										<data>
+											<src>${project.build.directory}/${project.build.finalName}.jar</src>
+											<dst>app.jar</dst>
+											<type>file</type>
+											<mapper>
+												<type>perm</type>
+												<prefix>/opt/${project.artifactId}/</prefix>
+											</mapper>
+										</data>
+										<data>
+											<src>${basedir}/src/deb/supervisor.conf</src>
+											<dst>/etc/supervisor/conf.d/${project.artifactId}.conf</dst>
+											<type>file</type>
+										</data>
+									</dataSet>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 	<repositories>
 		<repository>
 			<id>elasticvc-mvn-repo</id>

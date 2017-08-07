@@ -1,0 +1,14 @@
+#!/bin/sh -e
+
+#For debugging uncomment these two lines
+set -x
+echo $*
+
+APP_NAME=[[packageName]]
+
+if ! getent passwd $APP_NAME >/dev/null; then
+  adduser --quiet --system --no-create-home --group \
+    --home /home/$APP_NAME --shell /bin/false $APP_NAME
+fi
+
+supervisorctl stop $APP_NAME || true

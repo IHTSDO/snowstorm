@@ -1,0 +1,18 @@
+#!/bin/sh -e
+
+#For debugging uncomment these two lines
+set -x
+echo $*
+
+APP_NAME=[[packageName]]
+
+case $1 in
+	purge)
+		if getent passwd $APP_NAME >/dev/null; then
+  			userdel $APP_NAME
+		fi
+		if test -d /opt/$APP_NAME; then
+			rm -r /opt/$APP_NAME
+		fi
+	;;
+esac
