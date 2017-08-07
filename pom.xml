@@ -21,6 +21,7 @@
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<packageName>${project.artifactId}</packageName>
 
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
 		<spring-data-jest.version>2.3.0.RELEASE</spring-data-jest.version>
@@ -172,7 +173,7 @@
 									<goal>jdeb</goal>
 								</goals>
 								<configuration>
-									<deb>${project.build.directory}/${project.artifactId}-${project.version}-all.deb</deb>
+									<deb>${project.build.directory}/${packageName}-${project.version}-all.deb</deb>
 									<controlDir>${basedir}/src/deb/control</controlDir>
 									<snapshotExpand>true</snapshotExpand>
 									<snapshotEnv>BUILD_NUMBER</snapshotEnv>
@@ -186,12 +187,12 @@
 											<type>file</type>
 											<mapper>
 												<type>perm</type>
-												<prefix>/opt/${project.artifactId}/</prefix>
+												<prefix>/opt/${packageName}/</prefix>
 											</mapper>
 										</data>
 										<data>
 											<src>${basedir}/src/deb/supervisor.conf</src>
-											<dst>/etc/supervisor/conf.d/${project.artifactId}.conf</dst>
+											<dst>/etc/supervisor/conf.d/${packageName}.conf</dst>
 											<type>file</type>
 										</data>
 									</dataSet>
