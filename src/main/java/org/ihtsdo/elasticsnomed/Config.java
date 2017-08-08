@@ -6,6 +6,7 @@ import com.github.vanroy.springdata.jest.JestElasticsearchTemplate;
 import com.github.vanroy.springdata.jest.mapper.DefaultJestResultsMapper;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
 import io.searchbox.client.JestClient;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
@@ -16,6 +17,7 @@ import org.ihtsdo.elasticsnomed.core.data.repositories.config.DescriptionStoreMi
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.RelationshipStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetTypesConfigurationService;
 import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
+import org.ihtsdo.elasticsnomed.rest.config.BranchMixIn;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
@@ -102,6 +104,7 @@ public class Config {
 				.defaultViewInclusion(false)
 				.failOnUnknownProperties(false)
 				.serializationInclusion(JsonInclude.Include.NON_NULL)
+				.mixIn(Branch.class, BranchMixIn.class)
 				.build();
 	}
 
