@@ -135,14 +135,14 @@ public class BranchMergeService {
 	private <T extends SnomedComponent> void promoteEntities(String source, Commit commit, Class<T> entityClass,
 			ElasticsearchCrudRepository<T, String> entityRepository, Set<String> versionsReplaced) {
 
-		final String targetFlatPath = commit.getBranch().getFlatPath();
+		final String targetPath = commit.getBranch().getPath();
 
 		// End entities on target which have been replaced on source branch
 		List<T> toEnd = new ArrayList<>();
 		for (List<String> versionsReplacedSegment : Iterables.partition(versionsReplaced, 1)) {
 			try (final CloseableIterator<T> entitiesToEnd = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
-							.must(termQuery("path", targetFlatPath))
+							.must(termQuery("path", targetPath))
 							.must(termsQuery("_id", versionsReplacedSegment))
 					)
 					.withPageable(ConceptService.LARGE_PAGE)

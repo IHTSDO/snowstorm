@@ -56,23 +56,23 @@ public class ImportServiceTest {
 		final List<Branch> branches = branchService.findAll();
 		Assert.assertEquals(26, branches.size());
 		int a = 0;
-		Assert.assertEquals("MAIN", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20020131", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20020731", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20030131", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20030731", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20040131", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20040731", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20050131", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20050731", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20060131", branches.get(a).getFatPath());
+		Assert.assertEquals("MAIN", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20020131", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20020731", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20030131", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20030731", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20040131", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20040731", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20050131", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20050731", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20060131", branches.get(a).getPath());
 
 		a = 21;
-		Assert.assertEquals("MAIN/20120131", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20120731", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20130131", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20130731", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20140131", branches.get(a).getFatPath());
+		Assert.assertEquals("MAIN/20120131", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20120731", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20130131", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20130731", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20140131", branches.get(a).getPath());
 
 		String path = "MAIN/20020131";
 		Assert.assertEquals(88, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());

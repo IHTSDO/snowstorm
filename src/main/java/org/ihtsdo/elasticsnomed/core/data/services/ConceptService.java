@@ -105,7 +105,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 			final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 			logger.error("Found more than one concept {} on branch (latest) {} using criteria {}",
 					concepts.getContent(), latestBranch, branchCriteria);
-			concepts.forEach(c -> logger.info("id:{} path:{}, start:{}, end:{}", c.getInternalId(), c.getFatPath(), c.getStartDebugFormat(), c.getEndDebugFormat()));
+			concepts.forEach(c -> logger.info("id:{} path:{}, start:{}, end:{}", c.getInternalId(), c.getPath(), c.getStartDebugFormat(), c.getEndDebugFormat()));
 			throw new IllegalStateException("More than one concept found for id " + id + " on branch " + path);
 		}
 		Concept concept = concepts.getTotalElements() == 0 ? null : concepts.iterator().next();
@@ -450,7 +450,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 	}
 
 	private Iterable<Concept> doSave(Collection<Concept> concepts, Branch branch) {
-		try (final Commit commit = branchService.openCommit(branch.getFatPath())) {
+		try (final Commit commit = branchService.openCommit(branch.getPath())) {
 			final Iterable<Concept> savedConcepts = doSaveBatchConceptsAndComponents(concepts, commit);
 			commit.markSuccessful();
 			return savedConcepts;
@@ -458,7 +458,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 	}
 
 	private ReferenceSetMember doSave(ReferenceSetMember member, Branch branch) {
-		try (final Commit commit = branchService.openCommit(branch.getFatPath())) {
+		try (final Commit commit = branchService.openCommit(branch.getPath())) {
 			final ReferenceSetMember savedMember = doSaveBatchMembers(Collections.singleton(member), commit).iterator().next();
 			commit.markSuccessful();
 			return savedMember;

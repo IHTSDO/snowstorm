@@ -212,8 +212,7 @@ public class QueryService extends ComponentService {
 		if (commit.isRebase()) {
 			// Recreate query index using new parent base point + content on this branch
 			Branch branch = commit.getBranch();
-			String fatPath = branch.getFatPath();
-			removeQConceptChangesOnBranch(commit, branch, fatPath);
+			removeQConceptChangesOnBranch(commit);
 
 			Page<QueryConcept> page = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder().withQuery(versionControlHelper.getChangesOnBranchCriteria(branch)).build(), QueryConcept.class);
 			System.out.println("total QueryConcept on path = " + page.getTotalElements());
@@ -254,7 +253,7 @@ public class QueryService extends ComponentService {
 		Set<Long> existingAncestors = new HashSet<>();
 		Set<Long> existingDescendants = new HashSet<>();
 
-		String committedContentPath = commit.getBranch().getFatPath();
+		String committedContentPath = commit.getBranch().getPath();
 		if (commit.isRebase()) {
 			// When rebasing this is a view onto the new parent state
 			committedContentPath = PathUtil.getParentPath(committedContentPath);
@@ -408,9 +407,10 @@ public class QueryService extends ComponentService {
 		timer.finish();
 	}
 
-	private void removeQConceptChangesOnBranch(Commit commit, Branch branch, String fatPath) {
+	private void removeQConceptChangesOnBranch(Commit commit) {
+		Branch branch = commit.getBranch();
 		// End versions on branch
-		QueryBuilder branchCriteria = versionControlHelper.getChangesOnBranchCriteria(fatPath);
+		QueryBuilder branchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch.getPath());
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(branchCriteria)
 				.withPageable(LARGE_PAGE);

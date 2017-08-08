@@ -33,17 +33,17 @@ public class BranchServiceTest {
 		final Branch main = branchService.findLatest("MAIN");
 		assertNotNull(main);
 		assertNotNull(main.getInternalId());
-		assertNotNull(main.getFatPath());
+		assertNotNull(main.getPath());
 		assertNotNull(main.getBase());
 		assertNotNull(main.getHead());
-		assertEquals("MAIN", main.getFatPath());
+		assertEquals("MAIN", main.getPath());
 		assertEquals(UP_TO_DATE, main.getState());
 
 		assertNull(branchService.findLatest("MAIN/A"));
 		branchService.create("MAIN/A");
 		final Branch a = branchService.findLatest("MAIN/A");
 		assertNotNull(a);
-		assertEquals("MAIN/A", a.getFatPath());
+		assertEquals("MAIN/A", a.getPath());
 		assertEquals(UP_TO_DATE, a.getState());
 
 		assertNotNull(branchService.findLatest("MAIN"));
@@ -66,9 +66,9 @@ public class BranchServiceTest {
 		final List<Branch> branches = branchService.findAll();
 		assertEquals(7, branches.size());
 
-		assertEquals("MAIN", branches.get(0).getFatPath());
-		assertEquals("MAIN/A", branches.get(1).getFatPath());
-		assertEquals("MAIN/C/something/thing", branches.get(6).getFatPath());
+		assertEquals("MAIN", branches.get(0).getPath());
+		assertEquals("MAIN/A", branches.get(1).getPath());
+		assertEquals("MAIN/C/something/thing", branches.get(6).getPath());
 	}
 
 	@Test
@@ -88,13 +88,13 @@ public class BranchServiceTest {
 		final List<Branch> mainChildren = branchService.findChildren("MAIN");
 		assertEquals(6, mainChildren.size());
 
-		assertEquals("MAIN/A", mainChildren.get(0).getFatPath());
-		assertEquals("MAIN/C/something/thing", mainChildren.get(5).getFatPath());
+		assertEquals("MAIN/A", mainChildren.get(0).getPath());
+		assertEquals("MAIN/C/something/thing", mainChildren.get(5).getPath());
 
 		final List<Branch> cChildren = branchService.findChildren("MAIN/C");
 		assertEquals(2, cChildren.size());
-		assertEquals("MAIN/C/something", cChildren.get(0).getFatPath());
-		assertEquals("MAIN/C/something/thing", cChildren.get(1).getFatPath());
+		assertEquals("MAIN/C/something", cChildren.get(0).getPath());
+		assertEquals("MAIN/C/something/thing", cChildren.get(1).getPath());
 	}
 
 	@Test

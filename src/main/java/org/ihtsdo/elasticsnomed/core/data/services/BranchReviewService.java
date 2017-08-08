@@ -181,8 +181,8 @@ public class BranchReviewService {
 	}
 
 	public BranchReview getCreateReview(Branch sourceBranch, Branch targetBranch) {
-		final String reviewIndexKey = getReviewIndexKey(sourceBranch.getFatPath(), sourceBranch.getHeadTimestamp(),
-				targetBranch.getFatPath(), targetBranch.getHeadTimestamp());
+		final String reviewIndexKey = getReviewIndexKey(sourceBranch.getPath(), sourceBranch.getHeadTimestamp(),
+				targetBranch.getPath(), targetBranch.getHeadTimestamp());
 
 		final BranchReview existingReview = reviewIndex.get(reviewIndexKey);
 		if (existingReview != null) {
@@ -256,7 +256,7 @@ public class BranchReviewService {
 					} else {
 						start = source.getLastPromotion();
 					}
-					review.setChanges(createConceptChangeReportOnBranchForTimeRange(source.getFatPath(), start, source.getHead(), review.isSourceIsParent()));
+					review.setChanges(createConceptChangeReportOnBranchForTimeRange(source.getPath(), start, source.getHead(), review.isSourceIsParent()));
 				}
 			}
 		}

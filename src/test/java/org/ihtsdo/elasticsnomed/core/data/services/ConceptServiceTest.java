@@ -58,7 +58,7 @@ public class ConceptServiceTest {
 
 		final Concept c1 = conceptService.find("1", "MAIN");
 		Assert.assertNotNull("Concept 1 exists on MAIN.", c1);
-		assertEquals("MAIN", c1.getFatPath());
+		assertEquals("MAIN", c1.getPath());
 		assertEquals("one", c1.getModuleId());
 
 		branchService.create("MAIN/A");
