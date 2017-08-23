@@ -9,11 +9,9 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.repositories.QueryIndexConceptRepository;
@@ -60,44 +58,55 @@ public class QueryService extends ComponentService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public Collection<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath) {
+	public List<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 
 		String term = conceptQuery.getTermPrefix();
 		if (term != null && term.length() < 3) {
-			return Collections.emptySet();
+			return Collections.emptyList();
 		}
 
 		final List<Long> termConceptIds = new LongArrayList();
 		if (term != null) {
 			logger.info("Lexical search");
 			// Search for descriptions matching the term prefix
-			BoolQueryBuilder boolQueryBuilder = boolQuery();
-			NativeSearchQueryBuilder termSearchQuery = new NativeSearchQueryBuilder()
-					.withQuery(boolQueryBuilder
-							.must(branchCriteria)
-							.must(termQuery("active", true))
-							.must(termQuery("typeId", Concepts.FSN))
-					);
+			BoolQueryBuilder boolQueryBuilder = boolQuery()
+					.must(branchCriteria)
+					.must(termQuery("active", true))
+					.must(termQuery("typeId", Concepts.FSN));
 
 			DescriptionService.addTermClauses(term, boolQueryBuilder);
 
-			NativeSearchQuery query = termSearchQuery.build();
-			DescriptionService.addTermSort(query);
-
 			if (conceptQuery.hasLogicalConditions()) {
-				try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(query, Description.class)) {
-					stream.forEachRemaining(d -> termConceptIds.add(parseLong(d.getConceptId())));
-				}
+				// Page through all matches.
+				// Stream can not be used because there is no ordering.
+				Page<Description> page;
+				Integer offset = 0;
+				int pageSize = LARGE_PAGE.getPageSize();
+				do {
+					NativeSearchQuery query = new NativeSearchQueryBuilder()
+							.withQuery(boolQueryBuilder)
+							.withPageable(new PageRequest(offset, pageSize))
+							.build();
+					DescriptionService.addTermSort(query);
+
+					page = elasticsearchTemplate.queryForPage(query, Description.class);
+					termConceptIds.addAll(page.getContent().stream().map(d -> parseLong(d.getConceptId())).collect(Collectors.toList()));
+					offset += pageSize;
+				} while (!page.isLast());
 			} else {
-				termSearchQuery.withPageable(new PageRequest(0, 50));
+				NativeSearchQuery query = new NativeSearchQueryBuilder()
+						.withQuery(boolQueryBuilder)
+						.withPageable(new PageRequest(0, 50))
+						.build();
+				DescriptionService.addTermSort(query);
+
 				List<Description> descriptions = elasticsearchTemplate.queryForPage(query, Description.class).getContent();
 				descriptions.forEach(d -> termConceptIds.add(parseLong(d.getConceptId())));
 				logger.info("Gather minis");
-				return conceptService.findConceptMinis(branchCriteria, termConceptIds).values();
+				Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, termConceptIds);
+				return getConceptList(termConceptIds, conceptMiniMap);
 			}
-
-			logger.info("First term concept {}", !termConceptIds.isEmpty() ? termConceptIds.get(0) : null);
 		}
 
 		if (conceptQuery.hasLogicalConditions()) {
@@ -111,7 +120,6 @@ public class QueryService extends ComponentService {
 
 			if (term != null) {
 				List<Long> values = termConceptIds.subList(0, termConceptIds.size() >= 50 ? 50 : termConceptIds.size());
-				logger.info("logical filter size {} - {}", values.size(), values);
 				logicalSearchQuery.withFilter(boolQuery().must(termsQuery("conceptId", values)));
 			}
 
@@ -125,19 +133,16 @@ public class QueryService extends ComponentService {
 
 			if (term != null) {
 				// Recreate term score ordering
-				List<ConceptMini> minis = new ArrayList<>();
-				for (Long termConceptId : termConceptIds) {
-					ConceptMini conceptMini = conceptMiniMap.get(termConceptId.toString());
-					if (conceptMini != null) {
-						minis.add(conceptMini);
-					}
-				}
-				return minis;
+				return getConceptList(termConceptIds, conceptMiniMap);
 			}
 
-			return conceptMiniMap.values();
+			return new ArrayList<>(conceptMiniMap.values());
 		}
-		return Collections.emptySet();
+		return Collections.emptyList();
+	}
+
+	private List<ConceptMini> getConceptList(List<Long> termConceptIds, Map<String, ConceptMini> conceptMiniMap) {
+		return termConceptIds.stream().filter(id -> conceptMiniMap.keySet().contains(id.toString())).map(id -> conceptMiniMap.get(id.toString())).collect(Collectors.toList());
 	}
 
 	public Set<Long> retrieveAncestors(String conceptId, String path, boolean stated) {
@@ -294,9 +299,7 @@ public class QueryService extends ComponentService {
 							.must(termsQuery("conceptId", Sets.union(updateSource, updateDestination))))
 					.withPageable(ConceptService.LARGE_PAGE).build();
 			try (final CloseableIterator<QueryConcept> existingIndexConcepts = elasticsearchTemplate.stream(query, QueryConcept.class)) {
-				existingIndexConcepts.forEachRemaining(indexConcept -> {
-					existingAncestors.addAll(indexConcept.getAncestors());
-				});
+				existingIndexConcepts.forEachRemaining(indexConcept -> existingAncestors.addAll(indexConcept.getAncestors()));
 			}
 			timer.checkpoint("Collect existingAncestors from QueryConcept.");
 
@@ -337,9 +340,8 @@ public class QueryService extends ComponentService {
 			queryBuilder.withFilter(boolQuery().must(termsQuery("sourceId", nodesToLoad)));
 		}
 		try (final CloseableIterator<Relationship> existingInferredIsARelationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
-			existingInferredIsARelationships.forEachRemaining(relationship -> {
-				graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
-			});
+			existingInferredIsARelationships.forEachRemaining(relationship ->
+					graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId())));
 		}
 		timer.checkpoint("Build existing nodes from Relationships.");
 		logger.info("{} existing nodes loaded.", graphBuilder.getNodeCount());
@@ -476,27 +478,31 @@ public class QueryService extends ComponentService {
 			rootBuilder.must(logicalConditionBuilder);
 		}
 
-		public void self(Long conceptId) {
+		public ConceptQueryBuilder self(Long conceptId) {
 			logger.info("conceptId = {}", conceptId);
 			logicalConditionBuilder.should(termQuery("conceptId", conceptId));
+			return this;
 		}
 
-		public void descendant(Long conceptId) {
+		public ConceptQueryBuilder descendant(Long conceptId) {
 			logger.info("ancestors = {}", conceptId);
 			logicalConditionBuilder.should(termQuery("ancestors", conceptId));
+			return this;
 		}
 
-		public void selfOrDescendant(Long conceptId) {
+		public ConceptQueryBuilder selfOrDescendant(Long conceptId) {
 			self(conceptId);
 			descendant(conceptId);
+			return this;
 		}
 
 		/**
 		 * Term prefix has a minimum length of 3 characters.
 		 * @param termPrefix
 		 */
-		public void termPrefix(String termPrefix) {
+		public ConceptQueryBuilder termPrefix(String termPrefix) {
 			this.termPrefix = termPrefix;
+			return this;
 		}
 
 		private BoolQueryBuilder getRootBuilder() {

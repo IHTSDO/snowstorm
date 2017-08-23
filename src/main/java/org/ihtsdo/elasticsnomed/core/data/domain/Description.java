@@ -328,8 +328,9 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return typeId;
 	}
 
-	public void setTypeId(String typeId) {
+	public Description setTypeId(String typeId) {
 		this.typeId = typeId;
+		return this;
 	}
 
 	public String getCaseSignificanceId() {

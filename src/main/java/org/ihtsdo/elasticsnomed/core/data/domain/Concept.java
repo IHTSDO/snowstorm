@@ -168,6 +168,11 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		definitionStatusId = Concepts.definitionStatusNames.inverse().get(definitionStatusName);
 	}
 
+	public Concept addFSN(String term) {
+		addDescription(new Description(term).setTypeId(Concepts.FSN));
+		return this;
+	}
+
 	public Concept addDescription(Description description) {
 		description.setConceptId(this.conceptId);
 		descriptions.add(description);
