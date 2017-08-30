@@ -9,6 +9,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
 import io.searchbox.client.JestClient;
+import org.ihtsdo.elasticsnomed.core.data.domain.Classification;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
@@ -18,6 +19,7 @@ import org.ihtsdo.elasticsnomed.core.data.repositories.config.RelationshipStoreM
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetTypesConfigurationService;
 import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
 import org.ihtsdo.elasticsnomed.rest.config.BranchMixIn;
+import org.ihtsdo.elasticsnomed.rest.config.ClassificationMixIn;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
@@ -105,6 +107,7 @@ public class Config {
 				.failOnUnknownProperties(false)
 				.serializationInclusion(JsonInclude.Include.NON_NULL)
 				.mixIn(Branch.class, BranchMixIn.class)
+				.mixIn(Classification.class, ClassificationMixIn.class)
 				.build();
 	}
 
