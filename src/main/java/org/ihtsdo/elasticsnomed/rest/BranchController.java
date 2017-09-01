@@ -40,8 +40,8 @@ public class BranchController {
 	@ApiOperation("Retrieve a single branch")
 	@RequestMapping(value = "/branches/{path}", method = RequestMethod.GET)
 	@ResponseBody
-	public Branch retrieveBranch(@PathVariable String path) {
-		return branchService.findBranchOrThrow(BranchPathUriUtil.parseBranchPath(path));
+	public Branch retrieveBranch(@PathVariable String path, @RequestParam boolean includeInheritedMetadata) {
+		return branchService.findBranchOrThrow(BranchPathUriUtil.parseBranchPath(path), includeInheritedMetadata);
 	}
 
 	@RequestMapping(value = "/branches/{path}/actions/unlock", method = RequestMethod.POST)
