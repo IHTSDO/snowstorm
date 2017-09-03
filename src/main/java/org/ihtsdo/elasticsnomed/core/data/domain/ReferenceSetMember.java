@@ -8,14 +8,18 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Document(type = "member", indexName = "es-member", shards = 8)
 public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComponent<C> {
 
-	public static final String FIELD_REFSET_ID = "refsetId";
+	public interface Fields {
+		String REFSET_ID = "refsetId";
+	}
+
+	public interface LanguageFields {
+		String ACCEPTABILITY_ID = "acceptabilityId";
+	}
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -75,7 +79,15 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 	@Override
 	protected Object[] getReleaseHashObjects() {
 		// TODO: This should probably include all additional fields
-		return new Object[] {active, moduleId};
+		Object[] hashObjects = new Object[2 + (additionalFields.size() * 2)];
+		hashObjects[0] = active;
+		hashObjects[1] = moduleId;
+		int a = 2;
+		for (String key : new TreeSet<>(additionalFields.keySet())) {
+			hashObjects[a++] = key;
+			hashObjects[a++] = additionalFields.get(key);
+		}
+		return hashObjects;
 	}
 
 	public String getAdditionalField(String fieldName) {

@@ -180,7 +180,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public Description addLanguageRefsetMember(String refsetId, String acceptability) {
 		final ReferenceSetMember member = new ReferenceSetMember(moduleId, refsetId, descriptionId);
-		member.setAdditionalField("acceptabilityId", acceptability);
+		member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, acceptability);
 		final ReferenceSetMember previousMember = langRefsetMembers.put(member.getRefsetId(), member);
 		if (previousMember != null) {
 			logger.debug("Lang member replaced other:\n{}\n{}", member, previousMember);

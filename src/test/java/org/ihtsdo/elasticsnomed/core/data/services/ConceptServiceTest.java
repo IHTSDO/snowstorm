@@ -40,6 +40,9 @@ public class ConceptServiceTest {
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
 
+	@Autowired
+	private ReleaseService releaseService;
+
 	private ServiceTestUtil testUtil;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -494,31 +497,74 @@ public class ConceptServiceTest {
 		final String originalModuleId = "900000000000207008";
 		final String path = "MAIN";
 
-		final Concept concept = new Concept(conceptId, null, true, originalModuleId, "900000000000074008");
+		// Create concept
+		final Concept concept = new Concept(conceptId, null, true, originalModuleId, "900000000000074008")
+				.addDescription(new Description("123", null, true, originalModuleId, conceptId, "en",
+						Concepts.FSN, "Pizza", Concepts.CASE_INSENSITIVE).addLanguageRefsetMember(Concepts.GB_EN_LANG_REFSET, Concepts.PREFERRED));
 		conceptService.create(concept, path);
-		conceptService.releaseConceptsForTest(effectiveTime, path, concept);
 
+		// Run release process
+		releaseService.createVersion(effectiveTime, path);
+
+		// Check that release process applied correctly
 		final Concept savedConcept = conceptService.find(conceptId, path);
 		assertEquals(effectiveTime, savedConcept.getEffectiveTime());
 		assertEquals(effectiveTime, savedConcept.getReleasedEffectiveTime());
 		assertEquals("true|900000000000207008|900000000000074008", savedConcept.getReleaseHash());
 		Assert.assertTrue(savedConcept.isReleased());
 
+		Description savedDescription = savedConcept.getDescriptions().iterator().next();
+		assertEquals(effectiveTime, savedDescription.getEffectiveTime());
+		assertEquals(effectiveTime, savedDescription.getReleasedEffectiveTime());
+		assertEquals("true|Pizza|900000000000207008|en|900000000000003001|900000000000448009", savedDescription.getReleaseHash());
+
+		ReferenceSetMember savedMember = savedDescription.getLangRefsetMembers().values().iterator().next();
+		assertEquals(effectiveTime, savedMember.getEffectiveTime());
+		assertEquals(effectiveTime, savedMember.getReleasedEffectiveTime());
+		assertEquals("true|900000000000207008|acceptabilityId|900000000000548007", savedMember.getReleaseHash());
+
+		// Change concept, description and member
 		savedConcept.setModuleId("123");
+		savedDescription.setCaseSignificanceId(Concepts.ENTIRE_TERM_CASE_SENSITIVE);
+		savedMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, Concepts.ACCEPTABLE);
 		conceptService.update(savedConcept, "MAIN");
 
+		// effectiveTimes cleared
 		final Concept conceptAfterUpdate = conceptService.find(conceptId, path);
 		Assert.assertNull(conceptAfterUpdate.getEffectiveTime());
 		assertEquals(effectiveTime, conceptAfterUpdate.getReleasedEffectiveTime());
 		Assert.assertTrue(conceptAfterUpdate.isReleased());
+		Description descriptionAfterUpdate = conceptAfterUpdate.getDescriptions().iterator().next();
+		Assert.assertNull(descriptionAfterUpdate.getEffectiveTime());
+		Assert.assertNull(descriptionAfterUpdate.getLangRefsetMembers().values().iterator().next().getEffectiveTime());
 
+		// Change concept back
 		conceptAfterUpdate.setModuleId(originalModuleId);
 		conceptService.update(conceptAfterUpdate, "MAIN");
 
-		final Concept conceptWithRestoredDate = conceptService.find(conceptId, path);
+		// Concept effectiveTime restored
+		Concept conceptWithRestoredDate = conceptService.find(conceptId, path);
 		assertEquals(effectiveTime, conceptWithRestoredDate.getEffectiveTime());
 		assertEquals(effectiveTime, conceptWithRestoredDate.getReleasedEffectiveTime());
 		Assert.assertTrue(conceptWithRestoredDate.isReleased());
+
+		// Change description back
+		conceptWithRestoredDate.getDescriptions().iterator().next().setCaseSignificanceId(CASE_INSENSITIVE);
+		conceptService.update(conceptWithRestoredDate, "MAIN");
+
+		// Description effectiveTime restored
+		conceptWithRestoredDate = conceptService.find(conceptId, path);
+		assertEquals(effectiveTime, conceptWithRestoredDate.getDescriptions().iterator().next().getEffectiveTime());
+
+		// Change lang member back
+		ReferenceSetMember member = conceptWithRestoredDate.getDescriptions().iterator().next().getLangRefsetMembers().values().iterator().next();
+		member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, Concepts.PREFERRED);
+		conceptService.update(conceptWithRestoredDate, "MAIN");
+
+		// Lang member effectiveTime restored
+		conceptWithRestoredDate = conceptService.find(conceptId, path);
+		ReferenceSetMember memberWithRestoredDate = conceptWithRestoredDate.getDescriptions().iterator().next().getLangRefsetMembers().values().iterator().next();
+		assertEquals(effectiveTime, memberWithRestoredDate.getEffectiveTime());
 	}
 
 	@Test

@@ -72,7 +72,7 @@ public class ExportService {
 					refsetsOfThisType.add(Long.parseLong(referenceSetType.getConceptId()));
 					for (Long refsetToExport : refsetsOfThisType) {
 						BoolQueryBuilder memberQuery = getContentQuery(exportType, branchCriteria);
-						memberQuery.must(termQuery(ReferenceSetMember.FIELD_REFSET_ID, refsetToExport));
+						memberQuery.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetToExport));
 						long memberCount = elasticsearchTemplate.count(getNativeSearchQuery(memberQuery), ReferenceSetMember.class);
 						if (memberCount > 0) {
 							logger.info("Exporting Reference Set {} {} with {} members", refsetToExport, referenceSetType.getExportDir(), memberCount);

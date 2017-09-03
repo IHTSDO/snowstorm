@@ -48,6 +48,9 @@ public class BranchMergeService {
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
 
+	@Autowired
+	private ComponentTypeRegistry componentTypeRegistry;
+
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
 	private static final String USE_BRANCH_REVIEW = "The target branch is diverged, please use the branch review endpoint instead.";
 	private static final Logger logger = LoggerFactory.getLogger(BranchMergeService.class);
@@ -125,7 +128,7 @@ public class BranchMergeService {
 			logger.info("Performing promotion {} -> {}", source, target);
 			try (Commit commit = branchService.openPromotionCommit(targetBranch.getPath(), source)) {
 				final Set<String> versionsReplaced = sourceBranch.getVersionsReplaced();
-				final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = conceptService.getComponentTypeRepoMap();
+				final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = componentTypeRegistry.getComponentTypeRepositoryMap();
 				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
 				commit.markSuccessful();
 			}
