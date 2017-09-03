@@ -9,7 +9,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.List;
 
-@Document(type = "refset", indexName = "snomed", shards = 8)
+@Document(type = "refset", indexName = "es-reset", shards = 8)
 public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 
 	public static final String FIELD_ID = "conceptId";

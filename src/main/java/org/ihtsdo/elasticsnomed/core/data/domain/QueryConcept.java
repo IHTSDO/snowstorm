@@ -11,7 +11,7 @@ import java.util.Set;
 /**
  * Represents an active concept with fields to assist logical searching.
  */
-@Document(type = "query-concept", indexName = "snomed-index", shards = 8)
+@Document(type = "query-concept", indexName = "es-index", shards = 8)
 public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)

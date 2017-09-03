@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-@Document(type = "member", indexName = "snomed", shards = 8)
+@Document(type = "member", indexName = "es-member", shards = 8)
 public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComponent<C> {
 
 	public static final String FIELD_REFSET_ID = "refsetId";
@@ -74,6 +74,7 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 
 	@Override
 	protected Object[] getReleaseHashObjects() {
+		// TODO: This should probably include all additional fields
 		return new Object[] {active, moduleId};
 	}
 

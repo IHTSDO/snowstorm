@@ -17,7 +17,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-@Document(type = "description", indexName = "snomed", shards = 8)
+@Document(type = "description", indexName = "es-description", shards = 8)
 public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
 	@JsonView(value = View.Component.class)
