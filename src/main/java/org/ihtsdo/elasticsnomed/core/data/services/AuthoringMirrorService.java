@@ -34,7 +34,7 @@ public class AuthoringMirrorService {
 	private ObjectMapper objectMapper;
 
 	private static final Pattern BRANCH_MERGE_COMMIT_COMMENT_PATTERN = Pattern.compile("^(.*) performed merge of (MAIN[^ ]*) to (MAIN[^ ]*)$");
-	private static final Pattern QUOTES_NOT_ESCAPED_PATTERN = Pattern.compile("\":\"[^\"]*(\"[a-zA-Z\" ])");
+	private static final Pattern QUOTES_NOT_ESCAPED_PATTERN = Pattern.compile("\":\"[^\"]*[^\\\\](\"[a-zA-Z\" ])");
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -120,7 +120,7 @@ public class AuthoringMirrorService {
 		while (matcher.find()) {
 			String group1 = matcher.group(1);
 			logger.info("Fixing quote not escaped '{}'", group1);
-			comment = matcher.replaceFirst(matcher.group().replace(group1, group1.replace("\"", "")));
+			comment = matcher.replaceFirst(matcher.group().replace(group1, group1.replace("\"", "\\\\\"")));
 			matcher = QUOTES_NOT_ESCAPED_PATTERN.matcher(comment);
 		}
 		return comment;
