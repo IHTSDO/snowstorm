@@ -8,6 +8,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.ReferenceSetMember;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 
 import java.util.Date;
+import java.util.Map;
 import java.util.Set;
 
 public abstract class BranchMixIn {
@@ -23,5 +24,8 @@ public abstract class BranchMixIn {
 
 	@JsonIgnore
 	abstract Date getStart();
+
+	@JsonIgnore
+	abstract Map<String, String> getMetadataInternal();
 
 }

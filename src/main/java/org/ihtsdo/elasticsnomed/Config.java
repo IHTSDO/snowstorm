@@ -13,6 +13,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.Classification;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
+import io.kaicode.elasticvc.repositories.config.BranchStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.ConceptStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.DescriptionStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.RelationshipStoreMixIn;
@@ -76,6 +77,7 @@ public class Config {
 				.defaultViewInclusion(false)
 				.failOnUnknownProperties(false)
 				.serializationInclusion(JsonInclude.Include.NON_NULL)
+				.mixIn(Branch.class, BranchStoreMixIn.class)
 				.mixIn(Concept.class, ConceptStoreMixIn.class)
 				.mixIn(Description.class, DescriptionStoreMixIn.class)
 				.mixIn(Relationship.class, RelationshipStoreMixIn.class)

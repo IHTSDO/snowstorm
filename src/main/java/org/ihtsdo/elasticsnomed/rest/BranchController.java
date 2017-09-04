@@ -8,6 +8,7 @@ import org.ihtsdo.elasticsnomed.rest.pojo.CreateBranchRequest;
 import org.ihtsdo.elasticsnomed.rest.pojo.MergeRequest;
 import org.ihtsdo.elasticsnomed.core.data.services.BranchMergeService;
 import io.swagger.annotations.ApiOperation;
+import org.ihtsdo.elasticsnomed.rest.pojo.UpdateBranchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -34,13 +35,20 @@ public class BranchController {
 	@RequestMapping(value = "/branches", method = RequestMethod.POST)
 	@ResponseBody
 	public Branch createBranch(@RequestBody CreateBranchRequest request) {
-		return branchService.create(request.getBranchPath());
+		return branchService.create(request.getBranchPath(), request.getMetadata());
+	}
+
+	@ApiOperation("Update branch metadata")
+	@RequestMapping(value = "/branches/{path}", method = RequestMethod.PUT)
+	@ResponseBody
+	public Branch updateBranch(@PathVariable String path, @RequestBody UpdateBranchRequest request) {
+		return branchService.updateMetadata(path, request.getMetadata());
 	}
 
 	@ApiOperation("Retrieve a single branch")
 	@RequestMapping(value = "/branches/{path}", method = RequestMethod.GET)
 	@ResponseBody
-	public Branch retrieveBranch(@PathVariable String path, @RequestParam boolean includeInheritedMetadata) {
+	public Branch retrieveBranch(@PathVariable String path, @RequestParam(required = false, defaultValue = "false") boolean includeInheritedMetadata) {
 		return branchService.findBranchOrThrow(BranchPathUriUtil.parseBranchPath(path), includeInheritedMetadata);
 	}
 
