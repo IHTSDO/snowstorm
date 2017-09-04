@@ -4,3 +4,4 @@ target
 /data
 /release
 application-*.properties
+/*.log

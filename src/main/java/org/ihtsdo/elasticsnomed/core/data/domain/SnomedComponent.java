@@ -25,6 +25,10 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 	@JsonView(value = View.Component.class)
 	private String releasedEffectiveTime;
 
+	public interface Fields {
+		String EFFECTIVE_TIME = "effectiveTime";
+	}
+
 	public void release(String effectiveTime) {
 		setReleaseHash(buildReleaseHash());
 		setEffectiveTime(effectiveTime);

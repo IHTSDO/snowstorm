@@ -89,15 +89,6 @@ public class ConceptService extends ComponentService implements CommitListener {
 		branchService.addCommitListener(this);
 	}
 
-	public Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> getComponentTypeRepoMap() {
-		Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> map = new LinkedHashMap<>();
-		map.put(Concept.class, conceptRepository);
-		map.put(Description.class, descriptionRepository);
-		map.put(Relationship.class, relationshipRepository);
-		map.put(ReferenceSetMember.class, referenceSetMemberRepository);
-		return map;
-	}
-
 	public Concept find(String id, String path) {
 		final Page<Concept> concepts = doFind(Collections.singleton(id), path, new PageRequest(0, 10));
 		if (concepts.getTotalElements() > 1) {

@@ -15,7 +15,7 @@ import javax.validation.constraints.Size;
 import static org.ihtsdo.elasticsnomed.core.data.domain.Concepts.relationshipCharacteristicTypeNames;
 import static org.ihtsdo.elasticsnomed.core.data.domain.Concepts.relationshipModifierNames;
 
-@Document(type = "relationship", indexName = "snomed", shards = 8)
+@Document(type = "relationship", indexName = "es-rel", shards = 8)
 public class Relationship extends SnomedComponent<Relationship> {
 
 	public enum CharacteristicType {

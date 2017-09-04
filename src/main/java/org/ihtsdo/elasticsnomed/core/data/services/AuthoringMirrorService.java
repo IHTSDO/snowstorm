@@ -3,7 +3,6 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
-import org.ihtsdo.elasticsnomed.core.data.services.authoringmirror.ComponentChange;
 import org.ihtsdo.elasticsnomed.core.data.services.authoringmirror.ConceptChange;
 import org.ihtsdo.elasticsnomed.core.data.services.authoringmirror.TraceabilityActivity;
 import org.slf4j.Logger;
@@ -11,12 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
+import java.io.*;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -39,6 +34,7 @@ public class AuthoringMirrorService {
 	private ObjectMapper objectMapper;
 
 	private static final Pattern BRANCH_MERGE_COMMIT_COMMENT_PATTERN = Pattern.compile("^(.*) performed merge of (MAIN[^ ]*) to (MAIN[^ ]*)$");
+	private static final Pattern QUOTES_NOT_ESCAPED_PATTERN = Pattern.compile("([^\\\\,:{]\"[^,:}])");
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -54,7 +50,7 @@ public class AuthoringMirrorService {
 				branchService.recursiveCreate(branchPath);
 			}
 
-			logger.info("Mirroring traceability content change.");
+			logger.info("Mirroring traceability content change '{}'", commitComment);
 			changes.values().forEach(conceptChange -> {
 				conceptChange.getChanges().forEach(componentChange -> {
 					if ("Concept".equals(componentChange.getComponentType()) && "DELETE".equals(componentChange.getType())) {
@@ -88,8 +84,8 @@ public class AuthoringMirrorService {
 		}
 	}
 
-	public void receiveActivityFile(MultipartFile traceabilityLogFile) throws IOException {
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(traceabilityLogFile.getInputStream()))) {
+	public void receiveActivityFile(InputStream inputStream) throws IOException {
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
 			String line;
 			long lineNum = 0;
 			try {
@@ -97,7 +93,21 @@ public class AuthoringMirrorService {
 					lineNum++;
 					int i = line.indexOf("{");
 					if (i >= 0) {
+						if (line.contains("Classified ontology.")) {
+							logger.info("Skipping classification commit.");
+							continue;
+						} else if (line.contains("Auto merging branches ")) {
+							logger.info("Skipping 'Auto merging' commit.");
+							continue;
+						} else if (!line.contains("\"changes\"")) {
+							logger.info("Skipping commit with no 'changes'. {}", line);
+							continue;
+						} else if (line.length() > 10000 && !(line.endsWith("} ") || line.endsWith("}"))) {
+							logger.error("Can not process line {} because it's not well formed. Starting {}", lineNum, line.substring(0, 250));
+							continue;
+						}
 						line = line.replace("\"empty\":false", "");
+						line = fixQuotesNotEscaped(line);
 						TraceabilityActivity traceabilityActivity = objectMapper.readValue(line.substring(i), TraceabilityActivity.class);
 						receiveActivity(traceabilityActivity);
 					}
@@ -105,6 +115,29 @@ public class AuthoringMirrorService {
 			} catch (IOException e) {
 				throw new IOException("Failed to read line " + lineNum + " of traceability log file.", e);
 			}
+		}
+	}
+
+	String fixQuotesNotEscaped(String comment) {
+		Matcher matcher = QUOTES_NOT_ESCAPED_PATTERN.matcher(comment);
+		boolean anyFound = false;
+		while (matcher.find()) {
+			anyFound = true;
+			comment = matcher.replaceFirst(matcher.group().replace(matcher.group(1), matcher.group(1).replace("\"", "|")));
+			matcher = QUOTES_NOT_ESCAPED_PATTERN.matcher(comment);
+		}
+		if (anyFound) {
+			comment = comment.replace("|", "\\\"");
+		}
+		return comment;
+	}
+
+	// Local testing method
+	public void replayDirectoryOfFiles(String path) throws IOException {
+		File dir = new File(path);
+		for (File file : dir.listFiles()) {
+			System.out.println("Replay file " + file.getName());
+			receiveActivityFile(new FileInputStream(file));
 		}
 	}
 }
