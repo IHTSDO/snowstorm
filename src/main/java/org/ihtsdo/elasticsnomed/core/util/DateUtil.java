@@ -1,0 +1,19 @@
+package org.ihtsdo.elasticsnomed.core.util;
+
+import java.util.Date;
+import java.util.GregorianCalendar;
+
+public class DateUtil {
+
+	/**
+	 * @param field the calendar field.
+	 * @param amount the amount of date or time to be added to the field.
+	 * @return Date relevant to now plus the amount of time specified.
+	 */
+	public static Date newDatePlus(int field, int amount) {
+		GregorianCalendar remoteClassificationCutoff = new GregorianCalendar();
+		remoteClassificationCutoff.add(field, amount);
+		return remoteClassificationCutoff.getTime();
+	}
+
+}

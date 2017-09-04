@@ -63,23 +63,27 @@ public class ExportService {
 			File exportFile = File.createTempFile("export-" + new Date().getTime(), ".zip");
 			try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
 				// Write Concepts
-				exportComponents(Concept.class, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria), null);
+				int conceptLines = exportComponents(Concept.class, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria), null);
+				logger.info("{} concept states exported", conceptLines);
 
 				if (!forClassification) {
 					// Write Descriptions
-					exportComponents(Description.class, "Terminology/", "sct2_Description_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria), null);
+					int descriptionLines = exportComponents(Description.class, "Terminology/", "sct2_Description_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria), null);
+					logger.info("{} description states exported", descriptionLines);
 				}
 
 				// Write Stated Relationships
 				BoolQueryBuilder relationshipQuery = getContentQuery(exportType, branchCriteria);
 				relationshipQuery.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
-				exportComponents(Relationship.class, "Terminology/", "sct2_StatedRelationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, null);
+				int statedRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_StatedRelationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, null);
+				logger.info("{} stated relationship states exported", statedRelationshipLines);
 
 				// Write Inferred Relationships
 				relationshipQuery = getContentQuery(exportType, branchCriteria);
 				// Not 'stated' will include inferred and additional
 				relationshipQuery.mustNot(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
-				exportComponents(Relationship.class, "Terminology/", "sct2_Relationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, null);
+				int inferredRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_Relationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, null);
+				logger.info("{} inferred and additional relationship states exported", inferredRelationshipLines);
 
 				if (!forClassification) { // TODO: We will need to export the OWL Reference Set soon
 					// Write Reference Sets
@@ -123,8 +127,8 @@ public class ExportService {
 		return contentQuery;
 	}
 
-	private <T> void exportComponents(Class<T> componentClass, String entryDirectory, String entryFilenamePrefix, String filenameEffectiveDate,
-									  ExportType exportType, ZipOutputStream zipOutputStream, BoolQueryBuilder contentQuery, List<String> extraFieldNames) {
+	private <T> int exportComponents(Class<T> componentClass, String entryDirectory, String entryFilenamePrefix, String filenameEffectiveDate,
+									 ExportType exportType, ZipOutputStream zipOutputStream, BoolQueryBuilder contentQuery, List<String> extraFieldNames) {
 
 		String componentFilePath = "SnomedCT_Export/RF2Release/" + entryDirectory + entryFilenamePrefix + String.format("%s_%s.txt", exportType.getName(), filenameEffectiveDate);
 		logger.info("Exporting file {}", componentFilePath);
@@ -137,10 +141,11 @@ public class ExportService {
 					CloseableIterator<T> componentStream = elasticsearchTemplate.stream(getNativeSearchQuery(contentQuery), componentClass)) {
 				writer.writeHeader();
 				componentStream.forEachRemaining(writer::write);
+				return writer.getContentLinesWritten();
+			} finally {
+				// Close zip entry
+				zipOutputStream.closeEntry();
 			}
-
-			// Close zip entry
-			zipOutputStream.closeEntry();
 		} catch (IOException e) {
 			throw new ExportException("Failed to write export zip entry '" + componentFilePath + "'", e);
 		}

@@ -19,6 +19,8 @@ public class Classification {
 
 	public interface Fields {
 		String PATH = "path";
+		String STATUS = "status";
+		String CREATION_DATE = "creationDate";
 	}
 
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -29,6 +31,9 @@ public class Classification {
 
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private Status status;
+
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	private String errorMessage;
 
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String reasonerId;
@@ -79,6 +84,14 @@ public class Classification {
 
 	public void setStatus(Status status) {
 		this.status = status;
+	}
+
+	public String getErrorMessage() {
+		return errorMessage;
+	}
+
+	public void setErrorMessage(String errorMessage) {
+		this.errorMessage = errorMessage;
 	}
 
 	public String getReasonerId() {

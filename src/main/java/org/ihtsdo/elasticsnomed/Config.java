@@ -147,6 +147,7 @@ public class Config {
 				"/browser/(.*)/descriptions.*",
 				"/(.*)/concepts/.*",
 				"/(.*)/members.*",
+				"/(.*)/classifications.*",
 				"/mrcm/(.*)/domain-attributes",
 				"/mrcm/(.*)/attribute-values.*",
 				"/browser/(.*)/validate/concept"
