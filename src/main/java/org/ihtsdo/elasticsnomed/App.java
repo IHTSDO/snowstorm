@@ -4,7 +4,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
 import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
-import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportType;
+import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.elasticsnomed.mrcm.MRCMService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.slf4j.Logger;
@@ -73,7 +73,7 @@ public class App extends Config implements ApplicationRunner {
 			// Import archive
 			logger.info("Creating MAIN");
 			branchService.create("MAIN");
-			String importId = importService.createJob(ImportType.SNAPSHOT, "MAIN");
+			String importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN");
 			String releasePath = "release/SnomedCT_InternationalRF2_Production_20170131.zip";
 			try {
 				importService.importArchive(importId, new FileInputStream(releasePath));

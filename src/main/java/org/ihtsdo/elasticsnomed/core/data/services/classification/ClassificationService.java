@@ -11,9 +11,9 @@ import org.ihtsdo.elasticsnomed.core.data.services.BranchMetadataKeys;
 import org.ihtsdo.elasticsnomed.core.data.services.NotFoundException;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.ihtsdo.elasticsnomed.core.data.services.classification.pojo.ClassificationStatusResponse;
+import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.elasticsnomed.core.rf2.export.ExportException;
 import org.ihtsdo.elasticsnomed.core.rf2.export.ExportService;
-import org.ihtsdo.elasticsnomed.core.rf2.export.ExportType;
 import org.ihtsdo.elasticsnomed.core.util.DateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -179,7 +179,7 @@ public class ClassificationService {
 		}
 
 		try {
-			File deltaExport = exportService.exportRF2ArchiveFile(path, "", ExportType.DELTA, true);
+			File deltaExport = exportService.exportRF2ArchiveFile(path, "", RF2Type.DELTA, true);
 			String remoteClassificationId = serviceClient.createClassification(previousPackage, deltaExport, path, reasonerId);
 			classification.setId(remoteClassificationId);
 			classification.setStatus(Classification.Status.SCHEDULED);

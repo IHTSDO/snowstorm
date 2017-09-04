@@ -2,11 +2,18 @@ package org.ihtsdo.elasticsnomed.core.rf2.export;
 
 import com.google.common.io.Files;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import org.apache.tomcat.util.http.fileupload.util.Streams;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
+import org.ihtsdo.elasticsnomed.core.data.domain.jobs.ExportConfiguration;
+import org.ihtsdo.elasticsnomed.core.data.repositories.ExportConfigurationRepository;
 import org.ihtsdo.elasticsnomed.core.data.repositories.ReferenceSetTypeRepository;
+import org.ihtsdo.elasticsnomed.core.data.services.NotFoundException;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
+import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
+import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportJob;
+import org.ihtsdo.elasticsnomed.core.util.DateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +27,7 @@ import java.io.*;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -43,12 +51,33 @@ public class ExportService {
 	@Autowired
 	private ReferenceSetTypeRepository referenceSetTypeRepository;
 
+	@Autowired
+	private ExportConfigurationRepository exportConfigurationRepository;
+
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
-	public void exportRF2Archive(String branchPath, String filenameEffectiveDate, ExportType exportType, OutputStream outputStream) throws ExportException {
-		File exportFile = exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, false);
+	public String createJob(ExportConfiguration exportConfiguration) {
+		exportConfiguration.setId(UUID.randomUUID().toString());
+		if (exportConfiguration.getFilenameEffectiveDate() == null) {
+			exportConfiguration.setFilenameEffectiveDate(DateUtil.DATE_STAMP_FORMAT.format(new Date()));
+		}
+		exportConfigurationRepository.save(exportConfiguration);
+		return exportConfiguration.getId();
+	}
+
+	public ExportConfiguration getExportJobOrThrow(String exportId) {
+		ExportConfiguration config = exportConfigurationRepository.findOne(exportId);
+		if (config == null) {
+			throw new NotFoundException("Export job not found.");
+		}
+		return config;
+	}
+
+	public void exportRF2Archive(ExportConfiguration exportConfiguration, OutputStream outputStream) throws ExportException {
+		File exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
+				exportConfiguration.getType(), false);
 		try {
-			Files.copy(exportFile, outputStream);
+			Streams.copy(new FileInputStream(exportFile), outputStream, false);
 		} catch (IOException e) {
 			throw new ExportException("Failed to copy RF2 data into output stream.", e);
 		} finally {
@@ -56,7 +85,11 @@ public class ExportService {
 		}
 	}
 
-	public File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, ExportType exportType, boolean forClassification) throws ExportException {
+	public File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification) throws ExportException {
+		if (exportType == RF2Type.FULL) {
+			throw new IllegalArgumentException("Full RF2 export is not implemented.");
+		}
+
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 
 		try {
@@ -119,16 +152,23 @@ public class ExportService {
 		}
 	}
 
-	private BoolQueryBuilder getContentQuery(ExportType exportType, QueryBuilder branchCriteria) {
+	public String getFilename(ExportConfiguration exportConfiguration) {
+		return String.format("snomed-%s-%s-%s.zip",
+				exportConfiguration.getBranchPath().replace("/", "_"),
+				exportConfiguration.getFilenameEffectiveDate(),
+				exportConfiguration.getType().getName());
+	}
+
+	private BoolQueryBuilder getContentQuery(RF2Type exportType, QueryBuilder branchCriteria) {
 		BoolQueryBuilder contentQuery = boolQuery().must(branchCriteria);
-		if (exportType == ExportType.DELTA) {
+		if (exportType == RF2Type.DELTA) {
 			contentQuery.mustNot(existsQuery("effectiveTime"));
 		}
 		return contentQuery;
 	}
 
 	private <T> int exportComponents(Class<T> componentClass, String entryDirectory, String entryFilenamePrefix, String filenameEffectiveDate,
-									 ExportType exportType, ZipOutputStream zipOutputStream, BoolQueryBuilder contentQuery, List<String> extraFieldNames) {
+									 RF2Type exportType, ZipOutputStream zipOutputStream, BoolQueryBuilder contentQuery, List<String> extraFieldNames) {
 
 		String componentFilePath = "SnomedCT_Export/RF2Release/" + entryDirectory + entryFilenamePrefix + String.format("%s_%s.txt", exportType.getName(), filenameEffectiveDate);
 		logger.info("Exporting file {}", componentFilePath);
@@ -168,7 +208,7 @@ public class ExportService {
 	}
 
 	private List<ReferenceSetType> getReferenceSetTypes(QueryBuilder branchCriteria) {
-		BoolQueryBuilder contentQuery = getContentQuery(ExportType.SNAPSHOT, branchCriteria);
+		BoolQueryBuilder contentQuery = getContentQuery(RF2Type.SNAPSHOT, branchCriteria);
 		return elasticsearchTemplate.queryForList(getNativeSearchQuery(contentQuery), ReferenceSetType.class);
 	}
 
@@ -182,5 +222,4 @@ public class ExportService {
 	private BufferedWriter getBufferedWriter(OutputStream outputStream) {
 		return new BufferedWriter(new OutputStreamWriter(outputStream));
 	}
-
 }

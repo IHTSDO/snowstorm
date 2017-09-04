@@ -1,9 +1,12 @@
 package org.ihtsdo.elasticsnomed.core.util;
 
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.GregorianCalendar;
 
 public class DateUtil {
+
+	public static final SimpleDateFormat DATE_STAMP_FORMAT = new SimpleDateFormat("yyyyMMdd");
 
 	/**
 	 * @param field the calendar field.

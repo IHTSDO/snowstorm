@@ -1,18 +1,20 @@
 package org.ihtsdo.elasticsnomed.core.rf2.rf2import;
 
+import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
+
 public class ImportJob {
 
 	public enum ImportStatus {
 		WAITING_FOR_FILE, RUNNING, COMPLETED, FAILED;
 	}
 
-	private final ImportType type;
+	private final RF2Type type;
 	private final String branchPath;
 	private ImportStatus status;
 
 	private String errorMessage;
 
-	public ImportJob(ImportType type, String branchPath) {
+	public ImportJob(RF2Type type, String branchPath) {
 		this.type = type;
 		this.branchPath = branchPath;
 		status = ImportStatus.WAITING_FOR_FILE;
@@ -26,7 +28,7 @@ public class ImportJob {
 		this.errorMessage = errorMessage;
 	}
 
-	public ImportType getType() {
+	public RF2Type getType() {
 		return type;
 	}
 

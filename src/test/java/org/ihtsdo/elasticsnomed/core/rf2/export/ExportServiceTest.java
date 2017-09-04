@@ -2,8 +2,10 @@ package org.ihtsdo.elasticsnomed.core.rf2.export;
 
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
+import org.ihtsdo.elasticsnomed.core.data.domain.jobs.ExportConfiguration;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
+import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.elasticsnomed.core.util.StreamUtils;
 import org.junit.Before;
 import org.junit.Test;
@@ -78,7 +80,10 @@ public class ExportServiceTest {
 
 		// Run export
 		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
-			exportService.exportRF2Archive("MAIN", "20180131", ExportType.DELTA, outputStream);
+			ExportConfiguration exportConfiguration = new ExportConfiguration("MAIN", RF2Type.DELTA);
+			exportConfiguration.setFilenameEffectiveDate("20180131");
+			exportService.createJob(exportConfiguration);
+			exportService.exportRF2Archive(exportConfiguration, outputStream);
 		}
 
 		// Test export

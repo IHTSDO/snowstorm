@@ -2,9 +2,7 @@ package org.ihtsdo.elasticsnomed.rest;
 
 import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportJob;
 import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
-import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -48,10 +46,10 @@ public class ImportController {
 
 	public static final class ImportConfiguration {
 
-		private ImportType type;
+		private RF2Type type;
 		private String branchPath;
 
-		public void setType(ImportType type) {
+		public void setType(RF2Type type) {
 			this.type = type;
 		}
 
