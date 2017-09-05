@@ -4,6 +4,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.NotFoundException;
+import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.ihtsdo.otf.snomedboot.ReleaseImporter;
 import org.ihtsdo.otf.snomedboot.domain.ConceptConstants;
@@ -47,7 +48,7 @@ public class ImportService {
 		importJobMap = new HashMap<>();
 	}
 
-	public String createJob(ImportType type, String branchPath) {
+	public String createJob(RF2Type type, String branchPath) {
 		String id = UUID.randomUUID().toString();
 		importJobMap.put(id, new ImportJob(type, branchPath));
 		return id;
@@ -58,7 +59,7 @@ public class ImportService {
 		if (job.getStatus() != ImportJob.ImportStatus.WAITING_FOR_FILE) {
 			throw new IllegalStateException("Import Job must be in state " + ImportJob.ImportStatus.WAITING_FOR_FILE);
 		}
-		ImportType importType = job.getType();
+		RF2Type importType = job.getType();
 		String branchPath = job.getBranchPath();
 
 		try {

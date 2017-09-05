@@ -9,6 +9,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.ihtsdo.elasticsnomed.core.data.domain.ReferenceSetMember;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
+import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.After;
 import org.junit.Assert;
@@ -50,7 +51,7 @@ public class ImportServiceTest {
 		branchService.create(branchPath);
 		Assert.assertEquals(1, branchService.findAll().size());
 
-		String importId = importService.createJob(ImportType.FULL, branchPath);
+		String importId = importService.createJob(RF2Type.FULL, branchPath);
 		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
 
 		final List<Branch> branches = branchService.findAll();
@@ -120,7 +121,7 @@ public class ImportServiceTest {
 		branchService.create("MAIN");
 		final String branchPath = "MAIN/import";
 		branchService.create(branchPath);
-		String importId = importService.createJob(ImportType.SNAPSHOT, branchPath);
+		String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath);
 		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
 
 

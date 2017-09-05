@@ -99,6 +99,9 @@ public class AuthoringMirrorService {
 						} else if (line.contains("Auto merging branches ")) {
 							logger.info("Skipping 'Auto merging' commit.");
 							continue;
+						} else if (!line.contains("\"changes\"")) {
+							logger.info("Skipping commit with no 'changes'. {}", line);
+							continue;
 						} else if (line.length() > 10000 && !(line.endsWith("} ") || line.endsWith("}"))) {
 							logger.error("Can not process line {} because it's not well formed. Starting {}", lineNum, line.substring(0, 250));
 							continue;

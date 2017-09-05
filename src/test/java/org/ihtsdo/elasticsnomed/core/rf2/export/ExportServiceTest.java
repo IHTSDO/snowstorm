@@ -2,8 +2,10 @@ package org.ihtsdo.elasticsnomed.core.rf2.export;
 
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
+import org.ihtsdo.elasticsnomed.core.data.domain.jobs.ExportConfiguration;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
+import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.elasticsnomed.core.util.StreamUtils;
 import org.junit.Before;
 import org.junit.Test;
@@ -23,6 +25,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -52,6 +55,7 @@ public class ExportServiceTest {
 
 		String conceptId = "123001";
 		descriptionId = "124011";
+		// Make some junk data just to test export
 		Concept concept = new Concept(conceptId, "", true, Concepts.CORE_MODULE, Concepts.PRIMITIVE);
 		concept.addDescription(
 				new Description(descriptionId, "", true, Concepts.CORE_MODULE, conceptId, "en", Concepts.FSN, "Bleeding (finding)", Concepts.CASE_INSENSITIVE)
@@ -59,6 +63,8 @@ public class ExportServiceTest {
 								new ReferenceSetMember(null, "", true, Concepts.CORE_MODULE, Concepts.GB_EN_LANG_REFSET, descriptionId)
 										.setAdditionalField("acceptabilityId", Concepts.PREFERRED)));
 		concept.addRelationship(new Relationship("125021", "", true, Concepts.CORE_MODULE, conceptId, "100001", 0, Concepts.ISA, Concepts.STATED_RELATIONSHIP, Concepts.EXISTENTIAL));
+		concept.addRelationship(new Relationship("125022", "", true, Concepts.CORE_MODULE, conceptId, "100002", 0, Concepts.ISA, Concepts.INFERRED_RELATIONSHIP, Concepts.EXISTENTIAL));
+		concept.addRelationship(new Relationship("125023", "", true, Concepts.CORE_MODULE, conceptId, "100003", 0, Concepts.ISA, Concepts.ADDITIONAL_RELATIONSHIP, Concepts.EXISTENTIAL));
 		concepts.add(concept);
 		conceptService.create(concepts, "MAIN");
 
@@ -74,7 +80,10 @@ public class ExportServiceTest {
 
 		// Run export
 		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
-			exportService.exportRF2Archive("MAIN", "20180131", ExportType.DELTA, outputStream);
+			ExportConfiguration exportConfiguration = new ExportConfiguration("MAIN", RF2Type.DELTA);
+			exportConfiguration.setFilenameEffectiveDate("20180131");
+			exportService.createJob(exportConfiguration);
+			exportService.exportRF2Archive(exportConfiguration, outputStream);
 		}
 
 		// Test export
@@ -96,12 +105,21 @@ public class ExportServiceTest {
 			assertEquals("124011\t\t1\t900000000000207008\t123001\ten\t900000000000003001\tBleeding (finding)\t900000000000448009", lines.get(1));
 
 			// Stated Relationships
-			ZipEntry relationships = zipInputStream.getNextEntry();
-			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_StatedRelationship_Delta_20180131.txt", relationships.getName());
+			ZipEntry statedRelationships = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_StatedRelationship_Delta_20180131.txt", statedRelationships.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
 			assertEquals(RelationshipExportWriter.HEADER, lines.get(0));
 			assertEquals("125021\t\t1\t900000000000207008\t123001\t100001\t0\t116680003\t900000000000010007\t900000000000451002", lines.get(1));
+
+			// Inferred Relationships
+			ZipEntry relationships = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Relationship_Delta_20180131.txt", relationships.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(3, lines.size());
+			assertEquals(RelationshipExportWriter.HEADER, lines.get(0));
+			assertTrue(lines.contains("125022\t\t1\t900000000000207008\t123001\t100002\t0\t116680003\t900000000000011006\t900000000000451002"));
+			assertTrue(lines.contains("125023\t\t1\t900000000000207008\t123001\t100003\t0\t116680003\t900000000000227009\t900000000000451002"));
 
 			// Language Refset
 			ZipEntry langRefset = zipInputStream.getNextEntry();
