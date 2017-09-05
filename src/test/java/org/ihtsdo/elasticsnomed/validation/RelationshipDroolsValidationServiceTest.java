@@ -2,11 +2,13 @@ package org.ihtsdo.elasticsnomed.validation;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
+import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -36,7 +38,7 @@ public class RelationshipDroolsValidationServiceTest {
 	private RelationshipDroolsValidationService service;
 
 	@Before
-	public void setup() {
+	public void setup() throws ServiceException {
 		String branchPath = "MAIN";
 		branchService.create(branchPath);
 		conceptService.create(new Concept("1").addRelationship(

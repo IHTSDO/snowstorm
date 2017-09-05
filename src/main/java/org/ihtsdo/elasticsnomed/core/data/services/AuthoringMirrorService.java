@@ -38,7 +38,7 @@ public class AuthoringMirrorService {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
-	public void receiveActivity(TraceabilityActivity activity) {
+	public void receiveActivity(TraceabilityActivity activity) throws ServiceException {
 		String branchPath = activity.getBranchPath();
 		String commitComment = activity.getCommitComment();
 		Matcher matcher = BRANCH_MERGE_COMMIT_COMMENT_PATTERN.matcher(commitComment);
@@ -84,7 +84,7 @@ public class AuthoringMirrorService {
 		}
 	}
 
-	public void receiveActivityFile(InputStream inputStream) throws IOException {
+	public void receiveActivityFile(InputStream inputStream) throws IOException, ServiceException {
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
 			String line;
 			long lineNum = 0;
@@ -133,7 +133,7 @@ public class AuthoringMirrorService {
 	}
 
 	// Local testing method
-	public void replayDirectoryOfFiles(String path) throws IOException {
+	public void replayDirectoryOfFiles(String path) throws IOException, ServiceException {
 		File dir = new File(path);
 		for (File file : dir.listFiles()) {
 			System.out.println("Replay file " + file.getName());

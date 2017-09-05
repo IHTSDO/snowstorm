@@ -3,12 +3,15 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 import com.github.vanroy.springdata.jest.JestElasticsearchTemplate;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierService;
 import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -124,7 +127,7 @@ public class DescriptionService extends ComponentService {
 								descriptionIdMap.get(referencedComponentId).setInactivationIndicatorMember(member);
 								break;
 							default:
-								if (IDService.isConceptId(referencedComponentId)) {
+								if (IdentifierService.isConceptId(referencedComponentId)) {
 									Concept concept = conceptIdMap.get(referencedComponentId);
 									if (concept != null) {
 										concept.addAssociationTargetMember(member);
@@ -132,7 +135,7 @@ public class DescriptionService extends ComponentService {
 										logger.warn("Association ReferenceSetMember {} references concept {} " +
 												"which is not in scope.", member.getId(), referencedComponentId);
 									}
-								} else if (IDService.isDescriptionId(referencedComponentId)) {
+								} else if (IdentifierService.isDescriptionId(referencedComponentId)) {
 									Description description = descriptionIdMap.get(referencedComponentId);
 									if (description != null) {
 										description.addAssociationTargetMember(member);
@@ -189,7 +192,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	protected static BoolQueryBuilder addTermClauses(String term, BoolQueryBuilder boolBuilder) {
-		if (IDService.isConceptId(term)) {
+		if (IdentifierService.isConceptId(term)) {
 			boolBuilder.must(termQuery("conceptId", term));
 		} else {
 			if (!Strings.isNullOrEmpty(term)) {

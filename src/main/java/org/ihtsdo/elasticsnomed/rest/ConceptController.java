@@ -1,7 +1,9 @@
 package org.ihtsdo.elasticsnomed.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
+
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
 import org.ihtsdo.elasticsnomed.core.data.domain.ConceptView;
@@ -11,12 +13,14 @@ import org.ihtsdo.elasticsnomed.rest.pojo.InboundRelationshipsResult;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
 import org.ihtsdo.elasticsnomed.core.data.services.RelationshipService;
+import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -78,7 +82,7 @@ public class ConceptController {
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.PUT)
 	@JsonView(value = View.Component.class)
-	public ConceptView updateConcept(@PathVariable String branch, @PathVariable String conceptId, @RequestBody @Valid ConceptView concept) {
+	public ConceptView updateConcept(@PathVariable String branch, @PathVariable String conceptId, @RequestBody @Valid ConceptView concept) throws ServiceException {
 		Assert.isTrue(concept.getConceptId() != null && conceptId != null && concept.getConceptId().equals(conceptId), "The conceptId in the " +
 				"path must match the one in the request body.");
 		return conceptService.update((Concept) concept, BranchPathUriUtil.parseBranchPath(branch));
@@ -87,7 +91,7 @@ public class ConceptController {
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.POST)
 	@JsonView(value = View.Component.class)
-	public ConceptView createConcept(@PathVariable String branch, @RequestBody @Valid ConceptView concept) {
+	public ConceptView createConcept(@PathVariable String branch, @RequestBody @Valid ConceptView concept) throws ServiceException {
 		return conceptService.create((Concept) concept, BranchPathUriUtil.parseBranchPath(branch));
 	}
 
@@ -99,7 +103,7 @@ public class ConceptController {
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/bulk", method = RequestMethod.POST)
 	@JsonView(value = View.Component.class)
-	public Iterable<Concept> updateConcepts(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts) {
+	public Iterable<Concept> updateConcepts(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts) throws ServiceException {
 		List<Concept> conceptList = new ArrayList<>();
 		concepts.forEach(conceptView -> conceptList.add((Concept) conceptView));
 		return conceptService.createUpdate(conceptList, BranchPathUriUtil.parseBranchPath(branch));

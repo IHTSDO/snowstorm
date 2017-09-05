@@ -41,7 +41,7 @@ public class DescriptionServiceTest {
 	}
 
 	@Test
-	public void testDescriptionSearch() {
+	public void testDescriptionSearch() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
 		testUtil.createConceptWithPathIdAndTerms("MAIN", "2", "Lung");
 		testUtil.createConceptWithPathIdAndTerms("MAIN", "6", "Foot cramps");

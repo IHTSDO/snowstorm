@@ -1,14 +1,19 @@
 package org.ihtsdo.elasticsnomed;
 
 import io.kaicode.elasticvc.domain.Branch;
+
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
+import org.ihtsdo.elasticsnomed.core.data.services.cis.CISClient;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 
 import javax.annotation.PostConstruct;
+
 import java.net.UnknownHostException;
 
 @PropertySource("application-test.properties")
@@ -18,6 +23,11 @@ public class TestConfig extends Config {
 	private ElasticsearchOperations elasticsearchTemplate;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
+	
+	@Bean 
+	public IdentifierStorage getIdentityStorage() {
+		return new DummyIdentifierStorage();
+	}
 
 	@PostConstruct
 	public void cleanUp() throws UnknownHostException {

@@ -6,12 +6,14 @@ import org.ihtsdo.elasticsnomed.core.data.domain.review.BranchReviewConceptChang
 import org.ihtsdo.elasticsnomed.core.data.domain.review.MergeReview;
 import org.ihtsdo.elasticsnomed.core.data.domain.review.MergeReviewConceptVersions;
 import org.ihtsdo.elasticsnomed.core.data.services.BranchReviewService;
+import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.ihtsdo.elasticsnomed.rest.pojo.CreateReviewRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+
 import java.util.Collection;
 
 @RestController
@@ -70,7 +72,7 @@ public class BranchReviewController {
 	}
 
 	@RequestMapping(value = "/merge-reviews/{id}/apply", method = RequestMethod.POST)
-	public void applyMergeReview(@RequestParam String id) {
+	public void applyMergeReview(@RequestParam String id) throws ServiceException {
 		reviewService.applyMergeReview(id);
 	}
 

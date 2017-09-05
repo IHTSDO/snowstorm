@@ -3,6 +3,7 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.api.ComponentService;
@@ -14,6 +15,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongSet;
+
 import org.apache.log4j.Level;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -23,6 +25,8 @@ import org.ihtsdo.elasticsnomed.core.data.repositories.ConceptRepository;
 import org.ihtsdo.elasticsnomed.core.data.repositories.DescriptionRepository;
 import org.ihtsdo.elasticsnomed.core.data.repositories.ReferenceSetMemberRepository;
 import org.ihtsdo.elasticsnomed.core.data.repositories.RelationshipRepository;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierReservedBlock;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierService;
 import org.ihtsdo.elasticsnomed.core.util.MapUtil;
 import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
 import org.slf4j.Logger;
@@ -41,6 +45,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
+
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
@@ -75,6 +80,9 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
+	
+	@Autowired
+	private IdentifierService identifierService;
 
 	@Autowired
 	private QueryService queryService;
@@ -371,7 +379,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		}
 	}
 
-	public Concept create(Concept conceptVersion, String path) {
+	public Concept create(Concept conceptVersion, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		if (conceptVersion.getConceptId() != null && exists(conceptVersion.getConceptId(), path)) {
 			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
@@ -379,7 +387,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		return doSave(conceptVersion, branch);
 	}
 
-	public Iterable<Concept> create(List<Concept> concepts, String path) {
+	public Iterable<Concept> create(List<Concept> concepts, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final Set<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toSet());
 		if (!conceptIds.isEmpty()) {
@@ -392,7 +400,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		return doSave(concepts, branch);
 	}
 
-	public Concept update(Concept conceptVersion, String path) {
+	public Concept update(Concept conceptVersion, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final String conceptId = conceptVersion.getConceptId();
 		Assert.isTrue(!Strings.isNullOrEmpty(conceptId), "conceptId is required.");
@@ -403,7 +411,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		return doSave(conceptVersion, branch);
 	}
 
-	public Iterable<Concept> createUpdate(List<Concept> concepts, String path) {
+	public Iterable<Concept> createUpdate(List<Concept> concepts, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		return doSave(concepts, branch);
 	}
@@ -436,11 +444,11 @@ public class ConceptService extends ComponentService implements CommitListener {
 		return anythingChanged;
 	}
 
-	private Concept doSave(Concept concept, Branch branch) {
+	private Concept doSave(Concept concept, Branch branch) throws ServiceException {
 		return doSave(Collections.singleton(concept), branch).iterator().next();
 	}
 
-	private Iterable<Concept> doSave(Collection<Concept> concepts, Branch branch) {
+	private Iterable<Concept> doSave(Collection<Concept> concepts, Branch branch) throws ServiceException {
 		try (final Commit commit = branchService.openCommit(branch.getPath())) {
 			final Iterable<Concept> savedConcepts = doSaveBatchConceptsAndComponents(concepts, commit);
 			commit.markSuccessful();
@@ -456,11 +464,11 @@ public class ConceptService extends ComponentService implements CommitListener {
 		}
 	}
 
-	public void updateWithinCommit(Collection<Concept> concepts, Commit commit) {
+	public void updateWithinCommit(Collection<Concept> concepts, Commit commit) throws ServiceException {
 		doSaveBatchConceptsAndComponents(concepts, commit);
 	}
 
-	public Iterable<Concept> doSaveBatchConceptsAndComponents(Collection<Concept> concepts, Commit commit) {
+	public Iterable<Concept> doSaveBatchConceptsAndComponents(Collection<Concept> concepts, Commit commit) throws ServiceException {
 		final boolean savingMergedConcepts = commit.isRebase();
 		final List<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toList());
 		final Map<String, Concept> existingConceptsMap = new HashMap<>();
@@ -472,6 +480,8 @@ public class ConceptService extends ComponentService implements CommitListener {
 				}
 			}
 		}
+		
+		IdentifierReservedBlock reservedIds = reserveIdentifierBlock(concepts);
 
 		List<Description> descriptionsToPersist = new ArrayList<>();
 		List<Relationship> relationshipsToPersist = new ArrayList<>();
@@ -496,7 +506,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
 			} else {
 				if (concept.getConceptId() == null) {
-					concept.setConceptId(IDService.getHackId());
+					concept.setConceptId(reservedIds.getId(ComponentType.Concept));
 				}
 				concept.setChanged(true);
 				concept.clearReleaseDetails();
@@ -520,7 +530,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 					existingMembersToMatch.putAll(existingDescription.getLangRefsetMembers());
 				} else {
 					if (description.getDescriptionId() == null) {
-						description.setDescriptionId(IDService.getHackId());
+						description.setDescriptionId(reservedIds.getId(ComponentType.Description));
 					}
 				}
 				if (!description.isActive()) {
@@ -572,7 +582,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 					.forEach(relationship -> relationship.setSourceId(concept.getConceptId()));
 			concept.getRelationships().stream()
 					.filter(relationship -> relationship.getRelationshipId() == null)
-					.forEach(relationship -> relationship.setRelationshipId(IDService.getHackId()));
+					.forEach(relationship -> relationship.setRelationshipId(reservedIds.getId(ComponentType.Relationship)));
 
 			// Detach concept's components to be persisted separately
 			descriptionsToPersist.addAll(concept.getDescriptions());
@@ -601,8 +611,38 @@ public class ConceptService extends ComponentService implements CommitListener {
 			relationship.setTarget(getConceptMini(minisToLoad, relationship.getDestinationId()));
 		}
 		populateConceptMinis(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit), minisToLoad);
+		
+		//Where we've used a new component identifier, we need to tell the cis about it
+		identifierService.registerAssignedIds(reservedIds);
 
 		return conceptsSaved;
+	}
+
+	private IdentifierReservedBlock reserveIdentifierBlock(Collection<Concept> concepts) throws ServiceException {
+		//Work out how many new concept, description and relationship sctids we're going to need, and request these
+		int conceptIds = 0, descriptionIds = 0, relationshipIds = 0;
+		
+		//TODO check the moduleId of each concept and have the reserved block store these separately
+		for (Concept c : concepts) {
+			if (c.getId() == null || c.getId().isEmpty()) {
+				conceptIds++;
+				
+				for (Description d : c.getDescriptions()) {
+					if (d.getId() == null || d.getId().isEmpty()) {
+						descriptionIds++;
+					}
+				}
+				
+				for (Relationship r : c.getRelationships()) {
+					if (r.getId() == null || r.getId().isEmpty()) {
+						relationshipIds++;
+					}
+				}
+			}
+			
+		}
+		int namespace = 0;
+		return identifierService.getReservedBlock(namespace, conceptIds, descriptionIds, relationshipIds);
 	}
 
 	private void updateAssociations(SnomedComponentWithAssociations newComponent, SnomedComponentWithAssociations existingComponent, List<ReferenceSetMember> refsetMembersToPersist) {
@@ -764,7 +804,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		LongSet descriptionIds = new LongArraySet();
 		members.stream()
 				.filter(member -> !member.isDeleted())
-				.filter(member -> IDService.isDescriptionId(member.getReferencedComponentId()))
+				.filter(member -> IdentifierService.isDescriptionId(member.getReferencedComponentId()))
 				.filter(member -> member.getConceptId() == null)
 				.forEach(member -> {
 					descriptionMembers.add(member);

@@ -2,11 +2,13 @@ package org.ihtsdo.elasticsnomed.validation;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+
 import org.ihtsdo.drools.exception.RuleExecutorException;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
+import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -35,7 +37,7 @@ public class ConceptDroolsValidationServiceTest {
 	private ConceptDroolsValidationService validationService;
 
 	@Before
-	public void setup() {
+	public void setup() throws ServiceException {
 		String branch = "MAIN";
 		branchService.create(branch);
 		conceptService.create(new Concept("1", null, true, null, Concepts.PRIMITIVE), branch);

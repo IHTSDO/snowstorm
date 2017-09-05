@@ -45,7 +45,7 @@ public class AtomicCommitTest {
 	}
 
 	@Test
-	public void testMultipleConceptCreationRollback() {
+	public void testMultipleConceptCreationRollback() throws ServiceException {
 		String branch = "MAIN/task";
 		Branch branchBefore = branchService.findLatest(branch);
 		assertEquals("Branch should be up to date before commit.", Branch.BranchState.UP_TO_DATE, branchBefore.getState());

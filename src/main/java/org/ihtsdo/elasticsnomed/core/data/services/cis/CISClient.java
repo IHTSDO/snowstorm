@@ -2,8 +2,10 @@ package org.ihtsdo.elasticsnomed.core.data.services.cis;
 
 import org.ihtsdo.elasticsnomed.core.data.services.RuntimeServiceException;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
@@ -14,41 +16,72 @@ import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import ch.qos.logback.core.subst.Token;
+
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
-public class CISClient {
+import javax.swing.text.html.HTMLDocument.HTMLReader.ParagraphAction;
+
+public class CISClient implements IdentifierStorage {
 
 	static final String SOFTWARE_NAME = "Elastic Snomed";
 	private static final int SECONDS_TIMEOUT = 20;
+	
+	private static final String GENERATE = "generate";
+	private static final String RESERVE = "reserve";
+	private static final String REGISTER = "register";
 
-	private final String token;
+	@Value("${cis.token}")
+	private String token;
+	
+	@Value("${cis.api.url")
+	private String cisApiUrl;
+	
 	private final RestTemplate restTemplate;
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private ExecutorService executorService;
 
-	public CISClient(String token) {
+	public CISClient() {
 		// TODO: inject this
 		executorService = Executors.newCachedThreadPool();
 
-		this.token = token;
 		restTemplate =
 				new RestTemplateBuilder()
-						.rootUri("https://dev-cis.ihtsdotools.org/api")
+						.rootUri(cisApiUrl)
 						.additionalMessageConverters(new MappingJackson2HttpMessageConverter())
 						.errorHandler(new DefaultResponseErrorHandler())
 						.build();
 	}
+	
+	@Override	
+	public List<String> generate(int namespaceId, String partitionId, int quantity) throws ServiceException {
+		CISGenerateRequest request = new CISGenerateRequest(namespaceId, partitionId, quantity);
+		return callCIS(GENERATE, request);
+	}
+	
+	@Override	
+	public List<String> reserve(int namespaceId, String partitionId, int quantity) throws ServiceException {
+		CISGenerateRequest request = new CISGenerateRequest(namespaceId, partitionId, quantity);
+		return callCIS(RESERVE, request);
+	}
+	
+	@Override
+	public void registerIdentifiers(int namespaceId, Collection<String> idsAssigned) throws ServiceException {
+		CISRegisterRequest request = new CISRegisterRequest(namespaceId, idsAssigned);
+		callCIS(REGISTER, request);
+	}
 
-	private List<String> generate(int namespace, String partitionId, int quantity) throws ServiceException {
+	private List<String> callCIS(String operation, Object request) throws ServiceException {
 		try {
 			// Request IDs
-			CISGenerateRequest request = new CISGenerateRequest(namespace, partitionId, quantity);
-			CISBulkRequestResponse responseBody = restTemplate.postForObject("/sct/bulk/generate?token={token}", request, CISBulkRequestResponse.class, token);
+			
+			CISBulkRequestResponse responseBody = restTemplate.postForObject("/sct/bulk/{operation}?token={token}", request, CISBulkRequestResponse.class, operation, token);
 			String bulkJobId = responseBody.getId();
 
 			// Wait for CIS bulk job to complete
@@ -63,14 +96,15 @@ public class CISClient {
 			} while (!jobStatusResponse.getStatus().equals("2"));
 
 			// Fetch IDs
-			ResponseEntity<List<CISRecordsResponse>> recordsResponse = restTemplate.exchange("/bulk/jobs/{jobId}/records?token={token}", HttpMethod.GET, null, new ParameterizedTypeReference<List<CISRecordsResponse>>() {}, bulkJobId, token);
+			ResponseEntity<List<CISRecord>> recordsResponse = restTemplate.exchange("/bulk/jobs/{jobId}/records?token={token}", HttpMethod.GET, null, new ParameterizedTypeReference<List<CISRecord>>() {}, bulkJobId, token);
 			checkStatusCode(recordsResponse.getStatusCode());
-			List<CISRecordsResponse> records = recordsResponse.getBody();
-			return records.stream().map(CISRecordsResponse::getSctid).collect(Collectors.toList());
+			List<CISRecord> records = recordsResponse.getBody();
+			return records.stream().map(CISRecord::getSctid).collect(Collectors.toList());
 		} catch (InterruptedException | RestClientException e) {
 			throw new ServiceException("Failed to generate identifiers.", e);
 		}
 	}
+	
 
 	private void checkStatusCode(HttpStatus statusCode) throws ServiceException {
 		if (!statusCode.is2xxSuccessful()) {
@@ -85,7 +119,9 @@ public class CISClient {
 	}
 
 	public static void main(String[] args) throws ServiceException {
-		List<String> ids = new CISClient("YOUR_DEV_TOKEN").generate(0, "01", 20);
+		CISClient client = new CISClient();
+		client.token = "YOUR_DEV_TOKEN";
+		List<String> ids = client.generate(0, "01", 20);
 		System.out.println(ids);
 	}
 

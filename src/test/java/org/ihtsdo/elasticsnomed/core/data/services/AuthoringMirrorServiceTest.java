@@ -44,28 +44,28 @@ public class AuthoringMirrorServiceTest {
 	private TestUtil testUtil;
 
 	@Test
-	public void testInactivateFSNWithoutReasonCreateTwoNewDescriptions() throws IOException {
+	public void testInactivateFSNWithoutReasonCreateTwoNewDescriptions() throws IOException, ServiceException {
 		String testPath = "/traceability-mirror/new-and-updated-descriptions/";
 		String branchPath = "MAIN/CONREQEXT/CONREQEXT-442";
 		runTest(testPath, branchPath, 1);
 	}
 
 	@Test
-	public void testConceptInactivation() throws IOException {
+	public void testConceptInactivation() throws IOException, ServiceException {
 		String testPath = "/traceability-mirror/concept-inactivation/";
 		String branchPath = "MAIN/TESTINT1/TESTINT1-11";
 		runTest(testPath, branchPath, 1);
 	}
 
 	@Test
-	public void testDescriptionInactivation() throws IOException {
+	public void testDescriptionInactivation() throws IOException, ServiceException {
 		String testPath = "/traceability-mirror/description-inactivation/";
 		String branchPath = "MAIN/TESTINT1/TESTINT1-11";
 		runTest(testPath, branchPath, 1);
 	}
 
 	@Test
-	public void testConceptDeletion() throws IOException {
+	public void testConceptDeletion() throws IOException, ServiceException {
 		String branch = "MAIN/TRAIN/TRAIN-80";
 		branchService.recursiveCreate(branch);
 		String conceptId = "734723005";
@@ -81,7 +81,7 @@ public class AuthoringMirrorServiceTest {
 	}
 
 	@Test
-	public void testBranchRebase() throws InterruptedException, IOException {
+	public void testBranchRebase() throws InterruptedException, IOException, ServiceException {
 		branchService.create("MAIN");
 		branchService.create("MAIN/PROJECT-A");
 		Thread.sleep(100);
@@ -99,7 +99,7 @@ public class AuthoringMirrorServiceTest {
 	}
 
 	@Test
-	public void testBranchRebaseWithTempBranchName() throws InterruptedException, IOException {
+	public void testBranchRebaseWithTempBranchName() throws InterruptedException, IOException, ServiceException {
 		branchService.recursiveCreate("MAIN/CMTTWO/CMTTWO-417");
 		Thread.sleep(100);
 		testUtil.emptyCommit("MAIN/CMTTWO");
@@ -116,7 +116,7 @@ public class AuthoringMirrorServiceTest {
 	}
 
 	@Test
-	public void testBranchPromotion() throws InterruptedException, IOException {
+	public void testBranchPromotion() throws InterruptedException, IOException, ServiceException {
 		branchService.recursiveCreate("MAIN/PROJECT-A");
 		Thread.sleep(100);
 		testUtil.emptyCommit("MAIN/PROJECT-A");
@@ -137,13 +137,13 @@ public class AuthoringMirrorServiceTest {
 		branchService.deleteAll();
 	}
 
-	private void runTest(String testPath, String branchPath, int expectedChangedConceptCount) throws IOException {
+	private void runTest(String testPath, String branchPath, int expectedChangedConceptCount) throws IOException, ServiceException {
 		setupTest(testPath, branchPath);
 		TraceabilityActivity activity = consumeActivity(testPath);
 		assertPostActivityConceptStates(testPath, branchPath, activity, expectedChangedConceptCount);
 	}
 
-	private TraceabilityActivity consumeActivity(String testPath) throws IOException {
+	private TraceabilityActivity consumeActivity(String testPath) throws IOException, ServiceException {
 		InputStream traceabilityStream = loadResource(testPath + "traceability-message.json");
 		Assert.assertNotNull(traceabilityStream);
 		String traceabilityStreamString = Streams.asString(traceabilityStream);
@@ -220,7 +220,7 @@ public class AuthoringMirrorServiceTest {
 
 	}
 
-	private void setupTest(String testPath, String branchPath) throws IOException {
+	private void setupTest(String testPath, String branchPath) throws IOException, ServiceException {
 		branchService.recursiveCreate(branchPath);
 		File testFiles = new File("src/test/resources" + testPath);
 		File[] files = testFiles.listFiles(file -> file.isFile() && file.getName().endsWith("-before.json"));

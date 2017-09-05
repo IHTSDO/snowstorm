@@ -54,7 +54,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testConceptCreationBranchingVisibility() {
+	public void testConceptCreationBranchingVisibility() throws ServiceException {
 		Assert.assertNull("Concept 1 does not exist on MAIN.", conceptService.find("1", "MAIN"));
 
 		conceptService.create(new Concept("1", "one"), "MAIN");
@@ -76,7 +76,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testDeleteDescription() {
+	public void testDeleteDescription() throws ServiceException {
 		final Concept concept = conceptService.create(
 				new Concept("1")
 						.addDescription(new Description("1", "one"))
@@ -102,7 +102,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testDeleteLangMembersDuringDescriptionDeletion() {
+	public void testDeleteLangMembersDuringDescriptionDeletion() throws ServiceException {
 		Concept concept = new Concept("123");
 		Description fsn = fsn("Is a (attribute)");
 		conceptService.create(concept
@@ -129,7 +129,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testDescriptionInactivation() {
+	public void testDescriptionInactivation() throws ServiceException {
 		Concept concept = new Concept("123");
 		Description fsn = fsn("Is a (attribute)");
 		conceptService.create(concept
@@ -190,7 +190,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testCreateDeleteRelationship() {
+	public void testCreateDeleteRelationship() throws ServiceException {
 		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), "MAIN");
 		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), "MAIN");
 
@@ -231,7 +231,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testMultipleConceptVersionsOnOneBranch() {
+	public void testMultipleConceptVersionsOnOneBranch() throws ServiceException {
 		assertEquals(0, conceptService.findAll("MAIN", ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 		conceptService.create(new Concept("1", "one"), "MAIN");
 
@@ -247,7 +247,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testUpdateExistingConceptOnNewBranch() throws InterruptedException {
+	public void testUpdateExistingConceptOnNewBranch() throws InterruptedException, ServiceException {
 		conceptService.create(new Concept("1", "one"), "MAIN");
 
 		branchService.create("MAIN/A");
@@ -259,7 +259,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testOnlyUpdateWhatChanged() throws InterruptedException {
+	public void testOnlyUpdateWhatChanged() throws InterruptedException, ServiceException {
 		final String effectiveTime = "20160731";
 
 		conceptService.create(new Concept("1", effectiveTime, true, Concepts.CORE_MODULE, Concepts.PRIMITIVE)
@@ -286,7 +286,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testFindConceptOnParentBranchUsingBaseVersion() throws InterruptedException {
+	public void testFindConceptOnParentBranchUsingBaseVersion() throws InterruptedException, ServiceException {
 		conceptService.create(new Concept("1", "one"), "MAIN");
 		conceptService.update(new Concept("1", "one1"), "MAIN");
 
@@ -307,7 +307,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testListConceptsOnGrandchildBranchWithUpdateOnChildBranch() {
+	public void testListConceptsOnGrandchildBranchWithUpdateOnChildBranch() throws ServiceException {
 		conceptService.create(new Concept("1", "orig value"), "MAIN");
 		assertEquals("orig value", conceptService.find("1", "MAIN").getModuleId());
 
@@ -342,7 +342,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testSaveConceptWithDescription() {
+	public void testSaveConceptWithDescription() throws ServiceException {
 		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
 		concept.addDescription(new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
 		conceptService.create(concept, "MAIN");
@@ -356,7 +356,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testConceptInactivation() {
+	public void testConceptInactivation() throws ServiceException {
 		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
 		concept.addDescription(new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
 		concept.addRelationship(new Relationship(ISA, "107658001"));
@@ -410,7 +410,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testSaveConceptWithDescriptionAndAcceptabilityTogether() {
+	public void testSaveConceptWithDescriptionAndAcceptabilityTogether() throws ServiceException {
 		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
 				new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
@@ -429,7 +429,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testChangeDescriptionAcceptabilityOnChildBranch() {
+	public void testChangeDescriptionAcceptabilityOnChildBranch() throws ServiceException {
 		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
 				new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
@@ -463,7 +463,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testLatestVersionMatch() {
+	public void testLatestVersionMatch() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
 
 		assertEquals(1, descriptionService.findDescriptions("MAIN", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
@@ -491,7 +491,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testRestoreEffectiveTime() {
+	public void testRestoreEffectiveTime() throws ServiceException {
 		final String effectiveTime = "20170131";
 		final String conceptId = "50960005";
 		final String originalModuleId = "900000000000207008";
@@ -568,7 +568,7 @@ public class ConceptServiceTest {
 	}
 
 	@Test
-	public void testCreateUpdate10KConcepts() {
+	public void testCreateUpdate10KConcepts() throws ServiceException {
 		branchService.create("MAIN/A");
 		conceptService.create(new Concept(SNOMEDCT_ROOT), "MAIN/A");
 

@@ -204,7 +204,7 @@ public class BranchReviewServiceTest {
 		Assert.assertArrayEquals("Concepts Deleted", conceptsDeleted, report.getDeletedConcepts().toArray());
 	}
 
-	private void createConcept(String conceptId, String path) {
+	private void createConcept(String conceptId, String path) throws ServiceException {
 		conceptService.create(
 				new Concept(conceptId)
 						.addDescription(

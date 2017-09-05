@@ -1,12 +1,14 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
 import com.google.common.collect.Iterables;
+
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Entity;
+
 import org.ihtsdo.elasticsnomed.core.data.domain.BranchMergeJob;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.JobStatus;
@@ -72,19 +74,24 @@ public class BranchMergeService {
 		executorService.submit(() -> {
 			mergeJob.setStartDate(new Date());
 			mergeJob.setStatus(JobStatus.IN_PROGRESS);
-			mergeBranchSync(source, target, null);
-			mergeJob.setStatus(JobStatus.COMPLETED);
-			mergeJob.setEndDate(new Date());
+			try {
+				mergeBranchSync(source, target, null);
+				mergeJob.setStatus(JobStatus.COMPLETED);
+				mergeJob.setEndDate(new Date());
+			} catch (Exception e) {
+				mergeJob.setStatus(JobStatus.FAILED);
+				logger.error("Failed to merge branch",e);
+			}
 		});
 
 		return mergeJob;
 	}
 
-	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts) {
+	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts) throws ServiceException {
 		mergeBranchSync(source, target, manuallyMergedConcepts, false);
 	}
 
-	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts, boolean permissive) {
+	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts, boolean permissive) throws ServiceException {
 		logger.info("Request merge {} -> {}", source, target);
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
 		final Branch targetBranch = branchService.findBranchOrThrow(target);

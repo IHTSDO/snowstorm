@@ -1,6 +1,7 @@
 package org.ihtsdo.elasticsnomed.rest;
 
 import org.ihtsdo.elasticsnomed.core.data.services.AuthoringMirrorService;
+import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -15,7 +16,7 @@ public class AuthoringMirrorController {
 	private AuthoringMirrorService authoringMirrorService;
 
 	@RequestMapping(value = "/authoring-mirror/activities", method = RequestMethod.POST)
-	public void mirrorAuthoring(@RequestParam("traceability-file") MultipartFile traceabilityFile) throws IOException {
+	public void mirrorAuthoring(@RequestParam("traceability-file") MultipartFile traceabilityFile) throws IOException, ServiceException {
 		authoringMirrorService.receiveActivityFile(traceabilityFile.getInputStream());
 	}
 

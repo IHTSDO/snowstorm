@@ -1,9 +1,9 @@
 package org.ihtsdo.elasticsnomed.core.data.services.cis;
 
 final class CISGenerateRequest {
-	  int namespace;
-	  String partitionId;
-	  int quantity;
+	int namespace;
+	String partitionId;
+	int quantity;
 
 	public CISGenerateRequest(int namespace, String partitionId, int quantity) {
 		this.namespace = namespace;

@@ -106,7 +106,7 @@ public class BranchMergeServiceTest {
 	}
 
 	@Test
-	public void testPromotionOfConceptAndDescriptions() {
+	public void testPromotionOfConceptAndDescriptions() throws ServiceException {
 		assertBranchState("MAIN", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
@@ -251,7 +251,7 @@ public class BranchMergeServiceTest {
 	}
 
 	@Test
-	public void testRebaseCapturesChangesAcrossBranchesForTransitiveClosureIncrementalUpdate() {
+	public void testRebaseCapturesChangesAcrossBranchesForTransitiveClosureIncrementalUpdate() throws ServiceException {
 		assertBranchState("MAIN", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
@@ -294,7 +294,7 @@ public class BranchMergeServiceTest {
 	}
 
 	@Test(expected = IllegalArgumentException.class)
-	public void testConflictWithoutManualMergeSupplied() {
+	public void testConflictWithoutManualMergeSupplied() throws ServiceException {
 		final String concept1 = "100";
 		final Concept concept = new Concept(concept1);
 		conceptService.create(concept, "MAIN/A/A1");
@@ -303,7 +303,7 @@ public class BranchMergeServiceTest {
 	}
 
 	@Test
-	public void testConflictConceptMergeChangesFromLeft() {
+	public void testConflictConceptMergeChangesFromLeft() throws ServiceException {
 		final String conceptId = "100";
 		final Description description = new Description("One");
 
@@ -324,7 +324,7 @@ public class BranchMergeServiceTest {
 	}
 
 	@Test
-	public void testConflictConceptMergeChangesFromRight() {
+	public void testConflictConceptMergeChangesFromRight() throws ServiceException {
 		final String conceptId = "100";
 		final Description description = new Description("One");
 
@@ -346,7 +346,7 @@ public class BranchMergeServiceTest {
 	}
 
 	@Test
-	public void testConflictConceptMergeChangesFromNowhere() {
+	public void testConflictConceptMergeChangesFromNowhere() throws ServiceException {
 		final String conceptId = "100";
 		final Description description = new Description("One");
 
@@ -367,7 +367,7 @@ public class BranchMergeServiceTest {
 	}
 
 	@Test
-	public void testConflictDescriptionsNewOnBothSides() {
+	public void testConflictDescriptionsNewOnBothSides() throws ServiceException {
 		final String conceptId = "100";
 
 		setupConflictSituation(
@@ -394,7 +394,7 @@ public class BranchMergeServiceTest {
 	}
 
 	@Test
-	public void testConflictDescriptionsNewOnBothSidesAllDeletedInManualMerge() {
+	public void testConflictDescriptionsNewOnBothSidesAllDeletedInManualMerge() throws ServiceException {
 		final String conceptId = "100";
 
 		setupConflictSituation(
@@ -430,8 +430,9 @@ public class BranchMergeServiceTest {
 	 * @param parentConcept
 	 * @param leftConcept
 	 * @param rightConcept
+	 * @throws ServiceException 
 	 */
-	private void setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept) {
+	private void setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept) throws ServiceException {
 		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A2", Branch.BranchState.UP_TO_DATE);

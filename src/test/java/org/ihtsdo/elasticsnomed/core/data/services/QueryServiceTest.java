@@ -160,7 +160,7 @@ public class QueryServiceTest {
 	}
 
 	@Test
-	public void testDestinationHierarchyBranchTCInherited() {
+	public void testDestinationHierarchyBranchTCInherited() throws ServiceException {
 		// Create two hierarchy branches of three and four concepts in length under the root
 		Concept root = new Concept(SNOMEDCT_ROOT);
 
@@ -207,7 +207,7 @@ public class QueryServiceTest {
 	}
 
 	@Test
-	public void testSearchResultOrdering() {
+	public void testSearchResultOrdering() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept pizza_2 = new Concept("2").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Pizza");

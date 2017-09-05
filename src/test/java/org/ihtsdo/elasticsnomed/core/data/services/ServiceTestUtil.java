@@ -14,7 +14,7 @@ public class ServiceTestUtil {
 		this.conceptService = conceptService;
 	}
 
-	public void createConceptWithPathIdAndTerms(String path, String conceptId, String... terms) {
+	public void createConceptWithPathIdAndTerms(String path, String conceptId, String... terms) throws ServiceException {
 		final Concept concept = new Concept(conceptId);
 		for (String term : terms) {
 			concept.addDescription(new Description(term));

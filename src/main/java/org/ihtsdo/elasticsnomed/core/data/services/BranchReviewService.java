@@ -137,7 +137,7 @@ public class BranchReviewService {
 		return conflicts.values();
 	}
 
-	public void applyMergeReview(String mergeReviewId) {
+	public void applyMergeReview(String mergeReviewId) throws ServiceException {
 		final MergeReview mergeReview = getMergeReviewOrThrow(mergeReviewId);
 		assertMergeReviewCurrent(mergeReview);
 

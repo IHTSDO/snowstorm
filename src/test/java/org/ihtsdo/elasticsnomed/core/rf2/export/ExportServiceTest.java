@@ -5,6 +5,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.domain.jobs.ExportConfiguration;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
+import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.elasticsnomed.core.util.StreamUtils;
 import org.junit.Before;
@@ -42,7 +43,7 @@ public class ExportServiceTest {
 	private String descriptionId;
 
 	@Before
-	public void setup() throws IOException {
+	public void setup() throws IOException, ServiceException {
 		referenceSetMemberService.init();
 
 		List<Concept> concepts = new ArrayList<>();
