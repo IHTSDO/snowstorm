@@ -3,7 +3,7 @@ package org.ihtsdo.elasticsnomed;
 import io.kaicode.elasticvc.domain.Branch;
 
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
-import org.ihtsdo.elasticsnomed.core.data.services.cis.CISClient;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.DummyIdentifierStorage;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,8 +24,9 @@ public class TestConfig extends Config {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	
+	@Override
 	@Bean 
-	public IdentifierStorage getIdentityStorage() {
+	public IdentifierStorage getIdentifierStorage() {
 		return new DummyIdentifierStorage();
 	}
 

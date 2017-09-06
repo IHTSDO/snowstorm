@@ -23,6 +23,8 @@ import org.ihtsdo.elasticsnomed.core.data.repositories.config.DescriptionStoreMi
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.RelationshipStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetTypesConfigurationService;
 import org.ihtsdo.elasticsnomed.core.data.services.cis.CISClient;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierCacheManager;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierService;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierStorage;
 import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
 import org.ihtsdo.elasticsnomed.rest.config.BranchMixIn;
@@ -130,9 +132,24 @@ public class Config {
 		return new ImportService();
 	}
 	
+	@Bean
+	public IdentifierService getIdentifierService() {
+		return new IdentifierService();
+	}
+	
 	@Bean 
-	public IdentifierStorage getIdentityStorage() {
-		return new CISClient();
+	public IdentifierStorage getIdentifierStorage() {
+		return new CISClient();  //Unit tests use a dummy version of this.
+	}
+	
+	@Bean 
+	public IdentifierCacheManager getIdentifierCacheManager() {
+		IdentifierCacheManager icm = new IdentifierCacheManager();
+		//TODO Read these initialization values from disk configuration
+		icm.initializeCache(0, "00", 200);  //200 concept sctids
+		icm.initializeCache(0, "01", 400);  //400 description sctids
+		icm.initializeCache(0, "02", 800);  //800 relationship sctids
+		return icm;
 	}
 
 	@Bean

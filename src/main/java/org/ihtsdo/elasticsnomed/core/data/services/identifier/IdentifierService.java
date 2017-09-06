@@ -2,10 +2,13 @@ package org.ihtsdo.elasticsnomed.core.data.services.identifier;
 
 import com.google.common.base.Strings;
 
-import java.util.LinkedList;
+import java.util.Collection;
 import java.util.regex.Pattern;
 
 import org.ihtsdo.elasticsnomed.core.data.domain.ComponentType;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
+import org.ihtsdo.elasticsnomed.core.data.domain.Description;
+import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -41,7 +44,7 @@ public class IdentifierService {
 		return null;
 	}
 
-	public IdentifierReservedBlock getReservedBlock(int namespace, int conceptIds, int descriptionIds, int relationshipIds) throws ServiceException {
+	private IdentifierReservedBlock getReservedBlock(int namespace, int conceptIds, int descriptionIds, int relationshipIds) throws ServiceException {
 		String partition_part1 = namespace == 0 ? PARTITION_PART1_INTERNATIONAL : PARTITION_PART1_EXTENSION;
 		IdentifierReservedBlock idBlock = new IdentifierReservedBlock();
 		//TODO Run these in parallel
@@ -55,7 +58,7 @@ public class IdentifierService {
 		return idBlock;
 	}
 
-	public void registerAssignedIds(IdentifierReservedBlock reservedBlock) {
+	public void registerAssignedIds(IdentifierReservedBlock reservedBlock) throws ServiceException {
 		for (ComponentType componentType : ComponentType.values()) {
 			//TODO Make this call asynchronous - no need to hold up saving a concept
 			//TODO Need a way of generating externally visible errors if this operation should fail,
@@ -64,6 +67,33 @@ public class IdentifierService {
 			//TODO If some other part of the process fails, these ids could be returned to the cache
 			identifierStorage.registerIdentifiers(0, reservedBlock.getIdsAssigned(componentType));
 		}
+	}
+
+	public IdentifierReservedBlock reserveIdentifierBlock(Collection<Concept> concepts) throws ServiceException {
+		//Work out how many new concept, description and relationship sctids we're going to need, and request these
+		int conceptIds = 0, descriptionIds = 0, relationshipIds = 0;
+		
+		//TODO check the moduleId of each concept and have the reserved block store these separately
+		for (Concept c : concepts) {
+			if (c.getId() == null || c.getId().isEmpty()) {
+				conceptIds++;
+				
+				for (Description d : c.getDescriptions()) {
+					if (d.getId() == null || d.getId().isEmpty()) {
+						descriptionIds++;
+					}
+				}
+				
+				for (Relationship r : c.getRelationships()) {
+					if (r.getId() == null || r.getId().isEmpty()) {
+						relationshipIds++;
+					}
+				}
+			}
+			
+		}
+		int namespace = 0;
+		return getReservedBlock(namespace, conceptIds, descriptionIds, relationshipIds);
 	}
 
 }

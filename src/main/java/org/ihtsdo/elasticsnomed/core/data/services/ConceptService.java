@@ -481,7 +481,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 			}
 		}
 		
-		IdentifierReservedBlock reservedIds = reserveIdentifierBlock(concepts);
+		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(concepts);
 
 		List<Description> descriptionsToPersist = new ArrayList<>();
 		List<Relationship> relationshipsToPersist = new ArrayList<>();
@@ -616,33 +616,6 @@ public class ConceptService extends ComponentService implements CommitListener {
 		identifierService.registerAssignedIds(reservedIds);
 
 		return conceptsSaved;
-	}
-
-	private IdentifierReservedBlock reserveIdentifierBlock(Collection<Concept> concepts) throws ServiceException {
-		//Work out how many new concept, description and relationship sctids we're going to need, and request these
-		int conceptIds = 0, descriptionIds = 0, relationshipIds = 0;
-		
-		//TODO check the moduleId of each concept and have the reserved block store these separately
-		for (Concept c : concepts) {
-			if (c.getId() == null || c.getId().isEmpty()) {
-				conceptIds++;
-				
-				for (Description d : c.getDescriptions()) {
-					if (d.getId() == null || d.getId().isEmpty()) {
-						descriptionIds++;
-					}
-				}
-				
-				for (Relationship r : c.getRelationships()) {
-					if (r.getId() == null || r.getId().isEmpty()) {
-						relationshipIds++;
-					}
-				}
-			}
-			
-		}
-		int namespace = 0;
-		return identifierService.getReservedBlock(namespace, conceptIds, descriptionIds, relationshipIds);
 	}
 
 	private void updateAssociations(SnomedComponentWithAssociations newComponent, SnomedComponentWithAssociations existingComponent, List<ReferenceSetMember> refsetMembersToPersist) {

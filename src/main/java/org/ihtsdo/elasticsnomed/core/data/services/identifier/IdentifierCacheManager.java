@@ -1,6 +1,7 @@
 package org.ihtsdo.elasticsnomed.core.data.services.identifier;
 
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -16,7 +17,7 @@ public class IdentifierCacheManager implements Runnable {
 	IdentifierStorage identifierStorage; 
 	
 	//Separate cache for each namespace/partition combination configured.
-	Set<IdentifierCache> identifierCaches;
+	Set<IdentifierCache> identifierCaches = new HashSet<IdentifierCache>();
 	
 	private static final Logger logger = LoggerFactory.getLogger(IdentifierCacheManager.class);
 	
@@ -36,6 +37,10 @@ public class IdentifierCacheManager implements Runnable {
 			}
 		}
 		return null;
+	}
+	
+	public void initializeCache(int namespaceId, String partitionId, int quantity) {
+		identifierCaches.add(new IdentifierCache(namespaceId, partitionId, quantity));
 	}
 	
 	public void run() {
