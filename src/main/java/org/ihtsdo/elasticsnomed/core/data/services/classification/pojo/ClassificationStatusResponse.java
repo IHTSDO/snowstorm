@@ -1,7 +1,7 @@
 package org.ihtsdo.elasticsnomed.core.data.services.classification.pojo;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import org.ihtsdo.elasticsnomed.core.data.domain.Classification;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ClassificationStatusResponse {

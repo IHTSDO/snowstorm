@@ -1,4 +1,4 @@
-package org.ihtsdo.elasticsnomed.core.data.domain;
+package org.ihtsdo.elasticsnomed.core.data.domain.classification;
 
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;

@@ -2,7 +2,7 @@ package org.ihtsdo.elasticsnomed.rest;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.ApiOperation;
-import org.ihtsdo.elasticsnomed.core.data.domain.Classification;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
 import org.ihtsdo.elasticsnomed.core.data.services.classification.ClassificationService;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.ihtsdo.elasticsnomed.rest.pojo.ClassificationUpdateRequest;
@@ -50,7 +50,7 @@ public class ClassificationController {
 		if (updateRequest.getStatus() != Classification.Status.SAVED) {
 			throw new IllegalArgumentException("The only expected status is " + Classification.Status.SAVED.toString());
 		}
-		classificationService.saveClassificationResults(BranchPathUriUtil.parseBranchPath(branch), classificationId);
+		classificationService.saveClassificationResultsToBranch(BranchPathUriUtil.parseBranchPath(branch), classificationId);
 	}
 
 }
