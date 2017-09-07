@@ -13,12 +13,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
+import org.springframework.jms.annotation.EnableJms;
+
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 
 @EnableSwagger2
+@EnableJms
 public class App extends Config implements ApplicationRunner {
 
 	@Autowired

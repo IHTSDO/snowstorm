@@ -8,7 +8,9 @@ import org.ihtsdo.elasticsnomed.core.data.services.authoringmirror.TraceabilityA
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jms.annotation.JmsListener;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
 
 import java.io.*;
@@ -37,6 +39,22 @@ public class AuthoringMirrorService {
 	private static final Pattern QUOTES_NOT_ESCAPED_PATTERN = Pattern.compile("([^\\\\,:{]\"[^,:}])");
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
+
+	@JmsListener(destination = "${authoring.mirror.traceability.queue.name}")
+	@Transactional
+	public void receiveMessage(String message) {
+		logger.debug("Message received");
+		TraceabilityActivity activity = null;
+		try {
+			activity = objectMapper.readValue(message, TraceabilityActivity.class);
+		} catch (IOException e) {
+			logger.error("Failed to parse traceablility message.",e );
+		}
+		if (activity != null) {
+			logger.info("Applying mirror authoring activity");
+			receiveActivity(activity);
+		}
+	}
 
 	public void receiveActivity(TraceabilityActivity activity) {
 		String branchPath = activity.getBranchPath();
