@@ -5,7 +5,11 @@ import io.kaicode.elasticvc.domain.Branch;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
-import org.ihtsdo.elasticsnomed.core.data.domain.Classification;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.EquivalentConcepts;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.RelationshipChange;
+import org.ihtsdo.elasticsnomed.core.data.repositories.classification.EquivalentConceptsRepository;
+import org.ihtsdo.elasticsnomed.core.data.repositories.classification.RelationshipChangeRepository;
 import org.ihtsdo.elasticsnomed.core.data.repositories.ClassificationRepository;
 import org.ihtsdo.elasticsnomed.core.data.services.BranchMetadataKeys;
 import org.ihtsdo.elasticsnomed.core.data.services.NotFoundException;
@@ -15,6 +19,7 @@ import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.elasticsnomed.core.rf2.export.ExportException;
 import org.ihtsdo.elasticsnomed.core.rf2.export.ExportService;
 import org.ihtsdo.elasticsnomed.core.util.DateUtil;
+import org.ihtsdo.otf.snomedboot.domain.rf2.RelationshipFieldIndexes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,8 +35,10 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 
 import javax.annotation.PostConstruct;
-import java.io.File;
+import java.io.*;
 import java.util.*;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
@@ -50,6 +57,12 @@ public class ClassificationService {
 
 	@Autowired
 	private ClassificationRepository classificationRepository;
+
+	@Autowired
+	private RelationshipChangeRepository relationshipChangeRepository;
+
+	@Autowired
+	private EquivalentConceptsRepository equivalentConceptsRepository;
 
 	@Autowired
 	private RemoteClassificationServiceClient serviceClient;
@@ -114,6 +127,18 @@ public class ClassificationService {
 								classification.setErrorMessage("Remote service taking too long.");
 							}
 							if (classification.getStatus() != latestStatus) {
+
+								if (latestStatus == Classification.Status.COMPLETED) {
+									try {
+										downloadRemoteResults(classification.getId());
+									} catch (IOException e) {
+										latestStatus = Classification.Status.FAILED;
+										String message = "Failed to capture remote classification results.";
+										classification.setErrorMessage(message);
+										logger.error(message, e);
+									}
+								}
+
 								classification.setStatus(latestStatus);
 								classificationRepository.save(classification);
 							}
@@ -194,7 +219,72 @@ public class ClassificationService {
 		return classification;
 	}
 
-	public void saveClassificationResults(String path, String classificationId) {
+	private void downloadRemoteResults(String classificationId) throws IOException {
+		logger.info("Downloading remote classification results for {}", classificationId);
+		try (ZipInputStream rf2ResultsZipStream = new ZipInputStream(serviceClient.downloadRf2Results(classificationId))) {
+			ZipEntry zipEntry;
+			while ((zipEntry = rf2ResultsZipStream.getNextEntry()) != null) {
+				if (zipEntry.getName().contains("sct2_Relationship_Delta")) {
+					saveRelationshipChanges(classificationId, rf2ResultsZipStream);
+				}
+				if (zipEntry.getName().contains("der2_sRefset_EquivalentConceptSimpleMapDelta")) {
+					saveEquivalentConcepts(classificationId, rf2ResultsZipStream);
+				}
+			}
+		}
+	}
+
+	private void saveRelationshipChanges(String classificationId, InputStream rf2Stream) throws IOException {
+		// Leave the stream open after use.
+		BufferedReader reader = new BufferedReader(new InputStreamReader(rf2Stream));
+
+		@SuppressWarnings("UnusedAssignment")
+		String line = reader.readLine(); // Read and discard header line
+
+		List<RelationshipChange> relationshipChanges = new ArrayList<>();
+		while ((line = reader.readLine()) != null) {
+			String[] values = line.split("\\t");
+			// Header id	effectiveTime	active	moduleId	sourceId	destinationId	relationshipGroup	typeId	characteristicTypeId	modifierId
+			relationshipChanges.add(new RelationshipChange(
+					classificationId,
+					values[RelationshipFieldIndexes.id],
+					"1".equals(values[RelationshipFieldIndexes.active]),
+					values[RelationshipFieldIndexes.sourceId],
+					values[RelationshipFieldIndexes.destinationId],
+					values[RelationshipFieldIndexes.relationshipGroup],
+					values[RelationshipFieldIndexes.typeId],
+					values[RelationshipFieldIndexes.modifierId]));
+		}
+		if (!relationshipChanges.isEmpty()) {
+			logger.info("Saving {} classification relationship changes", relationshipChanges.size());
+			relationshipChangeRepository.save(relationshipChanges);
+		}
+	}
+
+	private void saveEquivalentConcepts(String classificationId, InputStream rf2Stream) throws IOException {
+		// Leave the stream open after use.
+		BufferedReader reader = new BufferedReader(new InputStreamReader(rf2Stream));
+
+		@SuppressWarnings("UnusedAssignment")
+		String line = reader.readLine(); // Read and discard header line
+
+		Map<String, EquivalentConcepts> equivalentConceptsMap = new HashMap<>();
+		while ((line = reader.readLine()) != null) {
+			String[] values = line.split("\\t");
+			// 0	1				2		3			4			5						6
+			// id	effectiveTime	active	moduleId	refsetId	referencedComponentId	mapTarget
+			String setId = values[6];
+			String conceptIdInSet = values[5];
+			EquivalentConcepts equivalentConcepts = equivalentConceptsMap.computeIfAbsent(setId, s -> new EquivalentConcepts(classificationId));
+			equivalentConcepts.addConceptId(conceptIdInSet);
+		}
+		if (!equivalentConceptsMap.isEmpty()) {
+			logger.info("Saving {} classification equivalent concept sets", equivalentConceptsMap.size());
+			equivalentConceptsRepository.save(equivalentConceptsMap.values());
+		}
+	}
+
+	public void saveClassificationResultsToBranch(String path, String classificationId) {
 		// TODO: implement this
 	}
 

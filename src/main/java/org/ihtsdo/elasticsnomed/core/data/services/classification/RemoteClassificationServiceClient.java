@@ -1,22 +1,25 @@
 package org.ihtsdo.elasticsnomed.core.data.services.classification;
 
+import org.apache.tomcat.util.http.fileupload.util.Streams;
 import org.ihtsdo.elasticsnomed.core.data.services.classification.pojo.ClassificationStatusResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StreamUtils;
+import org.springframework.web.client.ResponseExtractor;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.File;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Collections;
 
 @Service
@@ -67,5 +70,23 @@ class RemoteClassificationServiceClient {
 
 	ClassificationStatusResponse getStatus(String classificationId) {
 		return restTemplate.getForObject("/classifications/{classificationId}", ClassificationStatusResponse.class, classificationId);
+	}
+
+	InputStream downloadRf2Results(String classificationId) throws IOException {
+		final Path tempFile = Files.createTempFile("classification-results", ".zip");
+		ResponseExtractor<Void> responseExtractor = response -> {
+			Streams.copy(response.getBody(), new FileOutputStream(tempFile.toFile()), true);
+			return null;
+		};
+		restTemplate.execute("/classifications/{classificationId}/results/rf2", HttpMethod.GET, clientHttpRequest -> {}, responseExtractor, classificationId);
+		return new FileInputStream(tempFile.toFile()) {
+			@Override
+			public void close() throws IOException {
+				super.close();
+				if (!tempFile.toFile().delete()) {
+					logger.warn("Failed to delete temp file {}", tempFile.toFile().getAbsolutePath());
+				}
+			}
+		};
 	}
 }

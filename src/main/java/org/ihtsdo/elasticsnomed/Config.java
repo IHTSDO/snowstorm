@@ -10,8 +10,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
 import io.searchbox.client.JestClient;
-
-import org.ihtsdo.elasticsnomed.core.data.domain.Classification;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;

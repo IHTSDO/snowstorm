@@ -4,7 +4,6 @@ import io.kaicode.elasticvc.api.BranchService;
 
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
-import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierService;
 import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
 import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.elasticsnomed.mrcm.MRCMService;
@@ -15,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
+import org.springframework.jms.annotation.EnableJms;
 
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
@@ -22,6 +22,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 
 @EnableSwagger2
+@EnableJms
 public class App extends Config implements ApplicationRunner {
 
 	@Autowired
@@ -57,7 +58,6 @@ public class App extends Config implements ApplicationRunner {
 		}
 	}
 
-	@SuppressWarnings("unused")
 	private void deleteAllAndImportInternationalEditionFromDisk() {
 		new Thread(() -> {
 			// Wait 10 seconds until everything settled before deleting all components

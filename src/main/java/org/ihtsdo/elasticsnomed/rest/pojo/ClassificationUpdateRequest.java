@@ -1,6 +1,6 @@
 package org.ihtsdo.elasticsnomed.rest.pojo;
 
-import org.ihtsdo.elasticsnomed.core.data.domain.Classification;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
 
 public class ClassificationUpdateRequest {
 
