@@ -8,6 +8,7 @@ import java.util.Set;
 import javax.annotation.PostConstruct;
 
 import org.ihtsdo.elasticsnomed.core.data.domain.ComponentType;
+import org.ihtsdo.elasticsnomed.core.data.services.RuntimeServiceException;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -110,7 +111,7 @@ public class IdentifierCacheManager implements Runnable {
 			logger.info("Topping up {} by {}", cache, quantityRequired);
 			List<String> newIdentifiers = identifierStorage.reserve(cache.getNamespaceId(), cache.getPartitionId(), quantityRequired);
 			cache.topUp(newIdentifiers);
-		} catch (ServiceException e) {
+		} catch (Exception e) {
 			logger.error("Failed to top-up {}",cache,e);
 		} finally {
 			cache.setTopUpInProgress(false);
@@ -118,7 +119,7 @@ public class IdentifierCacheManager implements Runnable {
 	}
 
 	//Attempt to fill reserved block from cache, or directly from store if insufficient cached ids available
-	public void populateIdBlock(IdentifierReservedBlock idBlock, int quantityRequired, int namespaceId, String partitionId) throws ServiceException, InterruptedException {
+	public void populateIdBlock(IdentifierReservedBlock idBlock, int quantityRequired, int namespaceId, String partitionId) throws ServiceException {
 		//Did we in fact request any at all?
 		if (quantityRequired == 0) {
 			return;
@@ -153,16 +154,20 @@ public class IdentifierCacheManager implements Runnable {
 		}
 	}
 
-	private void waitForLock(IdentifierCache cache) throws ServiceException, InterruptedException {
+	private void waitForLock(IdentifierCache cache) {
 		boolean lockedSuccessfully = false;
 		int totalWaitTime = 0;
 		do {
 			lockedSuccessfully = cache.lock();
 			if (!lockedSuccessfully) {
 				if (totalWaitTime > lockWaitLimit) {
-					throw new ServiceException("Lock wait limit exceeded on identifier cache " + cache);
+					throw new RuntimeServiceException("Lock wait limit exceeded on identifier cache " + cache);
 				}
-				Thread.sleep(lockRetry);
+				try {
+					Thread.sleep(lockRetry);
+				} catch (InterruptedException e) {
+					throw new RuntimeServiceException("Lock wait interrupted",e);
+				}
 				totalWaitTime += lockRetry;
 			}
 		} while (!lockedSuccessfully);

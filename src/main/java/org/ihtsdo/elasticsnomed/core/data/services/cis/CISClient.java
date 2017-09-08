@@ -12,11 +12,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
-import org.springframework.web.client.DefaultResponseErrorHandler;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-
-import ch.qos.logback.core.subst.Token;
 
 import java.util.Calendar;
 import java.util.Collection;
@@ -27,7 +24,6 @@ import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
-import javax.swing.text.html.HTMLDocument.HTMLReader.ParagraphAction;
 
 public class CISClient implements IdentifierStorage {
 
@@ -103,11 +99,10 @@ public class CISClient implements IdentifierStorage {
 			throw new ServiceException("Failed to generate identifiers. BulkJob was: " +  bulkJobId , e);
 		}
 	}
-	
 
-	private void checkStatusCode(HttpStatus statusCode) throws ServiceException {
+	private void checkStatusCode(HttpStatus statusCode) throws RestClientException {
 		if (!statusCode.is2xxSuccessful()) {
-			throw new ServiceException("Failed to generate identifiers." + statusCode.getReasonPhrase());
+			throw new RestClientException("Failed to generate identifiers." + statusCode.getReasonPhrase());
 		}
 	}
 
