@@ -484,8 +484,9 @@ public class QueryService extends ComponentService {
 		}
 	}
 
-	private void removeQConceptChangesOnBranch(Commit commit, Branch branch, String fatPath) {
+	private void removeQConceptChangesOnBranch(Commit commit) {
 		// End versions on branch
+		Branch branch = commit.getBranch();
 		QueryBuilder branchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch.getPath());
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(branchCriteria)
