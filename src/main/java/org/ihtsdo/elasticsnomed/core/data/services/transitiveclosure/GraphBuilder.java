@@ -12,7 +12,7 @@ public class GraphBuilder {
 	private static final Logger LOGGER = LoggerFactory.getLogger(GraphBuilder.class);
 
 	public Node addParent(Long sourceId, Long destinationId) {
-		LOGGER.info("{} -> {}", sourceId, destinationId);
+		LOGGER.debug("{} -> {}", sourceId, destinationId);
 		Node createNode = getCreateNode(sourceId);
 		createNode.addParent(getCreateNode(destinationId));
 		return createNode;
@@ -36,7 +36,7 @@ public class GraphBuilder {
 	}
 
 	public Node removeParent(Long sourceId, Long destinationId) {
-		LOGGER.info("{} X> {}", sourceId, destinationId);
+		LOGGER.debug("{} X> {}", sourceId, destinationId);
 		final Node node = nodeLookup.get(sourceId);
 		if (node != null) {
 			node.removeParent(destinationId);
