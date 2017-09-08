@@ -48,6 +48,9 @@ public class BranchMergeService {
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
 
+	@Autowired
+	private ComponentTypeRegistry componentTypeRegistry;
+
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
 	private static final String USE_BRANCH_REVIEW = "The target branch is diverged, please use the branch review endpoint instead.";
 	private static final Logger logger = LoggerFactory.getLogger(BranchMergeService.class);
@@ -125,7 +128,7 @@ public class BranchMergeService {
 			logger.info("Performing promotion {} -> {}", source, target);
 			try (Commit commit = branchService.openPromotionCommit(targetBranch.getPath(), source)) {
 				final Set<String> versionsReplaced = sourceBranch.getVersionsReplaced();
-				final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = conceptService.getComponentTypeRepoMap();
+				final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = componentTypeRegistry.getComponentTypeRepositoryMap();
 				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
 				commit.markSuccessful();
 			}
@@ -135,14 +138,14 @@ public class BranchMergeService {
 	private <T extends SnomedComponent> void promoteEntities(String source, Commit commit, Class<T> entityClass,
 			ElasticsearchCrudRepository<T, String> entityRepository, Set<String> versionsReplaced) {
 
-		final String targetFlatPath = commit.getBranch().getFlatPath();
+		final String targetPath = commit.getBranch().getPath();
 
 		// End entities on target which have been replaced on source branch
 		List<T> toEnd = new ArrayList<>();
 		for (List<String> versionsReplacedSegment : Iterables.partition(versionsReplaced, 1)) {
 			try (final CloseableIterator<T> entitiesToEnd = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
-							.must(termQuery("path", targetFlatPath))
+							.must(termQuery("path", targetPath))
 							.must(termsQuery("_id", versionsReplacedSegment))
 					)
 					.withPageable(ConceptService.LARGE_PAGE)

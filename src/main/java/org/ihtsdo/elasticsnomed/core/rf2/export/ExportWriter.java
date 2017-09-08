@@ -12,6 +12,7 @@ public abstract class ExportWriter<T> implements AutoCloseable {
 
 	final BufferedWriter bufferedWriter;
 	final List<T> componentBuffer;
+	int contentLinesWritten;
 
 	ExportWriter(BufferedWriter bufferedWriter) {
 		this.bufferedWriter = bufferedWriter;
@@ -22,6 +23,7 @@ public abstract class ExportWriter<T> implements AutoCloseable {
 
 	void write(T component) {
 		componentBuffer.add(component);
+		contentLinesWritten++;
 		if (componentBuffer.size() == FLUSH_SIZE) {
 			flush();
 		}
@@ -33,5 +35,9 @@ public abstract class ExportWriter<T> implements AutoCloseable {
 	public void close() throws IOException {
 		flush();
 		bufferedWriter.flush();
+	}
+
+	public int getContentLinesWritten() {
+		return contentLinesWritten;
 	}
 }

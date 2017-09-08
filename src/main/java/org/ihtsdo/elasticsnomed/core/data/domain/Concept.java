@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
-@Document(type = "concept", indexName = "snomed", shards = 8)
+@Document(type = "concept", indexName = "es-concept", shards = 8)
 @JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "inactivationIndicator", "moduleId", "definitionStatus", "definitionStatusId", "descriptions", "relationships"})
 public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
@@ -166,6 +166,11 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public void setDefinitionStatus(String definitionStatusName) {
 		definitionStatusId = Concepts.definitionStatusNames.inverse().get(definitionStatusName);
+	}
+
+	public Concept addFSN(String term) {
+		addDescription(new Description(term).setTypeId(Concepts.FSN));
+		return this;
 	}
 
 	public Concept addDescription(Description description) {

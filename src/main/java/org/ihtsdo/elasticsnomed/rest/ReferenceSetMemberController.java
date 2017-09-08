@@ -10,12 +10,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@RequestMapping(produces = "application/json")
 public class ReferenceSetMemberController {
 
 	@Autowired
 	private ReferenceSetMemberService memberService;
 
-	@RequestMapping(value = "/{branch}/members", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/{branch}/members", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
@@ -35,7 +36,7 @@ public class ReferenceSetMemberController {
 						new PageRequest(page, size)));
 	}
 
-	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.GET, produces = "application/json")
+	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMember fetchMember(@PathVariable String branch,

@@ -62,44 +62,55 @@ public class QueryService extends ComponentService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private static final long IS_A_TYPE = parseLong(Concepts.ISA);
 
-	public Collection<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath) {
+	public List<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 
 		String term = conceptQuery.getTermPrefix();
 		if (term != null && term.length() < 3) {
-			return Collections.emptySet();
+			return Collections.emptyList();
 		}
 
 		final List<Long> termConceptIds = new LongArrayList();
 		if (term != null) {
 			logger.info("Lexical search");
 			// Search for descriptions matching the term prefix
-			BoolQueryBuilder boolQueryBuilder = boolQuery();
-			NativeSearchQueryBuilder termSearchQuery = new NativeSearchQueryBuilder()
-					.withQuery(boolQueryBuilder
-							.must(branchCriteria)
-							.must(termQuery("active", true))
-							.must(termQuery("typeId", Concepts.FSN))
-					);
+			BoolQueryBuilder boolQueryBuilder = boolQuery()
+					.must(branchCriteria)
+					.must(termQuery("active", true))
+					.must(termQuery("typeId", Concepts.FSN));
 
 			DescriptionService.addTermClauses(term, boolQueryBuilder);
 
-			NativeSearchQuery query = termSearchQuery.build();
-			DescriptionService.addTermSort(query);
-
 			if (conceptQuery.hasLogicalConditions()) {
-				try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(query, Description.class)) {
-					stream.forEachRemaining(d -> termConceptIds.add(parseLong(d.getConceptId())));
-				}
+				// Page through all matches.
+				// Stream can not be used because there is no ordering.
+				Page<Description> page;
+				Integer offset = 0;
+				int pageSize = LARGE_PAGE.getPageSize();
+				do {
+					NativeSearchQuery query = new NativeSearchQueryBuilder()
+							.withQuery(boolQueryBuilder)
+							.withPageable(new PageRequest(offset, pageSize))
+							.build();
+					DescriptionService.addTermSort(query);
+
+					page = elasticsearchTemplate.queryForPage(query, Description.class);
+					termConceptIds.addAll(page.getContent().stream().map(d -> parseLong(d.getConceptId())).collect(Collectors.toList()));
+					offset += pageSize;
+				} while (!page.isLast());
 			} else {
-				termSearchQuery.withPageable(new PageRequest(0, 50));
+				NativeSearchQuery query = new NativeSearchQueryBuilder()
+						.withQuery(boolQueryBuilder)
+						.withPageable(new PageRequest(0, 50))
+						.build();
+				DescriptionService.addTermSort(query);
+
 				List<Description> descriptions = elasticsearchTemplate.queryForPage(query, Description.class).getContent();
 				descriptions.forEach(d -> termConceptIds.add(parseLong(d.getConceptId())));
 				logger.info("Gather minis");
-				return conceptService.findConceptMinis(branchCriteria, termConceptIds).values();
+				Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, termConceptIds);
+				return getConceptList(termConceptIds, conceptMiniMap);
 			}
-
-			logger.info("First term concept {}", !termConceptIds.isEmpty() ? termConceptIds.get(0) : null);
 		}
 
 		if (conceptQuery.hasLogicalConditions()) {
@@ -113,7 +124,6 @@ public class QueryService extends ComponentService {
 
 			if (term != null) {
 				List<Long> values = termConceptIds.subList(0, termConceptIds.size() >= 50 ? 50 : termConceptIds.size());
-				logger.info("logical filter size {} - {}", values.size(), values);
 				logicalSearchQuery.withFilter(boolQuery().must(termsQuery("conceptId", values)));
 			}
 
@@ -127,19 +137,16 @@ public class QueryService extends ComponentService {
 
 			if (term != null) {
 				// Recreate term score ordering
-				List<ConceptMini> minis = new ArrayList<>();
-				for (Long termConceptId : termConceptIds) {
-					ConceptMini conceptMini = conceptMiniMap.get(termConceptId.toString());
-					if (conceptMini != null) {
-						minis.add(conceptMini);
-					}
-				}
-				return minis;
+				return getConceptList(termConceptIds, conceptMiniMap);
 			}
 
-			return conceptMiniMap.values();
+			return new ArrayList<>(conceptMiniMap.values());
 		}
-		return Collections.emptySet();
+		return Collections.emptyList();
+	}
+
+	private List<ConceptMini> getConceptList(List<Long> termConceptIds, Map<String, ConceptMini> conceptMiniMap) {
+		return termConceptIds.stream().filter(id -> conceptMiniMap.keySet().contains(id.toString())).map(id -> conceptMiniMap.get(id.toString())).collect(Collectors.toList());
 	}
 
 	public CloseableIterator<QueryConcept> stream(NativeSearchQuery searchQuery) {
@@ -231,8 +238,7 @@ public class QueryService extends ComponentService {
 		if (commit.isRebase()) {
 			// Recreate query index using new parent base point + content on this branch
 			Branch branch = commit.getBranch();
-			String fatPath = branch.getFatPath();
-			removeQConceptChangesOnBranch(commit, branch, fatPath);
+			removeQConceptChangesOnBranch(commit);
 
 			Page<QueryConcept> page = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder().withQuery(versionControlHelper.getChangesOnBranchCriteria(branch)).build(), QueryConcept.class);
 			System.out.println("total QueryConcept on path = " + page.getTotalElements());
@@ -273,7 +279,7 @@ public class QueryService extends ComponentService {
 		Set<Long> existingAncestors = new HashSet<>();
 		Set<Long> existingDescendants = new HashSet<>();
 
-		String committedContentPath = commit.getBranch().getFatPath();
+		String committedContentPath = commit.getBranch().getPath();
 		if (commit.isRebase()) {
 			// When rebasing this is a view onto the new parent state
 			committedContentPath = PathUtil.getParentPath(committedContentPath);
@@ -357,9 +363,8 @@ public class QueryService extends ComponentService {
 			queryBuilder.withFilter(boolQuery().must(termsQuery("sourceId", nodesToLoad)));
 		}
 		try (final CloseableIterator<Relationship> existingInferredIsARelationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
-			existingInferredIsARelationships.forEachRemaining(relationship -> {
-				graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
-			});
+			existingInferredIsARelationships.forEachRemaining(relationship ->
+					graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId())));
 		}
 		timer.checkpoint("Build existing nodes from Relationships.");
 		logger.info("{} existing nodes loaded.", graphBuilder.getNodeCount());
@@ -481,7 +486,7 @@ public class QueryService extends ComponentService {
 
 	private void removeQConceptChangesOnBranch(Commit commit, Branch branch, String fatPath) {
 		// End versions on branch
-		QueryBuilder branchCriteria = versionControlHelper.getChangesOnBranchCriteria(fatPath);
+		QueryBuilder branchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch.getPath());
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(branchCriteria)
 				.withPageable(LARGE_PAGE);
@@ -548,19 +553,22 @@ public class QueryService extends ComponentService {
 			rootBuilder.must(logicalConditionBuilder);
 		}
 
-		public void self(Long conceptId) {
+		public ConceptQueryBuilder self(Long conceptId) {
 			logger.info("conceptId = {}", conceptId);
 			logicalConditionBuilder.should(termQuery("conceptId", conceptId));
+			return this;
 		}
 
-		public void descendant(Long conceptId) {
+		public ConceptQueryBuilder descendant(Long conceptId) {
 			logger.info("ancestors = {}", conceptId);
 			logicalConditionBuilder.should(termQuery("ancestors", conceptId));
+			return this;
 		}
 
-		public void selfOrDescendant(Long conceptId) {
+		public ConceptQueryBuilder selfOrDescendant(Long conceptId) {
 			self(conceptId);
 			descendant(conceptId);
+			return this;
 		}
 
 		/**
@@ -568,8 +576,9 @@ public class QueryService extends ComponentService {
 		 *
 		 * @param termPrefix
 		 */
-		public void termPrefix(String termPrefix) {
+		public ConceptQueryBuilder termPrefix(String termPrefix) {
 			this.termPrefix = termPrefix;
+			return this;
 		}
 
 		private BoolQueryBuilder getRootBuilder() {

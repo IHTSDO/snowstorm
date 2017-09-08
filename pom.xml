@@ -3,8 +3,8 @@
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>org.ihtsdo</groupId>
-	<artifactId>elasticsnomed</artifactId>
+	<groupId>org.snomed</groupId>
+	<artifactId>elastic-snomed</artifactId>
 	<version>0.5.0-SNAPSHOT</version>
 
 	<name>Elastic SNOMED</name>
@@ -21,19 +21,20 @@
 		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<packageName>${project.artifactId}</packageName>
 
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
 		<spring-data-jest.version>2.3.0.RELEASE</spring-data-jest.version>
 		<jest.version>2.0.4</jest.version>
-		<snomed-boot.version>1.0.4</snomed-boot.version>
-		<elasticvc.version>1.2.1</elasticvc.version>
+		<snomed-boot.version>1.3.0</snomed-boot.version>
+		<elasticvc.version>1.4.0</elasticvc.version>
 		<slf4j.version>1.7.5</slf4j.version>
 	</properties>
 
 	<dependencies>
 		<dependency>
 			<!-- For RF2 Import -->
-			<groupId>org.ihtsdo.otf</groupId>
+			<groupId>org.snomed.otf</groupId>
 			<artifactId>snomed-boot</artifactId>
 			<version>${snomed-boot.version}</version>
 			<exclusions>
@@ -161,6 +162,53 @@
 			</plugin>
 		</plugins>
 	</build>
+	<profiles>
+		<profile>
+			<id>deb</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.vafer</groupId>
+						<artifactId>jdeb</artifactId>
+						<version>1.1.1</version>
+						<executions>
+							<execution>
+								<phase>package</phase>
+								<goals>
+									<goal>jdeb</goal>
+								</goals>
+								<configuration>
+									<deb>${project.build.directory}/${packageName}-${project.version}-all.deb</deb>
+									<controlDir>${basedir}/src/deb/control</controlDir>
+									<snapshotExpand>true</snapshotExpand>
+									<snapshotEnv>BUILD_NUMBER</snapshotEnv>
+									<verbose>true</verbose>
+									<classifier>all</classifier>
+									<signPackage>false</signPackage>
+									<dataSet>
+										<data>
+											<src>${project.build.directory}/${project.build.finalName}.jar</src>
+											<dst>app.jar</dst>
+											<type>file</type>
+											<mapper>
+												<type>perm</type>
+												<prefix>/opt/${packageName}/</prefix>
+											</mapper>
+										</data>
+										<data>
+											<src>${basedir}/src/deb/supervisor.conf</src>
+											<dst>/etc/supervisor/conf.d/${packageName}.conf</dst>
+											<type>file</type>
+										</data>
+									</dataSet>
+								</configuration>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 	<repositories>
 		<repository>
 			<id>elasticvc-mvn-repo</id>
@@ -206,4 +254,16 @@
 			</snapshots>
 		</pluginRepository>
 	</pluginRepositories>
+	<distributionManagement>
+		<repository>
+			<id>ihtsdo-public-nexus</id>
+			<name>IHTSDO Public Nexus Releases</name>
+			<url>https://maven.ihtsdotools.org/content/repositories/releases/</url>
+		</repository>
+		<snapshotRepository>
+			<id>ihtsdo-public-nexus</id>
+			<name>IHTSDO Public Nexus Snapshots</name>
+			<url>https://maven.ihtsdotools.org/content/repositories/snapshots/</url>
+		</snapshotRepository>
+	</distributionManagement>
 </project>

@@ -6,16 +6,21 @@ import com.github.vanroy.springdata.jest.JestElasticsearchTemplate;
 import com.github.vanroy.springdata.jest.mapper.DefaultJestResultsMapper;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
 import io.searchbox.client.JestClient;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
+import io.kaicode.elasticvc.repositories.config.BranchStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.ConceptStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.DescriptionStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.RelationshipStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetTypesConfigurationService;
 import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
+import org.ihtsdo.elasticsnomed.rest.config.BranchMixIn;
+import org.ihtsdo.elasticsnomed.rest.config.ClassificationMixIn;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
@@ -37,6 +42,8 @@ import springfox.documentation.spring.web.plugins.Docket;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.google.common.base.Predicates.not;
 import static springfox.documentation.builders.PathSelectors.regex;
@@ -59,12 +66,18 @@ public class Config {
 	public static final PageRequest PAGE_OF_ONE = new PageRequest(0, 1);
 
 	@Bean
+	public ExecutorService taskExecutor() {
+		return Executors.newCachedThreadPool();
+	}
+
+	@Bean
 	public JestElasticsearchTemplate elasticsearchTemplate() throws UnknownHostException {
 		final ObjectMapper elasticSearchMapper = Jackson2ObjectMapperBuilder
 				.json()
 				.defaultViewInclusion(false)
 				.failOnUnknownProperties(false)
 				.serializationInclusion(JsonInclude.Include.NON_NULL)
+				.mixIn(Branch.class, BranchStoreMixIn.class)
 				.mixIn(Concept.class, ConceptStoreMixIn.class)
 				.mixIn(Description.class, DescriptionStoreMixIn.class)
 				.mixIn(Relationship.class, RelationshipStoreMixIn.class)
@@ -95,6 +108,8 @@ public class Config {
 				.defaultViewInclusion(false)
 				.failOnUnknownProperties(false)
 				.serializationInclusion(JsonInclude.Include.NON_NULL)
+				.mixIn(Branch.class, BranchMixIn.class)
+				.mixIn(Classification.class, ClassificationMixIn.class)
 				.build();
 	}
 
@@ -132,6 +147,7 @@ public class Config {
 				"/browser/(.*)/descriptions.*",
 				"/(.*)/concepts/.*",
 				"/(.*)/members.*",
+				"/(.*)/classifications.*",
 				"/mrcm/(.*)/domain-attributes",
 				"/mrcm/(.*)/attribute-values.*",
 				"/browser/(.*)/validate/concept"

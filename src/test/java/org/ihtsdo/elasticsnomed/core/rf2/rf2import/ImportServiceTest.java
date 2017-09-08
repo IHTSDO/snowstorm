@@ -9,6 +9,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.ihtsdo.elasticsnomed.core.data.domain.ReferenceSetMember;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
+import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.After;
 import org.junit.Assert;
@@ -50,28 +51,29 @@ public class ImportServiceTest {
 		branchService.create(branchPath);
 		Assert.assertEquals(1, branchService.findAll().size());
 
-		importService.importFull(getClass().getResource("/MiniCT_INT_GB_20140131").getPath(), branchPath);
+		String importId = importService.createJob(RF2Type.FULL, branchPath);
+		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
 
 		final List<Branch> branches = branchService.findAll();
 		Assert.assertEquals(26, branches.size());
 		int a = 0;
-		Assert.assertEquals("MAIN", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20020131", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20020731", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20030131", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20030731", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20040131", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20040731", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20050131", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20050731", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20060131", branches.get(a).getFatPath());
+		Assert.assertEquals("MAIN", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20020131", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20020731", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20030131", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20030731", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20040131", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20040731", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20050131", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20050731", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20060131", branches.get(a).getPath());
 
 		a = 21;
-		Assert.assertEquals("MAIN/20120131", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20120731", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20130131", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20130731", branches.get(a++).getFatPath());
-		Assert.assertEquals("MAIN/20140131", branches.get(a).getFatPath());
+		Assert.assertEquals("MAIN/20120131", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20120731", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20130131", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20130731", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/20140131", branches.get(a).getPath());
 
 		String path = "MAIN/20020131";
 		Assert.assertEquals(88, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
@@ -119,7 +121,9 @@ public class ImportServiceTest {
 		branchService.create("MAIN");
 		final String branchPath = "MAIN/import";
 		branchService.create(branchPath);
-		importService.importSnapshot(getClass().getResource("/MiniCT_INT_GB_20140131").getPath(), branchPath);
+		String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath);
+		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
+
 
 		final Concept conceptBleeding = conceptService.find("131148009", branchPath);
 		Assert.assertTrue(conceptBleeding.isReleased());

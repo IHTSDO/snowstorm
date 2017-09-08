@@ -1,0 +1,14 @@
+#!/bin/sh -e
+
+#For debugging uncomment these two lines
+set -x
+echo $*
+
+APP_NAME=[[packageName]]
+
+case $1 in
+	remove|purge)
+		supervisorctl stop $APP_NAME >/dev/null
+		supervisorctl remove $APP_NAME
+	;;
+esac

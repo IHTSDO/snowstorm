@@ -13,7 +13,7 @@ import java.util.*;
 /**
  * Represents an active concept with fields to assist logical searching.
  */
-@Document(type = "query-concept", indexName = "snomed-index", shards = 8)
+@Document(type = "query-concept", indexName = "es-index", shards = 8)
 public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	public static final String CONCEPT_ID_FORM_FIELD = "conceptIdForm";

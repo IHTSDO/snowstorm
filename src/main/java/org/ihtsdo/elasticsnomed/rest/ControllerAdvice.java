@@ -38,7 +38,7 @@ public class ControllerAdvice {
 	@ExceptionHandler({BranchNotFoundException.class, NotFoundException.class})
 	@ResponseStatus(HttpStatus.NOT_FOUND)
 	@ResponseBody
-	public Map<String,Object> handleNotFoundException(BranchNotFoundException exception) {
+	public Map<String,Object> handleNotFoundException(Exception exception) {
 		HashMap<String, Object> result = new HashMap<>();
 		result.put("error", HttpStatus.NOT_FOUND);
 		result.put("message", exception.getMessage());

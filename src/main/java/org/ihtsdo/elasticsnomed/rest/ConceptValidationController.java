@@ -13,13 +13,14 @@ import javax.validation.constraints.NotNull;
 import java.util.List;
 
 @RestController
+@RequestMapping(produces = "application/json")
 public class ConceptValidationController {
 
 	@Autowired
 	private DroolsValidationService validationService;
 
 	@ResponseBody
-	@RequestMapping(value = "/browser/{branch}/validate/concept", method = RequestMethod.POST, produces = "application/json")
+	@RequestMapping(value = "/browser/{branch}/validate/concept", method = RequestMethod.POST)
 	@ApiOperation("Validation using the Snomed-Drools project.")
 	public List<InvalidContent> validateConcept(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath,
 												@ApiParam(value="The concept to validate") @RequestBody Concept concept) {

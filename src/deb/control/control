@@ -1,0 +1,9 @@
+Package: [[packageName]]
+Version: [[version]]
+Priority: optional
+Architecture: all
+Depends: supervisor
+Maintainer: DevOps Support <devops@ihtsdo.org>
+Description: [[name]]
+Distribution: stable
+Section: web
