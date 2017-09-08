@@ -3,13 +3,10 @@ package org.ihtsdo.elasticsnomed.ecl;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.antlr.v4.runtime.tree.TerminalNode;
-import org.ihtsdo.elasticsnomed.ecl.domain.ExpressionConstraint;
-import org.ihtsdo.elasticsnomed.ecl.domain.Operator;
-import org.ihtsdo.elasticsnomed.ecl.domain.SubExpressionConstraint;
+import org.ihtsdo.elasticsnomed.ecl.domain.*;
 import org.ihtsdo.elasticsnomed.ecl.generated.parser.ECLLexer;
 import org.ihtsdo.elasticsnomed.ecl.generated.parser.ECLListener;
 import org.ihtsdo.elasticsnomed.ecl.generated.parser.ECLParser;
@@ -17,17 +14,16 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Stack;
 
 @Service
 public class ECLQueryBuilder {
 
-	public ExpressionConstraint createQuery(String ecl) throws ECLException {
+	ExpressionConstraint createQuery(String ecl) throws ECLException {
 		ANTLRInputStream inputStream = new ANTLRInputStream(ecl);
 		final ECLLexer lexer = new ECLLexer(inputStream);
 		final CommonTokenStream tokenStream = new CommonTokenStream(lexer);
 		final ECLParser parser = new ECLParser(tokenStream);
-		final List<RecognitionException> exceptions = new ArrayList<>();
+//		final List<RecognitionException> exceptions = new ArrayList<>();
 //		parser.setErrorHandler(getErrorHandler(exceptions));
 
 		ParserRuleContext tree;
@@ -46,35 +42,22 @@ public class ECLQueryBuilder {
 	private static final class ECLListenerImpl implements ECLListener {
 
 		private ExpressionConstraint rootExpressionConstraint;
-		private Stack<ExpressionConstraint> expressionConstraintStack = new Stack<>();
-		private SubExpressionConstraint currentSubExpressionConstraint;
 
 		@Override
 		public void enterExpressionconstraint(ECLParser.ExpressionconstraintContext ctx) {
-			ExpressionConstraint constraint = new ExpressionConstraint();
-			expressionConstraintStack.push(constraint);
-
-			if (rootExpressionConstraint == null) {
-				rootExpressionConstraint = constraint;
-			}
-			if (currentSubExpressionConstraint != null) {
-				currentSubExpressionConstraint.setExpressionConstraint(constraint);
-			}
 		}
 
 		@Override
 		public void exitExpressionconstraint(ECLParser.ExpressionconstraintContext ctx) {
-			expressionConstraintStack.pop();
 		}
 
 		@Override
 		public void enterRefinedexpressionconstraint(ECLParser.RefinedexpressionconstraintContext ctx) {
-			throw new UnsupportedOperationException("Refinedexpressionconstraint");
+			rootExpressionConstraint = new RefinedExpressionConstraint(build(ctx.subexpressionconstraint()), build(ctx.eclrefinement()));
 		}
 
 		@Override
 		public void exitRefinedexpressionconstraint(ECLParser.RefinedexpressionconstraintContext ctx) {
-
 		}
 
 		@Override
@@ -90,7 +73,7 @@ public class ECLQueryBuilder {
 
 		@Override
 		public void enterConjunctionexpressionconstraint(ECLParser.ConjunctionexpressionconstraintContext ctx) {
-			throw new UnsupportedOperationException("Conjunctionexpressionconstraint");
+			throw new UnsupportedOperationException("Conjunctionexpressionconstraint is not supported.");
 		}
 
 		@Override
@@ -100,7 +83,7 @@ public class ECLQueryBuilder {
 
 		@Override
 		public void enterDisjunctionexpressionconstraint(ECLParser.DisjunctionexpressionconstraintContext ctx) {
-			throw new UnsupportedOperationException("Disjunctionexpressionconstraint");
+			throw new UnsupportedOperationException("Disjunctionexpressionconstraint is not supported.");
 		}
 
 		@Override
@@ -110,7 +93,7 @@ public class ECLQueryBuilder {
 
 		@Override
 		public void enterExclusionexpressionconstraint(ECLParser.ExclusionexpressionconstraintContext ctx) {
-			throw new UnsupportedOperationException("Exclusionexpressionconstraint");
+			throw new UnsupportedOperationException("Exclusionexpressionconstraint is not supported.");
 		}
 
 		@Override
@@ -120,7 +103,7 @@ public class ECLQueryBuilder {
 
 		@Override
 		public void enterDottedexpressionconstraint(ECLParser.DottedexpressionconstraintContext ctx) {
-			throw new UnsupportedOperationException("Dottedexpressionconstraint");
+			throw new UnsupportedOperationException("Dottedexpressionconstraint is not supported.");
 		}
 
 		@Override
@@ -137,12 +120,36 @@ public class ECLQueryBuilder {
 
 		}
 
+		private SubExpressionConstraint build(ECLParser.SubexpressionconstraintContext ctx) {
+			Operator operator = ctx.constraintoperator() != null ? Operator.textLookup(ctx.constraintoperator().getText()) : null;
+
+//			boolean memberOf = ctx.memberof() != null;
+			if (ctx.memberof() != null) {
+				throw new UnsupportedOperationException("MemberOf is not supported.");
+			}
+
+			SubExpressionConstraint subExpressionConstraint = new SubExpressionConstraint(operator);
+
+			ECLParser.EclfocusconceptContext eclfocusconcept = ctx.eclfocusconcept();
+			if (eclfocusconcept.wildcard() != null) {
+				subExpressionConstraint.wildcard();
+			}
+			if (eclfocusconcept.eclconceptreference() != null) {
+				subExpressionConstraint.setConceptId(eclfocusconcept.eclconceptreference().conceptid().getText());
+			}
+
+			if (ctx.expressionconstraint() != null) {
+				throw new UnsupportedOperationException("Nested expression constraint is not supported.");
+			}
+
+			return subExpressionConstraint;
+		}
+
 		@Override
 		public void enterSubexpressionconstraint(ECLParser.SubexpressionconstraintContext ctx) {
-			Operator operator = ctx.constraintoperator() != null ? Operator.textLookup(ctx.constraintoperator().getText()) : null;
-			boolean memberOf = ctx.memberof() != null;
-			currentSubExpressionConstraint = new SubExpressionConstraint(operator, memberOf);
-			expressionConstraintStack.peek().setConceptSelector(currentSubExpressionConstraint);
+			if (rootExpressionConstraint == null) {
+				rootExpressionConstraint = build(ctx);
+			}
 		}
 
 		@Override
@@ -152,7 +159,7 @@ public class ECLQueryBuilder {
 
 		@Override
 		public void enterEclfocusconcept(ECLParser.EclfocusconceptContext ctx) {
-			if (ctx.wildcard() != null) currentSubExpressionConstraint.wildcard();
+
 		}
 
 		@Override
@@ -182,7 +189,6 @@ public class ECLQueryBuilder {
 
 		@Override
 		public void enterEclconceptreference(ECLParser.EclconceptreferenceContext ctx) {
-			currentSubExpressionConstraint.setConceptId(ctx.getText());
 		}
 
 		@Override
@@ -322,7 +328,21 @@ public class ECLQueryBuilder {
 
 		@Override
 		public void enterEclrefinement(ECLParser.EclrefinementContext ctx) {
+		}
 
+		private EclRefinement build(ECLParser.EclrefinementContext ctx) {
+			if (ctx == null) {
+				return null;
+			}
+			EclRefinement refinement = new EclRefinement();
+			refinement.setSubRefinement(build(ctx.subrefinement()));
+			if (ctx.conjunctionrefinementset() != null) {
+				throw new UnsupportedOperationException("ConjunctionRefinementSet is not supported.");
+			}
+			if (ctx.disjunctionrefinementset() != null) {
+				throw new UnsupportedOperationException("DisjunctionRefinementSet is not supported.");
+			}
+			return refinement;
 		}
 
 		@Override
@@ -333,6 +353,14 @@ public class ECLQueryBuilder {
 		@Override
 		public void enterConjunctionrefinementset(ECLParser.ConjunctionrefinementsetContext ctx) {
 
+		}
+
+		public List<SubRefinement> build(ECLParser.ConjunctionrefinementsetContext ctx) {
+			List<SubRefinement> refinements = new ArrayList<>();
+			for (ECLParser.SubrefinementContext subrefinementContext : ctx.subrefinement()) {
+				refinements.add(build(subrefinementContext));
+			}
+			return refinements;
 		}
 
 		@Override
@@ -352,7 +380,23 @@ public class ECLQueryBuilder {
 
 		@Override
 		public void enterSubrefinement(ECLParser.SubrefinementContext ctx) {
+		}
 
+		private SubRefinement build(ECLParser.SubrefinementContext ctx) {
+			SubRefinement subRefinement = new SubRefinement();
+			subRefinement.setEclAttributeSet(build(ctx.eclattributeset()));
+
+//			subRefinement.setEclAttributeGroup(build(ctx.eclattributegroup()));
+			if (ctx.eclattributegroup() != null) {
+				throw new UnsupportedOperationException("EclAttributeGroup is not supported.");
+			}
+
+//			subRefinement.setEclRefinement(build(ctx.eclrefinement()));
+			if (ctx.eclrefinement() != null) {
+				throw new UnsupportedOperationException("EclRefinement is not supported.");
+			}
+
+			return subRefinement;
 		}
 
 		@Override
@@ -363,6 +407,27 @@ public class ECLQueryBuilder {
 		@Override
 		public void enterEclattributeset(ECLParser.EclattributesetContext ctx) {
 
+		}
+
+		private EclAttributeSet build(ECLParser.EclattributesetContext ctx) {
+			if (ctx == null) return null;
+			EclAttributeSet eclAttributeSet = new EclAttributeSet();
+			eclAttributeSet.setSubAttributeSet(build(ctx.subattributeset()));
+			ECLParser.ConjunctionattributesetContext conjunctionattributeset = ctx.conjunctionattributeset();
+			if (conjunctionattributeset != null) {
+				throw new UnsupportedOperationException("ConjunctionAttributeSet is not supported.");
+//				for (ECLParser.SubattributesetContext subattributesetContext : conjunctionattributeset.subattributeset()) {
+//					eclAttributeSet.addConjunctionAttributeSet(build(subattributesetContext));
+//				}
+			}
+			ECLParser.DisjunctionattributesetContext disjunctionattributeset = ctx.disjunctionattributeset();
+			if (disjunctionattributeset != null) {
+				throw new UnsupportedOperationException("DisjunctionAttributeSet is not supported.");
+//				for (ECLParser.SubattributesetContext subattributesetContext : disjunctionattributeset.subattributeset()) {
+//					eclAttributeSet.addDisjunctionAttributeSet(build(subattributesetContext));
+//				}
+			}
+			return eclAttributeSet;
 		}
 
 		@Override
@@ -395,6 +460,19 @@ public class ECLQueryBuilder {
 
 		}
 
+		private SubAttributeSet build(ECLParser.SubattributesetContext ctx) {
+			if (ctx == null) return null;
+			SubAttributeSet subAttributeSet = new SubAttributeSet();
+			subAttributeSet.setAttribute(build(ctx.eclattribute()));
+
+//			subAttributeSet.setAttributeSet(build(ctx.eclattributeset()));
+			if (ctx.eclattributeset() != null) {
+				throw new UnsupportedOperationException("EclAttributeSet is not supported.");
+			}
+
+			return subAttributeSet;
+		}
+
 		@Override
 		public void exitSubattributeset(ECLParser.SubattributesetContext ctx) {
 
@@ -405,6 +483,10 @@ public class ECLQueryBuilder {
 
 		}
 
+		private EclAttributeSet build(ECLParser.EclattributegroupContext ctx) {
+			return null;
+		}
+
 		@Override
 		public void exitEclattributegroup(ECLParser.EclattributegroupContext ctx) {
 
@@ -413,6 +495,33 @@ public class ECLQueryBuilder {
 		@Override
 		public void enterEclattribute(ECLParser.EclattributeContext ctx) {
 
+		}
+
+		private EclAttribute build(ECLParser.EclattributeContext ctx) {
+			if (ctx == null) return null;
+			EclAttribute attribute = new EclAttribute();
+
+			// TODO cardinality
+			ECLParser.CardinalityContext cardinality = ctx.cardinality();
+			if (cardinality != null) {
+				throw new UnsupportedOperationException("Cardinality is not supported.");
+			}
+
+			// TODO reverseflag
+			ECLParser.ReverseflagContext reverseflag = ctx.reverseflag();
+			if (reverseflag != null) {
+				throw new UnsupportedOperationException("The reverse flag is not supported.");
+			}
+
+			attribute.setAttributeName(build(ctx.eclattributename().subexpressionconstraint()));
+			ECLParser.ExpressioncomparisonoperatorContext expressioncomparisonoperator = ctx.expressioncomparisonoperator();
+			if (expressioncomparisonoperator == null) {
+				throw new UnsupportedOperationException("Only the expressionComparisonOperator is supported, not the numericComparisonOperator or the stringComparisonOperator.");
+			}
+			attribute.setExpressionComparisonOperator(expressioncomparisonoperator.getText());
+			attribute.setValue(build(ctx.subexpressionconstraint()));
+
+			return attribute;
 		}
 
 		@Override
@@ -820,7 +929,7 @@ public class ECLQueryBuilder {
 
 		}
 
-		public ExpressionConstraint getRootExpressionConstraint() {
+		ExpressionConstraint getRootExpressionConstraint() {
 			return rootExpressionConstraint;
 		}
 	}

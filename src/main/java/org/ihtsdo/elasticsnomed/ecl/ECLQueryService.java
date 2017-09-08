@@ -19,7 +19,7 @@ public class ECLQueryService {
 
 	public Collection<Long> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated) throws ECLException {
 		ExpressionConstraint expressionConstraint = queryBuilder.createQuery(ecl);
-		return expressionConstraint.select(branchCriteria, queryService, path, stated);
+		return expressionConstraint.select(path, branchCriteria, stated, queryService);
 	}
 
 }

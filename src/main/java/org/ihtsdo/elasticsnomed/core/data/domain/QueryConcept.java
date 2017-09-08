@@ -1,12 +1,14 @@
 package org.ihtsdo.elasticsnomed.core.data.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-import java.util.Set;
+import java.util.*;
 
 /**
  * Represents an active concept with fields to assist logical searching.
@@ -14,10 +16,13 @@ import java.util.Set;
 @Document(type = "query-concept", indexName = "snomed-index", shards = 8)
 public class QueryConcept extends DomainEntity<QueryConcept> {
 
+	public static final String CONCEPT_ID_FORM_FIELD = "conceptIdForm";
 	public static final String CONCEPT_ID_FIELD = "conceptId";
 	public static final String PARENTS_FIELD = "parents";
 	public static final String ANCESTORS_FIELD = "ancestors";
 	public static final String STATED_FIELD = "stated";
+	public static final String ATTR_FIELD = "attr";
+	public static final String ATTR_TYPE_WILDCARD = "all";
 
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String conceptIdForm;
@@ -34,6 +39,16 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
 	private boolean stated;
 
+	@Field(type = FieldType.Object)
+	private Map<String, Set<String>> attr;
+
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	// Format:
+	// groupNo:attr=value:attr=value,value|groupNo:attr=value:attr=value,value
+	private String attrMap;
+
+	private Map<Integer, Map<String, List<String>>> groupedAttributesMap;
+
 	public QueryConcept() {
 	}
 
@@ -45,8 +60,62 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		updateConceptIdForm();
 	}
 
+	public void addAttribute(int group, Long type, Long value) {
+		if (groupedAttributesMap == null) {
+			groupedAttributesMap = new HashMap<>();
+		}
+		groupedAttributesMap.computeIfAbsent(group, (g) -> new HashMap<>())
+				.computeIfAbsent(type.toString(), (t) -> new ArrayList<>()).add(value.toString());
+	}
+
+	public void removeAttribute(int group, Long type, Long value) {
+		if (groupedAttributesMap == null) {
+			groupedAttributesMap = new HashMap<>();
+		}
+		Map<String, List<String>> groupAttributes = groupedAttributesMap.get(group);
+		if (groupAttributes != null) {
+
+			List<String> typeValues = groupAttributes.get(type.toString());
+			if (typeValues != null) {
+				typeValues.remove(value.toString());
+				if (typeValues.isEmpty()) {
+					groupAttributes.remove(type.toString());
+				}
+			}
+
+			if (groupAttributes.isEmpty()) {
+				groupedAttributesMap.remove(group);
+			}
+		}
+	}
+
+	@JsonIgnore
+	public Map<Integer, Map<String, List<String>>> getGroupedAttributesMap() {
+		return groupedAttributesMap;
+	}
+
+	public Map<String, Set<String>> getAttr() {
+		return GroupedAttributesMapSerializer.serializeFlatMap(groupedAttributesMap);
+	}
+
+	public void setAttr(Map attr) {
+		this.attr = attr;
+	}
+
+	public String getAttrMap() {
+		return GroupedAttributesMapSerializer.serializeMap(groupedAttributesMap);
+	}
+
+	public void setAttrMap(String attrMap) {
+		groupedAttributesMap = GroupedAttributesMapSerializer.deserializeMap(attrMap);
+	}
+
 	private void updateConceptIdForm() {
-		this.conceptIdForm = conceptId + (stated ? "_s" : "_i");
+		this.conceptIdForm = toConceptIdForm(conceptId, stated);
+	}
+
+	public static String toConceptIdForm(Long conceptId, boolean stated) {
+		return conceptId + (stated ? "_s" : "_i");
 	}
 
 	@Override
@@ -118,5 +187,79 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 				", end='" + getEnd() + '\'' +
 				", path='" + getPath() + '\'' +
 				'}';
+	}
+
+	private static final class GroupedAttributesMapSerializer {
+
+		private static String serializeMap(Map<Integer, Map<String, List<String>>> groupedAttributesMap) {
+			if (groupedAttributesMap == null) {
+				return "";
+			}
+			final StringBuilder builder = new StringBuilder();
+			for (Integer groupNo : groupedAttributesMap.keySet()) {
+				Map<String, List<String>> attributes = groupedAttributesMap.get(groupNo);
+				builder.append(groupNo);
+				builder.append(":");
+				for (String type : attributes.keySet()) {
+					builder.append(type);
+					builder.append("=");
+					for (String value : attributes.get(type)) {
+						builder.append(value);
+						builder.append(",");
+					}
+					deleteLastCharacter(builder);
+					builder.append(":");
+				}
+				deleteLastCharacter(builder);
+				builder.append("|");
+			}
+			deleteLastCharacter(builder);
+			return builder.toString();
+		}
+
+		private static StringBuilder deleteLastCharacter(StringBuilder builder) {
+			if (builder.length() > 0) {
+				builder.deleteCharAt(builder.length() - 1);
+			}
+			return builder;
+		}
+
+		private static Map<Integer, Map<String, List<String>>> deserializeMap(String attrMap) {
+			Map<Integer, Map<String, List<String>>> groupedAttributesMap = new HashMap<>();
+			if (attrMap.isEmpty()) {
+				return groupedAttributesMap;
+			}
+			String[] groups = attrMap.split("\\|");
+			for (String group : groups) {
+				String[] attributes = group.split(":");
+				int groupNo = Integer.parseInt(attributes[0]);
+				Map<String, List<String>> attributeMap = new HashMap<>();
+				for (int i = 1; i < attributes.length; i++) {
+					String attribute = attributes[i];
+					String[] attrParts = attribute.split("=");
+					String type = attrParts[0];
+					String[] values = attrParts[1].split(",");
+					attributeMap.put(type, Lists.newArrayList(values));
+				}
+				groupedAttributesMap.put(groupNo, attributeMap);
+			}
+			return groupedAttributesMap;
+		}
+
+		private static Map<String, Set<String>> serializeFlatMap(Map<Integer, Map<String, List<String>>> groupedAttributesMap) {
+			Map<String, Set<String>> attributesMap = new HashMap<>();
+			Set<String> allValues = new HashSet<>();
+			if (groupedAttributesMap != null) {
+				groupedAttributesMap.forEach((group, attributes) -> {
+					attributes.forEach((type, values) -> {
+						Set<String> valueList = attributesMap.computeIfAbsent(type, (t) -> new HashSet<>());
+						valueList.addAll(values);
+						allValues.addAll(values);
+					});
+				});
+			}
+			attributesMap.put(ATTR_TYPE_WILDCARD, allValues);
+			return attributesMap;
+		}
 	}
 }

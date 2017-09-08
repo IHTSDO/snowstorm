@@ -3,18 +3,10 @@ package org.ihtsdo.elasticsnomed.ecl.domain;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
 
-import java.util.Collection;
+import java.util.Set;
 
-public class ExpressionConstraint implements ConceptSelector {
+public interface ExpressionConstraint extends Refinement {
 
-	private ConceptSelector conceptSelector;
+	Set<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService);
 
-	@Override
-	public Collection<Long> select(QueryBuilder branchCriteria, QueryService queryService, String path, boolean stated) {
-		return conceptSelector.select(branchCriteria, queryService, path, stated);
-	}
-
-	public void setConceptSelector(ConceptSelector conceptSelector) {
-		this.conceptSelector = conceptSelector;
-	}
 }

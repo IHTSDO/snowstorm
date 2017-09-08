@@ -1,55 +1,33 @@
 package org.ihtsdo.elasticsnomed.ecl.domain;
 
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.core.data.domain.QueryConcept;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 
-import java.util.Collection;
-import java.util.List;
+import java.util.Set;
 
-import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
-public class SubExpressionConstraint implements ConceptSelector {
+public class SubExpressionConstraint implements ExpressionConstraint {
 
 	private final Operator operator;
-	private final boolean memberOf;
 
 	private String conceptId;
 	private boolean wildcard;
 
-	private ExpressionConstraint expressionConstraint;
-
-	public SubExpressionConstraint(Operator operator, boolean memberOf) {
+	public SubExpressionConstraint(Operator operator) {
 		this.operator = operator;
-		this.memberOf = memberOf;
 	}
 
 	@Override
-	public Collection<Long> select(QueryBuilder branchCriteria, QueryService queryService, String path, boolean stated) {
-
-		if (wildcard) return null;
-
-//		TODO: Deal with sub expression
-//		Collection<Long> conceptIds;
-//		if (expressionConstraint != null) {
-//			conceptIds = expressionConstraint.select(branchCriteria, queryService, path);
-//		}
-
-		BoolQueryBuilder query = boolQuery()
-				.must(branchCriteria)
-				.must(termQuery(QueryConcept.STATED_FIELD, stated));
-
+	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
 		if (conceptId != null) {
 			if (operator != null) {
 				switch (operator) {
 					case childof:
 						query.must(termQuery(QueryConcept.PARENTS_FIELD, conceptId));
+						break;
 					case descendantorselfof:
 						// <<
 						query.must(
@@ -63,7 +41,9 @@ public class SubExpressionConstraint implements ConceptSelector {
 						query.must(termQuery(QueryConcept.ANCESTORS_FIELD, conceptId));
 						break;
 					case parentof:
-						return queryService.retrieveParents(branchCriteria, path, stated, conceptId);
+						Set<Long> parents = queryService.retrieveParents(branchCriteria, path, stated, conceptId);
+						query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, parents));
+						break;
 					case ancestororselfof:
 						query.must(
 								boolQuery()
@@ -80,21 +60,23 @@ public class SubExpressionConstraint implements ConceptSelector {
 				query.must(termQuery(QueryConcept.CONCEPT_ID_FIELD, conceptId));
 			}
 		}
+	}
 
-		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-				.withQuery(query)
-				.withPageable(LARGE_PAGE)
-				.build();
-
-		List<Long> ids = new LongArrayList();
-		try (CloseableIterator<QueryConcept> stream = queryService.stream(searchQuery)) {
-			stream.forEachRemaining(c -> ids.add(c.getConceptId()));
-		}
-		return ids;
+	@Override
+	public Set<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
+		if (wildcard) return null;
+		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
+		addCriteria(query, path, branchCriteria, stated, queryService);
+		// TODO: Avoid this fetch in the case that we selecting a single known concept
+		return ConceptSelectorHelper.fetch(query, queryService);
 	}
 
 	public void wildcard() {
 		this.wildcard = true;
+	}
+
+	public boolean isWildcard() {
+		return wildcard;
 	}
 
 	public void setConceptId(String conceptId) {
@@ -103,10 +85,6 @@ public class SubExpressionConstraint implements ConceptSelector {
 
 	public String getConceptId() {
 		return conceptId;
-	}
-
-	public void setExpressionConstraint(ExpressionConstraint expressionConstraint) {
-		this.expressionConstraint = expressionConstraint;
 	}
 
 }

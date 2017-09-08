@@ -5,6 +5,8 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
+
 public class GraphBuilder {
 
 	private Long2ObjectMap<Node> nodeLookup = new Long2ObjectOpenHashMap<>();
@@ -27,7 +29,7 @@ public class GraphBuilder {
 		return node;
 	}
 
-	public Iterable<Node> getNodes() {
+	public Collection<Node> getNodes() {
 		return nodeLookup.values();
 	}
 

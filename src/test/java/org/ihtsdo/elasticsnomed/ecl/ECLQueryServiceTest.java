@@ -7,6 +7,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
+import org.ihtsdo.elasticsnomed.core.data.domain.QueryConcept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.junit.After;
@@ -14,12 +15,18 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
+import static org.elasticsearch.index.query.QueryBuilders.existsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.ihtsdo.elasticsnomed.core.data.domain.Concepts.CLINICAL_FINDING;
 import static org.ihtsdo.elasticsnomed.core.data.domain.Concepts.SNOMEDCT_ROOT;
 import static org.junit.Assert.*;
@@ -39,6 +46,9 @@ public class ECLQueryServiceTest {
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
+
+	@Autowired
+	private ElasticsearchOperations elasticsearchOperations;
 
 	private QueryBuilder branchCriteria;
 	private static final String MAIN = "MAIN";
@@ -60,6 +70,7 @@ public class ECLQueryServiceTest {
 				.addRelationship(new Relationship(ASSOCIATED_MORPHOLOGY, HEMORRHAGE))
 		);
 		concepts.add(new Concept(DISEASE).addRelationship(new Relationship(Concepts.ISA, CLINICAL_FINDING)));
+		concepts.add(new Concept(ASSOCIATED_MORPHOLOGY).addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)));
 
 		conceptService.create(concepts, MAIN);
 
@@ -74,11 +85,11 @@ public class ECLQueryServiceTest {
 				strings(eclQueryService.selectConceptIds(SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
 
 		assertEquals(
-				Sets.newHashSet(CLINICAL_FINDING, BLEEDING, DISEASE),
+				Sets.newHashSet(CLINICAL_FINDING, BLEEDING, DISEASE, ASSOCIATED_MORPHOLOGY),
 				strings(eclQueryService.selectConceptIds("<" + SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
 
 		assertEquals(
-				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING, BLEEDING, DISEASE),
+				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING, BLEEDING, DISEASE, ASSOCIATED_MORPHOLOGY),
 				strings(eclQueryService.selectConceptIds("<<" + SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
 
 		assertEquals(
@@ -114,7 +125,7 @@ public class ECLQueryServiceTest {
 	public void selectChildren() throws Exception {
 		boolean stated = true;
 		assertEquals(
-				Sets.newHashSet(CLINICAL_FINDING),
+				Sets.newHashSet(CLINICAL_FINDING, ASSOCIATED_MORPHOLOGY),
 				strings(eclQueryService.selectConceptIds("<!" + SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
 
 		assertEquals(
@@ -124,6 +135,32 @@ public class ECLQueryServiceTest {
 		assertEquals(
 				Sets.newHashSet(),
 				strings(eclQueryService.selectConceptIds("<!" + BLEEDING, branchCriteria, MAIN, stated)));
+	}
+
+	@Test
+	public void selectByAttributeType() throws Exception {
+
+		List<QueryConcept> queryConcepts = elasticsearchOperations.queryForList(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery().must(termQuery("attr." + ASSOCIATED_MORPHOLOGY, HEMORRHAGE))).build(), QueryConcept.class);
+
+		assertEquals(1, queryConcepts.size());
+		assertEquals(BLEEDING, queryConcepts.get(0).getConceptId().toString());
+
+		List<QueryConcept> queryConcepts2 = elasticsearchOperations.queryForList(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery().must(existsQuery("attr." + ASSOCIATED_MORPHOLOGY))).build(), QueryConcept.class);
+
+		assertEquals(1, queryConcepts2.size());
+		assertEquals(BLEEDING, queryConcepts2.get(0).getConceptId().toString());
+
+		boolean stated = true;
+		assertEquals(
+				Sets.newHashSet(),
+				strings(eclQueryService.selectConceptIds("*:" + CLINICAL_FINDING + "=*", branchCriteria, MAIN, stated)));
+
+		assertEquals(
+				Sets.newHashSet(BLEEDING),
+				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=*", branchCriteria, MAIN, stated)));
+
 	}
 
 	private Set<String> strings(Collection<Long> ids) {
