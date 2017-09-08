@@ -35,9 +35,6 @@ public class App extends Config implements ApplicationRunner {
 	
 	@Autowired
 	private MRCMService mrcmService;
-	
-	@Autowired
-	private IdentifierService identifierService;
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
