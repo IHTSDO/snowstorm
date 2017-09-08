@@ -27,7 +27,4 @@ final class CISGenerateRequest {
 		return CISClient.SOFTWARE_NAME;
 	}
 
-	public String isGenerateLegacyIds() {
-		return "false";
-	}
 }

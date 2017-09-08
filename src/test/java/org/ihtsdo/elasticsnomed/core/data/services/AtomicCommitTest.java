@@ -9,14 +9,9 @@ import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
-
-import java.util.Collections;
-import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -35,8 +30,6 @@ public class AtomicCommitTest {
 
 	@Autowired
 	private ConceptService conceptService;
-
-	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Before
 	public void setup() {

@@ -10,6 +10,7 @@ import java.util.Queue;
 import java.util.Set;
 
 import org.ihtsdo.elasticsnomed.core.data.domain.ComponentType;
+import org.ihtsdo.elasticsnomed.core.data.services.RuntimeServiceException;
 
 public class IdentifierReservedBlock {
 
@@ -26,6 +27,11 @@ public class IdentifierReservedBlock {
 
 	public String getId(ComponentType componentType) {
 		String id = idsReserved.get(componentType).poll();
+		
+		if (id == null) {
+			throw new RuntimeServiceException ("Unexpected request for identifier of type " + componentType);
+		}
+		
 		if (!alreadyRegistered.contains(componentType)) {
 			idsAssigned.get(componentType).add(id);
 		}
@@ -42,5 +48,9 @@ public class IdentifierReservedBlock {
 
 	public Collection<String> getIdsAssigned(ComponentType componentType) {
 		return idsAssigned.get(componentType);
+	}
+	
+	public int size (ComponentType componentType) {
+		return idsReserved.get(componentType).size();
 	}
 }

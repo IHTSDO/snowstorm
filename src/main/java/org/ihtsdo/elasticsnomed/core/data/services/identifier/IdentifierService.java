@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public class IdentifierService {
 	
-	public static final Pattern SCTID_PATTERN = Pattern.compile("\\d{7,18}");
+	public static final Pattern SCTID_PATTERN = Pattern.compile("\\d{6,18}");
 	
 	public static final String PARTITION_PART1_INTERNATIONAL = "0";
 	public static final String PARTITION_PART1_EXTENSION = "1";
@@ -35,6 +35,31 @@ public class IdentifierService {
 
 	public static boolean isDescriptionId(String sctid) {
 		return sctid != null && SCTID_PATTERN.matcher(sctid).matches() && PARTITION_PART2_DESCRIPTION.equals(getPartitionIdPart(sctid));
+	}
+	
+	public static boolean isRelationshipId(String sctid) {
+		return sctid != null && SCTID_PATTERN.matcher(sctid).matches() && PARTITION_PART2_RELATIONSHIP.equals(getPartitionIdPart(sctid));
+	}
+	
+	public static String isValidId(String sctid, ComponentType componentType) {
+		String errorMsg = null;
+		if (!VerhoeffCheck.validateLastChecksumDigit(sctid)) {
+			errorMsg = sctid + " does not have a valid check digit";
+		} else if (componentType != null) {
+			boolean isValid = false;
+			switch (componentType) {
+				case Concept : isValid = isConceptId(sctid);
+								break;
+				case Description : isValid = isDescriptionId(sctid);
+								break;
+				case Relationship : isValid = isRelationshipId(sctid);
+			}
+			if (!isValid) {
+				errorMsg = sctid + " is not a valid id for a " + componentType;
+			}
+		}
+		//TODO Could also add check for expected namespace
+		return errorMsg;
 	}
 
 	private static String getPartitionIdPart(String sctid) {
@@ -77,20 +102,19 @@ public class IdentifierService {
 		for (Concept c : concepts) {
 			if (c.getId() == null || c.getId().isEmpty()) {
 				conceptIds++;
+			}
 				
-				for (Description d : c.getDescriptions()) {
-					if (d.getId() == null || d.getId().isEmpty()) {
-						descriptionIds++;
-					}
-				}
-				
-				for (Relationship r : c.getRelationships()) {
-					if (r.getId() == null || r.getId().isEmpty()) {
-						relationshipIds++;
-					}
+			for (Description d : c.getDescriptions()) {
+				if (d.getId() == null || d.getId().isEmpty()) {
+					descriptionIds++;
 				}
 			}
-			
+				
+			for (Relationship r : c.getRelationships()) {
+				if (r.getId() == null || r.getId().isEmpty()) {
+					relationshipIds++;
+				}
+			}
 		}
 		int namespace = 0;
 		return getReservedBlock(namespace, conceptIds, descriptionIds, relationshipIds);

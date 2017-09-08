@@ -1,8 +1,10 @@
 package org.ihtsdo.elasticsnomed;
 
 import io.kaicode.elasticvc.api.BranchService;
+
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierService;
 import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
 import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.elasticsnomed.mrcm.MRCMService;
@@ -13,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
+
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import java.io.FileInputStream;
@@ -29,9 +32,12 @@ public class App extends Config implements ApplicationRunner {
 
 	@Autowired
 	private ImportService importService;
-
+	
 	@Autowired
 	private MRCMService mrcmService;
+	
+	@Autowired
+	private IdentifierService identifierService;
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
@@ -42,7 +48,7 @@ public class App extends Config implements ApplicationRunner {
 		System.setProperty("org.apache.tomcat.util.buf.UDecoder.ALLOW_ENCODED_SLASH", "true"); // Swagger encodes the slash in branch paths
 		SpringApplication.run(App.class, args);
 	}
-
+	
 	@Override
 	public void run(ApplicationArguments applicationArguments) throws Exception {
 		mrcmService.load();

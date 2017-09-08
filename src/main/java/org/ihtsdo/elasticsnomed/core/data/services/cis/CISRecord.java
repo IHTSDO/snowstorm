@@ -7,6 +7,8 @@ public class CISRecord {
 
 	private String sctid;
 	
+	CISRecord () {}
+	
 	CISRecord (String sctid) {
 		this.sctid = sctid;
 	}

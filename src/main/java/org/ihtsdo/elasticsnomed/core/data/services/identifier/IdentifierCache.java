@@ -61,5 +61,10 @@ public class IdentifierCache {
 	public void unlock() {
 		isLocked = false;
 	}
+	
+	@Override
+	public String toString() {
+		return "IdCache(" + namespaceId + " - " + partitionId + ")";
+	}
 
 }

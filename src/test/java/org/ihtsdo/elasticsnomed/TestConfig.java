@@ -4,6 +4,7 @@ import io.kaicode.elasticvc.domain.Branch;
 
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.DummyIdentifierStorage;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierCacheManager;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierStorage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +28,14 @@ public class TestConfig extends Config {
 	@Override
 	@Bean 
 	public IdentifierStorage getIdentifierStorage() {
+		//Uncomment this line to run integration test with real cis supplied sctids
+		//return new CISClient();
 		return new DummyIdentifierStorage();
+	}
+	
+	@Bean 
+	public IdentifierCacheManager getIdentifierCacheManager() {
+		return new IdentifierCacheManager();
 	}
 
 	@PostConstruct

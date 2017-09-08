@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.concurrent.*;
 import java.util.stream.Collectors;
 
+import javax.annotation.PostConstruct;
 import javax.swing.text.html.HTMLDocument.HTMLReader.ParagraphAction;
 
 public class CISClient implements IdentifierStorage {
@@ -40,22 +41,21 @@ public class CISClient implements IdentifierStorage {
 	@Value("${cis.token}")
 	private String token;
 	
-	@Value("${cis.api.url")
+	@Value("${cis.api.url}")
 	private String cisApiUrl;
 	
-	private final RestTemplate restTemplate;
+	private RestTemplate restTemplate;
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private ExecutorService executorService;
 
-	public CISClient() {
-		// TODO: inject this
+	@PostConstruct
+	void init() {
 		executorService = Executors.newCachedThreadPool();
-
-		restTemplate =
-				new RestTemplateBuilder()
+		//Note that error handler has been removed.  We'll check the httpStatus in programmatically to recover error messages.
+		restTemplate = new RestTemplateBuilder()
 						.rootUri(cisApiUrl)
 						.additionalMessageConverters(new MappingJackson2HttpMessageConverter())
-						.errorHandler(new DefaultResponseErrorHandler())
+						.errorHandler(new ExpressiveErrorHandler())
 						.build();
 	}
 	
@@ -78,11 +78,10 @@ public class CISClient implements IdentifierStorage {
 	}
 
 	private List<String> callCIS(String operation, Object request) throws ServiceException {
+		String bulkJobId = "unknown";
 		try {
-			// Request IDs
-			
 			CISBulkRequestResponse responseBody = restTemplate.postForObject("/sct/bulk/{operation}?token={token}", request, CISBulkRequestResponse.class, operation, token);
-			String bulkJobId = responseBody.getId();
+			bulkJobId = responseBody.getId();
 
 			// Wait for CIS bulk job to complete
 			Date timeoutDate = getTimeoutDate();
@@ -101,14 +100,14 @@ public class CISClient implements IdentifierStorage {
 			List<CISRecord> records = recordsResponse.getBody();
 			return records.stream().map(CISRecord::getSctid).collect(Collectors.toList());
 		} catch (InterruptedException | RestClientException e) {
-			throw new ServiceException("Failed to generate identifiers.", e);
+			throw new ServiceException("Failed to generate identifiers. BulkJob was: " +  bulkJobId , e);
 		}
 	}
 	
 
 	private void checkStatusCode(HttpStatus statusCode) throws ServiceException {
 		if (!statusCode.is2xxSuccessful()) {
-			throw new ServiceException("Failed to generate identifiers. " + statusCode.getReasonPhrase());
+			throw new ServiceException("Failed to generate identifiers." + statusCode.getReasonPhrase());
 		}
 	}
 
@@ -116,13 +115,6 @@ public class CISClient implements IdentifierStorage {
 		GregorianCalendar timeout = new GregorianCalendar();
 		timeout.add(Calendar.SECOND, SECONDS_TIMEOUT);
 		return timeout.getTime();
-	}
-
-	public static void main(String[] args) throws ServiceException {
-		CISClient client = new CISClient();
-		client.token = "YOUR_DEV_TOKEN";
-		List<String> ids = client.generate(0, "01", 20);
-		System.out.println(ids);
 	}
 
 }

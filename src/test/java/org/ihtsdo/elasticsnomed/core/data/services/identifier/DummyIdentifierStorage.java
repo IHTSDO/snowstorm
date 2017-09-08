@@ -13,7 +13,10 @@ public class DummyIdentifierStorage implements IdentifierStorage{
 			throws ServiceException {
 		List<String> response = new ArrayList<String>();
 		for (int x=0; x<quantity; x++) {
-			response.add(getHackId());
+			String sctidWithoutCheck = getHackId()  + partitionId;
+			char verhoeff = VerhoeffCheck.calculateChecksum(sctidWithoutCheck, 0, false);
+			String sctid = sctidWithoutCheck + verhoeff;
+			response.add(sctid);
 		}
 		return response;
 	}

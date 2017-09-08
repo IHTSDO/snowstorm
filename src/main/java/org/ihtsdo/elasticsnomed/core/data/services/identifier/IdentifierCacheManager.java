@@ -5,6 +5,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.annotation.PostConstruct;
+
 import org.ihtsdo.elasticsnomed.core.data.domain.ComponentType;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.slf4j.Logger;
@@ -23,12 +25,14 @@ public class IdentifierCacheManager implements Runnable {
 	
 	private boolean stayAlive = true;
 	
-	int pollingInterval = 1; // time between successive polls in minutes
+	private Thread cacheDaemon;
+	
+	int pollingInterval = 10; // time between successive polls in minutes
 	int lockWaitLimit = 5 * 1000; //Wait max 5 seconds to have access to cache
 	int lockRetry = 200;
 	
-	private final double topUpLevel = 0.7;    //When cache storage falls below 70%, top it back up to max capacity on next poll
-	private final double criticalLevel = 0.1; //When cache storage falls below 10%, request immediate top up
+	final static double topUpLevel = 0.7;    //When cache storage falls below 70%, top it back up to max capacity on next poll
+	final static double criticalLevel = 0.1; //When cache storage falls below 10%, request immediate top up if more than 1 id requested
 	
 	IdentifierCache getCache (int namespaceId, String partitionId) {
 		for (IdentifierCache thisCache : identifierCaches) {
@@ -41,6 +45,21 @@ public class IdentifierCacheManager implements Runnable {
 	
 	public void initializeCache(int namespaceId, String partitionId, int quantity) {
 		identifierCaches.add(new IdentifierCache(namespaceId, partitionId, quantity));
+	}
+	
+	@PostConstruct
+	public void startBackgroundTask() {
+		if (cacheDaemon != null) {
+			throw new IllegalStateException("Unable to start a second Identifier cache manager daemon");
+		}
+		cacheDaemon = new Thread(this, "CacheManagerDaemon");
+		cacheDaemon.start();
+	}
+	
+	public void finishBackgroundTask() {
+		stayAlive = false;
+		cacheDaemon.interrupt();
+		cacheDaemon = null;
 	}
 	
 	public void run() {
@@ -59,7 +78,7 @@ public class IdentifierCacheManager implements Runnable {
 				try {
 					Thread.sleep(timeRemaining);
 				} catch (InterruptedException e) {
-					logger.error("Identifier cache manager polling interrupted, shutting down", e);
+					logger.info("Identifier cache manager polling interrupted, shutting down");
 					stayAlive = false;
 				}
 			}
@@ -67,7 +86,7 @@ public class IdentifierCacheManager implements Runnable {
 		logger.info("Identifier cache manager polling stopped.");
 	}
 
-	private void checkTopUpRequired() {
+	void checkTopUpRequired() {
 		try {
 			//Work through each cache and see if number of identifiers is below top up level
 			for (IdentifierCache thisCache : identifierCaches) {
@@ -80,7 +99,7 @@ public class IdentifierCacheManager implements Runnable {
 		}
 	}
 
-	private void topUp(IdentifierCache cache, int extraRequired) {
+	void topUp(IdentifierCache cache, int extraRequired) {
 		if (cache.isTopUpInProgress()) {
 			logger.warn("Top-up already in progress for {}", cache);
 			return;
@@ -88,10 +107,11 @@ public class IdentifierCacheManager implements Runnable {
 		cache.setTopUpInProgress(true);
 		try {
 			int quantityRequired = cache.getMaxCapacity() - cache.identifiersAvailable() + extraRequired;
+			logger.info("Topping up {} by {}", cache, quantityRequired);
 			List<String> newIdentifiers = identifierStorage.reserve(cache.getNamespaceId(), cache.getPartitionId(), quantityRequired);
 			cache.topUp(newIdentifiers);
 		} catch (ServiceException e) {
-			logger.error("Failed to top-up cache {}",cache,e);
+			logger.error("Failed to top-up {}",cache,e);
 		} finally {
 			cache.setTopUpInProgress(false);
 		}
@@ -99,14 +119,21 @@ public class IdentifierCacheManager implements Runnable {
 
 	//Attempt to fill reserved block from cache, or directly from store if insufficient cached ids available
 	public void populateIdBlock(IdentifierReservedBlock idBlock, int quantityRequired, int namespaceId, String partitionId) throws ServiceException, InterruptedException {
+		//Did we in fact request any at all?
+		if (quantityRequired == 0) {
+			return;
+		}
+		
 		//Do we have a cache for this namespace/partition?
 		IdentifierCache cache = getCache(namespaceId, partitionId);
 		ComponentType componentType = ComponentType.getTypeFromPartition(partitionId);
 		boolean requestSatisfied = false;
 		if (cache != null) {
 			//Does cache need topping up anyway?
-			if (cache.identifiersAvailable() < (double)cache.getMaxCapacity() * criticalLevel) {
+			if (cache.identifiersAvailable() < (double)cache.getMaxCapacity() * criticalLevel && quantityRequired > 1) {
 				topUp(cache, quantityRequired);
+			} else if (cache.identifiersAvailable() == 0) {
+				logger.warn("{} has run dry. Increase polling rate.", cache);
 			}
 
 			//Does it have enough available?
@@ -116,7 +143,7 @@ public class IdentifierCacheManager implements Runnable {
 					idBlock.addId(componentType, cache.getIdentifier());
 				}
 				cache.unlock();
-				requestSatisfied = false;
+				requestSatisfied = true;
 			}
 		}
 		

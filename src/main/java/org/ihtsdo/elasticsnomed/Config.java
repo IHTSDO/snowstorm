@@ -71,7 +71,7 @@ public class Config {
 	
 	@Autowired
 	private JestClient jestClient;
-
+	
 	public static final PageRequest PAGE_OF_ONE = new PageRequest(0, 1);
 
 	@Bean
@@ -149,6 +149,7 @@ public class Config {
 		icm.initializeCache(0, "00", 200);  //200 concept sctids
 		icm.initializeCache(0, "01", 400);  //400 description sctids
 		icm.initializeCache(0, "02", 800);  //800 relationship sctids
+		
 		return icm;
 	}
 
