@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -71,6 +72,7 @@ public class ECLQueryServiceTest {
 		);
 		concepts.add(new Concept(DISEASE).addRelationship(new Relationship(Concepts.ISA, CLINICAL_FINDING)));
 		concepts.add(new Concept(ASSOCIATED_MORPHOLOGY).addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept(HEMORRHAGE).addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)));
 
 		conceptService.create(concepts, MAIN);
 
@@ -85,11 +87,11 @@ public class ECLQueryServiceTest {
 				strings(eclQueryService.selectConceptIds(SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
 
 		assertEquals(
-				Sets.newHashSet(CLINICAL_FINDING, BLEEDING, DISEASE, ASSOCIATED_MORPHOLOGY),
+				Sets.newHashSet(CLINICAL_FINDING, BLEEDING, DISEASE, ASSOCIATED_MORPHOLOGY, HEMORRHAGE),
 				strings(eclQueryService.selectConceptIds("<" + SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
 
 		assertEquals(
-				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING, BLEEDING, DISEASE, ASSOCIATED_MORPHOLOGY),
+				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING, BLEEDING, DISEASE, ASSOCIATED_MORPHOLOGY, HEMORRHAGE),
 				strings(eclQueryService.selectConceptIds("<<" + SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
 
 		assertEquals(
@@ -125,7 +127,7 @@ public class ECLQueryServiceTest {
 	public void selectChildren() throws Exception {
 		boolean stated = true;
 		assertEquals(
-				Sets.newHashSet(CLINICAL_FINDING, ASSOCIATED_MORPHOLOGY),
+				Sets.newHashSet(CLINICAL_FINDING, ASSOCIATED_MORPHOLOGY, HEMORRHAGE),
 				strings(eclQueryService.selectConceptIds("<!" + SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
 
 		assertEquals(
@@ -139,19 +141,6 @@ public class ECLQueryServiceTest {
 
 	@Test
 	public void selectByAttributeType() throws Exception {
-
-		List<QueryConcept> queryConcepts = elasticsearchOperations.queryForList(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery().must(termQuery("attr." + ASSOCIATED_MORPHOLOGY, HEMORRHAGE))).build(), QueryConcept.class);
-
-		assertEquals(1, queryConcepts.size());
-		assertEquals(BLEEDING, queryConcepts.get(0).getConceptId().toString());
-
-		List<QueryConcept> queryConcepts2 = elasticsearchOperations.queryForList(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery().must(existsQuery("attr." + ASSOCIATED_MORPHOLOGY))).build(), QueryConcept.class);
-
-		assertEquals(1, queryConcepts2.size());
-		assertEquals(BLEEDING, queryConcepts2.get(0).getConceptId().toString());
-
 		boolean stated = true;
 		assertEquals(
 				Sets.newHashSet(),
@@ -160,7 +149,26 @@ public class ECLQueryServiceTest {
 		assertEquals(
 				Sets.newHashSet(BLEEDING),
 				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=*", branchCriteria, MAIN, stated)));
+	}
 
+	@Test
+	public void selectByAttributeValue() throws Exception {
+		boolean stated = true;
+		assertEquals(
+				Sets.newHashSet(BLEEDING),
+				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + HEMORRHAGE, branchCriteria, MAIN, stated)));
+
+		assertEquals(
+				Sets.newHashSet(),
+				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "!=" + HEMORRHAGE, branchCriteria, MAIN, stated)));
+
+		assertEquals(
+				Sets.newHashSet(BLEEDING),
+				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=<<" + SNOMEDCT_ROOT, branchCriteria, MAIN, stated)));
+
+		assertEquals(
+				Sets.newHashSet(),
+				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + CLINICAL_FINDING, branchCriteria, MAIN, stated)));
 	}
 
 	private Set<String> strings(Collection<Long> ids) {

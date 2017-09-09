@@ -59,6 +59,7 @@ public class EclAttribute implements Refinement {
 				if (possibleAttributeValues == null) {
 					query.mustNot(existsQuery(getAttributeTypeField(attributeTypeProperty)));
 				} else {
+					query.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
 					query.filter(boolQuery().mustNot(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues)));
 				}
 			}
