@@ -35,10 +35,25 @@ public class ConceptController {
 	@Autowired
 	private QueryService queryService;
 
+	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public List<ConceptMini> findConcepts(
+			@PathVariable String branch,
+			@RequestParam(defaultValue = "false") boolean stated,
+			@RequestParam(required = false) String termPrefix,
+			@RequestParam(required = false) String ecl) {
+
+		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated);
+		queryBuilder.ecl(ecl);
+		queryBuilder.termPrefix(termPrefix);
+		return queryService.search(queryBuilder, branch);
+	}
+
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public Page<? extends ConceptView> findConcepts(
+	public Page<? extends ConceptView> getBrowserConcepts(
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "0") int number,
 			@RequestParam(defaultValue = "100") int size) {

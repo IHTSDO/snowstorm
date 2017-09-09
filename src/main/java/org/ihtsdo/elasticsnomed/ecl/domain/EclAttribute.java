@@ -14,6 +14,7 @@ import static org.elasticsearch.index.query.QueryBuilders.existsQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 
 public class EclAttribute implements Refinement {
+
 	private SubExpressionConstraint attributeName;
 	private String expressionComparisonOperator;
 	private SubExpressionConstraint value;
@@ -43,6 +44,11 @@ public class EclAttribute implements Refinement {
 			attributeTypeProperties = Collections.singleton(QueryConcept.ATTR_TYPE_WILDCARD);
 		} else {
 			attributeTypeProperties = attributeTypes.stream().map(Object::toString).collect(Collectors.toSet());
+			if (attributeTypes.isEmpty()) {
+				// Attribute type is not a wildcard but empty selection
+				// Force query to return nothing
+				attributeTypeProperties.add("missing");
+			}
 		}
 
 		Set<Long> possibleAttributeValues = value.select(path, branchCriteria, stated, queryService);
@@ -51,6 +57,11 @@ public class EclAttribute implements Refinement {
 				if (possibleAttributeValues == null) {
 					query.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
 				} else {
+					// Attribute value is not a wildcard but empty selection
+					// Force query to return nothing
+					if (possibleAttributeValues.isEmpty()) {
+						possibleAttributeValues.add(0L);
+					}
 					query.filter(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
 				}
 			}

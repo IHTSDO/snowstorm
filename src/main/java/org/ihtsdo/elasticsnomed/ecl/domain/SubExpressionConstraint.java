@@ -4,7 +4,9 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.core.data.domain.QueryConcept;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
+import org.springframework.data.domain.PageRequest;
 
+import java.util.List;
 import java.util.Set;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -64,11 +66,16 @@ public class SubExpressionConstraint implements ExpressionConstraint {
 
 	@Override
 	public Set<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
+		return select(path, branchCriteria, stated, queryService, null, null);
+	}
+
+	@Override
+	public Set<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService, List<Long> conceptIdFilter, PageRequest pageRequest) {
 		if (wildcard) return null;
 		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
 		addCriteria(query, path, branchCriteria, stated, queryService);
 		// TODO: Avoid this fetch in the case that we selecting a single known concept
-		return ConceptSelectorHelper.fetch(query, queryService);
+		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService, pageRequest);
 	}
 
 	public void wildcard() {

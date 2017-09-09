@@ -20,6 +20,7 @@ import org.ihtsdo.elasticsnomed.core.data.repositories.QueryConceptRepository;
 import org.ihtsdo.elasticsnomed.core.data.services.transitiveclosure.GraphBuilder;
 import org.ihtsdo.elasticsnomed.core.data.services.transitiveclosure.Node;
 import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
+import org.ihtsdo.elasticsnomed.ecl.ECLQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +60,9 @@ public class QueryService extends ComponentService {
 	@Autowired
 	private ConceptService conceptService;
 
+	@Autowired
+	private ECLQueryService eclQueryService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private static final long IS_A_TYPE = parseLong(Concepts.ISA);
 
@@ -72,7 +76,7 @@ public class QueryService extends ComponentService {
 
 		final List<Long> termConceptIds = new LongArrayList();
 		if (term != null) {
-			logger.info("Lexical search");
+			logger.info("Lexical search {}", term);
 			// Search for descriptions matching the term prefix
 			BoolQueryBuilder boolQueryBuilder = boolQuery()
 					.must(branchCriteria)
@@ -114,26 +118,35 @@ public class QueryService extends ComponentService {
 		}
 
 		if (conceptQuery.hasLogicalConditions()) {
-			logger.info("Logical search");
-			NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(branchCriteria)
-							.must(conceptQuery.getRootBuilder())
-					)
-					.withPageable(new PageRequest(0, 50));
+			String ecl = conceptQuery.getEcl();
 
-			if (term != null) {
-				List<Long> values = termConceptIds.subList(0, termConceptIds.size() >= 50 ? 50 : termConceptIds.size());
-				logicalSearchQuery.withFilter(boolQuery().must(termsQuery("conceptId", values)));
+			// TODO: Pagination
+			PageRequest pageRequest = new PageRequest(0, 50);
+
+			Collection<Long> pageOfMatchIds;
+			if (ecl != null) {
+				logger.info("ECL Search {}", ecl);
+				pageOfMatchIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(),
+						term != null ? termConceptIds : null, pageRequest);
+			} else {
+				logger.info("Logical Search");
+				NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								.must(branchCriteria)
+								.must(conceptQuery.getRootBuilder())
+						)
+						.withPageable(pageRequest);
+				if (term != null) {
+					logicalSearchQuery.withFilter(boolQuery().must(termsQuery("conceptId", termConceptIds)));
+				}
+				Page<QueryConcept> queryConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery.build(), QueryConcept.class);
+				pageOfMatchIds = queryConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
 			}
 
-			Page<QueryConcept> queryConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery.build(), QueryConcept.class);
-			List<Long> ids = queryConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
-
-			logger.info("logical ids size {} - {}", ids.size(), ids);
+			logger.info("logical ids size {} - {}", pageOfMatchIds.size(), pageOfMatchIds);
 
 			logger.info("Gather minis");
-			Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, ids);
+			Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, pageOfMatchIds);
 
 			if (term != null) {
 				// Recreate term score ordering
@@ -545,9 +558,12 @@ public class QueryService extends ComponentService {
 
 		private final BoolQueryBuilder rootBuilder;
 		private final BoolQueryBuilder logicalConditionBuilder;
+		private final boolean stated;
 		private String termPrefix;
+		private String ecl;
 
 		private ConceptQueryBuilder(boolean stated) {
+			this.stated = stated;
 			rootBuilder = boolQuery();
 			logicalConditionBuilder = boolQuery();
 			rootBuilder.must(termQuery("stated", stated));
@@ -572,6 +588,11 @@ public class QueryService extends ComponentService {
 			return this;
 		}
 
+		public ConceptQueryBuilder ecl(String ecl) {
+			this.ecl = ecl;
+			return this;
+		}
+
 		/**
 		 * Term prefix has a minimum length of 3 characters.
 		 *
@@ -590,8 +611,16 @@ public class QueryService extends ComponentService {
 			return termPrefix;
 		}
 
+		public String getEcl() {
+			return ecl;
+		}
+
+		public boolean isStated() {
+			return stated;
+		}
+
 		private boolean hasLogicalConditions() {
-			return logicalConditionBuilder.hasClauses();
+			return getEcl() != null || logicalConditionBuilder.hasClauses();
 		}
 	}
 

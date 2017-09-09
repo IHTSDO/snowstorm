@@ -7,7 +7,6 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
-import org.ihtsdo.elasticsnomed.core.data.domain.QueryConcept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.junit.After;
@@ -15,22 +14,18 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.existsQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.ihtsdo.elasticsnomed.core.data.domain.Concepts.CLINICAL_FINDING;
 import static org.ihtsdo.elasticsnomed.core.data.domain.Concepts.SNOMEDCT_ROOT;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -48,15 +43,13 @@ public class ECLQueryServiceTest {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
-	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
-
 	private QueryBuilder branchCriteria;
 	private static final String MAIN = "MAIN";
 	private static final String BLEEDING = "131148009";
 	private static final String ASSOCIATED_MORPHOLOGY = "116676008";
 	private static final String HEMORRHAGE = "50960005";
 	private static final String DISEASE = "64572001";
+	private static final String NON_EXISTENT_CONCEPT = "12345001";
 
 	@Before
 	public void setup() {
@@ -149,6 +142,14 @@ public class ECLQueryServiceTest {
 		assertEquals(
 				Sets.newHashSet(BLEEDING),
 				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=*", branchCriteria, MAIN, stated)));
+
+		assertEquals(
+				Sets.newHashSet(BLEEDING),
+				strings(eclQueryService.selectConceptIds(BLEEDING +":" + ASSOCIATED_MORPHOLOGY + "=*", branchCriteria, MAIN, stated)));
+
+		assertEquals(
+				Sets.newHashSet(),
+				strings(eclQueryService.selectConceptIds(BLEEDING +":" + NON_EXISTENT_CONCEPT + "=*", branchCriteria, MAIN, stated)));
 	}
 
 	@Test
@@ -169,6 +170,10 @@ public class ECLQueryServiceTest {
 		assertEquals(
 				Sets.newHashSet(),
 				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + CLINICAL_FINDING, branchCriteria, MAIN, stated)));
+
+		assertEquals(
+				Sets.newHashSet(),
+				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + NON_EXISTENT_CONCEPT, branchCriteria, MAIN, stated)));
 	}
 
 	private Set<String> strings(Collection<Long> ids) {
