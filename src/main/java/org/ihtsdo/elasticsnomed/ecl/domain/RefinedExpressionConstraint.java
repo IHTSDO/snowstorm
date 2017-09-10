@@ -21,9 +21,7 @@ public class RefinedExpressionConstraint implements ExpressionConstraint {
 	@Override
 	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
 		subexpressionConstraint.addCriteria(query, path, branchCriteria, stated, queryService);
-
-		EclAttribute attribute = eclRefinement.getSubRefinement().getEclAttributeSet().getSubAttributeSet().getAttribute();
-		attribute.addCriteria(query, path, branchCriteria, stated, queryService);
+		eclRefinement.addCriteria(query, path, branchCriteria, stated, queryService);
 	}
 
 	@Override

@@ -19,22 +19,6 @@ public class EclAttribute implements Refinement {
 	private String expressionComparisonOperator;
 	private SubExpressionConstraint value;
 
-	public void setAttributeName(SubExpressionConstraint attributeName) {
-		this.attributeName = attributeName;
-	}
-
-	public void setExpressionComparisonOperator(String expressionComparisonOperator) {
-		this.expressionComparisonOperator = expressionComparisonOperator;
-	}
-
-	public void setValue(SubExpressionConstraint value) {
-		this.value = value;
-	}
-
-	public SubExpressionConstraint getValue() {
-		return value;
-	}
-
 	@Override
 	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
 		Set<Long> attributeTypes = attributeName.select(path, branchCriteria, stated, queryService);
@@ -47,7 +31,7 @@ public class EclAttribute implements Refinement {
 			if (attributeTypes.isEmpty()) {
 				// Attribute type is not a wildcard but empty selection
 				// Force query to return nothing
-				attributeTypeProperties.add("missing");
+				attributeTypeProperties.add(ExpressionConstraint.MISSING);
 			}
 		}
 
@@ -79,6 +63,18 @@ public class EclAttribute implements Refinement {
 
 	private String getAttributeTypeField(String attributeTypeProperty) {
 		return QueryConcept.ATTR_FIELD + "." + attributeTypeProperty;
+	}
+
+	public void setAttributeName(SubExpressionConstraint attributeName) {
+		this.attributeName = attributeName;
+	}
+
+	public void setExpressionComparisonOperator(String expressionComparisonOperator) {
+		this.expressionComparisonOperator = expressionComparisonOperator;
+	}
+
+	public void setValue(SubExpressionConstraint value) {
+		this.value = value;
 	}
 
 }
