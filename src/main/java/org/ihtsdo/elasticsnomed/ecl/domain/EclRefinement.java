@@ -7,10 +7,13 @@ import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
+
 public class EclRefinement implements Refinement {
 
 	private SubRefinement subRefinement;
 	private List<SubRefinement> conjunctionSubRefinements;
+	private List<SubRefinement> disjunctionSubRefinements;
 
 	public EclRefinement() {
 		conjunctionSubRefinements = new ArrayList<>();
@@ -18,10 +21,21 @@ public class EclRefinement implements Refinement {
 
 	@Override
 	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
-		EclAttribute attribute = getSubRefinement().getEclAttributeSet().getSubAttributeSet().getAttribute();
-		attribute.addCriteria(query, path, branchCriteria, stated, queryService);
-		for (SubRefinement conjunctionSubRefinement : conjunctionSubRefinements) {
-			conjunctionSubRefinement.addCriteria(query, path, branchCriteria, stated, queryService);
+		subRefinement.addCriteria(query, path, branchCriteria, stated, queryService);
+
+		if (conjunctionSubRefinements != null) {
+			for (SubRefinement conjunctionSubRefinement : conjunctionSubRefinements) {
+				conjunctionSubRefinement.addCriteria(query, path, branchCriteria, stated, queryService);
+			}
+		}
+		if (disjunctionSubRefinements != null && disjunctionSubRefinements.isEmpty()) {
+			BoolQueryBuilder shouldQueries = boolQuery();
+			query.must(shouldQueries);
+			for (SubRefinement disjunctionSubRefinement : disjunctionSubRefinements) {
+				BoolQueryBuilder shouldQuery = boolQuery();
+				shouldQueries.should(shouldQuery);
+				disjunctionSubRefinement.addCriteria(shouldQuery, path, branchCriteria, stated, queryService);
+			}
 		}
 	}
 
@@ -29,15 +43,12 @@ public class EclRefinement implements Refinement {
 		this.subRefinement = subRefinement;
 	}
 
-	public SubRefinement getSubRefinement() {
-		return subRefinement;
-	}
-
-	public List<SubRefinement> getConjunctionSubRefinements() {
-		return conjunctionSubRefinements;
-	}
-
 	public void setConjunctionSubRefinements(List<SubRefinement> conjunctionSubRefinements) {
 		this.conjunctionSubRefinements = conjunctionSubRefinements;
 	}
+
+	public void setDisjunctionSubRefinements(List<SubRefinement> disjunctionSubRefinements) {
+		this.disjunctionSubRefinements = disjunctionSubRefinements;
+	}
+
 }

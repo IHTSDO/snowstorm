@@ -1,8 +1,6 @@
 package org.ihtsdo.elasticsnomed.ecl;
 
-import org.antlr.v4.runtime.ANTLRInputStream;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.ihtsdo.elasticsnomed.ecl.domain.*;
 import org.ihtsdo.elasticsnomed.ecl.generated.ImpotentECLListener;
@@ -10,7 +8,6 @@ import org.ihtsdo.elasticsnomed.ecl.generated.parser.ECLLexer;
 import org.ihtsdo.elasticsnomed.ecl.generated.parser.ECLParser;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -22,8 +19,7 @@ public class ECLQueryBuilder {
 		final ECLLexer lexer = new ECLLexer(inputStream);
 		final CommonTokenStream tokenStream = new CommonTokenStream(lexer);
 		final ECLParser parser = new ECLParser(tokenStream);
-//		final List<RecognitionException> exceptions = new ArrayList<>();
-//		parser.setErrorHandler(getErrorHandler(exceptions));
+		parser.setErrorHandler(new BailErrorStrategy());
 
 		ParserRuleContext tree;
 		try {
@@ -123,35 +119,27 @@ public class ECLQueryBuilder {
 			}
 			EclRefinement refinement = new EclRefinement();
 			refinement.setSubRefinement(build(ctx.subrefinement()));
-			refinement.setConjunctionSubRefinements(build(ctx.conjunctionrefinementset()));
+			if (ctx.conjunctionrefinementset() != null) {
+				refinement.setConjunctionSubRefinements(buildSubRefinements(ctx.conjunctionrefinementset().subrefinement()));
+			}
 			if (ctx.disjunctionrefinementset() != null) {
-				throw new UnsupportedOperationException("DisjunctionRefinementSet is not supported.");
+				refinement.setDisjunctionSubRefinements(buildSubRefinements(ctx.disjunctionrefinementset().subrefinement()));
 			}
 			return refinement;
 		}
 
-		public List<SubRefinement> build(ECLParser.ConjunctionrefinementsetContext ctx) {
-			List<SubRefinement> refinements = new ArrayList<>();
-			if (ctx != null) {
-				for (ECLParser.SubrefinementContext subrefinementContext : ctx.subrefinement()) {
-					refinements.add(build(subrefinementContext));
-				}
-			}
-			return refinements;
+		private List<SubRefinement> buildSubRefinements(List<ECLParser.SubrefinementContext> subrefinements) {
+			return subrefinements.stream().map(this::build).collect(Collectors.toList());
 		}
 
 		private SubRefinement build(ECLParser.SubrefinementContext ctx) {
 			SubRefinement subRefinement = new SubRefinement();
 			subRefinement.setEclAttributeSet(build(ctx.eclattributeset()));
+			subRefinement.setEclRefinement(build(ctx.eclrefinement()));
 
 //			subRefinement.setEclAttributeGroup(build(ctx.eclattributegroup()));
 			if (ctx.eclattributegroup() != null) {
 				throw new UnsupportedOperationException("EclAttributeGroup is not supported.");
-			}
-
-//			subRefinement.setEclRefinement(build(ctx.eclrefinement()));
-			if (ctx.eclrefinement() != null) {
-				throw new UnsupportedOperationException("EclRefinement is not supported.");
 			}
 
 			return subRefinement;
@@ -161,33 +149,24 @@ public class ECLQueryBuilder {
 			if (ctx == null) return null;
 			EclAttributeSet eclAttributeSet = new EclAttributeSet();
 			eclAttributeSet.setSubAttributeSet(build(ctx.subattributeset()));
-			ECLParser.ConjunctionattributesetContext conjunctionattributeset = ctx.conjunctionattributeset();
-			if (conjunctionattributeset != null) {
-				throw new UnsupportedOperationException("ConjunctionAttributeSet is not supported.");
-//				for (ECLParser.SubattributesetContext subattributesetContext : conjunctionattributeset.subattributeset()) {
-//					eclAttributeSet.addConjunctionAttributeSet(build(subattributesetContext));
-//				}
+			if (ctx.conjunctionattributeset() != null) {
+				eclAttributeSet.setConjunctionAttributeSet(buildSubAttributeSet(ctx.conjunctionattributeset().subattributeset()));
 			}
-			ECLParser.DisjunctionattributesetContext disjunctionattributeset = ctx.disjunctionattributeset();
-			if (disjunctionattributeset != null) {
-				throw new UnsupportedOperationException("DisjunctionAttributeSet is not supported.");
-//				for (ECLParser.SubattributesetContext subattributesetContext : disjunctionattributeset.subattributeset()) {
-//					eclAttributeSet.addDisjunctionAttributeSet(build(subattributesetContext));
-//				}
+			if (ctx.disjunctionattributeset() != null) {
+				eclAttributeSet.setDisjunctionAttributeSet(buildSubAttributeSet(ctx.disjunctionattributeset().subattributeset()));
 			}
 			return eclAttributeSet;
+		}
+
+		private List<SubAttributeSet> buildSubAttributeSet(List<ECLParser.SubattributesetContext> subattributeset) {
+			return subattributeset.stream().map(this::build).collect(Collectors.toList());
 		}
 
 		private SubAttributeSet build(ECLParser.SubattributesetContext ctx) {
 			if (ctx == null) return null;
 			SubAttributeSet subAttributeSet = new SubAttributeSet();
 			subAttributeSet.setAttribute(build(ctx.eclattribute()));
-
-//			subAttributeSet.setAttributeSet(build(ctx.eclattributeset()));
-			if (ctx.eclattributeset() != null) {
-				throw new UnsupportedOperationException("EclAttributeSet is not supported.");
-			}
-
+			subAttributeSet.setAttributeSet(build(ctx.eclattributeset()));
 			return subAttributeSet;
 		}
 
@@ -214,7 +193,7 @@ public class ECLQueryBuilder {
 			attribute.setAttributeName(build(ctx.eclattributename().subexpressionconstraint()));
 			ECLParser.ExpressioncomparisonoperatorContext expressioncomparisonoperator = ctx.expressioncomparisonoperator();
 			if (expressioncomparisonoperator == null) {
-				throw new UnsupportedOperationException("Only the expressionComparisonOperator is supported, not the numericComparisonOperator or the stringComparisonOperator.");
+				throw new UnsupportedOperationException("Only the ExpressionComparisonOperator is supported. NumericComparisonOperator and StringComparisonOperator are not supported.");
 			}
 			attribute.setExpressionComparisonOperator(expressioncomparisonoperator.getText());
 			attribute.setValue(build(ctx.subexpressionconstraint()));
