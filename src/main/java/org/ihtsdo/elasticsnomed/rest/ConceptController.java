@@ -7,6 +7,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
 import org.ihtsdo.elasticsnomed.core.data.domain.ConceptView;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.rest.pojo.ConceptDescriptionsResult;
+import org.ihtsdo.elasticsnomed.rest.pojo.ConceptSearchRequest;
 import org.ihtsdo.elasticsnomed.rest.pojo.InboundRelationshipsResult;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
@@ -38,16 +39,23 @@ public class ConceptController {
 	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public List<ConceptMini> findConcepts(
+	public ItemsPage<ConceptMiniNestedFsn> findConcepts(
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "false") boolean stated,
-			@RequestParam(required = false) String termPrefix,
+			@RequestParam(required = false) String term,
 			@RequestParam(required = false) String ecl) {
 
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated);
 		queryBuilder.ecl(ecl);
-		queryBuilder.termPrefix(termPrefix);
-		return queryService.search(queryBuilder, branch);
+		queryBuilder.termPrefix(term);
+		return new ItemsPage<>(ControllerHelper.nestConceptMiniFsn(queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch))));
+	}
+
+	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public ItemsPage<ConceptMiniNestedFsn> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
+		return findConcepts(BranchPathUriUtil.parseBranchPath(branch), searchRequest.isStated(), searchRequest.getTermFilter(), searchRequest.getEclFilter());
 	}
 
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET)
