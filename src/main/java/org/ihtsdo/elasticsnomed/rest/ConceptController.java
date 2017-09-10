@@ -43,7 +43,13 @@ public class ConceptController {
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "false") boolean stated,
 			@RequestParam(required = false) String term,
-			@RequestParam(required = false) String ecl) {
+			@RequestParam(required = false) String ecl,
+			@RequestParam(required = false) String escg) {
+
+		// TODO: Remove this partial ESCG support
+		if (ecl == null && escg != null && !escg.isEmpty()) {
+			ecl = escg.replace("UNION", "OR");
+		}
 
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated);
 		queryBuilder.ecl(ecl);
@@ -55,7 +61,11 @@ public class ConceptController {
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ConceptMiniNestedFsn> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
-		return findConcepts(BranchPathUriUtil.parseBranchPath(branch), searchRequest.isStated(), searchRequest.getTermFilter(), searchRequest.getEclFilter());
+		return findConcepts(BranchPathUriUtil.parseBranchPath(branch),
+				searchRequest.isStated(),
+				searchRequest.getTermFilter(),
+				searchRequest.getEclFilter(),
+				null);
 	}
 
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET)
