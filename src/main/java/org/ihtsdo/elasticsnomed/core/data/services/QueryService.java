@@ -143,7 +143,7 @@ public class QueryService extends ComponentService {
 				pageOfMatchIds = queryConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
 			}
 
-			logger.info("logical ids size {} - {}", pageOfMatchIds.size(), pageOfMatchIds);
+			logger.info("logical ids size {}", pageOfMatchIds.size());
 
 			logger.info("Gather minis");
 			Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, pageOfMatchIds);
