@@ -28,7 +28,10 @@ import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierStorage;
 import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
 import org.ihtsdo.elasticsnomed.rest.config.BranchMixIn;
 import org.ihtsdo.elasticsnomed.rest.config.ClassificationMixIn;
+import org.ihtsdo.elasticsnomed.rest.security.RequestHeaderAuthenticationDecoratorWithRequiredRole;
+import org.ihtsdo.sso.integration.RequestHeaderAuthenticationDecorator;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
@@ -161,6 +164,22 @@ public class Config {
 	@ConfigurationProperties(prefix = "refset")
 	public ReferenceSetTypesConfigurationService getReferenceSetTypesService() {
 		return new ReferenceSetTypesConfigurationService();
+	}
+
+	@Bean
+	public FilterRegistrationBean getSingleSignOnFilter() {
+		FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(
+				new RequestHeaderAuthenticationDecorator());
+		filterRegistrationBean.setOrder(1);
+		return filterRegistrationBean;
+	}
+
+	@Bean
+	public FilterRegistrationBean getRequiredRoleFilter(@Value("${ims-security.required-role}") String requiredRole) {
+		FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(
+				new RequestHeaderAuthenticationDecoratorWithRequiredRole(requiredRole));
+		filterRegistrationBean.setOrder(2);
+		return filterRegistrationBean;
 	}
 
 	@Bean

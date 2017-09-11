@@ -93,7 +93,16 @@
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-jms</artifactId>
-		</dependency> 
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ihtsdo.otf</groupId>
+			<artifactId>ihtsdo-spring-sso</artifactId>
+			<version>2.0.0</version>
+		</dependency>
 		<dependency>
     		<groupId>org.apache.activemq</groupId>
     		<artifactId>activemq-broker</artifactId>
