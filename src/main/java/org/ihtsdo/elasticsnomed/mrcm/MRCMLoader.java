@@ -29,7 +29,7 @@ public class MRCMLoader {
 		for (Constraints constraints : conceptModel.getConstraints()) {
 			Domain loadDomain = constraints.getDomain();
 			Long domainConceptId = loadDomain.getConceptId();
-			logger.info("domain " + domainConceptId);
+			logger.debug("domain " + domainConceptId);
 			Predicate predicate = constraints.getPredicate();
 			Predicate predicate1 = predicate.getPredicate();
 			Attribute loadAttribute = predicate1.getAttribute();
@@ -42,7 +42,7 @@ public class MRCMLoader {
 				attributeMap.put(attribute.getConceptId(), attribute);
 				domain.getAttributes().add(attribute);
 
-				logger.info("attribute " + loadAttribute.getConceptId());
+				logger.debug("attribute " + loadAttribute.getConceptId());
 				Range range = predicate1.getRange();
 				Long rangeConcepId = range.getConceptId();
 				logger.debug("range");
@@ -56,12 +56,13 @@ public class MRCMLoader {
 					}
 				}
 			} else {
-				logger.info("Lexical constraint will be ignored.");
+				logger.debug("Lexical constraint will be ignored.");
 			}
 		}
 		MRCM mrcm = new MRCM();
 		mrcm.setDomainMap(domainMap);
 		mrcm.setAttributeMap(attributeMap);
+		logger.info("MRCM loaded with {} domains and {} attributes.", domainMap.size(), attributeMap.size());
 		return mrcm;
 	}
 }
