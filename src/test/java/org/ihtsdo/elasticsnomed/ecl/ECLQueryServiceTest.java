@@ -9,6 +9,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
+import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -61,7 +62,7 @@ public class ECLQueryServiceTest {
 	private static final boolean STATED = true;
 
 	@Before
-	public void setup() {
+	public void setup() throws ServiceException {
 		branchService.create(MAIN);
 
 		List<Concept> concepts = new ArrayList<>();
