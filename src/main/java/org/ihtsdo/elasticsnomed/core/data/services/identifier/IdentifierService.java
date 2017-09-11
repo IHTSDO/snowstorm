@@ -77,7 +77,7 @@ public class IdentifierService {
 			cacheManager.populateIdBlock(idBlock, conceptIds, namespace, partition_part1 + PARTITION_PART2_CONCEPT);
 			cacheManager.populateIdBlock(idBlock, descriptionIds, namespace, partition_part1 + PARTITION_PART2_DESCRIPTION);
 			cacheManager.populateIdBlock(idBlock, relationshipIds, namespace, partition_part1 + PARTITION_PART2_RELATIONSHIP);
-		} catch (ServiceException | InterruptedException e) {
+		} catch (ServiceException e) {
 			throw new ServiceException ("Unable to obtain sctids", e);
 		}
 		return idBlock;
