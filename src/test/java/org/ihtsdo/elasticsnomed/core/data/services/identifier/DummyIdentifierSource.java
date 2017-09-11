@@ -6,7 +6,7 @@ import java.util.List;
 
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 
-public class DummyIdentifierStorage implements IdentifierStorage{
+public class DummyIdentifierSource implements IdentifierSource {
 
 	@Override
 	public List<String> generate(int namespace, String partitionId, int quantity)

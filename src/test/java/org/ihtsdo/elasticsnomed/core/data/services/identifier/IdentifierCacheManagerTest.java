@@ -30,8 +30,8 @@ public class IdentifierCacheManagerTest {
 	@Before
 	public void stopCacheManager() {
 		//Stop the background task so it's not topping up while we're working with the data
-		cacheManager.finishBackgroundTask();
-		cacheManager.initializeCache(TEST_NAMESPACE, TEST_PARTITION, TEST_CAPACITY);
+		cacheManager.stopBackgroundTask();
+		cacheManager.addCache(TEST_NAMESPACE, TEST_PARTITION, TEST_CAPACITY);
 		testCache = cacheManager.getCache(TEST_NAMESPACE, TEST_PARTITION);
 	}
 	

@@ -3,9 +3,9 @@ package org.ihtsdo.elasticsnomed;
 import io.kaicode.elasticvc.domain.Branch;
 
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
-import org.ihtsdo.elasticsnomed.core.data.services.identifier.DummyIdentifierStorage;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.DummyIdentifierSource;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierCacheManager;
-import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierStorage;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,10 +27,10 @@ public class TestConfig extends Config {
 	
 	@Override
 	@Bean 
-	public IdentifierStorage getIdentifierStorage() {
+	public IdentifierSource getIdentifierStorage() {
 		//Uncomment this line to run integration test with real cis supplied sctids
 		//return new CISClient();
-		return new DummyIdentifierStorage();
+		return new DummyIdentifierSource();
 	}
 	
 	@Bean 

@@ -27,7 +27,7 @@ public class IdentifierService {
 	private IdentifierCacheManager cacheManager;
 	
 	@Autowired
-	private IdentifierStorage identifierStorage;
+	private IdentifierSource identifierSource;
 	
 	public static boolean isConceptId(String sctid) {
 		return sctid != null && SCTID_PATTERN.matcher(sctid).matches() && PARTITION_PART2_CONCEPT.equals(getPartitionIdPart(sctid));
@@ -90,7 +90,7 @@ public class IdentifierService {
 			//otherwise identifier could be reassigned elsewhere later.
 			//TODO Work out namespace for identifier blocks
 			//TODO If some other part of the process fails, these ids could be returned to the cache
-			identifierStorage.registerIdentifiers(0, reservedBlock.getIdsAssigned(componentType));
+			identifierSource.registerIdentifiers(0, reservedBlock.getIdsAssigned(componentType));
 		}
 	}
 

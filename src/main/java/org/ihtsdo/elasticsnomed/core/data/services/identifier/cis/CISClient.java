@@ -2,7 +2,7 @@ package org.ihtsdo.elasticsnomed.core.data.services.identifier.cis;
 
 import org.ihtsdo.elasticsnomed.core.data.services.RuntimeServiceException;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
-import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierStorage;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
 
-public class CISClient implements IdentifierStorage {
+public class CISClient implements IdentifierSource {
 
 	static final String SOFTWARE_NAME = "Elastic Snomed";
 	private static final int SECONDS_TIMEOUT = 20;

@@ -5,7 +5,7 @@ import java.util.List;
 
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 
-public interface IdentifierStorage {
+public interface IdentifierSource {
 
 	List<String> generate(int namespace, String partitionId, int quantity) throws ServiceException;
 
