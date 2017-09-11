@@ -14,14 +14,16 @@ import org.ihtsdo.elasticsnomed.core.data.services.RuntimeServiceException;
 
 public class IdentifierReservedBlock {
 
-	Map<ComponentType, Queue<String>> idsReserved = new HashMap<ComponentType, Queue<String>>();
-	Map<ComponentType, Queue<String>> idsAssigned = new HashMap<ComponentType, Queue<String>>();
-	Set<ComponentType> alreadyRegistered = new HashSet<ComponentType>();
+	private Map<ComponentType, Queue<String>> idsReserved = new HashMap<>();
+	private Map<ComponentType, Queue<String>> idsAssigned = new HashMap<>();
+
+	// @PGW - This is never used
+	private Set<ComponentType> alreadyRegistered = new HashSet<>();
 	
 	IdentifierReservedBlock() {
 		for (ComponentType componentType : ComponentType.values()) {
-			idsReserved.put(componentType, new LinkedList<String>());
-			idsAssigned.put(componentType, new LinkedList<String>());
+			idsReserved.put(componentType, new LinkedList<>());
+			idsAssigned.put(componentType, new LinkedList<>());
 		}
 	}
 
@@ -38,7 +40,7 @@ public class IdentifierReservedBlock {
 		return id;
 	}
 	
-	public void addId(ComponentType componentType, String sctId) {
+	void addId(ComponentType componentType, String sctId) {
 		idsReserved.get(componentType).add(sctId);
 	}
 
@@ -46,11 +48,11 @@ public class IdentifierReservedBlock {
 		idsReserved.get(componentType).addAll(sctIds);
 	}
 
-	public Collection<String> getIdsAssigned(ComponentType componentType) {
+	Collection<String> getIdsAssigned(ComponentType componentType) {
 		return idsAssigned.get(componentType);
 	}
 	
-	public int size (ComponentType componentType) {
+	public int size(ComponentType componentType) {
 		return idsReserved.get(componentType).size();
 	}
 }

@@ -12,9 +12,9 @@ public class IdentifierCache {
 	private boolean topUpInProgress = false;
 	private boolean isLocked = false;
 	
-	Deque<String> identifiers = new ConcurrentLinkedDeque<String>();
+	private Deque<String> identifiers = new ConcurrentLinkedDeque<>();
 	
-	IdentifierCache (int namespaceId, String partitionId, int maxCapacity) {
+	IdentifierCache(int namespaceId, String partitionId, int maxCapacity) {
 		this.namespaceId = namespaceId;
 		this.partitionId = partitionId;
 		this.maxCapacity = maxCapacity;

@@ -14,20 +14,20 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public class IdentifierService {
 	
-	public static final Pattern SCTID_PATTERN = Pattern.compile("\\d{6,18}");
-	
-	public static final String PARTITION_PART1_INTERNATIONAL = "0";
-	public static final String PARTITION_PART1_EXTENSION = "1";
-	
-	public static final String PARTITION_PART2_CONCEPT = "0";
-	public static final String PARTITION_PART2_DESCRIPTION = "1";
-	public static final String PARTITION_PART2_RELATIONSHIP = "2";
+	private static final Pattern SCTID_PATTERN = Pattern.compile("\\d{6,18}");
+
+	private static final String PARTITION_PART1_INTERNATIONAL = "0";
+	private static final String PARTITION_PART1_EXTENSION = "1";
+
+	private static final String PARTITION_PART2_CONCEPT = "0";
+	private static final String PARTITION_PART2_DESCRIPTION = "1";
+	private static final String PARTITION_PART2_RELATIONSHIP = "2";
 
 	@Autowired
-	IdentifierCacheManager cacheManager; 
+	private IdentifierCacheManager cacheManager;
 	
 	@Autowired
-	IdentifierStorage identifierStorage;
+	private IdentifierStorage identifierStorage;
 	
 	public static boolean isConceptId(String sctid) {
 		return sctid != null && SCTID_PATTERN.matcher(sctid).matches() && PARTITION_PART2_CONCEPT.equals(getPartitionIdPart(sctid));

@@ -17,24 +17,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class IdentifierCacheManager implements Runnable {
 
 	@Autowired
-	IdentifierStorage identifierStorage; 
+	private IdentifierStorage identifierStorage;
 	
 	//Separate cache for each namespace/partition combination configured.
-	Set<IdentifierCache> identifierCaches = new HashSet<IdentifierCache>();
-	
-	private static final Logger logger = LoggerFactory.getLogger(IdentifierCacheManager.class);
-	
+	private Set<IdentifierCache> identifierCaches = new HashSet<>();
+
 	private boolean stayAlive = true;
 	
 	private Thread cacheDaemon;
-	
-	int pollingInterval = 10; // time between successive polls in minutes
-	int lockWaitLimit = 5 * 1000; //Wait max 5 seconds to have access to cache
-	int lockRetry = 200;
-	
+
+	private int pollingInterval = 10; // time between successive polls in minutes
+	private int lockWaitLimit = 5 * 1000; //Wait max 5 seconds to have access to cache
+	private int lockRetry = 200;
+
 	final static double topUpLevel = 0.7;    //When cache storage falls below 70%, top it back up to max capacity on next poll
-	final static double criticalLevel = 0.1; //When cache storage falls below 10%, request immediate top up if more than 1 id requested
-	
+	private final static double criticalLevel = 0.1; //When cache storage falls below 10%, request immediate top up if more than 1 id requested
+
+	private static final Logger logger = LoggerFactory.getLogger(IdentifierCacheManager.class);
+
 	IdentifierCache getCache (int namespaceId, String partitionId) {
 		for (IdentifierCache thisCache : identifierCaches) {
 			if (thisCache.getPartitionId().equals(partitionId) && thisCache.getNamespaceId() == namespaceId) {

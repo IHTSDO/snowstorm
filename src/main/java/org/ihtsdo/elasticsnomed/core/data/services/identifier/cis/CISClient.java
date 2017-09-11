@@ -1,4 +1,4 @@
-package org.ihtsdo.elasticsnomed.core.data.services.cis;
+package org.ihtsdo.elasticsnomed.core.data.services.identifier.cis;
 
 import org.ihtsdo.elasticsnomed.core.data.services.RuntimeServiceException;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;

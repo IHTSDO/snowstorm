@@ -23,9 +23,9 @@ public class IdentifierCacheManagerTest {
 	private static final int TEST_DEMAND = 10;
 
 	@Autowired 
-	IdentifierCacheManager cacheManager;
-	
-	IdentifierCache testCache;
+	private IdentifierCacheManager cacheManager;
+
+	private IdentifierCache testCache;
 	
 	@Before
 	public void stopCacheManager() {

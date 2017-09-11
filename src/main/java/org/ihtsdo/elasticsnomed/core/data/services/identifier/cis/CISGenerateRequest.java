@@ -1,4 +1,4 @@
-package org.ihtsdo.elasticsnomed.core.data.services.cis;
+package org.ihtsdo.elasticsnomed.core.data.services.identifier.cis;
 
 final class CISGenerateRequest {
 	int namespace;
