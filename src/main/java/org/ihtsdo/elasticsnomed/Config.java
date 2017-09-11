@@ -135,11 +135,6 @@ public class Config {
 	}
 	
 	@Bean
-	public IdentifierService getIdentifierService() {
-		return new IdentifierService();
-	}
-	
-	@Bean 
 	public IdentifierSource getIdentifierStorage() {
 		return new CISClient();  //Unit tests use a dummy version of this.
 	}

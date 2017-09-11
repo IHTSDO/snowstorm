@@ -2,16 +2,23 @@ package org.ihtsdo.elasticsnomed.core.data.services.identifier;
 
 import com.google.common.base.Strings;
 
-import java.util.Collection;
+import java.util.*;
 import java.util.regex.Pattern;
 
 import org.ihtsdo.elasticsnomed.core.data.domain.ComponentType;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
+import org.ihtsdo.elasticsnomed.core.data.domain.jobs.IdentifiersForRegistration;
+import org.ihtsdo.elasticsnomed.core.data.repositories.jobs.IdentifiersForRegistrationRepository;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
+@Service
 public class IdentifierService {
 	
 	private static final Pattern SCTID_PATTERN = Pattern.compile("\\d{6,18}");
@@ -28,7 +35,12 @@ public class IdentifierService {
 	
 	@Autowired
 	private IdentifierSource identifierSource;
-	
+
+	@Autowired
+	private IdentifiersForRegistrationRepository identifiersForRegistrationRepository;
+
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+
 	public static boolean isConceptId(String sctid) {
 		return sctid != null && SCTID_PATTERN.matcher(sctid).matches() && PARTITION_PART2_CONCEPT.equals(getPartitionIdPart(sctid));
 	}
@@ -85,12 +97,33 @@ public class IdentifierService {
 
 	public void registerAssignedIds(IdentifierReservedBlock reservedBlock) throws ServiceException {
 		for (ComponentType componentType : ComponentType.values()) {
-			//TODO Make this call asynchronous - no need to hold up saving a concept
-			//TODO Need a way of generating externally visible errors if this operation should fail,
-			//otherwise identifier could be reassigned elsewhere later.
-			//TODO Work out namespace for identifier blocks
-			//TODO If some other part of the process fails, these ids could be returned to the cache
-			identifierSource.registerIdentifiers(0, reservedBlock.getIdsAssigned(componentType));
+			Collection<String> idsAssigned = reservedBlock.getIdsAssigned(componentType);
+			if (!idsAssigned.isEmpty()) {
+				identifiersForRegistrationRepository.save(new IdentifiersForRegistration(0, idsAssigned));
+			}
+		}
+	}
+
+	@Scheduled(fixedRate = 30000)
+	public void registerIdentifiers() {
+		// Gather sets of identifiers and group by namespace
+		Map<Integer, Set<String>> namespaceIdentifierMap = new HashMap<>();
+		Iterable<IdentifiersForRegistration> roundOfIdentifiers = identifiersForRegistrationRepository.findAll();
+		for (IdentifiersForRegistration identifiersForRegistration : roundOfIdentifiers) {
+			namespaceIdentifierMap.computeIfAbsent(identifiersForRegistration.getNamespace(), (n) -> new HashSet<>())
+					.addAll(identifiersForRegistration.getIds());
+		}
+		// Register each group
+		try {
+			for (Map.Entry<Integer, Set<String>> entry : namespaceIdentifierMap.entrySet()) {
+				Integer namespace = entry.getKey();
+				identifierSource.registerIdentifiers(namespace, entry.getValue());
+				logger.info("Registered {} identifiers for namespace {}", entry.getValue().size(), namespace);
+			}
+			// Once registered delete identifiers from temp store
+			identifiersForRegistrationRepository.delete(roundOfIdentifiers);
+		} catch (ServiceException e) {
+			logger.warn("Failed to register identifiers. They are in persistent storage, will retry later.", e);
 		}
 	}
 
