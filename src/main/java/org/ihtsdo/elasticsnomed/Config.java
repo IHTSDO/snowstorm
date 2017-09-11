@@ -174,6 +174,7 @@ public class Config {
 				"/rebuild/(.*)",
 				"/browser/(.*)/concepts.*",
 				"/browser/(.*)/descriptions.*",
+				"/(.*)/concepts",
 				"/(.*)/concepts/.*",
 				"/(.*)/members.*",
 				"/(.*)/classifications.*",

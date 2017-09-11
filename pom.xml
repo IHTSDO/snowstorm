@@ -153,6 +153,11 @@
 			<version>${spring.version}</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.antlr</groupId>
+			<artifactId>antlr4-runtime</artifactId>
+			<version>4.5.1</version>
+		</dependency>
 	</dependencies>
 	<build>
 		<plugins>

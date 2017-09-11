@@ -8,16 +8,19 @@ import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortOrder;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
-import org.ihtsdo.elasticsnomed.core.data.repositories.QueryIndexConceptRepository;
+import org.ihtsdo.elasticsnomed.core.data.repositories.QueryConceptRepository;
 import org.ihtsdo.elasticsnomed.core.data.services.transitiveclosure.GraphBuilder;
 import org.ihtsdo.elasticsnomed.core.data.services.transitiveclosure.Node;
 import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
+import org.ihtsdo.elasticsnomed.ecl.ECLQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +43,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 public class QueryService extends ComponentService {
 
 	private static final int BATCH_SAVE_SIZE = 10000;
+	public static final PageRequest PAGE_OF_ONE = new PageRequest(0, 1);
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
@@ -48,7 +52,7 @@ public class QueryService extends ComponentService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private QueryIndexConceptRepository queryIndexConceptRepository;
+	private QueryConceptRepository queryConceptRepository;
 
 	@Autowired
 	private BranchService branchService;
@@ -56,7 +60,11 @@ public class QueryService extends ComponentService {
 	@Autowired
 	private ConceptService conceptService;
 
+	@Autowired
+	private ECLQueryService eclQueryService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private static final long IS_A_TYPE = parseLong(Concepts.ISA);
 
 	public List<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
@@ -68,7 +76,7 @@ public class QueryService extends ComponentService {
 
 		final List<Long> termConceptIds = new LongArrayList();
 		if (term != null) {
-			logger.info("Lexical search");
+			logger.info("Lexical search {}", term);
 			// Search for descriptions matching the term prefix
 			BoolQueryBuilder boolQueryBuilder = boolQuery()
 					.must(branchCriteria)
@@ -110,26 +118,35 @@ public class QueryService extends ComponentService {
 		}
 
 		if (conceptQuery.hasLogicalConditions()) {
-			logger.info("Logical search");
-			NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(branchCriteria)
-							.must(conceptQuery.getRootBuilder())
-					)
-					.withPageable(new PageRequest(0, 50));
+			String ecl = conceptQuery.getEcl();
 
-			if (term != null) {
-				List<Long> values = termConceptIds.subList(0, termConceptIds.size() >= 50 ? 50 : termConceptIds.size());
-				logicalSearchQuery.withFilter(boolQuery().must(termsQuery("conceptId", values)));
+			// TODO: Pagination
+			PageRequest pageRequest = new PageRequest(0, 50);
+
+			Collection<Long> pageOfMatchIds;
+			if (ecl != null) {
+				logger.info("ECL Search {}", ecl);
+				pageOfMatchIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(),
+						term != null ? termConceptIds : null, pageRequest);
+			} else {
+				logger.info("Logical Search");
+				NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								.must(branchCriteria)
+								.must(conceptQuery.getRootBuilder())
+						)
+						.withPageable(pageRequest);
+				if (term != null) {
+					logicalSearchQuery.withFilter(boolQuery().must(termsQuery("conceptId", termConceptIds)));
+				}
+				Page<QueryConcept> queryConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery.build(), QueryConcept.class);
+				pageOfMatchIds = queryConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
 			}
 
-			Page<QueryConcept> queryConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery.build(), QueryConcept.class);
-			List<Long> ids = queryConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
-
-			logger.info("logical ids size {} - {}", ids.size(), ids);
+			logger.info("logical ids size {} - {}", pageOfMatchIds.size(), pageOfMatchIds);
 
 			logger.info("Gather minis");
-			Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, ids);
+			Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, pageOfMatchIds);
 
 			if (term != null) {
 				// Recreate term score ordering
@@ -145,8 +162,25 @@ public class QueryService extends ComponentService {
 		return termConceptIds.stream().filter(id -> conceptMiniMap.keySet().contains(id.toString())).map(id -> conceptMiniMap.get(id.toString())).collect(Collectors.toList());
 	}
 
+	public CloseableIterator<QueryConcept> stream(NativeSearchQuery searchQuery) {
+		return elasticsearchTemplate.stream(searchQuery, QueryConcept.class);
+	}
+
 	public Set<Long> retrieveAncestors(String conceptId, String path, boolean stated) {
 		return retrieveAncestors(versionControlHelper.getBranchCriteria(path), path, stated, conceptId);
+	}
+
+	public Set<Long> retrieveParents(QueryBuilder branchCriteria, String path, boolean stated, String conceptId) {
+		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termQuery("conceptId", conceptId))
+						.must(termQuery("stated", stated))
+				)
+				.withPageable(PAGE_OF_ONE)
+				.build();
+		List<QueryConcept> concepts = elasticsearchTemplate.queryForList(searchQuery, QueryConcept.class);
+		return concepts.isEmpty() ? Collections.emptySet() : concepts.get(0).getParents();
 	}
 
 	public Set<Long> retrieveAncestors(QueryBuilder branchCriteria, String path, boolean stated, String conceptId) {
@@ -223,15 +257,15 @@ public class QueryService extends ComponentService {
 			System.out.println("total QueryConcept on path = " + page.getTotalElements());
 
 			QueryBuilder changesBranchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch);
-			Set<String> parentVersionsReplacedOnBranch = branch.getVersionsReplaced();
-			updateTransitiveClosure(true, changesBranchCriteria, parentVersionsReplacedOnBranch, commit, false);
-			updateTransitiveClosure(false, changesBranchCriteria, parentVersionsReplacedOnBranch, commit, false);
+			Set<String> deletedComponents = branch.getVersionsReplaced();
+			updateTransitiveClosure(true, changesBranchCriteria, deletedComponents, commit, false);
+			updateTransitiveClosure(false, changesBranchCriteria, deletedComponents, commit, false);
 		} else {
 			// Update query index using changes in the last commit
 			QueryBuilder changesBranchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
-			Set<String> parentVersionsReplacedDuringCommit = commit.getEntityVersionsDeleted();
-			updateTransitiveClosure(true, changesBranchCriteria, parentVersionsReplacedDuringCommit, commit, false);
-			updateTransitiveClosure(false, changesBranchCriteria, parentVersionsReplacedDuringCommit, commit, false);
+			Set<String> deletedComponents = commit.getEntityVersionsDeleted();
+			updateTransitiveClosure(true, changesBranchCriteria, deletedComponents, commit, false);
+			updateTransitiveClosure(false, changesBranchCriteria, deletedComponents, commit, false);
 		}
 	}
 
@@ -298,14 +332,16 @@ public class QueryService extends ComponentService {
 					.withFilter(boolQuery()
 							.must(termsQuery("conceptId", Sets.union(updateSource, updateDestination))))
 					.withPageable(ConceptService.LARGE_PAGE).build();
-			try (final CloseableIterator<QueryConcept> existingIndexConcepts = elasticsearchTemplate.stream(query, QueryConcept.class)) {
-				existingIndexConcepts.forEachRemaining(indexConcept -> existingAncestors.addAll(indexConcept.getAncestors()));
+			try (final CloseableIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.stream(query, QueryConcept.class)) {
+				existingQueryConcepts.forEachRemaining(queryConcept -> {
+					existingAncestors.addAll(queryConcept.getAncestors());
+				});
 			}
 			timer.checkpoint("Collect existingAncestors from QueryConcept.");
 
 			// Step: Identify existing descendants
 			// Strategy: Find existing nodes where TC matches updated relationship source ids
-			try (final CloseableIterator<QueryConcept> existingIndexConcepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+			try (final CloseableIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(branchCriteriaForAlreadyCommittedContent)
 							.must(termsQuery("stated", stated))
@@ -313,7 +349,7 @@ public class QueryService extends ComponentService {
 					.withFilter(boolQuery()
 							.must(termsQuery("ancestors", updateSource)))
 					.withPageable(ConceptService.LARGE_PAGE).build(), QueryConcept.class)) {
-				existingIndexConcepts.forEachRemaining(indexConcept -> existingDescendants.add(indexConcept.getConceptId()));
+				existingQueryConcepts.forEachRemaining(queryConcept -> existingDescendants.add(queryConcept.getConceptId()));
 			}
 			timer.checkpoint("Collect existingDescendants from QueryConcept.");
 
@@ -349,69 +385,121 @@ public class QueryService extends ComponentService {
 
 		// Step - Update graph
 		// Strategy: Add/remove edges from new commit
-		AtomicLong relationshipsAdded = new AtomicLong();
-		AtomicLong relationshipsRemoved = new AtomicLong();
+		// Also collect other attribute changes
+		AtomicLong isARelationshipsAdded = new AtomicLong();
+		AtomicLong isARelationshipsRemoved = new AtomicLong();
 		boolean newGraph = graphBuilder.getNodeCount() == 0;
-		try (final CloseableIterator<Relationship> newInferredIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		Map<Long, AttributeChanges> conceptAttributeChanges = new Long2ObjectOpenHashMap<>();
+		try (final CloseableIterator<Relationship> inferredIsARelationshipChanges = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(changesBranchCriteria)
-						.must(termQuery("typeId", Concepts.ISA))
 						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
 				)
 				.withSort(new FieldSortBuilder("start").order(SortOrder.ASC))
 				.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
-			newInferredIsARelationships.forEachRemaining(relationship -> {
+			inferredIsARelationshipChanges.forEachRemaining(relationship -> {
 				boolean ignore = false;
 				boolean justDeleted = false;
 				if (relationship.getEnd() != null) {
 					if (deletionsToProcess.contains(relationship.getId())) {
 						justDeleted = true;
 					} else {
+						// Replaced not deleted. A new version will be in the selection.
 						ignore = true;
 					}
 				}
 				if (!ignore) {
-					if (!justDeleted && relationship.isActive()){
-						graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()))
-								.markUpdated();
-						relationshipsAdded.incrementAndGet();
-					} else{
-						Node node = graphBuilder.removeParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
-						if (node != null) {
-							node.markUpdated();
+					long conceptId = parseLong(relationship.getSourceId());
+					int groupId = relationship.getGroupId();
+					long type = parseLong(relationship.getTypeId());
+					long value = parseLong(relationship.getDestinationId());
+					if (!justDeleted && relationship.isActive()) {
+						if (type == IS_A_TYPE) {
+							graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()))
+									.markUpdated();
+							isARelationshipsAdded.incrementAndGet();
+						} else {
+							conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(groupId, type, value);
 						}
-						relationshipsRemoved.incrementAndGet();
+					} else {
+						if (type == IS_A_TYPE) {
+							Node node = graphBuilder.removeParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
+							if (node != null) {
+								node.markUpdated();
+							}
+							isARelationshipsRemoved.incrementAndGet();
+						} else {
+							conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).removeAttribute(groupId, type, value);
+						}
 					}
 				}
 			});
 		}
-		timer.checkpoint("Update graph using changed Relationships.");
-		logger.info("{} {} is-a relationships added, {} removed.", relationshipsAdded.get(), formName, relationshipsRemoved.get());
-
+		timer.checkpoint("Update graph using changed relationships.");
+		logger.info("{} {} is-a relationships added, {} removed.", isARelationshipsAdded.get(), formName, isARelationshipsRemoved.get());
 
 		// Step: Save changes
-		Set<QueryConcept> indexConceptsToSave = new HashSet<>();
-		graphBuilder.getNodes().forEach(node -> {
-			if (newGraph || node.isAncestorOrSelfUpdated()) {
-				final Set<Long> transitiveClosure = node.getTransitiveClosure();
-				final Long nodeId = node.getId();
-				indexConceptsToSave.add(new QueryConcept(nodeId, transitiveClosure, stated));
-			}
+		Map<Long, Node> nodesToSave = new Long2ObjectOpenHashMap<>();
+		graphBuilder.getNodes().stream()
+				.filter(node -> newGraph || node.isAncestorOrSelfUpdated() || conceptAttributeChanges.containsKey(node.getId()))
+				.forEach(node -> nodesToSave.put(node.getId(), node));
+		Set<Long> nodesNotFound = new LongOpenHashSet(nodesToSave.keySet());
+		Set<QueryConcept> queryConceptsToSave = new HashSet<>();
+		try (final CloseableIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteriaForAlreadyCommittedContent)
+						.must(termsQuery(QueryConcept.STATED_FIELD, stated))
+				)
+				.withFilter(boolQuery()
+						.must(termsQuery(QueryConcept.CONCEPT_ID_FORM_FIELD, nodesToSave.values().stream().map(n -> QueryConcept.toConceptIdForm(n.getId(), stated)).collect(Collectors.toList()))))
+				.withPageable(ConceptService.LARGE_PAGE).build(), QueryConcept.class)) {
+			existingQueryConcepts.forEachRemaining(queryConcept -> {
+				Long conceptId = queryConcept.getConceptId();
+				Node node = nodesToSave.get(conceptId);
+				queryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
+				queryConcept.setAncestors(node.getTransitiveClosure());
+				applyAttributeChanges(queryConcept, conceptId, conceptAttributeChanges);
+				queryConceptsToSave.add(queryConcept);
+				nodesNotFound.remove(conceptId);
+			});
+		}
+
+		timer.checkpoint("Collect existingDescendants from QueryConcept.");
+
+		nodesNotFound.forEach(nodeId -> {
+			Node node = nodesToSave.get(nodeId);
+			final Set<Long> transitiveClosure = node.getTransitiveClosure();
+			final Set<Long> parentIds = node.getParents().stream().map(Node::getId).collect(Collectors.toSet());
+			QueryConcept queryConcept = new QueryConcept(nodeId, parentIds, transitiveClosure, stated);
+			applyAttributeChanges(queryConcept, nodeId, conceptAttributeChanges);
+			queryConceptsToSave.add(queryConcept);
 		});
-		if (!indexConceptsToSave.isEmpty()) {
-			for (List<QueryConcept> queryConcepts : Iterables.partition(indexConceptsToSave, BATCH_SAVE_SIZE)) {
+		if (!queryConceptsToSave.isEmpty()) {
+			for (List<QueryConcept> queryConcepts : Iterables.partition(queryConceptsToSave, BATCH_SAVE_SIZE)) {
 				doSaveBatch(queryConcepts, commit);
 			}
 		}
-		timer.checkpoint("Save updated QueryIndexConcepts");
-		logger.info("{} {} concept transitive closures updated.", indexConceptsToSave.size(), formName);
+		timer.checkpoint("Save updated QueryConcepts");
+		logger.info("{} {} concept transitive closures updated.", queryConceptsToSave.size(), formName);
 
 		timer.finish();
 	}
 
+	private void applyAttributeChanges(QueryConcept queryConcept, Long conceptId, Map<Long, AttributeChanges> conceptAttributeChanges) {
+		AttributeChanges attributeChanges = conceptAttributeChanges.get(conceptId);
+		if (attributeChanges != null) {
+			attributeChanges.getAdd().forEach((attribute) -> {
+				queryConcept.addAttribute(attribute.getGroup(), attribute.getType(), attribute.getValue());
+			});
+			attributeChanges.getRemove().forEach((attribute) -> {
+				queryConcept.removeAttribute(attribute.getGroup(), attribute.getType(), attribute.getValue());
+			});
+		}
+	}
+
 	private void removeQConceptChangesOnBranch(Commit commit) {
-		Branch branch = commit.getBranch();
 		// End versions on branch
+		Branch branch = commit.getBranch();
 		QueryBuilder branchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch.getPath());
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(branchCriteria)
@@ -445,19 +533,20 @@ public class QueryService extends ComponentService {
 
 	private Iterable<QueryConcept> deleteBatch(Commit commit, List<QueryConcept> deletionBatch) {
 		logger.info("Ending {} query concepts", deletionBatch.size());
-		return doSaveBatchComponents(deletionBatch, commit, "conceptIdForm", queryIndexConceptRepository);
+		return doSaveBatchComponents(deletionBatch, commit, "conceptIdForm", queryConceptRepository);
 	}
 
-	private void doSaveBatch(Collection<QueryConcept> indexConcepts, Commit commit) {
-		doSaveBatchComponents(indexConcepts, commit, "conceptIdForm", queryIndexConceptRepository);
+	private void doSaveBatch(Collection<QueryConcept> queryConcepts, Commit commit) {
+		doSaveBatchComponents(queryConcepts, commit, "conceptIdForm", queryConceptRepository);
 	}
 
 	public void deleteAll() {
-		queryIndexConceptRepository.deleteAll();
+		queryConceptRepository.deleteAll();
 	}
 
 	/**
 	 * Creates a ConceptQueryBuilder for use with search methods.
+	 *
 	 * @param stated If the stated or inferred form should be used in any logical conditions.
 	 * @return a new ConceptQueryBuilder
 	 */
@@ -469,9 +558,12 @@ public class QueryService extends ComponentService {
 
 		private final BoolQueryBuilder rootBuilder;
 		private final BoolQueryBuilder logicalConditionBuilder;
+		private final boolean stated;
 		private String termPrefix;
+		private String ecl;
 
 		private ConceptQueryBuilder(boolean stated) {
+			this.stated = stated;
 			rootBuilder = boolQuery();
 			logicalConditionBuilder = boolQuery();
 			rootBuilder.must(termQuery("stated", stated));
@@ -496,8 +588,14 @@ public class QueryService extends ComponentService {
 			return this;
 		}
 
+		public ConceptQueryBuilder ecl(String ecl) {
+			this.ecl = ecl;
+			return this;
+		}
+
 		/**
 		 * Term prefix has a minimum length of 3 characters.
+		 *
 		 * @param termPrefix
 		 */
 		public ConceptQueryBuilder termPrefix(String termPrefix) {
@@ -513,8 +611,67 @@ public class QueryService extends ComponentService {
 			return termPrefix;
 		}
 
+		public String getEcl() {
+			return ecl;
+		}
+
+		public boolean isStated() {
+			return stated;
+		}
+
 		private boolean hasLogicalConditions() {
-			return logicalConditionBuilder.hasClauses();
+			return getEcl() != null || logicalConditionBuilder.hasClauses();
+		}
+	}
+
+	private static final class AttributeChanges {
+
+		private Set<Attribute> add;
+		private Set<Attribute> remove;
+
+		private AttributeChanges() {
+			add = new HashSet<>();
+			remove = new HashSet<>();
+		}
+
+		private void addAttribute(int groupId, Long type, Long value) {
+			add.add(new Attribute(groupId, type, value));
+		}
+
+		private void removeAttribute(int groupId, Long type, Long value) {
+			remove.add(new Attribute(groupId, type, value));
+		}
+
+		private Set<Attribute> getAdd() {
+			return add;
+		}
+
+		private Set<Attribute> getRemove() {
+			return remove;
+		}
+	}
+
+	private static final class Attribute {
+		private int group;
+		private Long type;
+		private Long value;
+
+		private Attribute(int group, Long type, Long value) {
+			this.group = group;
+			this.type = type;
+			this.value = value;
+		}
+
+		private int getGroup() {
+			return group;
+		}
+
+		private Long getType() {
+			return type;
+		}
+
+		private Long getValue() {
+			return value;
 		}
 	}
 }

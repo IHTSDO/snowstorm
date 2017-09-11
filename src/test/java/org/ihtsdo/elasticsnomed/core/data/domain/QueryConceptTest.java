@@ -1,0 +1,67 @@
+package org.ihtsdo.elasticsnomed.core.data.domain;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Sets;
+import org.ihtsdo.elasticsnomed.core.data.repositories.config.ConceptStoreMixIn;
+import org.ihtsdo.elasticsnomed.core.data.repositories.config.DescriptionStoreMixIn;
+import org.ihtsdo.elasticsnomed.core.data.repositories.config.RelationshipStoreMixIn;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
+
+import java.io.IOException;
+import java.util.*;
+
+import static org.junit.Assert.*;
+
+public class QueryConceptTest {
+
+	private ObjectMapper objectMapper;
+
+	@Before
+	public void setup() {
+		objectMapper = Jackson2ObjectMapperBuilder
+				.json()
+				.defaultViewInclusion(false)
+				.failOnUnknownProperties(false)
+				.serializationInclusion(JsonInclude.Include.NON_NULL)
+				.build();
+	}
+
+	@Test
+	public void test() throws IOException {
+		QueryConcept queryConcept = new QueryConcept();
+		queryConcept.setConceptId(123L);
+		queryConcept.setPath("MAIN");
+
+		queryConcept.addAttribute(1, 123L, 456L);
+		assertEquals("1:123=456", queryConcept.getAttrMap());
+
+		queryConcept.addAttribute(1, 123L, 789L);
+		assertEquals("1:123=456,789", queryConcept.getAttrMap());
+
+		queryConcept.addAttribute(1, 1234L, 123L);
+		assertEquals("1:123=456,789:1234=123", queryConcept.getAttrMap());
+
+		queryConcept.addAttribute(3, 123L, 456L);
+		assertEquals("1:123=456,789:1234=123|3:123=456", queryConcept.getAttrMap());
+
+		Map<Integer, Map<String, List<String>>> groupedAttributesMap = queryConcept.getGroupedAttributesMap();
+		assertEquals(2, groupedAttributesMap.size());
+
+		Map<String, Set<String>> expectedAttrMap = new HashMap<>();
+		expectedAttrMap.put("all", Sets.newHashSet("123", "456", "789"));
+		expectedAttrMap.put("123", Sets.newHashSet("456", "789"));
+		expectedAttrMap.put("1234", Sets.newHashSet("123"));
+		assertEquals(expectedAttrMap, queryConcept.getAttr());
+
+		String json = objectMapper.writeValueAsString(queryConcept);
+
+		QueryConcept queryConcept2 = objectMapper.readValue(json, QueryConcept.class);
+		assertEquals("1:123=456,789:1234=123|3:123=456", queryConcept2.getAttrMap());
+		assertEquals(groupedAttributesMap, queryConcept2.getGroupedAttributesMap());
+	}
+
+}

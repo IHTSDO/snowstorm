@@ -9,6 +9,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
 import org.ihtsdo.elasticsnomed.core.data.domain.ConceptView;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.rest.pojo.ConceptDescriptionsResult;
+import org.ihtsdo.elasticsnomed.rest.pojo.ConceptSearchRequest;
 import org.ihtsdo.elasticsnomed.rest.pojo.InboundRelationshipsResult;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
@@ -39,10 +40,42 @@ public class ConceptController {
 	@Autowired
 	private QueryService queryService;
 
+	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public ItemsPage<ConceptMiniNestedFsn> findConcepts(
+			@PathVariable String branch,
+			@RequestParam(defaultValue = "false") boolean stated,
+			@RequestParam(required = false) String term,
+			@RequestParam(required = false) String ecl,
+			@RequestParam(required = false) String escg) {
+
+		// TODO: Remove this partial ESCG support
+		if (ecl == null && escg != null && !escg.isEmpty()) {
+			ecl = escg.replace("UNION", "OR");
+		}
+
+		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated);
+		queryBuilder.ecl(ecl);
+		queryBuilder.termPrefix(term);
+		return new ItemsPage<>(ControllerHelper.nestConceptMiniFsn(queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch))));
+	}
+
+	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public ItemsPage<ConceptMiniNestedFsn> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
+		return findConcepts(BranchPathUriUtil.parseBranchPath(branch),
+				searchRequest.isStated(),
+				searchRequest.getTermFilter(),
+				searchRequest.getEclFilter(),
+				null);
+	}
+
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public Page<? extends ConceptView> findConcepts(
+	public Page<? extends ConceptView> getBrowserConcepts(
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "0") int number,
 			@RequestParam(defaultValue = "100") int size) {

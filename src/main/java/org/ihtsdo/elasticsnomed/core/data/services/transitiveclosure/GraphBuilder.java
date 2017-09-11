@@ -5,6 +5,8 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collection;
+
 public class GraphBuilder {
 
 	private Long2ObjectMap<Node> nodeLookup = new Long2ObjectOpenHashMap<>();
@@ -12,7 +14,7 @@ public class GraphBuilder {
 	private static final Logger LOGGER = LoggerFactory.getLogger(GraphBuilder.class);
 
 	public Node addParent(Long sourceId, Long destinationId) {
-		LOGGER.info("{} -> {}", sourceId, destinationId);
+		LOGGER.debug("{} -> {}", sourceId, destinationId);
 		Node createNode = getCreateNode(sourceId);
 		createNode.addParent(getCreateNode(destinationId));
 		return createNode;
@@ -27,7 +29,7 @@ public class GraphBuilder {
 		return node;
 	}
 
-	public Iterable<Node> getNodes() {
+	public Collection<Node> getNodes() {
 		return nodeLookup.values();
 	}
 
@@ -36,7 +38,7 @@ public class GraphBuilder {
 	}
 
 	public Node removeParent(Long sourceId, Long destinationId) {
-		LOGGER.info("{} X> {}", sourceId, destinationId);
+		LOGGER.debug("{} X> {}", sourceId, destinationId);
 		final Node node = nodeLookup.get(sourceId);
 		if (node != null) {
 			node.removeParent(destinationId);
