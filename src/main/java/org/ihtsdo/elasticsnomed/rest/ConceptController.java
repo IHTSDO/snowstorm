@@ -4,17 +4,11 @@ import com.fasterxml.jackson.annotation.JsonView;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 
-import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
-import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
-import org.ihtsdo.elasticsnomed.core.data.domain.ConceptView;
-import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
+import org.ihtsdo.elasticsnomed.core.data.domain.*;
+import org.ihtsdo.elasticsnomed.core.data.services.*;
 import org.ihtsdo.elasticsnomed.rest.pojo.ConceptDescriptionsResult;
 import org.ihtsdo.elasticsnomed.rest.pojo.ConceptSearchRequest;
 import org.ihtsdo.elasticsnomed.rest.pojo.InboundRelationshipsResult;
-import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
-import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
-import org.ihtsdo.elasticsnomed.core.data.services.RelationshipService;
-import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.util.Assert;
@@ -86,14 +80,15 @@ public class ConceptController {
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public ConceptView findConcept(@PathVariable String branch, @PathVariable String conceptId) {
-		return conceptService.find(conceptId, BranchPathUriUtil.parseBranchPath(branch));
+		return ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, BranchPathUriUtil.parseBranchPath(branch)));
 	}
 
 	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descriptions", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public ConceptDescriptionsResult findConceptDescriptions(@PathVariable String branch, @PathVariable String conceptId) {
-		return new ConceptDescriptionsResult(conceptService.find(conceptId, BranchPathUriUtil.parseBranchPath(branch)).getDescriptions());
+		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, BranchPathUriUtil.parseBranchPath(branch)));
+		return new ConceptDescriptionsResult(concept.getDescriptions());
 	}
 
 	@ResponseBody

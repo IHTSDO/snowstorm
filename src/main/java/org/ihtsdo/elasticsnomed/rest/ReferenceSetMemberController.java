@@ -41,7 +41,7 @@ public class ReferenceSetMemberController {
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMember fetchMember(@PathVariable String branch,
 										  @PathVariable String uuid) {
-		return memberService.findMember(BranchPathUriUtil.parseBranchPath(branch), uuid);
+		return ControllerHelper.throwIfNotFound("Member", memberService.findMember(BranchPathUriUtil.parseBranchPath(branch), uuid));
 	}
 
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.DELETE)

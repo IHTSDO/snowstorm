@@ -50,7 +50,7 @@ public class DescriptionController {
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Description fetchDescription(@PathVariable String branch, @PathVariable String descriptionId) {
-		return descriptionService.fetchDescription(BranchPathUriUtil.parseBranchPath(branch), descriptionId);
+		return ControllerHelper.throwIfNotFound("Description", descriptionService.fetchDescription(BranchPathUriUtil.parseBranchPath(branch), descriptionId));
 	}
 
 }

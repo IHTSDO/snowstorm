@@ -2,6 +2,7 @@ package org.ihtsdo.elasticsnomed.rest;
 
 import org.elasticsearch.common.Strings;
 import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
+import org.ihtsdo.elasticsnomed.core.data.services.NotFoundException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,5 +38,12 @@ class ControllerHelper {
 			throw new IllegalArgumentException(paramName + " is a required parameter.");
 		}
 		return value;
+	}
+
+	static <T> T throwIfNotFound(String type, T component) {
+		if (component == null) {
+			throw new NotFoundException(type + " not found");
+		}
+		return component;
 	}
 }
