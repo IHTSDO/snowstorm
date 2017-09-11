@@ -145,13 +145,14 @@ public class Config {
 	}
 	
 	@Bean 
-	public IdentifierCacheManager getIdentifierCacheManager() {
+	public IdentifierCacheManager getIdentifierCacheManager(@Value("${cis.cache.concept-prefetch-count}") int conceptIdPrefetchCount) {
 		IdentifierCacheManager icm = new IdentifierCacheManager();
-		//TODO Read these initialization values from disk configuration
-		icm.addCache(0, "00", 200);// 200 concept sctids
-		icm.addCache(0, "01", 400);// 400 description sctids
-		icm.addCache(0, "02", 800);// 800 relationship sctids
-		
+		// Concept
+		icm.addCache(0, "00", conceptIdPrefetchCount);
+		// Description
+		icm.addCache(0, "01", conceptIdPrefetchCount * 2);
+		// Relationship
+		icm.addCache(0, "02", conceptIdPrefetchCount * 4);
 		return icm;
 	}
 
