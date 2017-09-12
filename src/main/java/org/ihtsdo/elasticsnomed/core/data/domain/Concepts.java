@@ -69,6 +69,22 @@ public class Concepts {
 	public static final String REFSET_ALTERNATIVE_ASSOCIATION = "900000000000530003";
 	public static final String REFSET_REFERS_TO_ASSOCIATION = "900000000000531004";
 
+	// MRCM reference sets
+	public static final String REFSET_MRCM = "723564002";
+	public static final String REFSET_MRCM_DOMAIN = "723589008";
+	public static final String REFSET_MRCM_DOMAIN_INTERNATIONAL = "723560006";
+	public static final String REFSET_MRCM_ATTRIBUTE_DOMAIN = "723604009";
+	public static final String REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL = "723561005";
+	public static final String REFSET_MRCM_ATTRIBUTE_RANGE = "723592007";
+	public static final String REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL = "723562003";
+	public static final String REFSET_MRCM_MODULE_SCOPE = "723563008";
+	public static final Set<String> MRCM_INTERNATIONAL_REFSETS = new ImmutableSet.Builder<String>()
+			.add(REFSET_MRCM_DOMAIN_INTERNATIONAL)
+			.add(REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL)
+			.add(REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL)
+			.add(REFSET_MRCM_MODULE_SCOPE)
+			.build();
+
 	public static final BiMap<String, String> inactivationIndicatorNames = new ImmutableBiMap.Builder<String, String>()
 			.put(DUPLICATE, "DUPLICATE")
 			.put(OUTDATED, "OUTDATED")
