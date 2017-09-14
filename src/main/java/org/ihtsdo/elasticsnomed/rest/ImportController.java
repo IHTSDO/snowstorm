@@ -22,7 +22,6 @@ public class ImportController {
 	@RequestMapping(method = RequestMethod.POST)
 	@ResponseBody
 	public ResponseEntity<Void> createImportJob(@RequestBody ImportConfiguration importConfiguration) {
-		// TODO: What is the Spring way to do this validation?
 		requiredParam(importConfiguration.type, "type");
 		requiredParam(importConfiguration.branchPath, "branchPath");
 
