@@ -34,6 +34,9 @@ public class ConceptController {
 	@Autowired
 	private QueryService queryService;
 
+	@Autowired
+	private QueryConceptUpdateService queryConceptUpdateService;
+
 	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
@@ -172,7 +175,7 @@ public class ConceptController {
 
 	@RequestMapping(value = "/rebuild/{branch}", method = RequestMethod.POST)
 	public void rebuildBranchTransitiveClosure(@PathVariable String branch) {
-		queryService.rebuildStatedAndInferredTransitiveClosures(branch);
+		queryConceptUpdateService.rebuildStatedAndInferredTransitiveClosures(branch);
 	}
 
 }

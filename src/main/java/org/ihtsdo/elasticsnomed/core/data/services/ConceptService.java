@@ -87,6 +87,9 @@ public class ConceptService extends ComponentService implements CommitListener {
 	@Autowired
 	private QueryService queryService;
 
+	@Autowired
+	private QueryConceptUpdateService queryConceptUpdateService;
+
 	@Value("${commit.transitive-closure.disable:false}")
 	private boolean disableTransitiveClosure;
 
@@ -854,7 +857,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		if (disableTransitiveClosure) {
 			logger.info("Transitive closure calculation disabled.");
 		} else {
-			queryService.updateStatedAndInferredTransitiveClosures(commit);
+			queryConceptUpdateService.updateStatedAndInferredTransitiveClosures(commit);
 		}
 	}
 
