@@ -3,10 +3,8 @@ package org.ihtsdo.elasticsnomed.ecl.domain;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
-import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
-import java.util.Set;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 
@@ -34,15 +32,15 @@ public class CompoundExpressionConstraint implements ExpressionConstraint {
 	}
 
 	@Override
-	public Set<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
-		return select(path, branchCriteria, stated, queryService, null, null);
+	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
+		return select(path, branchCriteria, stated, queryService, null);
 	}
 
 	@Override
-	public Set<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService, List<Long> conceptIdFilter, PageRequest pageRequest) {
+	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService, List<Long> conceptIdFilter) {
 		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
 		addCriteria(query, path, branchCriteria, stated, queryService);
-		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService, pageRequest);
+		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService);
 	}
 
 	public void setConjunctionExpressionConstraints(List<SubExpressionConstraint> conjunctionExpressionConstraints) {

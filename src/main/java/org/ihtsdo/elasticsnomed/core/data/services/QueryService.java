@@ -19,6 +19,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.repositories.QueryConceptRepository;
 import org.ihtsdo.elasticsnomed.core.data.services.transitiveclosure.GraphBuilder;
 import org.ihtsdo.elasticsnomed.core.data.services.transitiveclosure.Node;
+import org.ihtsdo.elasticsnomed.core.util.CollectionUtil;
 import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
 import org.ihtsdo.elasticsnomed.ecl.ECLQueryService;
 import org.slf4j.Logger;
@@ -66,99 +67,112 @@ public class QueryService extends ComponentService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private static final long IS_A_TYPE = parseLong(Concepts.ISA);
 
-	public List<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath) {
+	public List<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath, int pageSize) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 
+		boolean logicalCriteria = conceptQuery.hasLogicalConditions();
+
 		String term = conceptQuery.getTermPrefix();
-		if (term != null && term.length() < 3) {
-			return Collections.emptyList();
+		boolean lexicalCriteria;
+		if (term != null) {
+			if (term.length() < 3) {
+				return Collections.emptyList();
+			}
+			lexicalCriteria = true;
+		} else {
+			lexicalCriteria = false;
 		}
 
-		final List<Long> termConceptIds = new LongArrayList();
-		if (term != null) {
-			logger.info("Lexical search {}", term);
-			// Search for descriptions matching the term prefix
-			BoolQueryBuilder boolQueryBuilder = boolQuery()
-					.must(branchCriteria)
-					.must(termQuery("active", true))
-					.must(termQuery("typeId", Concepts.FSN));
+		if (lexicalCriteria && !logicalCriteria) {
+			// Simple term search.
+			// Return a page of results straight away
+			logger.info("Lexical only search {}", term);
+			NativeSearchQuery query = new NativeSearchQueryBuilder()
+					.withQuery(getLexicalQuery(branchCriteria, term))
+					.withPageable(new PageRequest(0, pageSize))
+					.build();
+			DescriptionService.addTermSort(query);
 
-			DescriptionService.addTermClauses(term, boolQueryBuilder);
+			List<Long> conceptIds = new ArrayList<>();
+			List<Description> descriptions = elasticsearchTemplate.queryForPage(query, Description.class).getContent();
+			descriptions.forEach(d -> conceptIds.add(parseLong(d.getConceptId())));
+			logger.info("Gather minis");
+			Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, conceptIds);
+			return getOrderedConceptList(conceptIds, conceptMiniMap);
+		}
 
-			if (conceptQuery.hasLogicalConditions()) {
-				// Page through all matches.
-				// Stream can not be used because there is no ordering.
-				Page<Description> page;
-				Integer offset = 0;
-				int pageSize = LARGE_PAGE.getPageSize();
-				do {
-					NativeSearchQuery query = new NativeSearchQueryBuilder()
-							.withQuery(boolQueryBuilder)
-							.withPageable(new PageRequest(offset, pageSize))
-							.build();
-					DescriptionService.addTermSort(query);
-
-					page = elasticsearchTemplate.queryForPage(query, Description.class);
-					termConceptIds.addAll(page.getContent().stream().map(d -> parseLong(d.getConceptId())).collect(Collectors.toList()));
-					offset += pageSize;
-				} while (!page.isLast());
-			} else {
+		final List<Long> allLexicalMatchesWithOrdering = new LongArrayList();
+		if (lexicalCriteria) {
+			// Perform term search to get results ordering.
+			// Iterate through Pages rather than opening Stream because Stream has no ordering.
+			logger.info("Lexical search before logical {}", term);
+			Page<Description> page;
+			int pageNumber = 0;
+			do {
 				NativeSearchQuery query = new NativeSearchQueryBuilder()
-						.withQuery(boolQueryBuilder)
-						.withPageable(new PageRequest(0, 50))
+						.withQuery(getLexicalQuery(branchCriteria, term))
+						.withPageable(new PageRequest(pageNumber, LARGE_PAGE.getPageSize()))
 						.build();
 				DescriptionService.addTermSort(query);
 
-				List<Description> descriptions = elasticsearchTemplate.queryForPage(query, Description.class).getContent();
-				descriptions.forEach(d -> termConceptIds.add(parseLong(d.getConceptId())));
-				logger.info("Gather minis");
-				Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, termConceptIds);
-				return getConceptList(termConceptIds, conceptMiniMap);
-			}
+				page = elasticsearchTemplate.queryForPage(query, Description.class);
+				allLexicalMatchesWithOrdering.addAll(page.getContent().stream().map(d -> parseLong(d.getConceptId())).collect(Collectors.toList()));
+				pageNumber++;
+			} while (!page.isLast());
 		}
 
-		if (conceptQuery.hasLogicalConditions()) {
-			String ecl = conceptQuery.getEcl();
+		if (logicalCriteria) {
+			// Perform logical search. If we have a lexical criteria filter logical results by term matches. Sort order will be restored at the end.
+			List<Long> allLogicalMatches;
 
-			// TODO: Pagination
-			PageRequest pageRequest = new PageRequest(0, 50);
-
-			Collection<Long> pageOfMatchIds;
-			if (ecl != null) {
+			if (conceptQuery.getEcl() != null) {
+				String ecl = conceptQuery.getEcl();
 				logger.info("ECL Search {}", ecl);
-				pageOfMatchIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(),
-						term != null ? termConceptIds : null, pageRequest);
+				List<Long> conceptIdFilter = lexicalCriteria ? allLexicalMatchesWithOrdering : null;
+				allLogicalMatches = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter);
 			} else {
-				logger.info("Logical Search");
+				logger.info("Primitive Logical Search ");
 				NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(branchCriteria)
 								.must(conceptQuery.getRootBuilder())
 						)
-						.withPageable(pageRequest);
-				if (term != null) {
-					logicalSearchQuery.withFilter(boolQuery().must(termsQuery("conceptId", termConceptIds)));
+						.withPageable(LARGE_PAGE);
+				if (lexicalCriteria) {
+					logicalSearchQuery.withFilter(boolQuery().must(termsQuery("conceptId", allLexicalMatchesWithOrdering)));
 				}
-				Page<QueryConcept> queryConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery.build(), QueryConcept.class);
-				pageOfMatchIds = queryConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
+				allLogicalMatches = new ArrayList<>();
+				try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(logicalSearchQuery.build(), QueryConcept.class)) {
+					stream.forEachRemaining(c -> allLogicalMatches.add(c.getConceptId()));
+				}
 			}
 
-			logger.info("logical ids size {}", pageOfMatchIds.size());
-
-			logger.info("Gather minis");
-			Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, pageOfMatchIds);
-
-			if (term != null) {
+			if (!lexicalCriteria) {
+				// Return a page of unordered results from logical search
+				List<Long> pageOfMatches = CollectionUtil.subList(allLogicalMatches, pageSize);
+				logger.info("Gather minis");
+				return new ArrayList<>(conceptService.findConceptMinis(branchCriteria, pageOfMatches).values());
+			} else {
+				List<Long> combinedMatchesWithOrdering = CollectionUtil.listIntersection(allLexicalMatchesWithOrdering, allLogicalMatches);
+				List<Long> pageOfMatches = CollectionUtil.subList(combinedMatchesWithOrdering, pageSize);
+				Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, pageOfMatches);
 				// Recreate term score ordering
-				return getConceptList(termConceptIds, conceptMiniMap);
+				return getOrderedConceptList(pageOfMatches, conceptMiniMap);
 			}
-
-			return new ArrayList<>(conceptMiniMap.values());
 		}
 		return Collections.emptyList();
 	}
 
-	private List<ConceptMini> getConceptList(List<Long> termConceptIds, Map<String, ConceptMini> conceptMiniMap) {
+	private BoolQueryBuilder getLexicalQuery(QueryBuilder branchCriteria, String term) {
+		BoolQueryBuilder lexicalQuery = boolQuery()
+				.must(branchCriteria)
+				.must(termQuery("active", true))
+				.must(termQuery("typeId", Concepts.FSN));
+		DescriptionService.addTermClauses(term, lexicalQuery);
+		return lexicalQuery;
+	}
+
+	private List<ConceptMini> getOrderedConceptList(List<Long> termConceptIds, Map<String, ConceptMini> conceptMiniMap) {
 		return termConceptIds.stream().filter(id -> conceptMiniMap.keySet().contains(id.toString())).map(id -> conceptMiniMap.get(id.toString())).collect(Collectors.toList());
 	}
 

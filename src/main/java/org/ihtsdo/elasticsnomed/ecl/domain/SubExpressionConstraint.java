@@ -4,8 +4,8 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.core.data.domain.QueryConcept;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
-import org.springframework.data.domain.PageRequest;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -32,7 +32,7 @@ public class SubExpressionConstraint implements ExpressionConstraint {
 				query.must(termQuery(QueryConcept.CONCEPT_ID_FIELD, conceptId));
 			}
 		} else if (nestedExpressionConstraint != null) {
-			Set<Long> conceptIds = nestedExpressionConstraint.select(path, branchCriteria, stated, queryService);
+			Collection<Long> conceptIds = nestedExpressionConstraint.select(path, branchCriteria, stated, queryService);
 			if (!conceptIds.isEmpty()) {
 				conceptIds.add(ExpressionConstraint.MISSING_LONG);
 			}
@@ -50,16 +50,16 @@ public class SubExpressionConstraint implements ExpressionConstraint {
 	}
 
 	@Override
-	public Set<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
-		return select(path, branchCriteria, stated, queryService, null, null);
+	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
+		return select(path, branchCriteria, stated, queryService, null);
 	}
 
 	@Override
-	public Set<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService, List<Long> conceptIdFilter, PageRequest pageRequest) {
+	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService, List<Long> conceptIdFilter) {
 		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
 		addCriteria(query, path, branchCriteria, stated, queryService);
 		// TODO: Avoid this fetch in the case that we selecting a single known concept
-		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService, pageRequest);
+		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService);
 	}
 
 	private void applyConceptCriteriaWithOperator(String conceptId, Operator operator, BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {

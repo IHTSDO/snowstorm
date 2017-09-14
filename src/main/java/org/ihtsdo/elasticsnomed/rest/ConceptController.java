@@ -42,7 +42,8 @@ public class ConceptController {
 			@RequestParam(defaultValue = "false") boolean stated,
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) String ecl,
-			@RequestParam(required = false) String escg) {
+			@RequestParam(required = false) String escg,
+			@RequestParam(required = false, defaultValue = "50") int pageSize) {
 
 		// TODO: Remove this partial ESCG support
 		if (ecl == null && escg != null && !escg.isEmpty()) {
@@ -52,7 +53,7 @@ public class ConceptController {
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated);
 		queryBuilder.ecl(ecl);
 		queryBuilder.termPrefix(term);
-		return new ItemsPage<>(ControllerHelper.nestConceptMiniFsn(queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch))));
+		return new ItemsPage<>(ControllerHelper.nestConceptMiniFsn(queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch), pageSize)));
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST)
@@ -63,7 +64,7 @@ public class ConceptController {
 				searchRequest.isStated(),
 				searchRequest.getTermFilter(),
 				searchRequest.getEclFilter(),
-				null);
+				null, 50);
 	}
 
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET)

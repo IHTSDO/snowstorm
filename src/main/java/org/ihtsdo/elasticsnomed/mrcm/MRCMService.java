@@ -8,9 +8,9 @@ import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
 import org.ihtsdo.elasticsnomed.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
@@ -93,7 +93,7 @@ public class MRCMService {
 		}
 
 		queryBuilder.termPrefix(termPrefix);
-		return queryService.search(queryBuilder, branchPath);
+		return queryService.search(queryBuilder, branchPath, 50);
 	}
 
 	public static void main(String[] args) throws IOException {

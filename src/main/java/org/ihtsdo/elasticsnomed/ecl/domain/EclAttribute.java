@@ -5,7 +5,9 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.core.data.domain.QueryConcept;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
 
+import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -21,7 +23,7 @@ public class EclAttribute implements Refinement {
 
 	@Override
 	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
-		Set<Long> attributeTypes = attributeName.select(path, branchCriteria, stated, queryService);
+		Collection<Long> attributeTypes = attributeName.select(path, branchCriteria, stated, queryService);
 
 		Set<String> attributeTypeProperties;
 		if (attributeTypes == null) {
@@ -35,7 +37,7 @@ public class EclAttribute implements Refinement {
 			}
 		}
 
-		Set<Long> possibleAttributeValues = value.select(path, branchCriteria, stated, queryService);
+		Collection<Long> possibleAttributeValues = value.select(path, branchCriteria, stated, queryService);
 		if (expressionComparisonOperator.equals("=")) {
 			for (String attributeTypeProperty : attributeTypeProperties) {
 				if (possibleAttributeValues == null) {
