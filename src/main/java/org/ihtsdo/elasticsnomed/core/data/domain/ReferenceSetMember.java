@@ -26,10 +26,6 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 	private String memberId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
-	private boolean active;
-
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String moduleId;
 
@@ -112,14 +108,6 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 
 	public void setMemberId(String memberId) {
 		this.memberId = memberId;
-	}
-
-	public boolean isActive() {
-		return active;
-	}
-
-	public void setActive(boolean active) {
-		this.active = active;
 	}
 
 	public String getModuleId() {

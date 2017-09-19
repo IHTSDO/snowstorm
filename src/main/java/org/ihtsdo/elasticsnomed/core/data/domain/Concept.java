@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.ihtsdo.elasticsnomed.rest.View;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
@@ -25,10 +26,6 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@Size(min = 5, max = 18)
 	private String conceptId;
-
-	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
-	private boolean active;
 
 	@JsonIgnore
 	private ReferenceSetMember inactivationIndicatorMember;
@@ -213,15 +210,6 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public void setConceptId(String conceptId) {
 		this.conceptId = conceptId;
-	}
-
-	@Override
-	public boolean isActive() {
-		return active;
-	}
-
-	public void setActive(boolean active) {
-		this.active = active;
 	}
 
 	@JsonIgnore

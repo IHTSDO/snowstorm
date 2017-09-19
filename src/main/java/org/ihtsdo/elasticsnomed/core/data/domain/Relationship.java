@@ -38,10 +38,6 @@ public class Relationship extends SnomedComponent<Relationship> {
 	private String relationshipId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
-	private boolean active;
-
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@NotNull
 	@Size(min = 5, max = 18)
@@ -214,14 +210,6 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public void setRelationshipId(String relationshipId) {
 		this.relationshipId = relationshipId;
-	}
-
-	public boolean isActive() {
-		return active;
-	}
-
-	public void setActive(boolean active) {
-		this.active = active;
 	}
 
 	public String getModuleId() {

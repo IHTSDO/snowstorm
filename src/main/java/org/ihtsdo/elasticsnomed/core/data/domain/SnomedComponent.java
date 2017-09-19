@@ -4,11 +4,16 @@ import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import org.ihtsdo.elasticsnomed.rest.View;
 import org.elasticsearch.common.Strings;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 public abstract class SnomedComponent<C> extends DomainEntity<C> {
+
+	@JsonView(value = View.Component.class)
+	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
+	protected boolean active;
 
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@JsonView(value = View.Component.class)
@@ -24,6 +29,9 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	@JsonView(value = View.Component.class)
 	private String releasedEffectiveTime;
+
+	@Transient
+	private boolean creating;
 
 	public interface Fields {
 		String EFFECTIVE_TIME = "effectiveTime";
@@ -68,6 +76,14 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 
 	protected abstract Object[] getReleaseHashObjects();
 
+	public boolean isActive() {
+		return active;
+	}
+
+	public void setActive(boolean active) {
+		this.active = active;
+	}
+
 	public boolean isReleased() {
 		return released;
 	}
@@ -99,4 +115,13 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 	public void setEffectiveTime(String effectiveTime) {
 		this.effectiveTime = effectiveTime;
 	}
+
+	public void setCreating(boolean creating) {
+		this.creating = creating;
+	}
+
+	public boolean isCreating() {
+		return creating;
+	}
+
 }

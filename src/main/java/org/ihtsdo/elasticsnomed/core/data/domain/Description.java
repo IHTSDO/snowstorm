@@ -26,10 +26,6 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	private String descriptionId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
-	private boolean active;
-
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.analyzed)
 	@NotNull
 	@Size(min = 1, max = 255)
@@ -271,14 +267,6 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public void setDescriptionId(String descriptionId) {
 		this.descriptionId = descriptionId;
-	}
-
-	public boolean isActive() {
-		return active;
-	}
-
-	public void setActive(boolean active) {
-		this.active = active;
 	}
 
 	public String getTerm() {
