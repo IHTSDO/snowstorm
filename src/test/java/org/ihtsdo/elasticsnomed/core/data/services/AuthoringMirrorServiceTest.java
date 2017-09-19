@@ -3,7 +3,6 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchService;
 
-import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.tomcat.util.http.fileupload.util.Streams;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.TestUtil;
@@ -13,13 +12,13 @@ import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.core.data.services.authoringmirror.TraceabilityActivity;
 import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.jms.core.MessageCreator;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -29,8 +28,6 @@ import java.io.InputStream;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import javax.jms.ConnectionFactory;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -51,24 +48,17 @@ public class AuthoringMirrorServiceTest {
 	@Autowired
 	private TestUtil testUtil;
 	
+	@Autowired
+	private JmsTemplate jmsTemplate;
+
 	@Value("${authoring.mirror.traceability.queue.name}")
 	private String mirrorQueueName;
-	private JmsTemplate jmsTemplate;
-	private ConnectionFactory connectionFactory;
-	@Value("${spring.activemq.broker-url}")
-	private String brokerUrl;
-	
-	@Before
-	public void setUp() {
-		connectionFactory = new ActiveMQConnectionFactory(brokerUrl);
-		jmsTemplate = new JmsTemplate(connectionFactory);
-	}
-	
+
 	@Test
 	public void testInactivateFSNWithoutReasonCreateTwoNewDescriptionsWithMsg() throws Exception {
 		String testPath = "/traceability-mirror/new-and-updated-descriptions/";
 		String branchPath = "MAIN/CONREQEXT/CONREQEXT-442";
-		runTestWithJmsMessage(testPath, branchPath, 1);
+		runTestViaJms(testPath, branchPath, 1);
 	}
 	
 	@Test
@@ -89,7 +79,7 @@ public class AuthoringMirrorServiceTest {
 	public void testConceptInactivationWithMsg() throws Exception {
 		String testPath = "/traceability-mirror/concept-inactivation/";
 		String branchPath = "MAIN/TESTINT1/TESTINT1-11";
-		runTestWithJmsMessage(testPath, branchPath, 1);
+		runTestViaJms(testPath, branchPath, 1);
 	}
 
 	@Test
@@ -171,8 +161,6 @@ public class AuthoringMirrorServiceTest {
 	public void tearDown() {
 		branchService.deleteAll();
 		conceptService.deleteAll();
-		connectionFactory = null;
-		jmsTemplate = null;
 	}
 
 	private void runTest(String testPath, String branchPath, int expectedChangedConceptCount) throws IOException, ServiceException {
@@ -181,32 +169,38 @@ public class AuthoringMirrorServiceTest {
 		assertPostActivityConceptStates(testPath, branchPath, activity, expectedChangedConceptCount);
 	}
 	
-	private void runTestWithJmsMessage(String testPath, String branchPath, int expectedChangedConceptCount) throws InterruptedException, IOException, ServiceException {
-		setupTest(testPath, branchPath);
-		InputStream traceabilityStream = loadResource(testPath + "traceability-message.json");
-		Assert.assertNotNull(traceabilityStream);
-		String traceabilityStreamString = Streams.asString(traceabilityStream);
-		traceabilityStreamString = traceabilityStreamString.replace("\"empty\": false", "");
-		final String msgText = traceabilityStreamString;
-		MessageCreator messageCreator = session -> session.createTextMessage(msgText);
-		jmsTemplate.send(mirrorQueueName, messageCreator);
-		jmsTemplate.setReceiveTimeout(5000);
-		Thread.sleep(2000);
-		TraceabilityActivity activity = mapper.readValue(traceabilityStreamString, TraceabilityActivity.class);
-		assertPostActivityConceptStates(testPath, branchPath, activity, expectedChangedConceptCount);
-	}
-
 	private TraceabilityActivity consumeActivity(String testPath) throws IOException, ServiceException {
-		InputStream traceabilityStream = loadResource(testPath + "traceability-message.json");
-		Assert.assertNotNull(traceabilityStream);
-		String traceabilityStreamString = Streams.asString(traceabilityStream);
-		traceabilityStreamString = traceabilityStreamString.replace("\"empty\": false", "");
+		String traceabilityStreamString = readTestActivity(testPath);
+
 		TraceabilityActivity activity = mapper.readValue(traceabilityStreamString, TraceabilityActivity.class);
 		authoringMirrorService.receiveActivity(activity);
 		return activity;
 	}
 
-	void assertPostActivityConceptStates(String testPath, String branchPath, TraceabilityActivity activity, int expectedChangedConceptCount) throws IOException {
+	private void runTestViaJms(String testPath, String branchPath, int expectedChangedConceptCount) throws InterruptedException, IOException, ServiceException {
+		setupTest(testPath, branchPath);
+
+		String traceabilityStreamString = readTestActivity(testPath);
+
+		jmsTemplate.convertAndSend(mirrorQueueName, traceabilityStreamString);
+		jmsTemplate.setReceiveTimeout(5_000);
+
+		// Allow time for the activity to be consumed
+		Thread.sleep(2_000);
+
+		TraceabilityActivity activity = mapper.readValue(traceabilityStreamString, TraceabilityActivity.class);
+		assertPostActivityConceptStates(testPath, branchPath, activity, expectedChangedConceptCount);
+	}
+
+	private String readTestActivity(String testPath) throws IOException {
+		InputStream traceabilityStream = loadResource(testPath + "traceability-message.json");
+		Assert.assertNotNull(traceabilityStream);
+		String traceabilityStreamString = Streams.asString(traceabilityStream);
+		traceabilityStreamString = traceabilityStreamString.replace("\"empty\": false", "");
+		return traceabilityStreamString;
+	}
+
+	private void assertPostActivityConceptStates(String testPath, String branchPath, TraceabilityActivity activity, int expectedChangedConceptCount) throws IOException {
 		Assert.assertEquals(expectedChangedConceptCount, activity.getChanges().size());
 		for (String conceptId : activity.getChanges().keySet()) {
 			Concept expected = mapper.readValue(loadResource(testPath + conceptId + "-after.json"), Concept.class);
