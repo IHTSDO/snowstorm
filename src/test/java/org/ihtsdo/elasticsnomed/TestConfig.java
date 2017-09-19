@@ -26,14 +26,14 @@ public class TestConfig extends Config {
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	
 	@Override
-	@Bean 
+	@Bean
 	public IdentifierSource getIdentifierStorage() {
 		//Uncomment this line to run integration test with real cis supplied sctids
 		//return new CISClient();
 		return new DummyIdentifierSource();
 	}
 	
-	@Bean 
+	@Bean
 	public IdentifierCacheManager getIdentifierCacheManager() {
 		return new IdentifierCacheManager();
 	}

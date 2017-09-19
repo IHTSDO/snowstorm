@@ -7,6 +7,7 @@ import org.ihtsdo.elasticsnomed.core.data.services.traceability.Activity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
 
@@ -23,10 +24,17 @@ public class TraceabilityLogService {
 	@Autowired
 	private JmsTemplate jmsTemplate;
 
+	@Value("${authoring.traceability.enabled}")
+	private boolean enabled;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	void logActivity(String userId, Date date, String branchPath, Collection<Concept> concepts, List<Description> descriptions,
 					 List<Relationship> relationships, List<ReferenceSetMember> refsetMembers) {
+
+		if (!enabled) {
+			return;
+		}
 
 		String commitComment;
 		if (concepts.size() == 1) {
