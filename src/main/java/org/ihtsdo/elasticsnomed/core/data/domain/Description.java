@@ -83,6 +83,10 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	private static final Logger logger = LoggerFactory.getLogger(Description.class);
 
+	public interface Fields {
+		String CONCEPT_ID = "conceptId";
+	}
+
 	public Description() {
 		active = true;
 		term = "";

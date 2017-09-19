@@ -229,11 +229,19 @@ public class ConceptService extends ComponentService implements CommitListener {
 		return findConceptMinis(branchCriteria, conceptIds);
 	}
 
+	public Map<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, PageRequest pageRequest) {
+		return findConceptMinis(branchCriteria, null, pageRequest);
+	}
+
 	public Map<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, Collection<? extends Object> conceptIds) {
-		if (conceptIds.isEmpty()) {
+		return findConceptMinis(branchCriteria, conceptIds, new PageRequest(0, conceptIds.size()));
+	}
+
+	private Map<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, Collection<? extends Object> conceptIds, PageRequest pageRequest) {
+		if (conceptIds != null && conceptIds.isEmpty()) {
 			return Collections.emptyMap();
 		}
-		Page<Concept> concepts = doFind(conceptIds, branchCriteria, new PageRequest(0, conceptIds.size()), false, false);
+		Page<Concept> concepts = doFind(conceptIds, branchCriteria, pageRequest, false, false);
 		return concepts.getContent().stream().map(ConceptMini::new).collect(Collectors.toMap(ConceptMini::getConceptId, Function.identity()));
 	}
 

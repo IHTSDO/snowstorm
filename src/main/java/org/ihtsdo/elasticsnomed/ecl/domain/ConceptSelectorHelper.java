@@ -15,14 +15,10 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 
 class ConceptSelectorHelper {
 
-	static List<Long> fetch(BoolQueryBuilder query, List<Long> conceptIdFilter, QueryService queryService) {
+	static List<Long> fetch(BoolQueryBuilder query, QueryService queryService) {
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(query)
 				.withPageable(LARGE_PAGE);
-
-		if (conceptIdFilter != null) {
-			searchQueryBuilder.withFilter(boolQuery().must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptIdFilter)));
-		}
 
 		List<Long> ids = new LongArrayList();
 		try (CloseableIterator<QueryConcept> stream = queryService.stream(searchQueryBuilder.build())) {

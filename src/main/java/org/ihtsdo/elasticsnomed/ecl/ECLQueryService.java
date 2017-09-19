@@ -18,13 +18,9 @@ public class ECLQueryService {
 	@Autowired
 	private QueryService queryService;
 
-	public Collection<Long> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated) throws ECLException {
-		return selectConceptIds(ecl, branchCriteria, path, stated, null);
-	}
-
-	public List<Long> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated, List<Long> conceptIdFilter) throws ECLException {
+	public List<Long> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated) throws ECLException {
 		ExpressionConstraint expressionConstraint = queryBuilder.createQuery(ecl);
-		return expressionConstraint.select(path, branchCriteria, stated, queryService, conceptIdFilter);
+		return expressionConstraint.select(path, branchCriteria, stated, queryService);
 	}
 
 }

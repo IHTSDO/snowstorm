@@ -12,6 +12,5 @@ public interface ExpressionConstraint extends Refinement {
 	Long MISSING_LONG = 111L;
 
 	List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService);
-	List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService, List<Long> conceptIdFilter);
 
 }

@@ -24,13 +24,8 @@ public class RefinedExpressionConstraint implements ExpressionConstraint {
 
 	@Override
 	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
-		return select(path, branchCriteria, stated, queryService, null);
-	}
-
-	@Override
-	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService, List<Long> conceptIdFilter) {
 		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
 		addCriteria(query, path, branchCriteria, stated, queryService);
-		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService);
+		return ConceptSelectorHelper.fetch(query, queryService);
 	}
 }

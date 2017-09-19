@@ -51,15 +51,10 @@ public class SubExpressionConstraint implements ExpressionConstraint {
 
 	@Override
 	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
-		return select(path, branchCriteria, stated, queryService, null);
-	}
-
-	@Override
-	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService, List<Long> conceptIdFilter) {
 		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
 		addCriteria(query, path, branchCriteria, stated, queryService);
 		// TODO: Avoid this fetch in the case that we selecting a single known concept
-		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService);
+		return ConceptSelectorHelper.fetch(query, queryService);
 	}
 
 	private void applyConceptCriteriaWithOperator(String conceptId, Operator operator, BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
