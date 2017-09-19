@@ -1,12 +1,9 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
-import com.github.vanroy.springdata.jest.JestElasticsearchTemplate;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;

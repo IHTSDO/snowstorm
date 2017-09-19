@@ -29,6 +29,7 @@ import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierReserved
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierService;
 import org.ihtsdo.elasticsnomed.core.util.MapUtil;
 import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
+import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,7 +40,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
@@ -89,6 +89,9 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 	@Autowired
 	private QueryConceptUpdateService queryConceptUpdateService;
+
+	@Autowired
+	private TraceabilityLogService traceabilityLogService;
 
 	@Value("${commit.transitive-closure.disable:false}")
 	private boolean disableTransitiveClosure;
@@ -438,6 +441,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 				newComponent.copyReleaseDetails(existingComponent);
 				newComponent.updateEffectiveTime();
 			} else {
+				newComponent.setCreating(true);
 				newComponent.clearReleaseDetails();
 			}
 			if (newComponent.isChanged()) {
@@ -508,12 +512,14 @@ public class ConceptService extends ComponentService implements CommitListener {
 				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships(), savingMergedConcepts);
 				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
 			} else {
+				concept.setCreating(true);
 				if (concept.getConceptId() == null) {
 					concept.setConceptId(reservedIds.getId(ComponentType.Concept));
 				}
 				concept.setChanged(true);
 				concept.clearReleaseDetails();
 				Sets.union(concept.getDescriptions(), concept.getRelationships()).forEach(component -> {
+					component.setCreating(true);
 					component.setChanged(true);
 					component.clearReleaseDetails();
 				});
@@ -532,6 +538,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 				if (existingDescription != null) {
 					existingMembersToMatch.putAll(existingDescription.getLangRefsetMembers());
 				} else {
+					description.setCreating(true);
 					if (description.getDescriptionId() == null) {
 						description.setDescriptionId(reservedIds.getId(ComponentType.Description));
 					}
@@ -615,8 +622,11 @@ public class ConceptService extends ComponentService implements CommitListener {
 		}
 		populateConceptMinis(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit), minisToLoad);
 		
-		//Where we've used a new component identifier, we need to tell the cis about it
+		// Where we've used a new component identifier, we need to tell the cis about it
 		identifierService.registerAssignedIds(reservedIds);
+
+		traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit.getTimepoint(), commit.getBranch().getPath(),
+				concepts, descriptionsToPersist, relationshipsToPersist, refsetMembersToPersist);
 
 		return conceptsSaved;
 	}
