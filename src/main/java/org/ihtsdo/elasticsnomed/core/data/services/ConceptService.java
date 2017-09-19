@@ -585,6 +585,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 				}
 				for (ReferenceSetMember leftoverMember : existingMembersToMatch.values()) {
 					leftoverMember.setActive(false);
+					leftoverMember.markChanged();
 					refsetMembersToPersist.add(leftoverMember);
 				}
 			}
@@ -720,6 +721,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		try (final Commit commit = branchService.openCommit(path)) {
 			Set<Description> descriptionsToSave = new HashSet<>();
 			Set<Relationship> relationshipsToSave = new HashSet<>();
+			Set<ReferenceSetMember> referenceSetMembersToSave = new HashSet<>();
 			for (Concept concept : concepts) {
 				concept.release(effectiveTime);
 				concept.markChanged();
@@ -727,6 +729,11 @@ public class ConceptService extends ComponentService implements CommitListener {
 					description.release(effectiveTime);
 					description.markChanged();
 					descriptionsToSave.add(description);
+					for (ReferenceSetMember referenceSetMember : description.getLangRefsetMembers().values()) {
+						referenceSetMember.release(effectiveTime);
+						referenceSetMember.markChanged();
+						referenceSetMembersToSave.add(referenceSetMember);
+					}
 				}
 				for (Relationship relationship : concept.getRelationships()) {
 					relationship.release(effectiveTime);
@@ -737,6 +744,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 			doSaveBatchConcepts(Sets.newHashSet(concepts), commit);
 			doSaveBatchDescriptions(descriptionsToSave, commit);
 			doSaveBatchRelationships(relationshipsToSave, commit);
+			doSaveBatchMembers(referenceSetMembersToSave, commit);
 			commit.markSuccessful();
 		}
 	}

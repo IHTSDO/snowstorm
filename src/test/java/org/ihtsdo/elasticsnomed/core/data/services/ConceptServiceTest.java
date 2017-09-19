@@ -463,6 +463,45 @@ public class ConceptServiceTest {
 	}
 
 	@Test
+	public void testInactivateDescriptionAcceptability() throws ServiceException {
+		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
+		// Add acceptability with released refset member
+		final ReferenceSetMember member = new ReferenceSetMember(null, "20170731", true, "900000000000207008", Concepts.US_EN_LANG_REFSET, "84923010");
+		member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, Concepts.PREFERRED);
+
+		concept.addDescription(
+				new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
+						.addLanguageRefsetMember("900000000000509007", Concepts.PREFERRED)
+		);
+		conceptService.create(concept, "MAIN");
+		conceptService.releaseConceptsForTest("20170731", "MAIN", concept);
+
+		// Check acceptability
+		final Concept savedConcept1 = conceptService.find("50960005", "MAIN");
+		final Description description1 = savedConcept1.getDescriptions().iterator().next();
+		final Map<String, ReferenceSetMember> members1 = description1.getLangRefsetMembers();
+		ReferenceSetMember referenceSetMember = members1.get("900000000000509007");
+		assertEquals(Concepts.PREFERRED, referenceSetMember.getAdditionalField("acceptabilityId"));
+		assertEquals(true, referenceSetMember.isReleased());
+		assertEquals(1, description1.getAcceptabilityMap().size());
+
+		// Remove acceptability in next request
+		members1.clear();
+		conceptService.update(savedConcept1, "MAIN");
+
+		// Check acceptability is inactive
+		logger.info("Loading updated concept");
+		final Concept savedConcept2 = conceptService.find("50960005", "MAIN");
+		final Description description2 = savedConcept2.getDescriptions().iterator().next();
+		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembers();
+		assertEquals(1, members2.size());
+		assertEquals(false, members2.get("900000000000509007").isActive());
+
+		// Check that acceptability map is empty
+		assertEquals(0, description2.getAcceptabilityMap().size());
+	}
+
+	@Test
 	public void testLatestVersionMatch() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
 
