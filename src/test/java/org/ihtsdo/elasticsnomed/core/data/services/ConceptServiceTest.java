@@ -3,6 +3,7 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
+import org.ihtsdo.elasticsnomed.core.data.services.pojo.ResultMapPage;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -466,9 +467,6 @@ public class ConceptServiceTest {
 	public void testInactivateDescriptionAcceptability() throws ServiceException {
 		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
 		// Add acceptability with released refset member
-		final ReferenceSetMember member = new ReferenceSetMember(null, "20170731", true, "900000000000207008", Concepts.US_EN_LANG_REFSET, "84923010");
-		member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, Concepts.PREFERRED);
-
 		concept.addDescription(
 				new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
 						.addLanguageRefsetMember("900000000000509007", Concepts.PREFERRED)
@@ -628,8 +626,8 @@ public class ConceptServiceTest {
 		assertEquals(concepts.size() + 1, page.getTotalElements());
 		assertEquals(Concepts.CORE_MODULE, page.getContent().get(50).getModuleId());
 
-		Collection<ConceptMini> conceptDescendants = conceptService.findConceptDescendants(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated);
-		assertEquals(10 * 1000, conceptDescendants.size());
+		ResultMapPage<String, ConceptMini> conceptDescendants = conceptService.findConceptDescendants(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated, new PageRequest(0, 50));
+		assertEquals(10 * 1000, conceptDescendants.getTotalElements());
 
 		List<Relationship> inboundRelationships = relationshipService.findInboundRelationships(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated);
 		assertEquals(10 * 1000, inboundRelationships.size());

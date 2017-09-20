@@ -65,7 +65,7 @@ public class MRCMService {
 		allMatchedAttributeIds.removeAll(descendantAttributes);
 		allMatchedAttributeIds.addAll(descendantAttributes);
 
-		return conceptService.findConceptMinis(branchCriteria, allMatchedAttributeIds).values();
+		return conceptService.findConceptMinis(branchCriteria, allMatchedAttributeIds).getResultsMap().values();
 	}
 
 
@@ -93,7 +93,7 @@ public class MRCMService {
 		}
 
 		queryBuilder.termPrefix(termPrefix);
-		return queryService.search(queryBuilder, branchPath, 50);
+		return queryService.search(queryBuilder, branchPath, new PageRequest(0, 50)).getContent();
 	}
 
 	public static void main(String[] args) throws IOException {

@@ -9,12 +9,14 @@ import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
 import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.ihtsdo.elasticsnomed.core.data.domain.QueryConcept;
 import org.ihtsdo.elasticsnomed.core.data.repositories.QueryConceptRepository;
+import org.ihtsdo.elasticsnomed.core.data.services.pojo.ResultMapPage;
 import org.ihtsdo.elasticsnomed.core.util.CollectionUtil;
 import org.ihtsdo.elasticsnomed.ecl.ECLQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
@@ -51,16 +53,15 @@ public class QueryService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public List<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath, int pageSize) {
+	public Page<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		PageRequest pageRequest = new PageRequest(0, pageSize);
 
 		// Validate Lexical criteria
 		String term = conceptQuery.getTermPrefix();
 		boolean hasLexicalCriteria;
 		if (term != null) {
 			if (term.length() < 3) {
-				return Collections.emptyList();
+				return new PageImpl<ConceptMini>(Collections.emptyList());
 			}
 			hasLexicalCriteria = true;
 		} else {
@@ -68,7 +69,7 @@ public class QueryService {
 		}
 
 		List<Long> pageOfConceptIds = null;
-		int resultTotalElements;
+		long resultTotalElements = 0;
 
 		// Fetch Logical matches
 		List<Long> allLogicalMatches = null;
@@ -92,7 +93,7 @@ public class QueryService {
 				allLogicalMatches = matches;
 			}
 
-			pageOfConceptIds = CollectionUtil.subList(allLogicalMatches, pageSize);
+			pageOfConceptIds = CollectionUtil.subList(allLogicalMatches, pageRequest.getPageNumber(), pageRequest.getPageSize());
 			resultTotalElements = allLogicalMatches.size();
 		}
 
@@ -105,14 +106,15 @@ public class QueryService {
 			descriptionPage.getContent().forEach(d -> pageOfIds.add(parseLong(d.getConceptId())));
 
 			pageOfConceptIds = pageOfIds;
-			resultTotalElements = Math.toIntExact(descriptionPage.getTotalElements());
+			resultTotalElements = descriptionPage.getTotalElements();
 		}
 
 		if (pageOfConceptIds != null) {
-			Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branchCriteria, pageOfConceptIds);
-			return getOrderedConceptList(pageOfConceptIds, conceptMiniMap);
+			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, pageOfConceptIds);
+			return new PageImpl<>(getOrderedConceptList(pageOfConceptIds, conceptMinis.getResultsMap()), pageRequest, resultTotalElements);
 		} else {
-			return new ArrayList<>(conceptService.findConceptMinis(branchCriteria, pageRequest).values());
+			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, pageRequest);
+			return new PageImpl<>(new ArrayList<>(conceptMinis.getResultsMap().values()), pageRequest, conceptMinis.getTotalElements());
 		}
 	}
 

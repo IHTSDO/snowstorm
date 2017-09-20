@@ -5,6 +5,8 @@ public class ConceptSearchRequest {
 	private String termFilter;
 	private String eclFilter;
 	private boolean stated;
+	private int page = 0;
+	private int size = 50;
 //		  "moduleFilter": "",
 //		  "activeFilter": false,
 //		  "escgFilter": "",
@@ -39,5 +41,21 @@ public class ConceptSearchRequest {
 
 	public void setStated(boolean stated) {
 		this.stated = stated;
+	}
+
+	public int getPage() {
+		return page;
+	}
+
+	public void setPage(int page) {
+		this.page = page;
+	}
+
+	public int getSize() {
+		return size;
+	}
+
+	public void setSize(int size) {
+		this.size = size;
 	}
 }

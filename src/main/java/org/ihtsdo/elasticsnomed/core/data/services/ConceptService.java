@@ -3,7 +3,6 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.api.ComponentService;
@@ -15,7 +14,6 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongSet;
-
 import org.apache.log4j.Level;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -27,6 +25,7 @@ import org.ihtsdo.elasticsnomed.core.data.repositories.ReferenceSetMemberReposit
 import org.ihtsdo.elasticsnomed.core.data.repositories.RelationshipRepository;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierReservedBlock;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierService;
+import org.ihtsdo.elasticsnomed.core.data.services.pojo.ResultMapPage;
 import org.ihtsdo.elasticsnomed.core.util.MapUtil;
 import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
 import org.ihtsdo.sso.integration.SecurityUtil;
@@ -45,7 +44,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
-
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
@@ -179,15 +177,14 @@ public class ConceptService extends ComponentService implements CommitListener {
 		return conceptMiniMap.values();
 	}
 
-	public Collection<ConceptMini> findConceptDescendants(String conceptId, String path, Relationship.CharacteristicType form) {
+	public ResultMapPage<String, ConceptMini> findConceptDescendants(String conceptId, String path, Relationship.CharacteristicType form, PageRequest pageRequest) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 		Set<Long> descendants = queryService.retrieveDescendants(conceptId, branchCriteria, form == Relationship.CharacteristicType.stated);
 		if (descendants.isEmpty()) {
-			return Collections.emptySet();
+			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
 		Set<String> descendantIds = descendants.stream().map(Object::toString).collect(Collectors.toSet());
-		Map<String, ConceptMini> conceptMinis = findConceptMinis(branchCriteria, descendantIds);
-		return conceptMinis.values();
+		return findConceptMinis(branchCriteria, descendantIds);
 	}
 
 	public Collection<ConceptMini> findConceptParents(String conceptId, String path, Relationship.CharacteristicType form) {
@@ -221,28 +218,33 @@ public class ConceptService extends ComponentService implements CommitListener {
 		return doFind(conceptIds, branchCriteria, pageRequest, true, true);
 	}
 
-	public Map<String, ConceptMini> findConceptMinis(String path, Collection<? extends Object> conceptIds) {
+	public ResultMapPage<String, ConceptMini> findConceptMinis(String path, Collection<? extends Object> conceptIds) {
 		if (conceptIds.isEmpty()) {
-			return Collections.emptyMap();
+			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 		return findConceptMinis(branchCriteria, conceptIds);
 	}
 
-	public Map<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, PageRequest pageRequest) {
+	public ResultMapPage<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, PageRequest pageRequest) {
 		return findConceptMinis(branchCriteria, null, pageRequest);
 	}
 
-	public Map<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, Collection<? extends Object> conceptIds) {
+	public ResultMapPage<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, Collection<? extends Object> conceptIds) {
+		if (conceptIds.isEmpty()) {
+			return new ResultMapPage<>(new HashMap<>(), 0);
+		}
 		return findConceptMinis(branchCriteria, conceptIds, new PageRequest(0, conceptIds.size()));
 	}
 
-	private Map<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, Collection<? extends Object> conceptIds, PageRequest pageRequest) {
+	private ResultMapPage<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, Collection<? extends Object> conceptIds, PageRequest pageRequest) {
 		if (conceptIds != null && conceptIds.isEmpty()) {
-			return Collections.emptyMap();
+			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
 		Page<Concept> concepts = doFind(conceptIds, branchCriteria, pageRequest, false, false);
-		return concepts.getContent().stream().map(ConceptMini::new).collect(Collectors.toMap(ConceptMini::getConceptId, Function.identity()));
+		return new ResultMapPage<>(
+				concepts.getContent().stream().map(ConceptMini::new).collect(Collectors.toMap(ConceptMini::getConceptId, Function.identity())),
+				concepts.getTotalElements());
 	}
 
 	private void populateConceptMinis(QueryBuilder branchCriteria, Map<String, ConceptMini> minisToPopulate) {

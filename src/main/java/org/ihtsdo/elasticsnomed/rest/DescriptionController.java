@@ -4,9 +4,9 @@ import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
 import org.ihtsdo.elasticsnomed.core.data.domain.Description;
-import org.ihtsdo.elasticsnomed.rest.pojo.DescriptionSearchResult;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.DescriptionService;
+import org.ihtsdo.elasticsnomed.rest.pojo.DescriptionSearchResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
@@ -35,7 +35,7 @@ public class DescriptionController {
 		branch = BranchPathUriUtil.parseBranchPath(branch);
 		org.springframework.data.domain.Page<Description> page = descriptionService.findDescriptions(branch, query, new PageRequest(pageNumber, size));
 		Set<String> conceptIds = page.getContent().stream().map(Description::getConceptId).collect(Collectors.toSet());
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds);
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds).getResultsMap();
 
 		List<DescriptionSearchResult> results = new ArrayList<>();
 		page.getContent().forEach(d -> results.add(new DescriptionSearchResult(d.getTerm(), d.isActive(), conceptMinis.get(d.getConceptId()))));

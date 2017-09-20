@@ -15,6 +15,11 @@ public class ItemsPage<T> {
 		total = items.size();
 	}
 
+	ItemsPage(Collection<T> items, long total) {
+		this.items = items;
+		this.total = total;
+	}
+
 	ItemsPage(Page<T> page) {
 		items = page.getContent();
 		total = page.getTotalElements();

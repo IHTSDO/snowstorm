@@ -51,7 +51,7 @@ public class RelationshipService extends ComponentService {
 		Set<String> sourceIds = relationships.stream().map(Relationship::getSourceId).collect(Collectors.toSet());
 		Set<String> typeIds = relationships.stream().map(Relationship::getTypeId).collect(Collectors.toSet());
 
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, Sets.union(sourceIds, typeIds));
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, Sets.union(sourceIds, typeIds)).getResultsMap();
 		relationships.forEach(r -> {
 			r.setSource(conceptMinis.get(r.getSourceId()));
 			r.setType(conceptMinis.get(r.getTypeId()));

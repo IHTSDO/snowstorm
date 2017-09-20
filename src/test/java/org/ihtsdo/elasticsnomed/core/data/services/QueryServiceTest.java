@@ -11,6 +11,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -216,28 +217,28 @@ public class QueryServiceTest {
 		Concept reallyCheesyPizza_5 = new Concept("5").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza");
 		conceptService.create(Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5), path);
 
-		int pageSize = 50;
-		List<ConceptMini> matches = service.search(service.createQueryBuilder(true).termPrefix("Piz"), path, pageSize);
+		PageRequest pageRequest = new PageRequest(0, 50);
+		List<ConceptMini> matches = service.search(service.createQueryBuilder(true).termPrefix("Piz"), path, pageRequest).getContent();
 		assertEquals(4, matches.size());
 		assertEquals("Pizza", matches.get(0).getFsn());
 		assertEquals("Cheese Pizza", matches.get(1).getFsn());
 		assertEquals("So Cheesy Pizza", matches.get(2).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(3).getFsn());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(SNOMEDCT_ROOT)).termPrefix("Piz"), path, pageSize);
+		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(SNOMEDCT_ROOT)).termPrefix("Piz"), path, pageRequest).getContent();
 		assertEquals(4, matches.size());
 		assertEquals("Pizza", matches.get(0).getFsn());
 		assertEquals("Cheese Pizza", matches.get(1).getFsn());
 		assertEquals("So Cheesy Pizza", matches.get(2).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(3).getFsn());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termPrefix("Piz"), path, pageSize);
+		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termPrefix("Piz"), path, pageRequest).getContent();
 		assertEquals(3, matches.size());
 		assertEquals("Cheese Pizza", matches.get(0).getFsn());
 		assertEquals("So Cheesy Pizza", matches.get(1).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(2).getFsn());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termPrefix("Cheesy"), path, pageSize);
+		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termPrefix("Cheesy"), path, pageRequest).getContent();
 		assertEquals(2, matches.size());
 		assertEquals("So Cheesy Pizza", matches.get(0).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(1).getFsn());
