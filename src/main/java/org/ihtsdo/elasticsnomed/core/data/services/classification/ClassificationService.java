@@ -20,6 +20,7 @@ import org.ihtsdo.elasticsnomed.core.rf2.export.ExportException;
 import org.ihtsdo.elasticsnomed.core.rf2.export.ExportService;
 import org.ihtsdo.elasticsnomed.core.util.DateUtil;
 import org.ihtsdo.otf.snomedboot.domain.rf2.RelationshipFieldIndexes;
+import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -192,7 +193,7 @@ public class ClassificationService {
 		Classification classification = new Classification();
 		classification.setPath(path);
 		classification.setReasonerId(reasonerId);
-		// TODO: set user ID when we have IMS integration
+		classification.setUserId(SecurityUtil.getUsername());
 		classification.setCreationDate(new Date());
 		classification.setLastCommitDate(branch.getHead());
 
