@@ -27,6 +27,9 @@ public class TraceabilityLogService {
 	@Value("${authoring.traceability.enabled}")
 	private boolean enabled;
 
+	@Value("${jms.queue.prefix}")
+	private String jmsQueuePrefix;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	void logActivity(String userId, Date date, String branchPath, Collection<Concept> concepts, List<Description> descriptions,
@@ -96,7 +99,7 @@ public class TraceabilityLogService {
 		}
 
 		logger.info("{}", activity);
-		jmsTemplate.convertAndSend("default.traceability", activity);
+		jmsTemplate.convertAndSend(jmsQueuePrefix + ".traceability", activity);
 	}
 
 	private Activity.ComponentChange getChange(SnomedComponent component) {
