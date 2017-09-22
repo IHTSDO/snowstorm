@@ -29,7 +29,9 @@ public class IdentifierService {
 	private static final String PARTITION_PART2_CONCEPT = "0";
 	private static final String PARTITION_PART2_DESCRIPTION = "1";
 	private static final String PARTITION_PART2_RELATIONSHIP = "2";
-
+	
+	private static boolean suspendRegistrationProcess = false;
+	
 	@Autowired
 	private IdentifierCacheManager cacheManager;
 	
@@ -39,7 +41,7 @@ public class IdentifierService {
 	@Autowired
 	private IdentifiersForRegistrationRepository identifiersForRegistrationRepository;
 
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final static Logger logger = LoggerFactory.getLogger(IdentifierService.class);
 
 	public static boolean isConceptId(String sctid) {
 		return sctid != null && SCTID_PATTERN.matcher(sctid).matches() && PARTITION_PART2_CONCEPT.equals(getPartitionIdPart(sctid));
@@ -97,17 +99,22 @@ public class IdentifierService {
 
 	public void registerAssignedIds(IdentifierReservedBlock reservedBlock) throws ServiceException {
 		for (ComponentType componentType : ComponentType.values()) {
-			Collection<String> idsAssigned = reservedBlock.getIdsAssigned(componentType);
+			Collection<Long> idsAssigned = reservedBlock.getIdsAssigned(componentType);
 			if (!idsAssigned.isEmpty()) {
 				identifiersForRegistrationRepository.save(new IdentifiersForRegistration(0, idsAssigned));
 			}
 		}
 	}
 
-	@Scheduled(fixedRate = 30000)
-	public void registerIdentifiers() {
+	@Scheduled(fixedDelay = 5000)
+	public synchronized void registerIdentifiers() {
+		if (suspendRegistrationProcess) {
+			return;
+		}
+		
 		// Gather sets of identifiers and group by namespace
-		Map<Integer, Set<String>> namespaceIdentifierMap = new HashMap<>();
+		Map<Integer, Set<Long>> namespaceIdentifierMap = new HashMap<>();
+		//PageRequest pageRequest = new PageRequest(0,1000);
 		Iterable<IdentifiersForRegistration> roundOfIdentifiers = identifiersForRegistrationRepository.findAll();
 		for (IdentifiersForRegistration identifiersForRegistration : roundOfIdentifiers) {
 			namespaceIdentifierMap.computeIfAbsent(identifiersForRegistration.getNamespace(), (n) -> new HashSet<>())
@@ -115,7 +122,7 @@ public class IdentifierService {
 		}
 		// Register each group
 		try {
-			for (Map.Entry<Integer, Set<String>> entry : namespaceIdentifierMap.entrySet()) {
+			for (Map.Entry<Integer, Set<Long>> entry : namespaceIdentifierMap.entrySet()) {
 				Integer namespace = entry.getKey();
 				identifierSource.registerIdentifiers(namespace, entry.getValue());
 				logger.info("Registered {} identifiers for namespace {}", entry.getValue().size(), namespace);
@@ -124,7 +131,7 @@ public class IdentifierService {
 			identifiersForRegistrationRepository.delete(roundOfIdentifiers);
 		} catch (ServiceException e) {
 			logger.warn("Failed to register identifiers. They are in persistent storage, will retry later.", e);
-		}
+		} 
 	}
 
 	public IdentifierReservedBlock reserveIdentifierBlock(Collection<Concept> concepts) throws ServiceException {
@@ -153,4 +160,9 @@ public class IdentifierService {
 		return getReservedBlock(namespace, conceptIds, descriptionIds, relationshipIds);
 	}
 
+	public static void suspendRegistrationProcess(boolean suspend) {
+		logger.warn("SCTID Registration process " + (suspend ? " suspended" : "resumed"));
+		suspendRegistrationProcess = suspend;
+	}
+	
 }

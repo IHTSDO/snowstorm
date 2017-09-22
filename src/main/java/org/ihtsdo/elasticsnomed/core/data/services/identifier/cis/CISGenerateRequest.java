@@ -1,6 +1,6 @@
 package org.ihtsdo.elasticsnomed.core.data.services.identifier.cis;
 
-final class CISGenerateRequest {
+final class CISGenerateRequest implements CISBulkRequest {
 	int namespace;
 	String partitionId;
 	int quantity;
@@ -25,6 +25,11 @@ final class CISGenerateRequest {
 
 	public String getSoftware() {
 		return CISClient.SOFTWARE_NAME;
+	}
+
+	@Override
+	public int size() {
+		return this.quantity;
 	}
 
 }

@@ -1,6 +1,5 @@
 package org.ihtsdo.elasticsnomed.core.data.domain.jobs;
 
-import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldIndex;
@@ -18,9 +17,9 @@ public class IdentifiersForRegistration {
 	private int namespace;
 
 	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed)
-	private Collection<String> ids;
+	private Collection<Long> ids;
 
-	public IdentifiersForRegistration(int namespace, Collection<String> ids) {
+	public IdentifiersForRegistration(int namespace, Collection<Long> ids) {
 		id = UUID.randomUUID().toString();
 		this.namespace = namespace;
 		this.ids = ids;
@@ -45,11 +44,11 @@ public class IdentifiersForRegistration {
 		this.namespace = namespace;
 	}
 
-	public Collection<String> getIds() {
+	public Collection<Long> getIds() {
 		return ids;
 	}
 
-	public void setIds(Collection<String> ids) {
+	public void setIds(Collection<Long> ids) {
 		this.ids = ids;
 	}
 }

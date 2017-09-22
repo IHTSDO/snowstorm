@@ -6,9 +6,11 @@ import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.DummyIdentifierSource;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierCacheManager;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierSource;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.cis.CISClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -33,10 +35,10 @@ public class TestConfig extends Config {
 		return new DummyIdentifierSource();
 	}
 	
-	@Bean
-	public IdentifierCacheManager getIdentifierCacheManager() {
+/*	@Bean
+	public IdentifierCacheManager getIdentifierCacheManager(@Value("${cis.cache.concept-prefetch-count}") int conceptIdPrefetchCount) {
 		return new IdentifierCacheManager();
-	}
+	}*/
 
 	@PostConstruct
 	public void cleanUp() throws UnknownHostException {

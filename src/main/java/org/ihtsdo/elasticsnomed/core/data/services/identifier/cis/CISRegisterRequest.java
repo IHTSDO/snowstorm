@@ -2,16 +2,16 @@ package org.ihtsdo.elasticsnomed.core.data.services.identifier.cis;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 
-final class CISRegisterRequest {
-	private int namespace;
-	private List<CISRecord> records;
+final class CISRegisterRequest implements CISBulkRequest {
 	
-	public CISRegisterRequest(int namespace, Collection<String> sctIds) {
+	private int namespace;
+	private Collection<CISRecord> records;
+	
+	public CISRegisterRequest(int namespace, Collection<Long> sctIds) {
 		this.namespace = namespace;
 		records = new ArrayList<>();
-		for (String sctId : sctIds) {
+		for (Long sctId : sctIds) {
 			records.add(new CISRecord(sctId));
 		}
 	}
@@ -22,5 +22,14 @@ final class CISRegisterRequest {
 
 	public String getSoftware() {
 		return CISClient.SOFTWARE_NAME;
+	}
+	
+	public Collection<CISRecord> getRecords() {
+		return records;
+	}
+
+	@Override
+	public int size() {
+		return records.size();
 	}
 }

@@ -9,14 +9,14 @@ import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 public class DummyIdentifierSource implements IdentifierSource {
 
 	@Override
-	public List<String> generate(int namespace, String partitionId, int quantity)
+	public List<Long> generate(int namespace, String partitionId, int quantity)
 			throws ServiceException {
-		List<String> response = new ArrayList<String>();
+		List<Long> response = new ArrayList<>();
 		for (int x=0; x<quantity; x++) {
 			String sctidWithoutCheck = getHackId()  + partitionId;
 			char verhoeff = VerhoeffCheck.calculateChecksum(sctidWithoutCheck, 0, false);
 			String sctid = sctidWithoutCheck + verhoeff;
-			response.add(sctid);
+			response.add(Long.parseLong(sctid));
 		}
 		return response;
 	}
@@ -29,7 +29,7 @@ public class DummyIdentifierSource implements IdentifierSource {
 	}
 
 	@Override
-	public List<String> reserve(int namespace, String partitionId, int quantity)
+	public List<Long> reserve(int namespace, String partitionId, int quantity)
 			throws ServiceException {
 		//The difference between reserved and generated is internal to CIS, so we can just re-use that method
 		return generate(namespace, partitionId, quantity);
@@ -37,7 +37,7 @@ public class DummyIdentifierSource implements IdentifierSource {
 
 	@Override
 	public void registerIdentifiers(int namespace,
-			Collection<String> idsAssigned) throws ServiceException {
+			Collection<Long> idsAssigned) throws ServiceException {
 		//Nothing to do here
 	}
 }

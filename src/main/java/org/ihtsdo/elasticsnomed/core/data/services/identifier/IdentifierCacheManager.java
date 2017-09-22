@@ -37,6 +37,7 @@ public class IdentifierCacheManager implements Runnable {
 	private Set<IdentifierCache> identifierCaches = new HashSet<>();
 	private Thread cacheDaemon;
 	private boolean stayAlive = true;
+	boolean isSleeping = false;
 
 	private static final Logger logger = LoggerFactory.getLogger(IdentifierCacheManager.class);
 
@@ -54,8 +55,8 @@ public class IdentifierCacheManager implements Runnable {
 	}
 	
 	public void run() {
-		logger.info("Identifier cache manager polling commencing with {} minute period.", pollingIntervalMinutes);
-		long pollingIntervalMillis = pollingIntervalMinutes * 60 * 1000;
+		logger.info("Identifier cache manager polling commencing with {} second period.", pollingIntervalMinutes);
+		long pollingIntervalMillis = pollingIntervalMinutes * 1000;
 		while (stayAlive) {
 			Date timePollStarted = new Date();
 			checkTopUpRequired();
@@ -67,14 +68,25 @@ public class IdentifierCacheManager implements Runnable {
 			} else {
 				long timeRemaining = pollingIntervalMillis - timeTaken;
 				try {
+					isSleeping = true;
+					//Don't mind being interrupted while sleeping.
 					Thread.sleep(timeRemaining);
+					isSleeping = false;
 				} catch (InterruptedException e) {
-					logger.info("Identifier cache manager polling interrupted, shutting down");
-					stayAlive = false;
+					logger.info("Identifier cache manager sleep interrupted.");
 				}
 			}
 		}
 		logger.info("Identifier cache manager polling stopped.");
+	}
+	
+	public boolean topUpInProgress() {
+		for (IdentifierCache thisCache : identifierCaches) {
+			if (thisCache.isTopUpInProgress()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	void checkTopUpRequired() {
@@ -96,13 +108,14 @@ public class IdentifierCacheManager implements Runnable {
 			return;
 		}
 		cache.setTopUpInProgress(true);
+		int quantityRequired = cache.getMaxCapacity() - cache.identifiersAvailable() + extraRequired;
 		try {
-			int quantityRequired = cache.getMaxCapacity() - cache.identifiersAvailable() + extraRequired;
 			logger.info("Topping up {} by {}", cache, quantityRequired);
-			List<String> newIdentifiers = identifierSource.reserve(cache.getNamespaceId(), cache.getPartitionId(), quantityRequired);
+			List<Long> newIdentifiers = identifierSource.reserve(cache.getNamespaceId(), cache.getPartitionId(), quantityRequired);
 			cache.topUp(newIdentifiers);
+			logger.info("Top up of {} by {} complete",cache, quantityRequired);
 		} catch (Exception e) {
-			logger.error("Failed to top-up {}",cache,e);
+			logger.error("Failed to top-up {} with {} identifiers ",cache, quantityRequired,e);
 		} finally {
 			cache.setTopUpInProgress(false);
 		}
@@ -121,10 +134,11 @@ public class IdentifierCacheManager implements Runnable {
 		boolean requestSatisfied = false;
 		if (cache != null) {
 			//Does cache need topping up anyway?
-			if (cache.identifiersAvailable() < (double)cache.getMaxCapacity() * criticalLevel && quantityRequired > 1) {
+			if (cache.identifiersAvailable() == 0 || 
+					( cache.identifiersAvailable() < (double)cache.getMaxCapacity() * criticalLevel 
+							&& quantityRequired > 5)
+					){
 				topUp(cache, quantityRequired);
-			} else if (cache.identifiersAvailable() == 0) {
-				logger.warn("{} has run dry. Increase polling rate.", cache);
 			}
 
 			//Does it have enough available?

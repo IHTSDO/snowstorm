@@ -524,7 +524,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 			} else {
 				concept.setCreating(true);
 				if (concept.getConceptId() == null) {
-					concept.setConceptId(reservedIds.getId(ComponentType.Concept));
+					concept.setConceptId(reservedIds.getId(ComponentType.Concept).toString());
 				}
 				concept.setChanged(true);
 				concept.clearReleaseDetails();
@@ -550,7 +550,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 				} else {
 					description.setCreating(true);
 					if (description.getDescriptionId() == null) {
-						description.setDescriptionId(reservedIds.getId(ComponentType.Description));
+						description.setDescriptionId(reservedIds.getId(ComponentType.Description).toString());
 					}
 				}
 				if (!description.isActive()) {
@@ -603,7 +603,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 					.forEach(relationship -> relationship.setSourceId(concept.getConceptId()));
 			concept.getRelationships().stream()
 					.filter(relationship -> relationship.getRelationshipId() == null)
-					.forEach(relationship -> relationship.setRelationshipId(reservedIds.getId(ComponentType.Relationship)));
+					.forEach(relationship -> relationship.setRelationshipId(reservedIds.getId(ComponentType.Relationship).toString()));
 
 			// Detach concept's components to be persisted separately
 			descriptionsToPersist.addAll(concept.getDescriptions());

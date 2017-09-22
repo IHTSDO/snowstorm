@@ -8,9 +8,13 @@ import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.services.*;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierReservedBlock;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierService;
+import org.junit.AfterClass;
 import org.junit.Assert;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -19,8 +23,13 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 @ContextConfiguration(classes = TestConfig.class)
 public class IdentifierServiceTest {
 	
+	private final Logger logger = LoggerFactory.getLogger(this.getClass());
+
 	@Autowired 
 	IdentifierService identifierService;
+	
+	@Autowired
+	private IdentifierCacheManager cacheManager;
 	
 	@Test
 	public void testGetReserveBlock() throws ServiceException {
@@ -29,6 +38,18 @@ public class IdentifierServiceTest {
 		Assert.assertEquals(2, block.size(ComponentType.Concept));
 		Assert.assertEquals(4, block.size(ComponentType.Description));
 		Assert.assertEquals(3, block.size(ComponentType.Relationship));
+	}
+	
+	@BeforeClass
+	public static void setup() {
+		//Need to suspend this process or it will try and register the ids we're using during testing
+		IdentifierService.suspendRegistrationProcess(true);
+	}
+	
+	@AfterClass
+	public static void tearDown() {
+		//And set it going again.
+		IdentifierService.suspendRegistrationProcess(false);
 	}
 	
 	/**
@@ -41,6 +62,23 @@ public class IdentifierServiceTest {
 		List<Concept> testConcepts = createTestDataLarge(250);
 		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts);
 		Assert.assertEquals(250, block.size(ComponentType.Concept));
+	}
+	
+	@Test
+	public void testRegistration() throws ServiceException, InterruptedException {
+		while (cacheManager.topUpInProgress()) {
+			logger.warn("IDService unit test blocked as cache top up in progress");
+			Thread.sleep(5000);
+		}
+		
+		List<Concept> testConcepts = createTestDataLarge(5);
+		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts);
+		for (Concept c : testConcepts) {
+			Long sctId = block.getId(ComponentType.Concept);
+			c.setConceptId(sctId.toString());
+		}
+		identifierService.registerAssignedIds(block);
+		identifierService.registerIdentifiers();
 	}
 
 	private List<Concept> createTestData() throws ServiceException {
