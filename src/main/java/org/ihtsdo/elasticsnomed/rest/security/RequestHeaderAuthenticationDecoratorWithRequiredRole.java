@@ -15,6 +15,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,14 +24,21 @@ public class RequestHeaderAuthenticationDecoratorWithRequiredRole extends OncePe
 	private String requiredRole;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final List<String> excludedPaths;
 
 	public RequestHeaderAuthenticationDecoratorWithRequiredRole(String requiredRole) {
 		this.requiredRole = requiredRole;
+		excludedPaths = new ArrayList<>();
+	}
+
+	public RequestHeaderAuthenticationDecoratorWithRequiredRole addExcludedPath(String pathPrefix) {
+		excludedPaths.add(pathPrefix);
+		return this;
 	}
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-		if (Strings.isNullOrEmpty(requiredRole)) {
+		if (Strings.isNullOrEmpty(requiredRole) || isPathExcluded(request)) {
 			filterChain.doFilter(request, response);
 			return;
 		}
@@ -46,6 +54,22 @@ public class RequestHeaderAuthenticationDecoratorWithRequiredRole extends OncePe
 		}
 		logger.info("User does not have permission. username:{} - roles:{}", SecurityUtil.getUsername(), roles);
 		accessDenied("The current user does not have permission to access this resource.", response);
+	}
+
+	private boolean isPathExcluded(HttpServletRequest request) {
+		String requestURI = request.getRequestURI();
+		String contextPath = request.getContextPath();
+		if (contextPath != null) {
+			requestURI = requestURI.substring(contextPath.length());
+		}
+		if (requestURI != null) {
+			for (String excludedPath : excludedPaths) {
+				if (requestURI.startsWith(excludedPath)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private void accessDenied(String msg, HttpServletResponse response) throws IOException {

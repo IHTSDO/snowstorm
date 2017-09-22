@@ -171,7 +171,9 @@ public abstract class Config {
 	@Bean
 	public FilterRegistrationBean getRequiredRoleFilter(@Value("${ims-security.required-role}") String requiredRole) {
 		FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(
-				new RequestHeaderAuthenticationDecoratorWithRequiredRole(requiredRole));
+				new RequestHeaderAuthenticationDecoratorWithRequiredRole(requiredRole)
+				.addExcludedPath("/webjars/springfox-swagger-ui")
+		);
 		filterRegistrationBean.setOrder(2);
 		return filterRegistrationBean;
 	}
