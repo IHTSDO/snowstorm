@@ -604,7 +604,8 @@ public class ConceptServiceTest {
 		assertEquals(effectiveTime, memberWithRestoredDate.getEffectiveTime());
 	}
 
-	@Test
+	// Uncomment to run - takes around 45 seconds.
+//	@Test
 	public void testCreateUpdate10KConcepts() throws ServiceException {
 		branchService.create("MAIN/A");
 		conceptService.create(new Concept(SNOMEDCT_ROOT), "MAIN/A");
