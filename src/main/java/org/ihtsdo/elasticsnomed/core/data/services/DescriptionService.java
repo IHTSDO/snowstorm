@@ -188,7 +188,7 @@ public class DescriptionService extends ComponentService {
 		return elasticsearchTemplate.queryForPage(addTermSort(queryBuilder.build()), Description.class);
 	}
 
-	protected static BoolQueryBuilder addTermClauses(String term, BoolQueryBuilder boolBuilder) {
+	static BoolQueryBuilder addTermClauses(String term, BoolQueryBuilder boolBuilder) {
 		if (IdentifierService.isConceptId(term)) {
 			boolBuilder.must(termQuery("conceptId", term));
 		} else {
@@ -208,7 +208,7 @@ public class DescriptionService extends ComponentService {
 		return boolBuilder;
 	}
 
-	protected static NativeSearchQuery addTermSort(NativeSearchQuery query) {
+	static NativeSearchQuery addTermSort(NativeSearchQuery query) {
 		query.addSort(new Sort("termLen"));
 		return query;
 	}
@@ -223,5 +223,18 @@ public class DescriptionService extends ComponentService {
 			return descriptions.get(0);
 		}
 		return null;
+	}
+
+	public void fetchFsnDescriptions(String path, Map<String, ConceptMini> conceptMiniMap) {
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery().must(versionControlHelper.getBranchCriteria(path))
+						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
+						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptMiniMap.keySet())))
+				.withPageable(LARGE_PAGE)
+				.build();
+		try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(searchQuery, Description.class)) {
+			stream.forEachRemaining(description -> conceptMiniMap.get(description.getConceptId()).addActiveFsn(description));
+		}
 	}
 }

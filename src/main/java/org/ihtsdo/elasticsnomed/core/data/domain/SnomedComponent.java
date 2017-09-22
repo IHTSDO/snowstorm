@@ -34,6 +34,7 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 	private boolean creating;
 
 	public interface Fields {
+		String ACTIVE = "active";
 		String EFFECTIVE_TIME = "effectiveTime";
 	}
 

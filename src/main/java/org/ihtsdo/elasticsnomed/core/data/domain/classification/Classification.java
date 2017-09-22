@@ -14,7 +14,22 @@ import java.util.Date;
 public class Classification {
 
 	public enum Status {
-		SCHEDULED, RUNNING, FAILED, COMPLETED, SAVED, SAVE_FAILED
+
+		SCHEDULED, RUNNING, FAILED, COMPLETED(true), SAVED(true), SAVE_FAILED(true);
+
+		boolean resultsAvailable;
+
+		Status(boolean resultsAvailable) {
+			this.resultsAvailable = resultsAvailable;
+		}
+
+		Status() {
+			this(false);
+		}
+
+		public boolean isResultsAvailable() {
+			return resultsAvailable;
+		}
 	}
 
 	public interface Fields {

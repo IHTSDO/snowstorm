@@ -85,6 +85,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public interface Fields {
 		String CONCEPT_ID = "conceptId";
+		String TYPE_ID = "typeId";
 	}
 
 	public Description() {

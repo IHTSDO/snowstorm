@@ -5,13 +5,16 @@ import io.kaicode.elasticvc.domain.Branch;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
+import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.ChangeNature;
 import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
 import org.ihtsdo.elasticsnomed.core.data.domain.classification.EquivalentConcepts;
 import org.ihtsdo.elasticsnomed.core.data.domain.classification.RelationshipChange;
+import org.ihtsdo.elasticsnomed.core.data.repositories.ClassificationRepository;
 import org.ihtsdo.elasticsnomed.core.data.repositories.classification.EquivalentConceptsRepository;
 import org.ihtsdo.elasticsnomed.core.data.repositories.classification.RelationshipChangeRepository;
-import org.ihtsdo.elasticsnomed.core.data.repositories.ClassificationRepository;
 import org.ihtsdo.elasticsnomed.core.data.services.BranchMetadataKeys;
+import org.ihtsdo.elasticsnomed.core.data.services.DescriptionService;
 import org.ihtsdo.elasticsnomed.core.data.services.NotFoundException;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.ihtsdo.elasticsnomed.core.data.services.classification.pojo.ClassificationStatusResponse;
@@ -43,6 +46,7 @@ import java.util.zip.ZipInputStream;
 
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification.Status.COMPLETED;
 
 @Service
 public class ClassificationService {
@@ -70,6 +74,9 @@ public class ClassificationService {
 
 	@Autowired
 	private ExportService exportService;
+
+	@Autowired
+	private DescriptionService descriptionService;
 
 	private final List<Classification> classificationsInProgress;
 
@@ -129,7 +136,7 @@ public class ClassificationService {
 							}
 							if (classification.getStatus() != latestStatus) {
 
-								if (latestStatus == Classification.Status.COMPLETED) {
+								if (latestStatus == COMPLETED) {
 									try {
 										downloadRemoteResults(classification.getId());
 									} catch (IOException e) {
@@ -141,6 +148,7 @@ public class ClassificationService {
 								}
 
 								classification.setStatus(latestStatus);
+								classification.setCompletionDate(new Date());
 								classificationRepository.save(classification);
 							}
 							if (latestStatus != Classification.Status.SCHEDULED && latestStatus != Classification.Status.RUNNING) {
@@ -172,7 +180,7 @@ public class ClassificationService {
 	public Page<Classification> findClassifications(String path) {
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(termQuery(Classification.Fields.PATH, path))
-				.withSort(SortBuilders.fieldSort(Classification.Fields.CREATION_DATE).order(SortOrder.DESC))
+				.withSort(SortBuilders.fieldSort(Classification.Fields.CREATION_DATE).order(SortOrder.ASC))
 				.withPageable(PAGE_FIRST_1K);
 		return elasticsearchOperations.queryForPage(queryBuilder.build(), Classification.class);
 	}
@@ -220,6 +228,25 @@ public class ClassificationService {
 		return classification;
 	}
 
+	public Page<RelationshipChange> getRelationshipChanges(String path, String classificationId, PageRequest pageRequest) {
+		Classification classification = findClassification(path, classificationId);
+		if (!classification.getStatus().isResultsAvailable()) {
+			throw new IllegalStateException("This classification has no results yet.");
+		}
+		Page<RelationshipChange> relationshipChanges = relationshipChangeRepository.findByClassificationId(classificationId, pageRequest);
+
+		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
+		for (RelationshipChange relationshipChange : relationshipChanges) {
+			relationshipChange.setChangeNature(relationshipChange.isActive() ? ChangeNature.INFERRED : ChangeNature.REDUNDANT);
+			relationshipChange.setSource(conceptMiniMap.computeIfAbsent(relationshipChange.getSourceId(), ConceptMini::new));
+			relationshipChange.setDestination(conceptMiniMap.computeIfAbsent(relationshipChange.getDestinationId(), ConceptMini::new));
+			relationshipChange.setType(conceptMiniMap.computeIfAbsent(relationshipChange.getTypeId(), ConceptMini::new));
+		}
+		descriptionService.fetchFsnDescriptions(path, conceptMiniMap);
+
+		return relationshipChanges;
+	}
+
 	private void downloadRemoteResults(String classificationId) throws IOException {
 		logger.info("Downloading remote classification results for {}", classificationId);
 		try (ZipInputStream rf2ResultsZipStream = new ZipInputStream(serviceClient.downloadRf2Results(classificationId))) {
@@ -252,7 +279,7 @@ public class ClassificationService {
 					"1".equals(values[RelationshipFieldIndexes.active]),
 					values[RelationshipFieldIndexes.sourceId],
 					values[RelationshipFieldIndexes.destinationId],
-					values[RelationshipFieldIndexes.relationshipGroup],
+					Integer.parseInt(values[RelationshipFieldIndexes.relationshipGroup]),
 					values[RelationshipFieldIndexes.typeId],
 					values[RelationshipFieldIndexes.modifierId]));
 		}
@@ -288,5 +315,4 @@ public class ClassificationService {
 	public void saveClassificationResultsToBranch(String path, String classificationId) {
 		// TODO: implement this
 	}
-
 }
