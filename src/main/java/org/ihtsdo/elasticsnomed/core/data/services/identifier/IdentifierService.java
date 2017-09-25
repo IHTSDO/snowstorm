@@ -106,12 +106,11 @@ public class IdentifierService {
 		}
 	}
 
-	@Scheduled(fixedDelay = 5000)
+	@Scheduled(fixedDelay = 30_000)
 	public synchronized void registerIdentifiers() {
 		if (suspendRegistrationProcess) {
 			return;
 		}
-		
 		// Gather sets of identifiers and group by namespace
 		Map<Integer, Set<Long>> namespaceIdentifierMap = new HashMap<>();
 		//PageRequest pageRequest = new PageRequest(0,1000);
