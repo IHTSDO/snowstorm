@@ -32,7 +32,7 @@ public class SubExpressionConstraint implements ExpressionConstraint {
 				query.must(termQuery(QueryConcept.CONCEPT_ID_FIELD, conceptId));
 			}
 		} else if (nestedExpressionConstraint != null) {
-			Collection<Long> conceptIds = nestedExpressionConstraint.select(path, branchCriteria, stated, queryService);
+			Collection<Long> conceptIds = nestedExpressionConstraint.select(path, branchCriteria, stated, null, queryService);
 			if (!conceptIds.isEmpty()) {
 				conceptIds.add(ExpressionConstraint.MISSING_LONG);
 			}
@@ -50,11 +50,11 @@ public class SubExpressionConstraint implements ExpressionConstraint {
 	}
 
 	@Override
-	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
+	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, QueryService queryService) {
 		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
 		addCriteria(query, path, branchCriteria, stated, queryService);
 		// TODO: Avoid this fetch in the case that we selecting a single known concept
-		return ConceptSelectorHelper.fetch(query, queryService);
+		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService);
 	}
 
 	private void applyConceptCriteriaWithOperator(String conceptId, Operator operator, BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {

@@ -8,6 +8,7 @@ import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 
+import java.util.Collection;
 import java.util.List;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
@@ -15,10 +16,14 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 
 class ConceptSelectorHelper {
 
-	static List<Long> fetch(BoolQueryBuilder query, QueryService queryService) {
+	static List<Long> fetch(BoolQueryBuilder query, Collection<Long> conceptIdFilter, QueryService queryService) {
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(query)
 				.withPageable(LARGE_PAGE);
+
+		if (conceptIdFilter != null) {
+			searchQueryBuilder.withFilter(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptIdFilter));
+		}
 
 		List<Long> ids = new LongArrayList();
 		try (CloseableIterator<QueryConcept> stream = queryService.stream(searchQueryBuilder.build())) {

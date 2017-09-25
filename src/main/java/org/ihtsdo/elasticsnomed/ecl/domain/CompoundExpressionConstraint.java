@@ -4,6 +4,7 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
 
+import java.util.Collection;
 import java.util.List;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
@@ -32,10 +33,10 @@ public class CompoundExpressionConstraint implements ExpressionConstraint {
 	}
 
 	@Override
-	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
+	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, QueryService queryService) {
 		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
 		addCriteria(query, path, branchCriteria, stated, queryService);
-		return ConceptSelectorHelper.fetch(query, queryService);
+		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService);
 	}
 
 	public void setConjunctionExpressionConstraints(List<SubExpressionConstraint> conjunctionExpressionConstraints) {

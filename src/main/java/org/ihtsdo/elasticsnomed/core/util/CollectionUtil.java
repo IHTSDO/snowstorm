@@ -1,17 +1,24 @@
 package org.ihtsdo.elasticsnomed.core.util;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class CollectionUtil {
-	public static List<Long> listIntersection(List<Long> orderedListA, List<Long> listB) {
-		return orderedListA.stream().filter(listB::contains).collect(Collectors.toList());
+
+	public static <T> Page<T> listIntersection(List<T> orderedListA, List<T> listB, Pageable pageable) {
+		List<T> fullResultList = orderedListA.stream().filter(listB::contains).collect(Collectors.toList());
+		List<T> pageOfResults = subList(fullResultList, pageable.getPageNumber(), pageable.getPageSize());
+		return new PageImpl<T>(pageOfResults, pageable, fullResultList.size());
 	}
 
-	public static List<Long> subList(List<Long> wholeList, int page, int pageSize) {
-		int offset = page * pageSize;
-		int limit = (page + 1) * pageSize;
+	public static <T> List<T> subList(List<T> wholeList, int pageNumber, int pageSize) {
+		int offset = pageNumber * pageSize;
+		int limit = (pageNumber + 1) * pageSize;
 
 		if (offset >= wholeList.size()) {
 			return Collections.emptyList();
