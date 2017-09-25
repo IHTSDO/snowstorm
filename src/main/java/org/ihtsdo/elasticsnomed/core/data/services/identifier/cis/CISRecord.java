@@ -10,10 +10,13 @@ public class CISRecord implements Serializable {
 	private static final long serialVersionUID = -2727499661155145447L;
 	
 	private String sctid;
+	private String status;
 	
-	CISRecord() {}
+	CISRecord() {
+
+	}
 	
-	public CISRecord (Long sctid) {
+	public CISRecord(Long sctid) {
 		this.sctid = sctid.toString();
 	}
 
@@ -27,5 +30,13 @@ public class CISRecord implements Serializable {
 
 	public void setSctid(String sctid) {
 		this.sctid = sctid;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
 	}
 }

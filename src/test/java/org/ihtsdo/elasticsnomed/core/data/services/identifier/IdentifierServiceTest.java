@@ -26,7 +26,7 @@ public class IdentifierServiceTest {
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	@Autowired 
-	IdentifierService identifierService;
+	private IdentifierService identifierService;
 	
 	@Autowired
 	private IdentifierCacheManager cacheManager;
