@@ -31,7 +31,7 @@ public class ControllerAdvice {
 		HashMap<String, Object> result = new HashMap<>();
 		result.put("error", HttpStatus.BAD_REQUEST);
 		result.put("message", exception.getMessage());
-		logger.info("bad request {}", exception.getMessage(), exception);
+		logger.info("bad request {}", exception.getMessage());
 		return result;
 	}
 
