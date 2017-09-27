@@ -2,7 +2,6 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
@@ -15,6 +14,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.ihtsdo.elasticsnomed.core.data.domain.ReferenceSetMember;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.core.data.domain.review.*;
+import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,10 +28,10 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class BranchReviewService {
@@ -303,45 +303,71 @@ public class BranchReviewService {
 		// Find new versions of each component type and collect the conceptId they relate to
 		logger.info("Collecting concept changes for change report: branch {} time range {} to {}", path, start, end);
 		final BoolQueryBuilder branchUpdatesCriteria = versionControlHelper.getUpdatesOnBranchDuringRangeCriteria(path, start, end);
-		try (final CloseableIterator<Concept> stream =
-					 elasticsearchTemplate.stream(newSearchQuery(branchUpdatesCriteria), Concept.class)) {
+
+		TimerUtil timerUtil = new TimerUtil("Collecting changes");
+		NativeSearchQuery conceptsWithNewVersionsQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery().must(branchUpdatesCriteria).mustNot(existsQuery("end")))
+				.withPageable(ComponentService.LARGE_PAGE)
+				.withFields(Concept.Fields.CONCEPT_ID)// This triggers the fast results mapper
+				.build();
+		AtomicLong concepts = new AtomicLong();
+		try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(conceptsWithNewVersionsQuery, Concept.class)) {
 			stream.forEachRemaining(concept -> {
 				final long conceptId = parseLong(concept.getConceptId());
-				if (concept.getEnd() == null) {
-					conceptsWithNewVersions.add(conceptId);
-				} else {
-					conceptsWithEndedVersions.add(conceptId);
-				}
+				conceptsWithNewVersions.add(conceptId);
+				concepts.incrementAndGet();
 			});
 		}
+		timerUtil.checkpoint("concepts " + concepts.get());
+
+		NativeSearchQuery conceptsWithEndedVersionsQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery().must(branchUpdatesCriteria).must(existsQuery("end")))
+				.withPageable(ComponentService.LARGE_PAGE)
+				.withFields(Concept.Fields.CONCEPT_ID)// This triggers the fast results mapper
+				.build();
+		AtomicLong conceptsEnded = new AtomicLong();
+		try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(conceptsWithEndedVersionsQuery, Concept.class)) {
+			stream.forEachRemaining(concept -> {
+				final long conceptId = parseLong(concept.getConceptId());
+				conceptsWithEndedVersions.add(conceptId);
+			});
+		}
+		timerUtil.checkpoint("conceptsEnded " + conceptsEnded.get());
+
+
 		logger.info("Collecting description changes for change report: branch {} time range {} to {}", path, start, end);
-		try (final CloseableIterator<Description> stream =
-					 elasticsearchTemplate.stream(newSearchQuery(branchUpdatesCriteria), Description.class)) {
-			stream.forEachRemaining(description -> conceptsWithComponentChange.add(parseLong(description.getConceptId())));
+		AtomicLong descriptions = new AtomicLong();
+		NativeSearchQuery descQuery = newSearchQuery(branchUpdatesCriteria)
+				.withFields(Description.Fields.CONCEPT_ID)// This triggers the fast results mapper
+				.build();
+		try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(descQuery, Description.class)) {
+			stream.forEachRemaining(description -> {
+				conceptsWithComponentChange.add(parseLong(description.getConceptId()));
+				descriptions.incrementAndGet();
+			});
 		}
+		timerUtil.checkpoint("descriptions " + descriptions.get());
+
 		logger.info("Collecting relationship changes for change report: branch {} time range {} to {}", path, start, end);
-		try (final CloseableIterator<Relationship> stream =
-					 elasticsearchTemplate.stream(newSearchQuery(branchUpdatesCriteria), Relationship.class)) {
-			stream.forEachRemaining(relationship -> conceptsWithComponentChange.add(parseLong(relationship.getSourceId())));
+		AtomicLong relationships = new AtomicLong();
+		NativeSearchQuery relQuery = newSearchQuery(branchUpdatesCriteria)
+				.withFields(Relationship.Fields.SOURCE_ID)// This triggers the fast results mapper
+				.build();
+		try (final CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(relQuery, Relationship.class)) {
+			stream.forEachRemaining(relationship -> {
+				conceptsWithComponentChange.add(parseLong(relationship.getSourceId()));
+				relationships.incrementAndGet();
+			});
 		}
+		timerUtil.checkpoint("relationships " + relationships.get());
+
 		logger.info("Collecting refset member changes for change report: branch {} time range {} to {}", path, start, end);
-		Set<Long> descriptionIds = new HashSet<>();
-		try (final CloseableIterator<ReferenceSetMember> stream =
-					 elasticsearchTemplate.stream(newSearchQuery(branchUpdatesCriteria), ReferenceSetMember.class)) {
-			stream.forEachRemaining(member -> descriptionIds.add(parseLong(member.getReferencedComponentId())));
-		}
-		logger.info("Collecting refset member description changes for change report: branch {} time range {} to {}", path, start, end);
-		// Fetch descriptions from any visible branch to get the lang refset's concept id.
-		for (List<Long> descriptionIdPartition : Iterables.partition(descriptionIds, 10000)) {
-			try (final CloseableIterator<Description> stream =
-						 elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-								 .withQuery(boolQuery()
-										 .must(versionControlHelper.getBranchCriteria(path))
-										 .must(termsQuery("descriptionId", descriptionIdPartition)))
-								 .withPageable(ComponentService.LARGE_PAGE)
-								 .build(), Description.class)) {
-				stream.forEachRemaining(description -> conceptsWithComponentChange.add(parseLong(description.getConceptId())));
-			}
+		NativeSearchQuery memberQuery = newSearchQuery(branchUpdatesCriteria)
+				.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)))
+				.withFields(ReferenceSetMember.Fields.CONCEPT_ID)// This triggers the fast results mapper
+				.build();
+		try (final CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(memberQuery, ReferenceSetMember.class)) {
+			stream.forEachRemaining(member -> conceptsWithComponentChange.add(parseLong(member.getConceptId())));
 		}
 
 		final Sets.SetView<Long> conceptsDeleted = Sets.difference(conceptsWithEndedVersions, conceptsWithNewVersions);
@@ -365,10 +391,9 @@ public class BranchReviewService {
 				.build();
 	}
 
-	private NativeSearchQuery newSearchQuery(BoolQueryBuilder branchUpdatesCriteria) {
+	private NativeSearchQueryBuilder newSearchQuery(BoolQueryBuilder branchUpdatesCriteria) {
 		return new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(branchUpdatesCriteria))
-					.withPageable(ComponentService.LARGE_PAGE)
-					.build();
+					.withPageable(ComponentService.LARGE_PAGE);
 	}
 }
