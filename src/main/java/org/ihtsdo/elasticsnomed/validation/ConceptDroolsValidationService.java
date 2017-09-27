@@ -2,7 +2,7 @@ package org.ihtsdo.elasticsnomed.validation;
 
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.drools.exception.RuleExecutorException;
-import org.ihtsdo.elasticsnomed.Config;
+import org.ihtsdo.elasticsnomed.config.Config;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;

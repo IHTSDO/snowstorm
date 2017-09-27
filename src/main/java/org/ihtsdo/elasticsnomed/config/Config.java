@@ -1,4 +1,4 @@
-package org.ihtsdo.elasticsnomed;
+package org.ihtsdo.elasticsnomed.config;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,6 +26,7 @@ import org.ihtsdo.elasticsnomed.rest.config.BranchMixIn;
 import org.ihtsdo.elasticsnomed.rest.config.ClassificationMixIn;
 import org.ihtsdo.elasticsnomed.rest.security.RequestHeaderAuthenticationDecoratorWithRequiredRole;
 import org.ihtsdo.sso.integration.RequestHeaderAuthenticationDecorator;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -45,6 +46,9 @@ import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.MessageType;
+import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
+import org.springframework.web.util.UrlPathHelper;
 import springfox.documentation.builders.RequestHandlerSelectors;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
@@ -68,7 +72,7 @@ import static springfox.documentation.builders.PathSelectors.regex;
 		})
 @EnableConfigurationProperties
 public abstract class Config {
-	
+
 	@Autowired
 	private JestClient jestClient;
 	
@@ -158,45 +162,6 @@ public abstract class Config {
 	@ConfigurationProperties(prefix = "refset")
 	public ReferenceSetTypesConfigurationService getReferenceSetTypesService() {
 		return new ReferenceSetTypesConfigurationService();
-	}
-
-	@Bean
-	public FilterRegistrationBean getSingleSignOnFilter() {
-		FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(
-				new RequestHeaderAuthenticationDecorator());
-		filterRegistrationBean.setOrder(1);
-		return filterRegistrationBean;
-	}
-
-	@Bean
-	public FilterRegistrationBean getRequiredRoleFilter(@Value("${ims-security.required-role}") String requiredRole) {
-		FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(
-				new RequestHeaderAuthenticationDecoratorWithRequiredRole(requiredRole)
-				.addExcludedPath("/webjars/springfox-swagger-ui")
-		);
-		filterRegistrationBean.setOrder(2);
-		return filterRegistrationBean;
-	}
-
-	@Bean
-	public FilterRegistrationBean getUrlRewriteFilter() {
-		// Encode branch paths in uri to allow request mapping to work
-		return new FilterRegistrationBean(new BranchPathUriRewriteFilter(
-				"/branches/(.*)/children",
-				"/branches/(.*)/parents",
-				"/branches/(.*)/actions/.*",
-				"/branches/(.*)",
-				"/rebuild/(.*)",
-				"/browser/(.*)/concepts.*",
-				"/browser/(.*)/descriptions.*",
-				"/(.*)/concepts",
-				"/(.*)/concepts/.*",
-				"/(.*)/members.*",
-				"/(.*)/classifications.*",
-				"/mrcm/(.*)/domain-attributes",
-				"/mrcm/(.*)/attribute-values.*",
-				"/browser/(.*)/validate/concept"
-		).rewriteEncodedSlash());
 	}
 
 	@Bean

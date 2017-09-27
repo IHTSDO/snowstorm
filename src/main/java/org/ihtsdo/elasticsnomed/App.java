@@ -1,11 +1,11 @@
 package org.ihtsdo.elasticsnomed;
 
 import io.kaicode.elasticvc.api.BranchService;
-
+import org.ihtsdo.elasticsnomed.config.Config;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
-import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
 import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
+import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
 import org.ihtsdo.elasticsnomed.mrcm.MRCMService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.slf4j.Logger;
@@ -15,7 +15,6 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.jms.annotation.EnableJms;
-
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import java.io.FileInputStream;

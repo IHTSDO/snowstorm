@@ -3,7 +3,7 @@ package org.ihtsdo.elasticsnomed.validation;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
-import org.ihtsdo.elasticsnomed.Config;
+import org.ihtsdo.elasticsnomed.config.Config;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
