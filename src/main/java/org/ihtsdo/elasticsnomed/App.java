@@ -17,13 +17,17 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.jms.annotation.EnableJms;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.util.List;
 
 @EnableSwagger2
 @EnableJms
 public class App extends Config implements ApplicationRunner {
 
+	public static final String CLEAN_IMPORT_ARG = "clean-import";
+	
 	@Autowired
 	private ConceptService conceptService;
 
@@ -51,13 +55,23 @@ public class App extends Config implements ApplicationRunner {
 		mrcmService.load();
 		referenceSetMemberService.init();
 
-		if (applicationArguments.containsOption("clean-import")) {
+		if (applicationArguments.containsOption(CLEAN_IMPORT_ARG)) {
 			// import the international edition from disk at startup
-			deleteAllAndImportInternationalEditionFromDisk();
+			List<String> values = applicationArguments.getOptionValues(CLEAN_IMPORT_ARG);
+			if (values.size() != 1) {
+				throw new IllegalArgumentException(CLEAN_IMPORT_ARG + " argument must have exactly one value");
+			}
+			String releasePath = values.get(0);
+			File file = new File(releasePath);
+			if (!file.isFile()) {
+				throw new IllegalArgumentException(CLEAN_IMPORT_ARG + " file could not be read at " + file.getAbsolutePath());
+			}
+
+			deleteAllAndImportInternationalEditionFromDisk(releasePath);
 		}
 	}
 
-	private void deleteAllAndImportInternationalEditionFromDisk() {
+	private void deleteAllAndImportInternationalEditionFromDisk(String releasePath) {
 		new Thread(() -> {
 			// Wait 10 seconds until everything settled before deleting all components
 			try {
@@ -76,7 +90,6 @@ public class App extends Config implements ApplicationRunner {
 			logger.info("Creating MAIN");
 			branchService.create("MAIN");
 			String importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN");
-			String releasePath = "release/SnomedCT_InternationalRF2_Production_20170131.zip";
 			try {
 				importService.importArchive(importId, new FileInputStream(releasePath));
 			} catch (FileNotFoundException | ReleaseImportException e) {
