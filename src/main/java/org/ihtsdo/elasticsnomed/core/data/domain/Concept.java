@@ -18,12 +18,17 @@ import java.util.stream.Collectors;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
-@Document(type = "concept", indexName = "es-concept", shards = 8)
+@Document(indexName = "es-concept", type = "concept", shards = 8)
 @JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "inactivationIndicator", "moduleId", "definitionStatus", "definitionStatusId", "descriptions", "relationships"})
 public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
+	public interface Fields {
+		String CONCEPT_ID = "conceptId";
+		String MODULE_ID = "moduleId";
+	}
+
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed, store = true)
 	@Size(min = 5, max = 18)
 	private String conceptId;
 

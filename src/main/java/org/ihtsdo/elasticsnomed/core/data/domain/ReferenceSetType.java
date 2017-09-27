@@ -10,7 +10,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import java.util.List;
 
 // TODO: This should probably not be a DomainEntity because it should apply to all branches without needing rebase.
-@Document(type = "refset", indexName = "es-refset", shards = 8)
+@Document(indexName = "es-refset", type = "refset-type", shards = 8)
 public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 
 	public static final String FIELD_ID = "conceptId";

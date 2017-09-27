@@ -10,7 +10,7 @@ import java.util.Date;
 /**
  * Represents an active concept with fields to assist logical searching.
  */
-@Document(type = "classification", indexName = "classifications", shards = 8)
+@Document(indexName = "es-class", type = "classification", shards = 8)
 public class Classification {
 
 	public enum Status {

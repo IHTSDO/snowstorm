@@ -11,6 +11,11 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 public abstract class SnomedComponent<C> extends DomainEntity<C> {
 
+	public interface Fields {
+		String ACTIVE = "active";
+		String EFFECTIVE_TIME = "effectiveTime";
+	}
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
 	protected boolean active;
@@ -32,11 +37,6 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 
 	@Transient
 	private boolean creating;
-
-	public interface Fields {
-		String ACTIVE = "active";
-		String EFFECTIVE_TIME = "effectiveTime";
-	}
 
 	public void release(String effectiveTime) {
 		setReleaseHash(buildReleaseHash());

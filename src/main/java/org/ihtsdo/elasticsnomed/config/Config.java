@@ -3,7 +3,6 @@ package org.ihtsdo.elasticsnomed.config;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.vanroy.springdata.jest.JestElasticsearchTemplate;
-import com.github.vanroy.springdata.jest.mapper.DefaultJestResultsMapper;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
@@ -17,6 +16,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.ConceptStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.DescriptionStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.RelationshipStoreMixIn;
+import org.ihtsdo.elasticsnomed.core.data.services.FastJestResultsMapper;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetTypesConfigurationService;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierCacheManager;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierSource;
@@ -96,21 +96,24 @@ public abstract class Config {
 				.mixIn(Relationship.class, RelationshipStoreMixIn.class)
 				.build();
 
-		SimpleElasticsearchMappingContext mappingContext = new SimpleElasticsearchMappingContext();
+		EntityMapper entityMapper = new EntityMapper() {
+			@Override
+			public String mapToString(Object o) throws IOException {
+				return elasticSearchMapper.writeValueAsString(o);
+			}
 
+			@Override
+			public <T> T mapToObject(String s, Class<T> aClass) throws IOException {
+				return elasticSearchMapper.readValue(s, aClass);
+			}
+		};
+
+		SimpleElasticsearchMappingContext mappingContext = new SimpleElasticsearchMappingContext();
+		FastJestResultsMapper fastJestResultsMapper = new FastJestResultsMapper(mappingContext, entityMapper);
 		return new JestElasticsearchTemplate(
 				jestClient,
 				new MappingElasticsearchConverter(mappingContext),
-				new DefaultJestResultsMapper(mappingContext, new EntityMapper() {
-					@Override
-					public String mapToString(Object o) throws IOException {
-						return elasticSearchMapper.writeValueAsString(o);
-					}
-					@Override
-					public <T> T mapToObject(String s, Class<T> aClass) throws IOException {
-						return elasticSearchMapper.readValue(s, aClass);
-					}
-				})
+				fastJestResultsMapper
 		);
 	}
 

@@ -15,7 +15,7 @@ import javax.validation.constraints.Size;
 import static org.ihtsdo.elasticsnomed.core.data.domain.Concepts.relationshipCharacteristicTypeNames;
 import static org.ihtsdo.elasticsnomed.core.data.domain.Concepts.relationshipModifierNames;
 
-@Document(type = "relationship", indexName = "es-rel", shards = 8)
+@Document(indexName = "es-rel", type = "relationship", shards = 8)
 public class Relationship extends SnomedComponent<Relationship> {
 
 	public enum CharacteristicType {
@@ -33,6 +33,10 @@ public class Relationship extends SnomedComponent<Relationship> {
 		}
 	}
 
+	public interface Fields {
+		String SOURCE_ID = "sourceId";
+	}
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String relationshipId;
@@ -44,7 +48,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 	private String moduleId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed, store = true)
 	private String sourceId;
 
 	@JsonView(value = View.Component.class)
@@ -220,8 +224,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return sourceId;
 	}
 
-	public void setSourceId(String sourceId) {
+	public Relationship setSourceId(String sourceId) {
 		this.sourceId = sourceId;
+		return this;
 	}
 
 	public String getDestinationId() {

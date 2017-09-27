@@ -17,8 +17,13 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-@Document(type = "description", indexName = "es-description", shards = 8)
+@Document(indexName = "es-description", type = "description", shards = 8)
 public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
+
+	public interface Fields {
+		String CONCEPT_ID = "conceptId";
+		String TYPE_ID = "typeId";
+	}
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -35,7 +40,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	private int termLen;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed, store = true)
 	private String conceptId;
 
 	@JsonView(value = View.Component.class)
@@ -82,11 +87,6 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	private Map<String, Set<String>> associationTargetStrings;
 
 	private static final Logger logger = LoggerFactory.getLogger(Description.class);
-
-	public interface Fields {
-		String CONCEPT_ID = "conceptId";
-		String TYPE_ID = "typeId";
-	}
 
 	public Description() {
 		active = true;
@@ -297,8 +297,9 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return conceptId;
 	}
 
-	public void setConceptId(String conceptId) {
+	public Description setConceptId(String conceptId) {
 		this.conceptId = conceptId;
+		return this;
 	}
 
 	public String getModuleId() {

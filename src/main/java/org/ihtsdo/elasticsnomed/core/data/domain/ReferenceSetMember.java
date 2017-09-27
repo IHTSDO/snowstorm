@@ -10,11 +10,12 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.*;
 
-@Document(type = "member", indexName = "es-member", shards = 8)
+@Document(indexName = "es-member", type = "member", shards = 8)
 public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComponent<C> {
 
 	public interface Fields {
 		String REFSET_ID = "refsetId";
+		String CONCEPT_ID = "conceptId";
 	}
 
 	public interface LanguageFields {
@@ -37,8 +38,8 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String referencedComponentId;
 
-	// Used when the referencedComponentId is a description (or possibly a relationship later)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	// Used when the referencedComponentId is a description (or later possibly a relationship, depending how we implement concrete domains)
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed, store = true)
 	private String conceptId;
 
 	@JsonView(value = View.Component.class)
@@ -138,8 +139,9 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		return conceptId;
 	}
 
-	public void setConceptId(String conceptId) {
+	public ReferenceSetMember<C> setConceptId(String conceptId) {
 		this.conceptId = conceptId;
+		return this;
 	}
 
 	public Map<String, String> getAdditionalFields() {

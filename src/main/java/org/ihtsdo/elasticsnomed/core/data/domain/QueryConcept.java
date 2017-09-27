@@ -13,7 +13,7 @@ import java.util.*;
 /**
  * Represents an active concept with fields to assist logical searching.
  */
-@Document(type = "query-concept", indexName = "es-index", shards = 8)
+@Document(indexName = "es-query", type = "query-concept", shards = 8)
 public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	public static final String CONCEPT_ID_FORM_FIELD = "conceptIdForm";
@@ -24,10 +24,14 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	public static final String ATTR_FIELD = "attr";
 	public static final String ATTR_TYPE_WILDCARD = "all";
 
+	public interface Fields {
+		String CONCEPT_ID = "conceptId";
+	}
+
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String conceptIdForm;
 
-	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed, store = true)
 	private Long conceptId;
 
 	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed)
@@ -158,8 +162,9 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		return conceptIdForm;
 	}
 
-	public void setConceptId(Long conceptId) {
+	public QueryConcept setConceptId(Long conceptId) {
 		this.conceptId = conceptId;
+		return this;
 	}
 
 	public void setParents(Set<Long> parents) {
