@@ -123,17 +123,18 @@ public class BranchReviewService {
 
 		final Set<Long> conceptsChangedInBoth = getConflictingConceptIds(mergeReview);
 
-		final Collection<Concept> conceptOnSource = conceptService.find(mergeReview.getSourcePath(), conceptsChangedInBoth);
-		final Collection<Concept> conceptOnTarget = conceptService.find(mergeReview.getTargetPath(), conceptsChangedInBoth);
-
 		final Map<Long, MergeReviewConceptVersions> conflicts = new HashMap<>();
-		conceptOnSource.stream().forEach(concept -> conflicts.put(concept.getConceptIdAsLong(), new MergeReviewConceptVersions(concept)));
-		conceptOnTarget.stream().forEach(targetConcept -> {
-			final MergeReviewConceptVersions conceptVersions = conflicts.get(targetConcept.getConceptIdAsLong());
-			conceptVersions.setTargetConcept(targetConcept);
-			conceptVersions.setAutoMergedConcept(autoMergeConcept(conceptVersions.getSourceConcept(), targetConcept));
-		});
+		if (!conceptsChangedInBoth.isEmpty()) {
+			final Collection<Concept> conceptOnSource = conceptService.find(mergeReview.getSourcePath(), conceptsChangedInBoth);
+			final Collection<Concept> conceptOnTarget = conceptService.find(mergeReview.getTargetPath(), conceptsChangedInBoth);
 
+			conceptOnSource.stream().forEach(concept -> conflicts.put(concept.getConceptIdAsLong(), new MergeReviewConceptVersions(concept)));
+			conceptOnTarget.stream().forEach(targetConcept -> {
+				final MergeReviewConceptVersions conceptVersions = conflicts.get(targetConcept.getConceptIdAsLong());
+				conceptVersions.setTargetConcept(targetConcept);
+				conceptVersions.setAutoMergedConcept(autoMergeConcept(conceptVersions.getSourceConcept(), targetConcept));
+			});
+		}
 		return conflicts.values();
 	}
 
@@ -242,20 +243,27 @@ public class BranchReviewService {
 					final Branch source = branchService.findBranchOrThrow(review.getSource().getPath());
 					final Branch target = branchService.findBranchOrThrow(review.getTarget().getPath());
 
-					// source = A
-					// target = A/B
+					// source = A------
+					// target =    \----A/B
 					// start = target base
 
-					// source = A/B
-					// target = A
-					// start = source lastPromotion
+					// target = A--------
+					// source =    \--^--A/B
+					// start = source lastPromotion or base
 
 					Date start;
 					if (review.isSourceIsParent()) {
 						start = target.getBase();
 					} else {
 						start = source.getLastPromotion();
+						if (start == null) {
+							start = source.getBase();
+						}
 					}
+
+					// Look for changes in the range starting a millisecond after
+					start.setTime(start.getTime() + 1);
+
 					review.setChanges(createConceptChangeReportOnBranchForTimeRange(source.getPath(), start, source.getHead(), review.isSourceIsParent()));
 				}
 			}

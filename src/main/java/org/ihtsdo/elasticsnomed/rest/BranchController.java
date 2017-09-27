@@ -64,4 +64,9 @@ public class BranchController {
 		return ControllerHelper.getCreatedResponse(mergeJob.getId());
 	}
 
+	@RequestMapping(value = "/merges/{mergeId}", method = RequestMethod.GET)
+	public BranchMergeJob retrieveMerge(@PathVariable String mergeId) {
+		return branchMergeService.getBranchMergeJobOrThrow(mergeId);
+	}
+
 }

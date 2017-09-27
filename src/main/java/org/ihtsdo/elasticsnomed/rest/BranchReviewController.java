@@ -65,14 +65,14 @@ public class BranchReviewController {
 	@RequestMapping(value = "/merge-reviews/{id}/{conceptId}", method = RequestMethod.POST)
 	public void getMergeReviewConflictingConcepts(@PathVariable String id, @PathVariable String conceptId, @RequestBody Concept manuallyMergedConcept) {
 		final MergeReview mergeReview = reviewService.getMergeReviewOrThrow(id);
-		if (conceptId.equals(manuallyMergedConcept.getConceptId())) {
-			throw new IllegalArgumentException("coneptId in request path does not match the conceptId in the request body.");
+		if (!conceptId.equals(manuallyMergedConcept.getConceptId())) {
+			throw new IllegalArgumentException("conceptId in request path does not match the conceptId in the request body.");
 		}
 		mergeReview.putManuallyMergedConcept(manuallyMergedConcept);
 	}
 
 	@RequestMapping(value = "/merge-reviews/{id}/apply", method = RequestMethod.POST)
-	public void applyMergeReview(@RequestParam String id) throws ServiceException {
+	public void applyMergeReview(@PathVariable String id) throws ServiceException {
 		reviewService.applyMergeReview(id);
 	}
 

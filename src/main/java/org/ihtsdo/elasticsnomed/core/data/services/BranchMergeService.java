@@ -1,5 +1,7 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
 
 import io.kaicode.elasticvc.api.BranchService;
@@ -28,6 +30,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -53,6 +56,11 @@ public class BranchMergeService {
 	@Autowired
 	private ComponentTypeRegistry componentTypeRegistry;
 
+	// TODO: Move to persistent storage to prepare for autoscaling
+	private final Cache<String, BranchMergeJob> branchMergeJobStore = CacheBuilder.newBuilder()
+			.expireAfterWrite(12, TimeUnit.HOURS)
+			.build();
+
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
 	private static final String USE_BRANCH_REVIEW = "The target branch is diverged, please use the branch review endpoint instead.";
 	private static final Logger logger = LoggerFactory.getLogger(BranchMergeService.class);
@@ -65,10 +73,11 @@ public class BranchMergeService {
 			branchReview = checkBranchReview(mergeRequest, source, target);
 		}
 
-		final Branch targetBranch = branchService.findBranchOrThrow(target);
-		if (targetBranch.getState() == Branch.BranchState.DIVERGED && branchReview == null) {
-			throw new IllegalArgumentException(USE_BRANCH_REVIEW);
-		}
+		// TODO: The current production authoring platform currently does not pass the review id through
+//		final Branch targetBranch = branchService.findBranchOrThrow(target);
+//		if (targetBranch.getState() == Branch.BranchState.DIVERGED && branchReview == null) {
+//			throw new IllegalArgumentException(USE_BRANCH_REVIEW);
+//		}
 
 		BranchMergeJob mergeJob = new BranchMergeJob(source, target, JobStatus.SCHEDULED);
 		executorService.submit(() -> {
@@ -83,7 +92,16 @@ public class BranchMergeService {
 				logger.error("Failed to merge branch",e);
 			}
 		});
+		branchMergeJobStore.put(mergeJob.getId(), mergeJob);
 
+		return mergeJob;
+	}
+
+	public BranchMergeJob getBranchMergeJobOrThrow(String id) {
+		BranchMergeJob mergeJob = branchMergeJobStore.getIfPresent(id);
+		if (mergeJob == null) {
+			throw new NotFoundException("Branch merge job not found.");
+		}
 		return mergeJob;
 	}
 
@@ -108,7 +126,7 @@ public class BranchMergeService {
 			if (sourceBranch.getHeadTimestamp() == targetBranch.getBaseTimestamp() && !permissive) {
 				throw new IllegalStateException("This rebase is not meaningful, the child branch already has the parent's changes.");
 			} else if (targetBranch.getState() == Branch.BranchState.DIVERGED && manuallyMergedConcepts == null && !permissive) {
-				throw new IllegalArgumentException(USE_BRANCH_REVIEW);
+//				throw new IllegalArgumentException(USE_BRANCH_REVIEW); // TODO: The current production authoring platform currently does not pass the review id through
 			}
 		} else {
 			// Promotion
