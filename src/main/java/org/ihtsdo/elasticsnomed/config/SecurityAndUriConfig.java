@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
@@ -20,7 +21,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	@Bean
 	public FilterRegistrationBean getUrlRewriteFilter() {
 		// Encode branch paths in uri to allow request mapping to work
-		FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(new BranchPathUriRewriteFilter(
+		return new FilterRegistrationBean(new BranchPathUriRewriteFilter(
 				"/branches/(.*)/children",
 				"/branches/(.*)/parents",
 				"/branches/(.*)/actions/.*",
@@ -36,7 +37,6 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 				"/mrcm/(.*)/attribute-values.*",
 				"/browser/(.*)/validate/concept"
 		).rewriteEncodedSlash());
-		return filterRegistrationBean;
 	}
 
 	@Bean
@@ -50,6 +50,11 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	@Override
 	public void configure(WebSecurity web) throws Exception {
 		web.httpFirewall(allowUrlEncodedSlashHttpFirewall());
+	}
+
+	@Override
+	protected void configure(HttpSecurity http) throws Exception {
+		http.csrf().disable();
 	}
 
 	@Bean
