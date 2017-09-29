@@ -154,7 +154,7 @@ public class IdentifierCacheManager implements Runnable {
 		
 		if (!requestSatisfied) {
 			//If we don't have the right cache, or it doesn't have sufficient availability, then call storage directly
-			idBlock.addAll(componentType, identifierSource.generate(namespaceId, partitionId, quantityRequired));
+			idBlock.addAll(componentType, identifierSource.reserve(namespaceId, partitionId, quantityRequired));
 		}
 	}
 

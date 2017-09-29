@@ -27,9 +27,8 @@ public class CISClient implements IdentifierSource {
 
 	private static final int MAX_BULK_REQUEST = 1000;
 
-	private static final String GENERATE = "generate";
+	//private static final String GENERATE = "generate";
 	private static final String RESERVE = "reserve";
-	private static final String GET = "ids";
 	private static final String REGISTER = "register";
 
 	private static int STATUS_SUCCESS = 2;
@@ -60,12 +59,6 @@ public class CISClient implements IdentifierSource {
 		HttpComponentsClientHttpRequestFactory restFactory =  (HttpComponentsClientHttpRequestFactory) restTemplate.getRequestFactory();
 		restFactory.setReadTimeout(timeout * 1000);
 		restFactory.setConnectTimeout(timeout * 1000);
-	}
-	
-	@Override	
-	public List<Long> generate(int namespaceId, String partitionId, int quantity) throws ServiceException {
-		CISGenerateRequest request = new CISGenerateRequest(namespaceId, partitionId, quantity);
-		return callCis(GENERATE, request, false);
 	}
 
 	@Override
