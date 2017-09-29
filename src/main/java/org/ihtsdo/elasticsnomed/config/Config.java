@@ -3,12 +3,14 @@ package org.ihtsdo.elasticsnomed.config;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.vanroy.springdata.jest.JestElasticsearchTemplate;
+
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.repositories.config.BranchStoreMixIn;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
 import io.searchbox.client.JestClient;
+
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
@@ -20,6 +22,7 @@ import org.ihtsdo.elasticsnomed.core.data.services.FastJestResultsMapper;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetTypesConfigurationService;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierCacheManager;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierSource;
+import org.ihtsdo.elasticsnomed.core.data.services.identifier.LocalIdentifierSource;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.cis.CISClient;
 import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportService;
 import org.ihtsdo.elasticsnomed.rest.config.BranchMixIn;
@@ -49,6 +52,7 @@ import org.springframework.jms.support.converter.MessageType;
 import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 import org.springframework.web.util.UrlPathHelper;
+
 import springfox.documentation.builders.RequestHandlerSelectors;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
@@ -140,8 +144,13 @@ public abstract class Config {
 	}
 	
 	@Bean
-	public IdentifierSource getIdentifierStorage() {
-		return new CISClient();  //Unit tests use a dummy version of this.
+	public IdentifierSource getIdentifierStorage(@Value("${cis.api.url}") String cisApiUrl)
+	{
+		if (cisApiUrl.equals("local")) {
+			return new LocalIdentifierSource();
+		} else {
+			return new CISClient();  
+		}
 	}
 	
 	@Bean 

@@ -3,16 +3,11 @@ package org.ihtsdo.elasticsnomed;
 import io.kaicode.elasticvc.domain.Branch;
 
 import org.ihtsdo.elasticsnomed.config.Config;
-import org.ihtsdo.elasticsnomed.config.SecurityAndUriConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
-import org.ihtsdo.elasticsnomed.core.data.services.identifier.DummyIdentifierSource;
-import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 
@@ -28,19 +23,6 @@ public class TestConfig extends Config {
 	private ElasticsearchOperations elasticsearchTemplate;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
-
-	@Override
-	@Bean
-	public IdentifierSource getIdentifierStorage() {
-		//Uncomment this line to run integration test with real cis supplied sctids
-		//return new CISClient();
-		return new DummyIdentifierSource();
-	}
-	
-/*	@Bean
-	public IdentifierCacheManager getIdentifierCacheManager(@Value("${cis.cache.concept-prefetch-count}") int conceptIdPrefetchCount) {
-		return new IdentifierCacheManager();
-	}*/
 
 	@PostConstruct
 	public void cleanUp() throws UnknownHostException {
