@@ -8,6 +8,4 @@ import java.util.List;
 
 public interface CodeSystemRepository extends ElasticsearchCrudRepository<CodeSystem, String> {
 
-	CodeSystem findOneByBranchPath(String branchPath);
-
 }

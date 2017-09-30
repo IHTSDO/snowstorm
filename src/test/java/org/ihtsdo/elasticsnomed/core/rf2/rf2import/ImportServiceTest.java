@@ -7,6 +7,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
 import org.ihtsdo.elasticsnomed.core.data.domain.Description;
 import org.ihtsdo.elasticsnomed.core.data.domain.ReferenceSetMember;
+import org.ihtsdo.elasticsnomed.core.data.services.CodeSystemService;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
 import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
@@ -45,6 +46,14 @@ public class ImportServiceTest {
 	@Autowired
 	private QueryService queryService;
 
+	@Autowired
+	private CodeSystemService codeSystemService;
+
+	@Before
+	public void setup() {
+		codeSystemService.init();
+	}
+
 	@Test
 	public void testImportFull() throws ReleaseImportException {
 		final String branchPath = "MAIN";
@@ -58,28 +67,28 @@ public class ImportServiceTest {
 		Assert.assertEquals(26, branches.size());
 		int a = 0;
 		Assert.assertEquals("MAIN", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20020131", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20020731", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20030131", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20030731", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20040131", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20040731", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20050131", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20050731", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20060131", branches.get(a).getPath());
+		Assert.assertEquals("MAIN/2002-01-31", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/2002-07-31", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/2003-01-31", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/2003-07-31", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/2004-01-31", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/2004-07-31", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/2005-01-31", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/2005-07-31", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/2006-01-31", branches.get(a).getPath());
 
 		a = 21;
-		Assert.assertEquals("MAIN/20120131", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20120731", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20130131", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20130731", branches.get(a++).getPath());
-		Assert.assertEquals("MAIN/20140131", branches.get(a).getPath());
+		Assert.assertEquals("MAIN/2012-01-31", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/2012-07-31", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/2013-01-31", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/2013-07-31", branches.get(a++).getPath());
+		Assert.assertEquals("MAIN/2014-01-31", branches.get(a).getPath());
 
-		String path = "MAIN/20020131";
+		String path = "MAIN/2002-01-31";
 		Assert.assertEquals(88, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
 		assertNull(conceptService.find("370136006", path));
 
-		path = "MAIN/20020731";
+		path = "MAIN/2002-07-31";
 		Assert.assertEquals(89, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
 		Assert.assertNotNull(conceptService.find("370136006", path));
 
@@ -94,7 +103,7 @@ public class ImportServiceTest {
 		Assert.assertEquals(1, description1237157018in2002.getAcceptabilityMap().size());
 		Assert.assertEquals(Concepts.descriptionAcceptabilityNames.get("900000000000549004"), description1237157018in2002.getAcceptabilityMap().get("900000000000508004"));
 
-		path = "MAIN/20030131";
+		path = "MAIN/2003-01-31";
 		Assert.assertEquals(89, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
 
 		// Test concept's description present and inactive
@@ -107,13 +116,13 @@ public class ImportServiceTest {
 		Assert.assertEquals(false, description1237157018in2003.isActive());
 		Assert.assertEquals(0, description1237157018in2003.getAcceptabilityMap().size());
 
-		path = "MAIN/20140131";
+		path = "MAIN/2014-01-31";
 		Assert.assertEquals(102, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
 		Assert.assertEquals(102, conceptService.findAll("MAIN", new PageRequest(0, 10)).getTotalElements());
 
-		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryService.retrieveAncestors("131148009", "MAIN/20020131", false));
-		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/20050131", false));
-		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/20060131", false));
+		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryService.retrieveAncestors("131148009", "MAIN/2002-01-31", false));
+		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/2005-01-31", false));
+		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/2006-01-31", false));
 	}
 
 	@Test

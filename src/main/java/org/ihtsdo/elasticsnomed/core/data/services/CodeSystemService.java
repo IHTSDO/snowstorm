@@ -9,10 +9,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
+
+import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
 @Service
 public class CodeSystemService {
@@ -31,6 +35,9 @@ public class CodeSystemService {
 
 	@Autowired
 	private ReleaseService releaseService;
+
+	@Autowired
+	private ElasticsearchOperations elasticsearchOperations;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -71,8 +78,9 @@ public class CodeSystemService {
 	}
 
 	public void createVersionIfCodeSystemFoundOnPath(String branchPath, String releaseDate, String description) {
-		CodeSystem codeSystem = repository.findOneByBranchPath(branchPath);
-		if (codeSystem != null) {
+		List<CodeSystem> codeSystems = elasticsearchOperations.queryForList(new NativeSearchQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)), CodeSystem.class);
+		if (!codeSystems.isEmpty()) {
+			CodeSystem codeSystem = codeSystems.get(0);
 			createVersion(codeSystem, releaseDate, description);
 		}
 	}
