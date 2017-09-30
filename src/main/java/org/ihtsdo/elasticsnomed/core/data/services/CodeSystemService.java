@@ -34,6 +34,14 @@ public class CodeSystemService {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
+	public void init() {
+		// Create default code system if it does not yet exist
+		if (repository.findOne(SNOMEDCT) == null) {
+			repository.save(new CodeSystem(SNOMEDCT, MAIN));
+			logger.info("Default Code System '{}' created.", SNOMEDCT);
+		}
+	}
+
 	public void createVersion(CodeSystem codeSystem, String effectiveDate, String description) {
 
 		if (!effectiveDate.matches("\\d{8}")) {

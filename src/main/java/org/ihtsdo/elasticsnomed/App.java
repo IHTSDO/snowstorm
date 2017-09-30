@@ -2,6 +2,7 @@ package org.ihtsdo.elasticsnomed;
 
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.config.Config;
+import org.ihtsdo.elasticsnomed.core.data.services.CodeSystemService;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
 import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
@@ -43,6 +44,9 @@ public class App extends Config implements ApplicationRunner {
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
 
+	@Autowired
+	private CodeSystemService codeSystemService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public static void main(String[] args) {
@@ -52,6 +56,7 @@ public class App extends Config implements ApplicationRunner {
 	
 	@Override
 	public void run(ApplicationArguments applicationArguments) throws Exception {
+		codeSystemService.init();
 		mrcmService.load();
 		referenceSetMemberService.init();
 
