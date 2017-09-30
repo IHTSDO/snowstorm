@@ -7,6 +7,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.classification.RelationshipChan
 import org.ihtsdo.elasticsnomed.core.data.services.classification.ClassificationService;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.ihtsdo.elasticsnomed.rest.pojo.ClassificationUpdateRequest;
+import org.ihtsdo.elasticsnomed.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.data.domain.Page;

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.ihtsdo.elasticsnomed.core.data.domain.ReferenceSetMember;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
+import org.ihtsdo.elasticsnomed.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
