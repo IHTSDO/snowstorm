@@ -2,6 +2,7 @@ package org.ihtsdo.elasticsnomed.core.rf2.rf2import;
 
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
+import org.ihtsdo.elasticsnomed.core.data.services.CodeSystemService;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.NotFoundException;
 import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
@@ -13,6 +14,7 @@ import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.io.InputStream;
@@ -21,6 +23,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
+@Service
 public class ImportService {
 
 	private Map<String, ImportJob> importJobMap;
@@ -42,6 +45,9 @@ public class ImportService {
 
 	@Autowired
 	private ExecutorService executorService;
+
+	@Autowired
+	private CodeSystemService codeSystemService;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -93,7 +99,7 @@ public class ImportService {
 	}
 
 	private HistoryAwareComponentFactory getFullImportComponentFactory(String branchPath) {
-		return new FullImportComponentFactoryImpl(conceptService, branchService, branchPath, null);
+		return new FullImportComponentFactoryImpl(conceptService, branchService, codeSystemService, branchPath, null);
 	}
 
 	public void importArchiveAsync(String importId, InputStream releaseFileStream) {
