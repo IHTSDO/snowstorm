@@ -28,6 +28,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	private PersistBuffer<ReferenceSetMember> memberPersistBuffer;
 	private List<PersistBuffer> persistBuffers;
 	private List<PersistBuffer> coreComponentPersistBuffers;
+	private MaxEffectiveTimeCollector maxEffectiveTimeCollector;
 
 	private boolean coreComponentsFlushed;
 
@@ -35,11 +36,15 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		this.branchService = branchService;
 		this.path = path;
 		persistBuffers = new ArrayList<>();
+		maxEffectiveTimeCollector = new MaxEffectiveTimeCollector();
 		coreComponentPersistBuffers = new ArrayList<>();
 		conceptPersistBuffer = new PersistBuffer<Concept>() {
 			@Override
 			public void persistCollection(Collection<Concept> entities) {
-				entities.forEach(component -> component.setChanged(true));
+				entities.forEach(component -> {
+					component.setChanged(true);
+					maxEffectiveTimeCollector.add(component.getEffectiveTime());
+				});
 				conceptService.doSaveBatchConcepts(entities, commit);
 			}
 		};
@@ -48,7 +53,10 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		descriptionPersistBuffer = new PersistBuffer<Description>() {
 			@Override
 			public void persistCollection(Collection<Description> entities) {
-				entities.forEach(component -> component.setChanged(true));
+				entities.forEach(component -> {
+					component.setChanged(true);
+					maxEffectiveTimeCollector.add(component.getEffectiveTime());
+				});
 				conceptService.doSaveBatchDescriptions(entities, commit);
 			}
 		};
@@ -57,7 +65,10 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		relationshipPersistBuffer = new PersistBuffer<Relationship>() {
 			@Override
 			public void persistCollection(Collection<Relationship> entities) {
-				entities.forEach(component -> component.setChanged(true));
+				entities.forEach(component -> {
+					component.setChanged(true);
+					maxEffectiveTimeCollector.add(component.getEffectiveTime());
+				});
 				conceptService.doSaveBatchRelationships(entities, commit);
 			}
 		};
@@ -72,7 +83,10 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 						coreComponentsFlushed = true;
 					}
 				}
-				entities.forEach(component -> component.setChanged(true));
+				entities.forEach(component -> {
+					component.setChanged(true);
+					maxEffectiveTimeCollector.add(component.getEffectiveTime());
+				});
 				conceptService.doSaveBatchMembers(entities, commit);
 			}
 		};
@@ -135,6 +149,10 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			member.release(effectiveTime);
 		}
 		memberPersistBuffer.save(member);
+	}
+
+	public String getMaxEffectiveTime() {
+		return maxEffectiveTimeCollector.getMaxEffectiveTime();
 	}
 
 	protected void setCommit(Commit commit) {

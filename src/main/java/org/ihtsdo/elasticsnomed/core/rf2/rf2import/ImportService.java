@@ -79,7 +79,16 @@ public class ImportService {
 					releaseImporter.loadDeltaReleaseFiles(releaseFileStream, DEFAULT_LOADING_PROFILE, getImportComponentFactory(branchPath));
 					break;
 				case SNAPSHOT:
-					releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, DEFAULT_LOADING_PROFILE, getImportComponentFactory(branchPath));
+
+					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath);
+					releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, DEFAULT_LOADING_PROFILE, importComponentFactory);
+
+					// Create Code System version of this snapshot content (if a code system exists on this path)
+					String maxEffectiveTime = importComponentFactory.getMaxEffectiveTime();
+					if (maxEffectiveTime != null) {
+						codeSystemService.createVersionIfCodeSystemFoundOnPath(branchPath, maxEffectiveTime, "RF2 Full Import");
+					}
+
 					break;
 				case FULL:
 					releaseImporter.loadFullReleaseFiles(releaseFileStream, DEFAULT_LOADING_PROFILE, getFullImportComponentFactory(branchPath));
