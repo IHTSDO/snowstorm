@@ -472,7 +472,7 @@ public class ConceptServiceTest {
 						.addLanguageRefsetMember("900000000000509007", Concepts.PREFERRED)
 		);
 		conceptService.create(concept, "MAIN");
-		conceptService.releaseConceptsForTest("20170731", "MAIN", concept);
+		releaseService.createVersion("20170731", "MAIN");
 
 		// Check acceptability
 		final Concept savedConcept1 = conceptService.find("50960005", "MAIN");

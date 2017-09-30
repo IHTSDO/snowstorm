@@ -53,9 +53,7 @@ public class ReleaseService {
 
 	private <T extends SnomedComponent> void releaseComponentsOfType(Class<T> componentType, String effectiveTime, Commit commit, QueryBuilder branchCriteria) {
 		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria)
-						.mustNot(existsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID)))
+				.withQuery(branchCriteria)
 				.withPageable(LARGE_PAGE)
 				.build();
 

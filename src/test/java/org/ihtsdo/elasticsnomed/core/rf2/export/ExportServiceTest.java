@@ -5,6 +5,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.domain.jobs.ExportConfiguration;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
+import org.ihtsdo.elasticsnomed.core.data.services.ReleaseService;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.elasticsnomed.core.util.StreamUtils;
@@ -40,6 +41,10 @@ public class ExportServiceTest {
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
+
+	@Autowired
+	private ReleaseService releaseService;
+
 	private String descriptionId;
 
 	@Before
@@ -54,6 +59,10 @@ public class ExportServiceTest {
 		Concept gbLangRefsetConcept = new Concept(Concepts.GB_EN_LANG_REFSET).addRelationship(new Relationship(Concepts.ISA, Concepts.LANG_REFSET));
 		concepts.add(gbLangRefsetConcept);
 
+		// Version first two concepts
+		conceptService.create(concepts, "MAIN");
+		releaseService.createVersion("20100131", "MAIN");
+
 		String conceptId = "123001";
 		descriptionId = "124011";
 		// Make some junk data just to test export
@@ -66,10 +75,7 @@ public class ExportServiceTest {
 		concept.addRelationship(new Relationship("125021", "", true, Concepts.CORE_MODULE, conceptId, "100001", 0, Concepts.ISA, Concepts.STATED_RELATIONSHIP, Concepts.EXISTENTIAL));
 		concept.addRelationship(new Relationship("125022", "", true, Concepts.CORE_MODULE, conceptId, "100002", 0, Concepts.ISA, Concepts.INFERRED_RELATIONSHIP, Concepts.EXISTENTIAL));
 		concept.addRelationship(new Relationship("125023", "", true, Concepts.CORE_MODULE, conceptId, "100003", 0, Concepts.ISA, Concepts.ADDITIONAL_RELATIONSHIP, Concepts.EXISTENTIAL));
-		concepts.add(concept);
-		conceptService.create(concepts, "MAIN");
-
-		conceptService.releaseConceptsForTest("20100131", "MAIN", langRefsetConcept, gbLangRefsetConcept);
+		conceptService.create(concept, "MAIN");
 	}
 
 	@Test

@@ -721,44 +721,6 @@ public class ConceptService extends ComponentService implements CommitListener {
 		}
 	}
 
-	// TODO: Real release process
-	public void releaseConceptsForTest(String effectiveTime, String path, Concept... concepts) {
-		for (Concept concept : concepts) {
-			if (!exists(concept.getId(), path)) {
-				throw new IllegalArgumentException("Concept does not exist, id '" + concept.getId() + "'");
-			}
-		}
-		try (final Commit commit = branchService.openCommit(path)) {
-			Set<Description> descriptionsToSave = new HashSet<>();
-			Set<Relationship> relationshipsToSave = new HashSet<>();
-			Set<ReferenceSetMember> referenceSetMembersToSave = new HashSet<>();
-			for (Concept concept : concepts) {
-				concept.release(effectiveTime);
-				concept.markChanged();
-				for (Description description : concept.getDescriptions()) {
-					description.release(effectiveTime);
-					description.markChanged();
-					descriptionsToSave.add(description);
-					for (ReferenceSetMember referenceSetMember : description.getLangRefsetMembers().values()) {
-						referenceSetMember.release(effectiveTime);
-						referenceSetMember.markChanged();
-						referenceSetMembersToSave.add(referenceSetMember);
-					}
-				}
-				for (Relationship relationship : concept.getRelationships()) {
-					relationship.release(effectiveTime);
-					relationship.markChanged();
-					relationshipsToSave.add(relationship);
-				}
-			}
-			doSaveBatchConcepts(Sets.newHashSet(concepts), commit);
-			doSaveBatchDescriptions(descriptionsToSave, commit);
-			doSaveBatchRelationships(relationshipsToSave, commit);
-			doSaveBatchMembers(referenceSetMembersToSave, commit);
-			commit.markSuccessful();
-		}
-	}
-
 	/**
 	 * Persists concept updates within commit.
 	 * @param concepts
