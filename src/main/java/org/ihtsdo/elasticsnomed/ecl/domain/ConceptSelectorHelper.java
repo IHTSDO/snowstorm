@@ -19,6 +19,7 @@ class ConceptSelectorHelper {
 	static List<Long> fetch(BoolQueryBuilder query, Collection<Long> conceptIdFilter, QueryService queryService) {
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(query)
+				.withFields(QueryConcept.Fields.CONCEPT_ID)// This will cause only the conceptId field to be retrieved (by the custom result mapper).
 				.withPageable(LARGE_PAGE);
 
 		if (conceptIdFilter != null) {
