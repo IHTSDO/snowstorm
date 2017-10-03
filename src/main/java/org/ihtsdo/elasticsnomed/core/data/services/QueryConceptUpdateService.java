@@ -8,6 +8,7 @@ import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.Entity;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -20,7 +21,6 @@ import org.ihtsdo.elasticsnomed.core.data.repositories.QueryConceptRepository;
 import org.ihtsdo.elasticsnomed.core.data.services.transitiveclosure.GraphBuilder;
 import org.ihtsdo.elasticsnomed.core.data.services.transitiveclosure.Node;
 import org.ihtsdo.elasticsnomed.core.util.TimerUtil;
-import org.ihtsdo.elasticsnomed.ecl.ECLQueryService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,9 +36,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class QueryConceptUpdateService extends ComponentService {
@@ -120,7 +118,7 @@ public class QueryConceptUpdateService extends ComponentService {
 			// When rebasing this is a view onto the new parent state
 			committedContentPath = PathUtil.getParentPath(committedContentPath);
 		}
-		QueryBuilder branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteria(committedContentPath);
+		QueryBuilder branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteriaBeforeOpenCommit(commit);
 		timer.checkpoint("get branch criteria");
 		if (!rebuild) {
 			// Step: Collect source and destinations of changed is-a relationships
@@ -196,8 +194,8 @@ public class QueryConceptUpdateService extends ComponentService {
 			nodesToLoad.addAll(updateDestination);
 			queryBuilder.withFilter(boolQuery().must(termsQuery("sourceId", nodesToLoad)));
 		}
-		try (final CloseableIterator<Relationship> existingInferredIsARelationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
-			existingInferredIsARelationships.forEachRemaining(relationship ->
+		try (final CloseableIterator<Relationship> existingIsARelationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
+			existingIsARelationships.forEachRemaining(relationship ->
 					graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId())));
 		}
 		timer.checkpoint("Build existing nodes from Relationships.");
@@ -211,14 +209,14 @@ public class QueryConceptUpdateService extends ComponentService {
 		AtomicLong isARelationshipsRemoved = new AtomicLong();
 		boolean newGraph = graphBuilder.getNodeCount() == 0;
 		Map<Long, AttributeChanges> conceptAttributeChanges = new Long2ObjectOpenHashMap<>();
-		try (final CloseableIterator<Relationship> inferredIsARelationshipChanges = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (final CloseableIterator<Relationship> isARelationshipChanges = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(changesBranchCriteria)
 						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
 				)
 				.withSort(new FieldSortBuilder("start").order(SortOrder.ASC))
 				.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
-			inferredIsARelationshipChanges.forEachRemaining(relationship -> {
+			isARelationshipChanges.forEachRemaining(relationship -> {
 				boolean ignore = false;
 				boolean justDeleted = false;
 				if (relationship.getEnd() != null) {
@@ -296,6 +294,11 @@ public class QueryConceptUpdateService extends ComponentService {
 			queryConceptsToSave.add(queryConcept);
 		});
 		if (!queryConceptsToSave.isEmpty()) {
+
+			// Delete query concepts which have no parents
+			queryConceptsToSave.stream().filter(c -> c.getParents().isEmpty() && !c.getConceptId().toString().equals(Concepts.SNOMEDCT_ROOT)).forEach(Entity::markDeleted);
+
+			// Save in batches
 			for (List<QueryConcept> queryConcepts : Iterables.partition(queryConceptsToSave, BATCH_SAVE_SIZE)) {
 				doSaveBatch(queryConcepts, commit);
 			}

@@ -3,14 +3,14 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.TestConfig;
-import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
-import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
-import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
+import org.ihtsdo.elasticsnomed.core.data.domain.*;
+import org.ihtsdo.elasticsnomed.core.data.repositories.QueryConceptRepository;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -37,6 +37,8 @@ public class QueryServiceTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	private static final PageRequest PAGE_REQUEST = new PageRequest(0, 50);
 
 	@Before
 	public void setup() {
@@ -208,6 +210,58 @@ public class QueryServiceTest {
 	}
 
 	@Test
+	public void testSecondIsARemoval() throws ServiceException {
+		Concept root = new Concept(SNOMEDCT_ROOT);
+
+		Concept n11 = new Concept("11").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept n12 = new Concept("12").addRelationship(new Relationship(ISA, n11.getId()));
+		Concept n13 = new Concept("13").addRelationship(new Relationship(ISA, n12.getId()));
+		Concept n14 = new Concept("14").addRelationship(new Relationship(ISA, n13.getId())).addRelationship(new Relationship(ISA, n12.getId()));
+
+		String branch = "MAIN";
+		conceptService.create(Lists.newArrayList(root, n11, n12, n13, n14), branch);
+
+		assertTC(n14, n13, n12, n11, root);
+
+		Set<Relationship> relationships = n14.getRelationships();
+		assertEquals(2, relationships.size());
+		List<Relationship> list = relationships.stream().filter(r -> r.getDestinationId().equals("13")).collect(Collectors.toList());
+		relationships.removeAll(list);
+		assertEquals(1, relationships.size());
+		n14 = conceptService.update(n14, branch);
+
+		assertTC(n14, n12, n11, root);
+	}
+
+	@Test
+	public void inactiveConceptsNotAdded() throws ServiceException {
+		String path = "MAIN";
+		conceptService.create(new Concept(SNOMEDCT_ROOT), path);
+		Concept ambulanceman = new Concept().addFSN("Ambulanceman").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		ambulanceman.setActive(false);
+		conceptService.create(ambulanceman, path);
+
+		Page<ConceptMini> concepts = service.search(service.createQueryBuilder(true).descendant(parseLong(SNOMEDCT_ROOT)), path, PAGE_REQUEST);
+		assertEquals(0, concepts.getTotalElements());
+	}
+
+	@Test
+	public void inactiveConceptsRemoved() throws ServiceException {
+		String path = "MAIN";
+		conceptService.create(new Concept(SNOMEDCT_ROOT), path);
+		Concept ambulanceman = conceptService.create(new Concept("123").addFSN("Ambulanceman").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)), path);
+
+		Page<ConceptMini> concepts = service.search(service.createQueryBuilder(true).selfOrDescendant(parseLong(SNOMEDCT_ROOT)), path, PAGE_REQUEST);
+		assertEquals(2, concepts.getTotalElements());
+
+		ambulanceman.setActive(false);
+		conceptService.update(ambulanceman, path);
+
+		concepts = service.search(service.createQueryBuilder(true).selfOrDescendant(parseLong(SNOMEDCT_ROOT)).termPrefix("Amb"), path, PAGE_REQUEST);
+		assertEquals(0, concepts.getTotalElements());
+	}
+
+	@Test
 	public void testSearchResultOrdering() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
@@ -217,28 +271,27 @@ public class QueryServiceTest {
 		Concept reallyCheesyPizza_5 = new Concept("5").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza");
 		conceptService.create(Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5), path);
 
-		PageRequest pageRequest = new PageRequest(0, 50);
-		List<ConceptMini> matches = service.search(service.createQueryBuilder(true).termPrefix("Piz"), path, pageRequest).getContent();
+		List<ConceptMini> matches = service.search(service.createQueryBuilder(true).termPrefix("Piz"), path, PAGE_REQUEST).getContent();
 		assertEquals(4, matches.size());
 		assertEquals("Pizza", matches.get(0).getFsn());
 		assertEquals("Cheese Pizza", matches.get(1).getFsn());
 		assertEquals("So Cheesy Pizza", matches.get(2).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(3).getFsn());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(SNOMEDCT_ROOT)).termPrefix("Piz"), path, pageRequest).getContent();
+		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(SNOMEDCT_ROOT)).termPrefix("Piz"), path, PAGE_REQUEST).getContent();
 		assertEquals(4, matches.size());
 		assertEquals("Pizza", matches.get(0).getFsn());
 		assertEquals("Cheese Pizza", matches.get(1).getFsn());
 		assertEquals("So Cheesy Pizza", matches.get(2).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(3).getFsn());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termPrefix("Piz"), path, pageRequest).getContent();
+		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termPrefix("Piz"), path, PAGE_REQUEST).getContent();
 		assertEquals(3, matches.size());
 		assertEquals("Cheese Pizza", matches.get(0).getFsn());
 		assertEquals("So Cheesy Pizza", matches.get(1).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(2).getFsn());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termPrefix("Cheesy"), path, pageRequest).getContent();
+		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termPrefix("Cheesy"), path, PAGE_REQUEST).getContent();
 		assertEquals(2, matches.size());
 		assertEquals("So Cheesy Pizza", matches.get(0).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(1).getFsn());
