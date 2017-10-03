@@ -16,6 +16,9 @@ public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 	public static final String FIELD_ID = "conceptId";
 
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	private String name;
+
+	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String conceptId;
 
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
@@ -30,7 +33,8 @@ public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 	public ReferenceSetType() {
 	}
 
-	public ReferenceSetType(String conceptId, String fieldNames, String fieldTypes, String exportDir) {
+	public ReferenceSetType(String name, String conceptId, String fieldNames, String fieldTypes, String exportDir) {
+		this.name = name;
 		this.conceptId = conceptId;
 		this.fieldNames = fieldNames;
 		this.fieldTypes = fieldTypes;
@@ -48,6 +52,10 @@ public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 		return true;
 	}
 
+	public String getName() {
+		return name;
+	}
+
 	public String getConceptId() {
 		return conceptId;
 	}
@@ -57,7 +65,7 @@ public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 	}
 
 	public List<String> getFieldNameList() {
-		return Lists.newArrayList(fieldNames.split("\\|"));
+		return Lists.newArrayList(fieldNames.split(","));
 	}
 
 	public String getFieldTypes() {
@@ -85,12 +93,6 @@ public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 
 	@Override
 	public String toString() {
-		return "ReferenceSetType{" +
-				"conceptId='" + conceptId + '\'' +
-				", fieldNames='" + fieldNames + '\'' +
-				", fieldTypes='" + fieldTypes + '\'' +
-				", exportDir='" + exportDir + '\'' +
-				", entity=" + super.toString() +
-				'}';
+		return name + "|" + conceptId;
 	}
 }

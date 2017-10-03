@@ -121,7 +121,7 @@ public class ExportService {
 				if (!forClassification) { // TODO: We will need to export the OWL Reference Set soon
 					// Write Reference Sets
 					List<ReferenceSetType> referenceSetTypes = getReferenceSetTypes(branchCriteria);
-					logger.info("{} Reference Set Types found", referenceSetTypes.size());
+					logger.info("{} Reference Set Types found: {}", referenceSetTypes.size(), referenceSetTypes);
 
 					for (ReferenceSetType referenceSetType : referenceSetTypes) {
 						Set<Long> refsetsOfThisType = queryService.retrieveDescendants(referenceSetType.getConceptId(), branchCriteria, true);
@@ -131,11 +131,11 @@ public class ExportService {
 							memberQuery.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetToExport));
 							long memberCount = elasticsearchTemplate.count(getNativeSearchQuery(memberQuery), ReferenceSetMember.class);
 							if (memberCount > 0) {
-								logger.info("Exporting Reference Set {} {} with {} members", refsetToExport, referenceSetType.getExportDir(), memberCount);
+								logger.info("Exporting Reference Set {} {} with {} members", refsetToExport, referenceSetType.getName(), memberCount);
 								exportComponents(
 										ReferenceSetMember.class,
 										"Refset/" + referenceSetType.getExportDir() + "/",
-										"der2_" + referenceSetType.getFieldTypes() + "Refset_" + refsetToExport,
+										"der2_" + referenceSetType.getFieldTypes() + "Refset_" + referenceSetType.getName() + refsetToExport,
 										filenameEffectiveDate,
 										exportType,
 										zipOutputStream,

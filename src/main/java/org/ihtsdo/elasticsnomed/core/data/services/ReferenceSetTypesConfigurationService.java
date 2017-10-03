@@ -17,13 +17,15 @@ public class ReferenceSetTypesConfigurationService {
 
 	public Set<ReferenceSetType> getConfiguredTypes() {
 		Set<ReferenceSetType> setTypes = new HashSet<>();
-		for (String configString : types.values()) {
+		for (String key : types.keySet()) {
+			String name = key.substring(key.lastIndexOf(".") + 1);
+			String configString = types.get(key);
 			String[] split = configString.split("\\|");
 			String conceptId = split[0];
 			String exportDir = split[1];
 			String fieldTypes = split[2];
 			String fieldNames = split[3];
-			setTypes.add(new ReferenceSetType(conceptId, fieldNames, fieldTypes, exportDir));
+			setTypes.add(new ReferenceSetType(name, conceptId, fieldNames, fieldTypes, exportDir));
 		}
 		return setTypes;
 	}

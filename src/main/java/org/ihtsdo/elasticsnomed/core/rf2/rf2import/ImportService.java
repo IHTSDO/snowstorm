@@ -86,7 +86,7 @@ public class ImportService {
 					// Create Code System version of this snapshot content (if a code system exists on this path)
 					String maxEffectiveTime = importComponentFactory.getMaxEffectiveTime();
 					if (maxEffectiveTime != null) {
-						codeSystemService.createVersionIfCodeSystemFoundOnPath(branchPath, maxEffectiveTime, "RF2 Full Import");
+						codeSystemService.createVersionIfCodeSystemFoundOnPath(branchPath, maxEffectiveTime, "RF2 Snapshot Import");
 					}
 
 					break;

@@ -130,7 +130,7 @@ public class ExportServiceTest {
 
 			// Language Refset
 			ZipEntry langRefset = zipInputStream.getNextEntry();
-			assertEquals("SnomedCT_Export/RF2Release/Refset/Language/der2_cRefset_900000000000508004Delta_20180131.txt", langRefset.getName());
+			assertEquals("SnomedCT_Export/RF2Release/Refset/Language/der2_cRefset_Language900000000000508004Delta_20180131.txt", langRefset.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
 			assertEquals("id\teffectiveTime\tactive\tmoduleId\trefsetId\treferencedComponentId\tacceptabilityId", lines.get(0));

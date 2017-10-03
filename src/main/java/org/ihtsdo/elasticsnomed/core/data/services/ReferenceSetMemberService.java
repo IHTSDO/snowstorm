@@ -135,7 +135,7 @@ public class ReferenceSetMemberService extends ComponentService {
 		HashSet<ReferenceSetType> typesToAdd = new HashSet<>(referenceSetTypes);
 		typesToAdd.removeAll(existingTypes);
 		if (!typesToAdd.isEmpty()) {
-			logger.info("Setting up {} reference set types.", typesToAdd.size());
+			logger.info("Setting up reference set types: {}", typesToAdd);
 			try (Commit commit = branchService.openCommit(path)) {
 				doSaveBatchComponents(typesToAdd, commit, ReferenceSetType.FIELD_ID, typeRepository);
 				commit.markSuccessful();
