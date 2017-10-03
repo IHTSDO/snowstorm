@@ -306,19 +306,11 @@ public class QueryService {
 
 		public ConceptQueryBuilder descendant(Long conceptId) {
 			logger.info("ancestors = {}", conceptId);
-			if (parseLong(Concepts.SNOMEDCT_ROOT) == conceptId) {
-				// Ignore this criteria because it is not meaningful
-				return this;
-			}
 			logicalConditionBuilder.should(termQuery("ancestors", conceptId));
 			return this;
 		}
 
 		public ConceptQueryBuilder selfOrDescendant(Long conceptId) {
-			if (parseLong(Concepts.SNOMEDCT_ROOT) == conceptId) {
-				// Ignore this criteria because it is not meaningful
-				return this;
-			}
 			self(conceptId);
 			descendant(conceptId);
 			return this;
