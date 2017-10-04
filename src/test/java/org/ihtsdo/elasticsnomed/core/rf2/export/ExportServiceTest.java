@@ -46,6 +46,7 @@ public class ExportServiceTest {
 	private ReleaseService releaseService;
 
 	private String descriptionId;
+	private String textDefId;
 
 	@Before
 	public void setup() throws IOException, ServiceException {
@@ -65,13 +66,20 @@ public class ExportServiceTest {
 
 		String conceptId = "123001";
 		descriptionId = "124011";
+		textDefId = "124012";
 		// Make some junk data just to test export
 		Concept concept = new Concept(conceptId, "", true, Concepts.CORE_MODULE, Concepts.PRIMITIVE);
 		concept.addDescription(
 				new Description(descriptionId, "", true, Concepts.CORE_MODULE, conceptId, "en", Concepts.FSN, "Bleeding (finding)", Concepts.CASE_INSENSITIVE)
 						.addLanguageRefsetMember(
-								new ReferenceSetMember(null, "", true, Concepts.CORE_MODULE, Concepts.GB_EN_LANG_REFSET, descriptionId)
+								new ReferenceSetMember(null, "", true, Concepts.CORE_MODULE, Concepts.GB_EN_LANG_REFSET, null)
 										.setAdditionalField("acceptabilityId", Concepts.PREFERRED)));
+		concept.addDescription(
+				new Description(textDefId, "", true, Concepts.CORE_MODULE, conceptId, "en", Concepts.TEXT_DEFINITION, "Bleeding Text Def", Concepts.CASE_INSENSITIVE)
+						.addLanguageRefsetMember(
+								new ReferenceSetMember(null, "", true, Concepts.CORE_MODULE, Concepts.GB_EN_LANG_REFSET, null)
+										.setAdditionalField("acceptabilityId", Concepts.PREFERRED)));
+
 		concept.addRelationship(new Relationship("125021", "", true, Concepts.CORE_MODULE, conceptId, "100001", 0, Concepts.ISA, Concepts.STATED_RELATIONSHIP, Concepts.EXISTENTIAL));
 		concept.addRelationship(new Relationship("125022", "", true, Concepts.CORE_MODULE, conceptId, "100002", 0, Concepts.ISA, Concepts.INFERRED_RELATIONSHIP, Concepts.EXISTENTIAL));
 		concept.addRelationship(new Relationship("125023", "", true, Concepts.CORE_MODULE, conceptId, "100003", 0, Concepts.ISA, Concepts.ADDITIONAL_RELATIONSHIP, Concepts.EXISTENTIAL));
@@ -83,7 +91,8 @@ public class ExportServiceTest {
 		File exportFile = getTempFile("export", ".zip");
 		exportFile.deleteOnExit();
 
-		String languageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", descriptionId, new PageRequest(0, 10)).getContent().get(0).getMemberId();
+		String descriptionLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", descriptionId, new PageRequest(0, 10)).getContent().get(0).getMemberId();
+		String textDefLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", textDefId, new PageRequest(0, 10)).getContent().get(0).getMemberId();
 
 		// Run export
 		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
@@ -109,7 +118,15 @@ public class ExportServiceTest {
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
 			assertEquals(DescriptionExportWriter.HEADER, lines.get(0));
-			assertEquals("124011\t\t1\t900000000000207008\t123001\ten\t900000000000003001\tBleeding (finding)\t900000000000448009", lines.get(1));
+			assertEquals("124011\t\t1\t900000000000207008\t123001\ten\t" + Concepts.FSN + "\tBleeding (finding)\t900000000000448009", lines.get(1));
+
+			// Text Definitions
+			ZipEntry textDefinitions = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_TextDefinition_Delta_20180131.txt", textDefinitions.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(DescriptionExportWriter.HEADER, lines.get(0));
+			assertEquals("124012\t\t1\t900000000000207008\t123001\ten\t" + Concepts.TEXT_DEFINITION + "\tBleeding Text Def\t900000000000448009", lines.get(1));
 
 			// Stated Relationships
 			ZipEntry statedRelationships = zipInputStream.getNextEntry();
@@ -132,9 +149,10 @@ public class ExportServiceTest {
 			ZipEntry langRefset = zipInputStream.getNextEntry();
 			assertEquals("SnomedCT_Export/RF2Release/Refset/Language/der2_cRefset_Language900000000000508004Delta_20180131.txt", langRefset.getName());
 			lines = getLines(zipInputStream);
-			assertEquals(2, lines.size());
+			assertEquals(3, lines.size());
 			assertEquals("id\teffectiveTime\tactive\tmoduleId\trefsetId\treferencedComponentId\tacceptabilityId", lines.get(0));
-			assertEquals(languageRefsetMemberId + "\t\t1\t900000000000207008\t900000000000508004\t124011\t900000000000548007", lines.get(1));
+			assertTrue(lines.contains(descriptionLanguageRefsetMemberId + "\t\t1\t900000000000207008\t900000000000508004\t124011\t900000000000548007"));
+			assertTrue(lines.contains(textDefLanguageRefsetMemberId + "\t\t1\t900000000000207008\t900000000000508004\t124012\t900000000000548007"));
 		}
 	}
 

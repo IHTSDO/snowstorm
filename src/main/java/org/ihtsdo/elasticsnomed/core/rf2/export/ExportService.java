@@ -1,6 +1,5 @@
 package org.ihtsdo.elasticsnomed.core.rf2.export;
 
-import com.google.common.io.Files;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.apache.tomcat.util.http.fileupload.util.Streams;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -8,11 +7,9 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.domain.jobs.ExportConfiguration;
 import org.ihtsdo.elasticsnomed.core.data.repositories.ExportConfigurationRepository;
-import org.ihtsdo.elasticsnomed.core.data.repositories.ReferenceSetTypeRepository;
 import org.ihtsdo.elasticsnomed.core.data.services.NotFoundException;
 import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
 import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
-import org.ihtsdo.elasticsnomed.core.rf2.rf2import.ImportJob;
 import org.ihtsdo.elasticsnomed.core.util.DateUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,9 +29,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.existsQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class ExportService {
@@ -47,9 +42,6 @@ public class ExportService {
 
 	@Autowired
 	private QueryService queryService;
-
-	@Autowired
-	private ReferenceSetTypeRepository referenceSetTypeRepository;
 
 	@Autowired
 	private ExportConfigurationRepository exportConfigurationRepository;
@@ -101,8 +93,16 @@ public class ExportService {
 
 				if (!forClassification) {
 					// Write Descriptions
-					int descriptionLines = exportComponents(Description.class, "Terminology/", "sct2_Description_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria), null);
+					BoolQueryBuilder descriptionContentQuery = getContentQuery(exportType, branchCriteria);
+					descriptionContentQuery.mustNot(termQuery(Description.Fields.TYPE_ID, Concepts.TEXT_DEFINITION));
+					int descriptionLines = exportComponents(Description.class, "Terminology/", "sct2_Description_", filenameEffectiveDate, exportType, zipOutputStream, descriptionContentQuery, null);
 					logger.info("{} description states exported", descriptionLines);
+
+					// Write Text Definitions
+					BoolQueryBuilder textDefinitionContentQuery = getContentQuery(exportType, branchCriteria);
+					textDefinitionContentQuery.must(termQuery(Description.Fields.TYPE_ID, Concepts.TEXT_DEFINITION));
+					int textDefinitionLines = exportComponents(Description.class, "Terminology/", "sct2_TextDefinition_", filenameEffectiveDate, exportType, zipOutputStream, textDefinitionContentQuery, null);
+					logger.info("{} text defintion states exported", textDefinitionLines);
 				}
 
 				// Write Stated Relationships
