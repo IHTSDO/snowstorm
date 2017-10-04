@@ -39,6 +39,7 @@ public class MRCMService {
 	public Collection<ConceptMini> retrieveDomainAttributes(String branchPath, Set<Long> parentIds) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Set<Long> allAncestors = queryService.retrieveAllAncestors(branchCriteria, false, parentIds);
+		allAncestors.addAll(parentIds);
 
 		Set<Domain> matchedDomains = mrcm.getDomainMap().values().stream().filter(d -> {
 			Long domainConceptId = d.getConceptId();
