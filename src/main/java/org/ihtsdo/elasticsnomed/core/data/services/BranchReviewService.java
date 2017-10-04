@@ -171,8 +171,44 @@ public class BranchReviewService {
 	}
 
 	private Concept autoMergeConcept(Concept sourceConcept, Concept targetConcept) {
-		// TODO - Is providing an auto-merged concept required?
-		return sourceConcept;
+		final Concept mergedConcept = new Concept();
+
+		// If one of the concepts is unpublished, then it's values are newer.  If both are unpublished, source would win
+		Concept winner = sourceConcept;
+		if (targetConcept.getEffectiveTime() == null && sourceConcept.getEffectiveTime() != null) {
+			winner = targetConcept;
+		}
+
+		// Set directly owned values
+		mergedConcept.setConceptId(winner.getConceptId());
+		mergedConcept.setActive(winner.isActive());
+		mergedConcept.setDefinitionStatus(winner.getDefinitionStatus());
+		mergedConcept.setEffectiveTime(winner.getEffectiveTime());
+		mergedConcept.setModuleId(winner.getModuleId());
+
+		mergedConcept.setInactivationIndicatorName(winner.getInactivationIndicator());
+		mergedConcept.setAssociationTargets(winner.getAssociationTargets());
+
+		// Merge Descriptions - take all the descriptions from source, and add in from target
+		// if they're unpublished, which will cause an overwrite in the Set if the Description Id matches
+		final Set<Description> mergedDescriptions = new HashSet<>(sourceConcept.getDescriptions());
+		for (final Description thisDescription : targetConcept.getDescriptions()) {
+			if (thisDescription.getEffectiveTime() == null) {
+				mergedDescriptions.add(thisDescription);
+			}
+		}
+		mergedConcept.setDescriptions(mergedDescriptions);
+
+		// Merge Relationships - same process using Set to remove duplicated
+		final Set<Relationship> mergedRelationships = new HashSet<>(sourceConcept.getRelationships());
+		for (final Relationship thisRelationship : targetConcept.getRelationships()) {
+			if (thisRelationship.getEffectiveTime() == null) {
+				mergedRelationships.add(thisRelationship);
+			}
+		}
+		mergedConcept.setRelationships(mergedRelationships);
+
+		return mergedConcept;
 	}
 
 	public BranchReview getCreateReview(String source, String target) {
