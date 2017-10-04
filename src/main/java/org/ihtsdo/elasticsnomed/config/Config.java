@@ -49,6 +49,7 @@ import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.MessageType;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurerAdapter;
 import org.springframework.web.util.UrlPathHelper;
@@ -75,6 +76,7 @@ import static springfox.documentation.builders.PathSelectors.regex;
 				"io.kaicode.elasticvc.repositories"
 		})
 @EnableConfigurationProperties
+@EnableAsync
 public abstract class Config {
 
 	@Autowired

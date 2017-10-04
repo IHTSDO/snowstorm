@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -74,6 +75,7 @@ public class ClassificationController {
 			"to 'SAVED' or 'SAVE_FAILED'.\n" +
 			"Currently only the state can be changed from 'COMPLETED' to 'SAVED'.")
 	@RequestMapping(value = "/{classificationId}", method = RequestMethod.PUT)
+	@Async
 	public void updateClassification(@PathVariable String branch, @PathVariable String classificationId, @RequestBody ClassificationUpdateRequest updateRequest) {
 		if (updateRequest.getStatus() != Classification.Status.SAVED) {
 			throw new IllegalArgumentException("The only expected status is " + Classification.Status.SAVED.toString());
