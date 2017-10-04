@@ -2,10 +2,14 @@ package org.ihtsdo.elasticsnomed.core.data.services.classification;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
+import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
+import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.core.data.domain.classification.ChangeNature;
 import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
 import org.ihtsdo.elasticsnomed.core.data.domain.classification.EquivalentConcepts;
@@ -13,10 +17,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.classification.RelationshipChan
 import org.ihtsdo.elasticsnomed.core.data.repositories.ClassificationRepository;
 import org.ihtsdo.elasticsnomed.core.data.repositories.classification.EquivalentConceptsRepository;
 import org.ihtsdo.elasticsnomed.core.data.repositories.classification.RelationshipChangeRepository;
-import org.ihtsdo.elasticsnomed.core.data.services.BranchMetadataKeys;
-import org.ihtsdo.elasticsnomed.core.data.services.DescriptionService;
-import org.ihtsdo.elasticsnomed.core.data.services.NotFoundException;
-import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
+import org.ihtsdo.elasticsnomed.core.data.services.*;
 import org.ihtsdo.elasticsnomed.core.data.services.classification.pojo.ClassificationStatusResponse;
 import org.ihtsdo.elasticsnomed.core.data.services.classification.pojo.EquivalentConceptsResponse;
 import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
@@ -46,9 +47,12 @@ import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 import static org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification.Status.COMPLETED;
+import static org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification.Status.SAVED;
+import static org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification.Status.SAVE_FAILED;
 
 @Service
 public class ClassificationService {
@@ -79,6 +83,9 @@ public class ClassificationService {
 
 	@Autowired
 	private DescriptionService descriptionService;
+
+	@Autowired
+	private ConceptService conceptService;
 
 	private final List<Classification> classificationsInProgress;
 
@@ -237,6 +244,74 @@ public class ClassificationService {
 		return classification;
 	}
 
+	public void saveClassificationResultsToBranch(String path, String classificationId) {
+		Classification classification = findClassification(path, classificationId);
+		if (classification.getStatus() != COMPLETED) {
+			throw new IllegalStateException("Classification status must be " + COMPLETED.toString() + " in order to save results.");
+		}
+
+		classification.setStatus(SAVED);
+
+		if (classification.getInferredRelationshipChangesFound()) {
+
+			try (Commit commit = branchService.openCommit(path)) { // Commit in auto-close try block like this will roll back if an exception is thrown
+
+				int pageNumber = 0;// Page 0 is first in Spring
+				Page<RelationshipChange> relationshipChangesPage;
+
+				do {
+					// Grab a page of relationship changes
+					relationshipChangesPage = getRelationshipChanges(path, classificationId, new PageRequest(pageNumber, LARGE_PAGE.getPageSize()));
+
+					// Group changes by concept
+					Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
+					for (RelationshipChange relationshipChange : relationshipChangesPage.getContent()) {
+						conceptToChangeMap.computeIfAbsent(Long.parseLong(relationshipChange.getSourceId()), conceptId -> new ArrayList<>()).add(relationshipChange);
+					}
+
+					// Load concepts
+					Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet());
+
+					// Apply changes to concepts
+					for (Concept concept : concepts) {
+						for (RelationshipChange relationshipChange : conceptToChangeMap.get(concept.getConceptIdAsLong())) {
+							if (relationshipChange.getChangeNature() == ChangeNature.INFERRED) {
+								concept.addRelationship(
+										new Relationship(
+												null,
+												null,
+												true,
+												concept.getModuleId(),
+												null,
+												relationshipChange.getDestinationId(),
+												relationshipChange.getGroup(),
+												relationshipChange.getTypeId(),
+												relationshipChange.getCharacteristicTypeId(),
+												relationshipChange.getModifierId()));
+							} else {
+								concept.getRelationships().remove(new Relationship(relationshipChange.getRelationshipId()));
+							}
+						}
+					}
+
+					// Update concepts
+					conceptService.updateWithinCommit(concepts, commit);
+
+					pageNumber++;
+
+					// Repeat until no pages left - all within same commit
+				} while (relationshipChangesPage.hasNext());
+
+				commit.markSuccessful();
+
+			} catch (ServiceException e) {
+				classification.setStatus(SAVE_FAILED);
+			}
+		}
+
+		classificationRepository.save(classification);
+	}
+
 	public Page<RelationshipChange> getRelationshipChanges(String path, String classificationId, PageRequest pageRequest) {
 		Classification classification = findClassification(path, classificationId);
 		if (!classification.getStatus().isResultsAvailable()) {
@@ -359,9 +434,5 @@ public class ClassificationService {
 			logger.info("Saving {} classification equivalent concept sets", equivalentConceptsMap.size());
 			equivalentConceptsRepository.save(equivalentConceptsMap.values());
 		}
-	}
-
-	public void saveClassificationResultsToBranch(String path, String classificationId) {
-		// TODO: implement this
 	}
 }

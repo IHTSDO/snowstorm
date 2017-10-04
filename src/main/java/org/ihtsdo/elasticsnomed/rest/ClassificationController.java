@@ -68,7 +68,11 @@ public class ClassificationController {
 				.buildAndExpand(branch, classification.getId()).toUri()).build();
 	}
 
-	@ApiOperation("Update a classification on a branch. Save classification results by updating status to 'SAVED'.")
+	@ApiOperation(value = "Update a classification on a branch.",
+	notes = "Update the specified classification run by changing its state property. Saving the results is an async operation due to " +
+			"the possible high number of changes. It is advised to fetch the state of the classification run until the state changes " +
+			"to 'SAVED' or 'SAVE_FAILED'.\n" +
+			"Currently only the state can be changed from 'COMPLETED' to 'SAVED'.")
 	@RequestMapping(value = "/{classificationId}", method = RequestMethod.PUT)
 	public void updateClassification(@PathVariable String branch, @PathVariable String classificationId, @RequestBody ClassificationUpdateRequest updateRequest) {
 		if (updateRequest.getStatus() != Classification.Status.SAVED) {
