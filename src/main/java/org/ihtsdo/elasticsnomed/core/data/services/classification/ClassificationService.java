@@ -138,9 +138,14 @@ public class ClassificationService {
 							}
 							if (classification.getStatus() != latestStatus) {
 
+								Boolean inferredRelationshipChangesFound = null;
+								Boolean equivalentConceptsFound = null;
 								if (latestStatus == COMPLETED) {
 									try {
 										downloadRemoteResults(classification.getId());
+										inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(), new PageRequest(0, 1)).getTotalElements() > 0;
+										equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(), new PageRequest(0, 1)).getTotalElements() > 0;
+
 									} catch (IOException e) {
 										latestStatus = Classification.Status.FAILED;
 										String message = "Failed to capture remote classification results.";
@@ -149,6 +154,8 @@ public class ClassificationService {
 									}
 								}
 
+								classification.setInferredRelationshipChangesFound(inferredRelationshipChangesFound);
+								classification.setEquivalentConceptsFound(equivalentConceptsFound);
 								classification.setStatus(latestStatus);
 								classification.setCompletionDate(new Date());
 								classificationRepository.save(classification);
@@ -235,6 +242,10 @@ public class ClassificationService {
 		if (!classification.getStatus().isResultsAvailable()) {
 			throw new IllegalStateException("This classification has no results yet.");
 		}
+		return doGetRelationshipChanges(path, classificationId, pageRequest);
+	}
+
+	private Page<RelationshipChange> doGetRelationshipChanges(String path, String classificationId, PageRequest pageRequest) {
 		Page<RelationshipChange> relationshipChanges = relationshipChangeRepository.findByClassificationId(classificationId, pageRequest);
 
 		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
@@ -255,6 +266,10 @@ public class ClassificationService {
 			throw new IllegalStateException("This classification has no results yet.");
 		}
 
+		return doGetEquivalentConcepts(path, classificationId, pageRequest);
+	}
+
+	private Page<EquivalentConceptsResponse> doGetEquivalentConcepts(String path, String classificationId, PageRequest pageRequest) {
 		Page<EquivalentConcepts> relationshipChanges = equivalentConceptsRepository.findByClassificationId(classificationId, pageRequest);
 		if (relationshipChanges.getTotalElements() == 0) {
 			return new PageImpl<>(Collections.emptyList());
