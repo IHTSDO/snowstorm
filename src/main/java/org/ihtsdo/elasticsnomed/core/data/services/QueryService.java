@@ -84,7 +84,13 @@ public class QueryService {
 		} else if (hasLogicalConditions && !hasLexicalCriteria) {
 			// Logical Only
 
-			if (conceptQuery.getEcl() != null) {
+			Set<String> conceptIds = conceptQuery.getConceptIds();
+			if (conceptIds != null && !conceptIds.isEmpty()) {
+				// Concept ID pass-through
+				List<Long> conceptIdList = conceptIds.stream().map(Long::parseLong).collect(Collectors.toList());
+				List<Long> pageOfIds = CollectionUtil.subList(conceptIdList, pageRequest.getPageNumber(), pageRequest.getPageSize());
+				conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, conceptIdList.size());
+			} else if (conceptQuery.getEcl() != null) {
 				// ECL search
 				List<Long> allConceptIds = doEclSearch(conceptQuery, branchPath, pageRequest, branchCriteria, null);
 
@@ -289,6 +295,7 @@ public class QueryService {
 		private final boolean stated;
 		private String termPrefix;
 		private String ecl;
+		private Set<String> conceptIds;
 
 		private ConceptQueryBuilder(boolean stated) {
 			this.stated = stated;
@@ -348,7 +355,15 @@ public class QueryService {
 		}
 
 		private boolean hasLogicalConditions() {
-			return getEcl() != null || logicalConditionBuilder.hasClauses();
+			return getEcl() != null || logicalConditionBuilder.hasClauses() || (conceptIds != null && !conceptIds.isEmpty());
+		}
+
+		public void conceptIds(Set<String> conceptIds) {
+			this.conceptIds = conceptIds;
+		}
+
+		public Set<String> getConceptIds() {
+			return conceptIds;
 		}
 	}
 

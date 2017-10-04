@@ -8,17 +8,16 @@ import org.ihtsdo.elasticsnomed.core.data.domain.ConceptView;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
 import org.ihtsdo.elasticsnomed.core.data.services.*;
 import org.ihtsdo.elasticsnomed.core.data.services.pojo.ResultMapPage;
-import org.ihtsdo.elasticsnomed.rest.pojo.*;
+import org.ihtsdo.elasticsnomed.rest.pojo.ConceptDescriptionsResult;
+import org.ihtsdo.elasticsnomed.rest.pojo.ConceptSearchRequest;
+import org.ihtsdo.elasticsnomed.rest.pojo.InboundRelationshipsResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 @RestController
 @RequestMapping(produces = "application/json")
@@ -45,17 +44,24 @@ public class ConceptController {
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) String ecl,
 			@RequestParam(required = false) String escg,
+			@RequestParam(required = false) Set<String> conceptIds,
 			@RequestParam(required = false, defaultValue = "0") int page,
 			@RequestParam(required = false, defaultValue = "50") int size) {
 
 		// TODO: Remove this partial ESCG support
 		if (ecl == null && escg != null && !escg.isEmpty()) {
-			ecl = escg.replace("UNION", "OR");
+			conceptIds = new HashSet<>();
+			String[] ids = escg.split("UNION");
+			for (String id : ids) {
+				conceptIds.add(id.trim());
+			}
 		}
 
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated);
 		queryBuilder.ecl(ecl);
 		queryBuilder.termPrefix(term);
+		queryBuilder.conceptIds(conceptIds);
+
 		org.springframework.data.domain.Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch), new PageRequest(page, size));
 		return new ItemsPage<>(ControllerHelper.nestConceptMiniFsn(conceptMiniPage.getContent()), conceptMiniPage.getTotalElements());
 	}
@@ -69,6 +75,7 @@ public class ConceptController {
 				searchRequest.getTermFilter(),
 				searchRequest.getEclFilter(),
 				null,
+				searchRequest.getConceptIds(),
 				searchRequest.getPage(),
 				searchRequest.getSize());
 	}

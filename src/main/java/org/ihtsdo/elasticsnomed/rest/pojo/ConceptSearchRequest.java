@@ -1,16 +1,18 @@
 package org.ihtsdo.elasticsnomed.rest.pojo;
 
+import java.util.Set;
+
 public class ConceptSearchRequest {
 
 	private String termFilter;
 	private String eclFilter;
+	private Set<String> conceptIds;
 	private boolean stated;
 	private int page = 0;
 	private int size = 50;
 //		  "moduleFilter": "",
 //		  "activeFilter": false,
 //		  "escgFilter": "",
-//		  "conceptIds": [""],
 //		  "expand": "",
 //		  "limit": 0,
 //		  "offset": 0
@@ -33,6 +35,14 @@ public class ConceptSearchRequest {
 
 	public void setEclFilter(String eclFilter) {
 		this.eclFilter = eclFilter;
+	}
+
+	public Set<String> getConceptIds() {
+		return conceptIds;
+	}
+
+	public void setConceptIds(Set<String> conceptIds) {
+		this.conceptIds = conceptIds;
 	}
 
 	public boolean isStated() {
