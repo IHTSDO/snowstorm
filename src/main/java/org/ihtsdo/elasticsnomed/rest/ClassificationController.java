@@ -3,9 +3,11 @@ package org.ihtsdo.elasticsnomed.rest;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.ApiOperation;
 import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.EquivalentConcepts;
 import org.ihtsdo.elasticsnomed.core.data.domain.classification.RelationshipChange;
 import org.ihtsdo.elasticsnomed.core.data.services.classification.ClassificationService;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
+import org.ihtsdo.elasticsnomed.core.data.services.classification.pojo.EquivalentConceptsResponse;
 import org.ihtsdo.elasticsnomed.rest.pojo.ClassificationUpdateRequest;
 import org.ihtsdo.elasticsnomed.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +45,15 @@ public class ClassificationController {
 																@RequestParam(required = false, defaultValue = "0") int page,
 																@RequestParam(required = false, defaultValue = "1000") int pageSize) {
 		return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.parseBranchPath(branch), classificationId, new PageRequest(page, pageSize)));
+	}
+
+	@ApiOperation("Retrieve equivalent concepts from a classification run on a branch")
+	@RequestMapping(value = "/{classificationId}/equivalent-concepts", method = RequestMethod.GET)
+	@ResponseBody
+	public ItemsPage<EquivalentConceptsResponse> getEquivalentConcepts(@PathVariable String branch, @PathVariable String classificationId,
+																	   @RequestParam(required = false, defaultValue = "0") int page,
+																	   @RequestParam(required = false, defaultValue = "1000") int pageSize) {
+		return new ItemsPage<>(classificationService.getEquivalentConcepts(BranchPathUriUtil.parseBranchPath(branch), classificationId, new PageRequest(page, pageSize)));
 	}
 
 	@ApiOperation("Create a classification on a branch")

@@ -18,6 +18,7 @@ import org.ihtsdo.elasticsnomed.core.data.services.DescriptionService;
 import org.ihtsdo.elasticsnomed.core.data.services.NotFoundException;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
 import org.ihtsdo.elasticsnomed.core.data.services.classification.pojo.ClassificationStatusResponse;
+import org.ihtsdo.elasticsnomed.core.data.services.classification.pojo.EquivalentConceptsResponse;
 import org.ihtsdo.elasticsnomed.core.rf2.RF2Type;
 import org.ihtsdo.elasticsnomed.core.rf2.export.ExportException;
 import org.ihtsdo.elasticsnomed.core.rf2.export.ExportService;
@@ -29,6 +30,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.GetQuery;
@@ -245,6 +247,38 @@ public class ClassificationService {
 		descriptionService.fetchFsnDescriptions(path, conceptMiniMap);
 
 		return relationshipChanges;
+	}
+
+	public Page<EquivalentConceptsResponse> getEquivalentConcepts(String path, String classificationId, PageRequest pageRequest) {
+		Classification classification = findClassification(path, classificationId);
+		if (!classification.getStatus().isResultsAvailable()) {
+			throw new IllegalStateException("This classification has no results yet.");
+		}
+
+		Page<EquivalentConcepts> relationshipChanges = equivalentConceptsRepository.findByClassificationId(classificationId, pageRequest);
+		if (relationshipChanges.getTotalElements() == 0) {
+			return new PageImpl<>(Collections.emptyList());
+		}
+
+		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
+		for (EquivalentConcepts equivalentConcepts : relationshipChanges.getContent()) {
+			for (String conceptId : equivalentConcepts.getConceptIds()) {
+				conceptMiniMap.put(conceptId, new ConceptMini(conceptId));
+			}
+		}
+		descriptionService.fetchFsnDescriptions(path, conceptMiniMap);
+
+		List<EquivalentConceptsResponse> responseContent = new ArrayList<>();
+		for (EquivalentConcepts equivalentConcepts : relationshipChanges.getContent()) {
+			HashSet<EquivalentConceptsResponse.ConceptIdAndLabel> labels = new HashSet<>();
+			responseContent.add(new EquivalentConceptsResponse(labels));
+			for (String conceptId : equivalentConcepts.getConceptIds()) {
+				conceptMiniMap.put(conceptId, new ConceptMini(conceptId));
+				labels.add(new EquivalentConceptsResponse.ConceptIdAndLabel(conceptId, conceptMiniMap.get(conceptId).getFsn()));
+			}
+		}
+
+		return new PageImpl<>(responseContent, pageRequest, relationshipChanges.getTotalElements());
 	}
 
 	private void downloadRemoteResults(String classificationId) throws IOException {
