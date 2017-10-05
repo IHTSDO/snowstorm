@@ -127,8 +127,7 @@ public class ImportServiceTest {
 
 	@Test
 	public void testImportSnapshot() throws ReleaseImportException {
-		branchService.create("MAIN");
-		final String branchPath = "MAIN/import";
+		final String branchPath = "MAIN";
 		branchService.create(branchPath);
 		String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath);
 		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
