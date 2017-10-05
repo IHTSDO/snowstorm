@@ -77,10 +77,12 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		memberPersistBuffer = new PersistBuffer<ReferenceSetMember>() {
 			@Override
 			public void persistCollection(Collection<ReferenceSetMember> entities) {
-				synchronized (this) {
-					if (!coreComponentsFlushed) {
-						coreComponentPersistBuffers.forEach(PersistBuffer::flush);
-						coreComponentsFlushed = true;
+				if (!coreComponentsFlushed) { // Avoid having to sync to check this
+					synchronized (this) {
+						if (!coreComponentsFlushed) {
+							coreComponentPersistBuffers.forEach(PersistBuffer::flush);
+							coreComponentsFlushed = true;
+						}
 					}
 				}
 				entities.forEach(component -> {
