@@ -1,9 +1,10 @@
 package org.ihtsdo.elasticsnomed.rest;
 
+import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.ApiOperation;
+import org.ihtsdo.elasticsnomed.core.data.domain.ConceptView;
 import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
-import org.ihtsdo.elasticsnomed.core.data.domain.classification.EquivalentConcepts;
 import org.ihtsdo.elasticsnomed.core.data.domain.classification.RelationshipChange;
 import org.ihtsdo.elasticsnomed.core.data.services.classification.ClassificationService;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
@@ -12,7 +13,6 @@ import org.ihtsdo.elasticsnomed.rest.pojo.ClassificationUpdateRequest;
 import org.ihtsdo.elasticsnomed.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
-import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
@@ -46,6 +46,14 @@ public class ClassificationController {
 																@RequestParam(required = false, defaultValue = "0") int page,
 																@RequestParam(required = false, defaultValue = "1000") int pageSize) {
 		return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.parseBranchPath(branch), classificationId, new PageRequest(page, pageSize)));
+	}
+
+	@ApiOperation("Retrieve a preview of a concept with classification changes applied")
+	@RequestMapping(value = "/{classificationId}/concept-preview/{conceptId}", method = RequestMethod.GET)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public ConceptView getConceptPreview(@PathVariable String branch, @PathVariable String classificationId, @PathVariable String conceptId) {
+		return classificationService.getConceptPreview(BranchPathUriUtil.parseBranchPath(branch), classificationId, conceptId);
 	}
 
 	@ApiOperation("Retrieve equivalent concepts from a classification run on a branch")

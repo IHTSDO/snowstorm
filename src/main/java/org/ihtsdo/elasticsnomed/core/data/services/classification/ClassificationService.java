@@ -150,7 +150,7 @@ public class ClassificationService {
 								if (latestStatus == COMPLETED) {
 									try {
 										downloadRemoteResults(classification.getId());
-										inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(), new PageRequest(0, 1)).getTotalElements() > 0;
+										inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(), new PageRequest(0, 1), false, null).getTotalElements() > 0;
 										equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(), new PageRequest(0, 1)).getTotalElements() > 0;
 
 									} catch (IOException e) {
@@ -261,7 +261,7 @@ public class ClassificationService {
 
 				do {
 					// Grab a page of relationship changes
-					relationshipChangesPage = getRelationshipChanges(path, classificationId, new PageRequest(pageNumber, LARGE_PAGE.getPageSize()));
+					relationshipChangesPage = doGetRelationshipChanges(path, classificationId, new PageRequest(pageNumber, LARGE_PAGE.getPageSize()), false, null);
 
 					// Group changes by concept
 					Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
@@ -274,24 +274,8 @@ public class ClassificationService {
 
 					// Apply changes to concepts
 					for (Concept concept : concepts) {
-						for (RelationshipChange relationshipChange : conceptToChangeMap.get(concept.getConceptIdAsLong())) {
-							if (relationshipChange.getChangeNature() == ChangeNature.INFERRED) {
-								concept.addRelationship(
-										new Relationship(
-												null,
-												null,
-												true,
-												concept.getModuleId(),
-												null,
-												relationshipChange.getDestinationId(),
-												relationshipChange.getGroup(),
-												relationshipChange.getTypeId(),
-												relationshipChange.getCharacteristicTypeId(),
-												relationshipChange.getModifierId()));
-							} else {
-								concept.getRelationships().remove(new Relationship(relationshipChange.getRelationshipId()));
-							}
-						}
+						List<RelationshipChange> relationshipChanges = conceptToChangeMap.get(concept.getConceptIdAsLong());
+						applyRelationshipChangesToConcept(concept, relationshipChanges, false);
 					}
 
 					// Update concepts
@@ -312,36 +296,75 @@ public class ClassificationService {
 		classificationRepository.save(classification);
 	}
 
-	public Page<RelationshipChange> getRelationshipChanges(String path, String classificationId, PageRequest pageRequest) {
-		Classification classification = findClassification(path, classificationId);
-		if (!classification.getStatus().isResultsAvailable()) {
-			throw new IllegalStateException("This classification has no results yet.");
+	private void applyRelationshipChangesToConcept(Concept concept, List<RelationshipChange> relationshipChanges, boolean copyDescriptions) {
+		for (RelationshipChange relationshipChange : relationshipChanges) {
+			if (relationshipChange.getChangeNature() == ChangeNature.INFERRED) {
+				Relationship relationship = new Relationship(
+						null,
+						null,
+						true,
+						concept.getModuleId(),
+						null,
+						relationshipChange.getDestinationId(),
+						relationshipChange.getGroup(),
+						relationshipChange.getTypeId(),
+						relationshipChange.getCharacteristicTypeId(),
+						relationshipChange.getModifierId());
+
+				if (copyDescriptions) {
+					relationship.setSource(relationshipChange.getSource());
+					relationship.setType(relationshipChange.getType());
+					relationship.setTarget(relationshipChange.getDestination());
+				}
+
+				concept.addRelationship(relationship);
+			} else {
+				concept.getRelationships().remove(new Relationship(relationshipChange.getRelationshipId()));
+			}
 		}
-		return doGetRelationshipChanges(path, classificationId, pageRequest);
 	}
 
-	private Page<RelationshipChange> doGetRelationshipChanges(String path, String classificationId, PageRequest pageRequest) {
-		Page<RelationshipChange> relationshipChanges = relationshipChangeRepository.findByClassificationId(classificationId, pageRequest);
+	public Page<RelationshipChange> getRelationshipChanges(String path, String classificationId, PageRequest pageRequest) {
+		checkClassificationHasResults(path, classificationId);
+		return doGetRelationshipChanges(path, classificationId, pageRequest, true, null);
+	}
+
+	private Page<RelationshipChange> doGetRelationshipChanges(String path, String classificationId, PageRequest pageRequest, boolean fetchDescriptions, String sourceIdFilter) {
+
+		Page<RelationshipChange> relationshipChanges =
+				sourceIdFilter != null ?
+						relationshipChangeRepository.findByClassificationIdAndSourceId(classificationId, sourceIdFilter, pageRequest)
+						: relationshipChangeRepository.findByClassificationId(classificationId, pageRequest);
 
 		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
 		for (RelationshipChange relationshipChange : relationshipChanges) {
 			relationshipChange.setChangeNature(relationshipChange.isActive() ? ChangeNature.INFERRED : ChangeNature.REDUNDANT);
-			relationshipChange.setSource(conceptMiniMap.computeIfAbsent(relationshipChange.getSourceId(), ConceptMini::new));
-			relationshipChange.setDestination(conceptMiniMap.computeIfAbsent(relationshipChange.getDestinationId(), ConceptMini::new));
-			relationshipChange.setType(conceptMiniMap.computeIfAbsent(relationshipChange.getTypeId(), ConceptMini::new));
+			if (fetchDescriptions) {
+				relationshipChange.setSource(conceptMiniMap.computeIfAbsent(relationshipChange.getSourceId(), ConceptMini::new));
+				relationshipChange.setDestination(conceptMiniMap.computeIfAbsent(relationshipChange.getDestinationId(), ConceptMini::new));
+				relationshipChange.setType(conceptMiniMap.computeIfAbsent(relationshipChange.getTypeId(), ConceptMini::new));
+			}
 		}
-		descriptionService.fetchFsnDescriptions(path, conceptMiniMap);
+		if (fetchDescriptions) {
+			descriptionService.fetchFsnDescriptions(path, conceptMiniMap);
+		}
 
 		return relationshipChanges;
 	}
 
 	public Page<EquivalentConceptsResponse> getEquivalentConcepts(String path, String classificationId, PageRequest pageRequest) {
-		Classification classification = findClassification(path, classificationId);
-		if (!classification.getStatus().isResultsAvailable()) {
-			throw new IllegalStateException("This classification has no results yet.");
-		}
-
+		checkClassificationHasResults(path, classificationId);
 		return doGetEquivalentConcepts(path, classificationId, pageRequest);
+	}
+
+	public Concept getConceptPreview(String path, String classificationId, String conceptId) {
+		checkClassificationHasResults(path, classificationId);
+
+		Concept concept = conceptService.find(conceptId, path);
+		Page<RelationshipChange> conceptRelationshipChanges = doGetRelationshipChanges(path, classificationId, LARGE_PAGE, true, conceptId);
+		applyRelationshipChangesToConcept(concept, conceptRelationshipChanges.getContent(), true);
+
+		return concept;
 	}
 
 	private Page<EquivalentConceptsResponse> doGetEquivalentConcepts(String path, String classificationId, PageRequest pageRequest) {
@@ -369,6 +392,13 @@ public class ClassificationService {
 		}
 
 		return new PageImpl<>(responseContent, pageRequest, relationshipChanges.getTotalElements());
+	}
+
+	private void checkClassificationHasResults(String path, String classificationId) {
+		Classification classification = findClassification(path, classificationId);
+		if (!classification.getStatus().isResultsAvailable()) {
+			throw new IllegalStateException("This classification has no results yet.");
+		}
 	}
 
 	private void downloadRemoteResults(String classificationId) throws IOException {

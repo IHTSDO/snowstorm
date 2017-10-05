@@ -146,8 +146,7 @@ public abstract class Config {
 	}
 	
 	@Bean
-	public IdentifierSource getIdentifierStorage(@Value("${cis.api.url}") String cisApiUrl)
-	{
+	public IdentifierSource getIdentifierStorage(@Value("${cis.api.url}") String cisApiUrl) {
 		if (cisApiUrl.equals("local")) {
 			return new LocalIdentifierSource();
 		} else {

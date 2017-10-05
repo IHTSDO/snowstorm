@@ -9,4 +9,6 @@ import org.springframework.data.elasticsearch.repository.ElasticsearchCrudReposi
 public interface RelationshipChangeRepository extends ElasticsearchCrudRepository<RelationshipChange, String> {
 
 	Page<RelationshipChange> findByClassificationId(String classificationId, Pageable pageRequest);
+
+	Page<RelationshipChange> findByClassificationIdAndSourceId(String classificationId, String sourceId, Pageable pageRequest);
 }
