@@ -1,5 +1,7 @@
-Elastic Snomed (Proof Of Concept In Progress)
-==============
+❄️ Snowstorm Terminology Server
+=========
+(Not Production Ready)
+----------------------
 
 SNOMED CT Authoring server built on Elasticsearch.
 
