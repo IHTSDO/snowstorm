@@ -1,5 +1,7 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierService;
@@ -30,7 +32,13 @@ public class TraceabilityLogService {
 	@Value("${jms.queue.prefix}")
 	private String jmsQueuePrefix;
 
+	private ObjectMapper objectMapper;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	public TraceabilityLogService() {
+		objectMapper = new ObjectMapper();
+	}
 
 	void logActivity(String userId, Date date, String branchPath, Collection<Concept> concepts, List<Description> descriptions,
 					 List<Relationship> relationships, List<ReferenceSetMember> refsetMembers) {
@@ -98,7 +106,11 @@ public class TraceabilityLogService {
 			}
 		}
 
-		logger.info("{}", activity);
+		try {
+			logger.info("{}", objectMapper.writeValueAsString(activity));
+		} catch (JsonProcessingException e) {
+			logger.error("Failed to serialize activity {} to JSON.", activity.getCommitTimestamp());
+		}
 		jmsTemplate.convertAndSend(jmsQueuePrefix + ".traceability", activity);
 	}
 
