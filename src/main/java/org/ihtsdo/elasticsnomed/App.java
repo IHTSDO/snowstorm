@@ -2,6 +2,7 @@ package org.ihtsdo.elasticsnomed;
 
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.config.Config;
+import org.ihtsdo.elasticsnomed.core.data.services.AuthoringMirrorService;
 import org.ihtsdo.elasticsnomed.core.data.services.CodeSystemService;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
@@ -28,7 +29,8 @@ import java.util.List;
 public class App extends Config implements ApplicationRunner {
 
 	public static final String CLEAN_IMPORT_ARG = "clean-import";
-	
+	public static final String REPLAY_TRACEABILITY_DIRECTORY = "replay-traceability-directory";
+
 	@Autowired
 	private ConceptService conceptService;
 
@@ -62,11 +64,7 @@ public class App extends Config implements ApplicationRunner {
 
 		if (applicationArguments.containsOption(CLEAN_IMPORT_ARG)) {
 			// import the international edition from disk at startup
-			List<String> values = applicationArguments.getOptionValues(CLEAN_IMPORT_ARG);
-			if (values.size() != 1) {
-				throw new IllegalArgumentException(CLEAN_IMPORT_ARG + " argument must have exactly one value");
-			}
-			String releasePath = values.get(0);
+			String releasePath = getOneValue(applicationArguments, CLEAN_IMPORT_ARG);
 			File file = new File(releasePath);
 			if (!file.isFile()) {
 				throw new IllegalArgumentException(CLEAN_IMPORT_ARG + " file could not be read at " + file.getAbsolutePath());
@@ -74,33 +72,48 @@ public class App extends Config implements ApplicationRunner {
 
 			deleteAllAndImportInternationalEditionFromDisk(releasePath);
 		}
+		if (applicationArguments.containsOption(REPLAY_TRACEABILITY_DIRECTORY)) {
+			String replayDirectory = getOneValue(applicationArguments, REPLAY_TRACEABILITY_DIRECTORY);
+			File file = new File(replayDirectory);
+			if (!file.isDirectory()) {
+				throw new IllegalArgumentException(REPLAY_TRACEABILITY_DIRECTORY + " directory could not be found at " + file.getAbsolutePath());
+			}
+
+			getAuthoringMirrorService().replayDirectoryOfFiles(replayDirectory);
+		}
+	}
+
+	private String getOneValue(ApplicationArguments applicationArguments, String argName) {
+		List<String> values = applicationArguments.getOptionValues(argName);
+		if (values.size() != 1) {
+			throw new IllegalArgumentException(argName + " argument must have exactly one value");
+		}
+		return values.get(0);
 	}
 
 	private void deleteAllAndImportInternationalEditionFromDisk(String releasePath) {
-		new Thread(() -> {
-			// Wait 10 seconds until everything settled before deleting all components
-			try {
-				Thread.sleep(1000 * 10);
-			} catch (InterruptedException e) {
-				throw new RuntimeException("Sleep failed", e);
-			}
-			// Dropping the indexes would be cleaner but the spring repositories
-			// won't reinitialise so deleting documents instead..
-			logger.info("Attempting delete all");
-			conceptService.deleteAll();
-			branchService.deleteAll();
-			logger.info("Delete all complete");
+		// Wait 10 seconds until everything settled before deleting all components
+		try {
+			Thread.sleep(1000 * 10);
+		} catch (InterruptedException e) {
+			throw new RuntimeException("Sleep failed", e);
+		}
+		// Dropping the indexes would be cleaner but the spring repositories
+		// won't reinitialise so deleting documents instead..
+		logger.info("Attempting delete all");
+		conceptService.deleteAll();
+		branchService.deleteAll();
+		logger.info("Delete all complete");
 
-			// Import archive
-			logger.info("Creating MAIN");
-			branchService.create("MAIN");
-			String importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN");
-			try {
-				importService.importArchive(importId, new FileInputStream(releasePath));
-			} catch (FileNotFoundException | ReleaseImportException e) {
-				logger.error("Import failed.", e);
-			}
-		}).start();
+		// Import archive
+		logger.info("Creating MAIN");
+		branchService.create("MAIN");
+		String importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN");
+		try {
+			importService.importArchive(importId, new FileInputStream(releasePath));
+		} catch (FileNotFoundException | ReleaseImportException e) {
+			logger.error("Import failed.", e);
+		}
 	}
 
 }

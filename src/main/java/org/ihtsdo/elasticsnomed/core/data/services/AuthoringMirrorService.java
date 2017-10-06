@@ -32,7 +32,6 @@ public class AuthoringMirrorService {
 	@Autowired
 	private BranchMergeService branchMergeService;
 
-	@Autowired
 	private ObjectMapper objectMapper;
 
 	private static final Pattern BRANCH_MERGE_COMMIT_COMMENT_PATTERN = Pattern.compile("^(.*) performed merge of (MAIN[^ ]*) to (MAIN[^ ]*)$");
@@ -154,8 +153,14 @@ public class AuthoringMirrorService {
 	public void replayDirectoryOfFiles(String path) throws IOException, ServiceException {
 		File dir = new File(path);
 		for (File file : dir.listFiles()) {
-			System.out.println("Replay file " + file.getName());
+			logger.info("Replaying file {}", file.getName());
 			receiveActivityFile(new FileInputStream(file));
 		}
+		logger.info("Directory of traceability files replay complete.");
+	}
+
+	@Autowired
+	public void setObjectMapper(ObjectMapper objectMapper) {
+		this.objectMapper = objectMapper;
 	}
 }
