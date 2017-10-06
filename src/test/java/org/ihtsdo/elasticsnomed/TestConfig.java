@@ -4,6 +4,11 @@ import io.kaicode.elasticvc.domain.Branch;
 
 import org.ihtsdo.elasticsnomed.config.Config;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.EquivalentConcepts;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.RelationshipChange;
+import org.ihtsdo.elasticsnomed.core.data.domain.jobs.ExportConfiguration;
+import org.ihtsdo.elasticsnomed.core.data.domain.jobs.IdentifiersForRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,12 +32,23 @@ public class TestConfig extends Config {
 	@PostConstruct
 	public void cleanUp() throws UnknownHostException {
 		logger.info("Deleting all existing entities before tests start");
+		elasticsearchTemplate.deleteIndex(Branch.class);
+
 		elasticsearchTemplate.deleteIndex(Concept.class);
 		elasticsearchTemplate.deleteIndex(Description.class);
 		elasticsearchTemplate.deleteIndex(Relationship.class);
+		elasticsearchTemplate.deleteIndex(ReferenceSetType.class);
 		elasticsearchTemplate.deleteIndex(ReferenceSetMember.class);
 		elasticsearchTemplate.deleteIndex(QueryConcept.class);
-		elasticsearchTemplate.deleteIndex(Branch.class);
+
+		elasticsearchTemplate.deleteIndex(Classification.class);
+		elasticsearchTemplate.deleteIndex(EquivalentConcepts.class);
+		elasticsearchTemplate.deleteIndex(RelationshipChange.class);
+		elasticsearchTemplate.deleteIndex(ExportConfiguration.class);
+		elasticsearchTemplate.deleteIndex(IdentifiersForRegistration.class);
+
+		elasticsearchTemplate.deleteIndex(CodeSystem.class);
+		elasticsearchTemplate.deleteIndex(CodeSystemVersion.class);
 	}
 
 }

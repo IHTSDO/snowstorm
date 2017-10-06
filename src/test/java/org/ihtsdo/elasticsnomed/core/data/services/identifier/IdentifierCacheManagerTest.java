@@ -1,5 +1,6 @@
 package org.ihtsdo.elasticsnomed.core.data.services.identifier;
 
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.ComponentType;
 import org.ihtsdo.elasticsnomed.core.data.services.ServiceException;
@@ -14,8 +15,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-
-public class IdentifierCacheManagerTest {
+public class IdentifierCacheManagerTest extends AbstractTest {
 	
 	private static final int TEST_NAMESPACE = 1234500;
 	private static final String TEST_PARTITION = "10";

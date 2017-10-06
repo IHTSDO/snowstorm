@@ -3,6 +3,7 @@ package org.ihtsdo.elasticsnomed.validation;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
@@ -21,7 +22,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class RelationshipDroolsValidationServiceTest {
+public class RelationshipDroolsValidationServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
@@ -53,12 +54,6 @@ public class RelationshipDroolsValidationServiceTest {
 		Assert.assertTrue(service.hasActiveInboundStatedRelationship("1", Concepts.ISA));
 		Assert.assertFalse(service.hasActiveInboundStatedRelationship("1", "123"));
 		Assert.assertFalse(service.hasActiveInboundStatedRelationship("2", Concepts.ISA));
-	}
-
-	@After
-	public void tearDown() {
-		conceptService.deleteAll();
-		branchService.deleteAll();
 	}
 
 }

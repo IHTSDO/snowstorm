@@ -1,6 +1,7 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.services.pojo.ResultMapPage;
@@ -24,7 +25,7 @@ import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ConceptServiceTest {
+public class ConceptServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
@@ -674,9 +675,4 @@ public class ConceptServiceTest {
 		return description;
 	}
 
-	@After
-	public void tearDown() {
-		conceptService.deleteAll();
-		branchService.deleteAll();
-	}
 }

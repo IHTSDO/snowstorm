@@ -2,6 +2,7 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.repositories.QueryConceptRepository;
@@ -27,7 +28,7 @@ import static org.junit.Assert.assertEquals;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class QueryServiceTest {
+public class QueryServiceTest extends AbstractTest {
 
 	@Autowired
 	private QueryService service;
@@ -300,12 +301,6 @@ public class QueryServiceTest {
 	private void assertTC(Concept concept, Concept... ancestors) {
 		Set<Long> expectedAncestors = Arrays.stream(ancestors).map(Concept::getConceptIdAsLong).collect(Collectors.toSet());
 		assertEquals(expectedAncestors, service.retrieveAncestors(concept.getId(),"MAIN", true));
-	}
-
-	@After
-	public void tearDown() {
-		conceptService.deleteAll();
-		branchService.deleteAll();
 	}
 
 }

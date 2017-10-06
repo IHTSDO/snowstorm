@@ -4,6 +4,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 
 import org.ihtsdo.drools.exception.RuleExecutorException;
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
@@ -21,7 +22,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ConceptDroolsValidationServiceTest {
+public class ConceptDroolsValidationServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
@@ -56,12 +57,6 @@ public class ConceptDroolsValidationServiceTest {
 		} catch (RuleExecutorException e) {
 			// good
 		}
-	}
-
-	@After
-	public void tearDown() {
-		conceptService.deleteAll();
-		branchService.deleteAll();
 	}
 
 }

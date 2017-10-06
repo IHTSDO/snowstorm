@@ -4,6 +4,7 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
@@ -30,7 +31,7 @@ import static org.junit.Assert.assertEquals;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ECLQueryServiceTest {
+public class ECLQueryServiceTest extends AbstractTest {
 
 	@Autowired
 	private ECLQueryService eclQueryService;
@@ -255,12 +256,6 @@ public class ECLQueryServiceTest {
 
 	private Set<String> strings(Collection<Long> ids) {
 		return ids.stream().map(Object::toString).collect(Collectors.toSet());
-	}
-
-	@After
-	public void tearDown() {
-		conceptService.deleteAll();
-		branchService.deleteAll();
 	}
 
 }

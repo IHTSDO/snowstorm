@@ -3,6 +3,7 @@ package org.ihtsdo.elasticsnomed.core.data.services.identifier;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.services.*;
@@ -21,7 +22,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class IdentifierServiceTest {
+public class IdentifierServiceTest extends AbstractTest {
 	
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 

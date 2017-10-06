@@ -1,7 +1,9 @@
 package org.ihtsdo.elasticsnomed.core.rf2.rf2import;
 
+import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
@@ -23,16 +25,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ImportServiceTest {
+public class ImportServiceTest extends AbstractTest {
 
 	@Autowired
 	private ImportService importService;
@@ -64,6 +65,35 @@ public class ImportServiceTest {
 		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
 
 		final List<Branch> branches = branchService.findAll();
+		List<String> branchPaths = branches.stream().map(Branch::getPath).collect(Collectors.toList());
+		assertEquals(Lists.newArrayList(
+				"MAIN",
+				"MAIN/2002-01-31",
+				"MAIN/2002-07-31",
+				"MAIN/2003-01-31",
+				"MAIN/2003-07-31",
+				"MAIN/2004-01-31",
+				"MAIN/2004-07-31",
+				"MAIN/2005-01-31",
+				"MAIN/2005-07-31",
+				"MAIN/2006-01-31",
+				"MAIN/2006-07-31",
+				"MAIN/2007-01-31",
+				"MAIN/2007-07-31",
+				"MAIN/2008-01-31",
+				"MAIN/2008-07-31",
+				"MAIN/2009-01-31",
+				"MAIN/2009-07-31",
+				"MAIN/2010-01-31",
+				"MAIN/2010-07-31",
+				"MAIN/2011-01-31",
+				"MAIN/2011-07-31",
+				"MAIN/2012-01-31",
+				"MAIN/2012-07-31",
+				"MAIN/2013-01-31",
+				"MAIN/2013-07-31",
+				"MAIN/2014-01-31"), branchPaths);
+
 		Assert.assertEquals(26, branches.size());
 		int a = 0;
 		Assert.assertEquals("MAIN", branches.get(a++).getPath());
@@ -190,14 +220,6 @@ public class ImportServiceTest {
 
 		final Description inactiveDescription = inactiveConcept.getDescription("697843019");
 		Assert.assertEquals("CONCEPT_NON_CURRENT", inactiveDescription.getInactivationIndicator());
-	}
-
-	@Before
-	@After
-	public void tearDown() throws InterruptedException {
-		conceptService.deleteAll();
-		branchService.deleteAll();
-		Thread.sleep(1000L);
 	}
 
 	private Set<Long> asSet(String string) {

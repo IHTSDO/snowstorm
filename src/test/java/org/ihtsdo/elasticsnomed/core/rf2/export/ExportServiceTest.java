@@ -1,5 +1,6 @@
 package org.ihtsdo.elasticsnomed.core.rf2.export;
 
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.domain.jobs.ExportConfiguration;
@@ -31,7 +32,7 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ExportServiceTest {
+public class ExportServiceTest extends AbstractTest {
 
 	@Autowired
 	private ExportService exportService;

@@ -1,6 +1,7 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
@@ -22,7 +23,7 @@ import java.util.HashMap;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class BranchReviewServiceTest {
+public class BranchReviewServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchReviewService reviewService;
@@ -216,12 +217,6 @@ public class BranchReviewServiceTest {
 								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)
 						),
 				path);
-	}
-
-	@After
-	public void tearDown() {
-		conceptService.deleteAll();
-		branchService.deleteAll();
 	}
 
 }

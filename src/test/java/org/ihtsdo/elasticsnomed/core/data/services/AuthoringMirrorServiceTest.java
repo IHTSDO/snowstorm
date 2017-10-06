@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchService;
 
 import org.apache.tomcat.util.http.fileupload.util.Streams;
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.TestUtil;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
@@ -31,7 +32,7 @@ import java.util.stream.Collectors;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class AuthoringMirrorServiceTest {
+public class AuthoringMirrorServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
@@ -155,12 +156,6 @@ public class AuthoringMirrorServiceTest {
 		Assert.assertEquals(
 				branchService.findLatest("MAIN").getHead(),
 				branchService.findLatest("MAIN/PROJECT-A").getHead());
-	}
-
-	@After
-	public void tearDown() {
-		branchService.deleteAll();
-		conceptService.deleteAll();
 	}
 
 	private void runTest(String testPath, String branchPath, int expectedChangedConceptCount) throws IOException, ServiceException {

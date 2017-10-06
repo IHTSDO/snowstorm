@@ -2,6 +2,7 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Description;
@@ -22,7 +23,7 @@ import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class DescriptionServiceTest {
+public class DescriptionServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
@@ -61,12 +62,6 @@ public class DescriptionServiceTest {
 		content = descriptionService.findDescriptions("MAIN", "cramps", PAGE_REQUEST).getContent();
 		actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
 		assertEquals(Lists.newArrayList("Foot cramps"), actualTerms);
-	}
-
-	@After
-	public void tearDown() {
-		conceptService.deleteAll();
-		branchService.deleteAll();
 	}
 
 }

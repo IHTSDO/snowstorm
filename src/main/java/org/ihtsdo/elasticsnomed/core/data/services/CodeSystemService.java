@@ -96,4 +96,9 @@ public class CodeSystemService {
 	public List<CodeSystemVersion> findAllVersions(String shortName) {
 		return versionRepository.findByShortName(shortName);
 	}
+
+	public void deleteAll() {
+		repository.deleteAll();
+		versionRepository.deleteAll();
+	}
 }

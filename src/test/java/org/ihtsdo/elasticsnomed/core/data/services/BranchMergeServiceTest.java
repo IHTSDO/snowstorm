@@ -3,6 +3,7 @@ package org.ihtsdo.elasticsnomed.core.data.services;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
+import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.Concepts;
@@ -24,7 +25,7 @@ import static org.junit.Assert.assertEquals;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class BranchMergeServiceTest {
+public class BranchMergeServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchMergeService branchMergeService;
@@ -479,12 +480,6 @@ public class BranchMergeServiceTest {
 
 	private void assertBranchState(String path, Branch.BranchState expectedBranchState) {
 		assertEquals(expectedBranchState, branchService.findLatest(path).getState());
-	}
-
-	@After
-	public void tearDown() {
-		conceptService.deleteAll();
-		branchService.deleteAll();
 	}
 
 }
