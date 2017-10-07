@@ -344,8 +344,11 @@ public class QueryConceptUpdateService extends ComponentService {
 		}
 
 		// Restore versions from parent branches which were ended on this branch
+		// This query is necessary because we don't know which of the ended versions are of type QueryConcept
+		Collection<String> parentPaths = getParentPaths(branch.getPath());
 		NativeSearchQueryBuilder endedVersionsQuery = new NativeSearchQueryBuilder()
-				.withQuery(termsQuery("_id", branch.getVersionsReplaced()))
+				.withQuery(termsQuery("path", parentPaths))
+				.withFilter(termsQuery("_id", branch.getVersionsReplaced()))
 				.withPageable(LARGE_PAGE);
 		try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(endedVersionsQuery.build(), QueryConcept.class)) {
 			Set<String> queryConceptVersionsEnded = new HashSet<>();
@@ -353,6 +356,14 @@ public class QueryConceptUpdateService extends ComponentService {
 			branch.getVersionsReplaced().removeAll(queryConceptVersionsEnded);
 			logger.info("Restored visibility of {} query concepts from parents", queryConceptVersionsEnded.size());
 		}
+	}
+
+	Collection<String> getParentPaths(String path) {
+		List<String> parents = new ArrayList<>();
+		while ((path = PathUtil.getParentPath(path)) != null) {
+			parents.add(path);
+		}
+		return parents;
 	}
 
 	private Iterable<QueryConcept> deleteBatch(Commit commit, List<QueryConcept> deletionBatch) {
