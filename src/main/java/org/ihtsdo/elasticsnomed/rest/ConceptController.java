@@ -6,6 +6,7 @@ import org.ihtsdo.elasticsnomed.core.data.domain.Concept;
 import org.ihtsdo.elasticsnomed.core.data.domain.ConceptMini;
 import org.ihtsdo.elasticsnomed.core.data.domain.ConceptView;
 import org.ihtsdo.elasticsnomed.core.data.domain.Relationship;
+import org.ihtsdo.elasticsnomed.core.data.domain.expression.Expression;
 import org.ihtsdo.elasticsnomed.core.data.services.*;
 import org.ihtsdo.elasticsnomed.core.data.services.pojo.ResultMapPage;
 import org.ihtsdo.elasticsnomed.rest.pojo.ConceptDescriptionsResult;
@@ -32,6 +33,9 @@ public class ConceptController {
 	@Autowired
 	private QueryService queryService;
 
+	@Autowired
+	private ExpressionService expressionService;
+	
 	@Autowired
 	private QueryConceptUpdateService queryConceptUpdateService;
 
@@ -190,5 +194,14 @@ public class ConceptController {
 	public void rebuildBranchTransitiveClosure(@PathVariable String branch) {
 		queryConceptUpdateService.rebuildStatedAndInferredTransitiveClosures(branch);
 	}
+	
+	@ResponseBody
+	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/authoring-form", method = RequestMethod.GET)
+	public Expression getConceptAuthoringForm(@PathVariable String branch,
+													   @PathVariable String conceptId) {
+
+		return expressionService.getConceptAuthoringForm(conceptId, branch);
+	}
+	
 
 }

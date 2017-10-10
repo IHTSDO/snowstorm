@@ -256,6 +256,10 @@ public class QueryService {
 		}
 		return allAncestors;
 	}
+	
+	public Set<Long> retrieveDescendants(String conceptId, String path, boolean stated) {
+		return retrieveDescendants(conceptId, versionControlHelper.getBranchCriteria(path), stated);
+	}
 
 	public Set<Long> retrieveDescendants(String conceptId, QueryBuilder branchCriteria, boolean stated) {
 		return retrieveAllDescendants(branchCriteria, stated, Collections.singleton(conceptId));
