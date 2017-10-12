@@ -18,6 +18,7 @@ import org.ihtsdo.elasticsnomed.core.data.repositories.config.ConceptStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.DescriptionStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.repositories.config.RelationshipStoreMixIn;
 import org.ihtsdo.elasticsnomed.core.data.services.AuthoringMirrorService;
+import org.ihtsdo.elasticsnomed.core.data.services.ExpressionService;
 import org.ihtsdo.elasticsnomed.core.data.services.FastJestResultsMapper;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetTypesConfigurationService;
 import org.ihtsdo.elasticsnomed.core.data.services.identifier.IdentifierCacheManager;
@@ -136,6 +137,11 @@ public abstract class Config {
 	@Bean
 	public ImportService getImportService() {
 		return new ImportService();
+	}
+	
+	@Bean
+	public ExpressionService getExpressionService() {
+		return new ExpressionService();
 	}
 
 	@Bean
