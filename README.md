@@ -17,4 +17,4 @@ java -jar target/*.jar
 
 ## Documentation
 
-More documentation is appearing, slowly but surely, and can be found in the [docs folder](docs/introduction.md)
+Documentation is appearing, slowly but surely, and can be found in the [docs folder](docs/introduction.md)

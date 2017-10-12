@@ -8,4 +8,4 @@ Currently, the following documentation exists:
 
 - [Getting Started](getting-started.md)
 - [Loading SNOMED](loading-snomed.md)
-- [Accessing the data](accessing.md) -
+- [Querying the data](accessing.md)
