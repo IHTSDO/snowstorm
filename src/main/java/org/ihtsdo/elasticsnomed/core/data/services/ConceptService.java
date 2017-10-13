@@ -612,9 +612,11 @@ public class ConceptService extends ComponentService implements CommitListener {
 			concept.getRelationships().clear();
 		}
 
+		// TODO: Try saving all core component types at once - Elasticsearch likes multi-threaded writes.
 		final Iterable<Concept> conceptsSaved = doSaveBatchConcepts(concepts, commit);
 		Iterable<Description> descriptionsSaved = doSaveBatchDescriptions(descriptionsToPersist, commit);
 		Iterable<Relationship> relationshipsSaved = doSaveBatchRelationships(relationshipsToPersist, commit);
+
 		doSaveBatchMembers(refsetMembersToPersist, commit);
 		doDeleteMembersWhereReferencedComponentDeleted(commit.getEntityVersionsDeleted(), commit);
 
