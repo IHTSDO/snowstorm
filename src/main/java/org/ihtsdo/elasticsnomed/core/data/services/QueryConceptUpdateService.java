@@ -113,7 +113,8 @@ public class QueryConceptUpdateService extends ComponentService {
 		Set<Long> existingAncestors = new HashSet<>();
 		Set<Long> existingDescendants = new HashSet<>();
 
-		String committedContentPath = commit.getBranch().getPath();
+		String branchPath = commit.getBranch().getPath();
+		String committedContentPath = branchPath;
 		if (commit.isRebase()) {
 			// When rebasing this is a view onto the new parent state
 			committedContentPath = PathUtil.getParentPath(committedContentPath);
@@ -260,7 +261,7 @@ public class QueryConceptUpdateService extends ComponentService {
 		// Step: Save changes
 		Map<Long, Node> nodesToSave = new Long2ObjectOpenHashMap<>();
 		graphBuilder.getNodes().stream()
-				.filter(node -> newGraph || node.isAncestorOrSelfUpdated() || conceptAttributeChanges.containsKey(node.getId()))
+				.filter(node -> newGraph || node.isAncestorOrSelfUpdated(branchPath) || conceptAttributeChanges.containsKey(node.getId()))
 				.forEach(node -> nodesToSave.put(node.getId(), node));
 		Set<Long> nodesNotFound = new LongOpenHashSet(nodesToSave.keySet());
 		Set<QueryConcept> queryConceptsToSave = new HashSet<>();
@@ -276,7 +277,7 @@ public class QueryConceptUpdateService extends ComponentService {
 				Long conceptId = queryConcept.getConceptId();
 				Node node = nodesToSave.get(conceptId);
 				queryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
-				queryConcept.setAncestors(node.getTransitiveClosure());
+				queryConcept.setAncestors(node.getTransitiveClosure(branchPath));
 				applyAttributeChanges(queryConcept, conceptId, conceptAttributeChanges);
 				queryConceptsToSave.add(queryConcept);
 				nodesNotFound.remove(conceptId);
@@ -287,7 +288,7 @@ public class QueryConceptUpdateService extends ComponentService {
 
 		nodesNotFound.forEach(nodeId -> {
 			Node node = nodesToSave.get(nodeId);
-			final Set<Long> transitiveClosure = node.getTransitiveClosure();
+			final Set<Long> transitiveClosure = node.getTransitiveClosure(branchPath);
 			final Set<Long> parentIds = node.getParents().stream().map(Node::getId).collect(Collectors.toSet());
 			QueryConcept queryConcept = new QueryConcept(nodeId, parentIds, transitiveClosure, stated);
 			applyAttributeChanges(queryConcept, nodeId, conceptAttributeChanges);

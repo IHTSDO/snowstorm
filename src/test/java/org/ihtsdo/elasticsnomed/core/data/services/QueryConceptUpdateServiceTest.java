@@ -239,6 +239,20 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testCircularReference() throws ServiceException {
+		Concept root = new Concept(SNOMEDCT_ROOT);
+
+		Concept n11 = new Concept("11").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept n12 = new Concept("12").addRelationship(new Relationship(ISA, n11.getId()));
+		Concept n13 = new Concept("13").addRelationship(new Relationship(ISA, n12.getId()));
+		n11.addRelationship(new Relationship(ISA, n13.getId()));
+
+		String branch = "MAIN";
+		conceptService.create(Lists.newArrayList(root, n11, n12, n13), branch);
+
+	}
+
+	@Test
 	public void inactiveConceptsNotAdded() throws ServiceException {
 		String path = "MAIN";
 		conceptService.create(new Concept(SNOMEDCT_ROOT), path);

@@ -19,20 +19,21 @@ public class Node {
 		parents = new HashSet<>();
 	}
 
-	public Set<Long> getTransitiveClosure() {
+	public Set<Long> getTransitiveClosure(String path) {
 		Set<Long> parentIds = new HashSet<>();
-		return getTransitiveClosure(parentIds, 1);
+		return getTransitiveClosure(parentIds, 1, path);
 	}
 
-	private Set<Long> getTransitiveClosure(Set<Long> parentIds, final int depth) {
+	private Set<Long> getTransitiveClosure(Set<Long> parentIds, final int depth, String path) {
 		if (depth > 50) {
-			String message = "Transitive closure stack depth has exceeded the soft limit for concept " + id + ".";
+			String message = "Transitive closure stack depth has exceeded the soft limit for concept " + id + " on path " + path + ", ancestor ids: " + parentIds.toString();
 			LOGGER.error(message);
-			throw new RuntimeException(message);
+			return parentIds;
+//			throw new RuntimeException(message);
 		}
 		parents.forEach(node -> {
 			parentIds.add(node.getId());
-			node.getTransitiveClosure(parentIds, depth + 1);
+			node.getTransitiveClosure(parentIds, depth + 1, path);
 		});
 		return parentIds;
 	}
@@ -49,16 +50,22 @@ public class Node {
 		parents.remove(new Node(parentId));
 	}
 
-	public boolean isAncestorOrSelfUpdated() {
-		return isAncestorOrSelfUpdated(this);
+	public boolean isAncestorOrSelfUpdated(String path) {
+		return isAncestorOrSelfUpdated(this, 1, path);
 	}
 
-	private boolean isAncestorOrSelfUpdated(Node node) {
+	private boolean isAncestorOrSelfUpdated(Node node, int depth, String path) {
+		if (depth > 50) {
+			String message = "Node updated check has exceeded the soft limit for concept " + id + " on path " + path + ", working around.";
+			LOGGER.warn(message);
+			// None found before recursion, returning false allows other paths to be explored.
+			return false;
+		}
 		if (node.updated) {
 			return true;
 		}
 		for (Node parent : node.parents) {
-			if (parent.isAncestorOrSelfUpdated()) {
+			if (isAncestorOrSelfUpdated(parent, depth + 1, path)) {
 				return true;
 			}
 		}
