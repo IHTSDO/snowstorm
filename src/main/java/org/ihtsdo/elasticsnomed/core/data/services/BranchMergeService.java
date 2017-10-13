@@ -190,7 +190,7 @@ public class BranchMergeService {
 
 			commit.getEntityVersionsReplaced().removeAll(toEnd.stream().map(Entity::getInternalId).collect(Collectors.toList()));
 
-			logger.debug("Ended {} {} {}", versionsReplaced.size(), entityClass.getSimpleName(), versionsReplaced);
+			logger.debug("Ended {} {}", versionsReplaced.size(), entityClass.getSimpleName());
 		}
 
 		// Load all entities on source
@@ -204,7 +204,7 @@ public class BranchMergeService {
 			if (toPromote.isEmpty()) {
 				return;
 			}
-			logger.info("Promoting {} {} {}", toPromote.size(), entityClass.getSimpleName(), toPromote.stream().map(Entity::getInternalId).collect(Collectors.toList()));
+			logger.info("Promoting {} {}", toPromote.size(), entityClass.getSimpleName());
 
 			// End entities on source
 			toPromote.forEach(entity -> entity.setEnd(commit.getTimepoint()));
