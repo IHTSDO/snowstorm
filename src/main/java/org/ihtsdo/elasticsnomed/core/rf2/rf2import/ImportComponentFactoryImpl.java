@@ -30,7 +30,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	private List<PersistBuffer> coreComponentPersistBuffers;
 	private MaxEffectiveTimeCollector maxEffectiveTimeCollector;
 
-	private boolean coreComponentsFlushed;
+	protected boolean coreComponentsFlushed;
 
 	ImportComponentFactoryImpl(ConceptService conceptService, BranchService branchService, String path) {
 		this.branchService = branchService;

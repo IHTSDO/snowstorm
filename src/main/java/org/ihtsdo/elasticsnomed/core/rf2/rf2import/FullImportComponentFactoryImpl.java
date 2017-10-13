@@ -34,6 +34,9 @@ public class FullImportComponentFactoryImpl extends ImportComponentFactoryImpl i
 		if (stopImportAfterEffectiveTime != null && stopImportAfterEffectiveTime.equals(releaseDate)) {
 			throw new RuntimeException("Stopping import here after " + stopImportAfterEffectiveTime);
 		}
+
+		// Prepare to load another release
+		coreComponentsFlushed = false;
 	}
 
 	@Override
