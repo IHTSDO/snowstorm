@@ -199,6 +199,11 @@ public class Relationship extends SnomedComponent<Relationship> {
 		characteristicTypeId = relationshipCharacteristicTypeNames.inverse().get(characteristicTypeName);
 	}
 
+	public Relationship setCharacteristicTypeId(String characteristicTypeId) {
+		this.characteristicTypeId = characteristicTypeId;
+		return this;
+	}
+
 	@JsonView(value = View.Component.class)
 	public String getModifier() {
 		return relationshipModifierNames.get(modifierId);

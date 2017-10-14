@@ -17,20 +17,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 public class ExpressionService {
 	
 	@Autowired
-	ConceptService conceptService;
+	private ConceptService conceptService;
 	
 	@Autowired
-	QueryService queryService;
+	private QueryService queryService;
 
 	public Expression getConceptAuthoringForm(String conceptId, String branchPath) {
 		//First add the existing attributes
 		Expression expression = new Expression();
 		Concept concept = conceptService.find(conceptId, branchPath);
-		for (Relationship relationship : concept.getRelationships()) {
-			if (relationship.isActive()) {
-				addAttributeToExpression(relationship, expression);
-			}
-		}
+		concept.getRelationships().stream()
+				.filter(relationship -> relationship.isActive() && !Concepts.STATED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId()))
+				.forEach(relationship -> addAttributeToExpression(relationship, expression));
+
 		//Now work out the nearest primitive parents
 		Collection<ConceptMini> ancestors = getAncestors(conceptId, branchPath);
 		final Collection<ConceptMini> proxPrimParents = getProximalPrimitiveParents(ancestors, branchPath);
