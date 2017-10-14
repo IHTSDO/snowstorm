@@ -1,5 +1,5 @@
 
-##Eclipse JUnit issues
+## Eclipse JUnit issues
 Issue: java.lang.NoClassDefFoundError: com/amazonaws/ClientConfigurationFactory
 is caused by Eclipse not handling the wildcard in the pom exclusion section for aws-signing-request-interceptor
 Edit the .classpath file and change:
