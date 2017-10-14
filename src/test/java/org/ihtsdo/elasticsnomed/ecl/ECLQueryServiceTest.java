@@ -33,6 +33,37 @@ import static org.junit.Assert.assertEquals;
 @ContextConfiguration(classes = TestConfig.class)
 public class ECLQueryServiceTest extends AbstractTest {
 
+	// Model
+	private static final String MODEL_COMPONENT = "900000000000441003";
+
+	// Attributes
+	private static final String FINDING_SITE = "363698007";
+	private static final String ASSOCIATED_MORPHOLOGY = "116676008";
+	private static final String PROCEDURE_SITE = "363704007";
+	private static final String PROCEDURE_SITE_DIRECT = "405813007";
+
+	// Body Structure
+	private static final String BODY_STRUCTURE = "123037004";
+	private static final String HEART_STRUCTURE = "80891009";
+	private static final String SKIN_STRUCTURE = "39937001";
+	private static final String THORACIC_STRUCTURE = "51185008";
+
+	// Finding
+	private static final String DISEASE = "64572001";
+	private static final String BLEEDING = "131148009";
+	private static final String HEMORRHAGE = "50960005";
+	private static final String BLEEDING_SKIN = "297968009";
+
+	// Procedure
+	private static final String PROCEDURE = "71388002";
+	private static final String OPERATION_ON_HEART = "64915003";
+	private static final String CHEST_IMAGING = "413815006";
+
+	private static final String NON_EXISTENT_CONCEPT = "12345001";
+
+	private static final String MAIN = "MAIN";
+	private static final boolean STATED = true;
+
 	@Autowired
 	private ECLQueryService eclQueryService;
 
@@ -45,50 +76,54 @@ public class ECLQueryServiceTest extends AbstractTest {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
+	private Set<String> allConceptIds;
 	private QueryBuilder branchCriteria;
-	private static final String MAIN = "MAIN";
-	private static final String MODEL_COMPONENT = "900000000000441003";
-	private static final String BLEEDING_SKIN = "297968009";
-	private static final String FINDING_SITE = "363698007";
-	private static final String ASSOCIATED_MORPHOLOGY = "116676008";
-
-	private static final String BODY_STRUCTURE = "123037004";
-	private static final String SKIN_STRUCTURE = "39937001";
-
-	private static final String BLEEDING = "131148009";
-	private static final String HEMORRHAGE = "50960005";
-	private static final String DISEASE = "64572001";
-	private static final String NON_EXISTENT_CONCEPT = "12345001";
-
-	private static final boolean STATED = true;
 
 	@Before
 	public void setup() throws ServiceException {
 		branchService.create(MAIN);
 
-		List<Concept> concepts = new ArrayList<>();
+		List<Concept> allConcepts = new ArrayList<>();
 
-		concepts.add(new Concept(SNOMEDCT_ROOT));
-		concepts.add(new Concept(MODEL_COMPONENT).addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)));
-		concepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(Concepts.ISA, MODEL_COMPONENT)));
-		concepts.add(new Concept(ASSOCIATED_MORPHOLOGY).addRelationship(new Relationship(Concepts.ISA, MODEL_COMPONENT)));
+		allConcepts.add(new Concept(SNOMEDCT_ROOT));
+		allConcepts.add(new Concept(MODEL_COMPONENT).addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(Concepts.ISA, MODEL_COMPONENT)));
+		allConcepts.add(new Concept(ASSOCIATED_MORPHOLOGY).addRelationship(new Relationship(Concepts.ISA, MODEL_COMPONENT)));
+		allConcepts.add(new Concept(PROCEDURE_SITE).addRelationship(new Relationship(Concepts.ISA, MODEL_COMPONENT)));
+		allConcepts.add(new Concept(PROCEDURE_SITE_DIRECT).addRelationship(new Relationship(Concepts.ISA, PROCEDURE_SITE)));
 
-		concepts.add(new Concept(BODY_STRUCTURE).addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)));
-		concepts.add(new Concept(SKIN_STRUCTURE).addRelationship(new Relationship(Concepts.ISA, BODY_STRUCTURE)));
-		concepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)));
-		concepts.add(new Concept(BLEEDING)
+		allConcepts.add(new Concept(BODY_STRUCTURE).addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(HEART_STRUCTURE).addRelationship(new Relationship(Concepts.ISA, BODY_STRUCTURE)));
+		allConcepts.add(new Concept(SKIN_STRUCTURE).addRelationship(new Relationship(Concepts.ISA, BODY_STRUCTURE)));
+		allConcepts.add(new Concept(THORACIC_STRUCTURE).addRelationship(new Relationship(Concepts.ISA, BODY_STRUCTURE)));
+
+		allConcepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(DISEASE).addRelationship(new Relationship(Concepts.ISA, CLINICAL_FINDING)));
+		allConcepts.add(new Concept(BLEEDING)
 				.addRelationship(new Relationship(Concepts.ISA, CLINICAL_FINDING))
 				.addRelationship(new Relationship(ASSOCIATED_MORPHOLOGY, HEMORRHAGE))
 		);
-		concepts.add(new Concept(BLEEDING_SKIN)
+		allConcepts.add(new Concept(HEMORRHAGE).addRelationship(new Relationship(Concepts.ISA, CLINICAL_FINDING)));
+		allConcepts.add(new Concept(BLEEDING_SKIN)
 				.addRelationship(new Relationship(Concepts.ISA, BLEEDING))
 				.addRelationship(new Relationship(ASSOCIATED_MORPHOLOGY, HEMORRHAGE))
 				.addRelationship(new Relationship(FINDING_SITE, SKIN_STRUCTURE))
 		);
-		concepts.add(new Concept(DISEASE).addRelationship(new Relationship(Concepts.ISA, CLINICAL_FINDING)));
-		concepts.add(new Concept(HEMORRHAGE).addRelationship(new Relationship(Concepts.ISA, CLINICAL_FINDING)));
 
-		conceptService.create(concepts, MAIN);
+		allConcepts.add(new Concept(PROCEDURE).addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)));
+		allConcepts.add(new Concept(OPERATION_ON_HEART)
+				.addRelationship(new Relationship(Concepts.ISA, PROCEDURE))
+				.addRelationship(new Relationship(PROCEDURE_SITE, HEART_STRUCTURE))
+		);
+		allConcepts.add(new Concept(CHEST_IMAGING)
+				.addRelationship(new Relationship(Concepts.ISA, PROCEDURE))
+				.addRelationship(new Relationship(PROCEDURE_SITE_DIRECT, THORACIC_STRUCTURE))
+		);
+
+
+		conceptService.create(allConcepts, MAIN);
+
+		allConceptIds = allConcepts.stream().map(Concept::getId).collect(Collectors.toSet());
 
 		branchCriteria = versionControlHelper.getBranchCriteria(MAIN);
 	}
@@ -100,26 +135,25 @@ public class ECLQueryServiceTest extends AbstractTest {
 				strings(eclQueryService.selectConceptIds(SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
 
 		assertEquals(
-				Sets.newHashSet(CLINICAL_FINDING, BLEEDING, DISEASE, ASSOCIATED_MORPHOLOGY, HEMORRHAGE,
-						MODEL_COMPONENT, BLEEDING_SKIN, FINDING_SITE, BODY_STRUCTURE, SKIN_STRUCTURE),
+				// All concepts but not root
+				allConceptIds.stream().filter(id -> !SNOMEDCT_ROOT.equals(id)).collect(Collectors.toSet()),
 				strings(eclQueryService.selectConceptIds("<" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
 
 		assertEquals(
-				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING, BLEEDING, DISEASE, ASSOCIATED_MORPHOLOGY, HEMORRHAGE,
-						MODEL_COMPONENT, BLEEDING_SKIN, FINDING_SITE, BODY_STRUCTURE, SKIN_STRUCTURE),
+				allConceptIds,
 				strings(eclQueryService.selectConceptIds("<<" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
 
 		assertEquals(
-				Sets.newHashSet(SNOMEDCT_ROOT),
-				strings(eclQueryService.selectConceptIds(">" + CLINICAL_FINDING, branchCriteria, MAIN, STATED)));
+				allConceptIds,
+				strings(eclQueryService.selectConceptIds("<<*", branchCriteria, MAIN, STATED)));
 
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING),
-				strings(eclQueryService.selectConceptIds(">>" + CLINICAL_FINDING, branchCriteria, MAIN, STATED)));
+				strings(eclQueryService.selectConceptIds(">" + DISEASE, branchCriteria, MAIN, STATED)));
 
 		assertEquals(
-				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING, BLEEDING),
-				strings(eclQueryService.selectConceptIds(">>" + BLEEDING, branchCriteria, MAIN, STATED)));
+				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING, DISEASE),
+				strings(eclQueryService.selectConceptIds(">>" + DISEASE, branchCriteria, MAIN, STATED)));
 	}
 
 	@Test
@@ -140,7 +174,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	@Test
 	public void selectChildren() throws Exception {
 		assertEquals(
-				Sets.newHashSet(MODEL_COMPONENT, BODY_STRUCTURE, CLINICAL_FINDING),
+				Sets.newHashSet(MODEL_COMPONENT, BODY_STRUCTURE, CLINICAL_FINDING, PROCEDURE),
 				strings(eclQueryService.selectConceptIds("<!" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
 
 		assertEquals(
@@ -171,6 +205,14 @@ public class ECLQueryServiceTest extends AbstractTest {
 				strings(eclQueryService.selectConceptIds(BLEEDING +":" + ASSOCIATED_MORPHOLOGY + "=*", branchCriteria, MAIN, STATED)));
 
 		assertEquals(
+				Sets.newHashSet(CHEST_IMAGING),
+				strings(eclQueryService.selectConceptIds("<<" + PROCEDURE +":<" + PROCEDURE_SITE + "=*", branchCriteria, MAIN, STATED)));
+
+		assertEquals(
+				Sets.newHashSet(OPERATION_ON_HEART, CHEST_IMAGING),
+				strings(eclQueryService.selectConceptIds("<<" + PROCEDURE +":<<" + PROCEDURE_SITE + "=*", branchCriteria, MAIN, STATED)));
+
+		assertEquals(
 				Sets.newHashSet(),
 				strings(eclQueryService.selectConceptIds(BLEEDING +":" + NON_EXISTENT_CONCEPT + "=*", branchCriteria, MAIN, STATED)));
 	}
@@ -193,9 +235,10 @@ public class ECLQueryServiceTest extends AbstractTest {
 				Sets.newHashSet(BLEEDING_SKIN),
 				strings(eclQueryService.selectConceptIds("*:" + FINDING_SITE + "=<<" + BODY_STRUCTURE, branchCriteria, MAIN, STATED)));
 
+		List<Long> ids = eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + CLINICAL_FINDING, branchCriteria, MAIN, STATED);
 		assertEquals(
 				Sets.newHashSet(),
-				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + CLINICAL_FINDING, branchCriteria, MAIN, STATED)));
+				strings(ids));
 
 		assertEquals(
 				Sets.newHashSet(),

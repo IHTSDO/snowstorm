@@ -10,9 +10,7 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.existsQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class EclAttribute implements Refinement {
 
@@ -38,16 +36,22 @@ public class EclAttribute implements Refinement {
 
 		Collection<Long> possibleAttributeValues = value.select(path, branchCriteria, stated, null, queryService);
 		if (expressionComparisonOperator.equals("=")) {
-			for (String attributeTypeProperty : attributeTypeProperties) {
-				if (possibleAttributeValues == null) {
+			if (possibleAttributeValues == null) {
+				// Value is wildcard, attribute just needs to exist
+				for (String attributeTypeProperty : attributeTypeProperties) {
 					query.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
-				} else {
+				}
+			} else {
+				if (possibleAttributeValues.isEmpty()) {
 					// Attribute value is not a wildcard but empty selection
 					// Force query to return nothing
-					if (possibleAttributeValues.isEmpty()) {
-						possibleAttributeValues.add(0L);
+					query.must(termQuery("force-nothing", "true"));
+				} else {
+					BoolQueryBuilder shoulds = boolQuery();
+					query.must(shoulds);
+					for (String attributeTypeProperty : attributeTypeProperties) {
+						shoulds.should(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
 					}
-					query.filter(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
 				}
 			}
 		} else {
