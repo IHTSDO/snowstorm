@@ -2,7 +2,6 @@ package org.ihtsdo.elasticsnomed;
 
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.elasticsnomed.config.Config;
-import org.ihtsdo.elasticsnomed.core.data.services.AuthoringMirrorService;
 import org.ihtsdo.elasticsnomed.core.data.services.CodeSystemService;
 import org.ihtsdo.elasticsnomed.core.data.services.ConceptService;
 import org.ihtsdo.elasticsnomed.core.data.services.ReferenceSetMemberService;
@@ -29,6 +28,7 @@ import java.util.List;
 public class App extends Config implements ApplicationRunner {
 
 	public static final String CLEAN_IMPORT_ARG = "clean-import";
+	public static final String CLEAN_IMPORT_FULL_ARG = "clean-import-full";
 	public static final String REPLAY_TRACEABILITY_DIRECTORY = "replay-traceability-directory";
 
 	@Autowired
@@ -63,14 +63,17 @@ public class App extends Config implements ApplicationRunner {
 		referenceSetMemberService.init();
 
 		if (applicationArguments.containsOption(CLEAN_IMPORT_ARG)) {
-			// import the international edition from disk at startup
+			// Import a single release or 'Snapshot' from an Edition RF2 zip file from disk at startup
 			String releasePath = getOneValue(applicationArguments, CLEAN_IMPORT_ARG);
-			File file = new File(releasePath);
-			if (!file.isFile()) {
-				throw new IllegalArgumentException(CLEAN_IMPORT_ARG + " file could not be read at " + file.getAbsolutePath());
-			}
+			fileExistsForArgument(releasePath, CLEAN_IMPORT_ARG);
 
-			deleteAllAndImportInternationalEditionFromDisk(releasePath);
+			deleteAllAndImportEditionRF2FromDisk(releasePath, RF2Type.SNAPSHOT);
+		} else if (applicationArguments.containsOption(CLEAN_IMPORT_FULL_ARG)) {
+			// Import many releases or 'Full' from an Edition RF2 zip file from disk at startup
+			String releasePath = getOneValue(applicationArguments, CLEAN_IMPORT_FULL_ARG);
+			fileExistsForArgument(releasePath, CLEAN_IMPORT_FULL_ARG);
+
+			deleteAllAndImportEditionRF2FromDisk(releasePath, RF2Type.FULL);
 		}
 		if (applicationArguments.containsOption(REPLAY_TRACEABILITY_DIRECTORY)) {
 			String replayDirectory = getOneValue(applicationArguments, REPLAY_TRACEABILITY_DIRECTORY);
@@ -91,7 +94,14 @@ public class App extends Config implements ApplicationRunner {
 		return values.get(0);
 	}
 
-	private void deleteAllAndImportInternationalEditionFromDisk(String releasePath) {
+	private void fileExistsForArgument(String filePath, String argName) {
+		File file = new File(filePath);
+		if (!file.isFile()) {
+			throw new IllegalArgumentException(argName + " file could not be read at " + file.getAbsolutePath());
+		}
+	}
+
+	private void deleteAllAndImportEditionRF2FromDisk(String releasePath, RF2Type importType) {
 		// Wait 10 seconds until everything settled before deleting all components
 		try {
 			Thread.sleep(1000 * 10);
@@ -100,7 +110,7 @@ public class App extends Config implements ApplicationRunner {
 		}
 		// Dropping the indexes would be cleaner but the spring repositories
 		// won't reinitialise so deleting documents instead..
-		logger.info("Attempting delete all");
+		logger.info("Attempting delete all snomed content");
 		conceptService.deleteAll();
 		branchService.deleteAll();
 		logger.info("Delete all complete");
@@ -108,7 +118,7 @@ public class App extends Config implements ApplicationRunner {
 		// Import archive
 		logger.info("Creating MAIN");
 		branchService.create("MAIN");
-		String importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN");
+		String importId = importService.createJob(importType, "MAIN");
 		try {
 			importService.importArchive(importId, new FileInputStream(releasePath));
 		} catch (FileNotFoundException | ReleaseImportException e) {
