@@ -1,11 +1,12 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
+import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.ihtsdo.elasticsnomed.AbstractTest;
 import org.ihtsdo.elasticsnomed.TestConfig;
 import org.ihtsdo.elasticsnomed.core.data.domain.*;
 import org.ihtsdo.elasticsnomed.core.data.services.pojo.ResultMapPage;
-import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -44,6 +45,9 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Autowired
 	private ReleaseService releaseService;
+
+	@Autowired
+	private VersionControlHelper versionControlHelper;
 
 	private ServiceTestUtil testUtil;
 
@@ -359,10 +363,12 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Test
 	public void testConceptInactivation() throws ServiceException {
+		String path = "MAIN";
+		conceptService.create(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
 		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
 		concept.addDescription(new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
 		concept.addRelationship(new Relationship(ISA, "107658001"));
-		Concept savedConcept = conceptService.create(concept, "MAIN");
+		Concept savedConcept = conceptService.create(concept, path);
 
 		savedConcept.setActive(false);
 
@@ -376,7 +382,7 @@ public class ConceptServiceTest extends AbstractTest {
 		savedConcept.setAssociationTargets(associationTargetStrings);
 		assertNull(savedConcept.getAssociationTargetMembers());
 
-		Concept inactiveConcept = conceptService.update(savedConcept, "MAIN");
+		Concept inactiveConcept = conceptService.update(savedConcept, path);
 
 		assertFalse(inactiveConcept.isActive());
 

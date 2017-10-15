@@ -249,7 +249,6 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 
 		String branch = "MAIN";
 		conceptService.create(Lists.newArrayList(root, n11, n12, n13), branch);
-
 	}
 
 	@Test

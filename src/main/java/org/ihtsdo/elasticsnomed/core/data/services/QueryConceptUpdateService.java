@@ -54,6 +54,9 @@ public class QueryConceptUpdateService extends ComponentService {
 	private QueryConceptRepository queryConceptRepository;
 
 	@Autowired
+	private ConceptService conceptService;
+
+	@Autowired
 	private BranchService branchService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -68,7 +71,7 @@ public class QueryConceptUpdateService extends ComponentService {
 		}
 	}
 
-	void updateStatedAndInferredTransitiveClosures(Commit commit) {
+	void updateStatedAndInferredTransitiveClosures(Commit commit) throws IllegalStateException {
 		if (commit.isRebase()) {
 			// Recreate query index using new parent base point + content on this branch
 			Branch branch = commit.getBranch();
@@ -90,7 +93,7 @@ public class QueryConceptUpdateService extends ComponentService {
 		}
 	}
 
-	private void updateTransitiveClosure(boolean stated, QueryBuilder changesBranchCriteria, Set<String> deletionsToProcess, Commit commit, boolean rebuild) {
+	private void updateTransitiveClosure(boolean stated, QueryBuilder changesBranchCriteria, Set<String> deletionsToProcess, Commit commit, boolean rebuild) throws IllegalStateException {
 		// Note: Searches within this method use a filter clause for collections of identifiers because these
 		//       can become larger than the maximum permitted query criteria.
 
@@ -209,6 +212,7 @@ public class QueryConceptUpdateService extends ComponentService {
 		AtomicLong isARelationshipsAdded = new AtomicLong();
 		AtomicLong isARelationshipsRemoved = new AtomicLong();
 		boolean newGraph = graphBuilder.getNodeCount() == 0;
+		Set<Long> requiredActiveConcepts = new LongOpenHashSet();
 		Map<Long, AttributeChanges> conceptAttributeChanges = new Long2ObjectOpenHashMap<>();
 		try (final CloseableIterator<Relationship> isARelationshipChanges = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
@@ -241,6 +245,9 @@ public class QueryConceptUpdateService extends ComponentService {
 						} else {
 							conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(groupId, type, value);
 						}
+						requiredActiveConcepts.add(conceptId);
+						requiredActiveConcepts.add(type);
+						requiredActiveConcepts.add(value);
 					} else {
 						if (type == IS_A_TYPE) {
 							Node node = graphBuilder.removeParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()));
@@ -257,6 +264,15 @@ public class QueryConceptUpdateService extends ComponentService {
 		}
 		timer.checkpoint("Update graph using changed relationships.");
 		logger.info("{} {} is-a relationships added, {} removed.", isARelationshipsAdded.get(), formName, isARelationshipsRemoved.get());
+
+		Set<Long> inactiveOrMissingConceptIds = conceptService.getInactiveOrMissingConceptIds(requiredActiveConcepts, versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit));
+		if (!inactiveOrMissingConceptIds.isEmpty()) {
+			logger.error("The following concepts have been referred to in relationships but are missing or inactive: " + inactiveOrMissingConceptIds);
+
+			// TODO: Should we throw an IllegalStateException and roll back the commit here?
+
+//			throw new IllegalStateException("The following concepts have been referred to in relationships but are missing or inactive: " + inactiveOrMissingConceptIds);
+		}
 
 		// Step: Save changes
 		Map<Long, Node> nodesToSave = new Long2ObjectOpenHashMap<>();

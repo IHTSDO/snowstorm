@@ -41,6 +41,8 @@ public class Concepts {
 	public static final String EXISTENTIAL = "900000000000451002";
 	public static final String UNIVERSAL = "900000000000452009";
 
+	public static final String NON_EXISTENT_CONCEPT = "100000005";
+
 	// Inactivation
 	public static final String CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET = "900000000000489007";
 	public static final String DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET = "900000000000490003";

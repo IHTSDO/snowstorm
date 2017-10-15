@@ -81,8 +81,9 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 		return active;
 	}
 
-	public void setActive(boolean active) {
+	public SnomedComponent<C> setActive(boolean active) {
 		this.active = active;
+		return this;
 	}
 
 	public boolean isReleased() {

@@ -10,10 +10,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
-import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongArraySet;
-import it.unimi.dsi.fastutil.longs.LongSet;
+import it.unimi.dsi.fastutil.longs.*;
 import org.apache.log4j.Level;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -844,8 +841,40 @@ public class ConceptService extends ComponentService implements CommitListener {
 		}
 	}
 
+	Set<Long> getInactiveOrMissingConceptIds(Set<Long> requiredActiveConcepts, QueryBuilder branchCriteria) {
+		// We can't select the concepts which are not there!
+		// For speed first we will count the concepts which are there and active
+		// If the count doesn't match we load the ids of the concepts which are there so we can work out those which are not.
+
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true)))
+				.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, requiredActiveConcepts))
+				.withPageable(new PageRequest(0, 1));
+
+		Page<Concept> concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
+		if (concepts.getTotalElements() == requiredActiveConcepts.size()) {
+			return Collections.emptySet();
+		}
+
+		// Some concepts are missing - let's collect them
+
+		// Update query to collect concept ids efficiently
+		queryBuilder
+				.withFields(Concept.Fields.CONCEPT_ID)// Trigger mapping optimisation
+				.withPageable(LARGE_PAGE);
+
+		Set<Long> missingConceptIds = new LongOpenHashSet(requiredActiveConcepts);
+		try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
+			stream.forEachRemaining(concept -> missingConceptIds.remove(concept.getConceptIdAsLong()));
+		}
+
+		return missingConceptIds;
+	}
+
 	@Override
-	public void preCommitCompletion(Commit commit) {
+	public void preCommitCompletion(Commit commit) throws IllegalStateException {
 		if (disableTransitiveClosure) {
 			logger.info("Transitive closure calculation disabled.");
 		} else {

@@ -186,8 +186,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return relationshipGroup;
 	}
 
-	public void setGroupId(int groupId) {
+	public Relationship setGroupId(int groupId) {
 		this.relationshipGroup = groupId;
+		return this;
 	}
 
 	@JsonView(value = View.Component.class)
