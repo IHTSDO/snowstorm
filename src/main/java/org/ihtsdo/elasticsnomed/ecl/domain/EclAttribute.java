@@ -70,6 +70,10 @@ public class EclAttribute implements Refinement {
 		return QueryConcept.ATTR_FIELD + "." + attributeTypeProperty;
 	}
 
+	static String attributeMapKeyToConceptId(String key) {
+		return key.substring(QueryConcept.ATTR_FIELD.length() + 1);
+	}
+
 	public void setAttributeName(SubExpressionConstraint attributeName) {
 		this.attributeName = attributeName;
 	}

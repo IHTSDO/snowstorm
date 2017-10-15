@@ -1,5 +1,6 @@
 package org.ihtsdo.elasticsnomed.core.data.services;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -51,6 +52,9 @@ public class QueryService {
 
 	@Autowired
 	private ECLQueryService eclQueryService;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -290,6 +294,10 @@ public class QueryService {
 	 */
 	public ConceptQueryBuilder createQueryBuilder(boolean stated) {
 		return new ConceptQueryBuilder(stated);
+	}
+
+	public ObjectMapper getObjectMapper() {
+		return objectMapper;
 	}
 
 	public final class ConceptQueryBuilder {

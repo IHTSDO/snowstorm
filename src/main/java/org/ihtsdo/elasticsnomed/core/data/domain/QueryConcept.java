@@ -25,9 +25,9 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	public static final String ATTR_TYPE_WILDCARD = "all";
 
 	public interface Fields {
+
 		String CONCEPT_ID = "conceptId";
 	}
-
 	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
 	private String conceptIdForm;
 

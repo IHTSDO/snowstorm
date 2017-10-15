@@ -135,13 +135,8 @@ public class ECLQueryBuilder {
 		private SubRefinement build(ECLParser.SubrefinementContext ctx) {
 			SubRefinement subRefinement = new SubRefinement();
 			subRefinement.setEclAttributeSet(build(ctx.eclattributeset()));
+			subRefinement.setEclAttributeGroup(build(ctx.eclattributegroup()));
 			subRefinement.setEclRefinement(build(ctx.eclrefinement()));
-
-//			subRefinement.setEclAttributeGroup(build(ctx.eclattributegroup()));
-			if (ctx.eclattributegroup() != null) {
-				throw new UnsupportedOperationException("EclAttributeGroup is not supported.");
-			}
-
 			return subRefinement;
 		}
 
@@ -170,8 +165,14 @@ public class ECLQueryBuilder {
 			return subAttributeSet;
 		}
 
-		private EclAttributeSet build(ECLParser.EclattributegroupContext ctx) {
-			return null;
+		private EclAttributeGroup build(ECLParser.EclattributegroupContext ctx) {
+			if (ctx == null) return null;
+
+			if (ctx.cardinality() != null) {
+				throw new UnsupportedOperationException("Group cardinality is not supported.");
+			}
+
+			return new EclAttributeGroup(build(ctx.eclattributeset()));
 		}
 
 		private EclAttribute build(ECLParser.EclattributeContext ctx) {

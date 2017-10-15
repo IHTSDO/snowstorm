@@ -7,12 +7,15 @@ import org.ihtsdo.elasticsnomed.core.data.services.QueryService;
 public class SubRefinement implements Refinement {
 
 	private EclAttributeSet eclAttributeSet;
+	private EclAttributeGroup eclAttributeGroup;
 	private EclRefinement eclRefinement;
 
 	@Override
 	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
 		if (eclAttributeSet != null) {
 			eclAttributeSet.addCriteria(query, path, branchCriteria, stated, queryService);
+		} else if (eclAttributeGroup != null) {
+			eclAttributeGroup.addCriteria(query, path, branchCriteria, stated, queryService);
 		} else {
 			eclRefinement.addCriteria(query, path, branchCriteria, stated, queryService);
 		}
@@ -22,12 +25,11 @@ public class SubRefinement implements Refinement {
 		this.eclAttributeSet = eclAttributeSet;
 	}
 
-	public EclAttributeSet getEclAttributeSet() {
-		return eclAttributeSet;
+	public void setEclAttributeGroup(EclAttributeGroup eclAttributeGroup) {
+		this.eclAttributeGroup = eclAttributeGroup;
 	}
 
 	public void setEclRefinement(EclRefinement eclRefinement) {
 		this.eclRefinement = eclRefinement;
 	}
-
 }
