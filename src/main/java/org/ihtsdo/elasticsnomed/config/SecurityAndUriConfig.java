@@ -1,12 +1,19 @@
 package org.ihtsdo.elasticsnomed.config;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
+import org.ihtsdo.elasticsnomed.core.data.domain.classification.Classification;
+import org.ihtsdo.elasticsnomed.rest.config.BranchMixIn;
+import org.ihtsdo.elasticsnomed.rest.config.ClassificationMixIn;
 import org.ihtsdo.elasticsnomed.rest.security.RequestHeaderAuthenticationDecoratorWithRequiredRole;
 import org.ihtsdo.sso.integration.RequestHeaderAuthenticationDecorator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -17,6 +24,18 @@ import org.springframework.security.web.firewall.HttpFirewall;
 @Configuration
 @EnableWebSecurity
 public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
+
+	@Bean
+	public ObjectMapper getGeneralMapper() {
+		return Jackson2ObjectMapperBuilder
+				.json()
+				.defaultViewInclusion(false)
+				.failOnUnknownProperties(false)
+				.serializationInclusion(JsonInclude.Include.NON_NULL)
+				.mixIn(Branch.class, BranchMixIn.class)
+				.mixIn(Classification.class, ClassificationMixIn.class)
+				.build();
+	}
 
 	@Bean
 	public FilterRegistrationBean getUrlRewriteFilter() {

@@ -118,18 +118,6 @@ public abstract class Config {
 	}
 
 	@Bean
-	public ObjectMapper getGeneralMapper() {
-		return Jackson2ObjectMapperBuilder
-				.json()
-				.defaultViewInclusion(false)
-				.failOnUnknownProperties(false)
-				.serializationInclusion(JsonInclude.Include.NON_NULL)
-				.mixIn(Branch.class, BranchMixIn.class)
-				.mixIn(Classification.class, ClassificationMixIn.class)
-				.build();
-	}
-
-	@Bean
 	public BranchService getBranchService() {
 		return new BranchService();
 	}
