@@ -9,3 +9,4 @@ Currently, the following documentation exists:
 - [Getting Started](getting-started.md)
 - [Loading SNOMED](loading-snomed.md)
 - [Querying the data](accessing.md)
+- [Developer notes](developer-notes.md)
