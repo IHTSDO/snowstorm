@@ -28,6 +28,6 @@ mvn clean package
 
 - start Elasticsearch from wherever it has been installed (ensuring the heap size has been correctly assigned)
 - if you have not imported any data, [start Snowstorm to load in data](loading-snomed.md)
-- otherwise, run using `java -Xms5g -Xmx5g -jar target/elastic-snomed-<version>.jar`
+- otherwise, run using `java -Xms5g -Xmx5g -jar target/snowstorm-<version>.jar`
 
 Then sit back and watch the magic happen as it loads
