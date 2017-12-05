@@ -1,0 +1,443 @@
+package org.snomed.snowstorm.core.data.services;
+
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.ComponentService;
+import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Branch;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.review.*;
+import org.snomed.snowstorm.core.util.TimerUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.util.CloseableIterator;
+import org.springframework.stereotype.Service;
+
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static java.lang.Long.parseLong;
+import static org.elasticsearch.index.query.QueryBuilders.*;
+
+@Service
+public class BranchReviewService {
+
+	@Autowired
+	private BranchService branchService;
+
+	@Autowired
+	private VersionControlHelper versionControlHelper;
+
+	@Autowired
+	private ConceptService conceptService;
+
+	@Autowired
+	private BranchMergeService branchMergeService;
+
+	@Autowired
+	private ElasticsearchOperations elasticsearchTemplate;
+
+	private final ExecutorService executorService = Executors.newCachedThreadPool();
+
+	private final Map<String, BranchReview> reviewIndex = new HashMap<>();
+
+	// TODO: Move to elasticsearch storage to allow access from any termserver instance in a cluster
+	private final Cache<String, BranchReview> reviewStore = CacheBuilder.newBuilder()
+			.expireAfterWrite(12, TimeUnit.HOURS)
+			.removalListener(removalNotification -> {
+				// When review expires remove from index map
+				BranchReview review = (BranchReview) removalNotification.getValue();
+				final BranchState source = review.getSource();
+				final BranchState target = review.getTarget();
+				final String reviewIndexKey = getReviewIndexKey(source.getPath(), source.getHeadTimestamp(), target.getPath(), target.getHeadTimestamp());
+				reviewIndex.remove(reviewIndexKey);
+			})
+			.build();
+
+	private final Cache<String, MergeReview> mergeReviewStore = CacheBuilder.newBuilder()
+			.expireAfterWrite(12, TimeUnit.HOURS)
+			.build();
+
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	public MergeReview createMergeReview(String source, String target) {
+		final Branch sourceBranch = branchService.findBranchOrThrow(source);
+		final Branch targetBranch = branchService.findBranchOrThrow(target);
+		if (!sourceBranch.isParent(targetBranch)) {
+			throw new IllegalArgumentException("A merge review should only be used during rebase, not promotion.");
+		}
+		final BranchReview sourceToTarget = getCreateReview(sourceBranch, targetBranch);
+		final BranchReview targetToSource = getCreateReview(targetBranch, sourceBranch);
+		final MergeReview mergeReview = new MergeReview(UUID.randomUUID().toString(), source, target,
+				sourceToTarget.getId(), targetToSource.getId());
+		mergeReview.setStatus(ReviewStatus.PENDING);
+		executorService.submit(() -> {
+			try {
+				getBranchReviewConceptChanges(sourceToTarget.getId());
+				getBranchReviewConceptChanges(targetToSource.getId());
+				mergeReview.setStatus(ReviewStatus.CURRENT);
+			} catch (Exception e) {
+				mergeReview.setStatus(ReviewStatus.FAILED);
+				logger.error("Collecting branch review changes failed.", e);
+			}
+		});
+		mergeReviewStore.put(mergeReview.getId(), mergeReview);
+		return mergeReview;
+	}
+
+	public MergeReview getMergeReview(String id) {
+		final MergeReview mergeReview = mergeReviewStore.getIfPresent(id);
+		if (mergeReview != null && mergeReview.getStatus() == ReviewStatus.CURRENT) {
+			// Only check one merge review - they will both have the same status.
+			final ReviewStatus newStatus = reviewStore.getIfPresent(mergeReview.getSourceToTargetReviewId()).getStatus();
+			mergeReview.setStatus(newStatus);
+		}
+		return mergeReview;
+	}
+
+	public MergeReview getMergeReviewOrThrow(String id) {
+		final MergeReview mergeReview = getMergeReview(id);
+		if (mergeReview == null) {
+			throw new IllegalArgumentException("Merge review " + id + " does not exist.");
+		}
+		return mergeReview;
+	}
+
+	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(String id) {
+		final MergeReview mergeReview = getMergeReviewOrThrow(id);
+		assertMergeReviewCurrent(mergeReview);
+
+		final Set<Long> conceptsChangedInBoth = getConflictingConceptIds(mergeReview);
+
+		final Map<Long, MergeReviewConceptVersions> conflicts = new HashMap<>();
+		if (!conceptsChangedInBoth.isEmpty()) {
+			final Collection<Concept> conceptOnSource = conceptService.find(mergeReview.getSourcePath(), conceptsChangedInBoth);
+			final Collection<Concept> conceptOnTarget = conceptService.find(mergeReview.getTargetPath(), conceptsChangedInBoth);
+
+			conceptOnSource.stream().forEach(concept -> conflicts.put(concept.getConceptIdAsLong(), new MergeReviewConceptVersions(concept)));
+			conceptOnTarget.stream().forEach(targetConcept -> {
+				final MergeReviewConceptVersions conceptVersions = conflicts.get(targetConcept.getConceptIdAsLong());
+				conceptVersions.setTargetConcept(targetConcept);
+				conceptVersions.setAutoMergedConcept(autoMergeConcept(conceptVersions.getSourceConcept(), targetConcept));
+			});
+		}
+		return conflicts.values();
+	}
+
+	public void applyMergeReview(String mergeReviewId) throws ServiceException {
+		final MergeReview mergeReview = getMergeReviewOrThrow(mergeReviewId);
+		assertMergeReviewCurrent(mergeReview);
+
+		// Check all conflicts manually merged
+		final Map<Long, Concept> manuallyMergedConcepts = mergeReview.getManuallyMergedConcepts();
+		final Set<Long> conflictingConceptIds = getConflictingConceptIds(mergeReview);
+		final Set<Long> conflictsRemaining = new HashSet<>(conflictingConceptIds);
+		conflictsRemaining.removeAll(manuallyMergedConcepts.keySet());
+		if (!conflictsRemaining.isEmpty()) {
+			throw new IllegalStateException("Not all conflicting concepts have been resolved. Unresolved: " + conflictsRemaining);
+		}
+		if (manuallyMergedConcepts.keySet().size() > conflictingConceptIds.size()) {
+			throw new IllegalStateException("There are more manually merged concepts than conflicts. Can not proceed.");
+		}
+
+		// Perform rebase merge
+		branchMergeService.mergeBranchSync(mergeReview.getSourcePath(), mergeReview.getTargetPath(), manuallyMergedConcepts.values());
+	}
+
+	private void assertMergeReviewCurrent(MergeReview mergeReview) {
+		if (mergeReview.getStatus() != ReviewStatus.CURRENT) {
+			throw new IllegalStateException("Merge review state is not current");
+		}
+	}
+
+	private Set<Long> getConflictingConceptIds(MergeReview mergeReview) {
+		final BranchReview sourceToTargetReview = reviewStore.getIfPresent(mergeReview.getSourceToTargetReviewId());
+		final BranchReview targetToSourceReview = reviewStore.getIfPresent(mergeReview.getSourceToTargetReviewId());
+		return Sets.intersection(sourceToTargetReview.getChanges().getChangedConcepts(), targetToSourceReview.getChanges().getChangedConcepts());
+	}
+
+	private Concept autoMergeConcept(Concept sourceConcept, Concept targetConcept) {
+		final Concept mergedConcept = new Concept();
+
+		// If one of the concepts is unpublished, then it's values are newer.  If both are unpublished, source would win
+		Concept winner = sourceConcept;
+		if (targetConcept.getEffectiveTime() == null && sourceConcept.getEffectiveTime() != null) {
+			winner = targetConcept;
+		}
+
+		// Set directly owned values
+		mergedConcept.setConceptId(winner.getConceptId());
+		mergedConcept.setActive(winner.isActive());
+		mergedConcept.setDefinitionStatus(winner.getDefinitionStatus());
+		mergedConcept.setEffectiveTime(winner.getEffectiveTime());
+		mergedConcept.setModuleId(winner.getModuleId());
+
+		mergedConcept.setInactivationIndicatorName(winner.getInactivationIndicator());
+		mergedConcept.setAssociationTargets(winner.getAssociationTargets());
+
+		// Merge Descriptions - take all the descriptions from source, and add in from target
+		// if they're unpublished, which will cause an overwrite in the Set if the Description Id matches
+		final Set<Description> mergedDescriptions = new HashSet<>(sourceConcept.getDescriptions());
+		for (final Description thisDescription : targetConcept.getDescriptions()) {
+			if (thisDescription.getEffectiveTime() == null) {
+				mergedDescriptions.add(thisDescription);
+			}
+		}
+		mergedConcept.setDescriptions(mergedDescriptions);
+
+		// Merge Relationships - same process using Set to remove duplicated
+		final Set<Relationship> mergedRelationships = new HashSet<>(sourceConcept.getRelationships());
+		for (final Relationship thisRelationship : targetConcept.getRelationships()) {
+			if (thisRelationship.getEffectiveTime() == null) {
+				mergedRelationships.add(thisRelationship);
+			}
+		}
+		mergedConcept.setRelationships(mergedRelationships);
+
+		return mergedConcept;
+	}
+
+	public BranchReview getCreateReview(String source, String target) {
+		final Branch sourceBranch = branchService.findBranchOrThrow(source);
+		final Branch targetBranch = branchService.findBranchOrThrow(target);
+		return getCreateReview(sourceBranch, targetBranch);
+	}
+
+	public BranchReview getCreateReview(Branch sourceBranch, Branch targetBranch) {
+		final String reviewIndexKey = getReviewIndexKey(sourceBranch.getPath(), sourceBranch.getHeadTimestamp(),
+				targetBranch.getPath(), targetBranch.getHeadTimestamp());
+
+		final BranchReview existingReview = reviewIndex.get(reviewIndexKey);
+		if (existingReview != null) {
+			return existingReview;
+		}
+
+		return createReview(sourceBranch, targetBranch, reviewIndexKey);
+	}
+
+	private BranchReview createReview(Branch sourceBranch, Branch targetBranch, String reviewIndexKey) {
+		// Validate arguments
+		if (!branchService.branchesHaveParentChildRelationship(sourceBranch, targetBranch)) {
+			throw new IllegalArgumentException("The source or target branch must be the direct parent of the other.");
+		}
+
+		// Create review
+		final BranchReview branchReview = new BranchReview(UUID.randomUUID().toString(), new Date(), ReviewStatus.CURRENT,
+				new BranchState(sourceBranch), new BranchState(targetBranch), sourceBranch.isParent(targetBranch));
+
+		reviewStore.put(branchReview.getId(), branchReview);
+		reviewIndex.put(reviewIndexKey, branchReview);
+		return branchReview;
+	}
+
+	public BranchReview getBranchReview(String reviewId) {
+		final BranchReview branchReview = reviewStore.getIfPresent(reviewId);
+
+		if (branchReview != null) {
+			branchReview.setStatus(
+					isBranchStateCurrent(branchReview.getSource())
+							&& isBranchStateCurrent(branchReview.getTarget()) ? ReviewStatus.CURRENT : ReviewStatus.STALE);
+		}
+
+		return branchReview;
+	}
+
+	public boolean isBranchStateCurrent(BranchState branchState) {
+		final Branch branch = branchService.findBranchOrThrow(branchState.getPath());
+		return branch.getBase().getTime() == branchState.getBaseTimestamp() && branch.getHead().getTime() == branchState.getHeadTimestamp();
+	}
+
+	public BranchReviewConceptChanges getBranchReviewConceptChanges(String reviewId) {
+		final BranchReview review = getBranchReview(reviewId);
+
+		if (review == null) {
+			return null;
+		}
+
+		if (review.getStatus() != ReviewStatus.CURRENT) {
+			throw new IllegalStateException("Branch review is not current.");
+		}
+
+		if (review.getChanges() == null) {
+			synchronized (review) {
+				// Still null after we acquire the lock?
+				if (review.getChanges() == null) {
+					final Branch source = branchService.findBranchOrThrow(review.getSource().getPath());
+					final Branch target = branchService.findBranchOrThrow(review.getTarget().getPath());
+
+					// source = A------
+					// target =    \----A/B
+					// start = target base
+
+					// target = A--------
+					// source =    \--^--A/B
+					// start = source lastPromotion or base
+
+					Date start;
+					if (review.isSourceIsParent()) {
+						start = target.getBase();
+					} else {
+						start = source.getLastPromotion();
+						if (start == null) {
+							start = source.getBase();
+						}
+					}
+
+					// Look for changes in the range starting a millisecond after
+					start.setTime(start.getTime() + 1);
+
+					review.setChanges(createConceptChangeReportOnBranchForTimeRange(source.getPath(), start, source.getHead(), review.isSourceIsParent()));
+				}
+			}
+		}
+		return review.getChanges();
+	}
+
+	public BranchReviewConceptChanges createConceptChangeReportOnBranchForTimeRange(String path, Date start, Date end, boolean sourceIsParent) {
+
+		logger.info("Creating change report: branch {} time range {} to {}", path, start, end);
+
+		// Find components of each type that are on the target branch and have been ended on the source branch
+		final Set<Long> conceptsWithEndedVersions = new LongOpenHashSet();
+		final Set<Long> conceptsWithNewVersions = new LongOpenHashSet();
+		final Set<Long> conceptsWithComponentChange = new LongOpenHashSet();
+		if (!sourceIsParent) {
+			logger.info("Collecting versions replaced for change report: branch {} time range {} to {}", path, start, end);
+			// Technique: Iterate child's 'versionsReplaced' set
+			final Set<String> versionsReplaced = branchService.findBranchOrThrow(path).getVersionsReplaced();
+			try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(versionsReplaced), Concept.class)) {
+				stream.forEachRemaining(concept -> conceptsWithEndedVersions.add(parseLong(concept.getConceptId())));
+			}
+			try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(versionsReplaced), Description.class)) {
+				stream.forEachRemaining(description -> conceptsWithComponentChange.add(parseLong(description.getConceptId())));
+			}
+			try (final CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(versionsReplaced), Relationship.class)) {
+				stream.forEachRemaining(relationship -> conceptsWithComponentChange.add(parseLong(relationship.getSourceId())));
+			}
+			Set<Long> descriptionIds = new HashSet<>();
+			try (final CloseableIterator<ReferenceSetMember> stream =
+						 elasticsearchTemplate.stream(componentsReplacedCriteria(versionsReplaced), ReferenceSetMember.class)) {
+				stream.forEachRemaining(member -> descriptionIds.add(parseLong(member.getReferencedComponentId())));
+			}
+			try (final CloseableIterator<Description> stream =
+						 elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+								 .withQuery(boolQuery()
+										 .must(versionControlHelper.getBranchCriteria(path))
+										 .must(termsQuery("descriptionId", descriptionIds)))
+								 .withPageable(ComponentService.LARGE_PAGE)
+								 .build(), Description.class)) {
+				stream.forEachRemaining(description -> conceptsWithComponentChange.add(parseLong(description.getConceptId())));
+			}
+		}
+
+		// Find new versions of each component type and collect the conceptId they relate to
+		logger.info("Collecting concept changes for change report: branch {} time range {} to {}", path, start, end);
+		final BoolQueryBuilder branchUpdatesCriteria = versionControlHelper.getUpdatesOnBranchDuringRangeCriteria(path, start, end);
+
+		TimerUtil timerUtil = new TimerUtil("Collecting changes");
+		NativeSearchQuery conceptsWithNewVersionsQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery().must(branchUpdatesCriteria).mustNot(existsQuery("end")))
+				.withPageable(ComponentService.LARGE_PAGE)
+				.withFields(Concept.Fields.CONCEPT_ID)// This triggers the fast results mapper
+				.build();
+		AtomicLong concepts = new AtomicLong();
+		try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(conceptsWithNewVersionsQuery, Concept.class)) {
+			stream.forEachRemaining(concept -> {
+				final long conceptId = parseLong(concept.getConceptId());
+				conceptsWithNewVersions.add(conceptId);
+				concepts.incrementAndGet();
+			});
+		}
+		timerUtil.checkpoint("concepts " + concepts.get());
+
+		NativeSearchQuery conceptsWithEndedVersionsQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery().must(branchUpdatesCriteria).must(existsQuery("end")))
+				.withPageable(ComponentService.LARGE_PAGE)
+				.withFields(Concept.Fields.CONCEPT_ID)// This triggers the fast results mapper
+				.build();
+		AtomicLong conceptsEnded = new AtomicLong();
+		try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(conceptsWithEndedVersionsQuery, Concept.class)) {
+			stream.forEachRemaining(concept -> {
+				final long conceptId = parseLong(concept.getConceptId());
+				conceptsWithEndedVersions.add(conceptId);
+			});
+		}
+		timerUtil.checkpoint("conceptsEnded " + conceptsEnded.get());
+
+
+		logger.info("Collecting description changes for change report: branch {} time range {} to {}", path, start, end);
+		AtomicLong descriptions = new AtomicLong();
+		NativeSearchQuery descQuery = newSearchQuery(branchUpdatesCriteria)
+				.withFields(Description.Fields.CONCEPT_ID)// This triggers the fast results mapper
+				.build();
+		try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(descQuery, Description.class)) {
+			stream.forEachRemaining(description -> {
+				conceptsWithComponentChange.add(parseLong(description.getConceptId()));
+				descriptions.incrementAndGet();
+			});
+		}
+		timerUtil.checkpoint("descriptions " + descriptions.get());
+
+		logger.info("Collecting relationship changes for change report: branch {} time range {} to {}", path, start, end);
+		AtomicLong relationships = new AtomicLong();
+		NativeSearchQuery relQuery = newSearchQuery(branchUpdatesCriteria)
+				.withFields(Relationship.Fields.SOURCE_ID)// This triggers the fast results mapper
+				.build();
+		try (final CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(relQuery, Relationship.class)) {
+			stream.forEachRemaining(relationship -> {
+				conceptsWithComponentChange.add(parseLong(relationship.getSourceId()));
+				relationships.incrementAndGet();
+			});
+		}
+		timerUtil.checkpoint("relationships " + relationships.get());
+
+		logger.info("Collecting refset member changes for change report: branch {} time range {} to {}", path, start, end);
+		NativeSearchQuery memberQuery = newSearchQuery(branchUpdatesCriteria)
+				.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)))
+				.withFields(ReferenceSetMember.Fields.CONCEPT_ID)// This triggers the fast results mapper
+				.build();
+		try (final CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(memberQuery, ReferenceSetMember.class)) {
+			stream.forEachRemaining(member -> conceptsWithComponentChange.add(parseLong(member.getConceptId())));
+		}
+
+		final Sets.SetView<Long> conceptsDeleted = Sets.difference(conceptsWithEndedVersions, conceptsWithNewVersions);
+		final Sets.SetView<Long> conceptsCreated = Sets.difference(conceptsWithNewVersions, conceptsWithEndedVersions);
+		final Sets.SetView<Long> conceptsModified = Sets.difference(Sets.difference(conceptsWithComponentChange, conceptsCreated), conceptsDeleted);
+
+		logger.info("Change report complete for branch {} time range {} to {}", path, start, end);
+
+		return new BranchReviewConceptChanges(null, conceptsCreated, conceptsModified, conceptsDeleted);
+	}
+
+	private String getReviewIndexKey(String sourcePath, Long sourceHeadTimestamp, String targetPath, Long headTimestamp) {
+		return sourcePath + "@" + sourceHeadTimestamp + "->" + targetPath + "@" + headTimestamp;
+	}
+
+	private NativeSearchQuery componentsReplacedCriteria(Set<String> versionsReplaced) {
+		return new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(termsQuery("_id", versionsReplaced)))
+				.withPageable(ComponentService.LARGE_PAGE)
+				.build();
+	}
+
+	private NativeSearchQueryBuilder newSearchQuery(BoolQueryBuilder branchUpdatesCriteria) {
+		return new NativeSearchQueryBuilder()
+					.withQuery(boolQuery().must(branchUpdatesCriteria))
+					.withPageable(ComponentService.LARGE_PAGE);
+	}
+}

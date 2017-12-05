@@ -174,7 +174,7 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
-					<mainClass>org.ihtsdo.elasticsnomed.App</mainClass>
+					<mainClass>org.snomed.snowstorm.App</mainClass>
 				</configuration>
 			</plugin>
 		</plugins>
