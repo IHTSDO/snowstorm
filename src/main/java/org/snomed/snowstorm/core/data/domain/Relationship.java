@@ -226,6 +226,10 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return moduleId;
 	}
 
+	public void setModuleId(String moduleId) {
+		this.moduleId = moduleId;
+	}
+
 	public String getSourceId() {
 		return sourceId;
 	}
@@ -239,12 +243,24 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return destinationId;
 	}
 
+	public void setDestinationId(String destinationId) {
+		this.destinationId = destinationId;
+	}
+
 	public int getRelationshipGroup() {
 		return relationshipGroup;
 	}
 
+	public void setRelationshipGroup(int relationshipGroup) {
+		this.relationshipGroup = relationshipGroup;
+	}
+
 	public String getTypeId() {
 		return typeId;
+	}
+
+	public void setTypeId(String typeId) {
+		this.typeId = typeId;
 	}
 
 	public String getCharacteristicTypeId() {

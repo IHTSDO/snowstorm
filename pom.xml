@@ -23,9 +23,12 @@
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<packageName>${project.artifactId}</packageName>
 
+		<!--
+		Spring Data Elasticsearch 2.1.0.RELEASE
+		Uses Elasticsearch 2.4.0
+		-->
+		<spring-data-elasticsearch.version>2.1.0.RELEASE</spring-data-elasticsearch.version>
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
-		<spring-data-jest.version>2.3.0.RELEASE</spring-data-jest.version>
-		<jest.version>2.0.4</jest.version>
 		<snomed-boot.version>1.3.0</snomed-boot.version>
 		<elasticvc.version>1.4.2</elasticvc.version>
 		<slf4j.version>1.7.5</slf4j.version>
@@ -53,22 +56,7 @@
 		<dependency>
 			<groupId>org.springframework.data</groupId>
 			<artifactId>spring-data-elasticsearch</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>io.searchbox</groupId>
-			<artifactId>jest</artifactId>
-			<version>${jest.version}</version>
-			<exclusions>
-				<exclusion>
-					<groupId>commons-logging</groupId>
-					<artifactId>commons-logging</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-		<dependency>
-			<groupId>com.github.vanroy</groupId>
-			<artifactId>spring-boot-starter-data-jest</artifactId>
-			<version>${spring-data-jest.version}</version>
+			<version>${spring-data-elasticsearch.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>vc.inreach.aws</groupId>

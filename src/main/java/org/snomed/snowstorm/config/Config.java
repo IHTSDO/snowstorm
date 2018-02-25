@@ -2,12 +2,12 @@ package org.snomed.snowstorm.config;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.vanroy.springdata.jest.JestElasticsearchTemplate;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.repositories.config.BranchStoreMixIn;
-import io.searchbox.client.JestClient;
+import org.elasticsearch.client.Client;
+import org.elasticsearch.common.settings.Settings;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.Relationship;
@@ -16,14 +16,13 @@ import org.snomed.snowstorm.core.data.repositories.config.DescriptionStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.RelationshipStoreMixIn;
 import org.snomed.snowstorm.core.data.services.AuthoringMirrorService;
 import org.snomed.snowstorm.core.data.services.ExpressionService;
-import org.snomed.snowstorm.core.data.services.FastJestResultsMapper;
+import org.snomed.snowstorm.core.data.services.FastResultsMapper;
 import org.snomed.snowstorm.core.data.services.ReferenceSetTypesConfigurationService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierCacheManager;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalIdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.cis.CISClient;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
@@ -33,6 +32,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.EntityMapper;
 import org.springframework.data.elasticsearch.core.convert.MappingElasticsearchConverter;
 import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchMappingContext;
@@ -52,6 +52,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static com.google.common.base.Predicates.not;
+import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
 import static springfox.documentation.builders.PathSelectors.regex;
 
 @SpringBootApplication(
@@ -67,9 +68,6 @@ import static springfox.documentation.builders.PathSelectors.regex;
 @EnableAsync
 public abstract class Config {
 
-	@Autowired
-	private JestClient jestClient;
-	
 	public static final PageRequest PAGE_OF_ONE = new PageRequest(0, 1);
 
 	@Bean
@@ -78,7 +76,7 @@ public abstract class Config {
 	}
 
 	@Bean
-	public JestElasticsearchTemplate elasticsearchTemplate() throws UnknownHostException {
+	public ElasticsearchTemplate elasticsearchTemplate() throws UnknownHostException {
 		final ObjectMapper elasticSearchMapper = Jackson2ObjectMapperBuilder
 				.json()
 				.defaultViewInclusion(false)
@@ -103,11 +101,19 @@ public abstract class Config {
 		};
 
 		SimpleElasticsearchMappingContext mappingContext = new SimpleElasticsearchMappingContext();
-		FastJestResultsMapper fastJestResultsMapper = new FastJestResultsMapper(mappingContext, entityMapper);
-		return new JestElasticsearchTemplate(
-				jestClient,
+		FastResultsMapper fastResultsMapper = new FastResultsMapper(mappingContext, entityMapper);
+
+		//
+		// Local embedded client
+		//
+		// TODO: Move back to using external Elasticsearch instance with communication over HTTP
+		//
+		Client client = nodeBuilder().local(true).settings(Settings.builder().put("path.home", ".")).node().client();
+
+		return new ElasticsearchTemplate(
+				client,
 				new MappingElasticsearchConverter(mappingContext),
-				fastJestResultsMapper
+				fastResultsMapper
 		);
 	}
 
