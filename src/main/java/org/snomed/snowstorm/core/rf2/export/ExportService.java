@@ -22,10 +22,7 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -59,11 +56,11 @@ public class ExportService {
 	}
 
 	public ExportConfiguration getExportJobOrThrow(String exportId) {
-		ExportConfiguration config = exportConfigurationRepository.findOne(exportId);
-		if (config == null) {
+		Optional<ExportConfiguration> config = exportConfigurationRepository.findById(exportId);
+		if (!config.isPresent()) {
 			throw new NotFoundException("Export job not found.");
 		}
-		return config;
+		return config.get();
 	}
 
 	public void exportRF2Archive(ExportConfiguration exportConfiguration, OutputStream outputStream) throws ExportException {

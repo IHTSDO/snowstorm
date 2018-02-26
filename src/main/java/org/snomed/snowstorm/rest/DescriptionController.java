@@ -33,7 +33,7 @@ public class DescriptionController {
 	public List<DescriptionSearchResult> findConcepts(@PathVariable String branch, @RequestParam(required = false) String query,
 													  @RequestParam(defaultValue = "0") int pageNumber, @RequestParam(defaultValue = "50") int size) {
 		branch = BranchPathUriUtil.parseBranchPath(branch);
-		org.springframework.data.domain.Page<Description> page = descriptionService.findDescriptions(branch, query, new PageRequest(pageNumber, size));
+		org.springframework.data.domain.Page<Description> page = descriptionService.findDescriptions(branch, query, PageRequest.of(pageNumber, size));
 		Set<String> conceptIds = page.getContent().stream().map(Description::getConceptId).collect(Collectors.toSet());
 		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds).getResultsMap();
 
@@ -41,7 +41,7 @@ public class DescriptionController {
 		page.getContent().forEach(d -> results.add(new DescriptionSearchResult(d.getTerm(), d.isActive(), conceptMinis.get(d.getConceptId()))));
 
 		// TODO - update snow-owl to use pagination
-		// return new Page<>(new PageImpl<>(results, new PageRequest(number, size), page.getTotalElements()));
+		// return new Page<>(new PageImpl<>(results, PageRequest.of(number, size), page.getTotalElements()));
 
 		return results;
 	}

@@ -17,21 +17,21 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 	}
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Boolean)
 	protected boolean active;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@JsonView(value = View.Component.class)
 	private String effectiveTime;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@JsonView(value = View.Component.class)
 	private boolean released;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String releaseHash;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@JsonView(value = View.Component.class)
 	private String releasedEffectiveTime;
 

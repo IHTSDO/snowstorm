@@ -232,7 +232,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 								.must(termQuery("active", true))
 								.must(termQuery("characteristicTypeId", Concepts.INFERRED_RELATIONSHIP))
 								.must(termQuery("destinationId", Concepts.SNOMEDCT_ROOT)))
-						.withPageable(new PageRequest(0, 1000))
+						.withPageable(PageRequest.of(0, 1000))
 						.build();
 				List<Relationship> relationships = elasticsearchTemplate.queryForList(query, Relationship.class);
 				hierarchyRootIds = relationships.stream().map(Relationship::getSourceId).collect(Collectors.toSet());

@@ -2,7 +2,6 @@ package org.snomed.snowstorm.core.data.domain;
 
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.Date;
@@ -10,25 +9,25 @@ import java.util.Date;
 @Document(indexName = "es-codesystem-version", type = "codesystem-v", shards = 8)
 public class CodeSystemVersion {
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String id;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String shortName;
 
-	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Date)
 	private Date importDate;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String parentBranchPath;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String effectiveDate;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String version;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String description;
 
 	public CodeSystemVersion() {

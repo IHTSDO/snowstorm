@@ -6,7 +6,6 @@ import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import javax.validation.constraints.NotNull;
@@ -27,7 +26,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed, store = true)
+	@Field(type = FieldType.keyword, store = true)
 	@Size(min = 5, max = 18)
 	private String conceptId;
 
@@ -46,12 +45,12 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	private Map<String, Set<String>> associationTargetStrings;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String moduleId;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String definitionStatusId;

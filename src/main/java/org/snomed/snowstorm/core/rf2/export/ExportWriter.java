@@ -12,7 +12,7 @@ public abstract class ExportWriter<T> implements AutoCloseable {
 
 	final BufferedWriter bufferedWriter;
 	final List<T> componentBuffer;
-	int contentLinesWritten;
+	private int contentLinesWritten;
 
 	ExportWriter(BufferedWriter bufferedWriter) {
 		this.bufferedWriter = bufferedWriter;

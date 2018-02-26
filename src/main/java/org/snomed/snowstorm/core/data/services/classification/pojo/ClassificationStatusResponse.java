@@ -1,20 +1,20 @@
 package org.snomed.snowstorm.core.data.services.classification.pojo;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import org.snomed.snowstorm.core.data.domain.classification.Classification;
+import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ClassificationStatusResponse {
 
-	private Classification.Status status;
+	private ClassificationStatus status;
 	private String errorMessage;
 	private String developerMessage;
 
-	public Classification.Status getStatus() {
+	public ClassificationStatus getStatus() {
 		return status;
 	}
 
-	public void setStatus(Classification.Status status) {
+	public void setStatus(ClassificationStatus status) {
 		this.status = status;
 	}
 

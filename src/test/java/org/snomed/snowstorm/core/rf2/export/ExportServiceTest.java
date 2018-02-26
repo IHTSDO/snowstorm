@@ -92,8 +92,8 @@ public class ExportServiceTest extends AbstractTest {
 		File exportFile = getTempFile("export", ".zip");
 		exportFile.deleteOnExit();
 
-		String descriptionLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", descriptionId, new PageRequest(0, 10)).getContent().get(0).getMemberId();
-		String textDefLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", textDefId, new PageRequest(0, 10)).getContent().get(0).getMemberId();
+		String descriptionLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent().get(0).getMemberId();
+		String textDefLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", textDefId, PageRequest.of(0, 10)).getContent().get(0).getMemberId();
 
 		// Run export
 		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {

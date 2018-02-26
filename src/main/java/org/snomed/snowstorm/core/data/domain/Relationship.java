@@ -6,7 +6,6 @@ import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import javax.validation.constraints.NotNull;
@@ -38,40 +37,40 @@ public class Relationship extends SnomedComponent<Relationship> {
 	}
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String relationshipId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String moduleId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed, store = true)
+	@Field(type = FieldType.keyword, store = true)
 	private String sourceId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String destinationId;
 
-	@Field(type = FieldType.Integer, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Integer)
 	private int relationshipGroup;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String typeId;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String characteristicTypeId;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String modifierId;

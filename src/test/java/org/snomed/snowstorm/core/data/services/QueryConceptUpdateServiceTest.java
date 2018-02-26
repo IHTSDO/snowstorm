@@ -43,7 +43,7 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 	@Autowired
 	private ConceptService conceptService;
 
-	private static final PageRequest PAGE_REQUEST = new PageRequest(0, 50);
+	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 
 	@Before
 	public void setup() {

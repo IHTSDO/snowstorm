@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
@@ -43,7 +44,7 @@ public class CodeSystemService {
 
 	public void init() {
 		// Create default code system if it does not yet exist
-		if (repository.findOne(SNOMEDCT) == null) {
+		if (!repository.findById(SNOMEDCT).isPresent()) {
 			repository.save(new CodeSystem(SNOMEDCT, MAIN));
 			logger.info("Default Code System '{}' created.", SNOMEDCT);
 		}
@@ -86,11 +87,11 @@ public class CodeSystemService {
 	}
 
 	public List<CodeSystem> findAll() {
-		return repository.findAll(new PageRequest(0, 1000)).getContent();
+		return repository.findAll(PageRequest.of(0, 1000)).getContent();
 	}
 
 	public CodeSystem find(String codeSystemShortName) {
-		return repository.findOne(codeSystemShortName);
+		return repository.findById(codeSystemShortName).orElse(null);
 	}
 
 	public List<CodeSystemVersion> findAllVersions(String shortName) {

@@ -34,7 +34,7 @@ public class ReferenceSetMemberController {
 						referenceSet,
 						referencedComponentId,
 						targetComponent,
-						new PageRequest(page, size)));
+						PageRequest.of(page, size)));
 	}
 
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.GET)

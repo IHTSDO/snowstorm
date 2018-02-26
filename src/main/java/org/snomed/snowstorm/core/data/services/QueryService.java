@@ -36,7 +36,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 @Service
 public class QueryService {
 
-	public static final PageRequest PAGE_OF_ONE = new PageRequest(0, 1);
+	public static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
@@ -170,7 +170,7 @@ public class QueryService {
 		int pageNumber = 0;
 		// Iterate through pages as stream does not seem to preserve ordering
 		do {
-			NativeSearchQuery query = getLexicalQuery(term, branchCriteria, new PageRequest(pageNumber, LARGE_PAGE.getPageSize()));
+			NativeSearchQuery query = getLexicalQuery(term, branchCriteria, PageRequest.of(pageNumber, LARGE_PAGE.getPageSize()));
 			page = elasticsearchTemplate.queryForPage(query, Description.class);
 			allLexicalMatchesWithOrdering.addAll(page.getContent().stream().map(d -> parseLong(d.getConceptId())).collect(Collectors.toList()));
 			pageNumber++;

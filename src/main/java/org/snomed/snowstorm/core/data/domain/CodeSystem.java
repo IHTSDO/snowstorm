@@ -18,10 +18,10 @@ public class CodeSystem {
 	}
 
 	@Id
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String shortName;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String branchPath;
 
 	public CodeSystem() {

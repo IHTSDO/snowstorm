@@ -2,7 +2,6 @@ package org.snomed.snowstorm.core.data.domain.classification;
 
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.Date;
@@ -13,65 +12,46 @@ import java.util.Date;
 @Document(indexName = "es-class", type = "classification", shards = 8)
 public class Classification {
 
-	public enum Status {
-
-		SCHEDULED, RUNNING, FAILED, COMPLETED(true), SAVED(true), SAVE_FAILED(true);
-
-		boolean resultsAvailable;
-
-		Status(boolean resultsAvailable) {
-			this.resultsAvailable = resultsAvailable;
-		}
-
-		Status() {
-			this(false);
-		}
-
-		public boolean isResultsAvailable() {
-			return resultsAvailable;
-		}
-	}
-
 	public interface Fields {
 		String PATH = "path";
 		String STATUS = "status";
 		String CREATION_DATE = "creationDate";
 	}
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String id;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String path;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
-	private Status status;
+	@Field(type = FieldType.keyword)
+	private ClassificationStatus status;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String errorMessage;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String reasonerId;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String userId;
 
-	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Date)
 	private Date creationDate;
 
-	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Date)
 	private Date completionDate;
 
-	@Field(type = FieldType.Date, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Date)
 	private Date lastCommitDate;
 
-	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Boolean)
 	private Boolean inferredRelationshipChangesFound;
 
-	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Boolean)
 	private Boolean redundantStatedRelationshipsFound;
 
-	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Boolean)
 	private Boolean equivalentConceptsFound;
 
 	public Classification() {
@@ -93,11 +73,11 @@ public class Classification {
 		this.path = path;
 	}
 
-	public Status getStatus() {
+	public ClassificationStatus getStatus() {
 		return status;
 	}
 
-	public void setStatus(Status status) {
+	public void setStatus(ClassificationStatus status) {
 		this.status = status;
 	}
 

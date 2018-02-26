@@ -43,10 +43,8 @@ public class EclAttributeGroup implements Refinement {
 				.withPageable(LARGE_PAGE)
 				.build();
 
-		String fromValue = attributesQueryForSingleGroup.toString();
-
 		try {
-			ESQuery esQuery = queryService.getObjectMapper().readValue(fromValue, ESQuery.class);
+			ESQuery esQuery = deserialiseQuery(attributesQueryForSingleGroup, queryService);
 			queryService.stream(searchQuery).forEachRemaining(queryConcept -> {
 				// Filter results manually to check all types and values are within the same group
 				Map<Integer, Map<String, List<String>>> groupedAttributesMap = queryConcept.getGroupedAttributesMap();
@@ -64,6 +62,16 @@ public class EclAttributeGroup implements Refinement {
 
 		// Use results to build filter
 		query.filter(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptsWithCorrectGrouping));
+	}
+
+	private ESQuery deserialiseQuery(BoolQueryBuilder attributesQueryForSingleGroup, QueryService queryService) throws IOException {
+		String fromValue = attributesQueryForSingleGroup.toString();
+		// Remove whitespace
+		fromValue = fromValue.replaceAll("\n[\\s]*", "");
+		// Remove boost attributes
+		fromValue = fromValue.replace(",\"boost\" : 1.0", "");
+		// Map to ESQuery
+		return queryService.getObjectMapper().readValue(fromValue, ESQuery.class);
 	}
 
 	private boolean doesAttributeGroupMatch(Map<String, List<String>> attributeValuesMap, ESQuery esQuery) {

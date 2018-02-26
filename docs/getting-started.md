@@ -2,9 +2,9 @@
 
 ## Pre-requisites
 
-- Elasticsearch **[v2.4.4](https://www.elastic.co/downloads/past-releases/elasticsearch-2-4-4)** (specific version expected)
 - Java 8
-- Maven for building project (if you didn't know that one already!)
+- Maven3
+- [Elasticsearch v5.6.0](https://www.elastic.co/downloads/past-releases/elasticsearch-5-6-0) (specific version expected)
 - SNOMED CT International release files, [more information here](http://www.snomed.org)
 - At least **8gb** RAM to spare to run Elasticsearch
 

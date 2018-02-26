@@ -1,11 +1,12 @@
 package org.snomed.snowstorm.core.data.services.identifier.cis;
 
 final class CISGenerateRequest implements CISBulkRequest {
-	int namespace;
-	String partitionId;
-	int quantity;
 
-	public CISGenerateRequest(int namespace, String partitionId, int quantity) {
+	private int namespace;
+	private String partitionId;
+	private int quantity;
+
+	CISGenerateRequest(int namespace, String partitionId, int quantity) {
 		this.namespace = namespace;
 		this.partitionId = partitionId;
 		this.quantity = quantity;

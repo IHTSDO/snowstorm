@@ -117,11 +117,11 @@ public class ImportServiceTest extends AbstractTest {
 		Assert.assertEquals("MAIN/2014-01-31", branches.get(a).getPath());
 
 		String path = "MAIN/2002-01-31";
-		Assert.assertEquals(88, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
+		Assert.assertEquals(88, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
 		assertNull(conceptService.find("370136006", path));
 
 		path = "MAIN/2002-07-31";
-		Assert.assertEquals(89, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
+		Assert.assertEquals(89, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
 		Assert.assertNotNull(conceptService.find("370136006", path));
 
 		// Test concept's description present and active
@@ -136,7 +136,7 @@ public class ImportServiceTest extends AbstractTest {
 		Assert.assertEquals(Concepts.descriptionAcceptabilityNames.get("900000000000549004"), description1237157018in2002.getAcceptabilityMap().get("900000000000508004"));
 
 		path = "MAIN/2003-01-31";
-		Assert.assertEquals(89, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
+		Assert.assertEquals(89, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
 
 		// Test concept's description present and inactive
 		final Concept concept138875005in2003 = conceptService.find("138875005", path);
@@ -149,8 +149,8 @@ public class ImportServiceTest extends AbstractTest {
 		Assert.assertEquals(0, description1237157018in2003.getAcceptabilityMap().size());
 
 		path = "MAIN/2014-01-31";
-		Assert.assertEquals(102, conceptService.findAll(path, new PageRequest(0, 10)).getTotalElements());
-		Assert.assertEquals(102, conceptService.findAll("MAIN", new PageRequest(0, 10)).getTotalElements());
+		Assert.assertEquals(102, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
+		Assert.assertEquals(102, conceptService.findAll("MAIN", PageRequest.of(0, 10)).getTotalElements());
 
 		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryService.retrieveAncestors("131148009", "MAIN/2002-01-31", false));
 		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/2005-01-31", false));
@@ -188,7 +188,7 @@ public class ImportServiceTest extends AbstractTest {
 		Assert.assertEquals(4, conceptBleeding.getRelationships().stream().filter(r -> r.getCharacteristicTypeId().equals(Concepts.INFERRED_RELATIONSHIP)).count());
 		Assert.assertEquals(3, conceptBleeding.getRelationships().stream().filter(r -> r.getCharacteristicTypeId().equals(Concepts.STATED_RELATIONSHIP)).count());
 
-		final Page<Concept> conceptPage = conceptService.findAll(branchPath, new PageRequest(0, 200));
+		final Page<Concept> conceptPage = conceptService.findAll(branchPath, PageRequest.of(0, 200));
 		Assert.assertEquals(102, conceptPage.getNumberOfElements());
 		final List<Concept> concepts = conceptPage.getContent();
 		Concept conceptMechanicalAbnormality = null;

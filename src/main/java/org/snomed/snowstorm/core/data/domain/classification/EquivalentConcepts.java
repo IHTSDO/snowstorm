@@ -3,7 +3,6 @@ package org.snomed.snowstorm.core.data.domain.classification;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.HashSet;
@@ -13,13 +12,13 @@ import java.util.Set;
 public class EquivalentConcepts {
 
 	@Id
-	@Field(index = FieldIndex.not_analyzed)
+	@Field
 	private String internalId;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String classificationId;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private Set<String> conceptIds;
 
 	public EquivalentConcepts() {

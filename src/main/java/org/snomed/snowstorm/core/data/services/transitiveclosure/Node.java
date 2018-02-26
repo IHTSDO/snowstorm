@@ -12,7 +12,7 @@ public class Node {
 	private final Set<Node> parents;
 	private boolean updated;
 
-	public static final Logger LOGGER = LoggerFactory.getLogger(Node.class);
+	private static final Logger LOGGER = LoggerFactory.getLogger(Node.class);
 
 	Node(Long id) {
 		this.id = id;

@@ -2,7 +2,6 @@ package org.snomed.snowstorm.core.data.domain.jobs;
 
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.Collection;
@@ -13,10 +12,10 @@ public class IdentifiersForRegistration {
 
 	private String id;
 
-	@Field(type = FieldType.Integer, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Integer)
 	private int namespace;
 
-	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Long)
 	private Collection<Long> ids;
 
 	public IdentifiersForRegistration(int namespace, Collection<Long> ids) {

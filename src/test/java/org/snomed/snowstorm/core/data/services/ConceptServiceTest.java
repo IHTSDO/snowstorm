@@ -121,7 +121,7 @@ public class ConceptServiceTest extends AbstractTest {
 		String descriptionId = fsn.getDescriptionId();
 		Assert.assertNotNull(descriptionId);
 
-		List<ReferenceSetMember> acceptabilityMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, new PageRequest(0, 10)).getContent();
+		List<ReferenceSetMember> acceptabilityMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent();
 		Assert.assertEquals(2, acceptabilityMembers.size());
 		Assert.assertTrue(acceptabilityMembers.get(0).isActive());
 		Assert.assertTrue(acceptabilityMembers.get(1).isActive());
@@ -130,7 +130,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 		conceptService.update(concept, "MAIN");
 
-		List<ReferenceSetMember> acceptabilityMembersAfterDescriptionDeletion = referenceSetMemberService.findMembers("MAIN", descriptionId, new PageRequest(0, 10)).getContent();
+		List<ReferenceSetMember> acceptabilityMembersAfterDescriptionDeletion = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent();
 		Assert.assertEquals(0, acceptabilityMembersAfterDescriptionDeletion.size());
 	}
 
@@ -148,7 +148,7 @@ public class ConceptServiceTest extends AbstractTest {
 		String descriptionId = fsn.getDescriptionId();
 		Assert.assertNotNull(descriptionId);
 
-		List<ReferenceSetMember> acceptabilityMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, new PageRequest(0, 10)).getContent();
+		List<ReferenceSetMember> acceptabilityMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent();
 		Assert.assertEquals(2, acceptabilityMembers.size());
 		Assert.assertTrue(acceptabilityMembers.get(0).isActive());
 		Assert.assertTrue(acceptabilityMembers.get(1).isActive());
@@ -179,7 +179,7 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals(descriptionToInactivate.getDescriptionId(), associationTargetMember.getReferencedComponentId());
 		assertEquals("321667001", associationTargetMember.getAdditionalField("targetComponentId"));
 
-		List<ReferenceSetMember> membersAfterDescriptionInactivation = referenceSetMemberService.findMembers("MAIN", descriptionId, new PageRequest(0, 10)).getContent();
+		List<ReferenceSetMember> membersAfterDescriptionInactivation = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent();
 		Assert.assertEquals(2, membersAfterDescriptionInactivation.size());
 		boolean descriptionInactivationIndicatorMemberFound = false;
 		boolean refersToMemberFound = false;
@@ -630,11 +630,11 @@ public class ConceptServiceTest extends AbstractTest {
 
 		final Iterable<Concept> conceptsCreated = conceptService.create(concepts, "MAIN/A");
 
-		final Page<Concept> page = conceptService.findAll("MAIN/A", new PageRequest(0, 100));
+		final Page<Concept> page = conceptService.findAll("MAIN/A", PageRequest.of(0, 100));
 		assertEquals(concepts.size() + 1, page.getTotalElements());
 		assertEquals(Concepts.CORE_MODULE, page.getContent().get(50).getModuleId());
 
-		ResultMapPage<String, ConceptMini> conceptDescendants = conceptService.findConceptDescendants(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated, new PageRequest(0, 50));
+		ResultMapPage<String, ConceptMini> conceptDescendants = conceptService.findConceptDescendants(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated, PageRequest.of(0, 50));
 		assertEquals(10 * 1000, conceptDescendants.getTotalElements());
 
 		List<Relationship> inboundRelationships = relationshipService.findInboundRelationships(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated);
@@ -649,7 +649,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 		conceptService.createUpdate(toUpdate, "MAIN/A");
 
-		final Page<Concept> pageAfterUpdate = conceptService.findAll("MAIN/A", new PageRequest(0, 100));
+		final Page<Concept> pageAfterUpdate = conceptService.findAll("MAIN/A", PageRequest.of(0, 100));
 		assertEquals(tenThousand + 1, pageAfterUpdate.getTotalElements());
 		Concept someConcept = pageAfterUpdate.getContent().get(50);
 		if (someConcept.getId().equals(SNOMEDCT_ROOT)) {

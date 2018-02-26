@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import ch.qos.logback.classic.Level;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -11,7 +12,6 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import it.unimi.dsi.fastutil.longs.*;
-import org.apache.log4j.Level;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -99,7 +99,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 	}
 
 	public Concept find(String id, String path) {
-		final Page<Concept> concepts = doFind(Collections.singleton(id), path, new PageRequest(0, 10));
+		final Page<Concept> concepts = doFind(Collections.singleton(id), path, PageRequest.of(0, 10));
 		if (concepts.getTotalElements() > 1) {
 			final Branch latestBranch = branchService.findLatest(path);
 			final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
@@ -114,7 +114,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 	}
 
 	public Collection<Concept> find(String path, Collection<? extends Object> ids) {
-		return doFind(ids, path, new PageRequest(0, ids.size())).getContent();
+		return doFind(ids, path, PageRequest.of(0, ids.size())).getContent();
 	}
 
 	public boolean exists(String id, String path) {
@@ -231,7 +231,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		if (conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
-		return findConceptMinis(branchCriteria, conceptIds, new PageRequest(0, conceptIds.size()));
+		return findConceptMinis(branchCriteria, conceptIds, PageRequest.of(0, conceptIds.size()));
 	}
 
 	private ResultMapPage<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, Collection<? extends Object> conceptIds, PageRequest pageRequest) {
@@ -247,7 +247,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 	private void populateConceptMinis(QueryBuilder branchCriteria, Map<String, ConceptMini> minisToPopulate) {
 		if (!minisToPopulate.isEmpty()) {
 			Set<String> conceptIds = minisToPopulate.keySet();
-			Page<Concept> concepts = doFind(conceptIds, branchCriteria, new PageRequest(0, conceptIds.size()), false, false);
+			Page<Concept> concepts = doFind(conceptIds, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false);
 			concepts.getContent().forEach(c -> {
 				ConceptMini conceptMini = minisToPopulate.get(c.getConceptId());
 				conceptMini.setDefinitionStatus(c.getDefinitionStatus());
@@ -277,7 +277,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 								.must(branchCriteria)
 								.must(termsQuery("conceptId", conceptIdsToFindSegment))
 						)
-						.withPageable(new PageRequest(0, conceptIdsToFindSegment.size()));
+						.withPageable(PageRequest.of(0, conceptIdsToFindSegment.size()));
 				tempPage = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
 				allConcepts.addAll(tempPage.getContent());
 			}
@@ -488,7 +488,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		final Map<String, Concept> existingConceptsMap = new HashMap<>();
 		if (!conceptIds.isEmpty()) {
 			for (List<String> conceptIdPartition : Iterables.partition(conceptIds, 500)) {
-				final List<Concept> existingConcepts = doFind(conceptIdPartition, commit, new PageRequest(0, conceptIds.size())).getContent();
+				final List<Concept> existingConcepts = doFind(conceptIdPartition, commit, PageRequest.of(0, conceptIds.size())).getContent();
 				for (Concept existingConcept : existingConcepts) {
 					existingConceptsMap.put(existingConcept.getConceptId(), existingConcept);
 				}
@@ -851,7 +851,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 						.must(branchCriteria)
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true)))
 				.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, requiredActiveConcepts))
-				.withPageable(new PageRequest(0, 1));
+				.withPageable(PageRequest.of(0, 1));
 
 		Page<Concept> concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
 		if (concepts.getTotalElements() == requiredActiveConcepts.size()) {

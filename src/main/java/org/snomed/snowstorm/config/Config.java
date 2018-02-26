@@ -8,6 +8,8 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.repositories.config.BranchStoreMixIn;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.transport.client.PreBuiltTransportClient;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.Relationship;
@@ -47,12 +49,11 @@ import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
 
 import java.io.IOException;
-import java.net.UnknownHostException;
+import java.net.InetAddress;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static com.google.common.base.Predicates.not;
-import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
 import static springfox.documentation.builders.PathSelectors.regex;
 
 @SpringBootApplication(
@@ -68,7 +69,7 @@ import static springfox.documentation.builders.PathSelectors.regex;
 @EnableAsync
 public abstract class Config {
 
-	public static final PageRequest PAGE_OF_ONE = new PageRequest(0, 1);
+	public static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 
 	@Bean
 	public ExecutorService taskExecutor() {
@@ -76,7 +77,15 @@ public abstract class Config {
 	}
 
 	@Bean
-	public ElasticsearchTemplate elasticsearchTemplate() throws UnknownHostException {
+	public Client elasticsearchClient() throws IOException {
+		// FIXME: Hardcoded TCP client on localhost:9300
+		Settings settings = Settings.builder().build();
+		return new PreBuiltTransportClient(settings)
+				.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName("localhost"), 9300));
+	}
+
+	@Bean
+	public ElasticsearchTemplate elasticsearchTemplate() throws IOException {
 		final ObjectMapper elasticSearchMapper = Jackson2ObjectMapperBuilder
 				.json()
 				.defaultViewInclusion(false)
@@ -103,15 +112,8 @@ public abstract class Config {
 		SimpleElasticsearchMappingContext mappingContext = new SimpleElasticsearchMappingContext();
 		FastResultsMapper fastResultsMapper = new FastResultsMapper(mappingContext, entityMapper);
 
-		//
-		// Local embedded client
-		//
-		// TODO: Move back to using external Elasticsearch instance with communication over HTTP
-		//
-		Client client = nodeBuilder().local(true).settings(Settings.builder().put("path.home", ".")).node().client();
-
 		return new ElasticsearchTemplate(
-				client,
+				elasticsearchClient(),
 				new MappingElasticsearchConverter(mappingContext),
 				fastResultsMapper
 		);

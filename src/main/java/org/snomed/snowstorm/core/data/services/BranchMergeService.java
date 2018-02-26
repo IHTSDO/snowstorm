@@ -184,7 +184,7 @@ public class BranchMergeService {
 		if (!toEnd.isEmpty()) {
 			// End entities on target
 			toEnd.forEach(entity -> entity.setEnd(commit.getTimepoint()));
-			entityRepository.save(toEnd);
+			entityRepository.saveAll(toEnd);
 
 			commit.getEntityVersionsReplaced().removeAll(toEnd.stream().map(Entity::getInternalId).collect(Collectors.toList()));
 
@@ -206,7 +206,7 @@ public class BranchMergeService {
 
 			// End entities on source
 			toPromote.forEach(entity -> entity.setEnd(commit.getTimepoint()));
-			entityRepository.save(toPromote);
+			entityRepository.saveAll(toPromote);
 
 			// Save entities on target
 			toPromote.forEach(DomainEntity::markChanged);

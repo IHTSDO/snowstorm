@@ -209,7 +209,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	static NativeSearchQuery addTermSort(NativeSearchQuery query) {
-		query.addSort(new Sort("termLen"));
+		query.addSort(Sort.by("termLen"));
 		return query;
 	}
 

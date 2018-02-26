@@ -26,12 +26,12 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	}
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@Size(min = 5, max = 18)
 	private String descriptionId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.analyzed)
+	@Field(type = FieldType.text)
 	@NotNull
 	@Size(min = 1, max = 255)
 	private String term;
@@ -40,27 +40,27 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	private int termLen;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed, store = true)
+	@Field(type = FieldType.keyword, store = true)
 	private String conceptId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String moduleId;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 2, max = 2)
 	private String languageCode;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String typeId;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String caseSignificanceId;

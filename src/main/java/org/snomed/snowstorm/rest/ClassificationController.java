@@ -5,6 +5,7 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.ConceptView;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
+import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus;
 import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.classification.ClassificationService;
@@ -45,7 +46,7 @@ public class ClassificationController {
 	public org.snomed.snowstorm.rest.pojo.ItemsPage<RelationshipChange> getRelationshipChanges(@PathVariable String branch, @PathVariable String classificationId,
 																							   @RequestParam(required = false, defaultValue = "0") int page,
 																							   @RequestParam(required = false, defaultValue = "1000") int pageSize) {
-		return new org.snomed.snowstorm.rest.pojo.ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.parseBranchPath(branch), classificationId, new PageRequest(page, pageSize)));
+		return new org.snomed.snowstorm.rest.pojo.ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.parseBranchPath(branch), classificationId, PageRequest.of(page, pageSize)));
 	}
 
 	@ApiOperation("Retrieve a preview of a concept with classification changes applied")
@@ -62,7 +63,7 @@ public class ClassificationController {
 	public org.snomed.snowstorm.rest.pojo.ItemsPage<EquivalentConceptsResponse> getEquivalentConcepts(@PathVariable String branch, @PathVariable String classificationId,
 																									  @RequestParam(required = false, defaultValue = "0") int page,
 																									  @RequestParam(required = false, defaultValue = "1000") int pageSize) {
-		return new ItemsPage<>(classificationService.getEquivalentConcepts(BranchPathUriUtil.parseBranchPath(branch), classificationId, new PageRequest(page, pageSize)));
+		return new ItemsPage<>(classificationService.getEquivalentConcepts(BranchPathUriUtil.parseBranchPath(branch), classificationId, PageRequest.of(page, pageSize)));
 	}
 
 	@ApiOperation("Create a classification on a branch")
@@ -85,8 +86,8 @@ public class ClassificationController {
 	@RequestMapping(value = "/{classificationId}", method = RequestMethod.PUT)
 	@Async
 	public void updateClassification(@PathVariable String branch, @PathVariable String classificationId, @RequestBody ClassificationUpdateRequest updateRequest) {
-		if (updateRequest.getStatus() != Classification.Status.SAVED) {
-			throw new IllegalArgumentException("The only expected status is " + Classification.Status.SAVED.toString());
+		if (updateRequest.getStatus() != ClassificationStatus.SAVED) {
+			throw new IllegalArgumentException("The only expected status is " + ClassificationStatus.SAVED.toString());
 		}
 		classificationService.saveClassificationResultsToBranch(BranchPathUriUtil.parseBranchPath(branch), classificationId);
 	}

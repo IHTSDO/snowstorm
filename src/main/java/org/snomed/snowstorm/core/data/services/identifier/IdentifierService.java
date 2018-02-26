@@ -112,7 +112,7 @@ public class IdentifierService {
 		}
 		// Gather sets of identifiers and group by namespace
 		Map<Integer, Set<Long>> namespaceIdentifierMap = new HashMap<>();
-		//PageRequest pageRequest = new PageRequest(0,1000);
+		//PageRequest pageRequest = PageRequest.of(0,1000);
 		Iterable<IdentifiersForRegistration> roundOfIdentifiers = identifiersForRegistrationRepository.findAll();
 		for (IdentifiersForRegistration identifiersForRegistration : roundOfIdentifiers) {
 			namespaceIdentifierMap.computeIfAbsent(identifiersForRegistration.getNamespace(), (n) -> new HashSet<>())
@@ -126,7 +126,7 @@ public class IdentifierService {
 				logger.info("Registered {} identifiers for namespace {}", entry.getValue().size(), namespace);
 			}
 			// Once registered delete identifiers from temp store
-			identifiersForRegistrationRepository.delete(roundOfIdentifiers);
+			identifiersForRegistrationRepository.deleteAll(roundOfIdentifiers);
 		} catch (ServiceException e) {
 			logger.warn("Failed to register identifiers. They are in persistent storage, will retry later.", e);
 		} 

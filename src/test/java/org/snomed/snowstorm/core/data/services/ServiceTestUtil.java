@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 
 public class ServiceTestUtil {
 
-	public static final PageRequest PAGE_REQUEST = new PageRequest(0, 100);
+	public static final PageRequest PAGE_REQUEST = PageRequest.of(0, 100);
 
 	private ConceptService conceptService;
 

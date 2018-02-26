@@ -66,7 +66,7 @@ public class ConceptController {
 		queryBuilder.termPrefix(term);
 		queryBuilder.conceptIds(conceptIds);
 
-		org.springframework.data.domain.Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch), new PageRequest(page, size));
+		org.springframework.data.domain.Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch), PageRequest.of(page, size));
 		return new ItemsPage<>(ControllerHelper.nestConceptMiniFsn(conceptMiniPage.getContent()), conceptMiniPage.getTotalElements());
 	}
 
@@ -91,7 +91,7 @@ public class ConceptController {
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "0") int number,
 			@RequestParam(defaultValue = "100") int size) {
-		return new Page<>(conceptService.findAll(BranchPathUriUtil.parseBranchPath(branch), new PageRequest(number, size)));
+		return new Page<>(conceptService.findAll(BranchPathUriUtil.parseBranchPath(branch), PageRequest.of(number, size)));
 	}
 
 	@ResponseBody
@@ -116,7 +116,7 @@ public class ConceptController {
 																  @RequestParam(required = false, defaultValue = "0") int page,
 																  @RequestParam(required = false, defaultValue = "50") int size) {
 		ResultMapPage<String, ConceptMini> descendants = conceptService.findConceptDescendants(conceptId, BranchPathUriUtil.parseBranchPath(branch),
-				Relationship.CharacteristicType.stated, new PageRequest(page, size));
+				Relationship.CharacteristicType.stated, PageRequest.of(page, size));
 		return new ItemsPage<>(ControllerHelper.nestConceptMiniFsn(descendants.getResultsMap().values()), descendants.getTotalElements());
 	}
 

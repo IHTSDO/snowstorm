@@ -94,7 +94,7 @@ public class MRCMService {
 		}
 
 		queryBuilder.termPrefix(termPrefix);
-		return queryService.search(queryBuilder, branchPath, new PageRequest(0, 50)).getContent();
+		return queryService.search(queryBuilder, branchPath, PageRequest.of(0, 50)).getContent();
 	}
 
 	public static void main(String[] args) throws IOException {

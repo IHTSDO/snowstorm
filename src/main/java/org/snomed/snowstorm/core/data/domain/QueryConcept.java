@@ -5,7 +5,6 @@ import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.*;
@@ -28,25 +27,25 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 
 		String CONCEPT_ID = "conceptId";
 	}
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	private String conceptIdForm;
 
-	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed, store = true)
+	@Field(type = FieldType.Long, store = true)
 	private Long conceptId;
 
-	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Long)
 	private Set<Long> parents;
 
-	@Field(type = FieldType.Long, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Long)
 	private Set<Long> ancestors;
 
-	@Field(type = FieldType.Boolean, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.Boolean)
 	private boolean stated;
 
 	@Field(type = FieldType.Object)
 	private Map<String, Set<String>> attr;
 
-	@Field(type = FieldType.String, index = FieldIndex.not_analyzed)
+	@Field(type = FieldType.keyword)
 	// Format:
 	// groupNo:attr=value:attr=value,value|groupNo:attr=value:attr=value,value
 	private String attrMap;

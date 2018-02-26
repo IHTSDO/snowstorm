@@ -14,10 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.classification.ChangeNature;
-import org.snomed.snowstorm.core.data.domain.classification.Classification;
-import org.snomed.snowstorm.core.data.domain.classification.EquivalentConcepts;
-import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
+import org.snomed.snowstorm.core.data.domain.classification.*;
 import org.snomed.snowstorm.core.data.repositories.ClassificationRepository;
 import org.snomed.snowstorm.core.data.repositories.classification.EquivalentConceptsRepository;
 import org.snomed.snowstorm.core.data.repositories.classification.RelationshipChangeRepository;
@@ -50,7 +47,7 @@ import java.util.zip.ZipInputStream;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
-import static org.snomed.snowstorm.core.data.domain.classification.Classification.Status.*;
+import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.*;
 
 @Service
 public class ClassificationService {
@@ -89,7 +86,7 @@ public class ClassificationService {
 
 	private Thread classificationStatusPollingThread;
 
-	private static final PageRequest PAGE_FIRST_1K = new PageRequest(0, 1000);
+	private static final PageRequest PAGE_FIRST_1K = PageRequest.of(0, 1000);
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -100,14 +97,14 @@ public class ClassificationService {
 	@PostConstruct
 	private void init() {
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(termsQuery(Classification.Fields.STATUS, Classification.Status.SCHEDULED, Classification.Status.RUNNING))
+				.withQuery(termsQuery(Classification.Fields.STATUS, ClassificationStatus.SCHEDULED.name(), ClassificationStatus.RUNNING.name()))
 				.withPageable(PAGE_FIRST_1K);
 
 		// Mark running classifications as failed. This could be improved in the future.
 		final long[] failedCount = {0};
 		try (CloseableIterator<Classification> runningClassifications = elasticsearchOperations.stream(queryBuilder.build(), Classification.class)) {
 			runningClassifications.forEachRemaining(classification -> {
-				classification.setStatus(Classification.Status.FAILED);
+				classification.setStatus(ClassificationStatus.FAILED);
 				classification.setErrorMessage("Termserver restarted.");
 				classificationRepository.save(classification);
 				failedCount[0]++;
@@ -131,14 +128,14 @@ public class ClassificationService {
 						Date remoteClassificationCutoffTime = DateUtil.newDatePlus(Calendar.MINUTE, -abortRemoteClassificationAfterMinutes);
 						for (Classification classification : classificationsToCheck) {
 							ClassificationStatusResponse statusResponse = serviceClient.getStatus(classification.getId());
-							Classification.Status latestStatus = statusResponse.getStatus();
-							if (latestStatus == Classification.Status.FAILED) {
+							ClassificationStatus latestStatus = statusResponse.getStatus();
+							if (latestStatus == ClassificationStatus.FAILED) {
 								classification.setErrorMessage(statusResponse.getErrorMessage());
 								logger.warn("Remote classification failed with message:{}, developerMessage:{}",
 										statusResponse.getErrorMessage(), statusResponse.getDeveloperMessage());
 							}
 							else if (classification.getCreationDate().before(remoteClassificationCutoffTime)) {
-								latestStatus = Classification.Status.FAILED;
+								latestStatus = ClassificationStatus.FAILED;
 								classification.setErrorMessage("Remote service taking too long.");
 							}
 							if (classification.getStatus() != latestStatus) {
@@ -148,11 +145,11 @@ public class ClassificationService {
 								if (latestStatus == COMPLETED) {
 									try {
 										downloadRemoteResults(classification.getId());
-										inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(), new PageRequest(0, 1), false, null).getTotalElements() > 0;
-										equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(), new PageRequest(0, 1)).getTotalElements() > 0;
+										inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(), PageRequest.of(0, 1), false, null).getTotalElements() > 0;
+										equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(), PageRequest.of(0, 1)).getTotalElements() > 0;
 
 									} catch (IOException e) {
-										latestStatus = Classification.Status.FAILED;
+										latestStatus = ClassificationStatus.FAILED;
 										String message = "Failed to capture remote classification results.";
 										classification.setErrorMessage(message);
 										logger.error(message, e);
@@ -165,7 +162,7 @@ public class ClassificationService {
 								classification.setCompletionDate(new Date());
 								classificationRepository.save(classification);
 							}
-							if (latestStatus != Classification.Status.SCHEDULED && latestStatus != Classification.Status.RUNNING) {
+							if (latestStatus != ClassificationStatus.SCHEDULED && latestStatus != ClassificationStatus.RUNNING) {
 								synchronized (classificationsInProgress) {
 									classificationsInProgress.remove(classification);
 								}
@@ -230,7 +227,7 @@ public class ClassificationService {
 			File deltaExport = exportService.exportRF2ArchiveFile(path, "", RF2Type.DELTA, true);
 			String remoteClassificationId = serviceClient.createClassification(previousPackage, deltaExport, path, reasonerId);
 			classification.setId(remoteClassificationId);
-			classification.setStatus(Classification.Status.SCHEDULED);
+			classification.setStatus(ClassificationStatus.SCHEDULED);
 			classificationRepository.save(classification);
 			synchronized (classificationsInProgress) {
 				classificationsInProgress.add(classification);
@@ -259,7 +256,7 @@ public class ClassificationService {
 
 				do {
 					// Grab a page of relationship changes
-					relationshipChangesPage = doGetRelationshipChanges(path, classificationId, new PageRequest(pageNumber, LARGE_PAGE.getPageSize()), false, null);
+					relationshipChangesPage = doGetRelationshipChanges(path, classificationId, PageRequest.of(pageNumber, LARGE_PAGE.getPageSize()), false, null);
 
 					// Group changes by concept
 					Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
@@ -437,7 +434,7 @@ public class ClassificationService {
 		}
 		if (!relationshipChanges.isEmpty()) {
 			logger.info("Saving {} classification relationship changes", relationshipChanges.size());
-			relationshipChangeRepository.save(relationshipChanges);
+			relationshipChangeRepository.saveAll(relationshipChanges);
 		}
 	}
 
@@ -460,7 +457,7 @@ public class ClassificationService {
 		}
 		if (!equivalentConceptsMap.isEmpty()) {
 			logger.info("Saving {} classification equivalent concept sets", equivalentConceptsMap.size());
-			equivalentConceptsRepository.save(equivalentConceptsMap.values());
+			equivalentConceptsRepository.saveAll(equivalentConceptsMap.values());
 		}
 	}
 }
