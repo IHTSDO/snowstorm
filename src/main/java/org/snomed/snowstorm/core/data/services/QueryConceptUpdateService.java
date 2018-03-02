@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import ch.qos.logback.classic.Level;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
@@ -110,7 +111,7 @@ public class QueryConceptUpdateService extends ComponentService {
 
 		logger.info("Performing {} of {} transitive closures", rebuild ? "rebuild" : "incremental update", formName);
 
-		TimerUtil timer = new TimerUtil("TC index " + formName);
+		TimerUtil timer = new TimerUtil("TC index " + formName, Level.DEBUG);
 		Set<Long> updateSource = new HashSet<>();
 		Set<Long> updateDestination = new HashSet<>();
 		Set<Long> existingAncestors = new HashSet<>();
