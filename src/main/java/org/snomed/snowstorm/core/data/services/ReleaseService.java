@@ -27,7 +27,7 @@ public class ReleaseService {
 	private BranchService branchService;
 
 	@Autowired
-	private ComponentTypeRegistry componentTypeRegistry;
+	private DomainEntityConfiguration domainEntityConfiguration;
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
@@ -42,7 +42,7 @@ public class ReleaseService {
 		try (Commit commit = branchService.openCommit(path)) {
 			QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 
-			Set<Class<? extends SnomedComponent>> componentTypes = componentTypeRegistry.getComponentTypeRepositoryMap().keySet();
+			Set<Class<? extends SnomedComponent>> componentTypes = domainEntityConfiguration.getComponentTypeRepositoryMap().keySet();
 			for (Class<? extends SnomedComponent> componentType : componentTypes) {
 				releaseComponentsOfType(componentType, effectiveTime, commit, branchCriteria);
 			}

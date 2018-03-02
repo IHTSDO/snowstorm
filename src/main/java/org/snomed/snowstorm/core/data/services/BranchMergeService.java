@@ -52,7 +52,7 @@ public class BranchMergeService {
 	private ElasticsearchOperations elasticsearchTemplate;
 
 	@Autowired
-	private ComponentTypeRegistry componentTypeRegistry;
+	private DomainEntityConfiguration domainEntityConfiguration;
 
 	// TODO: Move to persistent storage to prepare for autoscaling
 	private final Cache<String, BranchMergeJob> branchMergeJobStore = CacheBuilder.newBuilder()
@@ -151,7 +151,7 @@ public class BranchMergeService {
 			logger.info("Performing promotion {} -> {}", source, target);
 			try (Commit commit = branchService.openPromotionCommit(targetBranch.getPath(), source)) {
 				final Set<String> versionsReplaced = sourceBranch.getVersionsReplaced();
-				final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = componentTypeRegistry.getComponentTypeRepositoryMap();
+				final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = domainEntityConfiguration.getComponentTypeRepositoryMap();
 				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
 				commit.markSuccessful();
 			}

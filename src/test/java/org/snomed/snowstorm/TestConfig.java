@@ -24,7 +24,7 @@ public class TestConfig extends Config {
 	private ElasticsearchOperations elasticsearchTemplate;
 
 	@Bean
-	public ElasticsearchRestClient elasticsearchClient() throws IOException {
+	public ElasticsearchRestClient elasticsearchClient() {
 		// Create and start a clean standalone Elasticsearch test instance
 		String clusterName = "integration-test-cluster";
 		int port = 9931;
@@ -37,8 +37,8 @@ public class TestConfig extends Config {
 					.build()
 					.start()
 					.deleteIndices();
-		} catch (InterruptedException e) {
-			throw new IOException("Failed to start standalone Elasticsearch instance.", e);
+		} catch (InterruptedException | IOException e) {
+			throw new RuntimeException("Failed to start standalone Elasticsearch instance.", e);
 		}
 
 		// Create client to to standalone instance

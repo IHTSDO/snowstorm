@@ -3,6 +3,7 @@ package org.snomed.snowstorm.config;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.repositories.config.BranchStoreMixIn;
@@ -12,10 +13,7 @@ import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.repositories.config.ConceptStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.DescriptionStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.RelationshipStoreMixIn;
-import org.snomed.snowstorm.core.data.services.AuthoringMirrorService;
-import org.snomed.snowstorm.core.data.services.ExpressionService;
-import org.snomed.snowstorm.core.data.services.FastResultsMapper;
-import org.snomed.snowstorm.core.data.services.ReferenceSetTypesConfigurationService;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierCacheManager;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalIdentifierSource;
@@ -74,13 +72,13 @@ public abstract class Config {
 	}
 
 	@Bean
-	public ElasticsearchRestClient elasticsearchClient() throws IOException {
+	public ElasticsearchRestClient elasticsearchClient() {
 		// FIXME: Hardcoded client address localhost:9200
 		return new ElasticsearchRestClient(new HashMap<>(), "http://localhost:9200");
 	}
 
 	@Bean
-	public ElasticsearchTemplate elasticsearchTemplate() throws IOException {
+	public ElasticsearchTemplate elasticsearchTemplate() {
 		final ObjectMapper elasticSearchMapper = Jackson2ObjectMapperBuilder
 				.json()
 				.defaultViewInclusion(false)
@@ -112,6 +110,22 @@ public abstract class Config {
 				new MappingElasticsearchConverter(mappingContext),
 				fastResultsMapper
 		);
+	}
+
+	@Bean
+	public DomainEntityConfiguration domainEntityConfiguration() {
+		return new DomainEntityConfiguration();
+	}
+
+	@Bean
+	public ComponentService componentService() {
+		// Initialse Elasticsearch indices
+		Class<?>[] allDomainEntityTypes = domainEntityConfiguration().getAllDomainEntityTypes().toArray(new Class<?>[]{});
+		ComponentService.initialiseIndexAndMappingForPersistentClasses(
+				elasticsearchTemplate(),
+				allDomainEntityTypes
+		);
+		return new ComponentService();
 	}
 
 	@Bean
