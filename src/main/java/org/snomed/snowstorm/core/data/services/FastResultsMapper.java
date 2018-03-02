@@ -31,7 +31,10 @@ public class FastResultsMapper extends DefaultResultMapper {
 			.put(Concept.class, hit -> new Concept(hit.getFields().get(Concept.Fields.CONCEPT_ID).getValue()))
 			.put(Description.class, hit -> new Description().setConceptId(hit.getFields().get(Description.Fields.CONCEPT_ID).getValue()))
 			.put(Relationship.class, hit -> new Relationship().setSourceId(hit.getFields().get(Relationship.Fields.SOURCE_ID).getValue()))
-			.put(ReferenceSetMember.class, hit -> new ReferenceSetMember().setConceptId(hit.getFields().get(ReferenceSetMember.Fields.CONCEPT_ID).getValue()))
+			.put(ReferenceSetMember.class, hit -> new ReferenceSetMember()
+					.setReferencedComponentId(hit.getFields().get(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID).getValue())
+					.setConceptId(hit.getFields().get(ReferenceSetMember.Fields.CONCEPT_ID).getValue())
+			)
 			.put(QueryConcept.class, hit -> new QueryConcept().setConceptId(hit.getFields().get(QueryConcept.Fields.CONCEPT_ID).getValue()))
 			.map();
 

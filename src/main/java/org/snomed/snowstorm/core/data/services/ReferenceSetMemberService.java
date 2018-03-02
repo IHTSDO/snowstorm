@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetType;
+import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetTypeRepository;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
@@ -195,6 +196,22 @@ public class ReferenceSetMemberService extends ComponentService {
 		}
 
 		return doSaveBatchComponents(members, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
+	}
+
+	Set<Long> findConceptsInReferenceSet(QueryBuilder branchCriteria, String referenceSetId) {
+		NativeSearchQuery query = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery().must(branchCriteria)
+						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, referenceSetId))
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
+				)
+				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)// Triggers FastResultsMapper
+				.withPageable(LARGE_PAGE)
+				.build();
+		Set<Long> conceptIds = new LongArraySet();
+		try (CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(query, ReferenceSetMember.class)) {
+			stream.forEachRemaining(member -> conceptIds.add(parseLong(member.getReferencedComponentId())));
+		}
+		return conceptIds;
 	}
 
 	public void init() {

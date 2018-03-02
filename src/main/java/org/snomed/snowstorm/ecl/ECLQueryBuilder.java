@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
-public class ECLQueryBuilder {
+class ECLQueryBuilder {
 
 	ExpressionConstraint createQuery(String ecl) throws ECLException {
 		ANTLRInputStream inputStream = new ANTLRInputStream(ecl);
@@ -94,9 +94,8 @@ public class ECLQueryBuilder {
 
 		private SubExpressionConstraint build(ECLParser.SubexpressionconstraintContext ctx) {
 			Operator operator = ctx.constraintoperator() != null ? Operator.textLookup(ctx.constraintoperator().getText()) : null;
-
 			if (ctx.memberof() != null) {
-				throw new UnsupportedOperationException("MemberOf is not supported.");
+				operator = Operator.memberOf;
 			}
 
 			SubExpressionConstraint subExpressionConstraint = new SubExpressionConstraint(operator);
@@ -110,6 +109,9 @@ public class ECLQueryBuilder {
 					subExpressionConstraint.setConceptId(eclfocusconcept.eclconceptreference().conceptid().getText());
 				}
 			} else {
+				if (operator == Operator.memberOf) {
+					throw new UnsupportedOperationException("MemberOf nested expression constraint is not supported.");
+				}
 				subExpressionConstraint.setNestedExpressionConstraint(build(ctx.expressionconstraint()));
 			}
 

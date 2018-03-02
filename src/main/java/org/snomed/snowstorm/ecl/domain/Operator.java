@@ -2,7 +2,7 @@ package org.snomed.snowstorm.ecl.domain;
 
 public enum Operator {
 
-	childof("<!"), descendantorselfof("<<"), descendantof("<"), parentof(">!"), ancestororselfof(">>"), ancestorof(">");
+	childof("<!"), descendantorselfof("<<"), descendantof("<"), parentof(">!"), ancestororselfof(">>"), ancestorof(">"), memberOf("^");
 
 	private String text;
 

@@ -15,6 +15,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 public class SubExpressionConstraint implements ExpressionConstraint {
 
 	private final Operator operator;
+	private boolean memberOf;
 
 	private String conceptId;
 	private boolean wildcard;
@@ -90,7 +91,15 @@ public class SubExpressionConstraint implements ExpressionConstraint {
 				// > x
 				query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveAncestors(branchCriteria, path, stated, conceptId)));
 				break;
+			case memberOf:
+				// ^
+				query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveMembers(branchCriteria, conceptId)));
+				break;
 		}
+	}
+
+	public void memberOf() {
+		this.memberOf = true;
 	}
 
 	public void wildcard() {

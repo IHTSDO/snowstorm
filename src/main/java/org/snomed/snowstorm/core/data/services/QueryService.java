@@ -54,6 +54,9 @@ public class QueryService {
 	private ECLQueryService eclQueryService;
 
 	@Autowired
+	private ReferenceSetMemberService memberService;
+
+	@Autowired
 	private ObjectMapper objectMapper;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -280,6 +283,10 @@ public class QueryService {
 				.build();
 		final List<QueryConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class).getContent();
 		return concepts.stream().map(QueryConcept::getConceptId).collect(Collectors.toSet());
+	}
+
+	public Set<Long> retrieveMembers(QueryBuilder branchCriteria, String referenceSetId) {
+		return memberService.findConceptsInReferenceSet(branchCriteria, referenceSetId);
 	}
 
 	public void deleteAll() {

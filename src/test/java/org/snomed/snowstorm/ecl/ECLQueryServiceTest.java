@@ -10,17 +10,17 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -75,6 +75,9 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private ReferenceSetMemberService memberService;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -155,32 +158,42 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 		allConceptIds = allConcepts.stream().map(Concept::getId).collect(Collectors.toSet());
 
+		memberService.createMembers(MAIN, Sets.newHashSet(
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, CLINICAL_FINDING),
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, BODY_STRUCTURE)));
+
 		branchCriteria = versionControlHelper.getBranchCriteria(MAIN);
 	}
 
 	@Test
 	public void selectByDescendantAndAncestorOperators() throws Exception {
+		// Self
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT),
 				strings(eclQueryService.selectConceptIds(SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
 
+		// Not Self
 		assertEquals(
 				// All concepts but not root
 				allConceptIds.stream().filter(id -> !SNOMEDCT_ROOT.equals(id)).collect(Collectors.toSet()),
 				strings(eclQueryService.selectConceptIds("<" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
 
+		// Descendant or self
 		assertEquals(
 				allConceptIds,
 				strings(eclQueryService.selectConceptIds("<<" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
 
+		// Descendant or self wildcard
 		assertEquals(
 				allConceptIds,
 				strings(eclQueryService.selectConceptIds("<<*", branchCriteria, MAIN, STATED)));
 
+		// Ancestor of
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING),
 				strings(eclQueryService.selectConceptIds(">" + DISORDER, branchCriteria, MAIN, STATED)));
 
+		// Ancestor or Self of
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING, DISORDER),
 				strings(eclQueryService.selectConceptIds(">>" + DISORDER, branchCriteria, MAIN, STATED)));
@@ -188,6 +201,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 	@Test
 	public void selectParents() throws Exception {
+		// Direct Parents
 		assertEquals(
 				Sets.newHashSet(),
 				strings(eclQueryService.selectConceptIds(">!" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
@@ -203,6 +217,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 	@Test
 	public void selectChildren() throws Exception {
+		// Direct Children
 		assertEquals(
 				Sets.newHashSet(MODEL_COMPONENT, BODY_STRUCTURE, CLINICAL_FINDING, PROCEDURE, ISA),
 				strings(eclQueryService.selectConceptIds("<!" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
@@ -218,6 +233,15 @@ public class ECLQueryServiceTest extends AbstractTest {
 		assertEquals(
 				Sets.newHashSet(),
 				strings(eclQueryService.selectConceptIds("<!" + BLEEDING_SKIN, branchCriteria, MAIN, STATED)));
+	}
+
+	@Test
+	public void selectMemberOfReferenceSet() throws Exception {
+		// Member of
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING, BODY_STRUCTURE),
+				strings(eclQueryService.selectConceptIds("^" + REFSET_MRCM_ATTRIBUTE_DOMAIN, branchCriteria, MAIN, STATED))
+		);
 	}
 
 	@Test

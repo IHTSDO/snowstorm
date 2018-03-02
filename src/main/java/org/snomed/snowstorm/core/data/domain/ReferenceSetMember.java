@@ -19,6 +19,7 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		String MEMBER_ID = "memberId";
 		String REFSET_ID = "refsetId";
 		String CONCEPT_ID = "conceptId";
+		String REFERENCED_COMPONENT_ID = "referencedComponentId";
 	}
 
 	public interface LanguageFields {
@@ -38,7 +39,7 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 	private String refsetId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.keyword, store = true)
 	private String referencedComponentId;
 
 	// Used when the referencedComponentId is a description (or later possibly a relationship, depending how we implement concrete domains)
@@ -134,8 +135,9 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		return referencedComponentId;
 	}
 
-	public void setReferencedComponentId(String referencedComponentId) {
+	public ReferenceSetMember<C> setReferencedComponentId(String referencedComponentId) {
 		this.referencedComponentId = referencedComponentId;
+		return this;
 	}
 
 	public String getConceptId() {
