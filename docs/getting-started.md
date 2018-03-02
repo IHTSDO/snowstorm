@@ -4,7 +4,7 @@
 
 - Java 8
 - Maven3
-- [Elasticsearch v5.6.0](https://www.elastic.co/downloads/past-releases/elasticsearch-5-6-0) (specific version expected)
+- [Elasticsearch v6.2.2](https://www.elastic.co/downloads/past-releases/elasticsearch-6-2-2) (A later minor version should work)
 - SNOMED CT International release files, [more information here](http://www.snomed.org)
 - At least **8gb** RAM to spare to run Elasticsearch
 
