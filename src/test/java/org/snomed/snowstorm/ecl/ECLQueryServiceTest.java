@@ -237,10 +237,16 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 	@Test
 	public void selectMemberOfReferenceSet() throws Exception {
-		// Member of
+		// Member of x
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, BODY_STRUCTURE),
 				strings(eclQueryService.selectConceptIds("^" + REFSET_MRCM_ATTRIBUTE_DOMAIN, branchCriteria, MAIN, STATED))
+		);
+
+		// Member of any reference set
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING, BODY_STRUCTURE),
+				strings(eclQueryService.selectConceptIds("^*", branchCriteria, MAIN, STATED))
 		);
 	}
 

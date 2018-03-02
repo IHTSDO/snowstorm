@@ -199,14 +199,22 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	Set<Long> findConceptsInReferenceSet(QueryBuilder branchCriteria, String referenceSetId) {
+		// Build query
+		BoolQueryBuilder boolQuery = boolQuery().must(branchCriteria)
+				.must(termQuery(SnomedComponent.Fields.ACTIVE, true));
+		// Allow searching across all refsets
+		if (referenceSetId != null) {
+			boolQuery.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, referenceSetId));
+		}
+
+		// Build search query
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery().must(branchCriteria)
-						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, referenceSetId))
-						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
-				)
+				.withQuery(boolQuery)
 				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)// Triggers FastResultsMapper
 				.withPageable(LARGE_PAGE)
 				.build();
+
+		// Stream results
 		Set<Long> conceptIds = new LongArraySet();
 		try (CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(query, ReferenceSetMember.class)) {
 			stream.forEachRemaining(member -> conceptIds.add(parseLong(member.getReferencedComponentId())));

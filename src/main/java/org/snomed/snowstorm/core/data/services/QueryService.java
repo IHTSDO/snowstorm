@@ -285,7 +285,7 @@ public class QueryService {
 		return concepts.stream().map(QueryConcept::getConceptId).collect(Collectors.toSet());
 	}
 
-	public Set<Long> retrieveMembers(QueryBuilder branchCriteria, String referenceSetId) {
+	public Set<Long> retrieveConceptsInReferenceSet(QueryBuilder branchCriteria, String referenceSetId) {
 		return memberService.findConceptsInReferenceSet(branchCriteria, referenceSetId);
 	}
 

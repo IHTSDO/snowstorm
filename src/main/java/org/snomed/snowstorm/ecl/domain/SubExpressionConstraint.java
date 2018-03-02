@@ -15,8 +15,6 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 public class SubExpressionConstraint implements ExpressionConstraint {
 
 	private final Operator operator;
-	private boolean memberOf;
-
 	private String conceptId;
 	private boolean wildcard;
 	private ExpressionConstraint nestedExpressionConstraint;
@@ -47,6 +45,9 @@ public class SubExpressionConstraint implements ExpressionConstraint {
 			} else {
 				filterQuery.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptIds));
 			}
+		} else if (operator == Operator.memberOf) {
+			// Member of any reference set
+			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveConceptsInReferenceSet(branchCriteria, null)));
 		}
 		// Else Wildcard! which has no constraints
 	}
@@ -93,13 +94,9 @@ public class SubExpressionConstraint implements ExpressionConstraint {
 				break;
 			case memberOf:
 				// ^
-				query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveMembers(branchCriteria, conceptId)));
+				query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveConceptsInReferenceSet(branchCriteria, conceptId)));
 				break;
 		}
-	}
-
-	public void memberOf() {
-		this.memberOf = true;
 	}
 
 	public void wildcard() {
