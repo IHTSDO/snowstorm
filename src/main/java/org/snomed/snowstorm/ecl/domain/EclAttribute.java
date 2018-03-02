@@ -17,6 +17,7 @@ public class EclAttribute implements Refinement {
 	private SubExpressionConstraint attributeName;
 	private String expressionComparisonOperator;
 	private SubExpressionConstraint value;
+	private boolean reverse;
 
 	@Override
 	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
@@ -35,34 +36,40 @@ public class EclAttribute implements Refinement {
 		}
 
 		Collection<Long> possibleAttributeValues = value.select(path, branchCriteria, stated, null, queryService);
-		if (expressionComparisonOperator.equals("=")) {
-			if (possibleAttributeValues == null) {
-				// Value is wildcard, attribute just needs to exist
-				for (String attributeTypeProperty : attributeTypeProperties) {
-					query.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+		if (!reverse) {
+			if (expressionComparisonOperator.equals("=")) {
+				if (possibleAttributeValues == null) {
+					// Value is wildcard, attribute just needs to exist
+					for (String attributeTypeProperty : attributeTypeProperties) {
+						query.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+					}
+				} else {
+					if (possibleAttributeValues.isEmpty()) {
+						// Attribute value is not a wildcard but empty selection
+						// Force query to return nothing
+						query.must(termQuery("force-nothing", "true"));
+					} else {
+						BoolQueryBuilder shoulds = boolQuery();
+						query.must(shoulds);
+						for (String attributeTypeProperty : attributeTypeProperties) {
+							shoulds.should(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
+						}
+					}
 				}
 			} else {
-				if (possibleAttributeValues.isEmpty()) {
-					// Attribute value is not a wildcard but empty selection
-					// Force query to return nothing
-					query.must(termQuery("force-nothing", "true"));
-				} else {
-					BoolQueryBuilder shoulds = boolQuery();
-					query.must(shoulds);
-					for (String attributeTypeProperty : attributeTypeProperties) {
-						shoulds.should(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
+				for (String attributeTypeProperty : attributeTypeProperties) {
+					if (possibleAttributeValues == null) {
+						query.mustNot(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+					} else {
+						query.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+						query.filter(boolQuery().mustNot(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues)));
 					}
 				}
 			}
 		} else {
-			for (String attributeTypeProperty : attributeTypeProperties) {
-				if (possibleAttributeValues == null) {
-					query.mustNot(existsQuery(getAttributeTypeField(attributeTypeProperty)));
-				} else {
-					query.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
-					query.filter(boolQuery().mustNot(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues)));
-				}
-			}
+			// Fetch the relationship destination concepts
+			Collection<Long> destinationConceptIds = queryService.retrieveRelationshipDestinations(possibleAttributeValues, attributeTypes, branchCriteria, stated);
+			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, destinationConceptIds));
 		}
 	}
 
@@ -86,4 +93,7 @@ public class EclAttribute implements Refinement {
 		this.value = value;
 	}
 
+	public void reverse() {
+		this.reverse = true;
+	}
 }

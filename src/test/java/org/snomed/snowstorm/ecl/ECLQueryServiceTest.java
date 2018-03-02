@@ -264,10 +264,12 @@ public class ECLQueryServiceTest extends AbstractTest {
 				Sets.newHashSet(BLEEDING),
 				strings(eclQueryService.selectConceptIds(BLEEDING +":" + ASSOCIATED_MORPHOLOGY + "=*", branchCriteria, MAIN, STATED)));
 
+		// Attribute constraint
 		assertEquals(
 				Sets.newHashSet(CHEST_IMAGING),
 				strings(eclQueryService.selectConceptIds("<<" + PROCEDURE +":<" + PROCEDURE_SITE + "=*", branchCriteria, MAIN, STATED)));
 
+		// Attribute constraint
 		assertEquals(
 				Sets.newHashSet(OPERATION_ON_HEART, CHEST_IMAGING),
 				strings(eclQueryService.selectConceptIds("<<" + PROCEDURE +":<<" + PROCEDURE_SITE + "=*", branchCriteria, MAIN, STATED)));
@@ -279,21 +281,24 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 	@Test
 	public void selectByAttributeValue() throws Exception {
+		// Attribute Value Equals
 		assertEquals(
 				Sets.newHashSet(BLEEDING, BLEEDING_SKIN),
 				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + HEMORRHAGE, branchCriteria, MAIN, STATED)));
 
+		// Attribute Value Not Equals
 		assertEquals(
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
 				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "!=" + HEMORRHAGE, branchCriteria, MAIN, STATED)));
 
+		// Attribute Value Equals - Descendant or self
 		assertEquals(
 				Sets.newHashSet(BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=<<" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
+				strings(eclQueryService.selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "= <<" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(eclQueryService.selectConceptIds("*:" + FINDING_SITE + "=<<" + BODY_STRUCTURE, branchCriteria, MAIN, STATED)));
+				strings(eclQueryService.selectConceptIds("*:" + FINDING_SITE + "= <<" + BODY_STRUCTURE, branchCriteria, MAIN, STATED)));
 
 		assertEquals(
 				Sets.newHashSet(),
@@ -386,6 +391,16 @@ public class ECLQueryServiceTest extends AbstractTest {
 				"ECL without grouping finds only the concept with matching groups",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT),
 				strings(eclQueryService.selectConceptIds(eclWithGrouping, branchCriteria, MAIN, STATED)));
+	}
+
+	@Test
+	public void reverseFlagAttributes() {
+		// Select the Finding sites of descendants of Disorder
+		assertEquals(
+				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE),
+				strings(eclQueryService.selectConceptIds("*:R " + FINDING_SITE + " = <" + DISORDER , branchCriteria, MAIN, STATED)));
+
+		// TODO: Dot notation
 	}
 
 	private Set<String> strings(Collection<Long> ids) {

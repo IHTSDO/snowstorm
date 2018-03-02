@@ -190,10 +190,8 @@ class ECLQueryBuilder {
 				throw new UnsupportedOperationException("Cardinality is not supported.");
 			}
 
-			// TODO reverseflag
-			ECLParser.ReverseflagContext reverseflag = ctx.reverseflag();
-			if (reverseflag != null) {
-				throw new UnsupportedOperationException("The reverse flag is not supported.");
+			if (ctx.reverseflag() != null) {
+				attribute.reverse();
 			}
 
 			attribute.setAttributeName(build(ctx.eclattributename().subexpressionconstraint()));

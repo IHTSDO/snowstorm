@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
 @JsonPropertyOrder({"conceptId", "fsn", "effectiveTime", "active", "inactivationIndicator", "moduleId", "definitionStatus", "definitionStatusId", "descriptions", "relationships"})
 public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
-	public interface Fields {
+	public interface Fields extends SnomedComponent.Fields {
 		String CONCEPT_ID = "conceptId";
 		String MODULE_ID = "moduleId";
 	}

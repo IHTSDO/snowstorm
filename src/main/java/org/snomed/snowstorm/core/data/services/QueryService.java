@@ -57,6 +57,9 @@ public class QueryService {
 	private ReferenceSetMemberService memberService;
 
 	@Autowired
+	private RelationshipService relationshipService;
+
+	@Autowired
 	private ObjectMapper objectMapper;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -287,6 +290,10 @@ public class QueryService {
 
 	public Set<Long> retrieveConceptsInReferenceSet(QueryBuilder branchCriteria, String referenceSetId) {
 		return memberService.findConceptsInReferenceSet(branchCriteria, referenceSetId);
+	}
+
+	public Set<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {
+		return relationshipService.retrieveRelationshipDestinations(sourceConceptIds, attributeTypeIds, branchCriteria, stated);
 	}
 
 	public void deleteAll() {

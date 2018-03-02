@@ -3,22 +3,28 @@ package org.snomed.snowstorm.core.data.services;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import it.unimi.dsi.fastutil.longs.LongArraySet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
+import org.springframework.util.Assert;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
+import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 
 @Service
 public class RelationshipService extends ComponentService {
@@ -57,5 +63,33 @@ public class RelationshipService extends ComponentService {
 			r.setType(conceptMinis.get(r.getTypeId()));
 		});
 		return relationships;
+	}
+
+	Set<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {
+		if (attributeTypeIds == null || attributeTypeIds.isEmpty()) {
+			return Collections.emptySet();
+		}
+
+		BoolQueryBuilder boolQuery = boolQuery()
+				.must(branchCriteria)
+				.must(termsQuery(Relationship.Fields.TYPE_ID, attributeTypeIds))
+				.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, stated ? Concepts.STATED_RELATIONSHIP : Concepts.INFERRED_RELATIONSHIP))
+				.must(termsQuery(Relationship.Fields.ACTIVE, true));
+
+		if (sourceConceptIds != null) {
+			boolQuery.must(termsQuery(Relationship.Fields.SOURCE_ID, sourceConceptIds));
+		}
+
+		NativeSearchQuery query = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery)
+				.withPageable(LARGE_PAGE)
+				.build();
+
+		Set<Long> destinationIds = new LongArraySet();
+		try (CloseableIterator<Relationship> stream = elasticsearchOperations.stream(query, Relationship.class)) {
+			stream.forEachRemaining(relationship -> destinationIds.add(parseLong(relationship.getDestinationId())));
+		}
+
+		return destinationIds;
 	}
 }

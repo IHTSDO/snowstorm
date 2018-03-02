@@ -15,7 +15,7 @@ import java.util.UUID;
 @Document(indexName = "es-member", type = "member", shards = 8)
 public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComponent<C> {
 
-	public interface Fields {
+	public interface Fields extends SnomedComponent.Fields {
 		String MEMBER_ID = "memberId";
 		String REFSET_ID = "refsetId";
 		String CONCEPT_ID = "conceptId";

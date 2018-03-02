@@ -32,8 +32,10 @@ public class Relationship extends SnomedComponent<Relationship> {
 		}
 	}
 
-	public interface Fields {
+	public interface Fields extends SnomedComponent.Fields {
 		String SOURCE_ID = "sourceId";
+		String TYPE_ID = "typeId";
+		String CHARACTERISTIC_TYPE_ID = "characteristicTypeId";
 	}
 
 	@JsonView(value = View.Component.class)

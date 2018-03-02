@@ -20,7 +20,7 @@ import java.util.Set;
 @Document(indexName = "es-description", type = "description", shards = 8)
 public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
-	public interface Fields {
+	public interface Fields extends SnomedComponent.Fields {
 		String CONCEPT_ID = "conceptId";
 		String TYPE_ID = "typeId";
 	}
