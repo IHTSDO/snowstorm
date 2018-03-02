@@ -71,6 +71,9 @@ public class ConceptService extends ComponentService implements CommitListener {
 	private DescriptionService descriptionService;
 
 	@Autowired
+	private ReferenceSetMemberService memberService;
+
+	@Autowired
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
@@ -386,7 +389,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 			doSaveBatchConcepts(Sets.newHashSet(concept), commit);
 			doSaveBatchDescriptions(concept.getDescriptions(), commit);
 			membersToDelete.forEach(ReferenceSetMember::markDeleted);
-			doSaveBatchMembers(membersToDelete, commit);
+			memberService.doSaveBatchMembers(membersToDelete, commit);
 			doSaveBatchRelationships(concept.getRelationships(), commit);
 			commit.markSuccessful();
 		}
@@ -467,14 +470,6 @@ public class ConceptService extends ComponentService implements CommitListener {
 			final Iterable<Concept> savedConcepts = doSaveBatchConceptsAndComponents(concepts, commit);
 			commit.markSuccessful();
 			return savedConcepts;
-		}
-	}
-
-	private ReferenceSetMember doSave(ReferenceSetMember member, Branch branch) {
-		try (final Commit commit = branchService.openCommit(branch.getPath())) {
-			final ReferenceSetMember savedMember = doSaveBatchMembers(Collections.singleton(member), commit).iterator().next();
-			commit.markSuccessful();
-			return savedMember;
 		}
 	}
 
@@ -614,7 +609,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		Iterable<Description> descriptionsSaved = doSaveBatchDescriptions(descriptionsToPersist, commit);
 		Iterable<Relationship> relationshipsSaved = doSaveBatchRelationships(relationshipsToPersist, commit);
 
-		doSaveBatchMembers(refsetMembersToPersist, commit);
+		memberService.doSaveBatchMembers(refsetMembersToPersist, commit);
 		doDeleteMembersWhereReferencedComponentDeleted(commit.getEntityVersionsDeleted(), commit);
 
 		Map<String, Concept> conceptMap = new HashMap<>();
@@ -750,62 +745,6 @@ public class ConceptService extends ComponentService implements CommitListener {
 		return doSaveBatchComponents(relationships, commit, "relationshipId", relationshipRepository);
 	}
 
-	/**
-	 * Persists members updates within commit.
-	 * Inactive members which have not been released will be deleted
-	 * @param members
-	 * @param commit
-	 * @return List of persisted components with updated metadata and filtered by deleted status.
-	 */
-	public Iterable<ReferenceSetMember> doSaveBatchMembers(Collection<ReferenceSetMember> members, Commit commit) {
-
-		// Delete inactive unreleased members
-		members.stream()
-				.filter(member -> !member.isActive() && !member.isReleased())
-				.forEach(ReferenceSetMember::markDeleted);
-
-		// Set conceptId on members where appropriate
-		List<ReferenceSetMember> descriptionMembers = new ArrayList<>();
-		LongSet descriptionIds = new LongArraySet();
-		members.stream()
-				.filter(member -> !member.isDeleted())
-				.filter(member -> IdentifierService.isDescriptionId(member.getReferencedComponentId()))
-				.filter(member -> member.getConceptId() == null)
-				.forEach(member -> {
-					descriptionMembers.add(member);
-					descriptionIds.add(parseLong(member.getReferencedComponentId()));
-				});
-
-		if (descriptionIds.size() != 0) {
-			final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
-
-			Long2ObjectMap descriptionMap = new Long2ObjectOpenHashMap<>();
-			for (List<Long> descriptionIdsSegment : Iterables.partition(descriptionIds, CLAUSE_LIMIT)) {
-				queryBuilder
-						.withQuery(boolQuery()
-								.must(termsQuery("descriptionId", descriptionIdsSegment))
-								.must(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit)))
-						.withPageable(LARGE_PAGE);
-				try (final CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(queryBuilder.build(), Description.class)) {
-					descriptions.forEachRemaining(description ->
-							descriptionMap.put(parseLong(description.getDescriptionId()), description));
-				}
-			}
-
-			descriptionMembers.parallelStream().forEach(member -> {
-				Description description = (Description) descriptionMap.get(parseLong(member.getReferencedComponentId()));
-				if (description == null) {
-					logger.warn("Refset member refers to description which does not exist, this will not be persisted {} -> {}", member.getId(), member.getReferencedComponentId());
-					members.remove(member);
-					return;
-				}
-				member.setConceptId(description.getConceptId());
-			});
-		}
-
-		return doSaveBatchComponents(members, commit, "memberId", referenceSetMemberRepository);
-	}
-
 	private void doDeleteMembersWhereReferencedComponentDeleted(Set<String> entityVersionsDeleted, Commit commit) {
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(
@@ -835,7 +774,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 		} else if (type.equals(Relationship.class)) {
 			doSaveBatchRelationships((Collection<Relationship>) components, commit);
 		} else if (ReferenceSetMember.class.isAssignableFrom(type)) {
-			doSaveBatchMembers((Collection<ReferenceSetMember>) components, commit);
+			memberService.doSaveBatchMembers((Collection<ReferenceSetMember>) components, commit);
 		} else {
 			throw new IllegalArgumentException("SnomedComponent type " + type + " not regognised");
 		}

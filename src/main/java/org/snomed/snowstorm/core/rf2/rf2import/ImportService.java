@@ -12,6 +12,7 @@ import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,9 @@ public class ImportService {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private ReferenceSetMemberService memberService;
 
 	@Autowired
 	private BranchService branchService;
@@ -104,11 +108,11 @@ public class ImportService {
 	}
 
 	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath) {
-		return new ImportComponentFactoryImpl(conceptService, branchService, branchPath);
+		return new ImportComponentFactoryImpl(conceptService, memberService, branchService, branchPath);
 	}
 
 	private HistoryAwareComponentFactory getFullImportComponentFactory(String branchPath) {
-		return new FullImportComponentFactoryImpl(conceptService, branchService, codeSystemService, branchPath, null);
+		return new FullImportComponentFactoryImpl(conceptService, memberService, branchService, codeSystemService, branchPath, null);
 	}
 
 	public void importArchiveAsync(String importId, InputStream releaseFileStream) {

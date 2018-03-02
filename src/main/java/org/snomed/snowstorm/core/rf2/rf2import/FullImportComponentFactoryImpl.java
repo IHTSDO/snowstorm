@@ -4,6 +4,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.otf.snomedboot.factory.HistoryAwareComponentFactory;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 
 public class FullImportComponentFactoryImpl extends ImportComponentFactoryImpl implements HistoryAwareComponentFactory {
 
@@ -11,9 +12,9 @@ public class FullImportComponentFactoryImpl extends ImportComponentFactoryImpl i
 	private final CodeSystemService codeSystemService;
 	private final String stopImportAfterEffectiveTime;
 
-	public FullImportComponentFactoryImpl(ConceptService conceptService, BranchService branchService, CodeSystemService codeSystemService,
+	public FullImportComponentFactoryImpl(ConceptService conceptService, ReferenceSetMemberService memberService, BranchService branchService, CodeSystemService codeSystemService,
 										  String path, String stopImportAfterEffectiveTime) {
-		super(conceptService, branchService, path);
+		super(conceptService, memberService, branchService, path);
 		this.basePath = path;
 		this.stopImportAfterEffectiveTime = stopImportAfterEffectiveTime;
 		this.codeSystemService = codeSystemService;

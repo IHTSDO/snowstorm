@@ -16,6 +16,7 @@ import java.util.UUID;
 public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComponent<C> {
 
 	public interface Fields {
+		String MEMBER_ID = "memberId";
 		String REFSET_ID = "refsetId";
 		String CONCEPT_ID = "conceptId";
 	}

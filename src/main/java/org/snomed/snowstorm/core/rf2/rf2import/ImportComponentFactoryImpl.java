@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,7 +33,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	protected boolean coreComponentsFlushed;
 
-	ImportComponentFactoryImpl(ConceptService conceptService, BranchService branchService, String path) {
+	ImportComponentFactoryImpl(ConceptService conceptService, ReferenceSetMemberService memberService, BranchService branchService, String path) {
 		this.branchService = branchService;
 		this.path = path;
 		persistBuffers = new ArrayList<>();
@@ -89,7 +90,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 					component.setChanged(true);
 					maxEffectiveTimeCollector.add(component.getEffectiveTime());
 				});
-				conceptService.doSaveBatchMembers(entities, commit);
+				memberService.doSaveBatchMembers(entities, commit);
 			}
 		};
 	}
