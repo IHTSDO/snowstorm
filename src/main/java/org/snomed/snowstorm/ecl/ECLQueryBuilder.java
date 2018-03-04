@@ -56,6 +56,9 @@ class ECLQueryBuilder {
 			if (expressionconstraint.compoundexpressionconstraint() != null) {
 				return build(expressionconstraint.compoundexpressionconstraint());
 			}
+			if (expressionconstraint.dottedexpressionconstraint() != null) {
+				return build(expressionconstraint.dottedexpressionconstraint());
+			}
 			if (expressionconstraint.subexpressionconstraint() != null) {
 				return build(expressionconstraint.subexpressionconstraint());
 			}
@@ -80,16 +83,22 @@ class ECLQueryBuilder {
 			return compoundExpressionConstraint;
 		}
 
+		public DottedExpressionConstraint build(ECLParser.DottedexpressionconstraintContext ctx) {
+			SubExpressionConstraint subExpressionConstraint = build(ctx.subexpressionconstraint());
+			DottedExpressionConstraint dottedExpressionConstraint = new DottedExpressionConstraint(subExpressionConstraint);
+			for (ECLParser.DottedexpressionattributeContext dotCtx : ctx.dottedexpressionattribute()) {
+				SubExpressionConstraint attributeSubExpressionConstraint = build(dotCtx.eclattributename().subexpressionconstraint());
+				dottedExpressionConstraint.addDottedAttribute(attributeSubExpressionConstraint);
+			}
+			return dottedExpressionConstraint;
+		}
+
 		private List<SubExpressionConstraint> build(List<ECLParser.SubexpressionconstraintContext> subExpressionConstraints) {
 			return subExpressionConstraints.stream().map(this::build).collect(Collectors.toList());
 		}
 
 		public void enterExclusionexpressionconstraint(ECLParser.ExclusionexpressionconstraintContext ctx) {
 			throw new UnsupportedOperationException("Exclusionexpressionconstraint is not supported.");
-		}
-
-		public void enterDottedexpressionconstraint(ECLParser.DottedexpressionconstraintContext ctx) {
-			throw new UnsupportedOperationException("Dottedexpressionconstraint is not supported.");
 		}
 
 		private SubExpressionConstraint build(ECLParser.SubexpressionconstraintContext ctx) {

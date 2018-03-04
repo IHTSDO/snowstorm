@@ -38,6 +38,10 @@ public class ECLQueryServiceTest extends AbstractTest {
 	private static final String ASSOCIATED_MORPHOLOGY = "116676008";
 	private static final String PROCEDURE_SITE = "363704007";
 	private static final String PROCEDURE_SITE_DIRECT = "405813007";
+	private static final String LATERALITY = "272741003";
+
+	// Qualifier Value
+	private static final String RIGHT = "24028007";
 
 	// Body Structure
 	private static final String BODY_STRUCTURE = "123037004";
@@ -98,13 +102,19 @@ public class ECLQueryServiceTest extends AbstractTest {
 		allConcepts.add(new Concept(ASSOCIATED_MORPHOLOGY).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
 		allConcepts.add(new Concept(PROCEDURE_SITE).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
 		allConcepts.add(new Concept(PROCEDURE_SITE_DIRECT).addRelationship(new Relationship(ISA, PROCEDURE_SITE)));
+		allConcepts.add(new Concept(PROCEDURE_SITE_DIRECT).addRelationship(new Relationship(ISA, PROCEDURE_SITE)));
+		allConcepts.add(new Concept(LATERALITY).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
+		allConcepts.add(new Concept(RIGHT).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 
 		allConcepts.add(new Concept(BODY_STRUCTURE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept(HEART_STRUCTURE).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
 		allConcepts.add(new Concept(SKIN_STRUCTURE).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
 		allConcepts.add(new Concept(THORACIC_STRUCTURE).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
 		allConcepts.add(new Concept(PULMONARY_VALVE_STRUCTURE).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
-		allConcepts.add(new Concept(RIGHT_VENTRICULAR_STRUCTURE).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
+		allConcepts.add(new Concept(RIGHT_VENTRICULAR_STRUCTURE)
+				.addRelationship(new Relationship(ISA, BODY_STRUCTURE))
+				.addRelationship(new Relationship(LATERALITY, RIGHT))
+		);
 		allConcepts.add(new Concept(STENOSIS).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
 		allConcepts.add(new Concept(HYPERTROPHY).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
 		allConcepts.add(new Concept(HEMORRHAGE).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
@@ -219,7 +229,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	public void selectChildren() throws Exception {
 		// Direct Children
 		assertEquals(
-				Sets.newHashSet(MODEL_COMPONENT, BODY_STRUCTURE, CLINICAL_FINDING, PROCEDURE, ISA),
+				Sets.newHashSet(MODEL_COMPONENT, RIGHT, BODY_STRUCTURE, CLINICAL_FINDING, PROCEDURE, ISA),
 				strings(eclQueryService.selectConceptIds("<!" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
 
 		assertEquals(
@@ -396,11 +406,25 @@ public class ECLQueryServiceTest extends AbstractTest {
 	@Test
 	public void reverseFlagAttributes() {
 		// Select the Finding sites of descendants of Disorder
+		// Using Reverse Flag
 		assertEquals(
 				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE),
 				strings(eclQueryService.selectConceptIds("*:R " + FINDING_SITE + " = <" + DISORDER , branchCriteria, MAIN, STATED)));
 
-		// TODO: Dot notation
+		// Using Dot notation
+		assertEquals(
+				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE),
+				strings(eclQueryService.selectConceptIds("<" + DISORDER + "." + FINDING_SITE, branchCriteria, MAIN, STATED)));
+
+		// Select the Finding sites of descendants of Clinical finding
+		assertEquals(
+				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE, SKIN_STRUCTURE),
+				strings(eclQueryService.selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE, branchCriteria, MAIN, STATED)));
+
+		// Select the Laterality of Finding sites of descendants of Clinical finding
+		assertEquals(
+				Sets.newHashSet(RIGHT),
+				strings(eclQueryService.selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE + "." + LATERALITY, branchCriteria, MAIN, STATED)));
 	}
 
 	private Set<String> strings(Collection<Long> ids) {
