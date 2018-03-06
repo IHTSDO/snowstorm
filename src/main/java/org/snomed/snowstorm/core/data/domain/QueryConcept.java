@@ -45,7 +45,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	@Field(type = FieldType.Object)
 	private Map<String, Set<String>> attr;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.keyword, index = false)
 	// Format:
 	// groupNo:attr=value:attr=value,value|groupNo:attr=value:attr=value,value
 	private String attrMap;
