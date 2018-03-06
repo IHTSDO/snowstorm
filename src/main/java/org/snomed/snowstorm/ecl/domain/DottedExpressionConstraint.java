@@ -9,7 +9,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
-public class DottedExpressionConstraint implements ExpressionConstraint {
+public class DottedExpressionConstraint extends ExpressionConstraint {
 
 	private final SubExpressionConstraint subExpressionConstraint;
 	private final List<SubExpressionConstraint> dottedAttributes;
@@ -26,10 +26,7 @@ public class DottedExpressionConstraint implements ExpressionConstraint {
 
 	@Override
 	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, QueryService queryService) {
-		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
-		addCriteria(query, path, branchCriteria, stated, queryService);
-
-		List<Long> conceptIds = ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService);
+		List<Long> conceptIds = super.select(path, branchCriteria, stated, conceptIdFilter, queryService);
 
 		for (SubExpressionConstraint dottedAttribute : dottedAttributes) {
 			List<Long> attributeTypeIds = dottedAttribute.select(path, branchCriteria, stated, conceptIdFilter, queryService);

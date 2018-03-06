@@ -9,7 +9,7 @@ import java.util.List;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 
-public class CompoundExpressionConstraint implements ExpressionConstraint {
+public class CompoundExpressionConstraint extends ExpressionConstraint {
 
 	private List<SubExpressionConstraint> conjunctionExpressionConstraints;
 	private List<SubExpressionConstraint> disjunctionExpressionConstraints;
@@ -30,13 +30,6 @@ public class CompoundExpressionConstraint implements ExpressionConstraint {
 				disjunctionExpressionConstraint.addCriteria(shouldQuery, path, branchCriteria, stated, queryService);
 			}
 		}
-	}
-
-	@Override
-	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, QueryService queryService) {
-		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
-		addCriteria(query, path, branchCriteria, stated, queryService);
-		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService);
 	}
 
 	public void setConjunctionExpressionConstraints(List<SubExpressionConstraint> conjunctionExpressionConstraints) {

@@ -7,12 +7,11 @@ import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
-public class SubExpressionConstraint implements ExpressionConstraint {
+public class SubExpressionConstraint extends ExpressionConstraint {
 
 	private final Operator operator;
 	private String conceptId;
@@ -50,14 +49,6 @@ public class SubExpressionConstraint implements ExpressionConstraint {
 			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveConceptsInReferenceSet(branchCriteria, null)));
 		}
 		// Else Wildcard! which has no constraints
-	}
-
-	@Override
-	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, QueryService queryService) {
-		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
-		addCriteria(query, path, branchCriteria, stated, queryService);
-		// TODO: Avoid this fetch in the case that we selecting a single known concept
-		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService);
 	}
 
 	private void applyConceptCriteriaWithOperator(String conceptId, Operator operator, BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {

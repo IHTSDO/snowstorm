@@ -427,6 +427,14 @@ public class ECLQueryServiceTest extends AbstractTest {
 				strings(eclQueryService.selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE + "." + LATERALITY, branchCriteria, MAIN, STATED)));
 	}
 
+//	@Test
+//	public void attributeCardinality() {
+//		assertEquals(
+//				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
+//				strings(eclQueryService.selectConceptIds("*:[2..2]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+//
+//	}
+
 	private Set<String> strings(Collection<Long> ids) {
 		return ids.stream().map(Object::toString).collect(Collectors.toSet());
 	}

@@ -7,7 +7,7 @@ import org.snomed.snowstorm.core.data.services.QueryService;
 import java.util.Collection;
 import java.util.List;
 
-public class RefinedExpressionConstraint implements ExpressionConstraint {
+public class RefinedExpressionConstraint extends ExpressionConstraint {
 
 	private SubExpressionConstraint subexpressionConstraint;
 	private EclRefinement eclRefinement;
@@ -23,10 +23,4 @@ public class RefinedExpressionConstraint implements ExpressionConstraint {
 		eclRefinement.addCriteria(query, path, branchCriteria, stated, queryService);
 	}
 
-	@Override
-	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, QueryService queryService) {
-		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
-		addCriteria(query, path, branchCriteria, stated, queryService);
-		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService);
-	}
 }
