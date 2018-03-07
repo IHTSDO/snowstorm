@@ -193,10 +193,14 @@ class ECLQueryBuilder {
 			if (ctx == null) return null;
 			EclAttribute attribute = new EclAttribute();
 
-			// TODO cardinality
 			ECLParser.CardinalityContext cardinality = ctx.cardinality();
 			if (cardinality != null) {
-				throw new UnsupportedOperationException("Cardinality is not supported.");
+				if (cardinality.minvalue().nonnegativeintegervalue() != null) {
+					attribute.setCardinalityMin(Integer.parseInt(cardinality.minvalue().nonnegativeintegervalue().getText()));
+				}
+				if (cardinality.maxvalue().nonnegativeintegervalue() != null) {
+					attribute.setCardinalityMax(Integer.parseInt(cardinality.maxvalue().nonnegativeintegervalue().getText()));
+				}
 			}
 
 			if (ctx.reverseflag() != null) {

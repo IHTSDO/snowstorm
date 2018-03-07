@@ -24,8 +24,8 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	public static final String ATTR_TYPE_WILDCARD = "all";
 
 	public interface Fields {
-
 		String CONCEPT_ID = "conceptId";
+		String ATTR_MAP = "attrMap";
 	}
 	@Field(type = FieldType.keyword)
 	private String conceptIdForm;
@@ -45,7 +45,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	@Field(type = FieldType.Object)
 	private Map<String, Set<String>> attr;
 
-	@Field(type = FieldType.keyword, index = false)
+	@Field(type = FieldType.keyword, index = false, store = true)
 	// Format:
 	// groupNo:attr=value:attr=value,value|groupNo:attr=value:attr=value,value
 	private String attrMap;

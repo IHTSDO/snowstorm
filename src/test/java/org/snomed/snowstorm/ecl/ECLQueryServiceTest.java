@@ -102,7 +102,6 @@ public class ECLQueryServiceTest extends AbstractTest {
 		allConcepts.add(new Concept(ASSOCIATED_MORPHOLOGY).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
 		allConcepts.add(new Concept(PROCEDURE_SITE).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
 		allConcepts.add(new Concept(PROCEDURE_SITE_DIRECT).addRelationship(new Relationship(ISA, PROCEDURE_SITE)));
-		allConcepts.add(new Concept(PROCEDURE_SITE_DIRECT).addRelationship(new Relationship(ISA, PROCEDURE_SITE)));
 		allConcepts.add(new Concept(LATERALITY).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
 		allConcepts.add(new Concept(RIGHT).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 
@@ -282,11 +281,11 @@ public class ECLQueryServiceTest extends AbstractTest {
 		// Attribute constraint
 		assertEquals(
 				Sets.newHashSet(OPERATION_ON_HEART, CHEST_IMAGING),
-				strings(eclQueryService.selectConceptIds("<<" + PROCEDURE +":<<" + PROCEDURE_SITE + "=*", branchCriteria, MAIN, STATED)));
+				strings(eclQueryService.selectConceptIds("<<" + PROCEDURE + ":<<" + PROCEDURE_SITE + "=*", branchCriteria, MAIN, STATED)));
 
 		assertEquals(
 				Sets.newHashSet(),
-				strings(eclQueryService.selectConceptIds(BLEEDING +":" + NON_EXISTENT_CONCEPT + "=*", branchCriteria, MAIN, STATED)));
+				strings(eclQueryService.selectConceptIds(BLEEDING + ":" + NON_EXISTENT_CONCEPT + "=*", branchCriteria, MAIN, STATED)));
 	}
 
 	@Test
@@ -427,13 +426,58 @@ public class ECLQueryServiceTest extends AbstractTest {
 				strings(eclQueryService.selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE + "." + LATERALITY, branchCriteria, MAIN, STATED)));
 	}
 
-//	@Test
-//	public void attributeCardinality() {
-//		assertEquals(
-//				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-//				strings(eclQueryService.selectConceptIds("*:[2..2]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
-//
-//	}
+	@Test
+	public void attributeCardinality() {
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING, DISORDER, BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
+				strings(eclQueryService.selectConceptIds("<<" + CLINICAL_FINDING + ":[0..*]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING, DISORDER, BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
+				strings(eclQueryService.selectConceptIds("<<" + CLINICAL_FINDING + ":[0..2]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+
+		assertEquals(
+				Sets.newHashSet(BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
+				strings(eclQueryService.selectConceptIds("<<" + CLINICAL_FINDING + ":[1..2]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+
+		assertEquals(
+				Sets.newHashSet(BLEEDING_SKIN),
+				strings(eclQueryService.selectConceptIds("<<" + CLINICAL_FINDING + ":[1..1]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+
+		assertEquals(
+				Sets.newHashSet(BLEEDING_SKIN, CLINICAL_FINDING, DISORDER, BLEEDING),
+				strings(eclQueryService.selectConceptIds("<<" + CLINICAL_FINDING + ":[0..1]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING, DISORDER, BLEEDING),
+				strings(eclQueryService.selectConceptIds("<<" + CLINICAL_FINDING + ":[0..0]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+
+		assertEquals(
+				Sets.newHashSet(BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
+				strings(eclQueryService.selectConceptIds("<<" + CLINICAL_FINDING + ":[1..2]" + FINDING_SITE + "= <<" + BODY_STRUCTURE, branchCriteria, MAIN, STATED)));
+
+		assertEquals(
+				Sets.newHashSet(BLEEDING_SKIN),
+				strings(eclQueryService.selectConceptIds(
+						"<<" + CLINICAL_FINDING + ":" +
+								"[1..2]" + FINDING_SITE + "= <<" + BODY_STRUCTURE + "," +
+								"[0..0]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS, branchCriteria, MAIN, STATED)));
+
+		assertEquals(
+				Sets.newHashSet(BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
+				strings(eclQueryService.selectConceptIds(
+						"<<" + CLINICAL_FINDING + ":" +
+								"[1..2]" + FINDING_SITE + "= <<" + BODY_STRUCTURE + "," +
+								"[0..1]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS, branchCriteria, MAIN, STATED)));
+
+		assertEquals(
+				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
+				strings(eclQueryService.selectConceptIds(
+						"<<" + CLINICAL_FINDING + ":" +
+								"[1..2]" + FINDING_SITE + "= <<" + BODY_STRUCTURE + "," +
+								"[1..*]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS, branchCriteria, MAIN, STATED)));
+
+	}
 
 	private Set<String> strings(Collection<Long> ids) {
 		return ids.stream().map(Object::toString).collect(Collectors.toSet());

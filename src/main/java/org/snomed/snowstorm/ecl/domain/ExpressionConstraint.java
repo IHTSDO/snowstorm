@@ -16,7 +16,7 @@ public abstract class ExpressionConstraint implements Refinement {
 	public List<Long> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, QueryService queryService) {
 		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
 		addCriteria(query, path, branchCriteria, stated, queryService);
-		return ConceptSelectorHelper.fetch(query, conceptIdFilter, queryService);
+		return ConceptSelectorHelper.fetchIds(query, conceptIdFilter, queryService);
 	}
 
 }

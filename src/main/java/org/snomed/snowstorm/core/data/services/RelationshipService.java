@@ -66,15 +66,19 @@ public class RelationshipService extends ComponentService {
 	}
 
 	Set<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {
-		if (attributeTypeIds == null || attributeTypeIds.isEmpty()) {
+		if (attributeTypeIds != null && attributeTypeIds.isEmpty()) {
 			return Collections.emptySet();
 		}
 
 		BoolQueryBuilder boolQuery = boolQuery()
 				.must(branchCriteria)
-				.must(termsQuery(Relationship.Fields.TYPE_ID, attributeTypeIds))
 				.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, stated ? Concepts.STATED_RELATIONSHIP : Concepts.INFERRED_RELATIONSHIP))
 				.must(termsQuery(Relationship.Fields.ACTIVE, true));
+
+		// TODO: Test ECL dotted notation using a wildcard
+		if (attributeTypeIds != null) {
+			boolQuery.must(termsQuery(Relationship.Fields.TYPE_ID, attributeTypeIds));
+		}
 
 		if (sourceConceptIds != null) {
 			boolQuery.must(termsQuery(Relationship.Fields.SOURCE_ID, sourceConceptIds));

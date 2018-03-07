@@ -35,7 +35,14 @@ public class FastResultsMapper extends DefaultResultMapper {
 					.setReferencedComponentId(hit.getFields().get(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID).getValue())
 					.setConceptId(hit.getFields().get(ReferenceSetMember.Fields.CONCEPT_ID).getValue())
 			)
-			.put(QueryConcept.class, hit -> new QueryConcept().setConceptId(hit.getFields().get(QueryConcept.Fields.CONCEPT_ID).getValue()))
+			.put(QueryConcept.class, hit -> {
+				QueryConcept queryConcept = new QueryConcept();
+				queryConcept.setConceptId(hit.getFields().get(QueryConcept.Fields.CONCEPT_ID).getValue());
+				if (hit.getFields().containsKey(QueryConcept.Fields.ATTR_MAP)) {
+					queryConcept.setAttrMap(hit.getFields().get(QueryConcept.Fields.ATTR_MAP).getValue());
+				}
+				return queryConcept;
+			})
 			.map();
 
 	private final MappingContext<? extends ElasticsearchPersistentEntity<?>, ElasticsearchPersistentProperty> mappingContext;
