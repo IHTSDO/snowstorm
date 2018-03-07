@@ -19,6 +19,7 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalIdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.cis.CISClient;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
@@ -73,8 +74,12 @@ public abstract class Config {
 
 	@Bean
 	public ElasticsearchRestClient elasticsearchClient() {
-		// FIXME: Hardcoded client address localhost:9200
-		return new ElasticsearchRestClient(new HashMap<>(), "http://localhost:9200");
+		return new ElasticsearchRestClient(new HashMap<>(), elasticsearchProperties().getUrls());
+	}
+
+	@Bean
+	public ElasticsearchProperties elasticsearchProperties() {
+		return new ElasticsearchProperties();
 	}
 
 	@Bean
