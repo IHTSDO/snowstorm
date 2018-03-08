@@ -19,14 +19,12 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalIdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.cis.CISClient;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
@@ -54,8 +52,7 @@ import static springfox.documentation.builders.PathSelectors.regex;
 
 @SpringBootApplication(
 		exclude = {ElasticsearchAutoConfiguration.class,
-				ElasticsearchDataAutoConfiguration.class,
-				ContextStackAutoConfiguration.class})
+				ElasticsearchDataAutoConfiguration.class})
 @EnableElasticsearchRepositories(
 		basePackages = {
 				"org.snomed.snowstorm.core.data.repositories",
