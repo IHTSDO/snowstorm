@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 @TestConfiguration
 public class TestConfig extends Config {
 
-	private static final String ELASTIC_SEARCH_VERSION = "6.2.0";
+	private static final String ELASTIC_SEARCH_VERSION = "6.0.1";
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;

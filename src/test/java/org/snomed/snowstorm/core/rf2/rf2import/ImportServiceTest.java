@@ -10,10 +10,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -24,14 +21,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -161,6 +154,10 @@ public class ImportServiceTest extends AbstractTest {
 	public void testImportSnapshot() throws ReleaseImportException {
 		final String branchPath = "MAIN";
 		branchService.create(branchPath);
+
+		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
+		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT).isEmpty());
+
 		String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath);
 		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
 
@@ -222,6 +219,14 @@ public class ImportServiceTest extends AbstractTest {
 
 		final Description inactiveDescription = inactiveConcept.getDescription("697843019");
 		Assert.assertEquals("CONCEPT_NON_CURRENT", inactiveDescription.getInactivationIndicator());
+
+		List<CodeSystemVersion> allVersions = codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT);
+		assertEquals(1, allVersions.size());
+		CodeSystemVersion codeSystemVersion = allVersions.get(0);
+		assertEquals("SNOMEDCT", codeSystemVersion.getShortName());
+		assertEquals("20140131", codeSystemVersion.getEffectiveDate());
+		assertEquals("2014-01-31", codeSystemVersion.getVersion());
+		assertEquals("MAIN", codeSystemVersion.getParentBranchPath());
 	}
 
 	private Set<Long> asSet(String string) {
