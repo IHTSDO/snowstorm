@@ -27,8 +27,9 @@ import java.util.List;
 @EnableJms
 public class App extends Config implements ApplicationRunner {
 
-	public static final String CLEAN_IMPORT_ARG = "clean-import";
-	public static final String CLEAN_IMPORT_FULL_ARG = "clean-import-full";
+	public static final String DELETE_INDICES_FLAG = "delete-indices";
+	public static final String IMPORT_ARG = "import";
+	public static final String IMPORT_FULL_ARG = "import-full";
 	public static final String REPLAY_TRACEABILITY_DIRECTORY = "replay-traceability-directory";
 
 	@Autowired
@@ -58,31 +59,41 @@ public class App extends Config implements ApplicationRunner {
 	
 	@Override
 	public void run(ApplicationArguments applicationArguments) throws Exception {
-		codeSystemService.init();
-		mrcmService.load();
-		referenceSetMemberService.init();
+		try {
+			boolean deleteIndices = applicationArguments.containsOption(DELETE_INDICES_FLAG);
+			if (deleteIndices) logger.warn("Deleting existing Elasticsearch Indices");
+			initialiseIndices(deleteIndices);
 
-		if (applicationArguments.containsOption(CLEAN_IMPORT_ARG)) {
-			// Import a single release or 'Snapshot' from an Edition RF2 zip file from disk at startup
-			String releasePath = getOneValue(applicationArguments, CLEAN_IMPORT_ARG);
-			fileExistsForArgument(releasePath, CLEAN_IMPORT_ARG);
+			codeSystemService.init();
+			mrcmService.load();
+			referenceSetMemberService.init();
 
-			deleteAllAndImportEditionRF2FromDisk(releasePath, RF2Type.SNAPSHOT);
-		} else if (applicationArguments.containsOption(CLEAN_IMPORT_FULL_ARG)) {
-			// Import many releases or 'Full' from an Edition RF2 zip file from disk at startup
-			String releasePath = getOneValue(applicationArguments, CLEAN_IMPORT_FULL_ARG);
-			fileExistsForArgument(releasePath, CLEAN_IMPORT_FULL_ARG);
+			if (applicationArguments.containsOption(IMPORT_ARG)) {
+				// Import a single release or 'Snapshot' from an Edition RF2 zip file from disk at startup
+				String releasePath = getOneValue(applicationArguments, IMPORT_ARG);
+				fileExistsForArgument(releasePath, IMPORT_ARG);
 
-			deleteAllAndImportEditionRF2FromDisk(releasePath, RF2Type.FULL);
-		}
-		if (applicationArguments.containsOption(REPLAY_TRACEABILITY_DIRECTORY)) {
-			String replayDirectory = getOneValue(applicationArguments, REPLAY_TRACEABILITY_DIRECTORY);
-			File file = new File(replayDirectory);
-			if (!file.isDirectory()) {
-				throw new IllegalArgumentException(REPLAY_TRACEABILITY_DIRECTORY + " directory could not be found at " + file.getAbsolutePath());
+				deleteAllAndImportEditionRF2FromDisk(releasePath, RF2Type.SNAPSHOT);
+			} else if (applicationArguments.containsOption(IMPORT_FULL_ARG)) {
+				// Import many releases or 'Full' from an Edition RF2 zip file from disk at startup
+				String releasePath = getOneValue(applicationArguments, IMPORT_FULL_ARG);
+				fileExistsForArgument(releasePath, IMPORT_FULL_ARG);
+
+				deleteAllAndImportEditionRF2FromDisk(releasePath, RF2Type.FULL);
 			}
+			if (applicationArguments.containsOption(REPLAY_TRACEABILITY_DIRECTORY)) {
+				String replayDirectory = getOneValue(applicationArguments, REPLAY_TRACEABILITY_DIRECTORY);
+				File file = new File(replayDirectory);
+				if (!file.isDirectory()) {
+					throw new IllegalArgumentException(REPLAY_TRACEABILITY_DIRECTORY + " directory could not be found at " + file.getAbsolutePath());
+				}
 
-			getAuthoringMirrorService().replayDirectoryOfFiles(replayDirectory);
+				getAuthoringMirrorService().replayDirectoryOfFiles(replayDirectory);
+			}
+		} catch (Exception e) {
+			// Logging and rethrowing because Spring does not seem to log this
+			logger.error(e.getMessage(), e);
+			throw e;
 		}
 	}
 
@@ -102,22 +113,7 @@ public class App extends Config implements ApplicationRunner {
 	}
 
 	private void deleteAllAndImportEditionRF2FromDisk(String releasePath, RF2Type importType) {
-		// Wait 10 seconds until everything settled before deleting all components
-		try {
-			Thread.sleep(1000 * 10);
-		} catch (InterruptedException e) {
-			throw new RuntimeException("Sleep failed", e);
-		}
-		// Dropping the indexes would be cleaner but the spring repositories
-		// won't reinitialise so deleting documents instead..
-		logger.info("Attempting delete all snomed content");
-		conceptService.deleteAll();
-		branchService.deleteAll();
-		logger.info("Delete all complete");
-
 		// Import archive
-		logger.info("Creating MAIN");
-		branchService.create("MAIN");
 		String importId = importService.createJob(importType, "MAIN");
 		try {
 			importService.importArchive(importId, new FileInputStream(releasePath));

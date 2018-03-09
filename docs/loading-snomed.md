@@ -1,20 +1,18 @@
 # Loading SNOMED CT
 
-## Before starting
+First [download](http://www.snomed.org/) the most recent International Edition.
 
-- Make sure that the data directory (`<elasticsearch home>/data`) has been emptied from any previous imports or starts as this will throw an exception (at the moment anyway).
-- [Download SNOMED CT](http://www.snomed.org/), using the most recent International Edition (_Snowstorm has not yet tested with other editions_)
+## Loading Release Snapshot
 
-**Top Tip**
+This loads the content of the current release and skips loading outdated content. This is the recommended option.
 
-Unless you want to do a full import of SNOMED CT, which incorporates all previous versions and takes a significant number of hours, you should work with the snapshot of the curreent edition.
+To delete any existing Snowstorm Elasticsearch indices and load the RF2 **Snapshot** start Snowstorm with the following arguments:
 
-To do this, open the downloaded release zip file, remove all folders **apart from** the SNAPSHOT folder, and rebuild the zip file.
-
-## Load SNOMED CT
-
-Run the following command from the Snowstorm directory to import the data:
-
-`java -Xms5g -Xmx5g -jar target/elastic-snomed-<version>.jar --clean-import=<SNOMED CT release zip file>`
+`java -Xmx4g -jar target/snowstorm*.jar --delete-indices --import=<Absolute-path-of-SNOMED-CT-RF2-zip>`
 
 This will take between 30-60 minutes depending on the performance of your machine/server.
+
+## Loading Release Full Files
+
+It's possible to load the RF2 **Full** files which gives you access to previous releases in addition to the current content. This will probably take many hours.
+Simply replace the `--import` argument above with `--import-full`.

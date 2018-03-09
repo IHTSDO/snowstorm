@@ -119,15 +119,14 @@ public abstract class Config {
 		return new DomainEntityConfiguration();
 	}
 
-	@Bean
-	public ComponentService componentService() {
+	public void initialiseIndices(boolean deleteExisting) {
 		// Initialse Elasticsearch indices
 		Class<?>[] allDomainEntityTypes = domainEntityConfiguration().getAllDomainEntityTypes().toArray(new Class<?>[]{});
 		ComponentService.initialiseIndexAndMappingForPersistentClasses(
+				deleteExisting,
 				elasticsearchTemplate(),
 				allDomainEntityTypes
 		);
-		return new ComponentService();
 	}
 
 	@Bean
