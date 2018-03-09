@@ -19,8 +19,8 @@ Depending on the memory available to you, the following is advised:
 ## Building...
 
 ```
-git clone https://github.com/IHTSDO/elastic-snomed.git
-cd elastic-snomed
+git clone https://github.com/IHTSDO/snowstorm.git
+cd snowstorm
 mvn clean package
 ```
 
