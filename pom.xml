@@ -207,14 +207,6 @@
 	</profiles>
 	<repositories>
 		<repository>
-			<id>elasticvc-mvn-repo</id>
-			<url>https://raw.github.com/kaicode/elasticvc/mvn-repo/</url>
-			<snapshots>
-				<enabled>true</enabled>
-				<updatePolicy>always</updatePolicy>
-			</snapshots>
-		</repository>
-		<repository>
 			<id>spring-milestones</id>
 			<name>Spring Milestones</name>
 			<url>https://repo.spring.io/milestone</url>
