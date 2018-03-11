@@ -32,4 +32,13 @@ public class SubRefinement implements Refinement {
 	public void setEclRefinement(EclRefinement eclRefinement) {
 		this.eclRefinement = eclRefinement;
 	}
+
+	@Override
+	public String toString() {
+		return "SubRefinement{" +
+				"eclAttributeSet=" + eclAttributeSet +
+				", eclAttributeGroup=" + eclAttributeGroup +
+				", eclRefinement=" + eclRefinement +
+				'}';
+	}
 }

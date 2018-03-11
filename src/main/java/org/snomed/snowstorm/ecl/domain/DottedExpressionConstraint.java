@@ -39,4 +39,12 @@ public class DottedExpressionConstraint extends ExpressionConstraint {
 	public void addDottedAttribute(SubExpressionConstraint dottedAttribute) {
 		dottedAttributes.add(dottedAttribute);
 	}
+
+	@Override
+	public String toString() {
+		return "DottedExpressionConstraint{" +
+				"subExpressionConstraint=" + subExpressionConstraint +
+				", dottedAttributes=" + dottedAttributes +
+				'}';
+	}
 }

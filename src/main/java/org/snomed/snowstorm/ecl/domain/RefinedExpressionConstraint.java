@@ -23,4 +23,11 @@ public class RefinedExpressionConstraint extends ExpressionConstraint {
 		eclRefinement.addCriteria(query, path, branchCriteria, stated, queryService);
 	}
 
+	@Override
+	public String toString() {
+		return "RefinedExpressionConstraint{" +
+				"subexpressionConstraint=" + subexpressionConstraint +
+				", eclRefinement=" + eclRefinement +
+				'}';
+	}
 }

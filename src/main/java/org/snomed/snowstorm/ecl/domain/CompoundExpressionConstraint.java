@@ -40,4 +40,11 @@ public class CompoundExpressionConstraint extends ExpressionConstraint {
 		this.disjunctionExpressionConstraints = disjunctionExpressionConstraints;
 	}
 
+	@Override
+	public String toString() {
+		return "CompoundExpressionConstraint{" +
+				"conjunctionExpressionConstraints=" + conjunctionExpressionConstraints +
+				", disjunctionExpressionConstraints=" + disjunctionExpressionConstraints +
+				'}';
+	}
 }

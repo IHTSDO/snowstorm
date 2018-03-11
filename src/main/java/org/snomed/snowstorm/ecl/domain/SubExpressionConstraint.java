@@ -106,4 +106,13 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 		this.nestedExpressionConstraint = nestedExpressionConstraint;
 	}
 
+	@Override
+	public String toString() {
+		return "SubExpressionConstraint{" +
+				"operator=" + operator +
+				", conceptId='" + conceptId + '\'' +
+				", wildcard=" + wildcard +
+				", nestedExpressionConstraint=" + nestedExpressionConstraint +
+				'}';
+	}
 }

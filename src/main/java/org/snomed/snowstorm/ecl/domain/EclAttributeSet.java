@@ -56,4 +56,12 @@ public class EclAttributeSet implements Refinement {
 		this.disjunctionAttributeSet = disjunctionAttributeSet;
 	}
 
+	@Override
+	public String toString() {
+		return "EclAttributeSet{" +
+				"subAttributeSet=" + subAttributeSet +
+				", conjunctionAttributeSet=" + conjunctionAttributeSet +
+				", disjunctionAttributeSet=" + disjunctionAttributeSet +
+				'}';
+	}
 }

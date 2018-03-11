@@ -119,4 +119,10 @@ public class EclAttributeGroup implements Refinement {
 		return true;
 	}
 
+	@Override
+	public String toString() {
+		return "EclAttributeGroup{" +
+				"attributeSet=" + attributeSet +
+				'}';
+	}
 }

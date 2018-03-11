@@ -30,4 +30,11 @@ public class SubAttributeSet implements Refinement {
 		this.attributeSet = attributeSet;
 	}
 
+	@Override
+	public String toString() {
+		return "SubAttributeSet{" +
+				"attribute=" + attribute +
+				", attributeSet=" + attributeSet +
+				'}';
+	}
 }

@@ -51,4 +51,12 @@ public class EclRefinement implements Refinement {
 		this.disjunctionSubRefinements = disjunctionSubRefinements;
 	}
 
+	@Override
+	public String toString() {
+		return "EclRefinement{" +
+				"subRefinement=" + subRefinement +
+				", conjunctionSubRefinements=" + conjunctionSubRefinements +
+				", disjunctionSubRefinements=" + disjunctionSubRefinements +
+				'}';
+	}
 }

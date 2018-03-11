@@ -213,4 +213,15 @@ public class EclAttribute implements Refinement {
 		this.cardinalityMax = cardinalityMax;
 	}
 
+	@Override
+	public String toString() {
+		return "EclAttribute{" +
+				"attributeName=" + attributeName +
+				", expressionComparisonOperator='" + expressionComparisonOperator + '\'' +
+				", value=" + value +
+				", reverse=" + reverse +
+				", cardinalityMin=" + cardinalityMin +
+				", cardinalityMax=" + cardinalityMax +
+				'}';
+	}
 }
