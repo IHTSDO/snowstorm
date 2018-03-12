@@ -184,7 +184,7 @@
 									<dataSet>
 										<data>
 											<src>${project.build.directory}/${project.build.finalName}.jar</src>
-											<dst>app.jar</dst>
+											<dst>${packageName}.jar</dst>
 											<type>file</type>
 											<mapper>
 												<type>perm</type>
