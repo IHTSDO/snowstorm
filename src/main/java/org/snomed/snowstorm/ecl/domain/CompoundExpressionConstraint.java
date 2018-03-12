@@ -15,6 +15,11 @@ public class CompoundExpressionConstraint extends ExpressionConstraint {
 	private List<SubExpressionConstraint> disjunctionExpressionConstraints;
 
 	@Override
+	protected boolean isWildcard() {
+		return false;
+	}
+
+	@Override
 	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
 		if (conjunctionExpressionConstraints != null) {
 			for (SubExpressionConstraint conjunctionExpressionConstraint : conjunctionExpressionConstraints) {

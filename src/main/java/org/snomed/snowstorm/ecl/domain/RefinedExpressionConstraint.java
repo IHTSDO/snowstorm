@@ -18,6 +18,11 @@ public class RefinedExpressionConstraint extends ExpressionConstraint {
 	}
 
 	@Override
+	protected boolean isWildcard() {
+		return false;
+	}
+
+	@Override
 	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
 		subexpressionConstraint.addCriteria(query, path, branchCriteria, stated, queryService);
 		eclRefinement.addCriteria(query, path, branchCriteria, stated, queryService);

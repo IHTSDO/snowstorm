@@ -7,6 +7,8 @@ import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -23,6 +25,11 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 	}
 
 	@Override
+	public boolean isWildcard() {
+		return wildcard && Operator.memberOf != operator;
+	}
+
+	@Override
 	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
 		if (conceptId != null) {
 			if (operator != null) {
@@ -31,7 +38,11 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 				query.must(QueryBuilders.termQuery(QueryConcept.CONCEPT_ID_FIELD, conceptId));
 			}
 		} else if (nestedExpressionConstraint != null) {
-			Collection<Long> conceptIds = nestedExpressionConstraint.select(path, branchCriteria, stated, null, queryService);
+			Optional<List<Long>> conceptIdsOptional = nestedExpressionConstraint.select(path, branchCriteria, stated, null, queryService);
+			if (!conceptIdsOptional.isPresent()) {
+				return;
+			}
+			List<Long> conceptIds = conceptIdsOptional.get();
 			if (!conceptIds.isEmpty()) {
 				conceptIds.add(ExpressionConstraint.MISSING_LONG);
 			}
@@ -49,6 +60,14 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveConceptsInReferenceSet(branchCriteria, null)));
 		}
 		// Else Wildcard! which has no constraints
+	}
+
+	@Override
+	public Optional<List<Long>> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, QueryService queryService) {
+		if (isWildcard()) {
+			return Optional.empty();
+		}
+		return super.select(path, branchCriteria, stated, conceptIdFilter, queryService);
 	}
 
 	private void applyConceptCriteriaWithOperator(String conceptId, Operator operator, BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class ECLQueryService {
@@ -18,11 +19,11 @@ public class ECLQueryService {
 	@Autowired
 	private QueryService queryService;
 
-	public List<Long> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated) throws ECLException {
+	public Optional<List<Long>> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated) throws ECLException {
 		return selectConceptIds(ecl, branchCriteria, path, stated, null);
 	}
 
-	public List<Long> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter) throws ECLException {
+	public Optional<List<Long>> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter) throws ECLException {
 		ExpressionConstraint expressionConstraint = queryBuilder.createQuery(ecl);
 		return expressionConstraint.select(path, branchCriteria, stated, conceptIdFilter, queryService);
 	}

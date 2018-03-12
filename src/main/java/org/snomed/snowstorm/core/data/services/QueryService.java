@@ -102,23 +102,18 @@ public class QueryService {
 				conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, conceptIdList.size());
 			} else if (conceptQuery.getEcl() != null) {
 				// ECL search
-				List<Long> allConceptIds = doEclSearch(conceptQuery, branchPath, pageRequest, branchCriteria, null);
-
-				List<Long> pageOfIds = CollectionUtil.subList(allConceptIds, pageRequest.getPageNumber(), pageRequest.getPageSize());
-				conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, allConceptIds.size());
+				Optional<List<Long>> allConceptIdsOptional = doEclSearch(conceptQuery, branchPath, pageRequest, branchCriteria);
+				if (allConceptIdsOptional.isPresent()) {
+					List<Long> allConceptIds = allConceptIdsOptional.get();
+					List<Long> pageOfIds = CollectionUtil.subList(allConceptIds, pageRequest.getPageNumber(), pageRequest.getPageSize());
+					conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, allConceptIds.size());
+				} else {
+					conceptIdPage = getSimpleLogicalSearchPage(new ConceptQueryBuilder(conceptQuery.stated).selfOrDescendant(parseLong(Concepts.SNOMEDCT_ROOT)), branchCriteria, pageRequest);
+				}
 
 			} else {
 				// Primitive logical search
-				NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
-						.withQuery(boolQuery()
-								.must(branchCriteria)
-								.must(conceptQuery.getRootBuilder())
-						)
-						.withPageable(pageRequest);
-				Page<QueryConcept> pageOfConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery.build(), QueryConcept.class);
-
-				List<Long> pageOfIds = pageOfConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
-				conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, pageOfConcepts.getTotalElements());
+				conceptIdPage = getSimpleLogicalSearchPage(conceptQuery, branchCriteria, pageRequest);
 			}
 
 		} else if (hasLogicalConditions && hasLexicalCriteria) {
@@ -128,7 +123,7 @@ public class QueryService {
 			// Use term search for ordering and provide filter for logical search
 			logger.info("Lexical search before logical {}", term);
 			TimerUtil timer = new TimerUtil("Lexical and Logical Search");
-			final List<Long> allLexicalMatchesWithOrdering = fetchAllLogicalMatches(branchCriteria, term);
+			final List<Long> allLexicalMatchesWithOrdering = fetchAllLexicalMatches(branchCriteria, term);
 			timer.checkpoint("lexical complete");
 
 			// Fetch Logical matches
@@ -170,7 +165,21 @@ public class QueryService {
 		}
 	}
 
-	private List<Long> fetchAllLogicalMatches(QueryBuilder branchCriteria, String term) {
+	private Page<Long> getSimpleLogicalSearchPage(ConceptQueryBuilder conceptQuery, QueryBuilder branchCriteria, PageRequest pageRequest) {
+		Page<Long> conceptIdPage;NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(conceptQuery.getRootBuilder())
+				)
+				.withPageable(pageRequest);
+		Page<QueryConcept> pageOfConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery.build(), QueryConcept.class);
+
+		List<Long> pageOfIds = pageOfConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
+		conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, pageOfConcepts.getTotalElements());
+		return conceptIdPage;
+	}
+
+	private List<Long> fetchAllLexicalMatches(QueryBuilder branchCriteria, String term) {
 		final List<Long> allLexicalMatchesWithOrdering = new LongArrayList();
 		Page<Description> page;
 		int pageNumber = 0;
@@ -184,11 +193,17 @@ public class QueryService {
 		return allLexicalMatchesWithOrdering;
 	}
 
-	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, QueryBuilder branchCriteria,
-								   Collection<Long> conceptIdFilter) {
+	private Optional<List<Long>> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, QueryBuilder branchCriteria) {
 		String ecl = conceptQuery.getEcl();
 		logger.info("ECL Search {}", ecl);
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter);
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated());
+	}
+
+	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, QueryBuilder branchCriteria, List<Long> conceptIdFilter) {
+		String ecl = conceptQuery.getEcl();
+		logger.info("ECL Search {}", ecl);
+		Optional<List<Long>> listOptional = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter);
+		return listOptional.orElse(conceptIdFilter);
 	}
 
 	private NativeSearchQuery getLexicalQuery(String term, QueryBuilder branchCriteria, PageRequest pageable) {
@@ -292,7 +307,7 @@ public class QueryService {
 		return memberService.findConceptsInReferenceSet(branchCriteria, referenceSetId);
 	}
 
-	public Set<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {
+	public Set<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {
 		return relationshipService.retrieveRelationshipDestinations(sourceConceptIds, attributeTypeIds, branchCriteria, stated);
 	}
 

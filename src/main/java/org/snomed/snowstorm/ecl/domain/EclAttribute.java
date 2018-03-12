@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.ecl.domain;
 
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.ExistsQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -33,22 +32,22 @@ public class EclAttribute implements Refinement {
 			return;
 		}
 
-		Collection<Long> attributeTypes = attributeName.select(path, branchCriteria, stated, null, queryService);
+		Optional<List<Long>> attributeTypesOptional = attributeName.select(path, branchCriteria, stated, null, queryService);
 
-		boolean attributeTypeWildcard = attributeTypes == null;
+		boolean attributeTypeWildcard = !attributeTypesOptional.isPresent();
 		Set<String> attributeTypeProperties;
 		if (attributeTypeWildcard) {
 			attributeTypeProperties = Collections.singleton(QueryConcept.ATTR_TYPE_WILDCARD);
 		} else {
-			attributeTypeProperties = attributeTypes.stream().map(Object::toString).collect(Collectors.toSet());
-			if (attributeTypes.isEmpty()) {
+			attributeTypeProperties = attributeTypesOptional.get().stream().map(Object::toString).collect(Collectors.toSet());
+			if (attributeTypeProperties.isEmpty()) {
 				// Attribute type is not a wildcard but empty selection
 				// Force query to return nothing
 				attributeTypeProperties.add(ExpressionConstraint.MISSING);
 			}
 		}
 
-		Collection<Long> possibleAttributeValues = value.select(path, branchCriteria, stated, null, queryService);
+		List<Long> possibleAttributeValues = value.select(path, branchCriteria, stated, null, queryService).orElse(null);
 
 		if (reverse) {
 			// Reverse flag
@@ -57,7 +56,7 @@ public class EclAttribute implements Refinement {
 			if (possibleAttributeValues == null) {
 				throw new UnsupportedOperationException("Returning the attribute values of all concepts is not supported.");
 			}
-			Collection<Long> destinationConceptIds = queryService.retrieveRelationshipDestinations(possibleAttributeValues, attributeTypes, branchCriteria, stated);
+			Collection<Long> destinationConceptIds = queryService.retrieveRelationshipDestinations(possibleAttributeValues, attributeTypesOptional.orElse(null), branchCriteria, stated);
 			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, destinationConceptIds));
 
 		} else {
