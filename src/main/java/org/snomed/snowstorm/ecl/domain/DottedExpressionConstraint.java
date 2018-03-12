@@ -3,6 +3,10 @@ package org.snomed.snowstorm.ecl.domain;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 
 import java.util.*;
 
@@ -27,16 +31,19 @@ public class DottedExpressionConstraint extends ExpressionConstraint {
 	}
 
 	@Override
-	public Optional<List<Long>> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, QueryService queryService) {
-		Optional<List<Long>> conceptIds = super.select(path, branchCriteria, stated, conceptIdFilter, queryService);
+	public Optional<Page<Long>> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
+		Optional<Page<Long>> conceptIds = super.select(path, branchCriteria, stated, conceptIdFilter, null, queryService);
 
 		if (!conceptIds.isPresent()) {
 			throw new UnsupportedOperationException("Dotted expression using wildcard focus concept is not supported.");
 		}
 
 		for (SubExpressionConstraint dottedAttribute : dottedAttributes) {
-			Optional<List<Long>> attributeTypeIds = dottedAttribute.select(path, branchCriteria, stated, conceptIdFilter, queryService);
-			conceptIds = Optional.of(new ArrayList<>(queryService.retrieveRelationshipDestinations(conceptIds.get(), attributeTypeIds.orElse(null), branchCriteria, stated)));
+			Optional<Page<Long>> attributeTypeIdsOptional = dottedAttribute.select(path, branchCriteria, stated, conceptIdFilter, null, queryService);
+			List<Long> attributeTypeIds = attributeTypeIdsOptional.map(Slice::getContent).orElse(null);
+			// XXX Note that this content is not paginated
+			List<Long> idList = new ArrayList<>(queryService.retrieveRelationshipDestinations(conceptIds.get().getContent(), attributeTypeIds, branchCriteria, stated));
+			conceptIds = Optional.of(new PageImpl<>(idList, PageRequest.of(0, idList.size()), idList.size()));
 		}
 
 		return conceptIds;

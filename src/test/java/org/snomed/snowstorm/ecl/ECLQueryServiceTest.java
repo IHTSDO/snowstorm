@@ -17,6 +17,7 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Slice;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -485,6 +486,6 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 
 	private Collection<Long> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated) {
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, path, stated).orElse(null);
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, path, stated).map(Slice::getContent).orElse(null);
 	}
 }

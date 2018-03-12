@@ -5,11 +5,10 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
@@ -38,13 +37,15 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 				query.must(QueryBuilders.termQuery(QueryConcept.CONCEPT_ID_FIELD, conceptId));
 			}
 		} else if (nestedExpressionConstraint != null) {
-			Optional<List<Long>> conceptIdsOptional = nestedExpressionConstraint.select(path, branchCriteria, stated, null, queryService);
+			Optional<Page<Long>> conceptIdsOptional = nestedExpressionConstraint.select(path, branchCriteria, stated, null, null, queryService);
 			if (!conceptIdsOptional.isPresent()) {
 				return;
 			}
-			List<Long> conceptIds = conceptIdsOptional.get();
-			if (!conceptIds.isEmpty()) {
-				conceptIds.add(ExpressionConstraint.MISSING_LONG);
+			List<Long> conceptIds = conceptIdsOptional.get().getContent();
+			if (conceptIds.isEmpty()) {
+				// Attribute type is not a wildcard but empty selection
+				// Force query to return nothing
+				conceptIds = Collections.singletonList(ExpressionConstraint.MISSING_LONG);
 			}
 			BoolQueryBuilder filterQuery = boolQuery();
 			query.filter(filterQuery);
@@ -63,11 +64,11 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 	}
 
 	@Override
-	public Optional<List<Long>> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, QueryService queryService) {
+	public Optional<Page<Long>> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
 		if (isWildcard()) {
 			return Optional.empty();
 		}
-		return super.select(path, branchCriteria, stated, conceptIdFilter, queryService);
+		return super.select(path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
 	}
 
 	private void applyConceptCriteriaWithOperator(String conceptId, Operator operator, BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {

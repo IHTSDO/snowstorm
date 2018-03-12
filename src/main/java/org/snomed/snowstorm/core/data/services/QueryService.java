@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -102,14 +103,9 @@ public class QueryService {
 				conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, conceptIdList.size());
 			} else if (conceptQuery.getEcl() != null) {
 				// ECL search
-				Optional<List<Long>> allConceptIdsOptional = doEclSearch(conceptQuery, branchPath, pageRequest, branchCriteria);
-				if (allConceptIdsOptional.isPresent()) {
-					List<Long> allConceptIds = allConceptIdsOptional.get();
-					List<Long> pageOfIds = CollectionUtil.subList(allConceptIds, pageRequest.getPageNumber(), pageRequest.getPageSize());
-					conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, allConceptIds.size());
-				} else {
-					conceptIdPage = getSimpleLogicalSearchPage(new ConceptQueryBuilder(conceptQuery.stated).selfOrDescendant(parseLong(Concepts.SNOMEDCT_ROOT)), branchCriteria, pageRequest);
-				}
+				Optional<Page<Long>> allConceptIdsOptional = doEclSearch(conceptQuery, branchPath, pageRequest, branchCriteria);
+				conceptIdPage = allConceptIdsOptional.orElseGet(() ->
+						getSimpleLogicalSearchPage(new ConceptQueryBuilder(conceptQuery.stated).selfOrDescendant(parseLong(Concepts.SNOMEDCT_ROOT)), branchCriteria, pageRequest));
 
 			} else {
 				// Primitive logical search
@@ -130,7 +126,7 @@ public class QueryService {
 			// Have to fetch all logical matches and then create a page using the lexical ordering
 			List<Long> allFilteredLogicalMatches;
 			if (conceptQuery.getEcl() != null) {
-				allFilteredLogicalMatches = doEclSearch(conceptQuery, branchPath, pageRequest, branchCriteria, allLexicalMatchesWithOrdering);
+				allFilteredLogicalMatches = doEclSearch(conceptQuery, branchPath, branchCriteria, allLexicalMatchesWithOrdering);
 			} else {
 				logger.info("Primitive Logical Search ");
 				NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
@@ -193,17 +189,17 @@ public class QueryService {
 		return allLexicalMatchesWithOrdering;
 	}
 
-	private Optional<List<Long>> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, QueryBuilder branchCriteria) {
+	private Optional<Page<Long>> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, QueryBuilder branchCriteria) {
 		String ecl = conceptQuery.getEcl();
 		logger.info("ECL Search {}", ecl);
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated());
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), pageRequest);
 	}
 
-	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, QueryBuilder branchCriteria, List<Long> conceptIdFilter) {
+	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, QueryBuilder branchCriteria, List<Long> conceptIdFilter) {
 		String ecl = conceptQuery.getEcl();
 		logger.info("ECL Search {}", ecl);
-		Optional<List<Long>> listOptional = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter);
-		return listOptional.orElse(conceptIdFilter);
+		Optional<Page<Long>> listOptional = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter);
+		return listOptional.map(Slice::getContent).orElse(conceptIdFilter);
 	}
 
 	private NativeSearchQuery getLexicalQuery(String term, QueryBuilder branchCriteria, PageRequest pageable) {
@@ -222,6 +218,10 @@ public class QueryService {
 
 	private List<ConceptMini> getOrderedConceptList(List<Long> termConceptIds, Map<String, ConceptMini> conceptMiniMap) {
 		return termConceptIds.stream().filter(id -> conceptMiniMap.keySet().contains(id.toString())).map(id -> conceptMiniMap.get(id.toString())).collect(Collectors.toList());
+	}
+
+	public Page<QueryConcept> queryForPage(NativeSearchQuery searchQuery) {
+		return elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class);
 	}
 
 	public CloseableIterator<QueryConcept> stream(NativeSearchQuery searchQuery) {

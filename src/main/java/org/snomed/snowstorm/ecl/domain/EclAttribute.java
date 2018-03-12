@@ -4,6 +4,8 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Slice;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -32,7 +34,7 @@ public class EclAttribute implements Refinement {
 			return;
 		}
 
-		Optional<List<Long>> attributeTypesOptional = attributeName.select(path, branchCriteria, stated, null, queryService);
+		Optional<Page<Long>> attributeTypesOptional = attributeName.select(path, branchCriteria, stated, null, null, queryService);
 
 		boolean attributeTypeWildcard = !attributeTypesOptional.isPresent();
 		Set<String> attributeTypeProperties;
@@ -47,7 +49,7 @@ public class EclAttribute implements Refinement {
 			}
 		}
 
-		List<Long> possibleAttributeValues = value.select(path, branchCriteria, stated, null, queryService).orElse(null);
+		List<Long> possibleAttributeValues = value.select(path, branchCriteria, stated, null, null, queryService).map(Slice::getContent).orElse(null);
 
 		if (reverse) {
 			// Reverse flag
@@ -56,7 +58,7 @@ public class EclAttribute implements Refinement {
 			if (possibleAttributeValues == null) {
 				throw new UnsupportedOperationException("Returning the attribute values of all concepts is not supported.");
 			}
-			Collection<Long> destinationConceptIds = queryService.retrieveRelationshipDestinations(possibleAttributeValues, attributeTypesOptional.orElse(null), branchCriteria, stated);
+			Collection<Long> destinationConceptIds = queryService.retrieveRelationshipDestinations(possibleAttributeValues, attributeTypesOptional.map(Slice::getContent).orElse(null), branchCriteria, stated);
 			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, destinationConceptIds));
 
 		} else {
@@ -177,7 +179,7 @@ public class EclAttribute implements Refinement {
 			// Return true if the concept attribute count is within the constraints
 			boolean withinConstraints = (cardinalityMin == null || cardinalityMin <= attributeMatchCount.get()) && (cardinalityMax == null || cardinalityMax >= attributeMatchCount.get());
 			return negateSelection != withinConstraints;
-		}, queryService);
+		}, null, queryService).getContent();
 	}
 
 	private String getAttributeTypeField(String attributeTypeProperty) {
