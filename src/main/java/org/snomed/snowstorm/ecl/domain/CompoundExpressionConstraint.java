@@ -13,6 +13,7 @@ public class CompoundExpressionConstraint extends ExpressionConstraint {
 
 	private List<SubExpressionConstraint> conjunctionExpressionConstraints;
 	private List<SubExpressionConstraint> disjunctionExpressionConstraints;
+	private SubExpressionConstraint exclusionExpressionConstraint;
 
 	@Override
 	protected boolean isWildcard() {
@@ -35,6 +36,11 @@ public class CompoundExpressionConstraint extends ExpressionConstraint {
 				disjunctionExpressionConstraint.addCriteria(shouldQuery, path, branchCriteria, stated, queryService);
 			}
 		}
+		if (exclusionExpressionConstraint != null) {
+			BoolQueryBuilder mustNotQuery = boolQuery();
+			query.mustNot(mustNotQuery);
+			exclusionExpressionConstraint.addCriteria(mustNotQuery, path, branchCriteria, stated, queryService);
+		}
 	}
 
 	public void setConjunctionExpressionConstraints(List<SubExpressionConstraint> conjunctionExpressionConstraints) {
@@ -45,11 +51,16 @@ public class CompoundExpressionConstraint extends ExpressionConstraint {
 		this.disjunctionExpressionConstraints = disjunctionExpressionConstraints;
 	}
 
+	public void setExclusionExpressionConstraint(SubExpressionConstraint exclusionExpressionConstraint) {
+		this.exclusionExpressionConstraint = exclusionExpressionConstraint;
+	}
+
 	@Override
 	public String toString() {
 		return "CompoundExpressionConstraint{" +
 				"conjunctionExpressionConstraints=" + conjunctionExpressionConstraints +
 				", disjunctionExpressionConstraints=" + disjunctionExpressionConstraints +
+				", exclusionExpressionConstraint=" + exclusionExpressionConstraint +
 				'}';
 	}
 }

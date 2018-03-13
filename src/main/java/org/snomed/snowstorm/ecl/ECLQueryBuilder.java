@@ -11,6 +11,7 @@ import org.snomed.snowstorm.ecl.generated.parser.ECLLexer;
 import org.snomed.snowstorm.ecl.generated.parser.ECLParser;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -73,12 +74,11 @@ class ECLQueryBuilder {
 			CompoundExpressionConstraint compoundExpressionConstraint = new CompoundExpressionConstraint();
 			if (ctx.conjunctionexpressionconstraint() != null) {
 				compoundExpressionConstraint.setConjunctionExpressionConstraints(build(ctx.conjunctionexpressionconstraint().subexpressionconstraint()));
-			}
-			if (ctx.disjunctionexpressionconstraint() != null) {
+			} else if (ctx.disjunctionexpressionconstraint() != null) {
 				compoundExpressionConstraint.setDisjunctionExpressionConstraints(build(ctx.disjunctionexpressionconstraint().subexpressionconstraint()));
-			}
-			if (ctx.exclusionexpressionconstraint() != null) {
-				throw new UnsupportedOperationException("CompoundexpressionconstraintContext with exclusionexpressionconstraint is not supported.");
+			} else if (ctx.exclusionexpressionconstraint() != null) {
+				compoundExpressionConstraint.setConjunctionExpressionConstraints(Collections.singletonList(build(ctx.exclusionexpressionconstraint().subexpressionconstraint(0))));
+				compoundExpressionConstraint.setExclusionExpressionConstraint(build(ctx.exclusionexpressionconstraint().subexpressionconstraint(1)));
 			}
 			return compoundExpressionConstraint;
 		}
@@ -95,10 +95,6 @@ class ECLQueryBuilder {
 
 		private List<SubExpressionConstraint> build(List<ECLParser.SubexpressionconstraintContext> subExpressionConstraints) {
 			return subExpressionConstraints.stream().map(this::build).collect(Collectors.toList());
-		}
-
-		public void enterExclusionexpressionconstraint(ECLParser.ExclusionexpressionconstraintContext ctx) {
-			throw new UnsupportedOperationException("Exclusionexpressionconstraint is not supported.");
 		}
 
 		private SubExpressionConstraint build(ECLParser.SubexpressionconstraintContext ctx) {

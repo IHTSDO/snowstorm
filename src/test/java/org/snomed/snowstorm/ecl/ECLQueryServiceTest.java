@@ -21,7 +21,10 @@ import org.springframework.data.domain.Slice;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -362,6 +365,17 @@ public class ECLQueryServiceTest extends AbstractTest {
 		assertEquals(
 				Sets.newHashSet(HEMORRHAGE),
 				strings(selectConceptIds(HEMORRHAGE + " OR " + HEMORRHAGE, branchCriteria, MAIN, STATED)));
+	}
+
+	@Test
+	public void focusConceptExclusion() {
+		assertEquals(
+				Sets.newHashSet(CLINICAL_FINDING, BLEEDING, BLEEDING_SKIN),
+				strings(selectConceptIds("<<" + CLINICAL_FINDING + " MINUS <<" + DISORDER, branchCriteria, MAIN, STATED)));
+
+		assertEquals(
+				Sets.newHashSet(),
+				strings(selectConceptIds(HEMORRHAGE + " MINUS " + HEMORRHAGE, branchCriteria, MAIN, STATED)));
 	}
 
 	@Test
