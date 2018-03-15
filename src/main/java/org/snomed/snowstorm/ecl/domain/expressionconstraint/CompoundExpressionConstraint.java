@@ -1,10 +1,9 @@
-package org.snomed.snowstorm.ecl.domain;
+package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
 
-import java.util.Collection;
 import java.util.List;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
@@ -21,25 +20,25 @@ public class CompoundExpressionConstraint extends ExpressionConstraint {
 	}
 
 	@Override
-	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
+	public void addCriteria(RefinementBuilder refinementBuilder) {
 		if (conjunctionExpressionConstraints != null) {
 			for (SubExpressionConstraint conjunctionExpressionConstraint : conjunctionExpressionConstraints) {
-				conjunctionExpressionConstraint.addCriteria(query, path, branchCriteria, stated, queryService);
+				conjunctionExpressionConstraint.addCriteria(refinementBuilder);
 			}
 		}
 		if (disjunctionExpressionConstraints != null) {
 			BoolQueryBuilder shouldQueries = boolQuery();
-			query.must(shouldQueries);
+			refinementBuilder.getQuery().must(shouldQueries);
 			for (SubExpressionConstraint disjunctionExpressionConstraint : disjunctionExpressionConstraints) {
 				BoolQueryBuilder shouldQuery = boolQuery();
 				shouldQueries.should(shouldQuery);
-				disjunctionExpressionConstraint.addCriteria(shouldQuery, path, branchCriteria, stated, queryService);
+				disjunctionExpressionConstraint.addCriteria(new SubRefinementBuilder(refinementBuilder, shouldQuery));
 			}
 		}
 		if (exclusionExpressionConstraint != null) {
 			BoolQueryBuilder mustNotQuery = boolQuery();
-			query.mustNot(mustNotQuery);
-			exclusionExpressionConstraint.addCriteria(mustNotQuery, path, branchCriteria, stated, queryService);
+			refinementBuilder.getQuery().mustNot(mustNotQuery);
+			exclusionExpressionConstraint.addCriteria(new SubRefinementBuilder(refinementBuilder, mustNotQuery));
 		}
 	}
 

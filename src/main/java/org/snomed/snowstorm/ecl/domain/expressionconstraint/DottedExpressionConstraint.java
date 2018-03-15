@@ -1,14 +1,17 @@
-package org.snomed.snowstorm.ecl.domain;
+package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
-import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 
 public class DottedExpressionConstraint extends ExpressionConstraint {
 
@@ -26,8 +29,8 @@ public class DottedExpressionConstraint extends ExpressionConstraint {
 	}
 
 	@Override
-	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
-		subExpressionConstraint.addCriteria(query, path, branchCriteria, stated, queryService);
+	public void addCriteria(RefinementBuilder refinementBuilder) {
+		subExpressionConstraint.addCriteria(refinementBuilder);
 	}
 
 	@Override

@@ -1,10 +1,13 @@
-package org.snomed.snowstorm.ecl.domain;
+package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.refinement.Operator;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
@@ -29,15 +32,16 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 	}
 
 	@Override
-	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
+	public void addCriteria(RefinementBuilder refinementBuilder) {
+		BoolQueryBuilder query = refinementBuilder.getQuery();
 		if (conceptId != null) {
 			if (operator != null) {
-				applyConceptCriteriaWithOperator(conceptId, operator, query, path, branchCriteria, stated, queryService);
+				applyConceptCriteriaWithOperator(conceptId, operator, refinementBuilder);
 			} else {
 				query.must(QueryBuilders.termQuery(QueryConcept.CONCEPT_ID_FIELD, conceptId));
 			}
 		} else if (nestedExpressionConstraint != null) {
-			Optional<Page<Long>> conceptIdsOptional = nestedExpressionConstraint.select(path, branchCriteria, stated, null, null, queryService);
+			Optional<Page<Long>> conceptIdsOptional = nestedExpressionConstraint.select(refinementBuilder);
 			if (!conceptIdsOptional.isPresent()) {
 				return;
 			}
@@ -50,15 +54,16 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 			BoolQueryBuilder filterQuery = boolQuery();
 			query.filter(filterQuery);
 			if (operator != null) {
+				SubRefinementBuilder filterRefinementBuilder = new SubRefinementBuilder(refinementBuilder, filterQuery);
 				for (Long conceptId : conceptIds) {
-					applyConceptCriteriaWithOperator(conceptId.toString(), operator, filterQuery, path, branchCriteria, stated, queryService);
+					applyConceptCriteriaWithOperator(conceptId.toString(), operator, filterRefinementBuilder);
 				}
 			} else {
 				filterQuery.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptIds));
 			}
 		} else if (operator == Operator.memberOf) {
 			// Member of any reference set
-			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveConceptsInReferenceSet(branchCriteria, null)));
+			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, refinementBuilder.getQueryService().retrieveConceptsInReferenceSet(refinementBuilder.getBranchCriteria(), null)));
 		}
 		// Else Wildcard! which has no constraints
 	}
@@ -71,7 +76,13 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 		return super.select(path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
 	}
 
-	private void applyConceptCriteriaWithOperator(String conceptId, Operator operator, BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
+	private void applyConceptCriteriaWithOperator(String conceptId, Operator operator, RefinementBuilder refinementBuilder) {
+		BoolQueryBuilder query = refinementBuilder.getQuery();
+		QueryService queryService = refinementBuilder.getQueryService();
+		QueryBuilder branchCriteria = refinementBuilder.getBranchCriteria();
+		String path = refinementBuilder.getPath();
+		boolean stated = refinementBuilder.isStated();
+
 		switch (operator) {
 			case childof:
 				query.must(termQuery(QueryConcept.PARENTS_FIELD, conceptId));

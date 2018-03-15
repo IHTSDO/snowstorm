@@ -4,8 +4,16 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.services.QueryService;
 
-public interface Refinement {
+public interface RefinementBuilder {
 
-	void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService);
+	BoolQueryBuilder getQuery();
+
+	String getPath();
+
+	QueryBuilder getBranchCriteria();
+
+	boolean isStated();
+
+	QueryService getQueryService();
 
 }

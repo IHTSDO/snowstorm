@@ -1,8 +1,8 @@
-package org.snomed.snowstorm.ecl.domain;
+package org.snomed.snowstorm.ecl.domain.refinement;
 
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
 
 import java.util.List;
 
@@ -10,32 +10,34 @@ import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 
 public class EclAttributeSet implements Refinement {
 
+	private EclAttributeGroup parentGroup;
 	private SubAttributeSet subAttributeSet;
 	private List<SubAttributeSet> conjunctionAttributeSet;
 	private List<SubAttributeSet> disjunctionAttributeSet;
 
 	@Override
-	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
+	public void addCriteria(RefinementBuilder refinementBuilder) {
 		// In Elasticsearch disjunction (OR) clauses are written by adding a 'must' clause and appending 'should' clauses to that.
 		// The first two types of refinements have to be part of the first 'should' query because they may be the
 		// first half of a disjunction clause.
 
 		BoolQueryBuilder shouldQueries = boolQuery();
-		query.must(shouldQueries);
+		refinementBuilder.getQuery().must(shouldQueries);
 		BoolQueryBuilder firstShouldQuery = boolQuery();
 		shouldQueries.should(firstShouldQuery);
 
-		subAttributeSet.addCriteria(firstShouldQuery, path, branchCriteria, stated, queryService);
+		SubRefinementBuilder firstShouldRefinementBuilder = new SubRefinementBuilder(refinementBuilder, firstShouldQuery);
+		subAttributeSet.addCriteria(firstShouldRefinementBuilder);
 		if (conjunctionAttributeSet != null) {
 			for (SubAttributeSet attributeSet : conjunctionAttributeSet) {
-				attributeSet.addCriteria(firstShouldQuery, path, branchCriteria, stated, queryService);
+				attributeSet.addCriteria(firstShouldRefinementBuilder);
 			}
 		}
 		if (disjunctionAttributeSet != null && !disjunctionAttributeSet.isEmpty()) {
 			for (SubAttributeSet attributeSet : disjunctionAttributeSet) {
 				BoolQueryBuilder additionalShouldQuery = boolQuery();
 				shouldQueries.should(additionalShouldQuery);
-				attributeSet.addCriteria(additionalShouldQuery, path, branchCriteria, stated, queryService);
+				attributeSet.addCriteria(new SubRefinementBuilder(refinementBuilder, additionalShouldQuery));
 			}
 		}
 	}
@@ -59,9 +61,15 @@ public class EclAttributeSet implements Refinement {
 	@Override
 	public String toString() {
 		return "EclAttributeSet{" +
-				"subAttributeSet=" + subAttributeSet +
+				"withinGroup=" + (parentGroup != null) +
+				", subAttributeSet=" + subAttributeSet +
 				", conjunctionAttributeSet=" + conjunctionAttributeSet +
 				", disjunctionAttributeSet=" + disjunctionAttributeSet +
 				'}';
 	}
+
+	public void setParentGroup(EclAttributeGroup parentGroup) {
+		this.parentGroup = parentGroup;
+	}
+
 }

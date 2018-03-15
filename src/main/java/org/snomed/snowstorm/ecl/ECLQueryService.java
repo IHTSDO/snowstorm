@@ -2,15 +2,13 @@ package org.snomed.snowstorm.ecl;
 
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.services.QueryService;
-import org.snomed.snowstorm.ecl.domain.ExpressionConstraint;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import javax.validation.constraints.Null;
 import java.util.Collection;
-import java.util.List;
 import java.util.Optional;
 
 @Service

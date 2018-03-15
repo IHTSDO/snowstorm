@@ -5,7 +5,8 @@ import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
-import org.snomed.snowstorm.ecl.domain.*;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.*;
+import org.snomed.snowstorm.ecl.domain.refinement.*;
 import org.snomed.snowstorm.ecl.generated.ImpotentECLListener;
 import org.snomed.snowstorm.ecl.generated.parser.ECLLexer;
 import org.snomed.snowstorm.ecl.generated.parser.ECLParser;
@@ -144,50 +145,61 @@ class ECLQueryBuilder {
 
 		private SubRefinement build(ECLParser.SubrefinementContext ctx) {
 			SubRefinement subRefinement = new SubRefinement();
-			subRefinement.setEclAttributeSet(build(ctx.eclattributeset()));
+			subRefinement.setEclAttributeSet(build(ctx.eclattributeset(), null));
 			subRefinement.setEclAttributeGroup(build(ctx.eclattributegroup()));
 			subRefinement.setEclRefinement(build(ctx.eclrefinement()));
 			return subRefinement;
 		}
 
-		private EclAttributeSet build(ECLParser.EclattributesetContext ctx) {
+		private EclAttributeSet build(ECLParser.EclattributesetContext ctx, EclAttributeGroup withinGroup) {
 			if (ctx == null) return null;
 			EclAttributeSet eclAttributeSet = new EclAttributeSet();
-			eclAttributeSet.setSubAttributeSet(build(ctx.subattributeset()));
+			eclAttributeSet.setParentGroup(withinGroup);
+			eclAttributeSet.setSubAttributeSet(build(ctx.subattributeset(), withinGroup));
 			if (ctx.conjunctionattributeset() != null) {
-				eclAttributeSet.setConjunctionAttributeSet(buildSubAttributeSet(ctx.conjunctionattributeset().subattributeset()));
+				eclAttributeSet.setConjunctionAttributeSet(buildSubAttributeSet(ctx.conjunctionattributeset().subattributeset(), withinGroup));
 			}
 			if (ctx.disjunctionattributeset() != null) {
-				eclAttributeSet.setDisjunctionAttributeSet(buildSubAttributeSet(ctx.disjunctionattributeset().subattributeset()));
+				eclAttributeSet.setDisjunctionAttributeSet(buildSubAttributeSet(ctx.disjunctionattributeset().subattributeset(), withinGroup));
 			}
 			return eclAttributeSet;
 		}
 
-		private List<SubAttributeSet> buildSubAttributeSet(List<ECLParser.SubattributesetContext> subattributeset) {
-			return subattributeset.stream().map(this::build).collect(Collectors.toList());
+		private List<SubAttributeSet> buildSubAttributeSet(List<ECLParser.SubattributesetContext> subattributeset, EclAttributeGroup withinGroup) {
+			return subattributeset.stream().map(ctx -> build(ctx, withinGroup)).collect(Collectors.toList());
 		}
 
-		private SubAttributeSet build(ECLParser.SubattributesetContext ctx) {
+		private SubAttributeSet build(ECLParser.SubattributesetContext ctx, EclAttributeGroup withinGroup) {
 			if (ctx == null) return null;
 			SubAttributeSet subAttributeSet = new SubAttributeSet();
-			subAttributeSet.setAttribute(build(ctx.eclattribute()));
-			subAttributeSet.setAttributeSet(build(ctx.eclattributeset()));
+			subAttributeSet.setAttribute(build(ctx.eclattribute(), withinGroup));
+			subAttributeSet.setAttributeSet(build(ctx.eclattributeset(), withinGroup));
 			return subAttributeSet;
 		}
 
 		private EclAttributeGroup build(ECLParser.EclattributegroupContext ctx) {
 			if (ctx == null) return null;
+			EclAttributeGroup attributeGroup = new EclAttributeGroup();
+			attributeGroup.setAttributeSet(build(ctx.eclattributeset(), attributeGroup));
 
-			if (ctx.cardinality() != null) {
+			ECLParser.CardinalityContext cardinality = ctx.cardinality();
+			if (cardinality != null) {
+				if (cardinality.minvalue().nonnegativeintegervalue() != null) {
+					attributeGroup.setCardinalityMin(Integer.parseInt(cardinality.minvalue().nonnegativeintegervalue().getText()));
+				}
+				if (cardinality.maxvalue().nonnegativeintegervalue() != null) {
+					attributeGroup.setCardinalityMax(Integer.parseInt(cardinality.maxvalue().nonnegativeintegervalue().getText()));
+				}
 				throw new UnsupportedOperationException("Group cardinality is not supported.");
 			}
 
-			return new EclAttributeGroup(build(ctx.eclattributeset()));
+			return attributeGroup;
 		}
 
-		private EclAttribute build(ECLParser.EclattributeContext ctx) {
+		private EclAttribute build(ECLParser.EclattributeContext ctx, EclAttributeGroup withinGroup) {
 			if (ctx == null) return null;
 			EclAttribute attribute = new EclAttribute();
+			attribute.setParentGroup(withinGroup);
 
 			ECLParser.CardinalityContext cardinality = ctx.cardinality();
 			if (cardinality != null) {

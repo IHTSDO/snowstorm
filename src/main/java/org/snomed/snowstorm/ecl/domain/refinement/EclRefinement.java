@@ -1,8 +1,10 @@
-package org.snomed.snowstorm.ecl.domain;
+package org.snomed.snowstorm.ecl.domain.refinement;
 
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,21 +22,21 @@ public class EclRefinement implements Refinement {
 	}
 
 	@Override
-	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
-		subRefinement.addCriteria(query, path, branchCriteria, stated, queryService);
+	public void addCriteria(RefinementBuilder refinementBuilder) {
+		subRefinement.addCriteria(refinementBuilder);
 
 		if (conjunctionSubRefinements != null) {
 			for (SubRefinement conjunctionSubRefinement : conjunctionSubRefinements) {
-				conjunctionSubRefinement.addCriteria(query, path, branchCriteria, stated, queryService);
+				conjunctionSubRefinement.addCriteria(refinementBuilder);
 			}
 		}
 		if (disjunctionSubRefinements != null && disjunctionSubRefinements.isEmpty()) {
 			BoolQueryBuilder shouldQueries = boolQuery();
-			query.must(shouldQueries);
+			refinementBuilder.getQuery().must(shouldQueries);
 			for (SubRefinement disjunctionSubRefinement : disjunctionSubRefinements) {
 				BoolQueryBuilder shouldQuery = boolQuery();
 				shouldQueries.should(shouldQuery);
-				disjunctionSubRefinement.addCriteria(shouldQuery, path, branchCriteria, stated, queryService);
+				disjunctionSubRefinement.addCriteria(new SubRefinementBuilder(refinementBuilder, shouldQuery));
 			}
 		}
 	}

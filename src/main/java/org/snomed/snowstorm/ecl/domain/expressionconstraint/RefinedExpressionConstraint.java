@@ -1,11 +1,7 @@
-package org.snomed.snowstorm.ecl.domain;
+package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.snomed.snowstorm.core.data.services.QueryService;
-
-import java.util.Collection;
-import java.util.List;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.refinement.EclRefinement;
 
 public class RefinedExpressionConstraint extends ExpressionConstraint {
 
@@ -23,9 +19,9 @@ public class RefinedExpressionConstraint extends ExpressionConstraint {
 	}
 
 	@Override
-	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
-		subexpressionConstraint.addCriteria(query, path, branchCriteria, stated, queryService);
-		eclRefinement.addCriteria(query, path, branchCriteria, stated, queryService);
+	public void addCriteria(RefinementBuilder refinementBuilder) {
+		subexpressionConstraint.addCriteria(refinementBuilder);
+		eclRefinement.addCriteria(refinementBuilder);
 	}
 
 	@Override

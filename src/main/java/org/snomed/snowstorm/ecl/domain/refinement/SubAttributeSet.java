@@ -1,8 +1,6 @@
-package org.snomed.snowstorm.ecl.domain;
+package org.snomed.snowstorm.ecl.domain.refinement;
 
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 
 public class SubAttributeSet implements Refinement {
 
@@ -10,11 +8,11 @@ public class SubAttributeSet implements Refinement {
 	private EclAttributeSet attributeSet;
 
 	@Override
-	public void addCriteria(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
+	public void addCriteria(RefinementBuilder refinementBuilder) {
 		if (attribute != null) {
-			attribute.addCriteria(query, path, branchCriteria, stated, queryService);
+			attribute.addCriteria(refinementBuilder);
 		} else {
-			attributeSet.addCriteria(query, path, branchCriteria, stated, queryService);
+			attributeSet.addCriteria(refinementBuilder);
 		}
 	}
 

@@ -1,4 +1,4 @@
-package org.snomed.snowstorm.ecl.domain;
+package org.snomed.snowstorm.ecl.domain.refinement;
 
 public enum Operator {
 
