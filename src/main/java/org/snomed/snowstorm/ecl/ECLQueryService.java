@@ -1,8 +1,10 @@
 package org.snomed.snowstorm.ecl;
 
 import org.elasticsearch.index.query.QueryBuilder;
+import org.snomed.langauges.ecl.ECLException;
+import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.snowstorm.core.data.services.QueryService;
-import org.snomed.snowstorm.ecl.domain.expressionconstraint.ExpressionConstraint;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -33,7 +35,7 @@ public class ECLQueryService {
 	}
 
 	public Optional<Page<Long>> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest) throws ECLException {
-		ExpressionConstraint expressionConstraint = queryBuilder.createQuery(ecl);
+		SExpressionConstraint expressionConstraint = (SExpressionConstraint) queryBuilder.createQuery(ecl);
 		return expressionConstraint.select(path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
 	}
 

@@ -2,12 +2,13 @@ package org.snomed.snowstorm.ecl.domain.refinement;
 
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.snomed.langauges.ecl.domain.refinement.EclAttribute;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.ConceptSelectorHelper;
-import org.snomed.snowstorm.ecl.domain.expressionconstraint.ExpressionConstraint;
-import org.snomed.snowstorm.ecl.domain.expressionconstraint.SubExpressionConstraint;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraintHelper;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Slice;
 
@@ -15,18 +16,9 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
-public class EclAttribute implements Refinement {
-
-	private SubExpressionConstraint attributeName;
-	private String expressionComparisonOperator;
-	private SubExpressionConstraint value;
-	private boolean reverse;
-	private EclAttributeGroup parentGroup;
-	private Integer cardinalityMin;
-	private Integer cardinalityMax;
+public class SEclAttribute extends EclAttribute implements SRefinement {
 
 	@Override
 	public void addCriteria(RefinementBuilder refinementBuilder) {
@@ -39,7 +31,7 @@ public class EclAttribute implements Refinement {
 			return;
 		}
 
-		Optional<Page<Long>> attributeTypesOptional = attributeName.select(refinementBuilder);
+		Optional<Page<Long>> attributeTypesOptional = ((SSubExpressionConstraint)attributeName).select(refinementBuilder);
 
 		boolean attributeTypeWildcard = !attributeTypesOptional.isPresent();
 		Set<String> attributeTypeProperties;
@@ -50,11 +42,11 @@ public class EclAttribute implements Refinement {
 			if (attributeTypeProperties.isEmpty()) {
 				// Attribute type is not a wildcard but empty selection
 				// Force query to return nothing
-				attributeTypeProperties.add(ExpressionConstraint.MISSING);
+				attributeTypeProperties.add(SExpressionConstraintHelper.MISSING);
 			}
 		}
 
-		List<Long> possibleAttributeValues = value.select(refinementBuilder).map(Slice::getContent).orElse(null);
+		List<Long> possibleAttributeValues = ((SSubExpressionConstraint)value).select(refinementBuilder).map(Slice::getContent).orElse(null);
 
 		AttributeRange attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypeProperties, possibleAttributeValues, cardinalityMin, cardinalityMax);
 
@@ -132,6 +124,16 @@ public class EclAttribute implements Refinement {
 				}
 			}
 		}
+	}
+
+	@Override
+	public void setNumericComparisonOperator(String numericComparisonOperator) {
+		throw new UnsupportedOperationException("Only the ExpressionComparisonOperator is supported. NumericComparisonOperator and StringComparisonOperator are not supported.");
+	}
+
+	@Override
+	public void setStringComparisonOperator(String stringComparisonOperator) {
+		throw new UnsupportedOperationException("Only the ExpressionComparisonOperator is supported. NumericComparisonOperator and StringComparisonOperator are not supported.");
 	}
 
 	private void doAddTypeAndValueCriteria(BoolQueryBuilder query, Set<String> attributeTypeProperties, Collection<Long> possibleAttributeValues,
@@ -229,49 +231,4 @@ public class EclAttribute implements Refinement {
 	static String attributeMapKeyToConceptId(String key) {
 		return key.substring(QueryConcept.ATTR_FIELD.length() + 1);
 	}
-
-	public void setAttributeName(SubExpressionConstraint attributeName) {
-		this.attributeName = attributeName;
-	}
-
-	public void setExpressionComparisonOperator(String expressionComparisonOperator) {
-		this.expressionComparisonOperator = expressionComparisonOperator;
-	}
-
-	public void setValue(SubExpressionConstraint value) {
-		this.value = value;
-	}
-
-	public void reverse() {
-		this.reverse = true;
-	}
-
-	public void setCardinalityMin(int cardinalityMin) {
-		this.cardinalityMin = cardinalityMin;
-	}
-
-	public void setCardinalityMax(int cardinalityMax) {
-		this.cardinalityMax = cardinalityMax;
-	}
-
-	@Override
-	public String toString() {
-		return "EclAttribute{" +
-				"attributeName=" + attributeName +
-				", expressionComparisonOperator='" + expressionComparisonOperator + '\'' +
-				", value=" + value +
-				", reverse=" + reverse +
-				", cardinalityMin=" + cardinalityMin +
-				", cardinalityMax=" + cardinalityMax +
-				", withinGroup=" + (parentGroup != null) +
-				", groupCardinalityMin=" + (parentGroup != null ? parentGroup.getCardinalityMin() : null) +
-				", groupCardinalityMax=" + (parentGroup != null ? parentGroup.getCardinalityMax() : null) +
-				", withinGroup=" + (parentGroup != null) +
-				'}';
-	}
-
-	public void setParentGroup(EclAttributeGroup parentGroup) {
-		this.parentGroup = parentGroup;
-	}
-
 }

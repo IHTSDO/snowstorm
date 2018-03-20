@@ -3,11 +3,13 @@ package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
+import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
+import org.snomed.langauges.ecl.domain.refinement.Operator;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
-import org.snomed.snowstorm.ecl.domain.refinement.Operator;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
@@ -15,20 +17,31 @@ import java.util.*;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
-public class SubExpressionConstraint extends ExpressionConstraint {
+public class SSubExpressionConstraint extends SubExpressionConstraint implements SExpressionConstraint {
 
-	private final Operator operator;
-	private String conceptId;
-	private boolean wildcard;
-	private ExpressionConstraint nestedExpressionConstraint;
-
-	public SubExpressionConstraint(Operator operator) {
-		this.operator = operator;
+	public SSubExpressionConstraint(Operator operator) {
+		super(operator);
 	}
 
 	@Override
-	public boolean isWildcard() {
-		return wildcard && Operator.memberOf != operator;
+	public Optional<Page<Long>> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
+		if (wildcard && Operator.memberOf != operator) {
+			return Optional.empty();
+		}
+		return SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, null, queryService);
+	}
+
+	@Override
+	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
+		return SExpressionConstraintHelper.select(this, refinementBuilder);
+	}
+
+	@Override
+	public void setNestedExpressionConstraint(ExpressionConstraint nestedExpressionConstraint) {
+		if (operator == Operator.memberOf) {
+			throw new UnsupportedOperationException("MemberOf nested expression constraint is not supported.");
+		}
+		super.setNestedExpressionConstraint(nestedExpressionConstraint);
 	}
 
 	@Override
@@ -41,7 +54,7 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 				query.must(QueryBuilders.termQuery(QueryConcept.CONCEPT_ID_FIELD, conceptId));
 			}
 		} else if (nestedExpressionConstraint != null) {
-			Optional<Page<Long>> conceptIdsOptional = nestedExpressionConstraint.select(refinementBuilder);
+			Optional<Page<Long>> conceptIdsOptional = ((SExpressionConstraint)nestedExpressionConstraint).select(refinementBuilder);
 			if (!conceptIdsOptional.isPresent()) {
 				return;
 			}
@@ -49,7 +62,7 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 			if (conceptIds.isEmpty()) {
 				// Attribute type is not a wildcard but empty selection
 				// Force query to return nothing
-				conceptIds = Collections.singletonList(ExpressionConstraint.MISSING_LONG);
+				conceptIds = Collections.singletonList(SExpressionConstraintHelper.MISSING_LONG);
 			}
 			BoolQueryBuilder filterQuery = boolQuery();
 			query.filter(filterQuery);
@@ -66,14 +79,6 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, refinementBuilder.getQueryService().retrieveConceptsInReferenceSet(refinementBuilder.getBranchCriteria(), null)));
 		}
 		// Else Wildcard! which has no constraints
-	}
-
-	@Override
-	public Optional<Page<Long>> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
-		if (isWildcard()) {
-			return Optional.empty();
-		}
-		return super.select(path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
 	}
 
 	private void applyConceptCriteriaWithOperator(String conceptId, Operator operator, RefinementBuilder refinementBuilder) {
@@ -121,29 +126,4 @@ public class SubExpressionConstraint extends ExpressionConstraint {
 		}
 	}
 
-	public void wildcard() {
-		this.wildcard = true;
-	}
-
-	public void setConceptId(String conceptId) {
-		this.conceptId = conceptId;
-	}
-
-	public String getConceptId() {
-		return conceptId;
-	}
-
-	public void setNestedExpressionConstraint(ExpressionConstraint nestedExpressionConstraint) {
-		this.nestedExpressionConstraint = nestedExpressionConstraint;
-	}
-
-	@Override
-	public String toString() {
-		return "SubExpressionConstraint{" +
-				"operator=" + operator +
-				", conceptId='" + conceptId + '\'' +
-				", wildcard=" + wildcard +
-				", nestedExpressionConstraint=" + nestedExpressionConstraint +
-				'}';
-	}
 }

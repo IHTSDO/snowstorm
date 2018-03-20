@@ -2,8 +2,6 @@ package org.snomed.snowstorm.ecl.domain.refinement;
 
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 
-public interface Refinement {
-
+public interface SRefinement {
 	void addCriteria(RefinementBuilder refinementBuilder);
-
 }

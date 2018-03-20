@@ -262,7 +262,7 @@ public class AuthoringMirrorServiceTest extends AbstractTest {
 		branchService.recursiveCreate(branchPath);
 		File testFiles = new File("src/test/resources" + testPath);
 		File[] files = testFiles.listFiles(file -> file.isFile() && file.getName().endsWith("-before.json"));
-		org.springframework.util.Assert.notNull(files);
+		Assert.assertNotNull(files);
 		for (File beforeFile : files) {
 			Concept before = mapper.readValue(beforeFile, Concept.class);
 			conceptService.create(before, branchPath);

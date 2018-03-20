@@ -19,6 +19,8 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalIdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.cis.CISClient;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
+import org.snomed.snowstorm.ecl.SECLObjectFactory;
+import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
@@ -179,6 +181,11 @@ public abstract class Config {
 	@ConfigurationProperties(prefix = "refset")
 	public ReferenceSetTypesConfigurationService getReferenceSetTypesService() {
 		return new ReferenceSetTypesConfigurationService();
+	}
+
+	@Bean
+	public ECLQueryBuilder eclQueryBuilder() {
+		return new ECLQueryBuilder(new SECLObjectFactory());
 	}
 
 	@Bean
