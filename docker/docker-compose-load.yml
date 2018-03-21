@@ -5,13 +5,14 @@ services:
     container_name: elasticsearch
     environment:
       - bootstrap.memory_lock=true
-      - "ES_JAVA_OPTS=-Xms4g -Xmx4g"
+      - "ES_JAVA_OPTS=-Xms6g -Xmx6g"
+      - xpack.monitoring.enabled=false
     ulimits:
       memlock:
         soft: -1
         hard: -1
     volumes:
-      - esdata1:/usr/share/elasticsearch/data
+      - ~/elastic:/usr/share/elasticsearch/data
     networks:
       elastic:
         aliases:
@@ -25,8 +26,11 @@ services:
       - 9200:9200
 
   snowstorm:
-    image: snowstorm/snowstorm:latest
+    image: snomedinternational/snowstorm:latest
     container_name: snowstorm
+    environment:
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -37,10 +41,6 @@ services:
       -  ~/releases:/opt
     ports:
       - 8080:8080
-
-volumes:
-  esdata1:
-    driver: local
 
 networks:
   elastic:
