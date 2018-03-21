@@ -36,12 +36,13 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 		((SSubExpressionConstraint)subexpressionConstraint).addCriteria(refinementBuilder);
 		((SEclRefinement)eclRefinement).addCriteria(refinementBuilder);
 
-		refinementBuilder.setInclusionFilter(queryConcept -> {
-			Map<Integer, Map<String, List<String>>> conceptAttributes = queryConcept.getGroupedAttributesMap();
-			MatchContext matchContext = new MatchContext(conceptAttributes);
-			return ((SEclRefinement) eclRefinement).isMatch(matchContext);
-		});
-
+		if (refinementBuilder.isInclusionFilterRequired()) {
+			refinementBuilder.setInclusionFilter(queryConcept -> {
+				Map<Integer, Map<String, List<String>>> conceptAttributes = queryConcept.getGroupedAttributesMap();
+				MatchContext matchContext = new MatchContext(conceptAttributes);
+				return ((SEclRefinement) eclRefinement).isMatch(matchContext);
+			});
+		}
 	}
 
 }

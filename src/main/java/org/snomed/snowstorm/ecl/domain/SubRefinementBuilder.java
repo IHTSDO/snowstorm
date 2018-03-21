@@ -51,4 +51,14 @@ public class SubRefinementBuilder implements RefinementBuilder {
 	public QueryService getQueryService() {
 		return refinementBuilder.getQueryService();
 	}
+
+	@Override
+	public void setInclusionFilterRequired(boolean bool) {
+		refinementBuilder.setInclusionFilterRequired(bool);
+	}
+
+	@Override
+	public boolean isInclusionFilterRequired() {
+		return refinementBuilder.isInclusionFilterRequired();
+	}
 }

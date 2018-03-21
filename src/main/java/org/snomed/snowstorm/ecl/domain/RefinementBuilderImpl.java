@@ -15,6 +15,7 @@ public class RefinementBuilderImpl implements RefinementBuilder {
 	private final boolean stated;
 	private final QueryService queryService;
 	private Function<QueryConcept, Boolean> inclusionFilter;
+	private boolean inclusionFilterRequired;
 
 	public RefinementBuilderImpl(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
 		this.query = query;
@@ -52,5 +53,15 @@ public class RefinementBuilderImpl implements RefinementBuilder {
 
 	public QueryService getQueryService() {
 		return queryService;
+	}
+
+	@Override
+	public void setInclusionFilterRequired(boolean inclusionFilterRequired) {
+		this.inclusionFilterRequired = inclusionFilterRequired;
+	}
+
+	@Override
+	public boolean isInclusionFilterRequired() {
+		return inclusionFilterRequired;
 	}
 }

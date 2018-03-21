@@ -70,6 +70,10 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 
 			boolean cardinalityConstraints = cardinalityMin != null || cardinalityMax != null;
 
+			if (cardinalityConstraints) {
+				refinementBuilder.setInclusionFilterRequired(true);
+			}
+
 			if (expressionComparisonOperator.equals("=")) {
 
 				boolean minCardinalityIsZero = cardinalityMin != null && cardinalityMin == 0;
