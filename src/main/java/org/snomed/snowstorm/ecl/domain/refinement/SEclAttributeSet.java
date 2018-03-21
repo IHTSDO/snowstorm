@@ -1,10 +1,17 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
+import com.google.common.collect.Sets;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.snomed.langauges.ecl.domain.refinement.EclAttributeSet;
 import org.snomed.langauges.ecl.domain.refinement.SubAttributeSet;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.SRefinement;
 import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
+
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 
@@ -37,4 +44,25 @@ public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 		}
 	}
 
+	boolean isMatch(MatchContext matchContext) {
+		((SSubAttributeSet)subAttributeSet).checkConceptConstraints(matchContext);
+		Set<Integer> matchingGroups = matchContext.getMatchingGroupsAndClear();
+		if (conjunctionAttributeSet != null) {
+			Iterator<SubAttributeSet> iterator = conjunctionAttributeSet.iterator();
+			while (!matchingGroups.isEmpty() && iterator.hasNext()) {
+				((SSubAttributeSet) iterator.next()).checkConceptConstraints(matchContext);
+				matchingGroups.retainAll(matchContext.getMatchingGroupsAndClear());
+			}
+		}
+		if (disjunctionAttributeSet != null) {
+			Set<Integer> survivorGroups = new HashSet<>();
+			for (SubAttributeSet aDisjunctionAttributeSet : disjunctionAttributeSet) {
+				((SSubAttributeSet) aDisjunctionAttributeSet).checkConceptConstraints(matchContext);
+				survivorGroups.addAll(Sets.intersection(matchingGroups, matchContext.getMatchingGroupsAndClear()));
+			}
+			matchingGroups = survivorGroups;
+		}
+		matchContext.setMatchingGroups(matchingGroups);
+		return !matchingGroups.isEmpty();
+	}
 }

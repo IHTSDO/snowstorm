@@ -15,13 +15,13 @@ public class SExpressionConstraintHelper {
 
 	// Used to force no match
 	public static final String MISSING = "missing";
-	protected static final Long MISSING_LONG = 111L;
+	public static final Long MISSING_LONG = 111L;
 
 	protected static Optional<Page<Long>> select(SExpressionConstraint sExpressionConstraint, String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
 		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
 		RefinementBuilder refinementBuilder = new RefinementBuilderImpl(query, path, branchCriteria, stated, queryService);
 		sExpressionConstraint.addCriteria(refinementBuilder);
-		return Optional.of(ConceptSelectorHelper.fetchIds(query, conceptIdFilter, pageRequest, queryService));
+		return Optional.of(ConceptSelectorHelper.fetchIds(query, conceptIdFilter, refinementBuilder.getInclusionFilter(), pageRequest, queryService));
 	}
 
 	protected static Optional<Page<Long>> select(SExpressionConstraint sExpressionConstraint, RefinementBuilder refinementBuilder) {

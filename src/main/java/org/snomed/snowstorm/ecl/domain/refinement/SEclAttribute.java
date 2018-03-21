@@ -4,9 +4,9 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.langauges.ecl.domain.refinement.EclAttribute;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
-import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
-import org.snomed.snowstorm.ecl.domain.expressionconstraint.ConceptSelectorHelper;
+import org.snomed.snowstorm.ecl.domain.SRefinement;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraintHelper;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SSubExpressionConstraint;
 import org.springframework.data.domain.Page;
@@ -20,35 +20,35 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class SEclAttribute extends EclAttribute implements SRefinement {
 
+	private AttributeRange attributeRange;
+	private RefinementBuilder refinementBuilder;
+
+	@Override
+	public void setNumericComparisonOperator(String numericComparisonOperator) {
+		throw new UnsupportedOperationException("Only the ExpressionComparisonOperator is supported. NumericComparisonOperator and StringComparisonOperator are not supported.");
+	}
+
+	@Override
+	public void setStringComparisonOperator(String stringComparisonOperator) {
+		throw new UnsupportedOperationException("Only the ExpressionComparisonOperator is supported. NumericComparisonOperator and StringComparisonOperator are not supported.");
+	}
+
 	@Override
 	public void addCriteria(RefinementBuilder refinementBuilder) {
+		this.refinementBuilder = refinementBuilder;
 		// Input validation
 		if (cardinalityMin != null && cardinalityMax != null && cardinalityMin > cardinalityMax) {
 			throw new IllegalArgumentException("Within cardinality constraints the minimum must not be greater than the maximum.");
 		}
-		if (cardinalityMin != null && cardinalityMin == 0 && cardinalityMax == null) {
+		if (isUnconstrained()) {
 			// [0..*] means this constraint is meaningless
 			return;
 		}
 
-		Optional<Page<Long>> attributeTypesOptional = ((SSubExpressionConstraint)attributeName).select(refinementBuilder);
+		AttributeRange attributeRange = getAttributeRange();
 
-		boolean attributeTypeWildcard = !attributeTypesOptional.isPresent();
-		Set<String> attributeTypeProperties;
-		if (attributeTypeWildcard) {
-			attributeTypeProperties = Collections.singleton(QueryConcept.ATTR_TYPE_WILDCARD);
-		} else {
-			attributeTypeProperties = attributeTypesOptional.get().stream().map(Object::toString).collect(Collectors.toSet());
-			if (attributeTypeProperties.isEmpty()) {
-				// Attribute type is not a wildcard but empty selection
-				// Force query to return nothing
-				attributeTypeProperties.add(SExpressionConstraintHelper.MISSING);
-			}
-		}
-
-		List<Long> possibleAttributeValues = ((SSubExpressionConstraint)value).select(refinementBuilder).map(Slice::getContent).orElse(null);
-
-		AttributeRange attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypeProperties, possibleAttributeValues, cardinalityMin, cardinalityMax);
+		List<Long> possibleAttributeValues = attributeRange.getPossibleAttributeValues();
+		Set<String> attributeTypeProperties = attributeRange.getPossibleAttributeTypes();
 
 		BoolQueryBuilder query = refinementBuilder.getQuery();
 		QueryBuilder branchCriteria = refinementBuilder.getBranchCriteria();
@@ -61,7 +61,8 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			if (possibleAttributeValues == null) {
 				throw new UnsupportedOperationException("Returning the attribute values of all concepts is not supported.");
 			}
-			Collection<Long> destinationConceptIds = refinementBuilder.getQueryService().retrieveRelationshipDestinations(possibleAttributeValues, attributeTypesOptional.map(Slice::getContent).orElse(null), branchCriteria, stated);
+			Collection<Long> destinationConceptIds = refinementBuilder.getQueryService()
+					.retrieveRelationshipDestinations(possibleAttributeValues, attributeRange.getAttributeTypesOptional().map(Slice::getContent).orElse(null), branchCriteria, stated);
 			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, destinationConceptIds));
 
 		} else {
@@ -73,45 +74,19 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 
 				boolean minCardinalityIsZero = cardinalityMin != null && cardinalityMin == 0;
 				// If min cardinality is zero this attribute is not required so there is a danger of selecting everything
+				// TODO - can we provide an optimisation for min cardinality zero where we only collect non matching concepts?
 
 				boolean maxCardinalityIsZero = cardinalityMax != null && cardinalityMax == 0;
 				// If max cardinality is zero this attribute must not be present
 
-				boolean isWithinGroup = parentGroup != null;
-				if (isWithinGroup || (cardinalityConstraints && !maxCardinalityIsZero)) {
-
-					// Cardinality or in-group checks required
-					// We will have to check the cardinality/grouping in java.
-					// Strategy:
-					// - Use a temp query just to fetch the concepts
-					// - Filter concepts based on cardinality/in-group
-					// - Apply list of filtered concepts to main query builder
-					BoolQueryBuilder tempQuery = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria, stated);
-
-					doAddTypeAndValueCriteria(tempQuery, attributeTypeProperties, possibleAttributeValues, false);
-					QueryService queryService = refinementBuilder.getQueryService();
-
-					if (minCardinalityIsZero) {
-						// With a min cardinality of zero it's likely that most concepts will adhere to the constraints so let's only collect those that don't.
-						// Get concepts _not_ within cardinality constraints
-						List<Long> invalidConceptIds = getConceptsWithinConstraints(Collections.singletonList(attributeRange), isWithinGroup, tempQuery, queryService, true);
-
-						// Only match concepts _not_ on the list
-						query.mustNot(termsQuery(QueryConcept.CONCEPT_ID_FIELD, invalidConceptIds));
-					} else {
-						// Get concepts within cardinality constraints
-						List<Long> validConceptIds = getConceptsWithinConstraints(Collections.singletonList(attributeRange), isWithinGroup, tempQuery, queryService, false);
-
-						// Only match the concepts on the list
-						query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, validConceptIds));
-					}
-				} else {
+				if (!minCardinalityIsZero) {
 					// Simple - just add attribute type and value criteria to main query builder
 					doAddTypeAndValueCriteria(query, attributeTypeProperties, possibleAttributeValues, maxCardinalityIsZero);
 				}
 
 			} else {
 				if (cardinalityConstraints) {
+					// TODO Support attribute cardinality in combination with 'not equals'
 					throw new UnsupportedOperationException("Attribute cardinality in combination with 'not equals' operator is not currently supported.");
 				}
 				for (String attributeTypeProperty : attributeTypeProperties) {
@@ -126,14 +101,32 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		}
 	}
 
-	@Override
-	public void setNumericComparisonOperator(String numericComparisonOperator) {
-		throw new UnsupportedOperationException("Only the ExpressionComparisonOperator is supported. NumericComparisonOperator and StringComparisonOperator are not supported.");
+	private AttributeRange getAttributeRange() {
+		if (attributeRange == null) {
+			Optional<Page<Long>> attributeTypesOptional = ((SSubExpressionConstraint) attributeName).select(refinementBuilder);
+
+			boolean attributeTypeWildcard = !attributeTypesOptional.isPresent();
+			Set<String> attributeTypeProperties_;
+			if (attributeTypeWildcard) {
+				attributeTypeProperties_ = Collections.singleton(QueryConcept.ATTR_TYPE_WILDCARD);
+			} else {
+				attributeTypeProperties_ = attributeTypesOptional.get().stream().map(Object::toString).collect(Collectors.toSet());
+				if (attributeTypeProperties_.isEmpty()) {
+					// Attribute type is not a wildcard but empty selection
+					// Force query to return nothing
+					attributeTypeProperties_.add(SExpressionConstraintHelper.MISSING);
+				}
+			}
+
+			List<Long> possibleAttributeValues_ = ((SSubExpressionConstraint) value).select(refinementBuilder).map(Slice::getContent).orElse(null);
+
+			attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, possibleAttributeValues_, cardinalityMin, cardinalityMax);
+		}
+		return attributeRange;
 	}
 
-	@Override
-	public void setStringComparisonOperator(String stringComparisonOperator) {
-		throw new UnsupportedOperationException("Only the ExpressionComparisonOperator is supported. NumericComparisonOperator and StringComparisonOperator are not supported.");
+	private boolean isUnconstrained() {
+		return cardinalityMin != null && cardinalityMin == 0 && cardinalityMax == null;
 	}
 
 	private void doAddTypeAndValueCriteria(BoolQueryBuilder query, Set<String> attributeTypeProperties, Collection<Long> possibleAttributeValues,
@@ -170,65 +163,60 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		}
 	}
 
-	private List<Long> getConceptsWithinConstraints(List<AttributeRange> attributeRanges, boolean withinGroup,
-													BoolQueryBuilder tempQuery, QueryService queryService, boolean negateSelection) {
+	void checkConceptConstraints(MatchContext matchContext) {
+		attributeRange = getAttributeRange();
+		Map<Integer, Map<String, List<String>>> conceptAttributes = matchContext.getConceptAttributes();
+		boolean withinGroup = matchContext.isWithinGroup();
 
-		// Fetch ids filtering concepts using their attribute maps and the cardinality constraints
-		return ConceptSelectorHelper.fetchIds(tempQuery, null, queryConcept -> {
+		// Count occurrence of this attribute within each group
+		final AtomicInteger attributeMatchCount = new AtomicInteger(0);
+		final Map<Integer, AtomicInteger> groupAttributeMatchCounts = new HashMap<>();
 
-			boolean withinConstraints = true;
+		for (Map.Entry<Integer, Map<String, List<String>>> attributeGroup : conceptAttributes.entrySet()) {
+			attributeGroup.getValue().entrySet().stream()
+					.filter(entrySet -> attributeRange.isTypeAcceptable(entrySet.getKey()))
+					.forEach((Map.Entry<String, List<String>> entrySet) ->
+							entrySet.getValue().forEach(conceptAttributeValue -> {
+								if (attributeRange.isValueAcceptable(conceptAttributeValue)) {
+									// Increment count for attribute match in the concept
+									attributeMatchCount.incrementAndGet();
+									// Increment count for attribute match in this relationship group
+									groupAttributeMatchCounts.computeIfAbsent(attributeGroup.getKey(), i -> new AtomicInteger()).incrementAndGet();
+								}
+							})
+					);
+		}
 
-			for (AttributeRange attributeRange : attributeRanges) {
+		// Gather the group number of groups with this attribute
+		Set<Integer> matchingGroups = new HashSet<>();
 
-				// The cardinality and in-group filter
-				// Count occurrence of this attribute
-				final AtomicInteger attributeMatchCount = new AtomicInteger(0);
-				final Map<Integer, AtomicInteger> groupAttributeMatchCounts = new HashMap<>();
-
-				for (Map.Entry<Integer, Map<String, List<String>>> attributeGroup : queryConcept.getGroupedAttributesMap().entrySet()) {
-					attributeGroup.getValue().entrySet().stream()
-							.filter(entrySet -> attributeRange.isTypeAcceptable(entrySet.getKey()))
-							.forEach((Map.Entry<String, List<String>> entrySet) -> {
-								entrySet.getValue().forEach(conceptAttributeValue -> {
-									if (attributeRange.isValueAcceptable(conceptAttributeValue)) {
-										// Increment count for attribute match in the concept
-										attributeMatchCount.incrementAndGet();
-										// Increment count for attribute match in this relationship group
-										groupAttributeMatchCounts.computeIfAbsent(attributeGroup.getKey(), i -> new AtomicInteger()).incrementAndGet();
-									}
-								});
-							});
+		if (withinGroup) {
+			// Apply attribute cardinality within each group
+			for (Integer group : groupAttributeMatchCounts.keySet()) {
+				if (group == 0) {
+					continue; // Group 0 is not a group
+					// TODO: Should we let MRCM self-grouped attributes through here?
 				}
-
-				boolean attributeWithinConstraints = true;
-				if (withinGroup) {
-					// TODO: Attributes in group 0 but marked as grouped in the MRCM _are_ considered to be grouped in OWL and in ECL terms.
-					groupAttributeMatchCounts.remove(0); // Attributes in group number 0 are not considered to be grouped.
-
-					for (AtomicInteger inGroupAttributeMatchCount : groupAttributeMatchCounts.values()) {
-						if ((attributeRange.getCardinalityMin() == null || attributeRange.getCardinalityMin() <= inGroupAttributeMatchCount.get())
-								&& (attributeRange.getCardinalityMax() == null || attributeRange.getCardinalityMax() >= inGroupAttributeMatchCount.get())) {
-							attributeWithinConstraints = true;
-							break;
-						}
-					}
-				} else {
-					attributeWithinConstraints = (attributeRange.getCardinalityMin() == null || attributeRange.getCardinalityMin() <= attributeMatchCount.get())
-							&& (attributeRange.getCardinalityMax() == null || attributeRange.getCardinalityMax() >= attributeMatchCount.get());
+				AtomicInteger inGroupAttributeMatchCount = groupAttributeMatchCounts.get(group);
+				if ((attributeRange.getCardinalityMin() == null || attributeRange.getCardinalityMin() <= inGroupAttributeMatchCount.get())
+						&& (attributeRange.getCardinalityMax() == null || attributeRange.getCardinalityMax() >= inGroupAttributeMatchCount.get())) {
+					matchingGroups.add(group);
 				}
-
-				withinConstraints = withinConstraints && attributeWithinConstraints;
 			}
+		} else {
+			// Apply attribute cardinality across whole concept
+			if ((attributeRange.getCardinalityMin() == null || attributeRange.getCardinalityMin() <= attributeMatchCount.get())
+					&& (attributeRange.getCardinalityMax() == null || attributeRange.getCardinalityMax() >= attributeMatchCount.get())) {
 
-			return negateSelection != withinConstraints;
-		}, null, queryService).getContent();
+				matchingGroups.add(-1);
+			}
+		}
+
+		matchContext.setMatchingGroups(matchingGroups);
 	}
 
 	private String getAttributeTypeField(String attributeTypeProperty) {
 		return QueryConcept.ATTR_FIELD + "." + attributeTypeProperty;
 	}
 
-	static String attributeMapKeyToConceptId(String key) {
-		return key.substring(QueryConcept.ATTR_FIELD.length() + 1);
-	}
 }

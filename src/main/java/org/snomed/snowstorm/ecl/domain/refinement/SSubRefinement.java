@@ -2,6 +2,8 @@ package org.snomed.snowstorm.ecl.domain.refinement;
 
 import org.snomed.langauges.ecl.domain.refinement.SubRefinement;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
+import org.snomed.snowstorm.ecl.domain.SRefinement;
+import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
 
 public class SSubRefinement extends SubRefinement implements SRefinement {
 
@@ -16,4 +18,13 @@ public class SSubRefinement extends SubRefinement implements SRefinement {
 		}
 	}
 
+	boolean isMatch(MatchContext matchContext) {
+		if (eclAttributeSet != null) {
+			return ((SEclAttributeSet)eclAttributeSet).isMatch(matchContext.clear());
+		} else if (eclAttributeGroup != null) {
+			return ((SEclAttributeGroup)eclAttributeGroup).isMatch(matchContext.clear());
+		} else {
+			return ((SEclRefinement)eclRefinement).isMatch(matchContext.clear());
+		}
+	}
 }

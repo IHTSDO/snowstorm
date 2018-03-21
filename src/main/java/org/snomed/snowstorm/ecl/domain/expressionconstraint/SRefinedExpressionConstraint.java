@@ -11,6 +11,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 public class SRefinedExpressionConstraint extends RefinedExpressionConstraint implements SExpressionConstraint {
@@ -33,5 +35,13 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 	public void addCriteria(RefinementBuilder refinementBuilder) {
 		((SSubExpressionConstraint)subexpressionConstraint).addCriteria(refinementBuilder);
 		((SEclRefinement)eclRefinement).addCriteria(refinementBuilder);
+
+		refinementBuilder.setInclusionFilter(queryConcept -> {
+			Map<Integer, Map<String, List<String>>> conceptAttributes = queryConcept.getGroupedAttributesMap();
+			MatchContext matchContext = new MatchContext(conceptAttributes);
+			return ((SEclRefinement) eclRefinement).isMatch(matchContext);
+		});
+
 	}
+
 }

@@ -22,7 +22,7 @@ public class ECLQueryService {
 	@Autowired
 	private QueryService queryService;
 
-	public Optional<Page<Long>> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated) throws ECLException {
+	Optional<Page<Long>> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated) throws ECLException {
 		return selectConceptIds(ecl, branchCriteria, path, stated, null, null);
 	}
 
