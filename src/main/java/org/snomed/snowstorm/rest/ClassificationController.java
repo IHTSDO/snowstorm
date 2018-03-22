@@ -29,8 +29,8 @@ public class ClassificationController {
 	@ApiOperation("Retrieve classifications on a branch")
 	@RequestMapping(method = RequestMethod.GET)
 	@ResponseBody
-	public org.snomed.snowstorm.rest.pojo.ItemsPage<Classification> findClassifications(@PathVariable String branch) {
-		return new org.snomed.snowstorm.rest.pojo.ItemsPage<>(classificationService.findClassifications(BranchPathUriUtil.parseBranchPath(branch)));
+	public ItemsPage<Classification> findClassifications(@PathVariable String branch) {
+		return new ItemsPage<>(classificationService.findClassifications(BranchPathUriUtil.parseBranchPath(branch)));
 	}
 
 	@ApiOperation("Retrieve a classification on a branch")
@@ -43,10 +43,10 @@ public class ClassificationController {
 	@ApiOperation("Retrieve relationship changes made by a classification run on a branch")
 	@RequestMapping(value = "/{classificationId}/relationship-changes", method = RequestMethod.GET)
 	@ResponseBody
-	public org.snomed.snowstorm.rest.pojo.ItemsPage<RelationshipChange> getRelationshipChanges(@PathVariable String branch, @PathVariable String classificationId,
+	public ItemsPage<RelationshipChange> getRelationshipChanges(@PathVariable String branch, @PathVariable String classificationId,
 																							   @RequestParam(required = false, defaultValue = "0") int page,
 																							   @RequestParam(required = false, defaultValue = "1000") int pageSize) {
-		return new org.snomed.snowstorm.rest.pojo.ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.parseBranchPath(branch), classificationId, PageRequest.of(page, pageSize)));
+		return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.parseBranchPath(branch), classificationId, PageRequest.of(page, pageSize)));
 	}
 
 	@ApiOperation("Retrieve a preview of a concept with classification changes applied")
@@ -60,7 +60,7 @@ public class ClassificationController {
 	@ApiOperation("Retrieve equivalent concepts from a classification run on a branch")
 	@RequestMapping(value = "/{classificationId}/equivalent-concepts", method = RequestMethod.GET)
 	@ResponseBody
-	public org.snomed.snowstorm.rest.pojo.ItemsPage<EquivalentConceptsResponse> getEquivalentConcepts(@PathVariable String branch, @PathVariable String classificationId,
+	public ItemsPage<EquivalentConceptsResponse> getEquivalentConcepts(@PathVariable String branch, @PathVariable String classificationId,
 																									  @RequestParam(required = false, defaultValue = "0") int page,
 																									  @RequestParam(required = false, defaultValue = "1000") int pageSize) {
 		return new ItemsPage<>(classificationService.getEquivalentConcepts(BranchPathUriUtil.parseBranchPath(branch), classificationId, PageRequest.of(page, pageSize)));

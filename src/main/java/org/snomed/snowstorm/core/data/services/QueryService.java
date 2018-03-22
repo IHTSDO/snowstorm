@@ -5,6 +5,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
@@ -282,25 +283,31 @@ public class QueryService {
 		return allAncestors;
 	}
 	
-	public Set<Long> retrieveDescendants(String conceptId, String path, boolean stated) {
-		return retrieveDescendants(conceptId, versionControlHelper.getBranchCriteria(path), stated);
+	public List<Long> retrieveAllDescendants(String conceptId, String path, boolean stated) {
+		return retrieveAllDescendants(versionControlHelper.getBranchCriteria(path), stated, Collections.singleton(conceptId));
 	}
 
-	public Set<Long> retrieveDescendants(String conceptId, QueryBuilder branchCriteria, boolean stated) {
-		return retrieveAllDescendants(branchCriteria, stated, Collections.singleton(conceptId));
+	public Page<Long> retrieveDescendants(String conceptId, QueryBuilder branchCriteria, boolean stated, PageRequest pageRequest) {
+		return doRetrieveDescendants(branchCriteria, stated, Collections.singleton(conceptId), pageRequest);
 	}
 
-	public Set<Long> retrieveAllDescendants(QueryBuilder branchCriteria, boolean stated, Collection<? extends Object> conceptIds) {
+	public List<Long> retrieveAllDescendants(QueryBuilder branchCriteria, boolean stated, Collection<? extends Object> conceptIds) {
+		return doRetrieveDescendants(branchCriteria, stated, conceptIds, LARGE_PAGE).getContent();
+	}
+
+	private Page<Long> doRetrieveDescendants(QueryBuilder branchCriteria, boolean stated, Collection<? extends Object> conceptIds, PageRequest pageRequest) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria)
 						.must(termsQuery("ancestors", conceptIds))
 						.must(termQuery("stated", stated))
 				)
-				.withPageable(LARGE_PAGE)
+				.withPageable(pageRequest)
+				.withSort(SortBuilders.fieldSort(QueryConcept.CONCEPT_ID_FIELD))// This could be anything
 				.build();
-		final List<QueryConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class).getContent();
-		return concepts.stream().map(QueryConcept::getConceptId).collect(Collectors.toSet());
+		Page<QueryConcept> conceptsPage = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class);
+		List<Long> conceptIdsFound = conceptsPage.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
+		return new PageImpl<>(conceptIdsFound, pageRequest, conceptsPage.getTotalElements());
 	}
 
 	public Set<Long> retrieveConceptsInReferenceSet(QueryBuilder branchCriteria, String referenceSetId) {

@@ -8,11 +8,11 @@ import org.snomed.snowstorm.core.data.domain.ConceptView;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.*;
-import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.rest.pojo.ConceptDescriptionsResult;
 import org.snomed.snowstorm.rest.pojo.ConceptSearchRequest;
 import org.snomed.snowstorm.rest.pojo.InboundRelationshipsResult;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
@@ -41,8 +41,7 @@ public class ConceptController {
 
 	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET)
 	@ResponseBody
-	@JsonView(value = View.Component.class)
-	public ItemsPage<ConceptMiniNestedFsn> findConcepts(
+	public Page<ConceptMini> findConcepts(
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "false") boolean stated,
 			@RequestParam(required = false) String term,
@@ -66,15 +65,15 @@ public class ConceptController {
 		queryBuilder.termPrefix(term);
 		queryBuilder.conceptIds(conceptIds);
 
-		org.springframework.data.domain.Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch), PageRequest.of(page, size));
-		return new ItemsPage<>(ControllerHelper.nestConceptMiniFsn(conceptMiniPage.getContent()), conceptMiniPage.getTotalElements());
+		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch), PageRequest.of(page, size));
+		conceptMiniPage.getContent().forEach(ConceptMini::nestFsn);
+		return conceptMiniPage;
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST)
 	@ResponseBody
-	@JsonView(value = View.Component.class)
-	public ItemsPage<ConceptMiniNestedFsn> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
-		return findConcepts(BranchPathUriUtil.parseBranchPath(branch),
+	public Page<ConceptMini> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
+		Page<ConceptMini> concepts = findConcepts(BranchPathUriUtil.parseBranchPath(branch),
 				searchRequest.isStated(),
 				searchRequest.getTermFilter(),
 				searchRequest.getEclFilter(),
@@ -82,6 +81,8 @@ public class ConceptController {
 				searchRequest.getConceptIds(),
 				searchRequest.getPage(),
 				searchRequest.getSize());
+		concepts.getContent().forEach(ConceptMini::nestFsn);
+		return concepts;
 	}
 
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET)
@@ -91,7 +92,7 @@ public class ConceptController {
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "0") int number,
 			@RequestParam(defaultValue = "100") int size) {
-		return new Page<>(conceptService.findAll(BranchPathUriUtil.parseBranchPath(branch), PageRequest.of(number, size)));
+		return conceptService.findAll(BranchPathUriUtil.parseBranchPath(branch), PageRequest.of(number, size));
 	}
 
 	@ResponseBody
@@ -112,12 +113,12 @@ public class ConceptController {
 	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descendants", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
-	public ItemsPage<ConceptMiniNestedFsn> findConceptDescendants(@PathVariable String branch, @PathVariable String conceptId,
-																  @RequestParam(required = false, defaultValue = "0") int page,
-																  @RequestParam(required = false, defaultValue = "50") int size) {
-		ResultMapPage<String, ConceptMini> descendants = conceptService.findConceptDescendants(conceptId, BranchPathUriUtil.parseBranchPath(branch),
-				Relationship.CharacteristicType.stated, PageRequest.of(page, size));
-		return new ItemsPage<>(ControllerHelper.nestConceptMiniFsn(descendants.getResultsMap().values()), descendants.getTotalElements());
+	public Page<ConceptMini> findConceptDescendants(@PathVariable String branch,
+													@PathVariable String conceptId,
+													@PathVariable(value = "false", required = false) boolean stated,
+													@RequestParam(required = false, defaultValue = "0") int page,
+													@RequestParam(required = false, defaultValue = "50") int size) {
+		return findConcepts(branch, stated, null, "<" + conceptId, null, null, page, size);
 	}
 
 	@ResponseBody
@@ -202,6 +203,5 @@ public class ConceptController {
 
 		return expressionService.getConceptAuthoringForm(conceptId, branch);
 	}
-	
 
 }

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -61,7 +62,7 @@ public class MRCMService {
 		Set<Long> descendantTypeAttributes = matchedAttributes.stream().filter(attribute -> attribute.getInclusionType() == InclusionType.DESCENDANT).map(Attribute::getConceptId).collect(Collectors.toSet());
 		Set<Long> selfOrDescendantTypeAttributes = matchedAttributes.stream().filter(attribute -> attribute.getInclusionType() == InclusionType.SELF_OR_DESCENDANT).map(Attribute::getConceptId).collect(Collectors.toSet());
 
-		Set<Long> descendantAttributes = queryService.retrieveAllDescendants(branchCriteria, false, Sets.union(descendantTypeAttributes, selfOrDescendantTypeAttributes));
+		List<Long> descendantAttributes = queryService.retrieveAllDescendants(branchCriteria, false, Sets.union(descendantTypeAttributes, selfOrDescendantTypeAttributes));
 
 		allMatchedAttributeIds.removeAll(descendantAttributes);
 		allMatchedAttributeIds.addAll(descendantAttributes);

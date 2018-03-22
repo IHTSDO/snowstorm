@@ -95,7 +95,7 @@ public class ExpressionService {
 	 * @param subType
 	 */
 	public boolean isSuperTypeOf(String superType, Long subType, String branchPath) {
-		return queryService.retrieveDescendants(superType, branchPath, false).contains(subType);
+		return queryService.retrieveAllDescendants(superType, branchPath, false).contains(subType);
 	}
 
 	/**

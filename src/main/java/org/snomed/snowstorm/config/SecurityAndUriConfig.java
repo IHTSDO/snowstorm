@@ -8,11 +8,13 @@ import org.ihtsdo.sso.integration.RequestHeaderAuthenticationDecorator;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
 import org.snomed.snowstorm.rest.config.BranchMixIn;
 import org.snomed.snowstorm.rest.config.ClassificationMixIn;
+import org.snomed.snowstorm.rest.config.PageMixin;
 import org.snomed.snowstorm.rest.security.RequestHeaderAuthenticationDecoratorWithRequiredRole;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.domain.Page;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
@@ -32,6 +34,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 				.defaultViewInclusion(false)
 				.failOnUnknownProperties(false)
 				.serializationInclusion(JsonInclude.Include.NON_NULL)
+				.mixIn(Page.class, PageMixin.class)
 				.mixIn(Branch.class, BranchMixIn.class)
 				.mixIn(Classification.class, ClassificationMixIn.class)
 				.build();

@@ -122,7 +122,7 @@ public class ExportService {
 					logger.info("{} Reference Set Types found: {}", referenceSetTypes.size(), referenceSetTypes);
 
 					for (ReferenceSetType referenceSetType : referenceSetTypes) {
-						Set<Long> refsetsOfThisType = queryService.retrieveDescendants(referenceSetType.getConceptId(), branchCriteria, true);
+						List<Long> refsetsOfThisType = queryService.retrieveAllDescendants(branchCriteria, true, Collections.singleton(referenceSetType.getConceptId()));
 						refsetsOfThisType.add(Long.parseLong(referenceSetType.getConceptId()));
 						for (Long refsetToExport : refsetsOfThisType) {
 							BoolQueryBuilder memberQuery = getContentQuery(exportType, branchCriteria);

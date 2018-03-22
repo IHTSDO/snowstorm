@@ -177,14 +177,10 @@ public class ConceptService extends ComponentService implements CommitListener {
 		return conceptMiniMap.values();
 	}
 
-	public ResultMapPage<String, ConceptMini> findConceptDescendants(String conceptId, String path, Relationship.CharacteristicType form, PageRequest pageRequest) {
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
-		Set<Long> descendants = queryService.retrieveDescendants(conceptId, branchCriteria, form == Relationship.CharacteristicType.stated);
-		if (descendants.isEmpty()) {
-			return new ResultMapPage<>(new HashMap<>(), 0);
-		}
-		Set<String> descendantIds = descendants.stream().map(Object::toString).collect(Collectors.toSet());
-		return findConceptMinis(branchCriteria, descendantIds);
+	public Page<ConceptMini> findConceptDescendants(String conceptId, String path, Relationship.CharacteristicType form, PageRequest pageRequest) {
+		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(form == Relationship.CharacteristicType.stated);
+		queryBuilder.ecl("<" + conceptId);
+		return queryService.search(queryBuilder, path, pageRequest);
 	}
 
 	public Collection<ConceptMini> findConceptParents(String conceptId, String path, Relationship.CharacteristicType form) {
