@@ -28,7 +28,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		if (wildcard && Operator.memberOf != operator) {
 			return Optional.empty();
 		}
-		return SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, null, queryService);
+		return SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
 	}
 
 	@Override
