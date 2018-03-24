@@ -15,7 +15,7 @@ services:
       test: ["CMD", "curl", "-f", "http://es:9200"]
       interval: 1s
       timeout: 1s
-      retries: 25
+      retries: 60
     ports:
       - 9200:9200
 

@@ -6,23 +6,11 @@ Snowstorm is currently a proof of concept SNOMED CT terminology server built on 
 
 
 ### Docker it
-There is docker compose option which will run everything you need to use Snowstorm without the need to build anything.
-
-The first time it's run, a SNOMED CT edition will need to be imported. Put the edition RF2 zip file in a relevant folder and change the location for the volumes in docker-compose-load.yml (replaces ~/releases with the absolute file location):
-```
-volumes:
-  -  ~/releases:/opt
-```
-
-Then, run the import docker compose file (it will take a while to load SNOMED CT into the Elasticsearch container):
-```
-docker-compose up docker/docker-compose-load.yml up
-```
+There is docker compose option which will run everything you need to use Snowstorm without the need to build anything. However, you will need the pre-generated elasticsearch indexes which you can either generate yourself, see the [snomed loading instructions here](docs/loading-snomed.md), or contact [techsupport@snomed.org](mailto::techsupport@snomed.org) to get a copy of the indexes.
 
 All subsequent runs, use the other docker compose file otherwise you will be importing each time:
-
 ```
-docker-compose up docker/docker-compose.yml up
+docker-compose up -d
 ```
 
 
