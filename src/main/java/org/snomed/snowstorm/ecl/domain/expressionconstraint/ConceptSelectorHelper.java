@@ -38,7 +38,7 @@ class ConceptSelectorHelper {
 			searchQueryBuilder.withFilter(termsQuery(QueryConcept.CONCEPT_ID_FIELD, filterByConceptIds));
 		}
 
-		if (pageRequest != null) {
+		if (pageRequest != null && inclusionFilter == null) {
 			// Fetch a page of IDs
 			searchQueryBuilder.withPageable(pageRequest);
 			Page<QueryConcept> queryConcepts = queryService.queryForPage(searchQueryBuilder.build());
@@ -55,7 +55,18 @@ class ConceptSelectorHelper {
 					}
 				});
 			}
-			return ids.isEmpty() ? Page.empty() : new PageImpl<>(ids, PageRequest.of(0, ids.size()), ids.size());
+
+			int total = ids.size();
+			if (pageRequest != null) {
+				int fromIndex = (int) pageRequest.getOffset();
+				int toIndex = fromIndex + (pageRequest.getPageSize());
+				if (toIndex >= total) {
+					toIndex = total - 1;
+				}
+				return ids.isEmpty() || fromIndex >= total ? Page.empty() : new PageImpl<>(ids.subList(fromIndex, toIndex), pageRequest, total);
+			} else {
+				return ids.isEmpty() ? Page.empty() : new PageImpl<>(ids, PageRequest.of(0, total), total);
+			}
 		}
 	}
 
