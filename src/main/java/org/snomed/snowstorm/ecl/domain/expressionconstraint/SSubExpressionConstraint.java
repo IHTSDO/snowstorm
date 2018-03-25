@@ -33,6 +33,9 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 	@Override
 	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
+		if (wildcard && Operator.memberOf != operator) {
+			return Optional.empty();
+		}
 		return SExpressionConstraintHelper.select(this, refinementBuilder);
 	}
 
