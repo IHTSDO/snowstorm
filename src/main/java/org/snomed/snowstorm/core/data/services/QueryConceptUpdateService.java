@@ -14,6 +14,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,7 +43,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 @Service
 public class QueryConceptUpdateService extends ComponentService {
 
-	private static final int BATCH_SAVE_SIZE = 10000;
+	protected static final int BATCH_SAVE_SIZE = 10000;
 	private static final long IS_A_TYPE = parseLong(Concepts.ISA);
 
 	@Autowired
@@ -220,7 +221,9 @@ public class QueryConceptUpdateService extends ComponentService {
 						.must(changesBranchCriteria)
 						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
 				)
-				.withSort(new FieldSortBuilder("start").order(SortOrder.ASC))
+				.withSort(SortBuilders.fieldSort(Relationship.Fields.EFFECTIVE_TIME))
+				.withSort(SortBuilders.fieldSort(Relationship.Fields.ACTIVE))
+				.withSort(SortBuilders.fieldSort("start"))
 				.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
 			relationshipChanges.forEachRemaining(relationship -> {
 				boolean ignore = false;

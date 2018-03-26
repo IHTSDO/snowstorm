@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Commit;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -284,6 +286,55 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 		Assert.assertEquals("[]", updateService.getParentPaths("MAIN").toString());
 		Assert.assertEquals("[MAIN]", updateService.getParentPaths("MAIN/ONE").toString());
 		Assert.assertEquals("[MAIN/ONE, MAIN]", updateService.getParentPaths("MAIN/ONE/ONE-123").toString());
+	}
+
+	@Test
+	public void testSavePartialBatch() throws ServiceException {
+		List<Concept> concepts = new ArrayList<>();
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		int conceptCount = QueryConceptUpdateService.BATCH_SAVE_SIZE + 100;
+		for (int i = 0; i < conceptCount; i++) {
+			concepts.add(new Concept("" + i).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		}
+		String branch = "MAIN";
+		conceptService.create(concepts, branch);
+
+		Page<ConceptMini> page = queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT), branch, QueryService.PAGE_OF_ONE);
+		assertEquals(conceptCount + 1, page.getTotalElements());
+	}
+
+	@Test
+	public void testRelationshipEffectiveDateSorting() throws ServiceException {
+		List<Concept> concepts = new ArrayList<>();
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		for (int conceptId = 0; conceptId < 50; conceptId++) {
+			Relationship relationship = new Relationship(ISA, SNOMEDCT_ROOT);
+			relationship.setRelationshipId(conceptId + "020");
+			concepts.add(new Concept("" + conceptId).addRelationship(relationship));
+		}
+		String branch = "MAIN";
+		conceptService.create(concepts, branch);
+
+		assertEquals("Total concepts should be 51", 51, queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT), branch, QueryService.PAGE_OF_ONE).getTotalElements());
+
+		List<Relationship> relationshipVersions = new ArrayList<>();
+		for (int conceptId = 0; conceptId < 50; conceptId++) {
+			for (int relationshipVersion = 1; relationshipVersion < 10; relationshipVersion++) {
+				Relationship relationship = new Relationship(ISA, SNOMEDCT_ROOT);
+				relationship.setRelationshipId(conceptId + "020");
+				relationship.setSourceId("" + conceptId);
+				relationship.setActive((relationshipVersion % 2) == 1);
+				relationship.setEffectiveTime("2018010" + relationshipVersion);
+				relationship.markChanged();
+				relationshipVersions.add(relationship);
+			}
+		}
+		try (Commit commit = branchService.openCommit(branch)) {
+			conceptService.doSaveBatchRelationships(relationshipVersions, commit);
+			commit.markSuccessful();
+		}
+
+		assertEquals("Total concepts should be 51", 51, queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT), branch, QueryService.PAGE_OF_ONE).getTotalElements());
 	}
 
 	private void assertTC(Concept concept, Concept... ancestors) {
