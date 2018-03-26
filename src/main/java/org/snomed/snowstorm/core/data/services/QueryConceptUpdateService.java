@@ -210,19 +210,19 @@ public class QueryConceptUpdateService extends ComponentService {
 		// Step - Update graph
 		// Strategy: Add/remove edges from new commit
 		// Also collect other attribute changes
-		AtomicLong isARelationshipsAdded = new AtomicLong();
-		AtomicLong isARelationshipsRemoved = new AtomicLong();
+		AtomicLong relationshipsAdded = new AtomicLong();
+		AtomicLong relationshipsRemoved = new AtomicLong();
 		boolean newGraph = graphBuilder.getNodeCount() == 0;
 		Set<Long> requiredActiveConcepts = new LongOpenHashSet();
 		Map<Long, AttributeChanges> conceptAttributeChanges = new Long2ObjectOpenHashMap<>();
-		try (final CloseableIterator<Relationship> isARelationshipChanges = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (final CloseableIterator<Relationship> relationshipChanges = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(changesBranchCriteria)
 						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
 				)
 				.withSort(new FieldSortBuilder("start").order(SortOrder.ASC))
 				.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
-			isARelationshipChanges.forEachRemaining(relationship -> {
+			relationshipChanges.forEachRemaining(relationship -> {
 				boolean ignore = false;
 				boolean justDeleted = false;
 				if (relationship.getEnd() != null) {
@@ -242,7 +242,7 @@ public class QueryConceptUpdateService extends ComponentService {
 						if (type == IS_A_TYPE) {
 							graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()))
 									.markUpdated();
-							isARelationshipsAdded.incrementAndGet();
+							relationshipsAdded.incrementAndGet();
 						} else {
 							conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(groupId, type, value);
 						}
@@ -255,7 +255,7 @@ public class QueryConceptUpdateService extends ComponentService {
 							if (node != null) {
 								node.markUpdated();
 							}
-							isARelationshipsRemoved.incrementAndGet();
+							relationshipsRemoved.incrementAndGet();
 						} else {
 							conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).removeAttribute(groupId, type, value);
 						}
@@ -264,7 +264,7 @@ public class QueryConceptUpdateService extends ComponentService {
 			});
 		}
 		timer.checkpoint("Update graph using changed relationships.");
-		logger.info("{} {} is-a relationships added, {} removed.", isARelationshipsAdded.get(), formName, isARelationshipsRemoved.get());
+		logger.info("{} {} relationships added, {} inactive/removed.", relationshipsAdded.get(), formName, relationshipsRemoved.get());
 
 		Set<Long> inactiveOrMissingConceptIds = conceptService.getInactiveOrMissingConceptIds(requiredActiveConcepts, versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit));
 		if (!inactiveOrMissingConceptIds.isEmpty()) {
