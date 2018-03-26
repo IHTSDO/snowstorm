@@ -131,6 +131,16 @@
 			<artifactId>antlr4-runtime</artifactId>
 			<version>4.5.1</version>
 		</dependency>
+		<dependency>
+		<groupId>ca.uhn.hapi.fhir</groupId>
+			<artifactId>hapi-fhir-structures-dstu3</artifactId>
+			<version>3.2.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.modelmapper</groupId>
+			<artifactId>modelmapper</artifactId>
+			<version>1.1.0</version>
+		</dependency>
 
 		<!-- Test dependencies -->
 		<dependency>
