@@ -7,7 +7,7 @@ import org.modelmapper.PropertyMap;
 import org.modelmapper.TypeToken;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
-import org.snomed.snowstorm.fhir.domain.FHIRCodeSystem;
+import org.snomed.snowstorm.fhir.domain.resource.FHIRCodeSystem;
 
 import java.lang.reflect.Type;
 import java.time.Year;
@@ -20,9 +20,10 @@ public class FHIRMappingService implements FHIRConstants {
 	public FHIRMappingService init() {
 		PropertyMap<CodeSystem, FHIRCodeSystem> codeSystemMap = new PropertyMap<CodeSystem, FHIRCodeSystem>() {
 			protected void configure() {
-				String copyrightStr = copyright.replace("YEAR", Integer.toString(Year.now().getValue()));
+				String copyrightStr = COPYRIGHT.replace("YEAR", Integer.toString(Year.now().getValue()));
 				map().setCopyright(copyrightStr);
 				map().setName(source.getShortName());
+				map().setPublisher(SNOMED_INTERNATIONAL);
 			}
 		};
 		modelMapper.addMappings(codeSystemMap);
