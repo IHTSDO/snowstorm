@@ -35,6 +35,7 @@ public class ImportService {
 			.withRefset(ConceptConstants.GB_EN_LANGUAGE_REFERENCE_SET)
 			.withRefset(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET)
 			.withRefset(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET)
+			.withRefset("447563008")// ICD-9 Map
 			.withRefsets(Concepts.historicalAssociationNames.keySet().toArray(new String[Concepts.historicalAssociationNames.size()]))
 			.withRefsets(Concepts.MRCM_INTERNATIONAL_REFSETS.toArray(new String[Concepts.MRCM_INTERNATIONAL_REFSETS.size()]));
 
