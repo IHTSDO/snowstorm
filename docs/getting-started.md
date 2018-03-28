@@ -1,33 +1,39 @@
 # Getting Started
 
-## Pre-requisites
+## Prerequisites
 
 - Java 8
-- Maven3
-- [Elasticsearch v6.0.1](https://www.elastic.co/downloads/past-releases/elasticsearch-6-0-1) (A later minor version should work)
-- SNOMED CT International release files, [more information here](http://www.snomed.org)
-- At least **8gb** RAM to spare to run Elasticsearch
+- Maven 3
+- [SNOMED CT International Edition RF2 release files](https://www.snomed.org/snomed-ct/get-snomed-ct)
+- About 8G of memory
 
-## Recommended ENV settings
+## More on Memory Requirements
 
-Depending on the memory available to you, the following is advised:
+As a minimum Snowstorm should have 2G and Elasticsearch should have 4G of memory in order to import a Snapshot and perform ECL queries. 
+Elasticsearch will work best with another 4G of memory left free on the server for OS level disk caching. 
 
-- Snowstorm 20%
-- Elasticsearch 40%
-- Leave free for OS disk caching 40%
+## Setup
+### Install Elasticsearch
+Download and unzip [Elasticsearch **6.0.1**](https://www.elastic.co/downloads/past-releases/elasticsearch-6-0-1) (must be this version).
 
-## Building...
+Update the configuration file _config/jvm.options_ with the memory options `-Xms4g` and `-Xmx4g`.
 
-```
-git clone https://github.com/IHTSDO/snowstorm.git
-cd snowstorm
+### Build Snowstorm
+Build Snowstorm using maven:
+```bash
 mvn clean package
 ```
 
-## Getting go...
+## Start Snowstorm
 
-- start Elasticsearch from wherever it has been installed (ensuring the heap size has been correctly assigned)
-- if you have not imported any data, [start Snowstorm to load in data](loading-snomed.md)
-- otherwise, run using `java -Xms5g -Xmx5g -jar target/snowstorm-<version>.jar`
+First start Elasticsearch from wherever it has been installed.
+```bash
+./bin/elasticsearch
+```
 
-Then sit back and watch the magic happen as it loads
+On the first run of Snowstorm the SNOMED CT data needs to be loaded. [Follow instructions here](loading-snomed.md).
+
+On subsequent runs just start Snowstorm.
+```bash
+java -Xms2g -Xmx2g -jar target/snowstorm*.jar
+```
