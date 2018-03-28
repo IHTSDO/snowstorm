@@ -33,9 +33,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class ReferenceSetMemberService extends ComponentService {
@@ -201,7 +199,8 @@ public class ReferenceSetMemberService extends ComponentService {
 	Set<Long> findConceptsInReferenceSet(QueryBuilder branchCriteria, String referenceSetId) {
 		// Build query
 		BoolQueryBuilder boolQuery = boolQuery().must(branchCriteria)
-				.must(termQuery(SnomedComponent.Fields.ACTIVE, true));
+				.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
+				.must(regexpQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ".*0."));// Matches the concept partition identifier
 		// Allow searching across all refsets
 		if (referenceSetId != null) {
 			boolQuery.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, referenceSetId));
