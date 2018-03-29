@@ -13,9 +13,7 @@ import io.kaicode.elasticvc.domain.Entity;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
-import org.elasticsearch.search.sort.SortOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concepts;
@@ -63,17 +61,17 @@ public class QueryConceptUpdateService extends ComponentService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public void rebuildStatedAndInferredTransitiveClosures(String branch) {
+	public void rebuildStatedAndInferredSemanticIndex(String branch) {
 		// TODO: Only use on MAIN
 		try (Commit commit = branchService.openCommit(branch)) {
 			QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
-			updateTransitiveClosure(true, branchCriteria, Collections.emptySet(), commit, true);
-			updateTransitiveClosure(false, branchCriteria, Collections.emptySet(), commit, true);
+			updateSemanticIndex(true, branchCriteria, Collections.emptySet(), commit, true);
+			updateSemanticIndex(false, branchCriteria, Collections.emptySet(), commit, true);
 			commit.markSuccessful();
 		}
 	}
 
-	void updateStatedAndInferredTransitiveClosures(Commit commit) throws IllegalStateException {
+	void updateStatedAndInferredSemanticIndex(Commit commit) throws IllegalStateException {
 		if (commit.isRebase()) {
 			// Recreate query index using new parent base point + content on this branch
 			Branch branch = commit.getBranch();
@@ -84,18 +82,18 @@ public class QueryConceptUpdateService extends ComponentService {
 
 			QueryBuilder changesBranchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch);
 			Set<String> deletedComponents = branch.getVersionsReplaced();
-			updateTransitiveClosure(true, changesBranchCriteria, deletedComponents, commit, false);
-			updateTransitiveClosure(false, changesBranchCriteria, deletedComponents, commit, false);
+			updateSemanticIndex(true, changesBranchCriteria, deletedComponents, commit, false);
+			updateSemanticIndex(false, changesBranchCriteria, deletedComponents, commit, false);
 		} else {
 			// Update query index using changes in the last commit
 			QueryBuilder changesBranchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
 			Set<String> deletedComponents = commit.getEntityVersionsDeleted();
-			updateTransitiveClosure(true, changesBranchCriteria, deletedComponents, commit, false);
-			updateTransitiveClosure(false, changesBranchCriteria, deletedComponents, commit, false);
+			updateSemanticIndex(true, changesBranchCriteria, deletedComponents, commit, false);
+			updateSemanticIndex(false, changesBranchCriteria, deletedComponents, commit, false);
 		}
 	}
 
-	private void updateTransitiveClosure(boolean stated, QueryBuilder changesBranchCriteria, Set<String> deletionsToProcess, Commit commit, boolean rebuild) throws IllegalStateException {
+	private void updateSemanticIndex(boolean stated, QueryBuilder changesBranchCriteria, Set<String> deletionsToProcess, Commit commit, boolean rebuild) throws IllegalStateException {
 		// Note: Searches within this method use a filter clause for collections of identifiers because these
 		//       can become larger than the maximum permitted query criteria.
 
@@ -110,7 +108,7 @@ public class QueryConceptUpdateService extends ComponentService {
 			characteristicTypeIds.add(Concepts.INFERRED_RELATIONSHIP);
 		}
 
-		logger.info("Performing {} of {} transitive closures", rebuild ? "rebuild" : "incremental update", formName);
+		logger.info("Performing {} of {} semantic index", rebuild ? "rebuild" : "incremental update", formName);
 
 		TimerUtil timer = new TimerUtil("TC index " + formName, Level.DEBUG);
 		Set<Long> updateSource = new HashSet<>();
@@ -143,7 +141,7 @@ public class QueryConceptUpdateService extends ComponentService {
 			timer.checkpoint("Collect changed relationships.");
 
 			if (updateSource.isEmpty()) {
-				logger.info("No TC {} changes found. Nothing to do.", formName);
+				logger.info("No {} transitive closure changes found. Nothing to do.", formName);
 				return;
 			}
 
@@ -325,7 +323,7 @@ public class QueryConceptUpdateService extends ComponentService {
 			}
 		}
 		timer.checkpoint("Save updated QueryConcepts");
-		logger.info("{} {} concept transitive closures updated.", queryConceptsToSave.size(), formName);
+		logger.info("{} concepts updated within the {} semantic index.", queryConceptsToSave.size(), formName);
 
 		timer.finish();
 	}

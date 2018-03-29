@@ -91,8 +91,8 @@ public class ConceptService extends ComponentService implements CommitListener {
 	@Autowired
 	private TraceabilityLogService traceabilityLogService;
 
-	@Value("${commit.transitive-closure.disable:false}")
-	private boolean disableTransitiveClosure;
+	@Value("${commit-hook.semantic-indexing.enabled:true}")
+	private boolean semanticIndexingEnabled;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -810,10 +810,10 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
-		if (disableTransitiveClosure) {
-			logger.info("Transitive closure calculation disabled.");
+		if (semanticIndexingEnabled) {
+			queryConceptUpdateService.updateStatedAndInferredSemanticIndex(commit);
 		} else {
-			queryConceptUpdateService.updateStatedAndInferredTransitiveClosures(commit);
+			logger.info("Semantic indexing is disabled.");
 		}
 	}
 

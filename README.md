@@ -11,3 +11,4 @@ Documentation is sparse for now, but will be improved as the project moves out o
 - [Getting Started](getting-started.md)
 - [Loading SNOMED](loading-snomed.md)
 - [Using the API](using-the-api.md)
+- [Configuration Guide](configuration-guide.md)

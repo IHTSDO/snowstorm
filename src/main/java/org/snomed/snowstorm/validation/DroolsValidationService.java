@@ -37,7 +37,7 @@ public class DroolsValidationService {
 
 	private String droolsRulesPath;
 
-	public DroolsValidationService(@Value("${validation.rules.path}") String droolsRulesPath) {
+	public DroolsValidationService(@Value("${validation.drools.rules.path}") String droolsRulesPath) {
 		this.droolsRulesPath = droolsRulesPath;
 		newRuleExecutor();
 	}

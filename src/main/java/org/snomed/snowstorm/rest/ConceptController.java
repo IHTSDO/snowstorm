@@ -193,7 +193,7 @@ public class ConceptController {
 
 	@RequestMapping(value = "/rebuild/{branch}", method = RequestMethod.POST)
 	public void rebuildBranchTransitiveClosure(@PathVariable String branch) {
-		queryConceptUpdateService.rebuildStatedAndInferredTransitiveClosures(branch);
+		queryConceptUpdateService.rebuildStatedAndInferredSemanticIndex(branch);
 	}
 	
 	@ResponseBody
