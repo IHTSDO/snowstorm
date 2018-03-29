@@ -7,6 +7,7 @@ import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.repositories.config.BranchStoreMixIn;
+import org.snomed.snowstorm.config.elasticsearch.SnowstormElasticsearchMappingContext;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.Relationship;
@@ -81,6 +82,10 @@ public abstract class Config {
 		return new ElasticsearchProperties();
 	}
 
+
+	@Value("${elasticsearch.index.prefix}")
+	private String indexNamePrefix;
+
 	@Bean
 	public ElasticsearchTemplate elasticsearchTemplate() {
 		final ObjectMapper elasticSearchMapper = Jackson2ObjectMapperBuilder
@@ -106,7 +111,7 @@ public abstract class Config {
 			}
 		};
 
-		SimpleElasticsearchMappingContext mappingContext = new SimpleElasticsearchMappingContext();
+		SimpleElasticsearchMappingContext mappingContext = new SnowstormElasticsearchMappingContext(indexNamePrefix);
 		FastResultsMapper fastResultsMapper = new FastResultsMapper(mappingContext, entityMapper);
 
 		return new ElasticsearchTemplate(
