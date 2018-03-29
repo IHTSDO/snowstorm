@@ -14,6 +14,7 @@ public class Concepts {
 
 	public static final String PRIMITIVE = "900000000000074008";
 	public static final String FULLY_DEFINED = "900000000000073002";
+	public static final String SUFFICIENTLY_DEFINED = FULLY_DEFINED;
 
 	public static final String FSN = "900000000000003001";
 	public static final String SYNONYM = "900000000000013009";

@@ -10,8 +10,11 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
+
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -193,6 +196,23 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 			}
 		}
 		return null;
+	}
+	
+	/**
+	 * TODO pass acceptability as an ordered list (by preference)
+	 * @param activeFlag 1 or 0 or pass null to obtain either
+	 * @param type - the SCTID for fsn, synonym or textDefn, or pass null to obtain either
+	 * @param acceptability - the SCTID for acceptable or preferred, or pass null to ignore acceptability
+	 * @param refsetId - the SCTID of the language refset for which the acceptability must apply.  Ignored if the acceptability is null.
+	 * @return a collection of descriptions that match the specified criteria
+	 */
+	public List<Description> getDescriptions(Boolean activeFlag, String type, String acceptability, String refsetId) {
+		List<Description> matchingDescriptions = descriptions.stream()
+							.filter(desc -> (activeFlag == null || activeFlag.equals(desc.isActive())))
+							.filter(desc -> (type == null || desc.getType().equals(type)))
+							.filter(desc -> (acceptability == null || desc.hasAcceptability(acceptability, refsetId)))
+							.collect(Collectors.toList());
+		return matchingDescriptions;
 	}
 
 	@Override

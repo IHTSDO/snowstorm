@@ -1,29 +1,32 @@
 package org.snomed.snowstorm.fhir.rest;
 
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.ApiOperation;
 
 import java.util.List;
 
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
-import org.snomed.snowstorm.fhir.domain.resource.FHIRBundle;
 import org.snomed.snowstorm.fhir.domain.resource.FHIRResource;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
 import org.snomed.snowstorm.fhir.services.FHIRMappingService;
+import org.snomed.snowstorm.fhir.services.FHIROperationException;
+import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping(value = FHIRConstants.FHIR_DTSU3_ROOT + "/CodeSystem/$lookup", consumes = {"application/json", "application/xml"})
+@RequestMapping(value = FHIRConstants.FHIR_DTSU3_ROOT + "/CodeSystem/$lookup")
 public class FHIRCodeSystemLookupController implements FHIRConstants {
 
 	@Autowired
-	private CodeSystemService codeSystemService;
+	private ConceptService conceptService;
 	
 	@Autowired
 	private FHIRMappingService mappingService;
-	private FHIRHelper helper;
+	
+	private FHIRHelper helper = new FHIRHelper();
 
 	@ApiOperation("Lookup specific codes in specified system")
 	@RequestMapping(method = {RequestMethod.GET, RequestMethod.POST} )
@@ -34,13 +37,14 @@ public class FHIRCodeSystemLookupController implements FHIRConstants {
 			@RequestParam(required = false) String date,
 			@RequestParam(required = false, defaultValue = LANG_EN) String lang,
 			@RequestParam(value = "property", required = false) List<String> properties	
-			) {
+			) throws FHIROperationException {
 		
 		if (system == null || system.isEmpty() || !system.equals(SNOMED_URI)) {
 			return helper.validationFailure("System must be present, and currently only " + SNOMED_URI + " is supported.");
 		}
-		List<CodeSystem> codeSystems = codeSystemService.findAll();
-		return new FHIRBundle(mappingService.mapToFHIR(codeSystems));
+		String branch = helper.getBranchForVersion(version);
+		Concept c = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code, BranchPathUriUtil.parseBranchPath(branch)));
+		return mappingService.mapToFHIR(c); 
 	}
 
 }

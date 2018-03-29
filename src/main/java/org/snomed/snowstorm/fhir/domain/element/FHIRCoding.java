@@ -1,11 +1,25 @@
 package org.snomed.snowstorm.fhir.domain.element;
 
-public class FHIRCoding {
+import org.snomed.snowstorm.fhir.config.FHIRConstants;
+import org.snomed.snowstorm.rest.View;
+
+import com.fasterxml.jackson.annotation.JsonView;
+
+public class FHIRCoding implements FHIRConstants {
 	
-	String system;
+	@JsonView(value = View.Component.class)
+	String system = SNOMED_URI;
+	
+	@JsonView(value = View.Component.class)
 	String version;
+	
+	@JsonView(value = View.Component.class)
 	String code;
+	
+	@JsonView(value = View.Component.class)
 	String display;
+	
+	@JsonView(value = View.Component.class)
 	Boolean userSelected;
 	
 	

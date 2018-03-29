@@ -2,6 +2,8 @@ package org.snomed.snowstorm.fhir.domain.element;
 
 import java.util.List;
 
+import org.snomed.snowstorm.fhir.domain.element.FHIRIssue.Severity;
+
 public class FHIRIssue {
 	
 	Severity severity;
@@ -12,6 +14,12 @@ public class FHIRIssue {
 	String expression;
 
 	
+	public FHIRIssue(IssueType code, String diagnostics) {
+		this.severity = Severity.Error;
+		this.code = code;
+		this.diagnostics = diagnostics;
+	}
+
 	public Severity getSeverity() {
 		return severity;
 	}
@@ -61,7 +69,7 @@ public class FHIRIssue {
 	}
 
 	public enum IssueType {
-		Required, Invalid, Invariant;
+		Required, Invalid, Invariant, Value;
 		
 		@Override
 		public String toString() {

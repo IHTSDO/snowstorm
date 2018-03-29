@@ -12,7 +12,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
-class ControllerHelper {
+public class ControllerHelper {
 
 	static ResponseEntity<Void> getCreatedResponse(String id) {
 		HttpHeaders httpHeaders = new HttpHeaders();
@@ -40,7 +40,7 @@ class ControllerHelper {
 		return value;
 	}
 
-	static <T> T throwIfNotFound(String type, T component) {
+	public static <T> T throwIfNotFound(String type, T component) {
 		if (component == null) {
 			throw new NotFoundException(type + " not found");
 		}

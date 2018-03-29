@@ -6,6 +6,9 @@ public class FHIROperationOutcome extends FHIRResource {
 	
 	FHIRIssue issue;
 
+	public FHIROperationOutcome(FHIRIssue issue) {
+		this.issue = issue;
+	}
 	public void setIssue(FHIRIssue issue) {
 		this.issue = issue;
 	}

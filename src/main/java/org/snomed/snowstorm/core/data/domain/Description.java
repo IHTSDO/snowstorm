@@ -198,7 +198,11 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	public Map<String, String> getAcceptabilityMapFromLangRefsetMembers() {
 		Map<String, String> map = new HashMap<>();
 		for (ReferenceSetMember member : langRefsetMembers.values()) {
-			if (member.isActive()) map.put(member.getRefsetId(), Concepts.descriptionAcceptabilityNames.get(member.getAdditionalField("acceptabilityId")));
+			if (member.isActive()) {
+				String acceptabilityId = member.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
+				String acceptabilityStr = Concepts.descriptionAcceptabilityNames.get(acceptabilityId);
+				map.put(member.getRefsetId(), acceptabilityStr);
+			}
 		}
 		return map;
 	}
@@ -388,5 +392,10 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 				", end='" + getEnd() + '\'' +
 				", path='" + getPath() + '\'' +
 				'}';
+	}
+
+	public boolean hasAcceptability(String acceptability, String refsetId) {
+		ReferenceSetMember entry = langRefsetMembers.get(refsetId);
+		return (entry != null && entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability));
 	}
 }
