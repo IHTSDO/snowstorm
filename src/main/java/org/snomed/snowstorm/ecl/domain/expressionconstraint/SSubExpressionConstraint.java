@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
+import it.unimi.dsi.fastutil.longs.LongArraySet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -52,7 +53,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		BoolQueryBuilder query = refinementBuilder.getQuery();
 		if (conceptId != null) {
 			if (operator != null) {
-				applyConceptCriteriaWithOperator(conceptId, operator, refinementBuilder);
+				applyConceptCriteriaWithOperator(Collections.singleton(Long.parseLong(conceptId)), operator, refinementBuilder);
 			} else {
 				query.must(QueryBuilders.termQuery(QueryConcept.CONCEPT_ID_FIELD, conceptId));
 			}
@@ -71,9 +72,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			query.filter(filterQuery);
 			if (operator != null) {
 				SubRefinementBuilder filterRefinementBuilder = new SubRefinementBuilder(refinementBuilder, filterQuery);
-				for (Long conceptId : conceptIds) {
-					applyConceptCriteriaWithOperator(conceptId.toString(), operator, filterRefinementBuilder);
-				}
+				applyConceptCriteriaWithOperator(conceptIds, operator, filterRefinementBuilder);
 			} else {
 				filterQuery.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptIds));
 			}
@@ -84,7 +83,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		// Else Wildcard! which has no constraints
 	}
 
-	private void applyConceptCriteriaWithOperator(String conceptId, Operator operator, RefinementBuilder refinementBuilder) {
+	private void applyConceptCriteriaWithOperator(Collection<Long> conceptIds, Operator operator, RefinementBuilder refinementBuilder) {
 		BoolQueryBuilder query = refinementBuilder.getQuery();
 		QueryService queryService = refinementBuilder.getQueryService();
 		QueryBuilder branchCriteria = refinementBuilder.getBranchCriteria();
@@ -93,40 +92,52 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 		switch (operator) {
 			case childof:
-				query.must(termQuery(QueryConcept.PARENTS_FIELD, conceptId));
+				query.must(termsQuery(QueryConcept.PARENTS_FIELD, conceptIds));
 				break;
 			case descendantorselfof:
 				// <<
 				query.must(
 						boolQuery()
-								.should(termQuery(QueryConcept.ANCESTORS_FIELD, conceptId))
-								.should(termQuery(QueryConcept.CONCEPT_ID_FIELD, conceptId))
+								.should(termsQuery(QueryConcept.ANCESTORS_FIELD, conceptIds))
+								.should(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptIds))
 				);
 				break;
 			case descendantof:
 				// <
-				query.must(termQuery(QueryConcept.ANCESTORS_FIELD, conceptId));
+				query.must(termsQuery(QueryConcept.ANCESTORS_FIELD, conceptIds));
 				break;
 			case parentof:
-				Set<Long> parents = queryService.retrieveParents(branchCriteria, path, stated, conceptId);
-				query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, parents));
+				for (Long conceptId : conceptIds) {
+					Set<Long> parents = queryService.retrieveParents(branchCriteria, path, stated, conceptId.toString());
+					query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, parents));
+				}
 				break;
 			case ancestororselfof:
+				Set<Long> allAncestors = retrieveAllAncestors(conceptIds, branchCriteria, path, stated, queryService);
 				query.must(
 						boolQuery()
-								.should(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveAncestors(branchCriteria, path, stated, conceptId)))
-								.should(termQuery(QueryConcept.CONCEPT_ID_FIELD, conceptId))
+								.should(termsQuery(QueryConcept.CONCEPT_ID_FIELD, allAncestors))
+								.should(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptIds))
 				);
 				break;
 			case ancestorof:
 				// > x
-				query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveAncestors(branchCriteria, path, stated, conceptId)));
+				Set<Long> allAncestors2 = retrieveAllAncestors(conceptIds, branchCriteria, path, stated, queryService);
+				query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, allAncestors2));
 				break;
 			case memberOf:
 				// ^
-				query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveConceptsInReferenceSet(branchCriteria, conceptId)));
+				query.filter(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveConceptsInReferenceSet(branchCriteria, conceptId)));
 				break;
 		}
+	}
+
+	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, QueryBuilder branchCriteria, String path, boolean stated, QueryService queryService) {
+		Set<Long> allAncestors = new LongArraySet();
+		for (Long conceptId : conceptIds) {
+			allAncestors.addAll(queryService.retrieveAncestors(branchCriteria, path, stated, conceptId.toString()));
+		}
+		return allAncestors;
 	}
 
 }
