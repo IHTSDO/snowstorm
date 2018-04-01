@@ -21,7 +21,7 @@ public class SEclRefinement extends EclRefinement implements SRefinement {
 				((SSubRefinement)conjunctionSubRefinement).addCriteria(refinementBuilder);
 			}
 		}
-		if (disjunctionSubRefinements != null && disjunctionSubRefinements.isEmpty()) {
+		if (disjunctionSubRefinements != null && !disjunctionSubRefinements.isEmpty()) {
 			BoolQueryBuilder shouldQueries = boolQuery();
 			refinementBuilder.getQuery().must(shouldQueries);
 			for (SubRefinement disjunctionSubRefinement : disjunctionSubRefinements) {

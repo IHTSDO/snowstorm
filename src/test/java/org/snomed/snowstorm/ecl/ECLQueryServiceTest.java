@@ -447,6 +447,14 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void attributeGroupDisjunction() {
+		assertEquals(
+				"Match clinical finding with at least one grouped finding site attributes.",
+				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),// No bleeding because |Associated morphology| must be grouped
+				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * } OR { 116676008 |Associated morphology| = * }", branchCriteria, MAIN, STATED)));
+	}
+
+	@Test
 	public void reverseFlagAttributes() {
 		// Select the Finding sites of descendants of Disorder
 		// Using Reverse Flag
