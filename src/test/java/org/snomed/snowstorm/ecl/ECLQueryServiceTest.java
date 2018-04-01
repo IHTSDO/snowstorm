@@ -22,10 +22,7 @@ import org.springframework.data.domain.Slice;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -201,6 +198,19 @@ public class ECLQueryServiceTest extends AbstractTest {
 		assertEquals(
 				null,
 				selectConceptIds("<<*", branchCriteria, MAIN, STATED));
+
+		Set<String> allConceptsButRoot = new HashSet<>(allConceptIds);
+		allConceptsButRoot.remove(SNOMEDCT_ROOT);
+
+		// Descendants of wildcard
+		assertEquals(
+				allConceptsButRoot,
+				strings(selectConceptIds("<*", branchCriteria, MAIN, STATED)));
+
+		// Child of wildcard
+		assertEquals(
+				allConceptsButRoot,
+				strings(selectConceptIds("<*", branchCriteria, MAIN, STATED)));
 
 		// Ancestor of
 		assertEquals(

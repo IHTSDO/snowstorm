@@ -7,6 +7,7 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.refinement.Operator;
+import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
@@ -26,15 +27,19 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 	@Override
 	public Optional<Page<Long>> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
-		if (wildcard && Operator.memberOf != operator) {
+		if (isUnconstrained()) {
 			return Optional.empty();
 		}
 		return SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
 	}
 
+	private boolean isUnconstrained() {
+		return wildcard && (operator != Operator.memberOf && operator != Operator.descendantof && operator != Operator.childof);
+	}
+
 	@Override
 	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
-		if (wildcard && Operator.memberOf != operator) {
+		if (isUnconstrained()) {
 			return Optional.empty();
 		}
 		return SExpressionConstraintHelper.select(this, refinementBuilder);
@@ -77,8 +82,11 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				filterQuery.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptIds));
 			}
 		} else if (operator == Operator.memberOf) {
-			// Member of any reference set
+			// Member of wildcard (any reference set)
 			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, refinementBuilder.getQueryService().retrieveConceptsInReferenceSet(refinementBuilder.getBranchCriteria(), null)));
+		} else if (operator == Operator.descendantof || operator == Operator.childof) {
+			// Descendant of wildcard / Child of wildcard (anything but root)
+			query.mustNot(termQuery(QueryConcept.CONCEPT_ID_FIELD, Concepts.SNOMEDCT_ROOT));
 		}
 		// Else Wildcard! which has no constraints
 	}
