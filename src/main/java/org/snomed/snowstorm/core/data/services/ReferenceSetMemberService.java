@@ -12,6 +12,7 @@ import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Description;
@@ -210,6 +211,7 @@ public class ReferenceSetMemberService extends ComponentService {
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery)
 				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)// Triggers FastResultsMapper
+				.withSort(new FieldSortBuilder("_doc"))// Fastest unordered sort
 				.withPageable(LARGE_PAGE)
 				.build();
 
