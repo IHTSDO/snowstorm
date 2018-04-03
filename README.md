@@ -5,7 +5,7 @@
 Snowstorm is currently a proof of concept SNOMED CT terminology server built on top of Elasticsearch, with a focus on performance and enterprise scalability.
 
 
-##Documentation
+## Documentation
 Documentation is sparse for now, but will be improved as the project moves out of a proof of concept phase.
 
 - [Getting Started](docs/getting-started.md)

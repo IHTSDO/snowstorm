@@ -1,6 +1,6 @@
 # Loading SNOMED CT into Snowstorm
 
-First download the most recent [SNOMED CT International Edition RF2 release files](https://www.snomed.org/snomed-ct/get-snomed-ct) release files. 
+First download the most recent [SNOMED CT International Edition RF2 release files](https://www.snomed.org/snomed-ct/get-snomed-ct) release files.
 
 Then make sure Elasticsearch is running and choose one of the sections below.
 
@@ -16,5 +16,6 @@ This will take between 30-60 minutes depending on the performance of your machin
 
 ## Loading Release Full Files
 
-It's possible to load the RF2 **Full** files which gives you access to previous releases in addition to the current content. This will probably take many hours.
+It's possible to load the RF2 **Full** files which gives you access to previous releases in addition to the current content. This will  take many hours (*one import has taken more than 24 hours*).
+
 Simply replace the `--import` argument above with `--import-full`.
