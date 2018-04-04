@@ -2,6 +2,7 @@ package org.snomed.snowstorm.config;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Predicate;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -41,12 +42,16 @@ import org.springframework.jms.support.converter.MappingJackson2MessageConverter
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.MessageType;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.web.bind.annotation.RequestMethod;
+import springfox.documentation.RequestHandler;
 import springfox.documentation.builders.RequestHandlerSelectors;
 import springfox.documentation.spi.DocumentationType;
+import springfox.documentation.spring.web.plugins.ApiSelectorBuilder;
 import springfox.documentation.spring.web.plugins.Docket;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -66,6 +71,9 @@ import static springfox.documentation.builders.PathSelectors.regex;
 public abstract class Config {
 
 	public static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
+
+	@Value("${snowstorm.rest-api.readonly}")
+	private boolean restApiReadOnly;
 
 	@Bean
 	public ExecutorService taskExecutor() {
@@ -195,11 +203,38 @@ public abstract class Config {
 
 	@Bean
 	public Docket api() {
-		return new Docket(DocumentationType.SWAGGER_2)
-				.select()
-				.apis(RequestHandlerSelectors.any())
+		ApiSelectorBuilder apiSelectorBuilder = new Docket(DocumentationType.SWAGGER_2).select();
+
+		if (restApiReadOnly) {
+			// Read-only mode
+			apiSelectorBuilder
+					.apis(requestHandler -> {
+						// Hide POST/PUT/PATCH/DELETE
+						if (requestHandler != null) {
+							Set<RequestMethod> methods = requestHandler.getRequestMapping().getMethodsCondition().getMethods();
+							return !methods.contains(RequestMethod.POST) && !methods.contains(RequestMethod.PUT)
+									&& !methods.contains(RequestMethod.PATCH) && !methods.contains(RequestMethod.DELETE);
+						}
+						return false;
+					})
+					// Also hide endpoints related to authoring
+					.paths(not(regex("/merge.*")))
+					.paths(not(regex("/review.*")))
+					.paths(not(regex(".*/classification.*")))
+					.paths(not(regex("/exports.*")))
+					.paths(not(regex("/imports.*")));
+		} else {
+			// Not read-only mode, allow everything!
+			apiSelectorBuilder
+					.apis(RequestHandlerSelectors.any());
+		}
+
+		// Don't show the error or root endpoints in swagger
+		apiSelectorBuilder
 				.paths(not(regex("/error")))
-				.build();
+				.paths(not(regex("/")));
+
+		return apiSelectorBuilder.build();
 	}
 
 	@Bean // Serialize message content to json using TextMessage

@@ -15,6 +15,7 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
@@ -26,6 +27,9 @@ import org.springframework.security.web.firewall.HttpFirewall;
 @Configuration
 @EnableWebSecurity
 public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
+
+	@Value("${snowstorm.rest-api.readonly}")
+	private boolean restApiReadOnly;
 
 	@Bean
 	public ObjectMapper getGeneralMapper() {
@@ -43,7 +47,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	@Bean
 	public FilterRegistrationBean getUrlRewriteFilter() {
 		// Encode branch paths in uri to allow request mapping to work
-		return new FilterRegistrationBean(new BranchPathUriRewriteFilter(
+		return new FilterRegistrationBean<>(new BranchPathUriRewriteFilter(
 				"/branches/(.*)/children",
 				"/branches/(.*)/parents",
 				"/branches/(.*)/actions/.*",
@@ -77,11 +81,21 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	@Override
 	protected void configure(HttpSecurity http) throws Exception {
 		http.csrf().disable();
+
+		if (restApiReadOnly) {
+			// Read-ony mode. Block POST/PUT/PATCH/DELETE
+			http.authorizeRequests()
+					.mvcMatchers(HttpMethod.POST, "**").denyAll()
+					.mvcMatchers(HttpMethod.PUT, "**").denyAll()
+					.mvcMatchers(HttpMethod.PATCH, "**").denyAll()
+					.mvcMatchers(HttpMethod.DELETE, "**").denyAll()
+					.anyRequest().anonymous();
+		}
 	}
 
 	@Bean
 	public FilterRegistrationBean getSingleSignOnFilter() {
-		FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(
+		FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean<>(
 				new RequestHeaderAuthenticationDecorator());
 		filterRegistrationBean.setOrder(1);
 		return filterRegistrationBean;
@@ -89,7 +103,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 	@Bean
 	public FilterRegistrationBean getRequiredRoleFilter(@Value("${ims-security.required-role}") String requiredRole) {
-		FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean(
+		FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean<>(
 				new RequestHeaderAuthenticationDecoratorWithRequiredRole(requiredRole)
 						.addExcludedPath("/webjars/springfox-swagger-ui")
 		);
