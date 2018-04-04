@@ -43,6 +43,7 @@ import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.MessageType;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import springfox.documentation.RequestHandler;
 import springfox.documentation.builders.RequestHandlerSelectors;
 import springfox.documentation.spi.DocumentationType;
@@ -211,7 +212,13 @@ public abstract class Config {
 					.apis(requestHandler -> {
 						// Hide POST/PUT/PATCH/DELETE
 						if (requestHandler != null) {
-							Set<RequestMethod> methods = requestHandler.getRequestMapping().getMethodsCondition().getMethods();
+							// Allow FHIR endpoints with GET method (even if endpoint has POST too)
+							RequestMappingInfo requestMapping = requestHandler.getRequestMapping();
+							if (requestMapping.getPatternsCondition().getPatterns().stream().filter(pattern -> pattern.startsWith("/fhir")).count() > 0
+									&& requestMapping.getMethodsCondition().getMethods().contains(RequestMethod.GET)) {
+								return true;
+							}
+							Set<RequestMethod> methods = requestMapping.getMethodsCondition().getMethods();
 							return !methods.contains(RequestMethod.POST) && !methods.contains(RequestMethod.PUT)
 									&& !methods.contains(RequestMethod.PATCH) && !methods.contains(RequestMethod.DELETE);
 						}
