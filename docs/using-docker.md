@@ -1,5 +1,5 @@
-# Using docker
-It is strongly recommended to use docker compose, instead of the snowstorm container on its own.
+# Using Docker
+This is an easy option because it will install Snowstorm, the correct Elasticsearch version and wire them together for you.
 
 The docker-compose.yml in the repo option will run everything necessary to use Snowstorm without the need to build anything. However, **you will need to generate SNOMED CT elasticsearch indices** which you can either generate yourself, see the [snomed loading instructions here](docs/loading-snomed.md), or contact [techsupport@snomed.org](mailto::techsupport@snomed.org) to get access to a copy of some already generated indices.
 
