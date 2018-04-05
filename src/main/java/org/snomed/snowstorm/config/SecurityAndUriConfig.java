@@ -10,6 +10,7 @@ import org.snomed.snowstorm.rest.config.BranchMixIn;
 import org.snomed.snowstorm.rest.config.ClassificationMixIn;
 import org.snomed.snowstorm.rest.config.PageMixin;
 import org.snomed.snowstorm.rest.security.RequestHeaderAuthenticationDecoratorWithRequiredRole;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -21,8 +22,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.config.annotation.web.configurers.ExpressionUrlAuthorizationConfigurer;
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -30,6 +34,9 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean restApiReadOnly;
+
+	@Autowired
+	private List<String> allowReadOnlyPostEndpointPrefixes;
 
 	@Bean
 	public ObjectMapper getGeneralMapper() {
@@ -83,12 +90,18 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 		http.csrf().disable();
 
 		if (restApiReadOnly) {
-			// Read-ony mode. Block POST/PUT/PATCH/DELETE
-			http.authorizeRequests()
-					.mvcMatchers(HttpMethod.POST, "**").denyAll()
-					.mvcMatchers(HttpMethod.PUT, "**").denyAll()
-					.mvcMatchers(HttpMethod.PATCH, "**").denyAll()
-					.mvcMatchers(HttpMethod.DELETE, "**").denyAll()
+			// Read-ony mode
+
+			// Allow some explicitly defined endpoints
+			ExpressionUrlAuthorizationConfigurer<HttpSecurity>.ExpressionInterceptUrlRegistry authorizeRequests = http.authorizeRequests();
+			allowReadOnlyPostEndpointPrefixes.forEach(prefix -> authorizeRequests.antMatchers(HttpMethod.POST, prefix + "/**").anonymous());
+
+			// Block all other POST/PUT/PATCH/DELETE
+			authorizeRequests
+					.antMatchers(HttpMethod.POST, "/**").denyAll()
+					.antMatchers(HttpMethod.PUT, "/**").denyAll()
+					.antMatchers(HttpMethod.PATCH, "/**").denyAll()
+					.antMatchers(HttpMethod.DELETE, "/**").denyAll()
 					.anyRequest().anonymous();
 		}
 	}

@@ -51,8 +51,7 @@ import springfox.documentation.spring.web.plugins.ApiSelectorBuilder;
 import springfox.documentation.spring.web.plugins.Docket;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -202,19 +201,27 @@ public abstract class Config {
 		return new ECLQueryBuilder(new SECLObjectFactory());
 	}
 
+	@Bean(name = "allowReadOnlyPostEndpointPrefixes")
+	public List<String> allowReadOnlyPostEndpointPrefixes() {
+		return Collections.singletonList("/fhir");
+	}
+
 	@Bean
 	public Docket api() {
 		ApiSelectorBuilder apiSelectorBuilder = new Docket(DocumentationType.SWAGGER_2).select();
 
 		if (restApiReadOnly) {
 			// Read-only mode
+			List<String> allowReadOnlyPostEndpointPrefixes = allowReadOnlyPostEndpointPrefixes();
+
 			apiSelectorBuilder
 					.apis(requestHandler -> {
 						// Hide POST/PUT/PATCH/DELETE
 						if (requestHandler != null) {
 							// Allow FHIR endpoints with GET method (even if endpoint has POST too)
 							RequestMappingInfo requestMapping = requestHandler.getRequestMapping();
-							if (requestMapping.getPatternsCondition().getPatterns().stream().filter(pattern -> pattern.startsWith("/fhir")).count() > 0
+							if (requestMapping.getPatternsCondition().getPatterns().stream()
+									.filter(pattern -> allowReadOnlyPostEndpointPrefixes.stream().filter(pattern::startsWith).count() > 0).count() > 0
 									&& requestMapping.getMethodsCondition().getMethods().contains(RequestMethod.GET)) {
 								return true;
 							}
