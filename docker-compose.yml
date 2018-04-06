@@ -25,7 +25,7 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-    entrypoint: java -jar target/snowstorm-1.0.0-SNAPSHOT.jar --elasticsearch.urls=http://es:9200
+    entrypoint: java -jar target/snowstorm.jar --elasticsearch.urls=http://es:9200
     networks:
       - elastic
     volumes:
