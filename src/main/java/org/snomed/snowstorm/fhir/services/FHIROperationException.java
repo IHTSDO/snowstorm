@@ -1,24 +1,24 @@
 package org.snomed.snowstorm.fhir.services;
 
-import org.snomed.snowstorm.fhir.domain.element.FHIRIssue;
+import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
 
 public class FHIROperationException extends Exception {
 
 	private static final long serialVersionUID = 1L;
 	
-	FHIRIssue.IssueType issueType;
+	IssueType issueType;
 	
-	FHIROperationException (FHIRIssue.IssueType issueType, String message) {
+	FHIROperationException (IssueType issueType, String message) {
 		super(message);
 		this.issueType = issueType;
 	}
 	
-	FHIROperationException (FHIRIssue.IssueType issueType, String message, Exception e) {
+	FHIROperationException (IssueType issueType, String message, Exception e) {
 		super(message, e);
 		this.issueType = issueType;
 	}
 	
-	public FHIRIssue.IssueType getIssueType() {
+	public IssueType getIssueType() {
 		return issueType;
 	}
 }

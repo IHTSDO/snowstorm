@@ -3,6 +3,8 @@ package org.snomed.snowstorm.core.data.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
+
+import org.snomed.snowstorm.core.data.domain.Relationship.CharacteristicType;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -244,8 +246,18 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		this.inactivationIndicatorMember = inactivationIndicatorMember;
 	}
 
-	public Set<Relationship> getRelationshipsWithDestination(String conceptId) {
-		return relationships.stream().filter(r -> conceptId.equals(r.getDestinationId())).collect(Collectors.toSet());
+	public Set<Relationship> getRelationshipsWithDestination(String destinationId) {
+		return relationships.stream().filter(r -> destinationId.equals(r.getDestinationId())).collect(Collectors.toSet());
+	}
+	
+	public List<Relationship> getRelationships(Boolean activeFlag, String typeId, String destinationId, String charTypeId) {
+		List<Relationship> matchingDescriptions = relationships.stream()
+							.filter(rel -> (activeFlag == null || activeFlag.equals(rel.isActive())))
+							.filter(rel -> (typeId == null || rel.getTypeId().equals(typeId)))
+							.filter(rel -> (destinationId == null || rel.getDestinationId().equals(destinationId)))
+							.filter(rel -> (charTypeId == null || rel.getCharacteristicTypeId().equals(charTypeId)))
+							.collect(Collectors.toList());
+		return matchingDescriptions;
 	}
 
 	@Override

@@ -1,13 +1,17 @@
 package org.snomed.snowstorm.fhir.services;
 
+import java.util.Collection;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.hl7.fhir.dstu3.model.*;
+import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.rest.ControllerHelper;
@@ -26,7 +30,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	private ConceptService conceptService;
 	
 	@Autowired
-	private FHIRMappingService mappingService;
+	private HapiMapper mapper;
 	
 	private FHIRHelper helper = new FHIRHelper();
 
@@ -42,12 +46,13 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="property") List<CodeType> properties) throws FHIROperationException {
 		
 		if (system == null || system.isEmpty() || !system.equals(SNOMED_URI)) {
-			//return helper.validationFailure("System must be present, and currently only " + SNOMED_URI + " is supported.");
+			throw new FHIROperationException(IssueType.VALUE, "System must be present, and currently only " + SNOMED_URI + " is supported.");
 		}
 		
-		String branch = helper.getBranchForVersion(version.asStringValue());
+		String branch = helper.getBranchForVersion(version);
 		Concept c = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), BranchPathUriUtil.parseBranchPath(branch)));
-		return null; // mappingService.mapToFHIR(c); 
+		Collection<ConceptMini> children = conceptService.findConceptChildren(code.getValue(), branch, Relationship.CharacteristicType.inferred);
+		return mapper.mapToFHIR(c, children); 
 	}
 	
 	@Override
