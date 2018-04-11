@@ -6,6 +6,8 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Relationship;
@@ -75,7 +77,6 @@ public class RelationshipService extends ComponentService {
 				.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, stated ? Concepts.STATED_RELATIONSHIP : Concepts.INFERRED_RELATIONSHIP))
 				.must(termsQuery(Relationship.Fields.ACTIVE, true));
 
-		// TODO: Test ECL dotted notation using a wildcard
 		if (attributeTypeIds != null) {
 			boolQuery.must(termsQuery(Relationship.Fields.TYPE_ID, attributeTypeIds));
 		}
@@ -86,6 +87,7 @@ public class RelationshipService extends ComponentService {
 
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery)
+				.withSort(SortBuilders.fieldSort(Relationship.Fields.RELATIONSHIP_ID).order(SortOrder.DESC))// Meaningless but deterministic
 				.withPageable(LARGE_PAGE)
 				.build();
 

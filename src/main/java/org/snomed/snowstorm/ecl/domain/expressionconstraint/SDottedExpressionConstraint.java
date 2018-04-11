@@ -4,6 +4,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.DottedExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.util.CollectionUtil;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -34,6 +35,13 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 			// XXX Note that this content is not paginated
 			List<Long> idList = new ArrayList<>(queryService.retrieveRelationshipDestinations(conceptIds.get().getContent(), attributeTypeIds, branchCriteria, stated));
 			conceptIds = Optional.of(new PageImpl<>(idList, PageRequest.of(0, idList.size()), idList.size()));
+		}
+
+		// Manually apply pagination
+		if (pageRequest != null) {
+			List<Long> content = conceptIds.get().getContent();
+			List<Long> pageOfContent = CollectionUtil.subList(content, pageRequest.getPageNumber(), pageRequest.getPageSize());
+			conceptIds = Optional.of(new PageImpl<Long>(pageOfContent, pageRequest, content.size()));
 		}
 
 		return conceptIds;

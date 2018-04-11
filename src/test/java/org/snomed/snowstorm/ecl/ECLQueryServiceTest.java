@@ -17,6 +17,7 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -481,9 +482,17 @@ public class ECLQueryServiceTest extends AbstractTest {
 				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE, SKIN_STRUCTURE),
 				strings(selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE)));
 
+		// Select the just the first two Finding sites of descendants of Clinical finding
+		PageRequest pageRequest = PageRequest.of(0, 2);
 		assertEquals(
-				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE, SKIN_STRUCTURE),
-				strings(selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE)));
+				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE),
+				strings(selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE, pageRequest)));
+
+		// Select the second page of Finding sites of descendants of Clinical finding
+		pageRequest = PageRequest.of(1, 2);
+		assertEquals(
+				Sets.newHashSet(SKIN_STRUCTURE),
+				strings(selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE, pageRequest)));
 
 		// Select the Laterality of Finding sites of descendants of Clinical finding
 		assertEquals(
@@ -551,6 +560,10 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	private Collection<Long> selectConceptIds(String ecl) {
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, STATED).map(Slice::getContent).orElse(null);
+		return selectConceptIds(ecl, null);
+	}
+
+	private Collection<Long> selectConceptIds(String ecl, PageRequest pageRequest) {
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, STATED, pageRequest).map(Slice::getContent).orElse(null);
 	}
 }

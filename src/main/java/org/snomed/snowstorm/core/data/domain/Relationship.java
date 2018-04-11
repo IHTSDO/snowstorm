@@ -33,6 +33,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 	}
 
 	public interface Fields extends SnomedComponent.Fields {
+		String RELATIONSHIP_ID = "relationshipId";
 		String SOURCE_ID = "sourceId";
 		String TYPE_ID = "typeId";
 		String CHARACTERISTIC_TYPE_ID = "characteristicTypeId";
