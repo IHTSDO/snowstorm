@@ -16,7 +16,6 @@ import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Slice;
 import org.springframework.test.context.ContextConfiguration;
@@ -181,23 +180,23 @@ public class ECLQueryServiceTest extends AbstractTest {
 		// Self
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT),
-				strings(selectConceptIds(SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(SNOMEDCT_ROOT)));
 
 		// Not Self
 		assertEquals(
 				// All concepts but not root
 				allConceptIds.stream().filter(id -> !SNOMEDCT_ROOT.equals(id)).collect(Collectors.toSet()),
-				strings(selectConceptIds("<" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<" + SNOMEDCT_ROOT)));
 
 		// Descendant or self
 		assertEquals(
 				allConceptIds,
-				strings(selectConceptIds("<<" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<<" + SNOMEDCT_ROOT)));
 
 		// Descendant or self wildcard
 		assertEquals(
 				null,
-				selectConceptIds("<<*", branchCriteria, MAIN, STATED));
+				selectConceptIds("<<*"));
 
 		Set<String> allConceptsButRoot = new HashSet<>(allConceptIds);
 		allConceptsButRoot.remove(SNOMEDCT_ROOT);
@@ -205,22 +204,22 @@ public class ECLQueryServiceTest extends AbstractTest {
 		// Descendants of wildcard
 		assertEquals(
 				allConceptsButRoot,
-				strings(selectConceptIds("<*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<*")));
 
 		// Child of wildcard
 		assertEquals(
 				allConceptsButRoot,
-				strings(selectConceptIds("<*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<*")));
 
 		// Ancestor of
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING),
-				strings(selectConceptIds(">" + DISORDER, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(">" + DISORDER)));
 
 		// Ancestor or Self of
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING, DISORDER),
-				strings(selectConceptIds(">>" + DISORDER, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(">>" + DISORDER)));
 	}
 
 	@Test
@@ -228,15 +227,15 @@ public class ECLQueryServiceTest extends AbstractTest {
 		// Direct Parents
 		assertEquals(
 				Sets.newHashSet(),
-				strings(selectConceptIds(">!" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(">!" + SNOMEDCT_ROOT)));
 
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT),
-				strings(selectConceptIds(">!" + CLINICAL_FINDING, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(">!" + CLINICAL_FINDING)));
 
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING),
-				strings(selectConceptIds(">!" + BLEEDING, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(">!" + BLEEDING)));
 	}
 
 	@Test
@@ -244,19 +243,19 @@ public class ECLQueryServiceTest extends AbstractTest {
 		// Direct Children
 		assertEquals(
 				Sets.newHashSet(MODEL_COMPONENT, RIGHT, BODY_STRUCTURE, CLINICAL_FINDING, PROCEDURE, ISA),
-				strings(selectConceptIds("<!" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<!" + SNOMEDCT_ROOT)));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING, DISORDER),
-				strings(selectConceptIds("<!" + CLINICAL_FINDING, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<!" + CLINICAL_FINDING)));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN),
-				strings(selectConceptIds("<!" + BLEEDING, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<!" + BLEEDING)));
 
 		assertEquals(
 				Sets.newHashSet(),
-				strings(selectConceptIds("<!" + BLEEDING_SKIN, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<!" + BLEEDING_SKIN)));
 	}
 
 	@Test
@@ -264,13 +263,13 @@ public class ECLQueryServiceTest extends AbstractTest {
 		// Member of x
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, BODY_STRUCTURE),
-				strings(selectConceptIds("^" + REFSET_MRCM_ATTRIBUTE_DOMAIN, branchCriteria, MAIN, STATED))
+				strings(selectConceptIds("^" + REFSET_MRCM_ATTRIBUTE_DOMAIN))
 		);
 
 		// Member of any reference set
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, BODY_STRUCTURE),
-				strings(selectConceptIds("^*", branchCriteria, MAIN, STATED))
+				strings(selectConceptIds("^*"))
 		);
 	}
 
@@ -278,29 +277,29 @@ public class ECLQueryServiceTest extends AbstractTest {
 	public void selectByAttributeType() throws Exception {
 		assertEquals(
 				Sets.newHashSet(),
-				strings(selectConceptIds("*:" + CLINICAL_FINDING + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("*:" + CLINICAL_FINDING + "=*")));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=*")));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING),
-				strings(selectConceptIds(BLEEDING +":" + ASSOCIATED_MORPHOLOGY + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(BLEEDING +":" + ASSOCIATED_MORPHOLOGY + "=*")));
 
 		// Attribute constraint
 		assertEquals(
 				Sets.newHashSet(CHEST_IMAGING),
-				strings(selectConceptIds("<<" + PROCEDURE +":<" + PROCEDURE_SITE + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<<" + PROCEDURE +":<" + PROCEDURE_SITE + "=*")));
 
 		// Attribute constraint
 		assertEquals(
 				Sets.newHashSet(OPERATION_ON_HEART, CHEST_IMAGING),
-				strings(selectConceptIds("<<" + PROCEDURE + ":<<" + PROCEDURE_SITE + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<<" + PROCEDURE + ":<<" + PROCEDURE_SITE + "=*")));
 
 		assertEquals(
 				Sets.newHashSet(),
-				strings(selectConceptIds(BLEEDING + ":" + NON_EXISTENT_CONCEPT + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(BLEEDING + ":" + NON_EXISTENT_CONCEPT + "=*")));
 	}
 
 	@Test
@@ -308,41 +307,41 @@ public class ECLQueryServiceTest extends AbstractTest {
 		// Attribute Value Equals
 		assertEquals(
 				Sets.newHashSet(BLEEDING, BLEEDING_SKIN),
-				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + HEMORRHAGE, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + HEMORRHAGE)));
 
 		// Attribute Value Not Equals
 		assertEquals(
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "!=" + HEMORRHAGE, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "!=" + HEMORRHAGE)));
 
 		// Attribute Value Equals - Descendant or self
 		assertEquals(
 				Sets.newHashSet(BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "= <<" + SNOMEDCT_ROOT, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "= <<" + SNOMEDCT_ROOT)));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("*:" + FINDING_SITE + "= <<" + BODY_STRUCTURE, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("*:" + FINDING_SITE + "= <<" + BODY_STRUCTURE)));
 
 		assertEquals(
 				Sets.newHashSet(),
-				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + CLINICAL_FINDING, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + CLINICAL_FINDING)));
 
 		assertEquals(
 				Sets.newHashSet(),
-				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + NON_EXISTENT_CONCEPT, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + NON_EXISTENT_CONCEPT)));
 	}
 
 	@Test
 	public void selectByAttributeConjunction() throws Exception {
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN),
-				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + HEMORRHAGE+ " , " + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + HEMORRHAGE+ " , " + FINDING_SITE + "=*")));
 	}
 
 	@Test
 	public void selectByAttributeDisjunction() throws Exception {
-		Collection<Long> ids = selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + HEMORRHAGE + " OR " + FINDING_SITE + "=*", branchCriteria, MAIN, STATED);
+		Collection<Long> ids = selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + HEMORRHAGE + " OR " + FINDING_SITE + "=*");
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN, BLEEDING, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
 				strings(ids));
@@ -352,48 +351,48 @@ public class ECLQueryServiceTest extends AbstractTest {
 	public void focusConceptConjunction() {
 		assertEquals(
 				Sets.newHashSet(DISORDER, BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("<" + SNOMEDCT_ROOT + " AND <" + CLINICAL_FINDING, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<" + SNOMEDCT_ROOT + " AND <" + CLINICAL_FINDING)));
 
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING),
-				strings(selectConceptIds("<" + SNOMEDCT_ROOT + " AND " + CLINICAL_FINDING, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<" + SNOMEDCT_ROOT + " AND " + CLINICAL_FINDING)));
 
 		assertEquals(
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("<" + DISORDER + " AND <" + CLINICAL_FINDING, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<" + DISORDER + " AND <" + CLINICAL_FINDING)));
 	}
 
 	@Test
 	public void focusConceptDisjunction() {
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING),
-				strings(selectConceptIds(SNOMEDCT_ROOT + " OR " + CLINICAL_FINDING, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(SNOMEDCT_ROOT + " OR " + CLINICAL_FINDING)));
 
 		assertEquals(
 				Sets.newHashSet(HEMORRHAGE, CLINICAL_FINDING, DISORDER, BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds(HEMORRHAGE + " OR <<" + CLINICAL_FINDING, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(HEMORRHAGE + " OR <<" + CLINICAL_FINDING)));
 
 		assertEquals(
 				Sets.newHashSet(HEMORRHAGE),
-				strings(selectConceptIds(HEMORRHAGE + " OR " + HEMORRHAGE, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(HEMORRHAGE + " OR " + HEMORRHAGE)));
 	}
 
 	@Test
 	public void focusConceptExclusion() {
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, BLEEDING, BLEEDING_SKIN),
-				strings(selectConceptIds("<<" + CLINICAL_FINDING + " MINUS <<" + DISORDER, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<<" + CLINICAL_FINDING + " MINUS <<" + DISORDER)));
 
 		assertEquals(
 				Sets.newHashSet(),
-				strings(selectConceptIds(HEMORRHAGE + " MINUS " + HEMORRHAGE, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(HEMORRHAGE + " MINUS " + HEMORRHAGE)));
 	}
 
 	@Test
 	public void focusConceptConjunctionDisjunction() {
 		assertEquals(
 				Sets.newHashSet(BLEEDING, BLEEDING_SKIN),
-				strings(selectConceptIds("<" + SNOMEDCT_ROOT + " AND (<<" + BLEEDING + " OR " + SNOMEDCT_ROOT +")", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<" + SNOMEDCT_ROOT + " AND (<<" + BLEEDING + " OR " + SNOMEDCT_ROOT +")")));
 	}
 
 	@Test
@@ -420,12 +419,12 @@ public class ECLQueryServiceTest extends AbstractTest {
 		assertEquals(
 				"ECL without grouping finds both concepts",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds(eclWithoutGrouping, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(eclWithoutGrouping)));
 
 		assertEquals(
 				"ECL with grouping finds only the concept with matching groups",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT),
-				strings(selectConceptIds(eclWithGrouping, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds(eclWithGrouping)));
 	}
 
 	@Test
@@ -433,27 +432,27 @@ public class ECLQueryServiceTest extends AbstractTest {
 		assertEquals(
 				"Match clinical finding with at least one grouped finding site attributes.",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * }", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * }")));
 
 		assertEquals(
 				"Match clinical finding with zero grouped finding site attributes.",
 				Sets.newHashSet(DISORDER, BLEEDING, BLEEDING_SKIN),
-				strings(selectConceptIds("<404684003 |Clinical finding|: [0..0]{ 363698007 |Finding site| = * }", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<404684003 |Clinical finding|: [0..0]{ 363698007 |Finding site| = * }")));
 
 		assertEquals(
 				"Match clinical finding with one grouped finding site attributes.",
 				Sets.newHashSet(),
-				strings(selectConceptIds("<404684003 |Clinical finding|: [1..1]{ 363698007 |Finding site| = * }", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<404684003 |Clinical finding|: [1..1]{ 363698007 |Finding site| = * }")));
 
 		assertEquals(
 				"Match clinical finding with one or two grouped finding site attributes.",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("<404684003 |Clinical finding|: [1..2]{ 363698007 |Finding site| = * }", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<404684003 |Clinical finding|: [1..2]{ 363698007 |Finding site| = * }")));
 
 		assertEquals(
 				"Match clinical finding with three or more grouped finding site attributes.",
 				Sets.newHashSet(),
-				strings(selectConceptIds("<404684003 |Clinical finding|: [3..*]{ 363698007 |Finding site| = * }", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<404684003 |Clinical finding|: [3..*]{ 363698007 |Finding site| = * }")));
 	}
 
 	@Test
@@ -461,7 +460,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 		assertEquals(
 				"Match clinical finding with at least one grouped finding site attributes.",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),// No bleeding because |Associated morphology| must be grouped
-				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * } OR { 116676008 |Associated morphology| = * }", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * } OR { 116676008 |Associated morphology| = * }")));
 	}
 
 	@Test
@@ -470,74 +469,80 @@ public class ECLQueryServiceTest extends AbstractTest {
 		// Using Reverse Flag
 		assertEquals(
 				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE),
-				strings(selectConceptIds("*:R " + FINDING_SITE + " = <" + DISORDER , branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("*:R " + FINDING_SITE + " = <" + DISORDER)));
 
 		// Using Dot notation
 		assertEquals(
 				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE),
-				strings(selectConceptIds("<" + DISORDER + "." + FINDING_SITE, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<" + DISORDER + "." + FINDING_SITE)));
 
 		// Select the Finding sites of descendants of Clinical finding
 		assertEquals(
 				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE, SKIN_STRUCTURE),
-				strings(selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE)));
+
+		assertEquals(
+				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE, SKIN_STRUCTURE),
+				strings(selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE)));
 
 		// Select the Laterality of Finding sites of descendants of Clinical finding
 		assertEquals(
 				Sets.newHashSet(RIGHT),
-				strings(selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE + "." + LATERALITY, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE + "." + LATERALITY)));
 	}
+
+	// TODO: Add reverse flag with cardinality
 
 	@Test
 	public void attributeCardinality() {
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, DISORDER, BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[0..*]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[0..*]" + FINDING_SITE + "=*")));
 
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, DISORDER, BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[0..2]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[0..2]" + FINDING_SITE + "=*")));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[1..2]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[1..2]" + FINDING_SITE + "=*")));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN),
-				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[1..1]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[1..1]" + FINDING_SITE + "=*")));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN, CLINICAL_FINDING, DISORDER, BLEEDING),
-				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[0..1]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[0..1]" + FINDING_SITE + "=*")));
 
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, DISORDER, BLEEDING),
-				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[0..0]" + FINDING_SITE + "=*", branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[0..0]" + FINDING_SITE + "=*")));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
-				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[1..2]" + FINDING_SITE + "= <<" + BODY_STRUCTURE, branchCriteria, MAIN, STATED)));
+				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[1..2]" + FINDING_SITE + "= <<" + BODY_STRUCTURE)));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN),
 				strings(selectConceptIds(
 						"<<" + CLINICAL_FINDING + ":" +
 								"[1..2]" + FINDING_SITE + "= <<" + BODY_STRUCTURE + "," +
-								"[0..0]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS, branchCriteria, MAIN, STATED)));
+								"[0..0]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS)));
 
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
 				strings(selectConceptIds(
 						"<<" + CLINICAL_FINDING + ":" +
 								"[1..2]" + FINDING_SITE + "= <<" + BODY_STRUCTURE + "," +
-								"[0..1]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS, branchCriteria, MAIN, STATED)));
+								"[0..1]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS)));
 
 		assertEquals(
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
 				strings(selectConceptIds(
 						"<<" + CLINICAL_FINDING + ":" +
 								"[1..2]" + FINDING_SITE + "= <<" + BODY_STRUCTURE + "," +
-								"[1..*]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS, branchCriteria, MAIN, STATED)));
+								"[1..*]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS)));
 
 	}
 
@@ -545,8 +550,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 		return ids.stream().map(Object::toString).collect(Collectors.toSet());
 	}
 
-
-	private Collection<Long> selectConceptIds(String ecl, QueryBuilder branchCriteria, String path, boolean stated) {
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, path, stated).map(Slice::getContent).orElse(null);
+	private Collection<Long> selectConceptIds(String ecl) {
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, STATED).map(Slice::getContent).orElse(null);
 	}
 }
