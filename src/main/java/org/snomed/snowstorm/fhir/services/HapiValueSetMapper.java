@@ -23,7 +23,6 @@ public class HapiValueSetMapper implements FHIRConstants {
 	}
 
 	private void addExpansion(ValueSet v, List<ConceptMini> concepts) {
-		//UriType uri = new UriType(theValue);
 		ValueSetExpansionComponent expansion = new ValueSetExpansionComponent();
 		for (ConceptMini concept : concepts) {
 			expansion.addContains()
