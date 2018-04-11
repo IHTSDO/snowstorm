@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.fhir.config;
 
-import org.snomed.snowstorm.fhir.rest.HapiRestfulServlet;
-import org.snomed.snowstorm.fhir.services.HapiMapper;
+import org.snomed.snowstorm.fhir.services.HapiCodeSystemMapper;
+import org.snomed.snowstorm.fhir.services.HapiValueSetMapper;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,8 +10,13 @@ import org.springframework.context.annotation.Configuration;
 public class FHIRConfig {
 	
 	@Bean
-	public HapiMapper hapiMapper() {
-		return new HapiMapper();
+	public HapiCodeSystemMapper hapiCodeSystemMapper() {
+		return new HapiCodeSystemMapper();
+	}
+	
+	@Bean
+	public HapiValueSetMapper hapiValueSetMapper() {
+		return new HapiValueSetMapper();
 	}
 	
 	@Bean

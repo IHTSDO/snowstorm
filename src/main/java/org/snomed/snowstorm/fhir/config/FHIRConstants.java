@@ -26,6 +26,7 @@ public interface FHIRConstants {
 	final String SNOMED_INTERNATIONAL = "SNOMED International";
 	final String SNOMED_URI = "http://snomed.info/sct";
 	final StringType SUFFICIENTLY_DEFINED = new StringType("sufficientlyDefined");
+	final String URL = "url";
 	final String USE = "use";
 	final String VALUE = "value";
 	final String VALUE_BOOLEAN = "valueBoolean";

@@ -1,4 +1,4 @@
-package org.snomed.snowstorm.fhir.rest;
+package org.snomed.snowstorm.fhir.config;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -6,7 +6,7 @@ import java.util.List;
 import javax.servlet.ServletException;
 
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemProvider;
-import org.springframework.core.env.Environment;
+import org.snomed.snowstorm.fhir.services.FHIRValueSetProvider;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
 
@@ -29,7 +29,6 @@ public class HapiRestfulServlet extends RestfulServer {
 	protected void initialize() throws ServletException {
 		final WebApplicationContext applicationContext =
 				WebApplicationContextUtils.getWebApplicationContext(this.getServletContext());
-		final Environment environment = applicationContext.getEnvironment();
 
 		setDefaultResponseEncoding(EncodingEnum.JSON);
 
@@ -57,8 +56,10 @@ public class HapiRestfulServlet extends RestfulServer {
 		 */
 		List<IResourceProvider> resourceProviders = new ArrayList<>();
 		FHIRCodeSystemProvider csp = applicationContext.getBean(FHIRCodeSystemProvider.class);
+		FHIRValueSetProvider vsp = applicationContext.getBean(FHIRValueSetProvider.class);
 
 		resourceProviders.add(csp);
+		resourceProviders.add(vsp);
 		setResourceProviders(resourceProviders);
 	}
 }

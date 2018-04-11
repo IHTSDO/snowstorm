@@ -8,7 +8,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 
 
-public class HapiMapper implements FHIRConstants {
+public class HapiCodeSystemMapper implements FHIRConstants {
 	
 	public Parameters mapToFHIR(Concept c, Collection<ConceptMini> children) {
 		Parameters parameters = getStandardParameters();
