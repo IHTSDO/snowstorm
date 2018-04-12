@@ -1,7 +1,7 @@
 # Snowstorm Configuration Guide
 
 ## Overview
-Snowstorm uses the Spring Boot framework so this [general information about Spring Boot configuration](https://docs.spring.io/spring-boot/docs/2.0.0.RC2/reference/htmlsingle/#boot-features-external-config) is recommended.
+Snowstorm uses the Spring Boot framework so this [general information about Spring Boot configuration](https://docs.spring.io/spring-boot/docs/2.0.1.RELEASE/reference/htmlsingle/#boot-features-external-config) is recommended.
 
 ## The Defaults
 
