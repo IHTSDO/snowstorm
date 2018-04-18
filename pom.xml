@@ -34,7 +34,7 @@
 		<elasticsearch.version>6.0.1</elasticsearch.version>
 
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
-		<snomed-boot.version>1.3.0</snomed-boot.version>
+		<snomed-boot.version>1.8.0-SNAPSHOT</snomed-boot.version>
 		<slf4j.version>1.7.5</slf4j.version>
 		<docker.image.prefix>snomedinternational</docker.image.prefix>
 

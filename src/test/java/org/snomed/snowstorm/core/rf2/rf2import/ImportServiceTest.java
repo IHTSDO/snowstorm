@@ -229,6 +229,23 @@ public class ImportServiceTest extends AbstractTest {
 		assertEquals("MAIN", codeSystemVersion.getParentBranchPath());
 	}
 
+	@Test
+	public void testImportSnapshotOnlyModelModule() throws ReleaseImportException {
+		final String branchPath = "MAIN";
+		branchService.create(branchPath);
+
+		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
+		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT).isEmpty());
+
+		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(RF2Type.SNAPSHOT, branchPath);
+		importConfiguration.setModuleIds(Collections.singleton(Concepts.MODEL_MODULE));
+		String importId = importService.createJob(importConfiguration);
+		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
+
+		final Page<Concept> conceptPage = conceptService.findAll(branchPath, PageRequest.of(0, 200));
+		Assert.assertEquals(77, conceptPage.getNumberOfElements());
+	}
+
 	private Set<Long> asSet(String string) {
 		Set<Long> longs = new HashSet<>();
 		for (String split : string.split(",")) {

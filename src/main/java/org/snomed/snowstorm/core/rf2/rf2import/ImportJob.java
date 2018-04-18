@@ -2,6 +2,8 @@ package org.snomed.snowstorm.core.rf2.rf2import;
 
 import org.snomed.snowstorm.core.rf2.RF2Type;
 
+import java.util.Set;
+
 public class ImportJob {
 
 	private RF2ImportConfiguration importConfiguration;
@@ -33,6 +35,10 @@ public class ImportJob {
 
 	public String getBranchPath() {
 		return importConfiguration.getBranchPath();
+	}
+
+	public Set<String> getModuleIds() {
+		return importConfiguration.getModuleIds();
 	}
 
 	public ImportStatus getStatus() {

@@ -84,14 +84,16 @@ public class ImportService {
 
 			ReleaseImporter releaseImporter = new ReleaseImporter();
 			job.setStatus(ImportJob.ImportStatus.RUNNING);
+			LoadingProfile loadingProfile = DEFAULT_LOADING_PROFILE
+					.withModuleIds(job.getModuleIds().toArray(new String[]{}));
 			switch (importType) {
 				case DELTA:
-					releaseImporter.loadDeltaReleaseFiles(releaseFileStream, DEFAULT_LOADING_PROFILE, getImportComponentFactory(branchPath));
+					releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, getImportComponentFactory(branchPath));
 					break;
 				case SNAPSHOT:
 
 					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath);
-					releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, DEFAULT_LOADING_PROFILE, importComponentFactory);
+					releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
 
 					// Create Code System version of this snapshot content (if a code system exists on this path)
 					String maxEffectiveTime = importComponentFactory.getMaxEffectiveTime();
@@ -101,7 +103,7 @@ public class ImportService {
 
 					break;
 				case FULL:
-					releaseImporter.loadFullReleaseFiles(releaseFileStream, DEFAULT_LOADING_PROFILE, getFullImportComponentFactory(branchPath));
+					releaseImporter.loadFullReleaseFiles(releaseFileStream, loadingProfile, getFullImportComponentFactory(branchPath));
 					break;
 			}
 			job.setStatus(ImportJob.ImportStatus.COMPLETED);
