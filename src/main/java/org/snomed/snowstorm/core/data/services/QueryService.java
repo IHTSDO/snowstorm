@@ -314,7 +314,7 @@ public class QueryService {
 		return memberService.findConceptsInReferenceSet(branchCriteria, referenceSetId);
 	}
 
-	public Set<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {
+	public List<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {
 		return relationshipService.retrieveRelationshipDestinations(sourceConceptIds, attributeTypeIds, branchCriteria, stated);
 	}
 

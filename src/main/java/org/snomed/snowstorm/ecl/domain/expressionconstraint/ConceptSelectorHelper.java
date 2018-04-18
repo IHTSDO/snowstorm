@@ -2,8 +2,11 @@ package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.springframework.data.domain.Page;
@@ -40,7 +43,10 @@ class ConceptSelectorHelper {
 
 		if (pageRequest != null && inclusionFilter == null) {
 			// Fetch a page of IDs
-			searchQueryBuilder.withPageable(pageRequest);
+			searchQueryBuilder
+					.withPageable(pageRequest)
+					.withSort(SortBuilders.fieldSort(QueryConcept.CONCEPT_ID_FIELD).order(SortOrder.DESC));// Sorting meaningless but supports deterministic pagination
+
 			Page<QueryConcept> queryConcepts = queryService.queryForPage(searchQueryBuilder.build());
 			List<Long> ids = queryConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(toList());
 			return new PageImpl<>(ids, pageRequest, queryConcepts.getTotalElements());
@@ -55,6 +61,9 @@ class ConceptSelectorHelper {
 					}
 				});
 			}
+
+			// Stream search doesn't sort for us
+			ids.sort(LongComparators.OPPOSITE_COMPARATOR);
 
 			int total = ids.size();
 			if (pageRequest != null) {

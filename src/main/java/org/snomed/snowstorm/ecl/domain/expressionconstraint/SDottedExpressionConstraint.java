@@ -41,7 +41,7 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 		if (pageRequest != null) {
 			List<Long> content = conceptIds.get().getContent();
 			List<Long> pageOfContent = CollectionUtil.subList(content, pageRequest.getPageNumber(), pageRequest.getPageSize());
-			conceptIds = Optional.of(new PageImpl<Long>(pageOfContent, pageRequest, content.size()));
+			conceptIds = Optional.of(new PageImpl<>(pageOfContent, pageRequest, content.size()));
 		}
 
 		return conceptIds;

@@ -485,13 +485,13 @@ public class ECLQueryServiceTest extends AbstractTest {
 		// Select the just the first two Finding sites of descendants of Clinical finding
 		PageRequest pageRequest = PageRequest.of(0, 2);
 		assertEquals(
-				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE),
+				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, SKIN_STRUCTURE),
 				strings(selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE, pageRequest)));
 
 		// Select the second page of Finding sites of descendants of Clinical finding
 		pageRequest = PageRequest.of(1, 2);
 		assertEquals(
-				Sets.newHashSet(SKIN_STRUCTURE),
+				Sets.newHashSet(PULMONARY_VALVE_STRUCTURE),
 				strings(selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE, pageRequest)));
 
 		// Select the Laterality of Finding sites of descendants of Clinical finding

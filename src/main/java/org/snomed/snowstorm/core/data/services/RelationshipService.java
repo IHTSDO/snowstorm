@@ -3,7 +3,10 @@ package org.snomed.snowstorm.core.data.services;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
+import it.unimi.dsi.fastutil.longs.LongComparators;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -67,9 +70,9 @@ public class RelationshipService extends ComponentService {
 		return relationships;
 	}
 
-	Set<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {
+	List<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {
 		if (attributeTypeIds != null && attributeTypeIds.isEmpty()) {
-			return Collections.emptySet();
+			return Collections.emptyList();
 		}
 
 		BoolQueryBuilder boolQuery = boolQuery()
@@ -87,7 +90,6 @@ public class RelationshipService extends ComponentService {
 
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery)
-				.withSort(SortBuilders.fieldSort(Relationship.Fields.RELATIONSHIP_ID).order(SortOrder.DESC))// Meaningless but deterministic
 				.withPageable(LARGE_PAGE)
 				.build();
 
@@ -96,6 +98,10 @@ public class RelationshipService extends ComponentService {
 			stream.forEachRemaining(relationship -> destinationIds.add(parseLong(relationship.getDestinationId())));
 		}
 
-		return destinationIds;
+		// Stream search doesn't sort for us
+		// Sorting meaningless but supports deterministic pagination
+		List<Long> sortedIds = new LongArrayList(destinationIds);
+		sortedIds.sort(LongComparators.OPPOSITE_COMPARATOR);
+		return sortedIds;
 	}
 }
