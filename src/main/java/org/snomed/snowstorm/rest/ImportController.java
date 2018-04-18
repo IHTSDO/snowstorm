@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.rest;
 
-import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportJob;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
+import org.snomed.snowstorm.core.rf2.rf2import.RF2ImportConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,11 +19,11 @@ public class ImportController {
 
 	@RequestMapping(method = RequestMethod.POST)
 	@ResponseBody
-	public ResponseEntity<Void> createImportJob(@RequestBody ImportConfiguration importConfiguration) {
-		ControllerHelper.requiredParam(importConfiguration.type, "type");
-		ControllerHelper.requiredParam(importConfiguration.branchPath, "branchPath");
+	public ResponseEntity<Void> createImportJob(@RequestBody RF2ImportConfiguration importConfiguration) {
+		ControllerHelper.requiredParam(importConfiguration.getType(), "type");
+		ControllerHelper.requiredParam(importConfiguration.getBranchPath(), "branchPath");
 
-		String id = importService.createJob(importConfiguration.type, importConfiguration.branchPath);
+		String id = importService.createJob(importConfiguration);
 		return ControllerHelper.getCreatedResponse(id);
 	}
 
@@ -39,21 +39,6 @@ public class ImportController {
 		} catch (IOException e) {
 			throw new IllegalArgumentException("Failed to open uploaded archive file.");
 		}
-	}
-
-	public static final class ImportConfiguration {
-
-		private RF2Type type;
-		private String branchPath;
-
-		public void setType(RF2Type type) {
-			this.type = type;
-		}
-
-		public void setBranchPath(String branchPath) {
-			this.branchPath = branchPath;
-		}
-
 	}
 
 }

@@ -61,9 +61,13 @@ public class ImportService {
 		importJobMap = new HashMap<>();
 	}
 
-	public String createJob(RF2Type type, String branchPath) {
+	public String createJob(RF2Type importType, String branchPath) {
+		return createJob(new RF2ImportConfiguration(importType, branchPath));
+	}
+
+	public String createJob(RF2ImportConfiguration importConfiguration) {
 		String id = UUID.randomUUID().toString();
-		importJobMap.put(id, new ImportJob(type, branchPath));
+		importJobMap.put(id, new ImportJob(importConfiguration));
 		return id;
 	}
 
