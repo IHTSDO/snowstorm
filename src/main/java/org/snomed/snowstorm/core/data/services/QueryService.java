@@ -140,7 +140,7 @@ public class QueryService {
 
 				allFilteredLogicalMatches = new LongArrayList();
 				try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(logicalSearchQuery.build(), QueryConcept.class)) {
-					stream.forEachRemaining(c -> allFilteredLogicalMatches.add(c.getConceptId()));
+					stream.forEachRemaining(c -> allFilteredLogicalMatches.add(c.getConceptIdL()));
 				}
 			}
 			timer.checkpoint("filtered logical complete");
@@ -171,7 +171,7 @@ public class QueryService {
 				.withPageable(pageRequest);
 		Page<QueryConcept> pageOfConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery.build(), QueryConcept.class);
 
-		List<Long> pageOfIds = pageOfConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
+		List<Long> pageOfIds = pageOfConcepts.getContent().stream().map(QueryConcept::getConceptIdL).collect(Collectors.toList());
 		conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, pageOfConcepts.getTotalElements());
 		return conceptIdPage;
 	}
@@ -237,7 +237,7 @@ public class QueryService {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria)
-						.must(termQuery("conceptId", conceptId))
+						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
 						.must(termQuery("stated", stated))
 				)
 				.withPageable(PAGE_OF_ONE)
@@ -250,7 +250,7 @@ public class QueryService {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria)
-						.must(termQuery("conceptId", conceptId))
+						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
 						.must(termQuery("stated", stated))
 				)
 				.withPageable(LARGE_PAGE)
@@ -270,7 +270,7 @@ public class QueryService {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria)
-						.must(termsQuery("conceptId", conceptId))
+						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
 						.must(termQuery("stated", stated))
 				)
 				.withPageable(LARGE_PAGE)
@@ -306,7 +306,7 @@ public class QueryService {
 				.withSort(SortBuilders.fieldSort(QueryConcept.CONCEPT_ID_FIELD))// This could be anything
 				.build();
 		Page<QueryConcept> conceptsPage = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class);
-		List<Long> conceptIdsFound = conceptsPage.getContent().stream().map(QueryConcept::getConceptId).collect(Collectors.toList());
+		List<Long> conceptIdsFound = conceptsPage.getContent().stream().map(QueryConcept::getConceptIdL).collect(Collectors.toList());
 		return new PageImpl<>(conceptIdsFound, pageRequest, conceptsPage.getTotalElements());
 	}
 
@@ -355,7 +355,7 @@ public class QueryService {
 
 		public ConceptQueryBuilder self(Long conceptId) {
 			logger.info("conceptId = {}", conceptId);
-			logicalConditionBuilder.should(termQuery("conceptId", conceptId));
+			logicalConditionBuilder.should(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId));
 			return this;
 		}
 

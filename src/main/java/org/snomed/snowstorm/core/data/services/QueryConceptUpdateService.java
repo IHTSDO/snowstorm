@@ -155,7 +155,7 @@ public class QueryConceptUpdateService extends ComponentService {
 							.must(termsQuery("stated", stated))
 					)
 					.withFilter(boolQuery()
-							.must(termsQuery("conceptId", Sets.union(updateSource, updateDestination))))
+							.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, Sets.union(updateSource, updateDestination))))
 					.withPageable(ConceptService.LARGE_PAGE).build();
 			try (final CloseableIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.stream(query, QueryConcept.class)) {
 				existingQueryConcepts.forEachRemaining(queryConcept -> existingAncestors.addAll(queryConcept.getAncestors()));
@@ -172,7 +172,7 @@ public class QueryConceptUpdateService extends ComponentService {
 					.withFilter(boolQuery()
 							.must(termsQuery("ancestors", updateSource)))
 					.withPageable(ConceptService.LARGE_PAGE).build(), QueryConcept.class)) {
-				existingQueryConcepts.forEachRemaining(queryConcept -> existingDescendants.add(queryConcept.getConceptId()));
+				existingQueryConcepts.forEachRemaining(queryConcept -> existingDescendants.add(queryConcept.getConceptIdL()));
 			}
 			timer.checkpoint("Collect existingDescendants from QueryConcept.");
 
@@ -292,7 +292,7 @@ public class QueryConceptUpdateService extends ComponentService {
 						.must(termsQuery(QueryConcept.CONCEPT_ID_FORM_FIELD, nodesToSave.values().stream().map(n -> QueryConcept.toConceptIdForm(n.getId(), stated)).collect(Collectors.toList()))))
 				.withPageable(ConceptService.LARGE_PAGE).build(), QueryConcept.class)) {
 			existingQueryConcepts.forEachRemaining(queryConcept -> {
-				Long conceptId = queryConcept.getConceptId();
+				Long conceptId = queryConcept.getConceptIdL();
 				Node node = nodesToSave.get(conceptId);
 				queryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
 				queryConcept.setAncestors(node.getTransitiveClosure(branchPath));
@@ -315,7 +315,7 @@ public class QueryConceptUpdateService extends ComponentService {
 		if (!queryConceptsToSave.isEmpty()) {
 
 			// Delete query concepts which have no parents
-			queryConceptsToSave.stream().filter(c -> c.getParents().isEmpty() && !c.getConceptId().toString().equals(Concepts.SNOMEDCT_ROOT)).forEach(Entity::markDeleted);
+			queryConceptsToSave.stream().filter(c -> c.getParents().isEmpty() && !c.getConceptIdL().toString().equals(Concepts.SNOMEDCT_ROOT)).forEach(Entity::markDeleted);
 
 			// Save in batches
 			for (List<QueryConcept> queryConcepts : Iterables.partition(queryConceptsToSave, BATCH_SAVE_SIZE)) {

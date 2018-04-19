@@ -37,7 +37,7 @@ public class FastResultsMapper extends DefaultResultMapper {
 			)
 			.put(QueryConcept.class, hit -> {
 				QueryConcept queryConcept = new QueryConcept();
-				queryConcept.setConceptId(hit.getFields().get(QueryConcept.Fields.CONCEPT_ID).getValue());
+				queryConcept.setConceptIdL(hit.getFields().get(QueryConcept.Fields.CONCEPT_ID).getValue());
 				if (hit.getFields().containsKey(QueryConcept.Fields.ATTR_MAP)) {
 					queryConcept.setAttrMap(hit.getFields().get(QueryConcept.Fields.ATTR_MAP).getValue());
 				}

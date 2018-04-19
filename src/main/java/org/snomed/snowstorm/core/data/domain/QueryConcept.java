@@ -16,7 +16,7 @@ import java.util.*;
 public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	public static final String CONCEPT_ID_FORM_FIELD = "conceptIdForm";
-	public static final String CONCEPT_ID_FIELD = "conceptId";
+	public static final String CONCEPT_ID_FIELD = "conceptIdL";
 	public static final String PARENTS_FIELD = "parents";
 	public static final String ANCESTORS_FIELD = "ancestors";
 	public static final String STATED_FIELD = "stated";
@@ -24,14 +24,14 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	public static final String ATTR_TYPE_WILDCARD = "all";
 
 	public interface Fields {
-		String CONCEPT_ID = "conceptId";
+		String CONCEPT_ID = "conceptIdL";
 		String ATTR_MAP = "attrMap";
 	}
 	@Field(type = FieldType.keyword)
 	private String conceptIdForm;
 
 	@Field(type = FieldType.Long, store = true)
-	private Long conceptId;
+	private Long conceptIdL;
 
 	@Field(type = FieldType.Long)
 	private Set<Long> parents;
@@ -56,7 +56,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	}
 
 	public QueryConcept(Long conceptId, Set<Long> parentIds, Set<Long> ancestorIds, boolean stated) {
-		this.conceptId = conceptId;
+		this.conceptIdL = conceptId;
 		this.parents = parentIds;
 		this.ancestors = ancestorIds;
 		this.stated = stated;
@@ -114,7 +114,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	}
 
 	private void updateConceptIdForm() {
-		this.conceptIdForm = toConceptIdForm(conceptId, stated);
+		this.conceptIdForm = toConceptIdForm(conceptIdL, stated);
 	}
 
 	public static String toConceptIdForm(Long conceptId, boolean stated) {
@@ -137,8 +137,8 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 				|| !ancestors.equals(that.ancestors);
 	}
 
-	public Long getConceptId() {
-		return conceptId;
+	public Long getConceptIdL() {
+		return conceptIdL;
 	}
 
 	public Set<Long> getParents() {
@@ -161,8 +161,8 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		return conceptIdForm;
 	}
 
-	public QueryConcept setConceptId(Long conceptId) {
-		this.conceptId = conceptId;
+	public QueryConcept setConceptIdL(Long conceptIdL) {
+		this.conceptIdL = conceptIdL;
 		return this;
 	}
 
@@ -182,7 +182,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	public String toString() {
 		return "QueryConcept{" +
 				"conceptIdForm=" + conceptIdForm +
-				", conceptId=" + conceptId +
+				", conceptIdL=" + conceptIdL +
 				", parents=" + parents +
 				", ancestors=" + ancestors +
 				", stated=" + stated +

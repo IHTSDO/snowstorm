@@ -32,7 +32,7 @@ public class QueryConceptTest {
 	@Test
 	public void test() throws IOException {
 		QueryConcept queryConcept = new QueryConcept();
-		queryConcept.setConceptId(123L);
+		queryConcept.setConceptIdL(123L);
 		queryConcept.setPath("MAIN");
 
 		queryConcept.addAttribute(1, 123L, 456L);

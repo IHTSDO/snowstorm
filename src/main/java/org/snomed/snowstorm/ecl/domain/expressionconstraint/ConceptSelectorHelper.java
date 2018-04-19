@@ -48,7 +48,7 @@ class ConceptSelectorHelper {
 					.withSort(SortBuilders.fieldSort(QueryConcept.CONCEPT_ID_FIELD).order(SortOrder.DESC));// Sorting meaningless but supports deterministic pagination
 
 			Page<QueryConcept> queryConcepts = queryService.queryForPage(searchQueryBuilder.build());
-			List<Long> ids = queryConcepts.getContent().stream().map(QueryConcept::getConceptId).collect(toList());
+			List<Long> ids = queryConcepts.getContent().stream().map(QueryConcept::getConceptIdL).collect(toList());
 			return new PageImpl<>(ids, pageRequest, queryConcepts.getTotalElements());
 		} else {
 			// Fetch all IDs
@@ -57,7 +57,7 @@ class ConceptSelectorHelper {
 			try (CloseableIterator<QueryConcept> stream = queryService.stream(searchQueryBuilder.build())) {
 				stream.forEachRemaining(c -> {
 					if (inclusionFilter == null || inclusionFilter.apply(c)) {
-						ids.add(c.getConceptId());
+						ids.add(c.getConceptIdL());
 					}
 				});
 			}
