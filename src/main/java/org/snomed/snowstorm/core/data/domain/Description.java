@@ -33,7 +33,6 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.text)
 	@NotNull
-	@Size(min = 1, max = 255)
 	private String term;
 
 	@Field(type = FieldType.Integer)
