@@ -7,7 +7,6 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import javax.validation.constraints.NotNull;
@@ -21,6 +20,8 @@ import java.util.Set;
 public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
 	public interface Fields extends SnomedComponent.Fields {
+		String TERM = "term";
+		String TERM_LEN = "termLen";
 		String CONCEPT_ID = "conceptId";
 		String TYPE_ID = "typeId";
 	}

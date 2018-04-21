@@ -6,6 +6,7 @@ import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -188,28 +189,31 @@ public class DescriptionService extends ComponentService {
 		return elasticsearchTemplate.queryForPage(addTermSort(queryBuilder.build()), Description.class);
 	}
 
-	static BoolQueryBuilder addTermClauses(String term, BoolQueryBuilder boolBuilder) {
+	static void addTermClauses(String term, BoolQueryBuilder boolBuilder) {
 		if (IdentifierService.isConceptId(term)) {
 			boolBuilder.must(termQuery("conceptId", term));
 		} else {
 			if (!Strings.isNullOrEmpty(term)) {
-				String[] split = term.split(" ");
-				for (String word : split) {
-					word = word.trim();
-					if (!word.isEmpty()) {
-						if (!word.contains("*")) {
-							word += "*";
-						}
-						boolBuilder.must(simpleQueryStringQuery(word).field("term"));
-					}
-				}
+
+				// Must match one of the following 'should' clauses:
+				boolBuilder.must(boolQuery()
+
+						// All given words. Match Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query.html
+						.should(matchQuery(Description.Fields.TERM, term)
+								.operator(Operator.AND))
+
+						// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
+						.should(simpleQueryStringQuery((term.trim().replace(" ", "* ") + "*") .replace("**", "*"))
+								.field(Description.Fields.TERM).defaultOperator(Operator.AND))
+						// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
+				);
 			}
 		}
-		return boolBuilder;
 	}
 
 	static NativeSearchQuery addTermSort(NativeSearchQuery query) {
 		query.addSort(Sort.by("termLen"));
+		query.addSort(Sort.by("_score"));
 		return query;
 	}
 
