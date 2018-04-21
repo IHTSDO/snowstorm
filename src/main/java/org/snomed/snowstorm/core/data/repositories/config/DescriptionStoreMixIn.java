@@ -15,4 +15,7 @@ public abstract class DescriptionStoreMixIn {
 	@JsonIgnore
 	abstract String getLang();
 
+	@JsonIgnore
+	abstract String getCaseSignificance();
+
 }
