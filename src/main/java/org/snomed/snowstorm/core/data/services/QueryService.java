@@ -206,8 +206,7 @@ public class QueryService {
 	private NativeSearchQuery getLexicalQuery(String term, QueryBuilder branchCriteria, PageRequest pageable) {
 		BoolQueryBuilder lexicalQuery = boolQuery()
 				.must(branchCriteria)
-				.must(termQuery("active", true))
-				.must(termQuery("typeId", Concepts.FSN));
+				.must(termQuery("active", true));
 		DescriptionService.addTermClauses(term, lexicalQuery);
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(lexicalQuery)
