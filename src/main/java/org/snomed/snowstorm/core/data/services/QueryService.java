@@ -9,7 +9,6 @@ import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.repositories.QueryConceptRepository;
@@ -21,7 +20,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Slice;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -104,10 +102,7 @@ public class QueryService {
 				conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, conceptIdList.size());
 			} else if (conceptQuery.getEcl() != null) {
 				// ECL search
-				Optional<Page<Long>> allConceptIdsOptional = doEclSearch(conceptQuery, branchPath, pageRequest, branchCriteria);
-				conceptIdPage = allConceptIdsOptional.orElseGet(() ->
-						getSimpleLogicalSearchPage(new ConceptQueryBuilder(conceptQuery.stated).selfOrDescendant(parseLong(Concepts.SNOMEDCT_ROOT)), branchCriteria, pageRequest));
-
+				conceptIdPage = doEclSearch(conceptQuery, branchPath, pageRequest, branchCriteria);
 			} else {
 				// Primitive logical search
 				conceptIdPage = getSimpleLogicalSearchPage(conceptQuery, branchCriteria, pageRequest);
@@ -190,7 +185,7 @@ public class QueryService {
 		return allLexicalMatchesWithOrdering;
 	}
 
-	private Optional<Page<Long>> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, QueryBuilder branchCriteria) {
+	private Page<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, QueryBuilder branchCriteria) {
 		String ecl = conceptQuery.getEcl();
 		logger.info("ECL Search {}", ecl);
 		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), pageRequest);
@@ -199,8 +194,7 @@ public class QueryService {
 	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, QueryBuilder branchCriteria, List<Long> conceptIdFilter) {
 		String ecl = conceptQuery.getEcl();
 		logger.info("ECL Search {}", ecl);
-		Optional<Page<Long>> listOptional = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter);
-		return listOptional.map(Slice::getContent).orElse(conceptIdFilter);
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter).getContent();
 	}
 
 	private NativeSearchQuery getLexicalQuery(String term, QueryBuilder branchCriteria, PageRequest pageable) {
@@ -385,6 +379,17 @@ public class QueryService {
 			return this;
 		}
 
+		public ConceptQueryBuilder conceptIds(Set<String> conceptIds) {
+			this.conceptIds = conceptIds;
+			return this;
+		}
+
+		private boolean hasLogicalConditions() {
+			return getEcl() != null ||
+					logicalConditionBuilder.hasClauses() ||
+					(conceptIds != null && !conceptIds.isEmpty());
+		}
+
 		private BoolQueryBuilder getRootBuilder() {
 			return rootBuilder;
 		}
@@ -399,14 +404,6 @@ public class QueryService {
 
 		public boolean isStated() {
 			return stated;
-		}
-
-		private boolean hasLogicalConditions() {
-			return getEcl() != null || logicalConditionBuilder.hasClauses() || (conceptIds != null && !conceptIds.isEmpty());
-		}
-
-		public void conceptIds(Set<String> conceptIds) {
-			this.conceptIds = conceptIds;
 		}
 
 		public Set<String> getConceptIds() {

@@ -3,6 +3,7 @@ package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilderImpl;
 import org.springframework.data.domain.Page;

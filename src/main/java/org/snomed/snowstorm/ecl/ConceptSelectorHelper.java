@@ -1,4 +1,4 @@
-package org.snomed.snowstorm.ecl.domain.expressionconstraint;
+package org.snomed.snowstorm.ecl;
 
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -24,15 +24,15 @@ import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
-class ConceptSelectorHelper {
+public class ConceptSelectorHelper {
 
-	static BoolQueryBuilder getBranchAndStatedQuery(QueryBuilder branchCriteria, boolean stated) {
+	public static BoolQueryBuilder getBranchAndStatedQuery(QueryBuilder branchCriteria, boolean stated) {
 		return boolQuery()
 				.must(branchCriteria)
 				.must(termQuery(QueryConcept.STATED_FIELD, stated));
 	}
 
-	static Page<Long> fetchIds(BoolQueryBuilder query, Collection<Long> filterByConceptIds, Function<QueryConcept, Boolean> inclusionFilter, PageRequest pageRequest, QueryService queryService) {
+	public static Page<Long> fetchIds(BoolQueryBuilder query, Collection<Long> filterByConceptIds, Function<QueryConcept, Boolean> inclusionFilter, PageRequest pageRequest, QueryService queryService) {
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(query)
 				.withFields(getRequiredFields(inclusionFilter));// This will cause the FastResultsMapper to be used

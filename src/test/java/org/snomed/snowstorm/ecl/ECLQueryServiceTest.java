@@ -18,7 +18,6 @@ import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Slice;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -196,8 +195,8 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 		// Descendant or self wildcard
 		assertEquals(
-				null,
-				selectConceptIds("<<*"));
+				allConceptIds,
+				strings(selectConceptIds("<<*")));
 
 		Set<String> allConceptsButRoot = new HashSet<>(allConceptIds);
 		allConceptsButRoot.remove(SNOMEDCT_ROOT);
@@ -564,6 +563,6 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	private Collection<Long> selectConceptIds(String ecl, PageRequest pageRequest) {
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, STATED, pageRequest).map(Slice::getContent).orElse(null);
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, STATED, pageRequest).getContent();
 	}
 }
