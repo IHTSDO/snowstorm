@@ -108,8 +108,6 @@ public class QueryConceptUpdateService extends ComponentService {
 			characteristicTypeIds.add(Concepts.INFERRED_RELATIONSHIP);
 		}
 
-		logger.info("Performing {} of {} semantic index", rebuild ? "rebuild" : "incremental update", formName);
-
 		TimerUtil timer = new TimerUtil("TC index " + formName, Level.DEBUG);
 		Set<Long> updateSource = new HashSet<>();
 		Set<Long> updateDestination = new HashSet<>();
@@ -121,10 +119,13 @@ public class QueryConceptUpdateService extends ComponentService {
 		if (commit.isRebase()) {
 			// When rebasing this is a view onto the new parent state
 			committedContentPath = PathUtil.getParentPath(committedContentPath);
+			// TODO: Check history to establish what this unused variable was used then fix or remove.
 		}
 		QueryBuilder branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteriaBeforeOpenCommit(commit);
 		timer.checkpoint("get branch criteria");
-		if (!rebuild) {
+		if (rebuild) {
+			logger.info("Performing {} of {} semantic index", "rebuild", formName);
+		} else {
 			// Step: Collect source and destinations of changed is-a relationships
 			try (final CloseableIterator<Relationship> changedIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
@@ -141,8 +142,9 @@ public class QueryConceptUpdateService extends ComponentService {
 			timer.checkpoint("Collect changed relationships.");
 
 			if (updateSource.isEmpty()) {
-				logger.info("No {} transitive closure changes found. Nothing to do.", formName);
 				return;
+			} else {
+				logger.info("Performing {} of {} semantic index", "incremental update", formName);
 			}
 
 			// Identify parts of the graph nodes are moving from or to
@@ -176,7 +178,7 @@ public class QueryConceptUpdateService extends ComponentService {
 			}
 			timer.checkpoint("Collect existingDescendants from QueryConcept.");
 
-			logger.info("{} existing ancestors and {} existing descendants of updated relationships identified.", existingAncestors.size(), existingDescendants.size());
+			logger.debug("{} existing ancestors and {} existing descendants of updated relationships identified.", existingAncestors.size(), existingDescendants.size());
 		}
 
 		// Step: Build existing graph
@@ -203,7 +205,7 @@ public class QueryConceptUpdateService extends ComponentService {
 					graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId())));
 		}
 		timer.checkpoint("Build existing nodes from Relationships.");
-		logger.info("{} existing nodes loaded.", graphBuilder.getNodeCount());
+		logger.debug("{} existing nodes loaded.", graphBuilder.getNodeCount());
 
 
 		// Step - Update graph
@@ -265,7 +267,7 @@ public class QueryConceptUpdateService extends ComponentService {
 			});
 		}
 		timer.checkpoint("Update graph using changed relationships.");
-		logger.info("{} {} relationships added, {} inactive/removed.", relationshipsAdded.get(), formName, relationshipsRemoved.get());
+		logger.debug("{} {} relationships added, {} inactive/removed.", relationshipsAdded.get(), formName, relationshipsRemoved.get());
 
 		Set<Long> inactiveOrMissingConceptIds = conceptService.getInactiveOrMissingConceptIds(requiredActiveConcepts, versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit));
 		if (!inactiveOrMissingConceptIds.isEmpty()) {
@@ -323,7 +325,7 @@ public class QueryConceptUpdateService extends ComponentService {
 			}
 		}
 		timer.checkpoint("Save updated QueryConcepts");
-		logger.info("{} concepts updated within the {} semantic index.", queryConceptsToSave.size(), formName);
+		logger.debug("{} concepts updated within the {} semantic index.", queryConceptsToSave.size(), formName);
 
 		timer.finish();
 	}
