@@ -1,26 +1,33 @@
 package org.snomed.snowstorm.core.data.services.identifier.cis;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.web.client.DefaultResponseErrorHandler;
-import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.stream.Collectors;
 
 public class ExpressiveErrorHandler extends DefaultResponseErrorHandler {
 	@Override
 	public void handleError(ClientHttpResponse response) {
-		//In the event of an error, our response may have some text to explain
-		//what went wrong.  Attempt to recover this.
-		String statusMsg = "HttpStatus: ";
-		String errMsg = "Unable to recover failure reason";
+		// Recover error code and message from response
+		int statusCode = 0;
+		String statusText = "";
+		String errMsg;
 		try {
-			statusMsg += response.getStatusCode();
-			InputStreamReader isr = new InputStreamReader(response.getBody());
-			errMsg = new BufferedReader(isr).lines().collect(Collectors.joining("\n"));
-		} catch (Exception e){}
-		
-		throw new RestClientException(statusMsg + ", " + errMsg);
+			HttpStatus httpStatus = response.getStatusCode();
+			statusCode = httpStatus.value();
+			statusText = httpStatus.getReasonPhrase();
+			try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.getBody()))) {
+				errMsg = reader.lines().collect(Collectors.joining("\n"));
+			}
+		} catch (IOException ignored) {
+			errMsg = "Unable to recover failure reason";
+		}
+
+		throw new RestClientResponseException(errMsg, statusCode, statusText, null, null, null);
 	}
 }

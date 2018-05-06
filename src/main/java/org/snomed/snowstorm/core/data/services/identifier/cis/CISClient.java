@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestTemplate;
 
 import javax.annotation.PostConstruct;
@@ -26,7 +27,7 @@ import java.util.stream.Collectors;
 
 public class CISClient implements IdentifierSource {
 
-	static final String SOFTWARE_NAME = "Elastic Snomed";
+	static final String SOFTWARE_NAME = "Snowstorm";
 
 	private static final int MAX_BULK_REQUEST = 1000;
 
@@ -39,15 +40,22 @@ public class CISClient implements IdentifierSource {
 
 	private static final ParameterizedTypeReference<List<CISRecord>> PARAMETERIZED_TYPE_CIS_RECORDS = new ParameterizedTypeReference<List<CISRecord>>() {};
 
-	@Value("${cis.token}")
-	private String token;
+	@Value("${cis.username}")
+	private String username;
+
+	@Value("${cis.password}")
+	private String password;
 
 	@Value("${cis.api.url}")
 	private String cisApiUrl;
 
 	@Value("${cis.timeout}")
-	int timeout;
+	private int timeout;
+
+	private String token = "";
+
 	private RestTemplate restTemplate;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
@@ -62,16 +70,42 @@ public class CISClient implements IdentifierSource {
 		HttpComponentsClientHttpRequestFactory restFactory =  (HttpComponentsClientHttpRequestFactory) restTemplate.getRequestFactory();
 		restFactory.setReadTimeout(timeout * 1000);
 		restFactory.setConnectTimeout(timeout * 1000);
+		authenticate();// Fail fast
+	}
+
+	private void authenticate() {
+		Map<String, String> request = new HashMap<>();
+		request.put("token", token);
+		try {
+			restTemplate.postForObject("/authenticate", request, Map.class);
+		} catch (RestClientResponseException e) {
+			if (e.getRawStatusCode() == 401) {
+				login();
+			} else {
+				throw e;
+			}
+		}
+	}
+
+	private void login() {
+		Map<String, String> request = new HashMap<>();
+		request.put("username", username);
+		request.put("password", password);
+		Map response = restTemplate.postForObject("/login", request, Map.class);
+		token = (String) response.get("token");
 	}
 
 	@Override
 	public List<Long> reserve(int namespaceId, String partitionId, int quantity) throws ServiceException {
+		authenticate();
 		CISGenerateRequest request = new CISGenerateRequest(namespaceId, partitionId, quantity);
 		return callCis(RESERVE, request, false);
 	}
 
 	@Override
 	public void registerIdentifiers(int namespaceId, Collection<Long> ids) throws ServiceException {
+		authenticate();
+
 		// Fetch the status of these ids from CIS
 		CISBulkGetRequest getRequest = new CISBulkGetRequest(ids);
 		ResponseEntity<List<CISRecord>> response = restTemplate.exchange("/sct/bulk/ids?token={token}", HttpMethod.POST, new HttpEntity<>(getRequest), PARAMETERIZED_TYPE_CIS_RECORDS, token);
