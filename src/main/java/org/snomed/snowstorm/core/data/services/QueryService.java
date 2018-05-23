@@ -8,6 +8,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
@@ -125,17 +126,37 @@ public class QueryService {
 				allFilteredLogicalMatches = doEclSearch(conceptQuery, branchPath, branchCriteria, allLexicalMatchesWithOrdering);
 			} else {
 				logger.info("Primitive Logical Search ");
-				NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
-						.withQuery(boolQuery()
-								.must(branchCriteria)
-								.must(conceptQuery.getRootBuilder())
-						)
-						.withFilter(termsQuery(QueryConcept.CONCEPT_ID_FIELD, allLexicalMatchesWithOrdering))
-						.withPageable(pageRequest);
-
 				allFilteredLogicalMatches = new LongArrayList();
-				try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(logicalSearchQuery.build(), QueryConcept.class)) {
-					stream.forEachRemaining(c -> allFilteredLogicalMatches.add(c.getConceptIdL()));
+
+				Boolean activeFilter = conceptQuery.getActiveFilter();
+				if (activeFilter == null || activeFilter) {
+					// All QueryConcepts are active
+
+					NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
+							.withQuery(boolQuery()
+									.must(branchCriteria)
+									.must(conceptQuery.getRootBuilder())
+							)
+							.withFilter(termsQuery(QueryConcept.CONCEPT_ID_FIELD, allLexicalMatchesWithOrdering))
+							.withPageable(pageRequest);
+
+					try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(logicalSearchQuery.build(), QueryConcept.class)) {
+						stream.forEachRemaining(c -> allFilteredLogicalMatches.add(c.getConceptIdL()));
+					}
+				} else {
+					// Find inactive concepts
+					if (!conceptQuery.hasRelationshipConditions()) {
+						NativeSearchQueryBuilder inactiveConceptQuery = new NativeSearchQueryBuilder()
+								.withQuery(boolQuery()
+										.must(branchCriteria)
+										.must(termQuery(Concept.Fields.ACTIVE, false))
+								)
+								.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, allLexicalMatchesWithOrdering))
+								.withPageable(pageRequest);
+						try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(inactiveConceptQuery.build(), Concept.class)) {
+							stream.forEachRemaining(c -> allFilteredLogicalMatches.add(c.getConceptIdAsLong()));
+						}
+					}
 				}
 			}
 			timer.checkpoint("filtered logical complete");
@@ -179,7 +200,10 @@ public class QueryService {
 		do {
 			NativeSearchQuery query = getLexicalQuery(term, branchCriteria, PageRequest.of(pageNumber, LARGE_PAGE.getPageSize()));
 			page = elasticsearchTemplate.queryForPage(query, Description.class);
-			allLexicalMatchesWithOrdering.addAll(page.getContent().stream().map(d -> parseLong(d.getConceptId())).collect(Collectors.toList()));
+			allLexicalMatchesWithOrdering.addAll(page.getContent().stream()
+					.map(d -> parseLong(d.getConceptId()))
+					.distinct() // Remove duplicate concept ids
+					.collect(Collectors.toList()));
 			pageNumber++;
 		} while (!page.isLast());
 		return allLexicalMatchesWithOrdering;
@@ -334,6 +358,7 @@ public class QueryService {
 		private final BoolQueryBuilder rootBuilder;
 		private final BoolQueryBuilder logicalConditionBuilder;
 		private final boolean stated;
+		private Boolean activeFilter;
 		private String termPrefix;
 		private String ecl;
 		private Set<String> conceptIds;
@@ -384,10 +409,19 @@ public class QueryService {
 			return this;
 		}
 
+		public ConceptQueryBuilder activeFilter(Boolean active) {
+			this.activeFilter = active;
+			return this;
+		}
+
 		private boolean hasLogicalConditions() {
-			return getEcl() != null ||
-					logicalConditionBuilder.hasClauses() ||
-					(conceptIds != null && !conceptIds.isEmpty());
+			return hasRelationshipConditions() ||
+					(conceptIds != null && !conceptIds.isEmpty()) ||
+					activeFilter != null;
+		}
+
+		private boolean hasRelationshipConditions() {
+			return getEcl() != null || logicalConditionBuilder.hasClauses();
 		}
 
 		private BoolQueryBuilder getRootBuilder() {
@@ -408,6 +442,10 @@ public class QueryService {
 
 		public Set<String> getConceptIds() {
 			return conceptIds;
+		}
+
+		public Boolean getActiveFilter() {
+			return activeFilter;
 		}
 	}
 

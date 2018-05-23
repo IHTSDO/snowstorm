@@ -5,6 +5,7 @@ import java.util.Set;
 public class ConceptSearchRequest {
 
 	private String termFilter;
+	private Boolean activeFilter;
 	private String eclFilter;
 	private Set<String> conceptIds;
 	private boolean stated;
@@ -27,6 +28,14 @@ public class ConceptSearchRequest {
 
 	public void setTermFilter(String termFilter) {
 		this.termFilter = termFilter;
+	}
+
+	public Boolean getActiveFilter() {
+		return activeFilter;
+	}
+
+	public void setActiveFilter(Boolean activeFilter) {
+		this.activeFilter = activeFilter;
 	}
 
 	public String getEclFilter() {

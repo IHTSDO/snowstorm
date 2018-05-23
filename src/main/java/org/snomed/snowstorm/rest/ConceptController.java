@@ -44,6 +44,7 @@ public class ConceptController {
 	public Page<ConceptMini> findConcepts(
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "false") boolean stated,
+			@RequestParam(required = false) Boolean activeFilter,
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) String ecl,
 			@RequestParam(required = false) String escg,
@@ -60,10 +61,11 @@ public class ConceptController {
 			}
 		}
 
-		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated);
-		queryBuilder.ecl(ecl);
-		queryBuilder.termPrefix(term);
-		queryBuilder.conceptIds(conceptIds);
+		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated)
+				.activeFilter(activeFilter)
+				.ecl(ecl)
+				.termPrefix(term)
+				.conceptIds(conceptIds);
 
 		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch), PageRequest.of(page, size));
 		conceptMiniPage.getContent().forEach(ConceptMini::nestFsn);
@@ -75,6 +77,7 @@ public class ConceptController {
 	public Page<ConceptMini> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
 		Page<ConceptMini> concepts = findConcepts(BranchPathUriUtil.parseBranchPath(branch),
 				searchRequest.isStated(),
+				searchRequest.getActiveFilter(),
 				searchRequest.getTermFilter(),
 				searchRequest.getEclFilter(),
 				null,
@@ -118,7 +121,7 @@ public class ConceptController {
 													@PathVariable(value = "false", required = false) boolean stated,
 													@RequestParam(required = false, defaultValue = "0") int page,
 													@RequestParam(required = false, defaultValue = "50") int size) {
-		return findConcepts(branch, stated, null, "<" + conceptId, null, null, page, size);
+		return findConcepts(branch, stated, null, null, "<" + conceptId, null, null, page, size);
 	}
 
 	@ResponseBody
