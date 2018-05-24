@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.constraints.NotNull;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @RequestMapping(produces = "application/json")
@@ -27,6 +28,16 @@ public class ConceptValidationController {
 
 		String branchPath1 = BranchPathUriUtil.parseBranchPath(branchPath);
 		return validationService.validateConcept(branchPath1, concept);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "/browser/{branch}/validate/concepts", method = RequestMethod.POST)
+	@ApiOperation("Validation using the Snomed-Drools project.")
+	public List<InvalidContent> validateConcepts(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath,
+												@ApiParam(value="The concepts to validate") @RequestBody Set<Concept> concepts) {
+
+		String branchPath1 = BranchPathUriUtil.parseBranchPath(branchPath);
+		return validationService.validateConcepts(branchPath1, concepts);
 	}
 
 }
