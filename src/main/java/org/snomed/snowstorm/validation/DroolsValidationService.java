@@ -15,6 +15,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -46,10 +47,10 @@ public class DroolsValidationService {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		DroolsConcept droolsConcept = new DroolsConcept(concept);
 		Set<String> ruleSetNames = Sets.newHashSet("common-authoring", "int-authoring"); // TODO: Pick up from branch metadata
-		ConceptDroolsValidationService conceptService = new ConceptDroolsValidationService(branchPath, branchCriteria, elasticsearchOperations);
+		ConceptDroolsValidationService conceptService = new ConceptDroolsValidationService(branchPath, branchCriteria, elasticsearchOperations, queryService);
 		DescriptionDroolsValidationService descriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, versionControlHelper, elasticsearchOperations, this.descriptionService, queryService);
 		RelationshipDroolsValidationService relationshipService = new RelationshipDroolsValidationService(branchCriteria, elasticsearchOperations);
-		return ruleExecutor.execute(ruleSetNames, droolsConcept, conceptService, descriptionService, relationshipService, false, false);
+		return ruleExecutor.execute(ruleSetNames, Collections.singleton(droolsConcept), conceptService, descriptionService, relationshipService, false, false);
 	}
 
 	public int reloadRules() {

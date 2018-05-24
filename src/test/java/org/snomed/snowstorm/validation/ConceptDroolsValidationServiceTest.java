@@ -12,6 +12,7 @@ import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -33,6 +34,10 @@ public class ConceptDroolsValidationServiceTest extends AbstractTest {
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
+
+	@Autowired
+	private QueryService queryService;
+
 	private ConceptDroolsValidationService validationService;
 
 	@Before
@@ -42,7 +47,7 @@ public class ConceptDroolsValidationServiceTest extends AbstractTest {
 		conceptService.create(new Concept("1", null, true, null, Concepts.PRIMITIVE), branch);
 		conceptService.create(new Concept("2", null, false, null, Concepts.PRIMITIVE), branch);
 
-		validationService = new ConceptDroolsValidationService(branch, versionControlHelper.getBranchCriteria(branch), elasticsearchOperations);
+		validationService = new ConceptDroolsValidationService(branch, versionControlHelper.getBranchCriteria(branch), elasticsearchOperations, queryService);
 	}
 
 	@Test
