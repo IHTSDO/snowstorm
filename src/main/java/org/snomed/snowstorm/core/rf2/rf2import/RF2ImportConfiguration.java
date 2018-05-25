@@ -11,6 +11,9 @@ public final class RF2ImportConfiguration {
 	private String branchPath;
 	private Set<String> moduleIds;
 
+	public RF2ImportConfiguration() {
+	}
+
 	public RF2ImportConfiguration(RF2Type type, String branchPath) {
 		this.type = type;
 		this.branchPath = branchPath;
