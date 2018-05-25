@@ -35,6 +35,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
@@ -241,13 +242,14 @@ public class QueryConceptUpdateService extends ComponentService {
 					int groupId = relationship.getGroupId();
 					long type = parseLong(relationship.getTypeId());
 					long value = parseLong(relationship.getDestinationId());
+					String effectiveTime = relationship.getEffectiveTime();
 					if (!justDeleted && relationship.isActive()) {
 						if (type == IS_A_TYPE) {
 							graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()))
 									.markUpdated();
 							relationshipsAdded.incrementAndGet();
 						} else {
-							conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(groupId, type, value);
+							conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value);
 						}
 						requiredActiveConcepts.add(conceptId);
 						requiredActiveConcepts.add(type);
@@ -260,7 +262,7 @@ public class QueryConceptUpdateService extends ComponentService {
 							}
 							relationshipsRemoved.incrementAndGet();
 						} else {
-							conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).removeAttribute(groupId, type, value);
+							conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).removeAttribute(effectiveTime, groupId, type, value);
 						}
 					}
 				}
@@ -333,11 +335,13 @@ public class QueryConceptUpdateService extends ComponentService {
 	private void applyAttributeChanges(QueryConcept queryConcept, Long conceptId, Map<Long, AttributeChanges> conceptAttributeChanges) {
 		AttributeChanges attributeChanges = conceptAttributeChanges.get(conceptId);
 		if (attributeChanges != null) {
-			attributeChanges.getAdd().forEach((attribute) -> {
-				queryConcept.addAttribute(attribute.getGroup(), attribute.getType(), attribute.getValue());
-			});
-			attributeChanges.getRemove().forEach((attribute) -> {
-				queryConcept.removeAttribute(attribute.getGroup(), attribute.getType(), attribute.getValue());
+			attributeChanges.getEffectiveSortedChanges().forEach(attributeChange -> {
+				if (attributeChange.isRemove()) {
+					queryConcept.removeAttribute(attributeChange.getGroup(), attributeChange.getType(), attributeChange.getValue());
+				} else {
+					queryConcept.addAttribute(attributeChange.getGroup(), attributeChange.getType(), attributeChange.getValue());
+
+				}
 			});
 		}
 	}
@@ -398,51 +402,67 @@ public class QueryConceptUpdateService extends ComponentService {
 
 	private static final class AttributeChanges {
 
-		private Set<Attribute> add;
-		private Set<Attribute> remove;
+		private static final Comparator<AttributeChange> comparator = Comparator
+				.comparing(AttributeChange::getEffectiveTime)
+				.thenComparing(AttributeChange::isRemove);
+
+		private List<AttributeChange> changes;
 
 		private AttributeChanges() {
-			add = new HashSet<>();
-			remove = new HashSet<>();
+			changes = new ArrayList<>();
 		}
 
-		private void addAttribute(int groupId, Long type, Long value) {
-			add.add(new Attribute(groupId, type, value));
+		private void addAttribute(String effectiveTime, int groupId, Long type, Long value) {
+			changes.add(new AttributeChange(effectiveTime, groupId, type, value, true));
 		}
 
-		private void removeAttribute(int groupId, Long type, Long value) {
-			remove.add(new Attribute(groupId, type, value));
+		private void removeAttribute(String effectiveTime, int groupId, long type, long value) {
+			changes.add(new AttributeChange(effectiveTime, groupId, type, value, false));
 		}
 
-		private Set<Attribute> getAdd() {
-			return add;
+		private List<AttributeChange> getEffectiveSortedChanges() {
+			changes.sort(comparator);
+			return changes;
 		}
 
-		private Set<Attribute> getRemove() {
-			return remove;
-		}
 	}
 
-	private static final class Attribute {
-		private int group;
-		private Long type;
-		private Long value;
+	private static final class AttributeChange {
 
-		private Attribute(int group, Long type, Long value) {
+		private final boolean remove;
+		private final int effectiveTime;
+		private final int group;
+		private final long type;
+		private final long value;
+
+		private AttributeChange(String effectiveTime, int group, long type, long value, boolean add) {
+			this.remove = !add;
+			if (effectiveTime == null || effectiveTime.isEmpty()) {
+				effectiveTime = "90000000";
+			}
+			this.effectiveTime = parseInt(effectiveTime);
 			this.group = group;
 			this.type = type;
 			this.value = value;
+		}
+
+		private boolean isRemove() {
+			return remove;
+		}
+
+		private int getEffectiveTime() {
+			return effectiveTime;
 		}
 
 		private int getGroup() {
 			return group;
 		}
 
-		private Long getType() {
+		private long getType() {
 			return type;
 		}
 
-		private Long getValue() {
+		private long getValue() {
 			return value;
 		}
 	}

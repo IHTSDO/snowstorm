@@ -18,10 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
@@ -335,6 +332,49 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 		}
 
 		assertEquals("Total concepts should be 51", 51, queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT), branch, QueryService.PAGE_OF_ONE).getTotalElements());
+	}
+
+	@Test
+	public void testRebuildSemanticIndexWithMixedEffectiveDates() throws ServiceException {
+		String path = "MAIN";
+		List<Concept> concepts = new ArrayList<>();
+
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		concepts.add(new Concept("116680003")
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
+		);
+		concepts.add(new Concept("39607008")
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
+		);
+		concepts.add(new Concept("363698007")
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
+		);
+
+		conceptService.create(concepts, path);
+		concepts.clear();
+
+		concepts.add(new Concept("34020007")
+				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
+				.addRelationship(new Relationship("756906025", "20040731", false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("3250849023", "20100131", false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("3332956025", "20150731", false, "900000000000207008", "34020007", "39607008", 2, "363698007", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("5963641025", "20150731", true, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
+		);
+
+		// Use low level component save to prevent effectiveTimes being stripped by concept service
+		try (Commit commit = branchService.openCommit(path)) {
+			concepts.forEach(Concept::markChanged);
+			conceptService.doSaveBatchConcepts(concepts, commit);
+
+			Set<Relationship> relationships = concepts.stream().map(Concept::getRelationships).flatMap(Collection::stream).collect(Collectors.toSet());
+			relationships.forEach(Relationship::markChanged);
+			conceptService.doSaveBatchRelationships(relationships, commit);
+
+			commit.markSuccessful();
+		}
+
+		assertEquals(4, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007=*"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 	}
 
 	private void assertTC(Concept concept, Concept... ancestors) {
