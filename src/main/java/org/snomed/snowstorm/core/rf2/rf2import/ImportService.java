@@ -108,7 +108,7 @@ public class ImportService {
 			}
 			job.setStatus(ImportJob.ImportStatus.COMPLETED);
 			logger.info("Completed RF2 {} import on branch {}. ID {}", importType, branchPath, importId);
-		} catch (ReleaseImportException e) {
+		} catch (Exception e) {
 			logger.error("Failed RF2 {} import on branch {}. ID {}", importType, branchPath, importId, e);
 			job.setStatus(ImportJob.ImportStatus.FAILED);
 			throw e;
