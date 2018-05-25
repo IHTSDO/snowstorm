@@ -192,4 +192,26 @@ public class CISClient implements IdentifierSource {
 		return calendar.getTime();
 	}
 
+	// Used by script
+	public static void main(String[] args) throws ServiceException {
+		CISClient cisClient = new CISClient();
+		cisClient.cisApiUrl = args[0];
+		cisClient.username = args[1];
+		cisClient.password = args[2];
+		cisClient.timeout = 120;// seconds
+		cisClient.init();
+
+		int namespaceId = Integer.parseInt(args[3]);
+		String partitionId = args[4];
+		int quantity = Integer.parseInt(args[5]);
+
+		System.out.println("Reserving " + quantity + " identifiers in namespace " + namespaceId + ", partitionId " + partitionId);
+
+		cisClient.reserve(
+				namespaceId,
+				partitionId,
+				quantity
+		);
+	}
+
 }
