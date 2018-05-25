@@ -194,18 +194,12 @@ public class QueryService {
 
 	private List<Long> fetchAllLexicalMatches(QueryBuilder branchCriteria, String term) {
 		final List<Long> allLexicalMatchesWithOrdering = new LongArrayList();
-		Page<Description> page;
-		int pageNumber = 0;
-		// Iterate through pages as stream does not seem to preserve ordering
-		do {
-			NativeSearchQuery query = getLexicalQuery(term, branchCriteria, PageRequest.of(pageNumber, LARGE_PAGE.getPageSize()));
-			page = elasticsearchTemplate.queryForPage(query, Description.class);
-			allLexicalMatchesWithOrdering.addAll(page.getContent().stream()
-					.map(d -> parseLong(d.getConceptId()))
-					.distinct() // Remove duplicate concept ids
-					.collect(Collectors.toList()));
-			pageNumber++;
-		} while (!page.isLast());
+
+		NativeSearchQuery query = getLexicalQuery(term, branchCriteria, LARGE_PAGE);
+		try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(query, Description.class)) {
+			descriptionStream.forEachRemaining(description -> allLexicalMatchesWithOrdering.add(parseLong(description.getConceptId())));
+		}
+
 		return allLexicalMatchesWithOrdering;
 	}
 
