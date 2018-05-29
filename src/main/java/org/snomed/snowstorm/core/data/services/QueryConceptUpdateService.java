@@ -336,11 +336,10 @@ public class QueryConceptUpdateService extends ComponentService {
 		AttributeChanges attributeChanges = conceptAttributeChanges.get(conceptId);
 		if (attributeChanges != null) {
 			attributeChanges.getEffectiveSortedChanges().forEach(attributeChange -> {
-				if (attributeChange.isRemove()) {
-					queryConcept.removeAttribute(attributeChange.getGroup(), attributeChange.getType(), attributeChange.getValue());
-				} else {
+				if (attributeChange.isAdd()) {
 					queryConcept.addAttribute(attributeChange.getGroup(), attributeChange.getType(), attributeChange.getValue());
-
+				} else {
+					queryConcept.removeAttribute(attributeChange.getGroup(), attributeChange.getType(), attributeChange.getValue());
 				}
 			});
 		}
@@ -404,7 +403,7 @@ public class QueryConceptUpdateService extends ComponentService {
 
 		private static final Comparator<AttributeChange> comparator = Comparator
 				.comparing(AttributeChange::getEffectiveTime)
-				.thenComparing(AttributeChange::isRemove);
+				.thenComparing(AttributeChange::isAdd);
 
 		private List<AttributeChange> changes;
 
@@ -429,14 +428,14 @@ public class QueryConceptUpdateService extends ComponentService {
 
 	private static final class AttributeChange {
 
-		private final boolean remove;
+		private final boolean add;
 		private final int effectiveTime;
 		private final int group;
 		private final long type;
 		private final long value;
 
 		private AttributeChange(String effectiveTime, int group, long type, long value, boolean add) {
-			this.remove = !add;
+			this.add = add;
 			if (effectiveTime == null || effectiveTime.isEmpty()) {
 				effectiveTime = "90000000";
 			}
@@ -446,8 +445,8 @@ public class QueryConceptUpdateService extends ComponentService {
 			this.value = value;
 		}
 
-		private boolean isRemove() {
-			return remove;
+		private boolean isAdd() {
+			return add;
 		}
 
 		private int getEffectiveTime() {
