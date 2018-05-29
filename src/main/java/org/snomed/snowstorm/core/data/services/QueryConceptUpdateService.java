@@ -107,6 +107,7 @@ public class QueryConceptUpdateService extends ComponentService {
 		} else {
 			formName = "inferred";
 			characteristicTypeIds.add(Concepts.INFERRED_RELATIONSHIP);
+			characteristicTypeIds.add(Concepts.ADDITIONAL_RELATIONSHIP);// Additional relationships should be in both forms.
 		}
 
 		TimerUtil timer = new TimerUtil("TC index " + formName, Level.DEBUG);
