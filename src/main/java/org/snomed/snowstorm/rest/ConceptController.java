@@ -11,6 +11,7 @@ import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.rest.pojo.ConceptDescriptionsResult;
 import org.snomed.snowstorm.rest.pojo.ConceptSearchRequest;
 import org.snomed.snowstorm.rest.pojo.InboundRelationshipsResult;
+import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -41,7 +42,7 @@ public class ConceptController {
 
 	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET)
 	@ResponseBody
-	public Page<ConceptMini> findConcepts(
+	public ItemsPage<ConceptMini> findConcepts(
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "false") boolean stated,
 			@RequestParam(required = false) Boolean activeFilter,
@@ -69,13 +70,13 @@ public class ConceptController {
 
 		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch), PageRequest.of(page, size));
 		conceptMiniPage.getContent().forEach(ConceptMini::nestFsn);
-		return conceptMiniPage;
+		return new ItemsPage<>(conceptMiniPage);
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST)
 	@ResponseBody
-	public Page<ConceptMini> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
-		Page<ConceptMini> concepts = findConcepts(BranchPathUriUtil.parseBranchPath(branch),
+	public ItemsPage<ConceptMini> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
+		ItemsPage<ConceptMini> concepts = findConcepts(BranchPathUriUtil.parseBranchPath(branch),
 				searchRequest.isStated(),
 				searchRequest.getActiveFilter(),
 				searchRequest.getTermFilter(),
@@ -84,7 +85,7 @@ public class ConceptController {
 				searchRequest.getConceptIds(),
 				searchRequest.getPage(),
 				searchRequest.getSize());
-		concepts.getContent().forEach(ConceptMini::nestFsn);
+		concepts.getItems().forEach(ConceptMini::nestFsn);
 		return concepts;
 	}
 
@@ -116,7 +117,7 @@ public class ConceptController {
 	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descendants", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
-	public Page<ConceptMini> findConceptDescendants(@PathVariable String branch,
+	public ItemsPage<ConceptMini> findConceptDescendants(@PathVariable String branch,
 													@PathVariable String conceptId,
 													@PathVariable(value = "false", required = false) boolean stated,
 													@RequestParam(required = false, defaultValue = "0") int page,
