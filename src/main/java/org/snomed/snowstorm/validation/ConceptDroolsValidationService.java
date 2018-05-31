@@ -104,8 +104,8 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 
 	private Set<String> getStatedParents(org.ihtsdo.drools.domain.Concept concept) {
 		return concept.getRelationships().stream()
-				.filter(r -> Concepts.ISA.equals(r.getTypeId()))
-				.map(Relationship::getTypeId)
+				.filter(r -> r.isActive() && Concepts.ISA.equals(r.getTypeId()))
+				.map(Relationship::getDestinationId)
 				.collect(Collectors.toSet());
 	}
 
