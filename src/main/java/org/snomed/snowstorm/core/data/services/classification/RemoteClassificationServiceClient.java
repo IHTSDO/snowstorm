@@ -33,9 +33,15 @@ class RemoteClassificationServiceClient {
 		MULTIPART_HEADERS.setContentType(MediaType.MULTIPART_FORM_DATA);
 	}
 
-	public RemoteClassificationServiceClient(@Value("${classification-service.url}") String serviceUrl) {
+	public RemoteClassificationServiceClient(@Value("${classification-service.url}") String serviceUrl,
+			@Value("${classification-service.username}") String serviceUsername,
+			@Value("${classification-service.password}") String servicePassword) {
+
 		this.serviceUrl = serviceUrl;
-		restTemplate = new RestTemplateBuilder().rootUri(serviceUrl).build();
+		restTemplate = new RestTemplateBuilder()
+				.rootUri(serviceUrl)
+				.basicAuthorization(serviceUsername, servicePassword)
+				.build();
 	}
 
 	/**
@@ -60,8 +66,6 @@ class RemoteClassificationServiceClient {
 		String remoteClassificationId = location.substring(location.lastIndexOf("/") + 1);
 
 		logger.info("Created classification id:{}, location:{}", remoteClassificationId, location);
-
-
 
 		return remoteClassificationId;
 	}
