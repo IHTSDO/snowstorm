@@ -8,10 +8,7 @@ import org.snomed.snowstorm.core.data.domain.ConceptView;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.*;
-import org.snomed.snowstorm.rest.pojo.ConceptDescriptionsResult;
-import org.snomed.snowstorm.rest.pojo.ConceptSearchRequest;
-import org.snomed.snowstorm.rest.pojo.InboundRelationshipsResult;
-import org.snomed.snowstorm.rest.pojo.ItemsPage;
+import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -97,6 +94,15 @@ public class ConceptController {
 			@RequestParam(defaultValue = "0") int number,
 			@RequestParam(defaultValue = "100") int size) {
 		return conceptService.findAll(BranchPathUriUtil.decodePath(branch), PageRequest.of(number, size));
+	}
+
+	@RequestMapping(value = "/browser/{branch}/concepts/bulk-load", method = RequestMethod.POST)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public Collection<Concept> getBrowserConcepts(
+			@PathVariable String branch,
+			@RequestBody ConceptIdsPojo request) {
+		return conceptService.find(branch, request.getConceptIds());
 	}
 
 	@ResponseBody
