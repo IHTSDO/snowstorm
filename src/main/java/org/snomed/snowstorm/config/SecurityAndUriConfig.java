@@ -69,7 +69,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 				"/mrcm/(.*)/domain-attributes",
 				"/mrcm/(.*)/attribute-values.*",
 				"/browser/(.*)/validate/concept"
-		).rewriteEncodedSlash());
+		));
 	}
 
 	@Bean

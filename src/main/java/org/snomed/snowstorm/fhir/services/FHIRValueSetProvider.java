@@ -43,7 +43,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		String ecl = url.substring(url.indexOf("fhir_vs=ecl/") + 12);
 		queryBuilder.ecl(ecl);
-		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch), PageRequest.of(0, 1000));
+		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), PageRequest.of(0, 1000));
 		logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branch, ecl);
 		return mapper.mapToFHIR(conceptMiniPage.getContent(), url); 
 	}

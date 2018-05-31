@@ -50,7 +50,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		}
 		
 		String branch = helper.getBranchForVersion(version);
-		Concept c = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), BranchPathUriUtil.parseBranchPath(branch)));
+		Concept c = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), BranchPathUriUtil.decodePath(branch)));
 		Collection<ConceptMini> children = conceptService.findConceptChildren(code.getValue(), branch, Relationship.CharacteristicType.inferred);
 		return mapper.mapToFHIR(c, children); 
 	}

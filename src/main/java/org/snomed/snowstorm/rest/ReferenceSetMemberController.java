@@ -29,7 +29,7 @@ public class ReferenceSetMemberController {
 														   @RequestParam(defaultValue = "50") int size) {
 		return new ItemsPage<>(
 				memberService.findMembers(
-						BranchPathUriUtil.parseBranchPath(branch),
+						BranchPathUriUtil.decodePath(branch),
 						active,
 						referenceSet,
 						referencedComponentId,
@@ -42,7 +42,7 @@ public class ReferenceSetMemberController {
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMember fetchMember(@PathVariable String branch,
 										  @PathVariable String uuid) {
-		return ControllerHelper.throwIfNotFound("Member", memberService.findMember(BranchPathUriUtil.parseBranchPath(branch), uuid));
+		return ControllerHelper.throwIfNotFound("Member", memberService.findMember(BranchPathUriUtil.decodePath(branch), uuid));
 	}
 
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.DELETE)
@@ -50,7 +50,7 @@ public class ReferenceSetMemberController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteMember(@PathVariable String branch,
 							 @PathVariable String uuid) {
-		memberService.deleteMember(BranchPathUriUtil.parseBranchPath(branch), uuid);
+		memberService.deleteMember(BranchPathUriUtil.decodePath(branch), uuid);
 	}
 
 }

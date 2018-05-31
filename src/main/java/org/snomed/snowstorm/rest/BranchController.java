@@ -49,13 +49,13 @@ public class BranchController {
 	@RequestMapping(value = "/branches/{path}", method = RequestMethod.GET)
 	@ResponseBody
 	public Branch retrieveBranch(@PathVariable String path, @RequestParam(required = false, defaultValue = "false") boolean includeInheritedMetadata) {
-		return branchService.findBranchOrThrow(BranchPathUriUtil.parseBranchPath(path), includeInheritedMetadata);
+		return branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(path), includeInheritedMetadata);
 	}
 
 	@RequestMapping(value = "/branches/{path}/actions/unlock", method = RequestMethod.POST)
 	@ResponseBody
 	public void unlockBranch(@PathVariable String path) {
-		branchService.unlock(BranchPathUriUtil.parseBranchPath(path));
+		branchService.unlock(BranchPathUriUtil.decodePath(path));
 	}
 
 	@RequestMapping(value = "/merges", method = RequestMethod.POST)

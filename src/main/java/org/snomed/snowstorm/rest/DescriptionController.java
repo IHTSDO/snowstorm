@@ -32,7 +32,7 @@ public class DescriptionController {
 	@JsonView(value = View.Component.class)
 	public List<DescriptionSearchResult> findConcepts(@PathVariable String branch, @RequestParam(required = false) String query,
 													  @RequestParam(defaultValue = "0") int pageNumber, @RequestParam(defaultValue = "50") int size) {
-		branch = BranchPathUriUtil.parseBranchPath(branch);
+		branch = BranchPathUriUtil.decodePath(branch);
 		org.springframework.data.domain.Page<Description> page = descriptionService.findDescriptions(branch, query, PageRequest.of(pageNumber, size));
 		Set<String> conceptIds = page.getContent().stream().map(Description::getConceptId).collect(Collectors.toSet());
 		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds).getResultsMap();
@@ -50,7 +50,7 @@ public class DescriptionController {
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Description fetchDescription(@PathVariable String branch, @PathVariable String descriptionId) {
-		return ControllerHelper.throwIfNotFound("Description", descriptionService.fetchDescription(BranchPathUriUtil.parseBranchPath(branch), descriptionId));
+		return ControllerHelper.throwIfNotFound("Description", descriptionService.fetchDescription(BranchPathUriUtil.decodePath(branch), descriptionId));
 	}
 
 }

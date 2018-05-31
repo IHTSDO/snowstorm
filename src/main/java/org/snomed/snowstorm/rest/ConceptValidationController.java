@@ -26,7 +26,7 @@ public class ConceptValidationController {
 	public List<InvalidContent> validateConcept(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath,
 												@ApiParam(value="The concept to validate") @RequestBody Concept concept) {
 
-		String branchPath1 = BranchPathUriUtil.parseBranchPath(branchPath);
+		String branchPath1 = BranchPathUriUtil.decodePath(branchPath);
 		return validationService.validateConcept(branchPath1, concept);
 	}
 
@@ -36,7 +36,7 @@ public class ConceptValidationController {
 	public List<InvalidContent> validateConcepts(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath,
 												@ApiParam(value="The concepts to validate") @RequestBody Set<Concept> concepts) {
 
-		String branchPath1 = BranchPathUriUtil.parseBranchPath(branchPath);
+		String branchPath1 = BranchPathUriUtil.decodePath(branchPath);
 		return validationService.validateConcepts(branchPath1, concepts);
 	}
 

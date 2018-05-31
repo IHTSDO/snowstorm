@@ -19,6 +19,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
 @RestController
 @RequestMapping(value = "/{branch}/classifications", produces = "application/json")
 public class ClassificationController {
@@ -30,14 +33,14 @@ public class ClassificationController {
 	@RequestMapping(method = RequestMethod.GET)
 	@ResponseBody
 	public ItemsPage<Classification> findClassifications(@PathVariable String branch) {
-		return new ItemsPage<>(classificationService.findClassifications(BranchPathUriUtil.parseBranchPath(branch)));
+		return new ItemsPage<>(classificationService.findClassifications(BranchPathUriUtil.decodePath(branch)));
 	}
 
 	@ApiOperation("Retrieve a classification on a branch")
 	@RequestMapping(value = "/{classificationId}", method = RequestMethod.GET)
 	@ResponseBody
 	public Classification findClassification(@PathVariable String branch, @PathVariable String classificationId) {
-		return classificationService.findClassification(BranchPathUriUtil.parseBranchPath(branch), classificationId);
+		return classificationService.findClassification(BranchPathUriUtil.decodePath(branch), classificationId);
 	}
 
 	@ApiOperation("Retrieve relationship changes made by a classification run on a branch")
@@ -46,7 +49,7 @@ public class ClassificationController {
 	public ItemsPage<RelationshipChange> getRelationshipChanges(@PathVariable String branch, @PathVariable String classificationId,
 																							   @RequestParam(required = false, defaultValue = "0") int page,
 																							   @RequestParam(required = false, defaultValue = "1000") int pageSize) {
-		return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.parseBranchPath(branch), classificationId, PageRequest.of(page, pageSize)));
+		return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.decodePath(branch), classificationId, PageRequest.of(page, pageSize)));
 	}
 
 	@ApiOperation("Retrieve a preview of a concept with classification changes applied")
@@ -54,7 +57,7 @@ public class ClassificationController {
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ConceptView getConceptPreview(@PathVariable String branch, @PathVariable String classificationId, @PathVariable String conceptId) {
-		return classificationService.getConceptPreview(BranchPathUriUtil.parseBranchPath(branch), classificationId, conceptId);
+		return classificationService.getConceptPreview(BranchPathUriUtil.decodePath(branch), classificationId, conceptId);
 	}
 
 	@ApiOperation("Retrieve equivalent concepts from a classification run on a branch")
@@ -63,7 +66,7 @@ public class ClassificationController {
 	public ItemsPage<EquivalentConceptsResponse> getEquivalentConcepts(@PathVariable String branch, @PathVariable String classificationId,
 																									  @RequestParam(required = false, defaultValue = "0") int page,
 																									  @RequestParam(required = false, defaultValue = "1000") int pageSize) {
-		return new ItemsPage<>(classificationService.getEquivalentConcepts(BranchPathUriUtil.parseBranchPath(branch), classificationId, PageRequest.of(page, pageSize)));
+		return new ItemsPage<>(classificationService.getEquivalentConcepts(BranchPathUriUtil.decodePath(branch), classificationId, PageRequest.of(page, pageSize)));
 	}
 
 	@ApiOperation("Create a classification on a branch")
@@ -72,7 +75,7 @@ public class ClassificationController {
 	public ResponseEntity createClassification(@PathVariable String branch,
 													   @RequestParam(required = false) String reasonerId,
 													   UriComponentsBuilder uriComponentsBuilder) throws ServiceException {
-		branch = BranchPathUriUtil.parseBranchPath(branch);
+		branch = BranchPathUriUtil.decodePath(branch);
 		Classification classification = classificationService.createClassification(branch, reasonerId);
 		return ResponseEntity.created(uriComponentsBuilder.path("/{branch}/classifications/{classificationId}")
 				.buildAndExpand(branch, classification.getId()).toUri()).build();
@@ -89,7 +92,11 @@ public class ClassificationController {
 		if (updateRequest.getStatus() != ClassificationStatus.SAVED) {
 			throw new IllegalArgumentException("The only expected status is " + ClassificationStatus.SAVED.toString());
 		}
-		classificationService.saveClassificationResultsToBranch(BranchPathUriUtil.parseBranchPath(branch), classificationId);
+		classificationService.saveClassificationResultsToBranch(BranchPathUriUtil.decodePath(branch), classificationId);
+	}
+
+	public static void main(String[] args) throws URISyntaxException {
+		new URI("http://localhost/a%2Fa/a");
 	}
 
 }

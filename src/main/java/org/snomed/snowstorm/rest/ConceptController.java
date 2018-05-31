@@ -68,7 +68,7 @@ public class ConceptController {
 				.termPrefix(term)
 				.conceptIds(conceptIds);
 
-		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.parseBranchPath(branch), PageRequest.of(page, size));
+		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), PageRequest.of(page, size));
 		conceptMiniPage.getContent().forEach(ConceptMini::nestFsn);
 		return new ItemsPage<>(conceptMiniPage);
 	}
@@ -76,7 +76,7 @@ public class ConceptController {
 	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST)
 	@ResponseBody
 	public ItemsPage<ConceptMini> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
-		ItemsPage<ConceptMini> concepts = findConcepts(BranchPathUriUtil.parseBranchPath(branch),
+		ItemsPage<ConceptMini> concepts = findConcepts(BranchPathUriUtil.decodePath(branch),
 				searchRequest.isStated(),
 				searchRequest.getActiveFilter(),
 				searchRequest.getTermFilter(),
@@ -96,21 +96,21 @@ public class ConceptController {
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "0") int number,
 			@RequestParam(defaultValue = "100") int size) {
-		return conceptService.findAll(BranchPathUriUtil.parseBranchPath(branch), PageRequest.of(number, size));
+		return conceptService.findAll(BranchPathUriUtil.decodePath(branch), PageRequest.of(number, size));
 	}
 
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public ConceptView findConcept(@PathVariable String branch, @PathVariable String conceptId) {
-		return ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, BranchPathUriUtil.parseBranchPath(branch)));
+		return ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, BranchPathUriUtil.decodePath(branch)));
 	}
 
 	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descriptions", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public ConceptDescriptionsResult findConceptDescriptions(@PathVariable String branch, @PathVariable String conceptId) {
-		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, BranchPathUriUtil.parseBranchPath(branch)));
+		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, BranchPathUriUtil.decodePath(branch)));
 		return new ConceptDescriptionsResult(concept.getDescriptions());
 	}
 
@@ -129,7 +129,7 @@ public class ConceptController {
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/inbound-relationships", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public InboundRelationshipsResult findConceptInboundRelationships(@PathVariable String branch, @PathVariable String conceptId) {
-		List<Relationship> inboundRelationships = relationshipService.findInboundRelationships(conceptId, BranchPathUriUtil.parseBranchPath(branch), null);
+		List<Relationship> inboundRelationships = relationshipService.findInboundRelationships(conceptId, BranchPathUriUtil.decodePath(branch), null);
 		return new InboundRelationshipsResult(inboundRelationships);
 	}
 
@@ -139,19 +139,19 @@ public class ConceptController {
 	public ConceptView updateConcept(@PathVariable String branch, @PathVariable String conceptId, @RequestBody @Valid ConceptView concept) throws ServiceException {
 		Assert.isTrue(concept.getConceptId() != null && conceptId != null && concept.getConceptId().equals(conceptId), "The conceptId in the " +
 				"path must match the one in the request body.");
-		return conceptService.update((Concept) concept, BranchPathUriUtil.parseBranchPath(branch));
+		return conceptService.update((Concept) concept, BranchPathUriUtil.decodePath(branch));
 	}
 
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.POST)
 	@JsonView(value = View.Component.class)
 	public ConceptView createConcept(@PathVariable String branch, @RequestBody @Valid ConceptView concept) throws ServiceException {
-		return conceptService.create((Concept) concept, BranchPathUriUtil.parseBranchPath(branch));
+		return conceptService.create((Concept) concept, BranchPathUriUtil.decodePath(branch));
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.DELETE)
 	public void deleteConcept(@PathVariable String branch, @PathVariable String conceptId) {
-		conceptService.deleteConceptAndComponents(conceptId, BranchPathUriUtil.parseBranchPath(branch), false);
+		conceptService.deleteConceptAndComponents(conceptId, BranchPathUriUtil.decodePath(branch), false);
 	}
 
 	@ResponseBody
@@ -160,7 +160,7 @@ public class ConceptController {
 	public Iterable<Concept> updateConcepts(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts) throws ServiceException {
 		List<Concept> conceptList = new ArrayList<>();
 		concepts.forEach(conceptView -> conceptList.add((Concept) conceptView));
-		return conceptService.createUpdate(conceptList, BranchPathUriUtil.parseBranchPath(branch));
+		return conceptService.createUpdate(conceptList, BranchPathUriUtil.decodePath(branch));
 	}
 
 	@ResponseBody
@@ -170,7 +170,7 @@ public class ConceptController {
 													   @PathVariable String conceptId,
 													   @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
 
-		return conceptService.findConceptChildren(conceptId, BranchPathUriUtil.parseBranchPath(branch), form);
+		return conceptService.findConceptChildren(conceptId, BranchPathUriUtil.decodePath(branch), form);
 	}
 
 	@ResponseBody
@@ -180,7 +180,7 @@ public class ConceptController {
 													  @PathVariable String conceptId,
 													  @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
 
-		return conceptService.findConceptParents(conceptId, BranchPathUriUtil.parseBranchPath(branch), form);
+		return conceptService.findConceptParents(conceptId, BranchPathUriUtil.decodePath(branch), form);
 	}
 
 	@ResponseBody
@@ -190,7 +190,7 @@ public class ConceptController {
 													  @PathVariable String conceptId,
 													  @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
 
-		String branchPath = BranchPathUriUtil.parseBranchPath(branch);
+		String branchPath = BranchPathUriUtil.decodePath(branch);
 		Set<Long> ancestorIds = queryService.retrieveAncestors(conceptId, branchPath, form == Relationship.CharacteristicType.stated);
 		return conceptService.findConceptMinis(branchPath, ancestorIds).getResultsMap().values();
 	}

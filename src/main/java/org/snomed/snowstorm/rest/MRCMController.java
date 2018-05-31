@@ -22,7 +22,7 @@ public class MRCMController {
 	@RequestMapping(value = "/mrcm/{path}/domain-attributes", method = RequestMethod.GET)
 	@ResponseBody
 	public ItemsPage<ConceptMini> retrieveDomainAttributes(@PathVariable String path, @RequestParam Set<Long> parentIds) {
-		String branchPath = BranchPathUriUtil.parseBranchPath(path);
+		String branchPath = BranchPathUriUtil.decodePath(path);
 		return getItemsPageWithNestedFSNs(mrcmService.retrieveDomainAttributes(branchPath, parentIds));
 	}
 
@@ -30,7 +30,7 @@ public class MRCMController {
 	@RequestMapping(value = "/mrcm/{path}/attribute-values/{attributeId}", method = RequestMethod.GET)
 	@ResponseBody
 	public ItemsPage<ConceptMini> retrieveAttributeValues(@PathVariable String path, @PathVariable String attributeId, @RequestParam String termPrefix) {
-		String branchPath = BranchPathUriUtil.parseBranchPath(path);
+		String branchPath = BranchPathUriUtil.decodePath(path);
 		return getItemsPageWithNestedFSNs(mrcmService.retrieveAttributeValues(branchPath, attributeId, termPrefix));
 	}
 
