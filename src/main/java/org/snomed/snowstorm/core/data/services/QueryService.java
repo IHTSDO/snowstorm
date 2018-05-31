@@ -22,8 +22,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.SourceFilter;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
@@ -138,7 +140,7 @@ public class QueryService {
 									.must(conceptQuery.getRootBuilder())
 							)
 							.withFilter(termsQuery(QueryConcept.CONCEPT_ID_FIELD, allLexicalMatchesWithOrdering))
-							.withPageable(pageRequest);
+							.withPageable(LARGE_PAGE);
 
 					try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(logicalSearchQuery.build(), QueryConcept.class)) {
 						stream.forEachRemaining(c -> allFilteredLogicalMatches.add(c.getConceptIdL()));
@@ -152,7 +154,7 @@ public class QueryService {
 										.must(termQuery(Concept.Fields.ACTIVE, false))
 								)
 								.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, allLexicalMatchesWithOrdering))
-								.withPageable(pageRequest);
+								.withPageable(LARGE_PAGE);
 						try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(inactiveConceptQuery.build(), Concept.class)) {
 							stream.forEachRemaining(c -> allFilteredLogicalMatches.add(c.getConceptIdAsLong()));
 						}
