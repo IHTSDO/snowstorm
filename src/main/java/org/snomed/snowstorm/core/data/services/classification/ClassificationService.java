@@ -86,6 +86,8 @@ public class ClassificationService {
 
 	private Thread classificationStatusPollingThread;
 
+	private static final int SECOND = 1000;
+
 	private static final PageRequest PAGE_FIRST_1K = PageRequest.of(0, 1000);
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -169,13 +171,13 @@ public class ClassificationService {
 							}
 						}
 						classificationsToCheck.clear();
-						Thread.sleep(500);
+						Thread.sleep(SECOND);
 
 					} catch (HttpClientErrorException e) {
 						int coolOffSeconds = 30;
 						logger.warn("Problem with classification-service communication. Trying again in {} seconds.", coolOffSeconds, e);
 						// Let's wait a while before trying again
-						Thread.sleep(coolOffSeconds * 1000);
+						Thread.sleep(coolOffSeconds * SECOND);
 					}
 				}
 			} catch (InterruptedException e) {
