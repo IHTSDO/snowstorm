@@ -102,7 +102,7 @@ public class ConceptController {
 	public Collection<Concept> getBrowserConcepts(
 			@PathVariable String branch,
 			@RequestBody ConceptIdsPojo request) {
-		return conceptService.find(branch, request.getConceptIds());
+		return conceptService.find(BranchPathUriUtil.decodePath(branch), request.getConceptIds());
 	}
 
 	@ResponseBody
