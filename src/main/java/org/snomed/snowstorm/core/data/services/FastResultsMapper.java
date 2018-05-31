@@ -3,6 +3,8 @@ package org.snomed.snowstorm.core.data.services;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.collect.MapBuilder;
 import org.elasticsearch.search.SearchHit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -26,6 +28,8 @@ import java.util.function.Function;
  * To use this feature set the fields param in your Elasticsearch query to conceptId (or sourceId for relationships).
  */
 public class FastResultsMapper extends DefaultResultMapper {
+
+	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	private Map<Class, Function<SearchHit, Object>> mapFunctions = MapBuilder.newMapBuilder(new HashMap<Class, Function<SearchHit, Object>>())
 			.put(Concept.class, hit -> new Concept(hit.getFields().get(Concept.Fields.CONCEPT_ID).getValue()))
@@ -55,9 +59,15 @@ public class FastResultsMapper extends DefaultResultMapper {
 	@Override
 	public <T> AggregatedPage<T> mapResults(SearchResponse response, Class<T> clazz, Pageable pageable) {
 		SearchHit[] hits = response.getHits().getHits();
+
+		logger.debug("hits.length {}, mapFunctions.containsKey(clazz) {}, hits[0].getFields().isEmpty() {}", hits.length, mapFunctions.containsKey(clazz), hits.length > 0 ? hits[0].getFields().isEmpty() : "");
+
 		if (hits.length == 0 || !mapFunctions.containsKey(clazz) || hits[0].getFields().isEmpty()) {
+			logger.debug("Loading {} {} using STANDARD result mapping.", hits.length, clazz.getSimpleName());
 			return super.mapResults(response, clazz, pageable);
 		}
+
+		logger.debug("Loading {} {} using FAST result mapping.", hits.length, clazz.getSimpleName());
 
 		long totalHits = response.getHits().getTotalHits();
 
