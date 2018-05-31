@@ -9,8 +9,8 @@ public class ConceptSearchRequest {
 	private String eclFilter;
 	private Set<String> conceptIds;
 	private boolean stated;
-	private int page = 0;
-	private int size = 50;
+	private int offset = 0;
+	private int limit = 50;
 //		  "moduleFilter": "",
 //		  "activeFilter": false,
 //		  "escgFilter": "",
@@ -62,19 +62,19 @@ public class ConceptSearchRequest {
 		this.stated = stated;
 	}
 
-	public int getPage() {
-		return page;
+	public int getOffset() {
+		return offset;
 	}
 
-	public void setPage(int page) {
-		this.page = page;
+	public void setOffset(int offset) {
+		this.offset = offset;
 	}
 
-	public int getSize() {
-		return size;
+	public int getLimit() {
+		return limit;
 	}
 
-	public void setSize(int size) {
-		this.size = size;
+	public void setLimit(int limit) {
+		this.limit = limit;
 	}
 }

@@ -47,8 +47,8 @@ public class ConceptController {
 			@RequestParam(required = false) String ecl,
 			@RequestParam(required = false) String escg,
 			@RequestParam(required = false) Set<String> conceptIds,
-			@RequestParam(required = false, defaultValue = "0") int page,
-			@RequestParam(required = false, defaultValue = "50") int size) {
+			@RequestParam(required = false, defaultValue = "0") int offset,
+			@RequestParam(required = false, defaultValue = "50") int limit) {
 
 		// TODO: Remove this partial ESCG support
 		if (ecl == null && escg != null && !escg.isEmpty()) {
@@ -65,7 +65,7 @@ public class ConceptController {
 				.termPrefix(term)
 				.conceptIds(conceptIds);
 
-		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), PageRequest.of(page, size));
+		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), ControllerHelper.getPageRequest(offset, limit));
 		conceptMiniPage.getContent().forEach(ConceptMini::nestFsn);
 		return new ItemsPage<>(conceptMiniPage);
 	}
@@ -80,8 +80,8 @@ public class ConceptController {
 				searchRequest.getEclFilter(),
 				null,
 				searchRequest.getConceptIds(),
-				searchRequest.getPage(),
-				searchRequest.getSize());
+				searchRequest.getOffset(),
+				searchRequest.getLimit());
 		concepts.getItems().forEach(ConceptMini::nestFsn);
 		return concepts;
 	}
