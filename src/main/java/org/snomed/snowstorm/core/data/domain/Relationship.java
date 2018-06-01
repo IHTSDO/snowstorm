@@ -19,7 +19,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public enum CharacteristicType {
 
-		inferred(Concepts.INFERRED_RELATIONSHIP), stated(Concepts.STATED_RELATIONSHIP);
+		inferred(Concepts.INFERRED_RELATIONSHIP),
+		stated(Concepts.STATED_RELATIONSHIP),
+		additional(Concepts.ADDITIONAL_RELATIONSHIP);
 
 		String conceptId;
 
@@ -30,15 +32,18 @@ public class Relationship extends SnomedComponent<Relationship> {
 		public String getConceptId() {
 			return conceptId;
 		}
-	}
 
+	}
 	public interface Fields extends SnomedComponent.Fields {
+
 		String RELATIONSHIP_ID = "relationshipId";
 		String SOURCE_ID = "sourceId";
+		String DESTINATION_ID = "destinationId";
+		String RELATIONSHIP_GROUP = "relationshipGroup";
 		String TYPE_ID = "typeId";
 		String CHARACTERISTIC_TYPE_ID = "characteristicTypeId";
+		String MODIFIER_ID = "modifierId";
 	}
-
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.keyword)
 	private String relationshipId;
@@ -139,6 +144,18 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@Override
 	protected Object[] getReleaseHashObjects() {
 		return new Object[] {active, moduleId, destinationId, relationshipGroup, typeId, characteristicTypeId, modifierId};
+	}
+
+	public ConceptMini getSource() {
+		return source;
+	}
+
+	public ConceptMini getType() {
+		return type;
+	}
+
+	public ConceptMini getTarget() {
+		return target;
 	}
 
 	@Override

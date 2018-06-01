@@ -12,8 +12,9 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 public abstract class SnomedComponent<C> extends DomainEntity<C> {
 
 	public interface Fields {
-		String ACTIVE = "active";
 		String EFFECTIVE_TIME = "effectiveTime";
+		String ACTIVE = "active";
+		String MODULE_ID = "moduleId";
 	}
 
 	@JsonView(value = View.Component.class)
