@@ -6,6 +6,8 @@ import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import ca.uhn.fhir.rest.api.EncodingEnum;
+
 @Configuration
 public class FHIRConfig {
 	
@@ -27,6 +29,7 @@ public class FHIRConfig {
 		//servletRegistrationBean.setName("Hapi FHIR");
 		hapiServlet.setServerName("Snowstorm FHIR Server");
 		hapiServlet.setServerVersion("0.0.1");
+		hapiServlet.setDefaultResponseEncoding(EncodingEnum.JSON);
 		return servletRegistrationBean;
 	}
 
