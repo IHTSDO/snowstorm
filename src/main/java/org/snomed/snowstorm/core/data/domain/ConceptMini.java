@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonRawValue;
 import com.fasterxml.jackson.annotation.JsonView;
@@ -80,6 +81,7 @@ public class ConceptMini {
 		return Concepts.definitionStatusNames.get(definitionStatusId);
 	}
 	
+	@JsonIgnore
 	public boolean isPrimitive() {
 		return definitionStatusId.equals(Concepts.PRIMITIVE);
 	}
