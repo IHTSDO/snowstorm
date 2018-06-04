@@ -72,9 +72,10 @@ public class ExpressionServiceTest extends AbstractTest {
 
 		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), EXPRESSION_TEST_BRANCH);
 		
-		// Expecting one attributes (fully defined), and a single focus concept of concept 2
+		// Expecting one attribute (fully defined), and a single focus concept of concept 2
 		assertEquals(1, exp.getAttributes().size());
 		assertTrue(!exp.getAttributes().get(0).getValue().isPrimitive());
+		
 		assertEquals(1, exp.getConcepts().size());
 		assertEquals(new ConceptMicro(concept2), exp.getConcepts().get(0));
 	}
