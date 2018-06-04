@@ -140,6 +140,10 @@ public class Relationship extends SnomedComponent<Relationship> {
 				|| !characteristicTypeId.equals(that.characteristicTypeId)
 				|| !modifierId.equals(that.modifierId);
 	}
+	
+	public boolean isGrouped () {
+		return relationshipGroup > 0;
+	}
 
 	@Override
 	protected Object[] getReleaseHashObjects() {

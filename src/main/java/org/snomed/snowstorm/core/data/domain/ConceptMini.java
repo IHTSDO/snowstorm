@@ -79,6 +79,10 @@ public class ConceptMini {
 	public String getDefinitionStatus() {
 		return Concepts.definitionStatusNames.get(definitionStatusId);
 	}
+	
+	public boolean isPrimitive() {
+		return definitionStatusId.equals(Concepts.PRIMITIVE);
+	}
 
 	public void setDefinitionStatus(String definitionStatusName) {
 		definitionStatusId = Concepts.definitionStatusNames.inverse().get(definitionStatusName);

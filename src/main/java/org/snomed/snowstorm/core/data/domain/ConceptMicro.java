@@ -10,7 +10,13 @@ public class ConceptMicro {
 	public ConceptMicro(ConceptMini mini) {
 		this.id = mini.getConceptId();
 		this.term = mini.getFsn();
-		this.primitive = mini.getDefinitionStatus().equals(Concepts.PRIMITIVE);
+		this.primitive = mini.isPrimitive();
+	}
+	
+	public ConceptMicro(Concept c) {
+		this.id = c.getConceptId();
+		this.term = c.getFsn();
+		this.primitive = c.isPrimitive();
 	}
 
 	public ConceptMicro(String id) {
@@ -35,6 +41,15 @@ public class ConceptMicro {
 	
 	public void setPrimitive(boolean isPrimitive) {
 		this.primitive = isPrimitive;
+	}
+	
+	@Override
+	public boolean equals (Object other) {
+		if (other instanceof ConceptMicro) {
+			String otherId = ((ConceptMicro)other).getId();
+			return this.id.equals(otherId);
+		}
+		return false;
 	}
 
 }
