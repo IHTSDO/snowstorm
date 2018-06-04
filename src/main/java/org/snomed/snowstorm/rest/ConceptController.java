@@ -126,9 +126,9 @@ public class ConceptController {
 	public ItemsPage<ConceptMini> findConceptDescendants(@PathVariable String branch,
 													@PathVariable String conceptId,
 													@PathVariable(value = "false", required = false) boolean stated,
-													@RequestParam(required = false, defaultValue = "0") int page,
-													@RequestParam(required = false, defaultValue = "50") int size) {
-		return findConcepts(branch, stated, null, null, "<" + conceptId, null, null, page, size);
+													@RequestParam(required = false, defaultValue = "0") int offset,
+													@RequestParam(required = false, defaultValue = "50") int limit) {
+		return findConcepts(branch, stated, null, null, "<" + conceptId, null, null, offset, limit);
 	}
 
 	@ResponseBody

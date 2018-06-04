@@ -6,7 +6,6 @@ import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,8 +24,8 @@ public class ReferenceSetMemberController {
 														   @RequestParam(required = false) String referencedComponentId,
 														   @RequestParam(required = false) Boolean active,
 														   @RequestParam(required = false) String targetComponent,
-														   @RequestParam(defaultValue = "0") int page,
-														   @RequestParam(defaultValue = "50") int size) {
+														   @RequestParam(defaultValue = "0") int offset,
+														   @RequestParam(defaultValue = "50") int limit) {
 		return new ItemsPage<>(
 				memberService.findMembers(
 						BranchPathUriUtil.decodePath(branch),
@@ -34,7 +33,7 @@ public class ReferenceSetMemberController {
 						referenceSet,
 						referencedComponentId,
 						targetComponent,
-						PageRequest.of(page, size)));
+						ControllerHelper.getPageRequest(offset, limit)));
 	}
 
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.GET)

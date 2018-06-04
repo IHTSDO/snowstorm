@@ -13,7 +13,6 @@ import org.snomed.snowstorm.core.data.services.classification.pojo.EquivalentCon
 import org.snomed.snowstorm.rest.pojo.ClassificationUpdateRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.*;
@@ -47,9 +46,9 @@ public class ClassificationController {
 	@RequestMapping(value = "/{classificationId}/relationship-changes", method = RequestMethod.GET)
 	@ResponseBody
 	public ItemsPage<RelationshipChange> getRelationshipChanges(@PathVariable String branch, @PathVariable String classificationId,
-																							   @RequestParam(required = false, defaultValue = "0") int page,
-																							   @RequestParam(required = false, defaultValue = "1000") int pageSize) {
-		return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.decodePath(branch), classificationId, PageRequest.of(page, pageSize)));
+																							   @RequestParam(required = false, defaultValue = "0") int offset,
+																							   @RequestParam(required = false, defaultValue = "1000") int limit) {
+		return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.decodePath(branch), classificationId, ControllerHelper.getPageRequest(offset, limit)));
 	}
 
 	@ApiOperation("Retrieve a preview of a concept with classification changes applied")
@@ -64,9 +63,9 @@ public class ClassificationController {
 	@RequestMapping(value = "/{classificationId}/equivalent-concepts", method = RequestMethod.GET)
 	@ResponseBody
 	public ItemsPage<EquivalentConceptsResponse> getEquivalentConcepts(@PathVariable String branch, @PathVariable String classificationId,
-																									  @RequestParam(required = false, defaultValue = "0") int page,
-																									  @RequestParam(required = false, defaultValue = "1000") int pageSize) {
-		return new ItemsPage<>(classificationService.getEquivalentConcepts(BranchPathUriUtil.decodePath(branch), classificationId, PageRequest.of(page, pageSize)));
+																									  @RequestParam(required = false, defaultValue = "0") int offset,
+																									  @RequestParam(required = false, defaultValue = "1000") int limit) {
+		return new ItemsPage<>(classificationService.getEquivalentConcepts(BranchPathUriUtil.decodePath(branch), classificationId, ControllerHelper.getPageRequest(offset, limit)));
 	}
 
 	@ApiOperation("Create a classification on a branch")

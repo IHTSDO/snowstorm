@@ -8,7 +8,6 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.rest.pojo.DescriptionSearchResult;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -31,9 +30,9 @@ public class DescriptionController {
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public List<DescriptionSearchResult> findConcepts(@PathVariable String branch, @RequestParam(required = false) String query,
-													  @RequestParam(defaultValue = "0") int pageNumber, @RequestParam(defaultValue = "50") int size) {
+													  @RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "50") int limit) {
 		branch = BranchPathUriUtil.decodePath(branch);
-		org.springframework.data.domain.Page<Description> page = descriptionService.findDescriptions(branch, query, PageRequest.of(pageNumber, size));
+		org.springframework.data.domain.Page<Description> page = descriptionService.findDescriptions(branch, query, ControllerHelper.getPageRequest(offset, limit));
 		Set<String> conceptIds = page.getContent().stream().map(Description::getConceptId).collect(Collectors.toSet());
 		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds).getResultsMap();
 
