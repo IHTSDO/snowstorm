@@ -207,7 +207,7 @@ public class ConceptController {
 	}
 	
 	@ResponseBody
-	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/authoring-form", method = RequestMethod.GET)
+	@RequestMapping(value = "/{branch}/concepts/{conceptId}/authoring-form", method = RequestMethod.GET)
 	public Expression getConceptAuthoringForm(@PathVariable String branch,
 													   @PathVariable String conceptId) {
 

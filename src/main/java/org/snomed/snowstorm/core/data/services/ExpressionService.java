@@ -47,9 +47,14 @@ public class ExpressionService {
 		final String attributeTypeId = rel.getTypeId();
 		//Only collect non parent relationships
 		if (!Concepts.ISA.equals(attributeTypeId)) {
-			ExpressionGroup group = expression.getGroup(rel.getGroupId());
 			ExpressionAttribute attribute = new ExpressionAttribute(rel.type(), rel.target());
-			group.addAttribute(attribute);
+			//Are we adding this attribute grouped or ungrouped?
+			if (rel.isGrouped()) {
+				ExpressionGroup group = expression.getGroup(rel.getGroupId());
+				group.addAttribute(attribute);
+			} else {
+				expression.addAttribute(attribute);
+			}
 		}
 	}
 	
@@ -62,7 +67,7 @@ public class ExpressionService {
 	private Set<String> getProximalPrimitiveParentIds(Collection<ConceptMini> ancestors, String branchPath) {
 		final Set<String> proximalPrimitiveParentIds = new HashSet<>();
 		for (ConceptMini ancestor : ancestors) {
-			if (ancestor.getDefinitionStatus().equals(Concepts.PRIMITIVE)) {
+			if (ancestor.isPrimitive()) {
 				final String primitiveAncestorId = ancestor.getId();
 				if (proximalPrimitiveParentIds.isEmpty()) {
 					proximalPrimitiveParentIds.add(primitiveAncestorId);
@@ -74,7 +79,7 @@ public class ExpressionService {
 							proximalPrimitiveParentIds.remove(id);
 							proximalPrimitiveParentIds.add(primitiveAncestorId);
 							doAdd = false;
-						} else if (doAdd && isSuperTypeOf(primitiveAncestorId, Long.parseLong(id), branchPath)) {
+						} else if (doAdd && isSuperTypeOf(Long.parseLong(primitiveAncestorId), id, branchPath)) {
 							// do NOT add the node if it is a super type of any currently selected primitives
 							doAdd = false;
 						}
@@ -94,8 +99,8 @@ public class ExpressionService {
 	 * @param superType
 	 * @param subType
 	 */
-	public boolean isSuperTypeOf(String superType, Long subType, String branchPath) {
-		return queryService.retrieveAllDescendants(superType, branchPath, false).contains(subType);
+	public boolean isSuperTypeOf(Long superType, String subType, String branchPath) {
+		return queryService.retrieveAncestors(subType, branchPath, false).contains(superType);
 	}
 
 	/**

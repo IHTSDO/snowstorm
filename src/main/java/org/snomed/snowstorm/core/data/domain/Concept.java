@@ -101,6 +101,10 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 				|| !moduleId.equals(that.moduleId)
 				|| !definitionStatusId.equals(that.definitionStatusId);
 	}
+	
+	public boolean isPrimitive() {
+		return definitionStatusId.equals(Concepts.PRIMITIVE);
+	}
 
 	@Override
 	protected Object[] getReleaseHashObjects() {
