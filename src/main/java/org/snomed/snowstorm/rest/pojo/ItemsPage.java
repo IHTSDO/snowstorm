@@ -31,7 +31,7 @@ public class ItemsPage<T> {
 		this.items = page.getContent();
 		this.limit = page.getSize();
 		this.total = page.getTotalElements();
-		this.offset = page.getPageable().getOffset();
+		this.offset = page.getNumber() * page.getSize();
 	}
 
 	@JsonView(View.Component.class)
