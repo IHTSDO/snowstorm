@@ -202,7 +202,7 @@ public class QueryService {
 			descriptionStream.forEachRemaining(description -> allLexicalMatchesWithOrdering.add(parseLong(description.getConceptId())));
 		}
 
-		return allLexicalMatchesWithOrdering;
+		return allLexicalMatchesWithOrdering.stream().distinct().collect(Collectors.toList());
 	}
 
 	private Page<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, QueryBuilder branchCriteria) {
