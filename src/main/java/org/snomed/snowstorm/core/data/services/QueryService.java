@@ -396,6 +396,9 @@ public class QueryService {
 		 * @param termPrefix
 		 */
 		public ConceptQueryBuilder termPrefix(String termPrefix) {
+			if (termPrefix != null && termPrefix.isEmpty()) {
+				termPrefix = null;
+			}
 			this.termPrefix = termPrefix;
 			return this;
 		}
