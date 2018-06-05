@@ -67,6 +67,18 @@ public class RelationshipChange {
 		this.modifierId = modifierId;
 	}
 
+	public String getSourceFsn() {
+		return source != null ? source.getFsn() : null;
+	}
+
+	public String getTypeFsn() {
+		return type != null ? type.getFsn() : null;
+	}
+
+	public String getDestinationFsn() {
+		return destination != null ? destination.getFsn() : null;
+	}
+
 	public String getCharacteristicTypeId() {
 		return Concepts.INFERRED_RELATIONSHIP;
 	}
