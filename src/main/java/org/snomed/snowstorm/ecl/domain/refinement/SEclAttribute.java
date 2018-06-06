@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
+import io.swagger.models.auth.In;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.langauges.ecl.domain.refinement.EclAttribute;
@@ -40,15 +41,6 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		if (cardinalityMin != null && cardinalityMax != null && cardinalityMin > cardinalityMax) {
 			throw new IllegalArgumentException("Within cardinality constraints the minimum must not be greater than the maximum.");
 		}
-		if (isUnconstrained()) {
-			// [0..*] means this constraint is meaningless
-			return;
-		}
-
-		AttributeRange attributeRange = getAttributeRange();
-
-		List<Long> possibleAttributeValues = attributeRange.getPossibleAttributeValues();
-		Set<String> attributeTypeProperties = attributeRange.getPossibleAttributeTypes();
 
 		BoolQueryBuilder query = refinementBuilder.getQuery();
 		QueryBuilder branchCriteria = refinementBuilder.getBranchCriteria();
@@ -57,52 +49,117 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		if (reverse) {
 			// Reverse flag
 
+			AttributeRange attributeRange = getAttributeRange();
+
 			// Fetch the relationship destination concepts
-			if (possibleAttributeValues == null) {
+			if (attributeRange.getPossibleAttributeValues() == null) {
 				throw new UnsupportedOperationException("Returning the attribute values of all concepts is not supported.");
 			}
 			Collection<Long> destinationConceptIds = refinementBuilder.getQueryService()
-					.retrieveRelationshipDestinations(possibleAttributeValues, attributeRange.getAttributeTypesOptional().map(Slice::getContent).orElse(null), branchCriteria, stated);
+					.retrieveRelationshipDestinations(attributeRange.getPossibleAttributeValues(), attributeRange.getAttributeTypesOptional().map(Slice::getContent).orElse(null), branchCriteria, stated);
 			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, destinationConceptIds));
 
 		} else {
 			// Not reverse flag
 
-			boolean cardinalityConstraints = cardinalityMin != null || cardinalityMax != null;
+			// The query is not capable of constraining the number of times an attribute occurs, only that it does or does not occur.
+			// Further cardinality checking against fetched index records can be enabled using the specificCardinality flag.
+			boolean specificCardinality = false;
+			BoolQueryBuilder withinCardinality = boolQuery();
 
-			if (cardinalityConstraints) {
+			// Cardinality scenarios:
+
+			// Unbound
+			// *..* / 0..*
+			if ((cardinalityMin == null && cardinalityMax == null) ||
+					(isZero(cardinalityMin) && cardinalityMax == null)) {
+				// no constraints needed
+				return;
+			}
+
+			// Optional but bounded
+			// *..+N / 0..+N
+			else if ((cardinalityMin == null && isOneOrMore(cardinalityMax)) ||
+					isZero(cardinalityMin) && isOneOrMore(cardinalityMax)) {
+				specificCardinality = true;
+			}
+
+			// Max zero
+			// x..0
+			else if (isZero(cardinalityMax)) {
+				// must NOT occur
+				query.mustNot(withinCardinality);
+			}
+
+			// One or more
+			else if (cardinalityMin != null && cardinalityMin == 1 && cardinalityMax == null) {
+				// must occur
+				query.must(withinCardinality);
+				// any number of times
+			}
+
+			// Specific positive cardinality
+			else {
+				// must occur
+				query.must(withinCardinality);
+				// certain number of times
+				specificCardinality = true;
+			}
+
+			if (specificCardinality) {
 				refinementBuilder.setInclusionFilterRequired(true);
 			}
 
-			if (expressionComparisonOperator.equals("=")) {
 
-				boolean minCardinalityIsZero = cardinalityMin != null && cardinalityMin == 0;
-				// If min cardinality is zero this attribute is not required so there is a danger of selecting everything
-				// TODO - can we provide an optimisation for min cardinality zero where we only collect non matching concepts?
+			boolean equalsOperator = expressionComparisonOperator.equals("=");
 
-				boolean maxCardinalityIsZero = cardinalityMax != null && cardinalityMax == 0;
-				// If max cardinality is zero this attribute must not be present
-
-				if (!minCardinalityIsZero) {
-					// Simple - just add attribute type and value criteria to main query builder
-					doAddTypeAndValueCriteria(query, attributeTypeProperties, possibleAttributeValues, maxCardinalityIsZero);
-				}
-
-			} else {
-				if (cardinalityConstraints) {
-					// TODO Support attribute cardinality in combination with 'not equals'
-					throw new UnsupportedOperationException("Attribute cardinality in combination with 'not equals' operator is not currently supported.");
+			AttributeRange attributeRange = getAttributeRange();
+			List<Long> possibleAttributeValues = attributeRange.getPossibleAttributeValues();
+			Set<String> attributeTypeProperties = attributeRange.getPossibleAttributeTypes();
+			if (possibleAttributeValues == null) {
+				// Value is wildcard
+				BoolQueryBuilder oneOf = boolQuery();
+				if (equalsOperator) {
+					// Attribute just needs to exist
+					withinCardinality.must(oneOf);
+				} else {
+					// Attribute must not exist
+					withinCardinality.mustNot(oneOf);
 				}
 				for (String attributeTypeProperty : attributeTypeProperties) {
-					if (possibleAttributeValues == null) {
-						query.mustNot(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+					oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+				}
+			} else {
+				if (possibleAttributeValues.isEmpty()) {
+					// Attribute value is not a wildcard but empty selection
+					// Force query to return nothing
+					withinCardinality.must(termQuery("force-nothing", "true"));
+				} else {
+					if (equalsOperator) {
+						BoolQueryBuilder oneOf = boolQuery();
+						withinCardinality.must(oneOf);
+						for (String attributeTypeProperty : attributeTypeProperties) {
+							oneOf.should(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
+						}
 					} else {
-						query.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
-						query.filter(boolQuery().mustNot(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues)));
+						BoolQueryBuilder oneOf = boolQuery();
+						withinCardinality.must(oneOf);
+						for (String attributeTypeProperty : attributeTypeProperties) {
+							oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+							withinCardinality.mustNot(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
+						}
 					}
 				}
 			}
 		}
+	}
+
+	private boolean isZero(Integer i) {
+		return i != null && i == 0;
+	}
+
+	private boolean isOneOrMore(Integer i) {
+		return i != null && i > 0;
 	}
 
 	private AttributeRange getAttributeRange() {
@@ -127,44 +184,6 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, possibleAttributeValues_, cardinalityMin, cardinalityMax);
 		}
 		return attributeRange;
-	}
-
-	private boolean isUnconstrained() {
-		return cardinalityMin != null && cardinalityMin == 0 && cardinalityMax == null;
-	}
-
-	private void doAddTypeAndValueCriteria(BoolQueryBuilder query, Set<String> attributeTypeProperties, Collection<Long> possibleAttributeValues,
-										   boolean maxCardinalityIsZero) {
-		if (possibleAttributeValues == null) {
-			// Value is wildcard, attribute just needs to exist
-			BoolQueryBuilder oneOf = boolQuery();
-			if (!maxCardinalityIsZero) {
-				query.must(oneOf);
-			} else {
-				query.mustNot(oneOf);
-			}
-			for (String attributeTypeProperty : attributeTypeProperties) {
-				oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
-			}
-		} else {
-			if (possibleAttributeValues.isEmpty()) {
-				if (!maxCardinalityIsZero) {
-					// Attribute value is not a wildcard but empty selection
-					// Force query to return nothing
-					query.must(termQuery("force-nothing", "true"));
-				}
-			} else {
-				BoolQueryBuilder oneOf = boolQuery();
-				if (!maxCardinalityIsZero) {
-					query.must(oneOf);
-				} else {
-					query.mustNot(oneOf);
-				}
-				for (String attributeTypeProperty : attributeTypeProperties) {
-					oneOf.should(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
-				}
-			}
-		}
 	}
 
 	void checkConceptConstraints(MatchContext matchContext) {

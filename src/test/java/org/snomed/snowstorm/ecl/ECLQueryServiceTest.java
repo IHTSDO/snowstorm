@@ -552,6 +552,20 @@ public class ECLQueryServiceTest extends AbstractTest {
 								"[1..2]" + FINDING_SITE + "= <<" + BODY_STRUCTURE + "," +
 								"[1..*]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS)));
 
+		assertEquals(
+				Sets.newHashSet(),
+				strings(selectConceptIds(
+						"<<" + CLINICAL_FINDING + ":" +
+								"[1..1]" + FINDING_SITE + " != <<" + BODY_STRUCTURE + "," +
+								"[1..*]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS)));
+
+		assertEquals(
+				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
+				strings(selectConceptIds(
+						"<<" + CLINICAL_FINDING + ":" +
+								"[0..0]" + FINDING_SITE + " != <<" + BODY_STRUCTURE + "," +
+								"[1..*]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS)));
+
 	}
 
 	private Set<String> strings(Collection<Long> ids) {
