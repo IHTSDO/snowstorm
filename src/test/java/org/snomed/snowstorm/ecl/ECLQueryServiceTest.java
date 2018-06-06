@@ -568,6 +568,24 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 	}
 
+	@Test
+	public void testAncestorOfWildcard() {
+		// All non-leaf concepts
+		assertEquals(
+				"[123037004, 71388002, 138875005, 131148009, 363704007, 64572001, 900000000000441003, 404684003]",
+				strings(selectConceptIds(">*")).toString());
+
+		// All non-leaf concepts
+		assertEquals(
+				"[123037004, 71388002, 138875005, 131148009, 363704007, 64572001, 900000000000441003, 404684003]",
+				strings(selectConceptIds(">!*")).toString());
+
+		// All leaf concepts
+		assertEquals(
+				"[297968009, 50960005, 24028007, 39057004, 64915003, 413815006, 272741003, 999204306007, 204306007, 116680003, 363698007, 116676008, 56246009, 53085002, 39937001, 405813007, 80891009, 415582006, 51185008]",
+				strings(selectConceptIds("* MINUS >*")).toString());
+	}
+
 	private Set<String> strings(Collection<Long> ids) {
 		return ids.stream().map(Object::toString).collect(Collectors.toSet());
 	}

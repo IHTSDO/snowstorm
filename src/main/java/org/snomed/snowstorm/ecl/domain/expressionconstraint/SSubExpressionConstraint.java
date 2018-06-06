@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 
 import java.util.*;
 
+import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class SSubExpressionConstraint extends SubExpressionConstraint implements SExpressionConstraint {
@@ -34,7 +35,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	}
 
 	private boolean isUnconstrained() {
-		return wildcard && (operator != Operator.memberOf && operator != Operator.descendantof && operator != Operator.childof);
+		return wildcard && (operator == null || operator == Operator.descendantorselfof || operator == Operator.ancestororselfof);
 	}
 
 	@Override
@@ -58,7 +59,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		BoolQueryBuilder query = refinementBuilder.getQuery();
 		if (conceptId != null) {
 			if (operator != null) {
-				applyConceptCriteriaWithOperator(Collections.singleton(Long.parseLong(conceptId)), operator, refinementBuilder);
+				applyConceptCriteriaWithOperator(Collections.singleton(parseLong(conceptId)), operator, refinementBuilder);
 			} else {
 				query.must(QueryBuilders.termQuery(QueryConcept.CONCEPT_ID_FIELD, conceptId));
 			}
@@ -85,8 +86,13 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			// Member of wildcard (any reference set)
 			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, refinementBuilder.getQueryService().retrieveConceptsInReferenceSet(refinementBuilder.getBranchCriteria(), null)));
 		} else if (operator == Operator.descendantof || operator == Operator.childof) {
-			// Descendant of wildcard / Child of wildcard (anything but root)
+			// Descendant of wildcard / Child of wildcard = anything but root
 			query.mustNot(termQuery(QueryConcept.CONCEPT_ID_FIELD, Concepts.SNOMEDCT_ROOT));
+		} else if (operator == Operator.ancestorof || operator == Operator.parentof) {
+			// Ancestor of wildcard / Parent of wildcard = all non-leaf concepts
+			Collection<Long> conceptsWithDescendants = refinementBuilder.getQueryService().retrieveRelationshipDestinations(
+					null, Collections.singletonList(parseLong(Concepts.ISA)), refinementBuilder.getBranchCriteria(), refinementBuilder.isStated());
+			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptsWithDescendants));
 		}
 		// Else Wildcard! which has no constraints
 	}
