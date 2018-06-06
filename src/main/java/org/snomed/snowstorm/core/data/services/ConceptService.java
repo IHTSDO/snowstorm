@@ -839,4 +839,19 @@ public class ConceptService extends ComponentService implements CommitListener {
 			future.cancel(true);
 		}
 	}
+
+	public Collection<Long> findAllActiveConcepts(QueryBuilder branchCriteria) {
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true)))
+				.withPageable(LARGE_PAGE)
+				.withFields(Concept.Fields.CONCEPT_ID);
+		List<Long> ids = new LongArrayList();
+		try (CloseableIterator<Concept> conceptStream = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
+			conceptStream.forEachRemaining(c -> ids.add(c.getConceptIdAsLong()));
+		}
+
+		return ids;
+	}
 }

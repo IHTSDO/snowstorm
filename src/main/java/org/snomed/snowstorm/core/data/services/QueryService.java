@@ -1,17 +1,16 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.QueryConcept;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.QueryConceptRepository;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.util.CollectionUtil;
@@ -22,10 +21,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.core.query.SourceFilter;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
@@ -177,6 +174,47 @@ public class QueryService {
 			// No Criteria - return all concepts
 			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, pageRequest);
 			return new PageImpl<>(new ArrayList<>(conceptMinis.getResultsMap().values()), pageRequest, conceptMinis.getTotalElements());
+		}
+	}
+
+	public Map<Long, Set<Long>> findActiveRelationshipsReferencingNotActiveConcepts(String branchPath, boolean stated) {
+		Map<Long, Set<Long>> relationshipToInactiveConceptMap = new Long2ObjectOpenHashMap<>();
+		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		TimerUtil timer = new TimerUtil("Integrity check");
+		Collection<Long> activeConcepts = conceptService.findAllActiveConcepts(branchCriteria);
+		timer.checkpoint("Fetch active concepts");
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
+		queryBuilder
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID,
+								stated ? Sets.newHashSet(Relationship.CharacteristicType.stated.getConceptId(), Relationship.CharacteristicType.additional.getConceptId()) :
+										Sets.newHashSet(Relationship.CharacteristicType.inferred.getConceptId(), Relationship.CharacteristicType.additional.getConceptId())))
+						.mustNot(
+								boolQuery()
+									.should(termsQuery(Relationship.Fields.SOURCE_ID, activeConcepts))
+									.should(termsQuery(Relationship.Fields.TYPE_ID, activeConcepts))
+									.should(termsQuery(Relationship.Fields.DESTINATION_ID, activeConcepts))
+						)
+				)
+				.withPageable(LARGE_PAGE);
+		try (CloseableIterator<Relationship> relationshipStream = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
+			relationshipStream.forEachRemaining(relationship -> {
+				Set<Long> inactiveConcepts = new HashSet<>();
+				addIfInactive(relationship.getSourceId(), activeConcepts, inactiveConcepts);
+				addIfInactive(relationship.getTypeId(), activeConcepts, inactiveConcepts);
+				addIfInactive(relationship.getDestinationId(), activeConcepts, inactiveConcepts);
+				relationshipToInactiveConceptMap.put(parseLong(relationship.getId()), inactiveConcepts);
+			});
+		}
+		timer.finish();
+		return relationshipToInactiveConceptMap;
+	}
+
+	private void addIfInactive(String conceptId, Collection<Long> activeConcepts, Set<Long> inactiveConcepts) {
+		long conceptLong = parseLong(conceptId);
+		if (!activeConcepts.contains(conceptLong)) {
+			inactiveConcepts.add(conceptLong);
 		}
 	}
 

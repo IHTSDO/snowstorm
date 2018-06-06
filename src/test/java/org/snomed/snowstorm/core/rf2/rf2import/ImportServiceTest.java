@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.rf2.rf2import;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
@@ -124,7 +125,7 @@ public class ImportServiceTest extends AbstractTest {
 		final Description description1237157018in2002 = concept138875005in2002.getDescription("1237157018");
 		Assert.assertNotNull(description1237157018in2002);
 		Assert.assertEquals("SNOMED CT July 2002 Release: 20020731 [R]", description1237157018in2002.getTerm());
-		Assert.assertEquals(true, description1237157018in2002.isActive());
+		Assert.assertTrue(description1237157018in2002.isActive());
 		Assert.assertEquals(1, description1237157018in2002.getAcceptabilityMap().size());
 		Assert.assertEquals(Concepts.descriptionAcceptabilityNames.get("900000000000549004"), description1237157018in2002.getAcceptabilityMap().get("900000000000508004"));
 
@@ -138,7 +139,7 @@ public class ImportServiceTest extends AbstractTest {
 		final Description description1237157018in2003 = concept138875005in2003.getDescription("1237157018");
 		Assert.assertNotNull(description1237157018in2003);
 		Assert.assertEquals("SNOMED CT July 2002 Release: 20020731 [R]", description1237157018in2003.getTerm());
-		Assert.assertEquals(false, description1237157018in2003.isActive());
+		Assert.assertFalse(description1237157018in2003.isActive());
 		Assert.assertEquals(0, description1237157018in2003.getAcceptabilityMap().size());
 
 		path = "MAIN/2014-01-31";
@@ -148,6 +149,39 @@ public class ImportServiceTest extends AbstractTest {
 		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryService.retrieveAncestors("131148009", "MAIN/2002-01-31", false));
 		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/2005-01-31", false));
 		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/2006-01-31", false));
+
+		Map<Long, Set<Long>> expectedInvalidRelationships = new HashMap<>();
+		expectedInvalidRelationships.put(108874022L, Sets.newHashSet(116680003L, 106237007L, 116676008L));
+		expectedInvalidRelationships.put(108921029L, Sets.newHashSet(116680003L, 106237007L));
+
+		assertEquals(Collections.emptyMap(), queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2002-07-31", true));
+		assertEquals(expectedInvalidRelationships, queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2002-07-31", false));
+		assertConceptsMissingOrInactive("MAIN/2002-07-31", "116680003", "106237007", "116676008");
+
+		assertEquals(Collections.emptyMap(), queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2010-01-31", true));
+		assertEquals(expectedInvalidRelationships, queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2010-01-31", false));
+		assertConceptsMissingOrInactive("MAIN/2010-01-31", "116680003", "106237007", "116676008");
+
+		assertEquals(Collections.emptyMap(), queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2010-07-31", true));
+		assertEquals(expectedInvalidRelationships, queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2010-07-31", false));
+
+		assertEquals(Collections.emptyMap(), queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2011-01-31", true));
+		assertEquals(Collections.emptyMap(), queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2011-01-31", false));
+		assertConceptsActive("MAIN/2011-01-31", "116680003", "106237007", "116676008");
+	}
+
+	private void assertConceptsMissingOrInactive(String path, String... ids) {
+		for (String id : ids) {
+			Concept notActiveConcept = conceptService.find(id, path);
+			assertTrue("Concept " + id + " should be missing or inactive.", notActiveConcept == null || !notActiveConcept.isActive());
+		}
+	}
+
+	private void assertConceptsActive(String path, String... ids) {
+		for (String id : ids) {
+			Concept activeConcept = conceptService.find(id, path);
+			assertTrue("Concept " + id + " should be active.", activeConcept.isActive());
+		}
 	}
 
 	@Test
@@ -202,7 +236,7 @@ public class ImportServiceTest extends AbstractTest {
 
 		// Test inactivation refset loading
 		final Concept inactiveConcept = conceptService.find("118225008", branchPath);
-		Assert.assertEquals(false, inactiveConcept.isActive());
+		Assert.assertFalse(inactiveConcept.isActive());
 		final ReferenceSetMember inactivationIndicator = inactiveConcept.getInactivationIndicatorMember();
 		Assert.assertNotNull("Inactivation indicator should not be null", inactivationIndicator);
 		Assert.assertEquals("900000000000484002", inactivationIndicator.getAdditionalField("valueId"));
@@ -244,6 +278,11 @@ public class ImportServiceTest extends AbstractTest {
 
 		final Page<Concept> conceptPage = conceptService.findAll(branchPath, PageRequest.of(0, 200));
 		Assert.assertEquals(77, conceptPage.getNumberOfElements());
+
+		assertEquals("Branch " + branchPath + " should contain no invalid stated relationships.",
+				Collections.emptySet(), queryService.findActiveRelationshipsReferencingNotActiveConcepts(branchPath, true).keySet());
+		assertEquals("Branch " + branchPath + " should contain no invalid inferred relationships.",
+				Collections.emptySet(), queryService.findActiveRelationshipsReferencingNotActiveConcepts(branchPath, false).keySet());
 	}
 
 	private Set<Long> asSet(String string) {
