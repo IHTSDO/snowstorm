@@ -8,6 +8,7 @@ import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.identifier.cis.CISClient;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.mrcm.MRCMService;
@@ -53,9 +54,13 @@ public class App extends Config implements ApplicationRunner {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public static void main(String[] args) {
-		System.setProperty("org.apache.tomcat.util.buf.UDecoder.ALLOW_ENCODED_SLASH", "true"); // Swagger encodes the slash in branch paths
-		System.setProperty("tomcat.util.http.parser.HttpParser.requestTargetAllow", "{}|"); // Allow these unencoded characters in URL (used in ECL)
-		SpringApplication.run(App.class, args);
+		if (args != null && args.length > 0 && args[0].equals("--cis-client")) {
+			CISClient.main(args);
+		} else {
+			System.setProperty("org.apache.tomcat.util.buf.UDecoder.ALLOW_ENCODED_SLASH", "true"); // Swagger encodes the slash in branch paths
+			System.setProperty("tomcat.util.http.parser.HttpParser.requestTargetAllow", "{}|"); // Allow these unencoded characters in URL (used in ECL)
+			SpringApplication.run(App.class, args);
+		}
 	}
 	
 	@Override

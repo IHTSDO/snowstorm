@@ -34,6 +34,7 @@ public class CISClient implements IdentifierSource {
 	//private static final String GENERATE = "generate";
 	private static final String RESERVE = "reserve";
 	private static final String REGISTER = "register";
+	private static final String BULK_RESERVE = "--bulk-reserve";
 
 	private static int STATUS_SUCCESS = 2;
 	private static int STATUS_FAIL = 3;
@@ -193,25 +194,39 @@ public class CISClient implements IdentifierSource {
 	}
 
 	// Used by script
-	public static void main(String[] args) throws ServiceException {
+	public static void main(String[] args) {
+		if (args.length != 8) {
+			System.err.println("Not enough arguments for CIS reserve.");
+			System.exit(1);
+		}
+
+		if (!args[1].equals(BULK_RESERVE)) {
+			System.err.println("Missing argument " + BULK_RESERVE);
+			System.exit(1);
+		}
+
 		CISClient cisClient = new CISClient();
-		cisClient.cisApiUrl = args[0];
-		cisClient.username = args[1];
-		cisClient.password = args[2];
+		cisClient.cisApiUrl = args[2];
+		cisClient.username = args[3];
+		cisClient.password = args[4];
 		cisClient.timeout = 120;// seconds
 		cisClient.init();
 
-		int namespaceId = Integer.parseInt(args[3]);
-		String partitionId = args[4];
-		int quantity = Integer.parseInt(args[5]);
+		int namespaceId = Integer.parseInt(args[5]);
+		String partitionId = args[6];
+		int quantity = Integer.parseInt(args[7]);
 
 		System.out.println("Reserving " + quantity + " identifiers in namespace " + namespaceId + ", partitionId " + partitionId);
 
-		cisClient.reserve(
-				namespaceId,
-				partitionId,
-				quantity
-		);
+		try {
+			cisClient.reserve(
+					namespaceId,
+					partitionId,
+					quantity
+			);
+		} catch (ServiceException e) {
+			e.printStackTrace();
+		}
 	}
 
 }
