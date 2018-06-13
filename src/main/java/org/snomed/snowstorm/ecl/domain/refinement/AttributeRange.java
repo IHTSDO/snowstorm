@@ -27,11 +27,11 @@ class AttributeRange {
 		this.cardinalityMax = cardinalityMax;
 	}
 
-	boolean isTypeAcceptable(String conceptId) {
+	boolean isTypeWithinRange(String conceptId) {
 		return attributeTypeWildcard || possibleAttributeTypes.contains(conceptId);
 	}
 
-	boolean isValueAcceptable(String conceptAttributeValue) {
+	boolean isValueWithinRange(String conceptAttributeValue) {
 		return possibleAttributeValues == null || possibleAttributeValues.contains(parseLong(conceptAttributeValue));
 	}
 

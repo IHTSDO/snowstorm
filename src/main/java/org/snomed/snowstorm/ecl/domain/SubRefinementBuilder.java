@@ -53,8 +53,8 @@ public class SubRefinementBuilder implements RefinementBuilder {
 	}
 
 	@Override
-	public void setInclusionFilterRequired(boolean bool) {
-		refinementBuilder.setInclusionFilterRequired(bool);
+	public void inclusionFilterRequired() {
+		refinementBuilder.inclusionFilterRequired();
 	}
 
 	@Override

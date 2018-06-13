@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
-import io.swagger.models.auth.In;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.langauges.ecl.domain.refinement.EclAttribute;
@@ -65,7 +64,8 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			// The query is not capable of constraining the number of times an attribute occurs, only that it does or does not occur.
 			// Further cardinality checking against fetched index records can be enabled using the specificCardinality flag.
 			boolean specificCardinality = false;
-			BoolQueryBuilder withinCardinality = boolQuery();
+			boolean mustOccur = false;
+			boolean mustNotOccur = false;
 
 			// Cardinality scenarios:
 
@@ -88,26 +88,26 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			// x..0
 			else if (isZero(cardinalityMax)) {
 				// must NOT occur
-				query.mustNot(withinCardinality);
+				mustNotOccur = true;
 			}
 
 			// One or more
 			else if (cardinalityMin != null && cardinalityMin == 1 && cardinalityMax == null) {
 				// must occur
-				query.must(withinCardinality);
+				mustOccur = true;
 				// any number of times
 			}
 
 			// Specific positive cardinality
 			else {
 				// must occur
-				query.must(withinCardinality);
+				mustOccur = true;
 				// certain number of times
 				specificCardinality = true;
 			}
 
 			if (specificCardinality) {
-				refinementBuilder.setInclusionFilterRequired(true);
+				refinementBuilder.inclusionFilterRequired();
 			}
 
 
@@ -117,36 +117,61 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			List<Long> possibleAttributeValues = attributeRange.getPossibleAttributeValues();
 			Set<String> attributeTypeProperties = attributeRange.getPossibleAttributeTypes();
 			if (possibleAttributeValues == null) {
-				// Value is wildcard
-				BoolQueryBuilder oneOf = boolQuery();
-				if (equalsOperator) {
-					// Attribute just needs to exist
-					withinCardinality.must(oneOf);
-				} else {
-					// Attribute must not exist
-					withinCardinality.mustNot(oneOf);
-				}
-				for (String attributeTypeProperty : attributeTypeProperties) {
-					oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+				if (mustOccur || mustNotOccur) {
+					// Value is wildcard
+					BoolQueryBuilder oneOf = boolQuery();
+					if (mustOccur == equalsOperator) {
+						// Attribute just needs to exist
+						query.must(oneOf);
+					} else {
+						// Attribute must not exist
+						query.mustNot(oneOf);
+					}
+					for (String attributeTypeProperty : attributeTypeProperties) {
+						oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+					}
 				}
 			} else {
 				if (possibleAttributeValues.isEmpty()) {
 					// Attribute value is not a wildcard but empty selection
-					// Force query to return nothing
-					withinCardinality.must(termQuery("force-nothing", "true"));
+					if (mustOccur) {
+						// Force query to return nothing
+						query.must(termQuery("force-nothing", "true"));
+					}
 				} else {
-					if (equalsOperator) {
-						BoolQueryBuilder oneOf = boolQuery();
-						withinCardinality.must(oneOf);
-						for (String attributeTypeProperty : attributeTypeProperties) {
-							oneOf.should(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
+					// Value range established
+					if (mustOccur) {
+						if (equalsOperator) {
+							// One of the attributes in the range must have a value in the range
+							BoolQueryBuilder oneOf = boolQuery();
+							query.must(oneOf);
+							for (String attributeTypeProperty : attributeTypeProperties) {
+								oneOf.should(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
+							}
+						} else {
+							// One of the attributes in the range must be present.
+							// A concept may have the attribute value twice, one in and one outside the range.
+							// This can not be expressed in this concept level query
+							refinementBuilder.inclusionFilterRequired();
+
+							BoolQueryBuilder oneOf = boolQuery();
+							query.must(oneOf);
+							for (String attributeTypeProperty : attributeTypeProperties) {
+								oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+							}
 						}
-					} else {
-						BoolQueryBuilder oneOf = boolQuery();
-						withinCardinality.must(oneOf);
-						for (String attributeTypeProperty : attributeTypeProperties) {
-							oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
-							withinCardinality.mustNot(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
+					}
+
+					if (mustNotOccur) {
+						if (equalsOperator) {
+							// None of the attributes in the range may have a value in the range
+							for (String attributeTypeProperty : attributeTypeProperties) {
+								query.mustNot(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
+							}
+						} else {
+							// None of the attributes in the range may have a value outside of the range
+							// This can not be expressed in this concept level query
+							refinementBuilder.inclusionFilterRequired();
 						}
 					}
 				}
@@ -190,6 +215,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		attributeRange = getAttributeRange();
 		Map<Integer, Map<String, List<String>>> conceptAttributes = matchContext.getConceptAttributes();
 		boolean withinGroup = matchContext.isWithinGroup();
+		boolean equalsOperator = expressionComparisonOperator.equals("=");
 
 		// Count occurrence of this attribute within each group
 		final AtomicInteger attributeMatchCount = new AtomicInteger(0);
@@ -197,10 +223,10 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 
 		for (Map.Entry<Integer, Map<String, List<String>>> attributeGroup : conceptAttributes.entrySet()) {
 			attributeGroup.getValue().entrySet().stream()
-					.filter(entrySet -> attributeRange.isTypeAcceptable(entrySet.getKey()))
+					.filter(entrySet -> attributeRange.isTypeWithinRange(entrySet.getKey()))
 					.forEach((Map.Entry<String, List<String>> entrySet) ->
 							entrySet.getValue().forEach(conceptAttributeValue -> {
-								if (attributeRange.isValueAcceptable(conceptAttributeValue)) {
+								if (equalsOperator == attributeRange.isValueWithinRange(conceptAttributeValue)) {
 									// Increment count for attribute match in the concept
 									attributeMatchCount.incrementAndGet();
 									// Increment count for attribute match in this relationship group

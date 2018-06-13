@@ -56,8 +56,8 @@ public class RefinementBuilderImpl implements RefinementBuilder {
 	}
 
 	@Override
-	public void setInclusionFilterRequired(boolean inclusionFilterRequired) {
-		this.inclusionFilterRequired = inclusionFilterRequired;
+	public void inclusionFilterRequired() {
+		this.inclusionFilterRequired = true;
 	}
 
 	@Override

@@ -23,7 +23,7 @@ public interface RefinementBuilder {
 
 	QueryService getQueryService();
 
-	void setInclusionFilterRequired(boolean bool);
+	void inclusionFilterRequired();
 
 	boolean isInclusionFilterRequired();
 }

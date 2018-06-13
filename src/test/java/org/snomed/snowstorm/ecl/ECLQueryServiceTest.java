@@ -176,7 +176,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectByDescendantAndAncestorOperators() throws Exception {
+	public void selectByDescendantAndAncestorOperators() {
 		// Self
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT),
@@ -223,7 +223,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectParents() throws Exception {
+	public void selectParents() {
 		// Direct Parents
 		assertEquals(
 				Sets.newHashSet(),
@@ -239,7 +239,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectChildren() throws Exception {
+	public void selectChildren() {
 		// Direct Children
 		assertEquals(
 				Sets.newHashSet(MODEL_COMPONENT, RIGHT, BODY_STRUCTURE, CLINICAL_FINDING, PROCEDURE, ISA),
@@ -259,7 +259,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectMemberOfReferenceSet() throws Exception {
+	public void selectMemberOfReferenceSet() {
 		// Member of x
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, BODY_STRUCTURE),
@@ -274,7 +274,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectByAttributeType() throws Exception {
+	public void selectByAttributeType() {
 		assertEquals(
 				Sets.newHashSet(),
 				strings(selectConceptIds("*:" + CLINICAL_FINDING + "=*")));
@@ -303,7 +303,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectByAttributeValue() throws Exception {
+	public void selectByAttributeValue() {
 		// Attribute Value Equals
 		assertEquals(
 				Sets.newHashSet(BLEEDING, BLEEDING_SKIN),
@@ -333,14 +333,14 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectByAttributeConjunction() throws Exception {
+	public void selectByAttributeConjunction() {
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN),
 				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + HEMORRHAGE+ " , " + FINDING_SITE + "=*")));
 	}
 
 	@Test
-	public void selectByAttributeDisjunction() throws Exception {
+	public void selectByAttributeDisjunction() {
 		Collection<Long> ids = selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + HEMORRHAGE + " OR " + FINDING_SITE + "=*");
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN, BLEEDING, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
@@ -553,11 +553,13 @@ public class ECLQueryServiceTest extends AbstractTest {
 								"[1..*]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS)));
 
 		assertEquals(
-				Sets.newHashSet(),
+				Sets.newHashSet(PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
 				strings(selectConceptIds(
 						"<<" + CLINICAL_FINDING + ":" +
-								"[1..1]" + FINDING_SITE + " != <<" + BODY_STRUCTURE + "," +
-								"[1..*]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS)));
+								"{" +
+								"[1..1]" + FINDING_SITE + " != <<" + PULMONARY_VALVE_STRUCTURE + "," +
+								"[1..*]" + ASSOCIATED_MORPHOLOGY + "= <<" + STENOSIS + "" +
+								"}")));
 
 		assertEquals(
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
