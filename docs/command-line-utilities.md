@@ -5,4 +5,4 @@ The Snowstorm application can be used as a simple client of the Component Identi
 
 In order to reserve a block of identifiers to increment counters in CIS for a known namespace and partition use the following:
 
-`java -jar snowstorm*.jar --cis-client --bulk-reserve http://CIS_URL USERNAME PASSWORD NAMESPACE_ID PARTITION_ID QUANTITY`
+`java -jar snowstorm*.jar --cis-client --bulk-reserve http://CIS_API_URL USERNAME PASSWORD NAMESPACE_ID PARTITION_ID QUANTITY`
