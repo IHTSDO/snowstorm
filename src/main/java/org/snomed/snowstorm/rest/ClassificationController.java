@@ -48,6 +48,13 @@ public class ClassificationController {
 	public ItemsPage<RelationshipChange> getRelationshipChanges(@PathVariable String branch, @PathVariable String classificationId,
 																							   @RequestParam(required = false, defaultValue = "0") int offset,
 																							   @RequestParam(required = false, defaultValue = "1000") int limit) {
+
+		int maxLimit = 10_000;
+		if (limit > maxLimit) {
+			limit = maxLimit;
+			offset = 0;
+		}
+
 		return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.decodePath(branch), classificationId, ControllerHelper.getPageRequest(offset, limit)));
 	}
 
