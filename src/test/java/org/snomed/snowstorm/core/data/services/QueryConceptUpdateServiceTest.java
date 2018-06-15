@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Commit;
+import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,10 +12,14 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.query.DeleteQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -41,6 +46,9 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private ElasticsearchTemplate elasticsearchTemplate;
 
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 
@@ -378,7 +386,7 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRebuildSemanticIndexWithSameTripleActiveAndInactiveOnSameDate() throws ServiceException {
+	public void testRebuildSemanticIndexWithSameTripleActiveAndInactiveOnSameDate() throws ServiceException, InterruptedException {
 		String path = "MAIN";
 		List<Concept> concepts = new ArrayList<>();
 
@@ -416,6 +424,30 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 
 		assertEquals(4, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007=*"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(5, queryService.search(queryService.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
+
+		// Delete all documents in semantic index and rebuild
+
+		List<QueryConcept> queryConcepts = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().build(), QueryConcept.class);
+		assertEquals(6, queryConcepts.size());
+
+		DeleteQuery deleteQuery = new DeleteQuery();
+		deleteQuery.setQuery(new MatchAllQueryBuilder());
+		elasticsearchTemplate.delete(deleteQuery, QueryConcept.class);
+
+		// Wait for deletion to flush through
+		Thread.sleep(2000);
+
+		queryConcepts = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().build(), QueryConcept.class);
+		assertEquals(0, queryConcepts.size());
+
+		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
+
+		updateService.rebuildStatedAndInferredSemanticIndex(path);
+
+		assertEquals(4, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007=*"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(5, queryService.search(queryService.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
 	}
 
 	private void assertTC(Concept concept, Concept... ancestors) {
