@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 public class ConceptMini {
 
 	private String conceptId;
+	private String effectiveTime;
 	private Set<Description> activeFsns;
 	private String definitionStatusId;
 	private Boolean leafInferred;
@@ -33,6 +34,7 @@ public class ConceptMini {
 
 	public ConceptMini(Concept concept) {
 		this(concept.getConceptId());
+		effectiveTime = concept.getEffectiveTime();
 		active = concept.isActive();
 		definitionStatusId = concept.getDefinitionStatusId();
 		moduleId = concept.getModuleId();
@@ -58,6 +60,10 @@ public class ConceptMini {
 	@JsonView(value = View.Component.class)
 	public String getId() {
 		return conceptId;
+	}
+
+	public String getEffectiveTime() {
+		return effectiveTime;
 	}
 
 	public String getFsn() {

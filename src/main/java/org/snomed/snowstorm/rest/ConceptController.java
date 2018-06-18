@@ -37,7 +37,7 @@ public class ConceptController {
 	@Autowired
 	private QueryConceptUpdateService queryConceptUpdateService;
 
-	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET)
+	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
 	@ResponseBody
 	public ItemsPage<ConceptMini> findConcepts(
 			@PathVariable String branch,
