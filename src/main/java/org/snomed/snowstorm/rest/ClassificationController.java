@@ -43,7 +43,7 @@ public class ClassificationController {
 	}
 
 	@ApiOperation("Retrieve relationship changes made by a classification run on a branch")
-	@RequestMapping(value = "/{classificationId}/relationship-changes", method = RequestMethod.GET)
+	@RequestMapping(value = "/{classificationId}/relationship-changes", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
 	@ResponseBody
 	public ItemsPage<RelationshipChange> getRelationshipChanges(@PathVariable String branch, @PathVariable String classificationId,
 																							   @RequestParam(required = false, defaultValue = "0") int offset,

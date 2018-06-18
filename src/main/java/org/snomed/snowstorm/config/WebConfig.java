@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.config;
 
-import org.snomed.snowstorm.rest.converter.ConceptPageCSVConverter;
+import org.snomed.snowstorm.rest.converter.ItemsPageCSVConverter;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -12,7 +12,7 @@ public class WebConfig implements WebMvcConfigurer {
 
 	@Override
 	public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
-		converters.add(new ConceptPageCSVConverter());
+		converters.add(new ItemsPageCSVConverter());
 	}
 
 }
