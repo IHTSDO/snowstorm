@@ -1,9 +1,11 @@
 package org.snomed.snowstorm.core.data.services.classification;
 
+import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
@@ -150,7 +152,7 @@ public class ClassificationService {
 										inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(), PageRequest.of(0, 1), false, null).getTotalElements() > 0;
 										equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(), PageRequest.of(0, 1)).getTotalElements() > 0;
 
-									} catch (IOException e) {
+									} catch (IOException | ElasticsearchException e) {
 										latestStatus = ClassificationStatus.FAILED;
 										String message = "Failed to capture remote classification results.";
 										classification.setErrorMessage(message);
@@ -398,7 +400,7 @@ public class ClassificationService {
 		}
 	}
 
-	private void downloadRemoteResults(String classificationId) throws IOException {
+	private void downloadRemoteResults(String classificationId) throws IOException, ElasticsearchException {
 		logger.info("Downloading remote classification results for {}", classificationId);
 		try (ZipInputStream rf2ResultsZipStream = new ZipInputStream(serviceClient.downloadRf2Results(classificationId))) {
 			ZipEntry zipEntry;
@@ -413,7 +415,7 @@ public class ClassificationService {
 		}
 	}
 
-	private void saveRelationshipChanges(String classificationId, InputStream rf2Stream) throws IOException {
+	private void saveRelationshipChanges(String classificationId, InputStream rf2Stream) throws IOException, ElasticsearchException {
 		// Leave the stream open after use.
 		BufferedReader reader = new BufferedReader(new InputStreamReader(rf2Stream));
 
@@ -436,11 +438,14 @@ public class ClassificationService {
 		}
 		if (!relationshipChanges.isEmpty()) {
 			logger.info("Saving {} classification relationship changes", relationshipChanges.size());
-			relationshipChangeRepository.saveAll(relationshipChanges);
+			List<List<RelationshipChange>> partition = Lists.partition(relationshipChanges, 10_000);
+			for (List<RelationshipChange> changes : partition) {
+				relationshipChangeRepository.saveAll(changes);
+			}
 		}
 	}
 
-	private void saveEquivalentConcepts(String classificationId, InputStream rf2Stream) throws IOException {
+	private void saveEquivalentConcepts(String classificationId, InputStream rf2Stream) throws IOException, ElasticsearchException {
 		// Leave the stream open after use.
 		BufferedReader reader = new BufferedReader(new InputStreamReader(rf2Stream));
 
@@ -459,7 +464,10 @@ public class ClassificationService {
 		}
 		if (!equivalentConceptsMap.isEmpty()) {
 			logger.info("Saving {} classification equivalent concept sets", equivalentConceptsMap.size());
-			equivalentConceptsRepository.saveAll(equivalentConceptsMap.values());
+			List<List<EquivalentConcepts>> partition = Lists.partition(new ArrayList<>(equivalentConceptsMap.values()), 10_000);
+			for (List<EquivalentConcepts> equivalentConcepts : partition) {
+				equivalentConceptsRepository.saveAll(equivalentConcepts);
+			}
 		}
 	}
 }
