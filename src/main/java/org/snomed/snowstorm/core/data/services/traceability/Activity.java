@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services.traceability;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.snomed.snowstorm.core.data.domain.Concept;
 
 import java.util.HashMap;
@@ -54,14 +55,16 @@ public class Activity {
 
 		private Concept concept;
 		private Set<ComponentChange> changes;
+		private boolean statedChange;
 
 		public ConceptActivity(Concept concept) {
 			this.concept = concept;
 			changes = new HashSet<>();
 		}
 
-		public void addComponentChange(ComponentChange change) {
+		public ConceptActivity addComponentChange(ComponentChange change) {
 			changes.add(change);
+			return this;
 		}
 
 		public Concept getConcept() {
@@ -70,6 +73,21 @@ public class Activity {
 
 		public Set<ComponentChange> getChanges() {
 			return changes;
+		}
+
+		public void statedChange() {
+			statedChange = true;
+		}
+
+		public void addStatedChange(boolean addStatedChange) {
+			if (addStatedChange) {
+				statedChange();
+			}
+		}
+
+		@JsonIgnore
+		public boolean isStatedChange() {
+			return statedChange;
 		}
 	}
 

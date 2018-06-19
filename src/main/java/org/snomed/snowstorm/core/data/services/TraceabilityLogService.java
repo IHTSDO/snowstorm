@@ -13,10 +13,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static java.lang.Long.parseLong;
 
@@ -33,6 +30,8 @@ public class TraceabilityLogService {
 	private String jmsQueuePrefix;
 
 	private ObjectMapper objectMapper;
+
+	private static final int RECORD_MAX_INFERRED_CHANGES = 1_000;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -64,18 +63,20 @@ public class TraceabilityLogService {
 			Activity.ConceptActivity conceptActivity = activity.addConceptActivity(concept);
 			activityMap.put(concept.getConceptIdAsLong(), conceptActivity);
 			if (concept.isChanged() || concept.isDeleted()) {
-				conceptActivity.addComponentChange(getChange(concept));
+				conceptActivity.addComponentChange(getChange(concept)).statedChange();
 			}
 		}
 		for (Description description : descriptions) {
 			if (description.isChanged() || description.isDeleted()) {
-				activityMap.get(parseLong(description.getConceptId())).addComponentChange(getChange(description));
+				activityMap.get(parseLong(description.getConceptId())).addComponentChange(getChange(description)).statedChange();
 			}
 			componentToConceptIdMap.put(parseLong(description.getDescriptionId()), parseLong(description.getConceptId()));
 		}
 		for (Relationship relationship : relationships) {
 			if (relationship.isChanged() || relationship.isDeleted()) {
-				activityMap.get(parseLong(relationship.getSourceId())).addComponentChange(getChange(relationship));
+				activityMap.get(parseLong(relationship.getSourceId()))
+						.addComponentChange(getChange(relationship))
+						.addStatedChange(!Concepts.INFERRED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId()));
 			}
 			componentToConceptIdMap.put(parseLong(relationship.getRelationshipId()), parseLong(relationship.getSourceId()));
 		}
@@ -102,7 +103,27 @@ public class TraceabilityLogService {
 				conceptActivity.addComponentChange(new Activity.ComponentChange(
 						componentType,
 						referencedComponentId,
-						"UPDATE"));
+						"UPDATE"))
+						.statedChange();
+			}
+		}
+
+		if (activityMap.size() > RECORD_MAX_INFERRED_CHANGES) {
+			// Limit the number of inferred changes recorded
+			List<String> conceptChangesToRemove = new ArrayList<>();
+			int inferredChangesAccepted = 0;
+			for (Activity.ConceptActivity conceptActivity : activityMap.values()) {
+				if (!conceptActivity.isStatedChange()) {
+					if (inferredChangesAccepted < RECORD_MAX_INFERRED_CHANGES) {
+						inferredChangesAccepted++;
+					} else {
+						conceptChangesToRemove.add(conceptActivity.getConcept().getConceptId());
+					}
+				}
+			}
+			Map<String, Activity.ConceptActivity> changes = activity.getChanges();
+			for (String conceptId : conceptChangesToRemove) {
+				changes.remove(conceptId);
 			}
 		}
 
