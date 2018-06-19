@@ -70,7 +70,7 @@ public class ConceptController {
 		return new ItemsPage<>(conceptMiniPage);
 	}
 
-	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST)
+	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST, produces = {"application/json", "text/csv"})
 	@ResponseBody
 	public ItemsPage<ConceptMini> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
 		ItemsPage<ConceptMini> concepts = findConcepts(BranchPathUriUtil.decodePath(branch),
