@@ -99,8 +99,16 @@ public class CISClient implements IdentifierSource {
 	@Override
 	public List<Long> reserve(int namespaceId, String partitionId, int quantity) throws ServiceException {
 		authenticate();
-		CISGenerateRequest request = new CISGenerateRequest(namespaceId, partitionId, quantity);
-		return callCis(RESERVE, request, false);
+		List<Long> reservedIdentifiers = new ArrayList<>();
+		int requestQuantity = MAX_BULK_REQUEST;
+		while (reservedIdentifiers.size() < quantity) {
+			if (requestQuantity > quantity) {
+				requestQuantity = quantity - reservedIdentifiers.size();
+			}
+			CISGenerateRequest request = new CISGenerateRequest(namespaceId, partitionId, requestQuantity);
+			reservedIdentifiers.addAll(callCis(RESERVE, request, false));
+		}
+		return reservedIdentifiers;
 	}
 
 	@Override
