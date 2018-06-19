@@ -249,9 +249,9 @@ public class ClassificationService {
 			throw new IllegalStateException("Classification status must be " + COMPLETED.toString() + " in order to save results.");
 		}
 
-		classification.setStatus(SAVED);
-
 		if (classification.getInferredRelationshipChangesFound()) {
+			classification.setStatus(SAVING_IN_PROGRESS);
+			classificationRepository.save(classification);
 
 			try (Commit commit = branchService.openCommit(path)) { // Commit in auto-close try block like this will roll back if an exception is thrown
 
@@ -286,10 +286,13 @@ public class ClassificationService {
 				} while (relationshipChangesPage.hasNext());
 
 				commit.markSuccessful();
+				classification.setStatus(SAVED);
 
 			} catch (ServiceException e) {
 				classification.setStatus(SAVE_FAILED);
 			}
+		} else {
+			classification.setStatus(SAVED);
 		}
 
 		classificationRepository.save(classification);
