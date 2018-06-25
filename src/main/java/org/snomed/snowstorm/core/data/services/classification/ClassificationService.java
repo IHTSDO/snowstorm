@@ -288,6 +288,7 @@ public class ClassificationService {
 
 				commit.markSuccessful();
 				classification.setStatus(SAVED);
+				classification.setSaveDate(new Date());
 			} catch (ServiceException e) {
 				classification.setStatus(SAVE_FAILED);
 				logger.error("Classification save failed {} {}", classification.getPath(), classificationId, e);

@@ -45,6 +45,9 @@ public class Classification {
 	@Field(type = FieldType.Date)
 	private Date lastCommitDate;
 
+	@Field(type = FieldType.Date)
+	private Date saveDate;
+
 	@Field(type = FieldType.Boolean)
 	private Boolean inferredRelationshipChangesFound;
 
@@ -127,6 +130,14 @@ public class Classification {
 
 	public void setLastCommitDate(Date lastCommitDate) {
 		this.lastCommitDate = lastCommitDate;
+	}
+
+	public Date getSaveDate() {
+		return saveDate;
+	}
+
+	public void setSaveDate(Date saveDate) {
+		this.saveDate = saveDate;
 	}
 
 	public Boolean getInferredRelationshipChangesFound() {
