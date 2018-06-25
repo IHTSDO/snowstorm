@@ -93,12 +93,13 @@ public class ClassificationController {
 			"to 'SAVED' or 'SAVE_FAILED'.\n" +
 			"Currently only the state can be changed from 'COMPLETED' to 'SAVED'.")
 	@RequestMapping(value = "/{classificationId}", method = RequestMethod.PUT)
-	@Async
 	public void updateClassification(@PathVariable String branch, @PathVariable String classificationId, @RequestBody ClassificationUpdateRequest updateRequest) {
 		if (updateRequest.getStatus() != ClassificationStatus.SAVED) {
 			throw new IllegalArgumentException("The only expected status is " + ClassificationStatus.SAVED.toString());
 		}
-		classificationService.saveClassificationResultsToBranch(BranchPathUriUtil.decodePath(branch), classificationId);
+		String path = BranchPathUriUtil.decodePath(branch);
+		classificationService.classificationSaveStatusCheck(path, classificationId);
+		classificationService.saveClassificationResultsToBranch(path, classificationId);
 	}
 
 	public static void main(String[] args) throws URISyntaxException {

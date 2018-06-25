@@ -37,6 +37,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.GetQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
@@ -244,11 +245,9 @@ public class ClassificationService {
 		return classification;
 	}
 
+	@Async
 	public void saveClassificationResultsToBranch(String path, String classificationId) {
-		Classification classification = findClassification(path, classificationId);
-		if (classification.getStatus() != COMPLETED) {
-			throw new IllegalStateException("Classification status must be " + COMPLETED.toString() + " in order to save results.");
-		}
+		Classification classification = classificationSaveStatusCheck(path, classificationId);
 
 		if (classification.getInferredRelationshipChangesFound()) {
 			classification.setStatus(SAVING_IN_PROGRESS);
@@ -298,6 +297,14 @@ public class ClassificationService {
 		}
 
 		classificationRepository.save(classification);
+	}
+
+	public Classification classificationSaveStatusCheck(String path, String classificationId) {
+		Classification classification = findClassification(path, classificationId);
+		if (classification.getStatus() != COMPLETED) {
+			throw new IllegalStateException("Classification status must be " + COMPLETED.toString() + " in order to save results.");
+		}
+		return classification;
 	}
 
 	private void applyRelationshipChangesToConcept(Concept concept, List<RelationshipChange> relationshipChanges, boolean copyDescriptions) {
