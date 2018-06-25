@@ -7,6 +7,7 @@ import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.common.Strings;
+import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.ihtsdo.otf.snomedboot.domain.rf2.RelationshipFieldIndexes;
@@ -255,16 +256,21 @@ public class ClassificationService {
 
 			try (Commit commit = branchService.openCommit(path)) { // Commit in auto-close try block like this will roll back if an exception is thrown
 
-				int pageNumber = 0;// Page 0 is first in Spring
-				Page<RelationshipChange> relationshipChangesPage;
+				NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+						.withQuery(termQuery("classificationId", classificationId))
+						.withSort(new FieldSortBuilder("sourceId"))
+						.withPageable(LARGE_PAGE);
+				try (CloseableIterator<RelationshipChange> relationshipChangeStream = elasticsearchOperations.stream(queryBuilder.build(), RelationshipChange.class)) {
 
-				do {
-					// Grab a page of relationship changes
-					relationshipChangesPage = doGetRelationshipChanges(path, classificationId, PageRequest.of(pageNumber, LARGE_PAGE.getPageSize()), false, null);
+					List<RelationshipChange> changesBatch = new ArrayList<>();
+					int i = 0;
+					while (i++ < 10_000 && relationshipChangeStream.hasNext()) {
+						changesBatch.add(relationshipChangeStream.next());
+					}
 
 					// Group changes by concept
 					Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
-					for (RelationshipChange relationshipChange : relationshipChangesPage.getContent()) {
+					for (RelationshipChange relationshipChange : changesBatch) {
 						conceptToChangeMap.computeIfAbsent(Long.parseLong(relationshipChange.getSourceId()), conceptId -> new ArrayList<>()).add(relationshipChange);
 					}
 
@@ -279,17 +285,13 @@ public class ClassificationService {
 
 					// Update concepts
 					conceptService.updateWithinCommit(concepts, commit);
-
-					pageNumber++;
-
-					// Repeat until no pages left - all within same commit
-				} while (relationshipChangesPage.hasNext());
+				}
 
 				commit.markSuccessful();
 				classification.setStatus(SAVED);
-
 			} catch (ServiceException e) {
 				classification.setStatus(SAVE_FAILED);
+				logger.error("Classification save failed {} {}", classification.getPath(), classificationId, e);
 			}
 		} else {
 			classification.setStatus(SAVED);
