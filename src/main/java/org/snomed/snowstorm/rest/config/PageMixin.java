@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
 import java.util.List;
+import java.util.Map;
 
 public abstract class PageMixin {
 
@@ -35,6 +36,9 @@ public abstract class PageMixin {
 	@JsonProperty("items")
 	@JsonView(value = View.Component.class)
 	abstract List getContent();
+
+	@JsonView(value = View.Component.class)
+	abstract Map<String, Map<String, Long>> getFilters();
 
 	@JsonIgnore
 	abstract Sort getSort();

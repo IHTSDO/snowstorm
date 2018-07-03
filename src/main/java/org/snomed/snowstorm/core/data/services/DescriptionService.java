@@ -8,6 +8,7 @@ import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -184,6 +185,7 @@ public class DescriptionService extends ComponentService {
 
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(builder)
+				.addAggregation(AggregationBuilders.terms("module").field(Description.Fields.MODULE_ID))
 				.withPageable(pageRequest);
 
 		return elasticsearchTemplate.queryForPage(addTermSort(queryBuilder.build()), Description.class);
