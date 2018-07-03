@@ -186,6 +186,7 @@ public class DescriptionService extends ComponentService {
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(builder)
 				.addAggregation(AggregationBuilders.terms("module").field(Description.Fields.MODULE_ID))
+				.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
 				.withPageable(pageRequest);
 
 		return elasticsearchTemplate.queryForPage(addTermSort(queryBuilder.build()), Description.class);

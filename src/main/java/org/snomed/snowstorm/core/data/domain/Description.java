@@ -24,6 +24,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		String TERM_LEN = "termLen";
 		String CONCEPT_ID = "conceptId";
 		String TYPE_ID = "typeId";
+		String LANGUAGE_CODE = "languageCode";
 	}
 
 	@JsonView(value = View.Component.class)
