@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -510,8 +509,8 @@ public class ConceptServiceTest extends AbstractTest {
 	public void testLatestVersionMatch() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
 
-		assertEquals(1, descriptionService.findDescriptions("MAIN", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
-		assertEquals(0, descriptionService.findDescriptions("MAIN", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
 
 		// Create branch (base point is now)
 		branchService.create("MAIN/A");
@@ -521,14 +520,14 @@ public class ConceptServiceTest extends AbstractTest {
 		concept.getDescriptions().iterator().next().setTerm("Bone");
 		conceptService.update(concept, "MAIN");
 
-		assertEquals(0, descriptionService.findDescriptions("MAIN", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
-		assertEquals(1, descriptionService.findDescriptions("MAIN", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
 
 		printAllDescriptions("MAIN");
 		printAllDescriptions("MAIN/A");
 
-		assertEquals("Branch A should see old version of concept because of old base point.", 1, descriptionService.findDescriptions("MAIN/A", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
-		assertEquals("Branch A should not see new version of concept because of old base point.", 0, descriptionService.findDescriptions("MAIN/A", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
+		assertEquals("Branch A should see old version of concept because of old base point.", 1, descriptionService.findDescriptionsWithAggregations("MAIN/A", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
+		assertEquals("Branch A should not see new version of concept because of old base point.", 0, descriptionService.findDescriptionsWithAggregations("MAIN/A", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
 
 		final Concept concept1 = conceptService.find("1", "MAIN");
 		assertEquals(1, concept1.getDescriptions().size());
@@ -668,7 +667,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	private void printAllDescriptions(String path) {
-		final Page<Description> descriptions = descriptionService.findDescriptions(path, null, ServiceTestUtil.PAGE_REQUEST);
+		final Page<Description> descriptions = descriptionService.findDescriptionsWithAggregations(path, null, ServiceTestUtil.PAGE_REQUEST);
 		logger.info("Description on " + path);
 		for (Description description : descriptions) {
 			logger.info("{}", description);

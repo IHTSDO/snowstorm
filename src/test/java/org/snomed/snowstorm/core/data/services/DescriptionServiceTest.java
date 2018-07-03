@@ -47,15 +47,15 @@ public class DescriptionServiceTest extends AbstractTest {
 		testUtil.createConceptWithPathIdAndTerms("MAIN", "4", "Foot");
 		testUtil.createConceptWithPathIdAndTerms("MAIN", "5", "Footwear");
 
-		List<Description> content = descriptionService.findDescriptions("MAIN", "Foo cr", ServiceTestUtil.PAGE_REQUEST).getContent();
+		List<Description> content = descriptionService.findDescriptionsWithAggregations("MAIN", "Foo cr", ServiceTestUtil.PAGE_REQUEST).getContent();
 		List<String> actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
 		assertEquals(Lists.newArrayList("Foot cramp", "Foot cramps"), actualTerms);
 
-		content = descriptionService.findDescriptions("MAIN", "Foo", ServiceTestUtil.PAGE_REQUEST).getContent();
+		content = descriptionService.findDescriptionsWithAggregations("MAIN", "Foo", ServiceTestUtil.PAGE_REQUEST).getContent();
 		actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
 		assertEquals(Lists.newArrayList("Foot", "Footwear", "Foot bone", "Foot cramp", "Foot cramps"), actualTerms);
 
-		content = descriptionService.findDescriptions("MAIN", "cramps", ServiceTestUtil.PAGE_REQUEST).getContent();
+		content = descriptionService.findDescriptionsWithAggregations("MAIN", "cramps", ServiceTestUtil.PAGE_REQUEST).getContent();
 		actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
 		assertEquals(Lists.newArrayList("Foot cramps"), actualTerms);
 	}

@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -36,7 +35,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 @Service
 public class QueryService {
 
-	public static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
+	static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
@@ -58,9 +57,6 @@ public class QueryService {
 
 	@Autowired
 	private RelationshipService relationshipService;
-
-	@Autowired
-	private ObjectMapper objectMapper;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -108,7 +104,7 @@ public class QueryService {
 				conceptIdPage = getSimpleLogicalSearchPage(conceptQuery, branchCriteria, pageRequest);
 			}
 
-		} else if (hasLogicalConditions && hasLexicalCriteria) {
+		} else if (hasLogicalConditions) {// AND hasLexicalCriteria (it must here)
 			// Logical and Lexical
 
 			// Perform lexical search first because this probably the smaller set
@@ -284,7 +280,7 @@ public class QueryService {
 		return retrieveAncestors(versionControlHelper.getBranchCriteria(path), path, stated, conceptId);
 	}
 
-	public Set<Long> retrieveParents(QueryBuilder branchCriteria, String path, boolean stated, String conceptId) {
+	public Set<Long> retrieveParents(QueryBuilder branchCriteria, boolean stated, String conceptId) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria)
@@ -334,31 +330,19 @@ public class QueryService {
 		return allAncestors;
 	}
 	
-	public List<Long> retrieveAllDescendants(String conceptId, String path, boolean stated) {
-		return retrieveAllDescendants(versionControlHelper.getBranchCriteria(path), stated, Collections.singleton(conceptId));
-	}
-
-	public Page<Long> retrieveDescendants(String conceptId, QueryBuilder branchCriteria, boolean stated, PageRequest pageRequest) {
-		return doRetrieveDescendants(branchCriteria, stated, Collections.singleton(conceptId), pageRequest);
-	}
-
-	public List<Long> retrieveAllDescendants(QueryBuilder branchCriteria, boolean stated, Collection<? extends Object> conceptIds) {
-		return doRetrieveDescendants(branchCriteria, stated, conceptIds, LARGE_PAGE).getContent();
-	}
-
-	private Page<Long> doRetrieveDescendants(QueryBuilder branchCriteria, boolean stated, Collection<? extends Object> conceptIds, PageRequest pageRequest) {
+	public List<Long> retrieveAllDescendants(QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIds) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria)
 						.must(termsQuery("ancestors", conceptIds))
 						.must(termQuery("stated", stated))
 				)
-				.withPageable(pageRequest)
+				.withPageable(LARGE_PAGE)
 				.withSort(SortBuilders.fieldSort(QueryConcept.CONCEPT_ID_FIELD))// This could be anything
 				.build();
 		Page<QueryConcept> conceptsPage = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class);
 		List<Long> conceptIdsFound = conceptsPage.getContent().stream().map(QueryConcept::getConceptIdL).collect(Collectors.toList());
-		return new PageImpl<>(conceptIdsFound, pageRequest, conceptsPage.getTotalElements());
+		return new PageImpl<>(conceptIdsFound, LARGE_PAGE, conceptsPage.getTotalElements()).getContent();
 	}
 
 	public Set<Long> retrieveConceptsInReferenceSet(QueryBuilder branchCriteria, String referenceSetId) {
@@ -369,7 +353,7 @@ public class QueryService {
 		return relationshipService.retrieveRelationshipDestinations(sourceConceptIds, attributeTypeIds, branchCriteria, stated);
 	}
 
-	public void deleteAll() {
+	void deleteAll() {
 		queryConceptRepository.deleteAll();
 	}
 
@@ -381,10 +365,6 @@ public class QueryService {
 	 */
 	public ConceptQueryBuilder createQueryBuilder(boolean stated) {
 		return new ConceptQueryBuilder(stated);
-	}
-
-	public ObjectMapper getObjectMapper() {
-		return objectMapper;
 	}
 
 	public final class ConceptQueryBuilder {
@@ -430,8 +410,6 @@ public class QueryService {
 
 		/**
 		 * Term prefix has a minimum length of 3 characters.
-		 *
-		 * @param termPrefix
 		 */
 		public ConceptQueryBuilder termPrefix(String termPrefix) {
 			if (termPrefix != null && termPrefix.isEmpty()) {
@@ -469,19 +447,19 @@ public class QueryService {
 			return termPrefix;
 		}
 
-		public String getEcl() {
+		private String getEcl() {
 			return ecl;
 		}
 
-		public boolean isStated() {
+		private boolean isStated() {
 			return stated;
 		}
 
-		public Set<String> getConceptIds() {
+		private Set<String> getConceptIds() {
 			return conceptIds;
 		}
 
-		public Boolean getActiveFilter() {
+		private Boolean getActiveFilter() {
 			return activeFilter;
 		}
 	}

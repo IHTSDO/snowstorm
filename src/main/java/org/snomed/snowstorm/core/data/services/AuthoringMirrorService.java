@@ -32,6 +32,7 @@ public class AuthoringMirrorService {
 	@Autowired
 	private BranchMergeService branchMergeService;
 
+	@Autowired
 	private ObjectMapper objectMapper;
 
 	private static final Pattern BRANCH_MERGE_COMMIT_COMMENT_PATTERN = Pattern.compile("^(.*) performed merge of (MAIN[^ ]*) to (MAIN[^ ]*)$");
@@ -55,7 +56,7 @@ public class AuthoringMirrorService {
 		}
 	}
 
-	public void receiveActivity(TraceabilityActivity activity) throws ServiceException {
+	void receiveActivity(TraceabilityActivity activity) throws ServiceException {
 		String branchPath = activity.getBranchPath();
 		String commitComment = activity.getCommitComment();
 		Matcher matcher = BRANCH_MERGE_COMMIT_COMMENT_PATTERN.matcher(commitComment);
@@ -68,16 +69,14 @@ public class AuthoringMirrorService {
 			}
 
 			logger.info("Mirroring traceability content change '{}'", commitComment);
-			changes.values().forEach(conceptChange -> {
-				conceptChange.getChanges().forEach(componentChange -> {
-					if ("Concept".equals(componentChange.getComponentType()) && "DELETE".equals(componentChange.getType())) {
-						String componentId = componentChange.getComponentId();
-						if (conceptService.exists(componentId, branchPath)) {
-							conceptService.deleteConceptAndComponents(componentId, branchPath, true);
-						}
+			changes.values().forEach(conceptChange -> conceptChange.getChanges().forEach(componentChange -> {
+				if ("Concept".equals(componentChange.getComponentType()) && "DELETE".equals(componentChange.getType())) {
+					String componentId = componentChange.getComponentId();
+					if (conceptService.exists(componentId, branchPath)) {
+						conceptService.deleteConceptAndComponents(componentId, branchPath, true);
 					}
-				});
-			});
+				}
+			}));
 			List<Concept> conceptsToCreateUpdate = changes.values().stream().filter(componentChange -> componentChange.getConcept() != null).map(ConceptChange::getConcept).collect(Collectors.toList());
 			if (!conceptsToCreateUpdate.isEmpty()) {
 				conceptService.createUpdate(conceptsToCreateUpdate, branchPath);
@@ -152,15 +151,16 @@ public class AuthoringMirrorService {
 	// Local testing method
 	public void replayDirectoryOfFiles(String path) throws IOException, ServiceException {
 		File dir = new File(path);
-		for (File file : dir.listFiles()) {
-			logger.info("Replaying file {}", file.getName());
-			receiveActivityFile(new FileInputStream(file));
+		File[] files = dir.listFiles();
+		if (files != null) {
+			for (File file : files) {
+				logger.info("Replaying file {}", file.getName());
+				receiveActivityFile(new FileInputStream(file));
+			}
+		} else {
+			logger.info("No traceability replay files found.");
 		}
 		logger.info("Directory of traceability files replay complete.");
 	}
 
-	@Autowired
-	public void setObjectMapper(ObjectMapper objectMapper) {
-		this.objectMapper = objectMapper;
-	}
 }

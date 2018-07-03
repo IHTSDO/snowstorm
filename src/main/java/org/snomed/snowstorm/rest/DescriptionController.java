@@ -28,31 +28,35 @@ public class DescriptionController {
 	@Autowired
 	private DescriptionService descriptionService;
 
+	private final AggregationNameConverter languageAggregationNameConverter = new AggregationNameConverter() {
+		@Override
+		public boolean canConvert(String aggregationGroupName) {
+			return aggregationGroupName.equals("language");
+		}
+
+		@Override
+		public String convert(String aggregationName) {
+			return new Locale(aggregationName).getDisplayLanguage().toLowerCase();
+		}
+	};
+
 	@RequestMapping(value = "browser/{branch}/descriptions", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public Page<DescriptionSearchResult> findConcepts(@PathVariable String branch, @RequestParam(required = false) String query,
+	public Page<DescriptionSearchResult> findConcepts(@PathVariable String branch, @RequestParam(required = false) String term,
 			@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "50") int limit) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
-		AggregatedPage<Description> page = (AggregatedPage<Description>) descriptionService.findDescriptions(branch, query, pageRequest);
+
+		AggregatedPage<Description> page = (AggregatedPage<Description>) descriptionService.findDescriptionsWithAggregations(branch, term, pageRequest);
 		Set<String> conceptIds = page.getContent().stream().map(Description::getConceptId).collect(Collectors.toSet());
 		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds).getResultsMap();
 
 		List<DescriptionSearchResult> results = new ArrayList<>();
 		page.getContent().forEach(d -> results.add(new DescriptionSearchResult(d.getTerm(), d.isActive(), conceptMinis.get(d.getConceptId()))));
 
-		return new PageWithFilters<>(results, pageRequest, page.getTotalElements(), page.getAggregations(), new AggregationNameConverter() {
-			@Override
-			public boolean canConvert(String aggregationGroupName) {
-				return aggregationGroupName.equals("language");
-			}
-			@Override
-			public String convert(String aggregationName) {
-				return new Locale(aggregationName).getDisplayLanguage().toLowerCase();
-			}
-		});
+		return new PageWithFilters<>(results, pageRequest, page.getTotalElements(), page.getAggregations(), languageAggregationNameConverter);
 	}
 
 	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.GET)
