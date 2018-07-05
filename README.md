@@ -13,4 +13,3 @@ Documentation is sparse for now, but will be improved as the project moves out o
 - [Loading SNOMED](docs/loading-snomed.md)
 - [Using the API](docs/using-the-api.md)
 - [Configuration Guide](docs/configuration-guide.md)
-- [Command Line Utilities](docs/command-line-utilities.md)

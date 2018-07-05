@@ -122,7 +122,7 @@ public class IdentifierService {
 		try {
 			for (Map.Entry<Integer, Set<Long>> entry : namespaceIdentifierMap.entrySet()) {
 				Integer namespace = entry.getKey();
-				identifierSource.registerIdentifiers(namespace, entry.getValue());
+				identifierSource.registerIds(namespace, entry.getValue());
 				logger.info("Registered {} identifiers for namespace {}", entry.getValue().size(), namespace);
 			}
 			// Once registered delete identifiers from temp store

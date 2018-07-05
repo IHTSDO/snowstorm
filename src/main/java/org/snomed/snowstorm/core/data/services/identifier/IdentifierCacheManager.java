@@ -109,7 +109,7 @@ public class IdentifierCacheManager implements Runnable {
 		int quantityRequired = cache.getMaxCapacity() - cache.identifiersAvailable() + extraRequired;
 		try {
 			logger.info("Topping up {} by {}", cache, quantityRequired);
-			List<Long> newIdentifiers = identifierSource.reserve(cache.getNamespaceId(), cache.getPartitionId(), quantityRequired);
+			List<Long> newIdentifiers = identifierSource.reserveIds(cache.getNamespaceId(), cache.getPartitionId(), quantityRequired);
 			cache.topUp(newIdentifiers);
 			logger.info("Top up of {} by {} complete",cache, quantityRequired);
 		} catch (Exception e) {
@@ -152,7 +152,7 @@ public class IdentifierCacheManager implements Runnable {
 		
 		if (!requestSatisfied) {
 			//If we don't have the right cache, or it doesn't have sufficient availability, then call storage directly
-			idBlock.addAll(componentType, identifierSource.reserve(namespaceId, partitionId, quantityRequired));
+			idBlock.addAll(componentType, identifierSource.reserveIds(namespaceId, partitionId, quantityRequired));
 		}
 	}
 

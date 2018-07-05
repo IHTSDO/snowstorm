@@ -2,12 +2,12 @@ package org.snomed.snowstorm.config;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.base.Predicate;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.repositories.config.BranchStoreMixIn;
+import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.snowstorm.config.elasticsearch.SnowstormElasticsearchMappingContext;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
@@ -19,10 +19,9 @@ import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierCacheManager;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalIdentifierSource;
-import org.snomed.snowstorm.core.data.services.identifier.cis.CISClient;
+import org.snomed.snowstorm.core.data.services.identifier.SnowstormCISClient;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
-import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
@@ -44,14 +43,16 @@ import org.springframework.jms.support.converter.MessageType;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
-import springfox.documentation.RequestHandler;
 import springfox.documentation.builders.RequestHandlerSelectors;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.ApiSelectorBuilder;
 import springfox.documentation.spring.web.plugins.Docket;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -134,7 +135,7 @@ public abstract class Config {
 		return new DomainEntityConfiguration();
 	}
 
-	public void initialiseIndices(boolean deleteExisting) {
+	protected void initialiseIndices(boolean deleteExisting) {
 		// Initialse Elasticsearch indices
 		Class<?>[] allDomainEntityTypes = domainEntityConfiguration().getAllDomainEntityTypes().toArray(new Class<?>[]{});
 		ComponentService.initialiseIndexAndMappingForPersistentClasses(
@@ -165,11 +166,17 @@ public abstract class Config {
 	}
 	
 	@Bean
-	public IdentifierSource getIdentifierStorage(@Value("${cis.api.url}") String cisApiUrl) {
+	public IdentifierSource getIdentifierStorage(
+			@Value("${cis.api.url}") String cisApiUrl,
+			@Value("${cis.username}") String username,
+			@Value("${cis.password}") String password,
+			@Value("${cis.softwareName}") String softwareName,
+			@Value("${cis.timeout}") int timeoutSeconds) {
+
 		if (cisApiUrl.equals("local")) {
 			return new LocalIdentifierSource();
 		} else {
-			return new CISClient();  
+			return new SnowstormCISClient(cisApiUrl, username, password, softwareName, timeoutSeconds);
 		}
 	}
 	

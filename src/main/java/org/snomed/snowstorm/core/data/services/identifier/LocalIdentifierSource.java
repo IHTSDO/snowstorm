@@ -16,7 +16,7 @@ public class LocalIdentifierSource implements IdentifierSource {
 	}
 
 	@Override
-	public List<Long> reserve(int namespace, String partitionId, int quantity)
+	public List<Long> reserveIds(int namespace, String partitionId, int quantity)
 			throws ServiceException {
 		List<Long> response = new ArrayList<>();
 		for (int x=0; x<quantity; x++) {
@@ -29,7 +29,7 @@ public class LocalIdentifierSource implements IdentifierSource {
 	}
 
 	@Override
-	public void registerIdentifiers(int namespace,
+	public void registerIds(int namespace,
 			Collection<Long> idsAssigned) throws ServiceException {
 		//TODO Persist current max sequence for each namespace / partition
 		//and generate in sequence rather than randomly
