@@ -15,6 +15,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Document(indexName = "es-description", type = "description", shards = 8)
 public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
@@ -22,6 +24,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	public interface Fields extends SnomedComponent.Fields {
 		String TERM = "term";
 		String TERM_LEN = "termLen";
+		String TAG = "tag";
 		String CONCEPT_ID = "conceptId";
 		String TYPE_ID = "typeId";
 		String LANGUAGE_CODE = "languageCode";
@@ -39,6 +42,9 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	@Field(type = FieldType.Integer)
 	private int termLen;
+
+	@Field(type = FieldType.keyword)
+	private String tag;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.keyword, store = true)
@@ -296,6 +302,17 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public int getTermLen() {
 		return termLen;
+	}
+
+	public String getTag() {
+		if (Concepts.FSN.equals(typeId)) {
+			Pattern pattern = Pattern.compile(".+ \\((.+)\\)");
+			Matcher matcher = pattern.matcher(term);
+			if (matcher.matches()) {
+				return matcher.group(1);
+			}
+		}
+		return null;
 	}
 
 	public String getConceptId() {

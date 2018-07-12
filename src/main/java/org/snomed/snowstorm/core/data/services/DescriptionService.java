@@ -8,7 +8,10 @@ import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
+import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -19,6 +22,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
+import org.springframework.data.elasticsearch.core.aggregation.impl.AggregatedPageImpl;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
@@ -28,6 +33,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
 
 @Service
 public class DescriptionService extends ComponentService {
@@ -176,20 +182,53 @@ public class DescriptionService extends ComponentService {
 		if (timer != null) timer.checkpoint("get lang refset " + getFetchCount(allConceptIds.size()));
 	}
 
-	public Page<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
+	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 		final BoolQueryBuilder builder = boolQuery();
 		builder.must(branchCriteria);
 		addTermClauses(term, builder);
 
+		// Fetch concept semantic tag aggregation
+		// Not all descriptions are FSNs so use: description -> concept -> active FSN
+		Set<Long> conceptIds = getAllConceptIds(builder);
+		AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termsQuery(Description.Fields.ACTIVE, true))
+						.must(termsQuery(Description.Fields.TYPE_ID, Concepts.FSN))
+						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
+				)
+				.withPageable(PAGE_OF_ONE)
+				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG))
+				.build(), Description.class);
+		Aggregation semanticTagsAggregation = semanticTagResults.getAggregation("semanticTags");
+
+		// Perform description search with description property aggregations
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(builder)
 				.addAggregation(AggregationBuilders.terms("module").field(Description.Fields.MODULE_ID))
 				.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
 				.withPageable(pageRequest);
+		AggregatedPage<Description> descriptions = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(addTermSort(queryBuilder.build()), Description.class);
 
-		return elasticsearchTemplate.queryForPage(addTermSort(queryBuilder.build()), Description.class);
+		// Merge aggregations
+		List<Aggregation> allAggregations = new ArrayList<>(descriptions.getAggregations().asList());
+		allAggregations.add(semanticTagsAggregation);
+		return new AggregatedPageImpl<>(descriptions.getContent(), descriptions.getPageable(), descriptions.getTotalElements(), new Aggregations(allAggregations));
+	}
+
+	private Set<Long> getAllConceptIds(BoolQueryBuilder builder) {
+		Set<Long> conceptIds = new HashSet<>();
+		try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(
+				new NativeSearchQueryBuilder()
+						.withQuery(builder)
+						.withFields(Description.Fields.CONCEPT_ID)
+						.withPageable(LARGE_PAGE)
+						.build(), Description.class)) {
+			descriptionStream.forEachRemaining(description -> conceptIds.add(Long.parseLong(description.getConceptId())));
+		}
+		return conceptIds;
 	}
 
 	static void addTermClauses(String term, BoolQueryBuilder boolBuilder) {
