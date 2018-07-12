@@ -74,13 +74,13 @@ public class App extends Config implements ApplicationRunner {
 				String releasePath = getOneValue(applicationArguments, IMPORT_ARG);
 				fileExistsForArgument(releasePath, IMPORT_ARG);
 
-				deleteAllAndImportEditionRF2FromDisk(releasePath, RF2Type.SNAPSHOT);
+				importEditionRF2FromDisk(releasePath, RF2Type.SNAPSHOT);
 			} else if (applicationArguments.containsOption(IMPORT_FULL_ARG)) {
 				// Import many releases or 'Full' from an Edition RF2 zip file from disk at startup
 				String releasePath = getOneValue(applicationArguments, IMPORT_FULL_ARG);
 				fileExistsForArgument(releasePath, IMPORT_FULL_ARG);
 
-				deleteAllAndImportEditionRF2FromDisk(releasePath, RF2Type.FULL);
+				importEditionRF2FromDisk(releasePath, RF2Type.FULL);
 			}
 			if (applicationArguments.containsOption(REPLAY_TRACEABILITY_DIRECTORY)) {
 				String replayDirectory = getOneValue(applicationArguments, REPLAY_TRACEABILITY_DIRECTORY);
@@ -113,7 +113,7 @@ public class App extends Config implements ApplicationRunner {
 		}
 	}
 
-	private void deleteAllAndImportEditionRF2FromDisk(String releasePath, RF2Type importType) {
+	private void importEditionRF2FromDisk(String releasePath, RF2Type importType) {
 		// Import archive
 		String importId = importService.createJob(importType, "MAIN");
 		try {
