@@ -184,6 +184,7 @@ public class DescriptionService extends ComponentService {
 
 	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		List<Aggregation> allAggregations = new ArrayList<>();
 
 		final BoolQueryBuilder builder = boolQuery();
 		builder.must(branchCriteria);
@@ -202,7 +203,19 @@ public class DescriptionService extends ComponentService {
 				.withPageable(PAGE_OF_ONE)
 				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG))
 				.build(), Description.class);
-		Aggregation semanticTagsAggregation = semanticTagResults.getAggregation("semanticTags");
+		allAggregations.add(semanticTagResults.getAggregation("semanticTags"));
+
+		// Fetch concept refset membership aggregation
+		AggregatedPage<ReferenceSetMember> membershipResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, true))
+						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
+				)
+				.withPageable(PAGE_OF_ONE)
+				.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID))
+				.build(), ReferenceSetMember.class);
+		allAggregations.add(membershipResults.getAggregation("membership"));
 
 		// Perform description search with description property aggregations
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
@@ -211,10 +224,9 @@ public class DescriptionService extends ComponentService {
 				.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
 				.withPageable(pageRequest);
 		AggregatedPage<Description> descriptions = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(addTermSort(queryBuilder.build()), Description.class);
+		allAggregations.addAll(descriptions.getAggregations().asList());
 
 		// Merge aggregations
-		List<Aggregation> allAggregations = new ArrayList<>(descriptions.getAggregations().asList());
-		allAggregations.add(semanticTagsAggregation);
 		return new AggregatedPageImpl<>(descriptions.getContent(), descriptions.getPageable(), descriptions.getTotalElements(), new Aggregations(allAggregations));
 	}
 

@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
+import org.elasticsearch.common.util.set.Sets;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.range.Range;
@@ -41,6 +42,10 @@ public class DescriptionServiceTest extends AbstractTest {
 
 	@Autowired
 	private DescriptionService descriptionService;
+
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
+
 	private ServiceTestUtil testUtil;
 
 	@Before
@@ -84,15 +89,23 @@ public class DescriptionServiceTest extends AbstractTest {
 		setModulesAndLanguage(concepts);
 		conceptService.create(concepts, path);
 
+		referenceSetMemberService.createMembers(path, Sets.newHashSet(
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN, "3"),
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN, "4"),
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE, "5")
+		));
+
 		Aggregations foodAggs = descriptionService.findDescriptionsWithAggregations(path, "food", PageRequest.of(0, 10)).getAggregations();
 		assertEquals("{900000000000207008=1}", getAggregationString("module", foodAggs));
 		assertEquals("{en=1}", getAggregationString("language", foodAggs));
 		assertEquals("{food=1}", getAggregationString("semanticTags", foodAggs));
+		assertEquals("{}", getAggregationString("membership", foodAggs));
 
 		Aggregations pizzaAggs = descriptionService.findDescriptionsWithAggregations(path, "pizza", PageRequest.of(0, 10)).getAggregations();
 		assertEquals("{900000000000207008=3}", getAggregationString("module", pizzaAggs));
 		assertEquals("{en=3}", getAggregationString("language", pizzaAggs));
 		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaAggs));
+		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", pizzaAggs));
 	}
 
 	private String getAggregationString(String name, Aggregations aggregations) {
