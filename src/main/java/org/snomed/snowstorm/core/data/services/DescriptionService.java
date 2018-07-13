@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import ch.qos.logback.classic.Level;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.ComponentService;
@@ -183,7 +184,9 @@ public class DescriptionService extends ComponentService {
 	}
 
 	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
+		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
 		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		timer.checkpoint("Build branch criteria");
 		List<Aggregation> allAggregations = new ArrayList<>();
 
 		final BoolQueryBuilder builder = boolQuery();
@@ -193,6 +196,7 @@ public class DescriptionService extends ComponentService {
 		// Fetch concept semantic tag aggregation
 		// Not all descriptions are FSNs so use: description -> concept -> active FSN
 		Set<Long> conceptIds = getAllConceptIds(builder);
+		timer.checkpoint("Fetch all related concept ids for semantic tag aggregation");
 		AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria)
@@ -204,6 +208,7 @@ public class DescriptionService extends ComponentService {
 				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG))
 				.build(), Description.class);
 		allAggregations.add(semanticTagResults.getAggregation("semanticTags"));
+		timer.checkpoint("Semantic tag aggregation");
 
 		// Fetch concept refset membership aggregation
 		AggregatedPage<ReferenceSetMember> membershipResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
@@ -216,6 +221,7 @@ public class DescriptionService extends ComponentService {
 				.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID))
 				.build(), ReferenceSetMember.class);
 		allAggregations.add(membershipResults.getAggregation("membership"));
+		timer.checkpoint("Concept refset membership aggregation");
 
 		// Perform description search with description property aggregations
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
@@ -225,6 +231,8 @@ public class DescriptionService extends ComponentService {
 				.withPageable(pageRequest);
 		AggregatedPage<Description> descriptions = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(addTermSort(queryBuilder.build()), Description.class);
 		allAggregations.addAll(descriptions.getAggregations().asList());
+		timer.checkpoint("Fetch descriptions including module and language aggregations");
+		timer.finish();
 
 		// Merge aggregations
 		return new AggregatedPageImpl<>(descriptions.getContent(), descriptions.getPageable(), descriptions.getTotalElements(), new Aggregations(allAggregations));
