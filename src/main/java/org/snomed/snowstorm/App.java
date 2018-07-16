@@ -1,12 +1,10 @@
 package org.snomed.snowstorm;
 
-import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
@@ -31,12 +29,6 @@ public class App extends Config implements ApplicationRunner {
 	public static final String IMPORT_ARG = "import";
 	public static final String IMPORT_FULL_ARG = "import-full";
 	public static final String REPLAY_TRACEABILITY_DIRECTORY = "replay-traceability-directory";
-
-	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
-	private BranchService branchService;
 
 	@Autowired
 	private ImportService importService;

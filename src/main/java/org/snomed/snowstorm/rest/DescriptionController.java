@@ -2,12 +2,14 @@ package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.rest.converter.AggregationNameConverter;
-import org.snomed.snowstorm.rest.pojo.DescriptionSearchResult;
+import org.snomed.snowstorm.rest.pojo.BrowserDescriptionSearchResult;
+import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.snomed.snowstorm.rest.pojo.PageWithFilters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -43,20 +45,31 @@ public class DescriptionController {
 	@RequestMapping(value = "browser/{branch}/descriptions", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public Page<DescriptionSearchResult> findConcepts(@PathVariable String branch, @RequestParam(required = false) String term,
+	public Page<BrowserDescriptionSearchResult> findBrowserDescriptions(@PathVariable String branch, @RequestParam(required = false) String term,
 			@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "50") int limit) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 
-		AggregatedPage<Description> page = (AggregatedPage<Description>) descriptionService.findDescriptionsWithAggregations(branch, term, pageRequest);
+		AggregatedPage<Description> page = descriptionService.findDescriptionsWithAggregations(branch, term, pageRequest);
 		Set<String> conceptIds = page.getContent().stream().map(Description::getConceptId).collect(Collectors.toSet());
 		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds).getResultsMap();
 
-		List<DescriptionSearchResult> results = new ArrayList<>();
-		page.getContent().forEach(d -> results.add(new DescriptionSearchResult(d.getTerm(), d.isActive(), conceptMinis.get(d.getConceptId()))));
+		List<BrowserDescriptionSearchResult> results = new ArrayList<>();
+		page.getContent().forEach(d -> results.add(new BrowserDescriptionSearchResult(d.getTerm(), d.isActive(), conceptMinis.get(d.getConceptId()))));
 
 		return new PageWithFilters<>(results, pageRequest, page.getTotalElements(), page.getAggregations(), languageAggregationNameConverter);
+	}
+
+	@RequestMapping(value = "{branch}/descriptions", method = RequestMethod.GET)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public ItemsPage<Description> findDescriptions(@PathVariable String branch,
+			@RequestParam(required = false) @ApiParam("The concept id to match") String concept,
+			@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "50") int limit) {
+
+		branch = BranchPathUriUtil.decodePath(branch);
+		return new ItemsPage<>(descriptionService.findDescriptions(branch, null, concept, ControllerHelper.getPageRequest(offset, limit)));
 	}
 
 	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.GET)

@@ -31,6 +31,7 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -46,6 +47,26 @@ public class DescriptionService extends ComponentService {
 	private ElasticsearchOperations elasticsearchTemplate;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
+
+	public Page<Description> findDescriptions(String branch, String term, String concept, PageRequest pageRequest) {
+		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BoolQueryBuilder query = boolQuery().must(branchCriteria);
+		if (concept != null && !concept.isEmpty()) {
+			query.must(termQuery(Description.Fields.CONCEPT_ID, concept));
+		}
+		if (term != null && !term.isEmpty()) {
+			query.must(termQuery(Description.Fields.TERM, term));
+		}
+		Page<Description> descriptions = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+				.withQuery(query)
+				.withPageable(pageRequest)
+				.build(), Description.class);
+		List<Description> content = descriptions.getContent();
+		joinLangRefsetMembers(branchCriteria,
+				content.stream().map(Description::getConceptId).collect(Collectors.toSet()),
+				content.stream().collect(Collectors.toMap(Description::getDescriptionId, Function.identity())));
+		return descriptions;
+	}
 
 	public Set<Description> fetchDescriptions(String branchPath, Set<String> conceptIds) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
@@ -161,6 +182,12 @@ public class DescriptionService extends ComponentService {
 		}
 
 		// Fetch Lang Refset Members
+		joinLangRefsetMembers(branchCriteria, allConceptIds, descriptionIdMap);
+		if (timer != null) timer.checkpoint("get lang refset " + getFetchCount(allConceptIds.size()));
+	}
+
+	private void joinLangRefsetMembers(QueryBuilder branchCriteria, Set<String> allConceptIds, Map<String, Description> descriptionIdMap) {
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
 			queryBuilder.withQuery(boolQuery()
 					.must(branchCriteria)
@@ -180,7 +207,6 @@ public class DescriptionService extends ComponentService {
 					});
 			}
 		}
-		if (timer != null) timer.checkpoint("get lang refset " + getFetchCount(allConceptIds.size()));
 	}
 
 	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {

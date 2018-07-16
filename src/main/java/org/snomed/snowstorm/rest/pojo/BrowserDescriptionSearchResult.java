@@ -4,13 +4,13 @@ import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.rest.View;
 
-public class DescriptionSearchResult {
+public class BrowserDescriptionSearchResult {
 
 	private String term;
 	private boolean active;
 	private ConceptMini concept;
 
-	public DescriptionSearchResult(String term, boolean active, ConceptMini concept) {
+	public BrowserDescriptionSearchResult(String term, boolean active, ConceptMini concept) {
 		this.term = term;
 		this.active = active;
 		this.concept = concept;
