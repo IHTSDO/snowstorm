@@ -1,0 +1,2 @@
+id	effectiveTime	active	moduleId	refsetId	referencedComponentId	owlExpression
+8164a2fc-cac3-4b54-9d9e-f9c597a115ea	20180731	1	900000000000012004	733073007	123005000	TransitiveObjectProperty(:123005000)
