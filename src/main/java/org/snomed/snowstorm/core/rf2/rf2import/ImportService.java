@@ -9,6 +9,7 @@ import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetType;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -86,8 +87,10 @@ public class ImportService {
 					.withModuleIds(job.getModuleIds().toArray(new String[]{}));
 
 			// Also import all configured reference set types and their descendants
-			Set<String> configuredReferenceSetTypesAndDescendants = memberService.findConfiguredReferenceSetTypesAndDescendants(branchPath);
-			loadingProfile = loadingProfile.withRefsets(configuredReferenceSetTypesAndDescendants.toArray(new String[]{}));
+			List<ReferenceSetType> configuredReferenceSetTypes = memberService.findConfiguredReferenceSetTypes(branchPath);
+			for (ReferenceSetType refsetType : configuredReferenceSetTypes) {
+				loadingProfile = loadingProfile.withIncludedReferenceSetFilenamePattern(".*_" + refsetType.getFieldTypes() + "Refset_" + refsetType.getName() + ".*");
+			}
 
 			switch (importType) {
 				case DELTA:

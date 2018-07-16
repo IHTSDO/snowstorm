@@ -164,7 +164,7 @@ public class ExportServiceTest extends AbstractTest {
 
 			// OWL Axiom Refset
 			ZipEntry axioms = zipInputStream.getNextEntry();
-			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OwlAxiom733073007Delta_20180131.txt", axioms.getName());
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OWLAxiom733073007Delta_20180131.txt", axioms.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
 			assertEquals(ReferenceSetMemberExportWriter.HEADER + "\towlExpression", lines.get(0));
