@@ -2,16 +2,17 @@ package org.snomed.snowstorm.config;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.repositories.config.BranchStoreMixIn;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.snowstorm.config.elasticsearch.SnowstormElasticsearchMappingContext;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.config.ConceptStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.DescriptionStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.RelationshipStoreMixIn;
@@ -33,6 +34,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.EntityMapper;
 import org.springframework.data.elasticsearch.core.convert.MappingElasticsearchConverter;
+import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentEntity;
 import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchMappingContext;
 import org.springframework.data.elasticsearch.repository.config.EnableElasticsearchRepositories;
 import org.springframework.data.elasticsearch.rest.ElasticsearchRestClient;
@@ -75,6 +77,8 @@ public abstract class Config {
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean restApiReadOnly;
+
+	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Bean
 	public ExecutorService taskExecutor() {
@@ -138,11 +142,23 @@ public abstract class Config {
 	protected void initialiseIndices(boolean deleteExisting) {
 		// Initialse Elasticsearch indices
 		Class<?>[] allDomainEntityTypes = domainEntityConfiguration().getAllDomainEntityTypes().toArray(new Class<?>[]{});
+		ElasticsearchTemplate elasticsearchTemplate = elasticsearchTemplate();
 		ComponentService.initialiseIndexAndMappingForPersistentClasses(
 				deleteExisting,
-				elasticsearchTemplate(),
+				elasticsearchTemplate,
 				allDomainEntityTypes
 		);
+		if (deleteExisting) {
+			Set<Class> objectsNotVersionControlled = Sets.newHashSet(CodeSystem.class, CodeSystemVersion.class);
+			for (Class aClass : objectsNotVersionControlled) {
+				ElasticsearchPersistentEntity persistentEntity = elasticsearchTemplate.getPersistentEntityFor(aClass);
+				logger.info("Deleting index {}", persistentEntity.getIndexName());
+				elasticsearchTemplate.deleteIndex(persistentEntity.getIndexName());
+				logger.info("Creating index {}", persistentEntity.getIndexName());
+				elasticsearchTemplate.createIndex(aClass);
+				elasticsearchTemplate.putMapping(aClass);
+			}
+		}
 	}
 
 	@Bean
