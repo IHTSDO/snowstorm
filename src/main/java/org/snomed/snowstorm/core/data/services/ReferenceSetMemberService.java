@@ -239,8 +239,18 @@ public class ReferenceSetMemberService extends ComponentService {
 			branchService.create(path);
 		}
 		List<ReferenceSetType> existingTypes = findConfiguredReferenceSetTypes(path);
+		Set<ReferenceSetType> typesToRemove = new HashSet<>(existingTypes);
+		typesToRemove.removeAll(referenceSetTypes);
+		if (!typesToRemove.isEmpty()) {
+			logger.info("Removing reference set types: {}", typesToRemove);
+			try (Commit commit = branchService.openCommit(path)) {
+				typesToRemove.forEach(ReferenceSetType::markDeleted);
+				doSaveBatchComponents(typesToRemove, commit, ReferenceSetType.FIELD_ID, typeRepository);
+				commit.markSuccessful();
+			}
+		}
 
-		HashSet<ReferenceSetType> typesToAdd = new HashSet<>(referenceSetTypes);
+		Set<ReferenceSetType> typesToAdd = new HashSet<>(referenceSetTypes);
 		typesToAdd.removeAll(existingTypes);
 		if (!typesToAdd.isEmpty()) {
 			logger.info("Setting up reference set types: {}", typesToAdd);

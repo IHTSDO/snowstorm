@@ -7,6 +7,7 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.List;
+import java.util.Objects;
 
 // TODO: This should probably not be a DomainEntity because it should apply to all branches without needing rebase.
 @Document(indexName = "es-refset", type = "refset-type", shards = 8)
@@ -85,15 +86,18 @@ public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 	public boolean equals(Object o) {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
-
 		ReferenceSetType that = (ReferenceSetType) o;
-
-		return conceptId.equals(that.conceptId);
+		return Objects.equals(name, that.name) &&
+				Objects.equals(conceptId, that.conceptId) &&
+				Objects.equals(fieldNames, that.fieldNames) &&
+				Objects.equals(fieldTypes, that.fieldTypes) &&
+				Objects.equals(exportDir, that.exportDir);
 	}
 
 	@Override
 	public int hashCode() {
-		return conceptId.hashCode();
+
+		return Objects.hash(name, conceptId, fieldNames, fieldTypes, exportDir);
 	}
 
 	@Override
