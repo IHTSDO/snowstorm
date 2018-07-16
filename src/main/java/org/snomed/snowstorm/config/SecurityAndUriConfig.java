@@ -65,6 +65,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 				"/(.*)/concepts",
 				"/(.*)/concepts/.*",
 				"/(.*)/relationships.*",
+				"/(.*)/descriptions.*",
 				"/(.*)/members.*",
 				"/(.*)/classifications.*",
 				"/(.*)/integrity-check",
