@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
+@PropertySource("application.properties")
 @PropertySource("application-test.properties")
 @TestConfiguration
 public class TestConfig extends Config {
