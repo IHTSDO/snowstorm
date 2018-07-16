@@ -1,10 +1,12 @@
 package org.snomed.snowstorm.core.rf2.export;
 
+import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.apache.tomcat.util.http.fileupload.util.Streams;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -23,6 +25,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.*;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -43,6 +46,8 @@ public class ExportService {
 
 	@Autowired
 	private ExportConfigurationRepository exportConfigurationRepository;
+
+	private Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_AXIOM_REFERENCE_SET);
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -65,7 +70,7 @@ public class ExportService {
 
 	public void exportRF2Archive(ExportConfiguration exportConfiguration, OutputStream outputStream) throws ExportException {
 		File exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
-				exportConfiguration.getType(), false);
+				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly());
 		try {
 			Streams.copy(new FileInputStream(exportFile), outputStream, false);
 		} catch (IOException e) {
@@ -116,30 +121,34 @@ public class ExportService {
 				int inferredRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_Relationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, null);
 				logger.info("{} inferred and additional relationship states exported", inferredRelationshipLines);
 
-				if (!forClassification) { // TODO: We will need to export the OWL Reference Set soon
-					// Write Reference Sets
-					List<ReferenceSetType> referenceSetTypes = getReferenceSetTypes(branchCriteria);
-					logger.info("{} Reference Set Types found: {}", referenceSetTypes.size(), referenceSetTypes);
+				// Write Reference Sets
+				List<ReferenceSetType> referenceSetTypes = getReferenceSetTypes(branchCriteria).stream()
+						.filter(type -> !forClassification || refsetTypesRequiredForClassification.contains(type.getConceptId()))
+						.collect(Collectors.toList());
 
-					for (ReferenceSetType referenceSetType : referenceSetTypes) {
-						List<Long> refsetsOfThisType = new ArrayList<>(queryService.retrieveAllDescendants(branchCriteria, true, Collections.singleton(Long.parseLong(referenceSetType.getConceptId()))));
-						refsetsOfThisType.add(Long.parseLong(referenceSetType.getConceptId()));
-						for (Long refsetToExport : refsetsOfThisType) {
-							BoolQueryBuilder memberQuery = getContentQuery(exportType, branchCriteria);
-							memberQuery.must(QueryBuilders.termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetToExport));
-							long memberCount = elasticsearchTemplate.count(getNativeSearchQuery(memberQuery), ReferenceSetMember.class);
-							if (memberCount > 0) {
-								logger.info("Exporting Reference Set {} {} with {} members", refsetToExport, referenceSetType.getName(), memberCount);
-								exportComponents(
-										ReferenceSetMember.class,
-										"Refset/" + referenceSetType.getExportDir() + "/",
-										"der2_" + referenceSetType.getFieldTypes() + "Refset_" + referenceSetType.getName() + refsetToExport,
-										filenameEffectiveDate,
-										exportType,
-										zipOutputStream,
-										memberQuery,
-										referenceSetType.getFieldNameList());
-							}
+				logger.info("{} Reference Set Types found for this export: {}", referenceSetTypes.size(), referenceSetTypes);
+
+				for (ReferenceSetType referenceSetType : referenceSetTypes) {
+					List<Long> refsetsOfThisType = new ArrayList<>(queryService.retrieveAllDescendants(branchCriteria, true, Collections.singleton(Long.parseLong(referenceSetType.getConceptId()))));
+					refsetsOfThisType.add(Long.parseLong(referenceSetType.getConceptId()));
+					for (Long refsetToExport : refsetsOfThisType) {
+						BoolQueryBuilder memberQuery = getContentQuery(exportType, branchCriteria);
+						memberQuery.must(QueryBuilders.termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetToExport));
+						long memberCount = elasticsearchTemplate.count(getNativeSearchQuery(memberQuery), ReferenceSetMember.class);
+						if (memberCount > 0) {
+							logger.info("Exporting Reference Set {} {} with {} members", refsetToExport, referenceSetType.getName(), memberCount);
+							String exportDir = referenceSetType.getExportDir();
+							String entryDirectory = !exportDir.startsWith("/") ? "Refset/" + exportDir + "/" : exportDir.substring(1) + "/";
+							String entryFilenamePrefix = (!entryDirectory.startsWith("Terminology/") ? "der2_" : "sct2_") + referenceSetType.getFieldTypes() + "Refset_" + referenceSetType.getName() + refsetToExport;
+							exportComponents(
+									ReferenceSetMember.class,
+									entryDirectory,
+									entryFilenamePrefix,
+									filenameEffectiveDate,
+									exportType,
+									zipOutputStream,
+									memberQuery,
+									referenceSetType.getFieldNameList());
 						}
 					}
 				}
@@ -207,7 +216,11 @@ public class ExportService {
 
 	private List<ReferenceSetType> getReferenceSetTypes(QueryBuilder branchCriteria) {
 		BoolQueryBuilder contentQuery = getContentQuery(RF2Type.SNAPSHOT, branchCriteria);
-		return elasticsearchTemplate.queryForList(getNativeSearchQuery(contentQuery), ReferenceSetType.class);
+		return elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+				.withQuery(contentQuery)
+				.withSort(SortBuilders.fieldSort(ReferenceSetType.Fields.NAME))
+				.withPageable(LARGE_PAGE)
+				.build(), ReferenceSetType.class);
 	}
 
 	private NativeSearchQuery getNativeSearchQuery(BoolQueryBuilder contentQuery) {

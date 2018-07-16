@@ -22,6 +22,7 @@ import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetTypeRepository;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -32,6 +33,7 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -53,6 +55,9 @@ public class ReferenceSetMemberService extends ComponentService {
 
 	@Autowired
 	private ReferenceSetTypeRepository typeRepository;
+
+	@Autowired
+	private ECLQueryService eclQueryService;
 
 	@Autowired
 	private ReferenceSetTypesConfigurationService referenceSetTypesConfigurationService;
@@ -233,9 +238,7 @@ public class ReferenceSetMemberService extends ComponentService {
 		if (!branchService.exists(path)) {
 			branchService.create(path);
 		}
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
-		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(branchCriteria).withPageable(LARGE_PAGE).build();
-		List<ReferenceSetType> existingTypes = elasticsearchTemplate.queryForList(query, ReferenceSetType.class);
+		List<ReferenceSetType> existingTypes = findConfiguredReferenceSetTypes(path);
 
 		HashSet<ReferenceSetType> typesToAdd = new HashSet<>(referenceSetTypes);
 		typesToAdd.removeAll(existingTypes);
@@ -246,5 +249,28 @@ public class ReferenceSetMemberService extends ComponentService {
 				commit.markSuccessful();
 			}
 		}
+	}
+
+	public List<ReferenceSetType> findConfiguredReferenceSetTypes(String path) {
+		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(branchCriteria).withPageable(LARGE_PAGE).build();
+		return elasticsearchTemplate.queryForList(query, ReferenceSetType.class);
+	}
+
+	public Set<String> findConfiguredReferenceSetTypesAndDescendants(String path) {
+		List<ReferenceSetType> types = findConfiguredReferenceSetTypes(path);
+		if (types.isEmpty()) return Collections.emptySet();
+
+		StringBuilder stringBuilder = new StringBuilder();
+		for (ReferenceSetType type : types) {
+			if (stringBuilder.length() > 0) {
+				stringBuilder.append(" OR ");
+			}
+			stringBuilder.append("<").append(type.getConceptId());
+		}
+		List<Long> content = eclQueryService.selectConceptIds(stringBuilder.toString(), versionControlHelper.getBranchCriteria(path), path, true, LARGE_PAGE).getContent();
+		Set<String> ids = content.stream().map(Object::toString).collect(Collectors.toSet());
+		ids.addAll(types.stream().map(ReferenceSetType::getConceptId).collect(Collectors.toSet()));
+		return ids;
 	}
 }

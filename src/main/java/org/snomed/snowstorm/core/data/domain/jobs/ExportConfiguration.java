@@ -16,6 +16,8 @@ public final class ExportConfiguration {
 
 	private String filenameEffectiveDate;
 
+	private boolean conceptsAndRelationshipsOnly = false;
+
 	private String id;
 
 	public ExportConfiguration() {
@@ -48,6 +50,14 @@ public final class ExportConfiguration {
 
 	public void setFilenameEffectiveDate(String filenameEffectiveDate) {
 		this.filenameEffectiveDate = filenameEffectiveDate;
+	}
+
+	public boolean isConceptsAndRelationshipsOnly() {
+		return conceptsAndRelationshipsOnly;
+	}
+
+	public void setConceptsAndRelationshipsOnly(boolean conceptsAndRelationshipsOnly) {
+		this.conceptsAndRelationshipsOnly = conceptsAndRelationshipsOnly;
 	}
 
 	public String getId() {

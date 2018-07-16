@@ -23,6 +23,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -48,9 +49,10 @@ public class ExportServiceTest extends AbstractTest {
 
 	private String descriptionId;
 	private String textDefId;
+	private ReferenceSetMember<ReferenceSetMember> owlMember;
 
 	@Before
-	public void setup() throws IOException, ServiceException {
+	public void setup() throws ServiceException {
 		referenceSetMemberService.init();
 
 		List<Concept> concepts = new ArrayList<>();
@@ -62,8 +64,9 @@ public class ExportServiceTest extends AbstractTest {
 		concepts.add(gbLangRefsetConcept);
 
 		// Version first two concepts
-		conceptService.create(concepts, "MAIN");
-		releaseService.createVersion("20100131", "MAIN");
+		String path = "MAIN";
+		conceptService.create(concepts, path);
+		releaseService.createVersion("20100131", path);
 
 		String conceptId = "123001";
 		descriptionId = "124011";
@@ -84,7 +87,11 @@ public class ExportServiceTest extends AbstractTest {
 		concept.addRelationship(new Relationship("125021", "", true, Concepts.CORE_MODULE, conceptId, "100001", 0, Concepts.ISA, Concepts.STATED_RELATIONSHIP, Concepts.EXISTENTIAL));
 		concept.addRelationship(new Relationship("125022", "", true, Concepts.CORE_MODULE, conceptId, "100002", 0, Concepts.ISA, Concepts.INFERRED_RELATIONSHIP, Concepts.EXISTENTIAL));
 		concept.addRelationship(new Relationship("125023", "", true, Concepts.CORE_MODULE, conceptId, "100003", 0, Concepts.ISA, Concepts.ADDITIONAL_RELATIONSHIP, Concepts.EXISTENTIAL));
-		conceptService.create(concept, "MAIN");
+		conceptService.create(concept, path);
+
+		owlMember = new ReferenceSetMember<>(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, "123005000");
+		owlMember.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION, "TransitiveObjectProperty(:123005000)");
+		referenceSetMemberService.createMember(path, owlMember);
 	}
 
 	@Test
@@ -151,9 +158,17 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Refset/Language/der2_cRefset_Language900000000000508004Delta_20180131.txt", langRefset.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(3, lines.size());
-			assertEquals("id\teffectiveTime\tactive\tmoduleId\trefsetId\treferencedComponentId\tacceptabilityId", lines.get(0));
+			assertEquals(ReferenceSetMemberExportWriter.HEADER + "\tacceptabilityId", lines.get(0));
 			assertTrue(lines.contains(descriptionLanguageRefsetMemberId + "\t\t1\t900000000000207008\t900000000000508004\t124011\t900000000000548007"));
 			assertTrue(lines.contains(textDefLanguageRefsetMemberId + "\t\t1\t900000000000207008\t900000000000508004\t124012\t900000000000548007"));
+
+			// OWL Axiom Refset
+			ZipEntry axioms = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OwlAxiom733073007Delta_20180131.txt", axioms.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(ReferenceSetMemberExportWriter.HEADER + "\towlExpression", lines.get(0));
+			assertEquals(owlMember.getId() + "\t\t1\t900000000000207008\t733073007\t123005000\tTransitiveObjectProperty(:123005000)", lines.get(1));
 		}
 	}
 

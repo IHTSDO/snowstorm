@@ -15,6 +15,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -41,6 +42,9 @@ public class ImportServiceTest extends AbstractTest {
 	private ConceptService conceptService;
 
 	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
+
+	@Autowired
 	private QueryService queryService;
 
 	@Autowired
@@ -49,16 +53,16 @@ public class ImportServiceTest extends AbstractTest {
 	@Before
 	public void setup() {
 		codeSystemService.init();
+		referenceSetMemberService.init();
 	}
 
 	@Test
 	public void testImportFull() throws ReleaseImportException {
 		final String branchPath = "MAIN";
-		branchService.create(branchPath);
 		Assert.assertEquals(1, branchService.findAll().size());
 
 		String importId = importService.createJob(RF2Type.FULL, branchPath);
-		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
+		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_20180731.zip"));
 
 		final List<Branch> branches = branchService.findAll();
 		List<String> branchPaths = branches.stream().map(Branch::getPath).collect(Collectors.toList());
@@ -88,9 +92,10 @@ public class ImportServiceTest extends AbstractTest {
 				"MAIN/2012-07-31",
 				"MAIN/2013-01-31",
 				"MAIN/2013-07-31",
-				"MAIN/2014-01-31"), branchPaths);
+				"MAIN/2014-01-31",
+				"MAIN/2018-07-31"), branchPaths);
 
-		Assert.assertEquals(26, branches.size());
+		Assert.assertEquals(27, branches.size());
 		int a = 0;
 		Assert.assertEquals("MAIN", branches.get(a++).getPath());
 		Assert.assertEquals("MAIN/2002-01-31", branches.get(a++).getPath());
@@ -187,13 +192,12 @@ public class ImportServiceTest extends AbstractTest {
 	@Test
 	public void testImportSnapshot() throws ReleaseImportException {
 		final String branchPath = "MAIN";
-		branchService.create(branchPath);
 
 		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
 		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT).isEmpty());
 
 		String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath);
-		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
+		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_20180731.zip"));
 
 
 		final Concept conceptBleeding = conceptService.find("131148009", branchPath);
@@ -214,6 +218,10 @@ public class ImportServiceTest extends AbstractTest {
 		final Map<String, ReferenceSetMember> members = description.getLangRefsetMembers();
 		Assert.assertEquals(1, members.size());
 		Assert.assertEquals("900000000000548007", members.get("900000000000508004").getAdditionalField("acceptabilityId"));
+
+		ReferenceSetMember member = referenceSetMemberService.findMember(branchPath, "8164a2fc-cac3-4b54-9d9e-f9c597a115ea");
+		assertNotNull(member);
+		assertEquals("TransitiveObjectProperty(:123005000)", member.getAdditionalField("owlExpression"));
 
 		Assert.assertEquals(7, conceptBleeding.getRelationships().size());
 		Assert.assertEquals(4, conceptBleeding.getRelationships().stream().filter(r -> r.getCharacteristicTypeId().equals(Concepts.INFERRED_RELATIONSHIP)).count());
@@ -258,15 +266,14 @@ public class ImportServiceTest extends AbstractTest {
 		assertEquals(1, allVersions.size());
 		CodeSystemVersion codeSystemVersion = allVersions.get(0);
 		assertEquals("SNOMEDCT", codeSystemVersion.getShortName());
-		assertEquals("20140131", codeSystemVersion.getEffectiveDate());
-		assertEquals("2014-01-31", codeSystemVersion.getVersion());
+		assertEquals("20180731", codeSystemVersion.getEffectiveDate());
+		assertEquals("2018-07-31", codeSystemVersion.getVersion());
 		assertEquals("MAIN", codeSystemVersion.getParentBranchPath());
 	}
 
 	@Test
 	public void testImportSnapshotOnlyModelModule() throws ReleaseImportException {
 		final String branchPath = "MAIN";
-		branchService.create(branchPath);
 
 		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
 		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT).isEmpty());
@@ -274,7 +281,7 @@ public class ImportServiceTest extends AbstractTest {
 		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(RF2Type.SNAPSHOT, branchPath);
 		importConfiguration.setModuleIds(Collections.singleton(Concepts.MODEL_MODULE));
 		String importId = importService.createJob(importConfiguration);
-		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_GB_20140131.zip"));
+		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_20180731.zip"));
 
 		final Page<Concept> conceptPage = conceptService.findAll(branchPath, PageRequest.of(0, 200));
 		Assert.assertEquals(77, conceptPage.getNumberOfElements());

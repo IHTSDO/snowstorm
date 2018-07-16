@@ -12,6 +12,12 @@ import java.util.List;
 @Document(indexName = "es-refset", type = "refset-type", shards = 8)
 public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 
+	public interface Fields extends SnomedComponent.Fields {
+		String NAME = "name";
+		String CONCEPT_ID = "conceptId";
+		String EXPORT_DIR = "exportDir";
+	}
+
 	public static final String FIELD_ID = "conceptId";
 
 	@Field(type = FieldType.keyword)

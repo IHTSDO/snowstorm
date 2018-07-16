@@ -19,9 +19,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.io.InputStream;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 
 @Service
@@ -37,8 +35,8 @@ public class ImportService {
 			.withRefset(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET)
 			.withRefset("447563008")// ICD-9 Map
 			.withRefset("447562003")// ICD-10 Map
-			.withRefsets(Concepts.historicalAssociationNames.keySet().toArray(new String[Concepts.historicalAssociationNames.size()]))
-			.withRefsets(Concepts.MRCM_INTERNATIONAL_REFSETS.toArray(new String[Concepts.MRCM_INTERNATIONAL_REFSETS.size()]));
+			.withRefsets(Concepts.historicalAssociationNames.keySet().toArray(new String[0]))
+			.withRefsets(Concepts.MRCM_INTERNATIONAL_REFSETS.toArray(new String[0]));
 
 	@Autowired
 	private ConceptService conceptService;
@@ -86,6 +84,11 @@ public class ImportService {
 			job.setStatus(ImportJob.ImportStatus.RUNNING);
 			LoadingProfile loadingProfile = DEFAULT_LOADING_PROFILE
 					.withModuleIds(job.getModuleIds().toArray(new String[]{}));
+
+			// Also import all configured reference set types and their descendants
+			Set<String> configuredReferenceSetTypesAndDescendants = memberService.findConfiguredReferenceSetTypesAndDescendants(branchPath);
+			loadingProfile = loadingProfile.withRefsets(configuredReferenceSetTypesAndDescendants.toArray(new String[]{}));
+
 			switch (importType) {
 				case DELTA:
 					releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, getImportComponentFactory(branchPath));

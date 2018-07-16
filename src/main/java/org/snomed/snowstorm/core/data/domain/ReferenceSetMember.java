@@ -26,6 +26,10 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		String ACCEPTABILITY_ID = "acceptabilityId";
 	}
 
+	public interface OwlExpressionFields {
+		String OWL_EXPRESSION = "owlExpression";
+	}
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.keyword)
 	private String memberId;
