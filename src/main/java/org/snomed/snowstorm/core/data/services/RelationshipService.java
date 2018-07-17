@@ -37,9 +37,6 @@ public class RelationshipService extends ComponentService {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
-	@Autowired
-	private ConceptService conceptService;
-
 	public Relationship fetchRelationship(String branchPath, String relationshipId) {
 		Page<Relationship> relationships = findRelationships(branchPath, relationshipId, null, null, null, null, null, null, null, null, PageRequest.of(0, 1));
 		return relationships.getTotalElements() > 0 ? relationships.getContent().get(0) : null;
@@ -99,18 +96,7 @@ public class RelationshipService extends ComponentService {
 				.withQuery(query)
 				.withPageable(page);
 
-		Page<Relationship> relationshipPage = elasticsearchOperations.queryForPage(queryBuilder.build(), Relationship.class);
-		List<Relationship> relationships = relationshipPage.getContent();
-
-		Set<String> sourceIds = relationships.stream().map(Relationship::getSourceId).collect(Collectors.toSet());
-		Set<String> typeIds = relationships.stream().map(Relationship::getTypeId).collect(Collectors.toSet());
-
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, Sets.union(sourceIds, typeIds)).getResultsMap();
-		relationships.forEach(r -> {
-			r.setSource(conceptMinis.get(r.getSourceId()));
-			r.setType(conceptMinis.get(r.getTypeId()));
-		});
-		return relationshipPage;
+		return elasticsearchOperations.queryForPage(queryBuilder.build(), Relationship.class);
 	}
 
 	List<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {

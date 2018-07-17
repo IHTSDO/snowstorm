@@ -57,9 +57,6 @@ public class ReferenceSetMemberService extends ComponentService {
 	private ReferenceSetTypeRepository typeRepository;
 
 	@Autowired
-	private ECLQueryService eclQueryService;
-
-	@Autowired
 	private ReferenceSetTypesConfigurationService referenceSetTypesConfigurationService;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -267,20 +264,4 @@ public class ReferenceSetMemberService extends ComponentService {
 		return elasticsearchTemplate.queryForList(query, ReferenceSetType.class);
 	}
 
-	public Set<String> findConfiguredReferenceSetTypesAndDescendants(String path) {
-		List<ReferenceSetType> types = findConfiguredReferenceSetTypes(path);
-		if (types.isEmpty()) return Collections.emptySet();
-
-		StringBuilder stringBuilder = new StringBuilder();
-		for (ReferenceSetType type : types) {
-			if (stringBuilder.length() > 0) {
-				stringBuilder.append(" OR ");
-			}
-			stringBuilder.append("<").append(type.getConceptId());
-		}
-		List<Long> content = eclQueryService.selectConceptIds(stringBuilder.toString(), versionControlHelper.getBranchCriteria(path), path, true, LARGE_PAGE).getContent();
-		Set<String> ids = content.stream().map(Object::toString).collect(Collectors.toSet());
-		ids.addAll(types.stream().map(ReferenceSetType::getConceptId).collect(Collectors.toSet()));
-		return ids;
-	}
 }

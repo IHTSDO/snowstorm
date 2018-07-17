@@ -1,11 +1,12 @@
 package org.snomed.snowstorm.core.data.services;
 
 import ch.qos.logback.classic.Level;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
@@ -19,17 +20,14 @@ import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.repositories.ConceptRepository;
-import org.snomed.snowstorm.core.data.repositories.DescriptionRepository;
-import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
-import org.snomed.snowstorm.core.data.repositories.RelationshipRepository;
+import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierReservedBlock;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.util.MapUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -37,6 +35,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
@@ -45,12 +44,13 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
-public class ConceptService extends ComponentService implements CommitListener {
+public class ConceptService extends ComponentService {
 
 	@Autowired
 	private ConceptRepository conceptRepository;
@@ -63,6 +63,9 @@ public class ConceptService extends ComponentService implements CommitListener {
 
 	@Autowired
 	private ReferenceSetMemberRepository referenceSetMemberRepository;
+
+	@Autowired
+	private QueryConceptRepository queryConceptRepository;
 
 	@Autowired
 	private BranchService branchService;
@@ -83,22 +86,15 @@ public class ConceptService extends ComponentService implements CommitListener {
 	private IdentifierService identifierService;
 
 	@Autowired
-	private QueryService queryService;
-
-	@Autowired
-	private QueryConceptUpdateService queryConceptUpdateService;
-
-	@Autowired
 	private TraceabilityLogService traceabilityLogService;
 
-	@Value("${commit-hook.semantic-indexing.enabled:true}")
-	private boolean semanticIndexingEnabled;
+	private Cache<String, AsyncConceptChangeBatch> batchConceptChanges;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
 	public void init() {
-		branchService.addCommitListener(this);
+		batchConceptChanges = CacheBuilder.newBuilder().expireAfterWrite(2, TimeUnit.HOURS).build();
 	}
 
 	public Concept find(String id, String path) {
@@ -175,12 +171,6 @@ public class ConceptService extends ComponentService implements CommitListener {
 		descriptionService.fetchDescriptions(branchCriteria, null, conceptMiniMap, null, false);
 
 		return conceptMiniMap.values();
-	}
-
-	public Page<ConceptMini> findConceptDescendants(String conceptId, String path, Relationship.CharacteristicType form, PageRequest pageRequest) {
-		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(form == Relationship.CharacteristicType.stated);
-		queryBuilder.ecl("<" + conceptId);
-		return queryService.search(queryBuilder, path, pageRequest);
 	}
 
 	public Collection<ConceptMini> findConceptParents(String conceptId, String path, Relationship.CharacteristicType form) {
@@ -426,6 +416,26 @@ public class ConceptService extends ComponentService implements CommitListener {
 	public Iterable<Concept> createUpdate(List<Concept> concepts, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		return doSave(concepts, branch);
+	}
+
+	@Async
+	public void createUpdateAsync(List<Concept> concepts, String path, AsyncConceptChangeBatch batchConceptChange) {
+		synchronized (batchConceptChanges) {
+			batchConceptChanges.put(batchConceptChange.getId(), batchConceptChange);
+		}
+		try {
+			Iterable<Concept> updatedConcepts = createUpdate(concepts, path);
+			batchConceptChange.setConceptIds(StreamSupport.stream(updatedConcepts.spliterator(), false).map(Concept::getConceptIdAsLong).collect(Collectors.toList()));
+			batchConceptChange.setStatus(AsyncConceptChangeBatch.Status.COMPLETED);
+		} catch (ServiceException e) {
+			batchConceptChange.setStatus(AsyncConceptChangeBatch.Status.FAILED);
+			batchConceptChange.setMessage(e.getMessage());
+			logger.error("Batch concept change failed, id:{}, branch:{}", batchConceptChange.getId(), path, e);
+		}
+	}
+
+	public AsyncConceptChangeBatch getBatchConceptChange(String id) {
+		return batchConceptChanges.getIfPresent(id);
 	}
 
 	private <C extends SnomedComponent> boolean markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents, boolean rebase) {
@@ -776,47 +786,6 @@ public class ConceptService extends ComponentService implements CommitListener {
 		}
 	}
 
-	Set<Long> getInactiveOrMissingConceptIds(Set<Long> requiredActiveConcepts, QueryBuilder branchCriteria) {
-		// We can't select the concepts which are not there!
-		// For speed first we will count the concepts which are there and active
-		// If the count doesn't match we load the ids of the concepts which are there so we can work out those which are not.
-
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria)
-						.must(termQuery(SnomedComponent.Fields.ACTIVE, true)))
-				.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, requiredActiveConcepts))
-				.withPageable(PageRequest.of(0, 1));
-
-		Page<Concept> concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
-		if (concepts.getTotalElements() == requiredActiveConcepts.size()) {
-			return Collections.emptySet();
-		}
-
-		// Some concepts are missing - let's collect them
-
-		// Update query to collect concept ids efficiently
-		queryBuilder
-				.withFields(Concept.Fields.CONCEPT_ID)// Trigger mapping optimisation
-				.withPageable(LARGE_PAGE);
-
-		Set<Long> missingConceptIds = new LongOpenHashSet(requiredActiveConcepts);
-		try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
-			stream.forEachRemaining(concept -> missingConceptIds.remove(concept.getConceptIdAsLong()));
-		}
-
-		return missingConceptIds;
-	}
-
-	@Override
-	public void preCommitCompletion(Commit commit) throws IllegalStateException {
-		if (semanticIndexingEnabled) {
-			queryConceptUpdateService.updateStatedAndInferredSemanticIndex(commit);
-		} else {
-			logger.info("Semantic indexing is disabled.");
-		}
-	}
-
 	public void deleteAll() {
 		ExecutorService executorService = Executors.newCachedThreadPool();
 		List<Future> futures = Lists.newArrayList(
@@ -824,7 +793,7 @@ public class ConceptService extends ComponentService implements CommitListener {
 				executorService.submit(() -> descriptionRepository.deleteAll()),
 				executorService.submit(() -> relationshipRepository.deleteAll()),
 				executorService.submit(() -> referenceSetMemberRepository.deleteAll()),
-				executorService.submit(() -> queryService.deleteAll())
+				executorService.submit(() -> queryConceptRepository.deleteAll())
 		);
 		for (int i = 0; i < futures.size(); i++) {
 			getWithTimeoutOrCancel(futures.get(i), i);

@@ -3,10 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 import ch.qos.logback.classic.Level;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
-import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.ComponentService;
-import io.kaicode.elasticvc.api.PathUtil;
-import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Entity;
@@ -16,21 +13,22 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.QueryConcept;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.QueryConceptRepository;
 import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilder;
 import org.snomed.snowstorm.core.data.services.transitiveclosure.Node;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -40,7 +38,10 @@ import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
-public class QueryConceptUpdateService extends ComponentService {
+public class QueryConceptUpdateService extends ComponentService implements CommitListener {
+
+	@Value("${commit-hook.semantic-indexing.enabled:true}")
+	private boolean semanticIndexingEnabled;
 
 	protected static final int BATCH_SAVE_SIZE = 10000;
 	private static final long IS_A_TYPE = parseLong(Concepts.ISA);
@@ -55,12 +56,23 @@ public class QueryConceptUpdateService extends ComponentService {
 	private QueryConceptRepository queryConceptRepository;
 
 	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
 	private BranchService branchService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	@PostConstruct
+	public void init() {
+		branchService.addCommitListener(this);
+	}
+
+	@Override
+	public void preCommitCompletion(Commit commit) throws IllegalStateException {
+		if (semanticIndexingEnabled) {
+			updateStatedAndInferredSemanticIndex(commit);
+		} else {
+			logger.info("Semantic indexing is disabled.");
+		}
+	}
 
 	public void rebuildStatedAndInferredSemanticIndex(String branch) {
 		// TODO: Only use on MAIN
@@ -272,7 +284,7 @@ public class QueryConceptUpdateService extends ComponentService {
 		timer.checkpoint("Update graph using changed relationships.");
 		logger.debug("{} {} relationships added, {} inactive/removed.", relationshipsAdded.get(), formName, relationshipsRemoved.get());
 
-		Set<Long> inactiveOrMissingConceptIds = conceptService.getInactiveOrMissingConceptIds(requiredActiveConcepts, versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit));
+		Set<Long> inactiveOrMissingConceptIds = getInactiveOrMissingConceptIds(requiredActiveConcepts, versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit));
 		if (!inactiveOrMissingConceptIds.isEmpty()) {
 			logger.error("The following concepts have been referred to in relationships but are missing or inactive: " + inactiveOrMissingConceptIds);
 
@@ -398,6 +410,38 @@ public class QueryConceptUpdateService extends ComponentService {
 
 	private void doSaveBatch(Collection<QueryConcept> queryConcepts, Commit commit) {
 		doSaveBatchComponents(queryConcepts, commit, "conceptIdForm", queryConceptRepository);
+	}
+
+	Set<Long> getInactiveOrMissingConceptIds(Set<Long> requiredActiveConcepts, QueryBuilder branchCriteria) {
+		// We can't select the concepts which are not there!
+		// For speed first we will count the concepts which are there and active
+		// If the count doesn't match we load the ids of the concepts which are there so we can work out those which are not.
+
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria)
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true)))
+				.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, requiredActiveConcepts))
+				.withPageable(PageRequest.of(0, 1));
+
+		Page<Concept> concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
+		if (concepts.getTotalElements() == requiredActiveConcepts.size()) {
+			return Collections.emptySet();
+		}
+
+		// Some concepts are missing - let's collect them
+
+		// Update query to collect concept ids efficiently
+		queryBuilder
+				.withFields(Concept.Fields.CONCEPT_ID)// Trigger mapping optimisation
+				.withPageable(LARGE_PAGE);
+
+		Set<Long> missingConceptIds = new LongOpenHashSet(requiredActiveConcepts);
+		try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
+			stream.forEachRemaining(concept -> missingConceptIds.remove(concept.getConceptIdAsLong()));
+		}
+
+		return missingConceptIds;
 	}
 
 	private static final class AttributeChanges {

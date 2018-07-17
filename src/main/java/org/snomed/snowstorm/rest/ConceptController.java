@@ -2,18 +2,22 @@ package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ConceptView;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.util.*;
@@ -160,13 +164,23 @@ public class ConceptController {
 		conceptService.deleteConceptAndComponents(conceptId, BranchPathUriUtil.decodePath(branch), false);
 	}
 
+	@ApiOperation(value = "Start a bulk concept change.", notes = "Concepts can be created or updated using this endpoint.")
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/bulk", method = RequestMethod.POST)
-	@JsonView(value = View.Component.class)
-	public Iterable<Concept> updateConcepts(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts) throws ServiceException {
+	public ResponseEntity createConceptBulkChange(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts, UriComponentsBuilder uriComponentsBuilder) throws ServiceException {
 		List<Concept> conceptList = new ArrayList<>();
 		concepts.forEach(conceptView -> conceptList.add((Concept) conceptView));
-		return conceptService.createUpdate(conceptList, BranchPathUriUtil.decodePath(branch));
+		AsyncConceptChangeBatch batchConceptChange = new AsyncConceptChangeBatch();
+		conceptService.createUpdateAsync(conceptList, BranchPathUriUtil.decodePath(branch), batchConceptChange);
+		return ResponseEntity.created(uriComponentsBuilder.path("/browser/{branch}/concepts/bulk/{bulkChangeId}")
+				.buildAndExpand(branch, batchConceptChange.getId()).toUri()).build();
+	}
+
+	@ApiOperation("Fetch the status of a bulk concept creation or update.")
+	@ResponseBody
+	@RequestMapping(value = "/browser/{branch}/concepts/bulk/{bulkChangeId}", method = RequestMethod.GET)
+	public AsyncConceptChangeBatch getConceptBulkChange(@PathVariable String branch, @PathVariable String bulkChangeId) {
+		return ControllerHelper.throwIfNotFound("Bulk Change", conceptService.getBatchConceptChange(bulkChangeId));
 	}
 
 	@ResponseBody

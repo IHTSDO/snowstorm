@@ -102,8 +102,4 @@ public class ClassificationController {
 		classificationService.saveClassificationResultsToBranch(path, classificationId);
 	}
 
-	public static void main(String[] args) throws URISyntaxException {
-		new URI("http://localhost/a%2Fa/a");
-	}
-
 }

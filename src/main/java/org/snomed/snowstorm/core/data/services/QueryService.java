@@ -44,9 +44,6 @@ public class QueryService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private QueryConceptRepository queryConceptRepository;
-
-	@Autowired
 	private ConceptService conceptService;
 
 	@Autowired
@@ -353,8 +350,10 @@ public class QueryService {
 		return relationshipService.retrieveRelationshipDestinations(sourceConceptIds, attributeTypeIds, branchCriteria, stated);
 	}
 
-	void deleteAll() {
-		queryConceptRepository.deleteAll();
+	public Page<ConceptMini> findConceptDescendants(String conceptId, String path, Relationship.CharacteristicType form, PageRequest pageRequest, ConceptService conceptService) {
+		ConceptQueryBuilder queryBuilder = createQueryBuilder(form == Relationship.CharacteristicType.stated);
+		queryBuilder.ecl("<" + conceptId);
+		return search(queryBuilder, path, pageRequest);
 	}
 
 	/**

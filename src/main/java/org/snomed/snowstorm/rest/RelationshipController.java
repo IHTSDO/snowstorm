@@ -1,7 +1,9 @@
 package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
+import com.google.common.collect.Sets;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.RelationshipService;
@@ -9,6 +11,12 @@ import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping(produces = "application/json")
@@ -62,6 +70,8 @@ public class RelationshipController {
 				group,
 				ControllerHelper.getPageRequest(offset, limit));
 
+		expandSourceAndTarget(branch, relationshipPage.getContent());
+
 		relationshipPage.getContent().forEach(r -> {
 			r.getSource().nestFsn();
 			r.getType().nestFsn();
@@ -70,11 +80,26 @@ public class RelationshipController {
 		return new ItemsPage<>(relationshipPage);
 	}
 
+	private void expandSourceAndTarget(String branch, List<Relationship> relationships) {
+		Set<String> sourceIds = relationships.stream().map(Relationship::getSourceId).collect(Collectors.toSet());
+		Set<String> typeIds = relationships.stream().map(Relationship::getTypeId).collect(Collectors.toSet());
+
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, Sets.union(sourceIds, typeIds)).getResultsMap();
+		relationships.forEach(r -> {
+			r.setSource(conceptMinis.get(r.getSourceId()));
+			r.setType(conceptMinis.get(r.getTypeId()));
+		});
+	}
+
 	@RequestMapping(value = "{branch}/relationship/{relationshipId}", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public Relationship fetchDescription(@PathVariable String branch, @PathVariable String relationshipId) {
-		return ControllerHelper.throwIfNotFound("Relationship", relationshipService.fetchRelationship(BranchPathUriUtil.decodePath(branch), relationshipId));
+	public Relationship fetchRelationship(@PathVariable String branch, @PathVariable String relationshipId) {
+		Relationship relationship = relationshipService.fetchRelationship(BranchPathUriUtil.decodePath(branch), relationshipId);
+		if (relationship != null) {
+			expandSourceAndTarget(branch, Collections.singletonList(relationship));
+		}
+		return ControllerHelper.throwIfNotFound("Relationship", relationship);
 	}
 
 }
