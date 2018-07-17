@@ -3,8 +3,6 @@ package org.snomed.snowstorm.core.data.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
-
-import org.snomed.snowstorm.core.data.domain.Relationship.CharacteristicType;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -12,13 +10,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Document(indexName = "es-concept", type = "concept", shards = 8)
@@ -26,10 +18,10 @@ import java.util.stream.Collectors;
 public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
 	public interface Fields extends SnomedComponent.Fields {
+
 		String CONCEPT_ID = "conceptId";
 		String MODULE_ID = "moduleId";
 	}
-
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.keyword, store = true)
 	@Size(min = 5, max = 18)
@@ -66,12 +58,18 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	@JsonView(value = View.Component.class)
 	private Set<Relationship> relationships;
 
+	private Set<Axiom> axioms;
+
+	private Set<Axiom> generalConceptInclusionAxioms;
+
 	public Concept() {
 		active = true;
 		moduleId = "";
 		definitionStatusId = "";
 		descriptions = new HashSet<>();
 		relationships = new HashSet<>();
+		axioms = new HashSet<>();
+		generalConceptInclusionAxioms = new HashSet<>();
 	}
 
 	public Concept(String conceptId) {
@@ -101,7 +99,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 				|| !moduleId.equals(that.moduleId)
 				|| !definitionStatusId.equals(that.definitionStatusId);
 	}
-	
+
 	public boolean isPrimitive() {
 		return definitionStatusId.equals(Concepts.PRIMITIVE);
 	}
@@ -192,6 +190,24 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		relationship.setSourceId(this.conceptId);
 		relationships.add(relationship);
 		return this;
+	}
+
+	public Concept addAxiom(Axiom axiom) {
+		axiom.getRelationships().forEach(r -> r.setSourceId(this.conceptId));
+		axioms.add(axiom);
+		return this;
+	}
+
+	public Concept addGeneralConceptInclusionAxiom(Axiom axiom) {
+		axiom.getRelationships().forEach(r -> r.setSourceId(this.conceptId));
+		generalConceptInclusionAxioms.add(axiom);
+		return this;
+	}
+
+	public Set<ReferenceSetMember> getAllOwlAxiomMembers() {
+		Set<ReferenceSetMember> members = axioms.stream().map(Axiom::getReferenceSetMember).collect(Collectors.toSet());
+		members.addAll(generalConceptInclusionAxioms.stream().map(Axiom::getReferenceSetMember).collect(Collectors.toSet()));
+		return members;
 	}
 
 	@Override
@@ -299,6 +315,22 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public void setRelationships(Set<Relationship> relationships) {
 		this.relationships = relationships;
+	}
+
+	public Set<Axiom> getAxioms() {
+		return axioms;
+	}
+
+	public void setAxioms(Set<Axiom> axioms) {
+		this.axioms = axioms;
+	}
+
+	public Set<Axiom> getGeneralConceptInclusionAxioms() {
+		return generalConceptInclusionAxioms;
+	}
+
+	public void setGeneralConceptInclusionAxioms(Set<Axiom> generalConceptInclusionAxioms) {
+		this.generalConceptInclusionAxioms = generalConceptInclusionAxioms;
 	}
 
 	@Override

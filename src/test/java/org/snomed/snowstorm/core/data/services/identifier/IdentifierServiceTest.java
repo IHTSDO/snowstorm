@@ -76,10 +76,10 @@ public class IdentifierServiceTest extends AbstractTest {
 		List<Concept> testConcepts = createTestDataLarge(5);
 		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts);
 		for (Concept c : testConcepts) {
-			Long sctId = block.getId(ComponentType.Concept);
+			Long sctId = block.getNextId(ComponentType.Concept);
 			c.setConceptId(sctId.toString());
 		}
-		identifierService.registerAssignedIds(block);
+		identifierService.persistAssignedIdsForRegistration(block);
 		identifierService.registerIdentifiers();
 	}
 

@@ -62,7 +62,7 @@ public class IdentifierCacheManagerTest extends AbstractTest {
 		
 		//And check we've got a valid concept id.  
 		//The dummy service does know how to work with partition ids and check digits
-		Long sctid = reservedBlock.getId(ComponentType.Concept);
+		Long sctid = reservedBlock.getNextId(ComponentType.Concept);
 		Assert.assertNull(IdentifierService.isValidId(sctid.toString(), ComponentType.Concept));
 	}
 	

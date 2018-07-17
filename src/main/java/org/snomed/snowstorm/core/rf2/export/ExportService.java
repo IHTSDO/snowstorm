@@ -69,6 +69,14 @@ public class ExportService {
 	}
 
 	public void exportRF2Archive(ExportConfiguration exportConfiguration, OutputStream outputStream) throws ExportException {
+		synchronized (this) {
+			if (exportConfiguration.getStartDate() != null) {
+				throw new IllegalStateException("Export already started.");
+			}
+			exportConfiguration.setStartDate(new Date());
+			exportConfigurationRepository.save(exportConfiguration);
+		}
+
 		File exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
 				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly());
 		try {

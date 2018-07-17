@@ -30,6 +30,10 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		String OWL_EXPRESSION = "owlExpression";
 	}
 
+	public interface MRCMAttributeDomainFields {
+		String GROUPED = "grouped";
+	}
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.keyword)
 	private String memberId;

@@ -34,9 +34,8 @@ public class ExportController {
 		ExportConfiguration exportConfiguration = exportService.getExportJobOrThrow(exportId);
 
 		String filename = exportService.getFilename(exportConfiguration);
-		response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
-
 		exportService.exportRF2Archive(exportConfiguration, response.getOutputStream());
+		response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
 	}
 
 }

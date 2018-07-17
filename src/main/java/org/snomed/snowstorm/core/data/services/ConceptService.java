@@ -19,12 +19,14 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierReservedBlock;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
+import org.snomed.snowstorm.core.data.services.pojo.SAxiomRepresentation;
 import org.snomed.snowstorm.core.util.MapUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,10 +46,12 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION;
 
 @Service
 public class ConceptService extends ComponentService {
@@ -75,6 +79,9 @@ public class ConceptService extends ComponentService {
 
 	@Autowired
 	private ReferenceSetMemberService memberService;
+
+	@Autowired
+	private AxiomConversionService axiomConversionService;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -307,6 +314,22 @@ public class ConceptService extends ComponentService {
 				}
 			}
 			timer.checkpoint("get relationships " + getFetchCount(conceptIdMap.size()));
+
+			// Fetch Axioms
+			for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
+				queryBuilder.withQuery(boolQuery()
+						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
+						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
+						.must(branchCriteria))
+						.withPageable(LARGE_PAGE);
+
+				try (final CloseableIterator<ReferenceSetMember> axiomMembers = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
+					axiomMembers.forEachRemaining(axiomMember -> {
+						joinAxiom(axiomMember, conceptIdMap, conceptMiniMap);
+					});
+				}
+			}
+			timer.checkpoint("get axioms " + getFetchCount(conceptIdMap.size()));
 		}
 
 		// Fetch ConceptMini definition statuses
@@ -326,6 +349,33 @@ public class ConceptService extends ComponentService {
 		timer.finish();
 
 		return concepts;
+	}
+
+	private void joinAxiom(ReferenceSetMember axiomMember, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap) {
+		try {
+			String referencedComponentId = axiomMember.getReferencedComponentId();
+			SAxiomRepresentation axiomRepresentation = axiomConversionService.convertAxiomMemberToAxiomRepresentation(axiomMember);
+			Concept concept = conceptIdMap.get(referencedComponentId);
+			Set<Relationship> relationships;
+			if (axiomRepresentation.getLeftHandSideNamedConcept() != null) {
+				// Regular Axiom
+				relationships = axiomRepresentation.getRightHandSideRelationships();
+				concept.addAxiom(new Axiom(axiomMember, axiomRepresentation.isPrimitive() ? Concepts.PRIMITIVE : Concepts.FULLY_DEFINED, relationships));
+			} else {
+				// GCI Axiom
+				relationships = axiomRepresentation.getLeftHandSideRelationships();
+				concept.addGeneralConceptInclusionAxiom(new Axiom(axiomMember, axiomRepresentation.isPrimitive() ? Concepts.PRIMITIVE : Concepts.FULLY_DEFINED, relationships));
+			}
+
+			// Add placeholders for relationship type and target details
+			relationships.forEach(relationship -> {
+				relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId()));
+				relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
+			});
+
+		} catch (ConversionException e) {
+			logger.error("Failed to deserialise axiom {}", axiomMember.getId(), e);
+		}
 	}
 
 	private ConceptMini getConceptMini(Map<String, ConceptMini> conceptMiniMap, String id) {
@@ -498,6 +548,14 @@ public class ConceptService extends ComponentService {
 		
 		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(concepts);
 
+		// Assign identifiers to new concepts
+		concepts.stream()
+				.filter(concept -> concept.getConceptId() == null)
+				.forEach(concept -> concept.setConceptId(reservedIds.getNextId(ComponentType.Concept).toString()));
+
+		// Convert axioms to OWLAxiom reference set members before persisting
+		axiomConversionService.populateAxiomMembers(concepts, commit.getBranch().getPath());
+
 		List<Description> descriptionsToPersist = new ArrayList<>();
 		List<Relationship> relationshipsToPersist = new ArrayList<>();
 		List<ReferenceSetMember> refsetMembersToPersist = new ArrayList<>();
@@ -518,19 +576,24 @@ public class ConceptService extends ComponentService {
 
 				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions(), savingMergedConcepts);
 				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships(), savingMergedConcepts);
+				resetMemberIdIfExpressionChanged(concept.getAllOwlAxiomMembers(), existingConcept.getAllOwlAxiomMembers());
+				markDeletionsAndUpdates(concept.getAllOwlAxiomMembers(), existingConcept.getAllOwlAxiomMembers(), savingMergedConcepts);
 				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
 			} else {
 				concept.setCreating(true);
-				if (concept.getConceptId() == null) {
-					concept.setConceptId(reservedIds.getId(ComponentType.Concept).toString());
-				}
 				concept.setChanged(true);
 				concept.clearReleaseDetails();
-				Sets.union(concept.getDescriptions(), concept.getRelationships()).forEach(component -> {
-					component.setCreating(true);
-					component.setChanged(true);
-					component.clearReleaseDetails();
-				});
+
+				Stream.of(
+						concept.getDescriptions().stream(),
+						concept.getRelationships().stream(),
+						concept.getAllOwlAxiomMembers().stream())
+						.flatMap(i -> i)
+						.forEach(component -> {
+							component.setCreating(true);
+							component.setChanged(true);
+							component.clearReleaseDetails();
+						});
 			}
 
 			// Concept inactivation indicator changes
@@ -548,7 +611,7 @@ public class ConceptService extends ComponentService {
 				} else {
 					description.setCreating(true);
 					if (description.getDescriptionId() == null) {
-						description.setDescriptionId(reservedIds.getId(ComponentType.Description).toString());
+						description.setDescriptionId(reservedIds.getNextId(ComponentType.Description).toString());
 					}
 				}
 				if (!description.isActive()) {
@@ -601,13 +664,16 @@ public class ConceptService extends ComponentService {
 					.forEach(relationship -> relationship.setSourceId(concept.getConceptId()));
 			concept.getRelationships().stream()
 					.filter(relationship -> relationship.getRelationshipId() == null)
-					.forEach(relationship -> relationship.setRelationshipId(reservedIds.getId(ComponentType.Relationship).toString()));
+					.forEach(relationship -> relationship.setRelationshipId(reservedIds.getNextId(ComponentType.Relationship).toString()));
 
 			// Detach concept's components to be persisted separately
 			descriptionsToPersist.addAll(concept.getDescriptions());
 			concept.getDescriptions().clear();
 			relationshipsToPersist.addAll(concept.getRelationships());
 			concept.getRelationships().clear();
+			refsetMembersToPersist.addAll(concept.getAllOwlAxiomMembers());
+			concept.getAxioms().clear();
+			concept.getGeneralConceptInclusionAxioms().clear();
 		}
 
 		// TODO: Try saving all core component types at once - Elasticsearch likes multi-threaded writes.
@@ -615,7 +681,7 @@ public class ConceptService extends ComponentService {
 		Iterable<Description> descriptionsSaved = doSaveBatchDescriptions(descriptionsToPersist, commit);
 		Iterable<Relationship> relationshipsSaved = doSaveBatchRelationships(relationshipsToPersist, commit);
 
-		memberService.doSaveBatchMembers(refsetMembersToPersist, commit);
+		Iterable<ReferenceSetMember> referenceSetMembersSaved = memberService.doSaveBatchMembers(refsetMembersToPersist, commit);
 		doDeleteMembersWhereReferencedComponentDeleted(commit.getEntityVersionsDeleted(), commit);
 
 		Map<String, Concept> conceptMap = new HashMap<>();
@@ -631,15 +697,32 @@ public class ConceptService extends ComponentService {
 			relationship.setType(getConceptMini(minisToLoad, relationship.getTypeId()));
 			relationship.setTarget(getConceptMini(minisToLoad, relationship.getDestinationId()));
 		}
+		StreamSupport.stream(referenceSetMembersSaved.spliterator(), false)
+				.filter(member -> Concepts.OWL_AXIOM_REFERENCE_SET.equals(member.getRefsetId()))
+				.forEach(member -> joinAxiom(member, conceptMap, minisToLoad));
 		populateConceptMinis(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit), minisToLoad);
-		
-		// Where we've used a new component identifier, we need to tell the cis about it
-		identifierService.registerAssignedIds(reservedIds);
 
+		// Store assigned identifiers for registration with CIS
+		identifierService.persistAssignedIdsForRegistration(reservedIds);
+
+		// Log traceability activity
 		traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit.getTimepoint(), commit.getBranch().getPath(),
 				concepts, descriptionsToPersist, relationshipsToPersist, refsetMembersToPersist);
 
 		return conceptsSaved;
+	}
+
+	private void resetMemberIdIfExpressionChanged(Set<ReferenceSetMember> newStateOwlAxiomMembers, Set<ReferenceSetMember> existingOwlAxiomMembers) {
+		if (existingOwlAxiomMembers == null) return;
+
+		Map<String, ReferenceSetMember> existingMembers = existingOwlAxiomMembers.stream().collect(Collectors.toMap(ReferenceSetMember::getMemberId, Function.identity()));
+		for (ReferenceSetMember newStateOwlAxiomMember : newStateOwlAxiomMembers) {
+			ReferenceSetMember existingMember = existingMembers.get(newStateOwlAxiomMember.getMemberId());
+			if (existingMember != null && !existingMember.getAdditionalField(OWL_EXPRESSION).equals(newStateOwlAxiomMember.getAdditionalField(OWL_EXPRESSION))) {
+				// OWL Expression has changed - clear member id to trigger inactivation or deletion of the existing member.
+				newStateOwlAxiomMember.setMemberId(UUID.randomUUID().toString());
+			}
+		}
 	}
 
 	private void updateAssociations(SnomedComponentWithAssociations newComponent, SnomedComponentWithAssociations existingComponent, List<ReferenceSetMember> refsetMembersToPersist) {

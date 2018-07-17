@@ -4,6 +4,7 @@ import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 import javax.validation.constraints.NotNull;
+import java.util.Date;
 
 @Document(indexName = "es-export", type = "export", shards = 8)
 public final class ExportConfiguration {
@@ -19,6 +20,7 @@ public final class ExportConfiguration {
 	private boolean conceptsAndRelationshipsOnly = false;
 
 	private String id;
+	private Date startDate;
 
 	public ExportConfiguration() {
 	}
@@ -66,5 +68,13 @@ public final class ExportConfiguration {
 
 	public void setId(String id) {
 		this.id = id;
+	}
+
+	public void setStartDate(Date startDate) {
+		this.startDate = startDate;
+	}
+
+	public Date getStartDate() {
+		return startDate;
 	}
 }

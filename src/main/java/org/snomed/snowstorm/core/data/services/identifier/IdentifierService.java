@@ -96,7 +96,7 @@ public class IdentifierService {
 		return idBlock;
 	}
 
-	public void registerAssignedIds(IdentifierReservedBlock reservedBlock) throws ServiceException {
+	public void persistAssignedIdsForRegistration(IdentifierReservedBlock reservedBlock) {
 		for (ComponentType componentType : ComponentType.values()) {
 			Collection<Long> idsAssigned = reservedBlock.getIdsAssigned(componentType);
 			if (!idsAssigned.isEmpty()) {

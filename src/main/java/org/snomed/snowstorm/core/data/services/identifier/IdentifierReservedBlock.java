@@ -17,7 +17,7 @@ public class IdentifierReservedBlock {
 		}
 	}
 
-	public Long getId(ComponentType componentType) {
+	public Long getNextId(ComponentType componentType) {
 		Long id = idsReserved.get(componentType).poll();
 		
 		if (id == null) {
