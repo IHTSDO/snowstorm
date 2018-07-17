@@ -10,7 +10,6 @@ import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.repositories.QueryConceptRepository;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.util.CollectionUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
@@ -78,6 +77,7 @@ public class QueryService {
 			// Lexical Only
 			logger.info("Lexical search {}", term);
 			NativeSearchQuery query = getLexicalQuery(term, branchCriteria, pageRequest);
+			query.addFields(Description.Fields.CONCEPT_ID);
 			final List<Long> pageOfIds = new LongArrayList();
 			Page<Description> descriptionPage = elasticsearchTemplate.queryForPage(query, Description.class);
 			descriptionPage.getContent().forEach(d -> pageOfIds.add(parseLong(d.getConceptId())));
@@ -130,6 +130,7 @@ public class QueryService {
 									.must(conceptQuery.getRootBuilder())
 							)
 							.withFilter(termsQuery(QueryConcept.CONCEPT_ID_FIELD, allLexicalMatchesWithOrdering))
+							.withFields(QueryConcept.Fields.CONCEPT_ID)
 							.withPageable(LARGE_PAGE);
 
 					try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(logicalSearchQuery.build(), QueryConcept.class)) {
@@ -144,6 +145,7 @@ public class QueryService {
 										.must(termQuery(Concept.Fields.ACTIVE, false))
 								)
 								.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, allLexicalMatchesWithOrdering))
+								.withFields(Concept.Fields.CONCEPT_ID)
 								.withPageable(LARGE_PAGE);
 						try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(inactiveConceptQuery.build(), Concept.class)) {
 							stream.forEachRemaining(c -> allFilteredLogicalMatches.add(c.getConceptIdAsLong()));
@@ -212,11 +214,13 @@ public class QueryService {
 	}
 
 	private Page<Long> getSimpleLogicalSearchPage(ConceptQueryBuilder conceptQuery, QueryBuilder branchCriteria, PageRequest pageRequest) {
-		Page<Long> conceptIdPage;NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
+		Page<Long> conceptIdPage;
+		NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria)
 						.must(conceptQuery.getRootBuilder())
 				)
+				.withFields(QueryConcept.Fields.CONCEPT_ID)
 				.withPageable(pageRequest);
 		Page<QueryConcept> pageOfConcepts = elasticsearchTemplate.queryForPage(logicalSearchQuery.build(), QueryConcept.class);
 
@@ -229,6 +233,7 @@ public class QueryService {
 		final List<Long> allLexicalMatchesWithOrdering = new LongArrayList();
 
 		NativeSearchQuery query = getLexicalQuery(term, branchCriteria, LARGE_PAGE);
+		query.addFields(Description.Fields.CONCEPT_ID);
 		try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(query, Description.class)) {
 			descriptionStream.forEachRemaining(description -> allLexicalMatchesWithOrdering.add(parseLong(description.getConceptId())));
 		}
@@ -334,6 +339,7 @@ public class QueryService {
 						.must(termsQuery("ancestors", conceptIds))
 						.must(termQuery("stated", stated))
 				)
+				.withFields(QueryConcept.Fields.CONCEPT_ID)
 				.withPageable(LARGE_PAGE)
 				.withSort(SortBuilders.fieldSort(QueryConcept.CONCEPT_ID_FIELD))// This could be anything
 				.build();

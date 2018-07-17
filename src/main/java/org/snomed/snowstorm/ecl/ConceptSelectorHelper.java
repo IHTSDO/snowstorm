@@ -40,6 +40,9 @@ public class ConceptSelectorHelper {
 		if (filterByConceptIds != null) {
 			searchQueryBuilder.withFilter(termsQuery(QueryConcept.CONCEPT_ID_FIELD, filterByConceptIds));
 		}
+		if (inclusionFilter == null) {
+			searchQueryBuilder.withFields(QueryConcept.Fields.CONCEPT_ID);
+		}
 
 		if (pageRequest != null && inclusionFilter == null) {
 			// Fetch a page of IDs
