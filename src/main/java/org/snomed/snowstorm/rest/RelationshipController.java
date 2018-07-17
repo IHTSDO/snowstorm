@@ -57,8 +57,9 @@ public class RelationshipController {
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit) {
 
+		branch = BranchPathUriUtil.decodePath(branch);
 		Page<Relationship> relationshipPage = relationshipService.findRelationships(
-				BranchPathUriUtil.decodePath(branch),
+				branch,
 				null,
 				active,
 				module,
@@ -95,6 +96,7 @@ public class RelationshipController {
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Relationship fetchRelationship(@PathVariable String branch, @PathVariable String relationshipId) {
+		branch = BranchPathUriUtil.decodePath(branch);
 		Relationship relationship = relationshipService.fetchRelationship(BranchPathUriUtil.decodePath(branch), relationshipId);
 		if (relationship != null) {
 			expandSourceAndTarget(branch, Collections.singletonList(relationship));
