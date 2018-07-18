@@ -369,6 +369,7 @@ public class ConceptServiceTest extends AbstractTest {
 		concept.addAxiom(new Axiom(null, Concepts.FULLY_DEFINED, Sets.newHashSet(new Relationship(Concepts.ISA, "100"), new Relationship("200", "300"))).setModuleId(CORE_MODULE));
 		concept.addGeneralConceptInclusionAxiom(new Axiom(null, Concepts.PRIMITIVE, Sets.newHashSet(new Relationship(Concepts.ISA, "500"), new Relationship("600", "700"))).setModuleId(CORE_MODULE));
 		conceptService.create(concept, path);
+		assertEquals(1, conceptService.find(concept.getConceptId(), path).getAdditionalAxioms().size());
 
 		final Concept savedConcept = conceptService.find("50960005", path);
 		Assert.assertNotNull(savedConcept);
@@ -396,8 +397,15 @@ public class ConceptServiceTest extends AbstractTest {
 		String memberId = referenceSetMember.getMemberId();
 
 		Concept updatedConcept = conceptService.update(concept, path);
+		assertEquals(1, conceptService.find(concept.getConceptId(), path).getAdditionalAxioms().size());
 		axiom = updatedConcept.getAdditionalAxioms().iterator().next();
 		assertEquals("Member id should be kept after update if no changes to OWL expression.", memberId, axiom.getReferenceSetMember().getMemberId());
+
+		String axiomMemberInternalId = axiom.getReferenceSetMember().getInternalId();
+		updatedConcept = conceptService.update(concept, path);
+		axiom = updatedConcept.getAdditionalAxioms().iterator().next();
+		assertEquals("A new state of the axiom member should not be created if there are no changes.",
+				axiomMemberInternalId, axiom.getReferenceSetMember().getInternalId());
 
 		axiom.setDefinitionStatusId(Concepts.PRIMITIVE);
 

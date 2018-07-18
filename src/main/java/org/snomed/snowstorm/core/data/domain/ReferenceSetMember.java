@@ -7,10 +7,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.TreeSet;
-import java.util.UUID;
+import java.util.*;
 
 @Document(indexName = "es-member", type = "member", shards = 8)
 public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComponent<C> {
@@ -163,6 +160,31 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 
 	public void setAdditionalFields(Map<String, String> additionalFields) {
 		this.additionalFields = additionalFields;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		ReferenceSetMember<?> that = (ReferenceSetMember<?>) o;
+
+		if (memberId != null && memberId.equals(that.memberId)) {
+			return true;
+		}
+
+		return Objects.equals(moduleId, that.moduleId) &&
+				Objects.equals(refsetId, that.refsetId) &&
+				Objects.equals(referencedComponentId, that.referencedComponentId) &&
+				Objects.equals(conceptId, that.conceptId) &&
+				Objects.equals(additionalFields, that.additionalFields);
+	}
+
+	@Override
+	public int hashCode() {
+		if (memberId != null) {
+			return memberId.hashCode();
+		}
+		return Objects.hash(memberId, moduleId, refsetId, referencedComponentId, conceptId, additionalFields);
 	}
 
 	@Override

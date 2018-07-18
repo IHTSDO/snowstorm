@@ -527,7 +527,7 @@ public class ConceptService extends ComponentService {
 		doSaveBatchConceptsAndComponents(concepts, commit);
 	}
 
-	public Iterable<Concept> doSaveBatchConceptsAndComponents(Collection<Concept> concepts, Commit commit) throws ServiceException {
+	private Iterable<Concept> doSaveBatchConceptsAndComponents(Collection<Concept> concepts, Commit commit) throws ServiceException {
 		final boolean savingMergedConcepts = commit.isRebase();
 		final List<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toList());
 		final Map<String, Concept> existingConceptsMap = new HashMap<>();
@@ -539,7 +539,7 @@ public class ConceptService extends ComponentService {
 				}
 			}
 		}
-		
+
 		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(concepts);
 
 		// Assign identifiers to new concepts
