@@ -34,8 +34,13 @@ public class Axiom {
 		}
 	}
 
+	@JsonView(value = View.Component.class)
 	public String getDefinitionStatus() {
 		return Concepts.definitionStatusNames.get(definitionStatusId);
+	}
+
+	public void setDefinitionStatus(String definitionStatusName) {
+		definitionStatusId = Concepts.definitionStatusNames.inverse().get(definitionStatusName);
 	}
 
 	public String getAxiomId() {
@@ -50,8 +55,9 @@ public class Axiom {
 		return moduleId;
 	}
 
-	public void setModuleId(String moduleId) {
+	public Axiom setModuleId(String moduleId) {
 		this.moduleId = moduleId;
+		return this;
 	}
 
 	public boolean isActive() {

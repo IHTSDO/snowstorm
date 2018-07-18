@@ -6,11 +6,9 @@ import java.util.Set;
 
 @JsonDeserialize(as = Concept.class)
 public interface ConceptView {
-	String getFsn();
-
-	Description getDescription(String descriptionId);
-
 	String getConceptId();
+
+	String getFsn();
 
 	String getEffectiveTime();
 
@@ -20,7 +18,13 @@ public interface ConceptView {
 
 	String getDefinitionStatusId();
 
+	Description getDescription(String descriptionId);
+
 	Set<Description> getDescriptions();
 
 	Set<Relationship> getRelationships();
+
+	Set<Axiom> getAdditionalAxioms();
+
+	Set<Axiom> getGciAxioms();
 }

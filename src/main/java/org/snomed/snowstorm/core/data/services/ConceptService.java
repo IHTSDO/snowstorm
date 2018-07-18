@@ -488,14 +488,12 @@ public class ConceptService extends ComponentService {
 		return batchConceptChanges.getIfPresent(id);
 	}
 
-	private <C extends SnomedComponent> boolean markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents, boolean rebase) {
-		boolean anythingChanged = false;
+	private <C extends SnomedComponent> void markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents, boolean rebase) {
 		// Mark deletions
 		for (C existingComponent : existingComponents) {
 			if (!newComponents.contains(existingComponent)) {
 				existingComponent.markDeleted();
-				newComponents.add(existingComponent);
-				anythingChanged = true;
+				newComponents.add(existingComponent);// Add to newComponents collection so the deletion is persisted
 			}
 		}
 		// Mark updates
@@ -510,11 +508,7 @@ public class ConceptService extends ComponentService {
 				newComponent.setCreating(true);
 				newComponent.clearReleaseDetails();
 			}
-			if (newComponent.isChanged()) {
-				anythingChanged = true;
-			}
 		}
-		return anythingChanged;
 	}
 
 	private Concept doSave(Concept concept, Branch branch) throws ServiceException {
@@ -568,6 +562,8 @@ public class ConceptService extends ComponentService {
 				concept.getRelationships().forEach(relationship -> relationship.setActive(false));
 			}
 
+			Set<ReferenceSetMember> newOwlAxiomMembers = concept.getAllOwlAxiomMembers();
+
 			// Mark changed concepts as changed
 			if (existingConcept != null) {
 				concept.setChanged(concept.isComponentChanged(existingConcept) || savingMergedConcepts);
@@ -576,8 +572,8 @@ public class ConceptService extends ComponentService {
 
 				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions(), savingMergedConcepts);
 				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships(), savingMergedConcepts);
-				resetMemberIdIfExpressionChanged(concept.getAllOwlAxiomMembers(), existingConcept.getAllOwlAxiomMembers());
-				markDeletionsAndUpdates(concept.getAllOwlAxiomMembers(), existingConcept.getAllOwlAxiomMembers(), savingMergedConcepts);
+				resetMemberIdIfExpressionChanged(newOwlAxiomMembers, existingConcept.getAllOwlAxiomMembers());
+				markDeletionsAndUpdates(newOwlAxiomMembers, existingConcept.getAllOwlAxiomMembers(), savingMergedConcepts);
 				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
 			} else {
 				concept.setCreating(true);
@@ -587,7 +583,7 @@ public class ConceptService extends ComponentService {
 				Stream.of(
 						concept.getDescriptions().stream(),
 						concept.getRelationships().stream(),
-						concept.getAllOwlAxiomMembers().stream())
+						newOwlAxiomMembers.stream())
 						.flatMap(i -> i)
 						.forEach(component -> {
 							component.setCreating(true);
@@ -671,9 +667,9 @@ public class ConceptService extends ComponentService {
 			concept.getDescriptions().clear();
 			relationshipsToPersist.addAll(concept.getRelationships());
 			concept.getRelationships().clear();
-			refsetMembersToPersist.addAll(concept.getAllOwlAxiomMembers());
-			concept.getAxioms().clear();
-			concept.getGeneralConceptInclusionAxioms().clear();
+			refsetMembersToPersist.addAll(newOwlAxiomMembers);
+			concept.getAdditionalAxioms().clear();
+			concept.getGciAxioms().clear();
 		}
 
 		// TODO: Try saving all core component types at once - Elasticsearch likes multi-threaded writes.
