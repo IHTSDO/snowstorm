@@ -651,9 +651,11 @@ public class ConceptService extends ComponentService {
 					}
 				}
 				for (ReferenceSetMember leftoverMember : existingMembersToMatch.values()) {
-					leftoverMember.setActive(false);
-					leftoverMember.markChanged();
-					refsetMembersToPersist.add(leftoverMember);
+					if (leftoverMember.isActive()) {
+						leftoverMember.setActive(false);
+						leftoverMember.markChanged();
+						refsetMembersToPersist.add(leftoverMember);
+					}
 				}
 			}
 			concept.getRelationships()
