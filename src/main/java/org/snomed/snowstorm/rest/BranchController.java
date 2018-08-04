@@ -35,7 +35,7 @@ public class BranchController {
 	@RequestMapping(value = "/branches", method = RequestMethod.POST)
 	@ResponseBody
 	public Branch createBranch(@RequestBody CreateBranchRequest request) {
-		return branchService.create(request.getBranchPath(), request.getMetadata());
+		return branchService.create(request.getParent() + "/" + request.getName(), request.getMetadata());
 	}
 
 	@ApiOperation("Update branch metadata")

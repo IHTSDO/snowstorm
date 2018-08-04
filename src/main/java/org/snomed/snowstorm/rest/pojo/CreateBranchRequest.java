@@ -24,10 +24,6 @@ public class CreateBranchRequest {
 		this.name = name;
 	}
 
-	public String getBranchPath() {
-		return getParent() + "/" + getName();
-	}
-
 	public Map<String, String> getMetadata() {
 		return metadata;
 	}
