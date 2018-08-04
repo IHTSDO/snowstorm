@@ -15,7 +15,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
@@ -50,7 +49,7 @@ public class CodeSystemService {
 		}
 	}
 
-	public void createVersion(CodeSystem codeSystem, String effectiveDate, String description) {
+	public String createVersion(CodeSystem codeSystem, String effectiveDate, String description) {
 
 		if (!effectiveDate.matches("\\d{8}")) {
 			throw new IllegalArgumentException("Effective Date must have format yyyymmdd");
@@ -62,7 +61,7 @@ public class CodeSystemService {
 		CodeSystemVersion codeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(codeSystem.getShortName(), effectiveDate);
 		if (codeSystemVersion != null) {
 			logger.warn("Aborting Code System Version creation. This version already exists.");
-			return;
+			return version;
 		}
 
 		logger.info("Creating Code System version - Code System: {}, Version: {}, Release Branch: {}", codeSystem.getShortName(), version, releaseBranchPath);
@@ -76,6 +75,8 @@ public class CodeSystemService {
 		versionRepository.save(new CodeSystemVersion(codeSystem.getShortName(), new Date(), branchPath, effectiveDate, version, description));
 
 		logger.info("Versioning complete.");
+
+		return version;
 	}
 
 	public void createVersionIfCodeSystemFoundOnPath(String branchPath, String releaseDate, String description) {

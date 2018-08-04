@@ -4,8 +4,10 @@ import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.rest.pojo.CreateCodeSystemVersionRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -34,6 +36,17 @@ public class CodeSystemController {
 	@ResponseBody
 	public ItemsPage<CodeSystemVersion> findAllVersions(@PathVariable String shortName) {
 		return new ItemsPage<>(codeSystemService.findAllVersions(shortName));
+	}
+
+	@ApiOperation("Create a new code system version")
+	@RequestMapping(value = "/{shortName}/versions", method = RequestMethod.POST)
+	@ResponseBody
+	public ResponseEntity<Void> createVersion(@PathVariable String shortName, @RequestBody CreateCodeSystemVersionRequest input) {
+		CodeSystem codeSystem = codeSystemService.find(shortName);
+		ControllerHelper.throwIfNotFound("CodeSystem", codeSystem);
+
+		String versionId = codeSystemService.createVersion(codeSystem, input.getEffectiveDate(), input.getDescription());
+		return ControllerHelper.getCreatedResponse(versionId);
 	}
 
 }
