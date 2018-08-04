@@ -73,8 +73,8 @@ public class ConceptSelectorHelper {
 			if (pageRequest != null) {
 				int fromIndex = (int) pageRequest.getOffset();
 				int toIndex = fromIndex + (pageRequest.getPageSize());
-				if (toIndex >= total) {
-					toIndex = total - 1;
+				if (toIndex > total) {
+					toIndex = total;
 				}
 				return ids.isEmpty() || fromIndex >= total ? Page.empty() : new PageImpl<>(ids.subList(fromIndex, toIndex), pageRequest, total);
 			} else {
