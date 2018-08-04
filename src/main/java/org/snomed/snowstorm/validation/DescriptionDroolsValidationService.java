@@ -3,11 +3,13 @@ package org.snomed.snowstorm.validation;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.ihtsdo.drools.domain.Concept;
+import org.ihtsdo.drools.domain.Constants;
 import org.ihtsdo.drools.domain.Description;
+import org.ihtsdo.drools.domain.Relationship;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.validation.domain.DroolsDescription;
@@ -25,8 +27,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class DescriptionDroolsValidationService implements org.ihtsdo.drools.service.DescriptionService {
 
@@ -194,6 +195,30 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 			}
 		}
 		return result;
+	}
+
+	@Override
+	public Set<String> findParentsNotContainSematicTag(Concept concept, String termSemanticTag, String... languageRefsetIds) {
+		Set<String> statedParents = new HashSet<>();
+		for (Relationship relationship : concept.getRelationships()) {
+			if (Constants.IS_A.equals(relationship.getTypeId())
+					&& relationship.isActive()
+					&& Constants.STATED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId())) {
+				statedParents.add(relationship.getDestinationId());
+			}
+		}
+
+		NativeSearchQuery query = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(versionControlHelper.getBranchCriteria(branchPath))
+						.must(termsQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.CONCEPT_ID, statedParents))
+						.must(termQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.ACTIVE, true))
+						.must(termQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.TYPE_ID, Concepts.FSN))
+						.mustNot(termQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.TAG, termSemanticTag))
+				)
+				.build();
+		List<Description> descriptions = elasticsearchTemplate.queryForList(query, Description.class);
+		return descriptions.stream().map(Description::getConceptId).collect(Collectors.toSet());
 	}
 
 	private String findStatedHierarchyRootId(org.ihtsdo.drools.domain.Concept concept) {

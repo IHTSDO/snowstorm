@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.validation;
 
-import joptsimple.internal.Strings;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.drools.domain.Relationship;
 import org.ihtsdo.drools.exception.RuleExecutorException;
@@ -21,7 +20,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static java.lang.Long.parseLong;
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
@@ -100,6 +99,25 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 		}
 
 		return getConceptIdsByEcl(false, ecl.toString());
+	}
+
+	@Override
+	public Set<String> findStatedAncestorsOfConcepts(List<String> statedParentIds) {
+		StringBuilder eclBuilder = new StringBuilder("<<" + Concepts.SNOMEDCT_ROOT);
+		if (statedParentIds.size() > 1) {
+			eclBuilder.append("(");
+		}
+		for (int i = 0; i < statedParentIds.size(); i++) {
+			if (i > 0) {
+				eclBuilder.append(" OR ");
+			}
+			eclBuilder.append(">>").append(statedParentIds.get(i));
+		}
+		if (statedParentIds.size() > 1) {
+			eclBuilder.append(")");
+		}
+		Page<Long> idPage = queryService.searchForIds(queryService.createQueryBuilder(true).ecl(eclBuilder.toString()), branchPath, LARGE_PAGE);
+		return idPage.getContent().stream().map(Object::toString).collect(Collectors.toSet());
 	}
 
 	private Set<String> getStatedParents(org.ihtsdo.drools.domain.Concept concept) {

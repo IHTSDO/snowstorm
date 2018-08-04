@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
-import sun.text.resources.th.CollationData_th;
 
 import java.util.Collections;
 import java.util.List;

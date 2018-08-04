@@ -1,8 +1,10 @@
 package org.snomed.snowstorm.validation.domain;
 
+import org.ihtsdo.drools.domain.OntologyAxiom;
 import org.snomed.snowstorm.core.data.domain.Concept;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -31,6 +33,23 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 				relationships.add(new DroolsRelationship(r));
 			});
 		}
+		if (concept.getAdditionalAxioms() != null) {
+			concept.getAdditionalAxioms().forEach(axiom -> {
+				axiom.getRelationships().forEach(r -> {
+					r.setSourceId(conceptId);
+					relationships.add(new DroolsRelationship(r));
+				});
+			});
+		}
+		if (concept.getGciAxioms() != null) {
+			concept.getGciAxioms().forEach(axiom -> {
+				axiom.getRelationships().forEach(r -> {
+					r.setSourceId(conceptId);
+					relationships.add(new DroolsRelationship(r));
+				});
+			});
+		}
+		// TODO: Validate 'ontology axioms' when these are implemented. e.g. property chains.
 	}
 
 	@Override
@@ -46,6 +65,11 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 	@Override
 	public Collection<? extends org.ihtsdo.drools.domain.Relationship> getRelationships() {
 		return relationships;
+	}
+
+	@Override
+	public Collection<? extends OntologyAxiom> getOntologyAxioms() {
+		return Collections.emptySet();
 	}
 
 	@Override
