@@ -12,6 +12,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -33,8 +34,12 @@ public class MRCMService {
 
 	private MRCM mrcm;
 
-	public void load() throws IOException {
-		this.mrcm = new MRCMLoader().load();
+	public void loadFromStream(InputStream inputStream) throws IOException {
+		this.mrcm = new MRCMLoader().load(inputStream);
+	}
+
+	public void loadFromFile() throws IOException {
+		this.mrcm = new MRCMLoader().loadFromFile();
 	}
 
 	public Collection<ConceptMini> retrieveDomainAttributes(String branchPath, Set<Long> parentIds) {
@@ -99,6 +104,6 @@ public class MRCMService {
 	}
 
 	public static void main(String[] args) throws IOException {
-		new MRCMService().load();
+		new MRCMService().loadFromFile();
 	}
 }

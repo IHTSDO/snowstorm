@@ -18,16 +18,18 @@ public class MRCMLoader {
 
 	private static Logger logger = LoggerFactory.getLogger(MRCMLoader.class);
 
-	public MRCM load() throws IOException {
+	public MRCM loadFromFile() throws IOException {
+		return load(getClass().getResourceAsStream("/mrcm/mrcm.xmi"));
+	}
+
+	public MRCM load(InputStream mrcmXmlStream) throws IOException {
 		Map<Long, Domain> domainMap = new HashMap<>();
 		Map<Long, Attribute> attributeMap = new HashMap<>();
 
-		logger.info("Loading MRCM file.");
+		logger.info("Loading MRCM from XML document.");
 		XmlMapper mapper = new XmlMapper();
 		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-		// TODO: accept stream from a known location on disk or over REST
-		InputStream resourceAsStream = getClass().getResourceAsStream("/mrcm/mrcm.xmi");
-		ConceptModel conceptModel = mapper.readValue(resourceAsStream, ConceptModel.class);
+		ConceptModel conceptModel = mapper.readValue(mrcmXmlStream, ConceptModel.class);
 		for (Constraints constraints : conceptModel.getConstraints()) {
 			org.snomed.snowstorm.mrcm.model.load.Domain loadDomain = constraints.getDomain();
 			Long domainConceptId = loadDomain.getConceptId();

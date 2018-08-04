@@ -7,7 +7,9 @@ import org.snomed.snowstorm.mrcm.MRCMService;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
 
@@ -32,6 +34,12 @@ public class MRCMController {
 	public ItemsPage<ConceptMini> retrieveAttributeValues(@PathVariable String path, @PathVariable String attributeId, @RequestParam String termPrefix) {
 		String branchPath = BranchPathUriUtil.decodePath(path);
 		return getItemsPageWithNestedFSNs(mrcmService.retrieveAttributeValues(branchPath, attributeId, termPrefix));
+	}
+
+	@ApiOperation("Update system wide MRCM from XML file. This is an alternative implementation to the reference sets.")
+	@RequestMapping(value = "/mrcm", method = RequestMethod.POST, consumes = "multipart/form-data")
+	public void updateMRCMFromXml(@RequestParam MultipartFile file) throws IOException {
+		mrcmService.loadFromStream(file.getInputStream());
 	}
 
 	private ItemsPage<ConceptMini> getItemsPageWithNestedFSNs(Collection<ConceptMini> conceptMinis) {
