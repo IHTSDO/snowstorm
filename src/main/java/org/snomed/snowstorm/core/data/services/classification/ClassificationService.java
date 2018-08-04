@@ -44,6 +44,7 @@ import org.springframework.web.client.RestClientException;
 
 import javax.annotation.PostConstruct;
 import java.io.*;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -95,6 +96,7 @@ public class ClassificationService {
 	private static final PageRequest PAGE_FIRST_1K = PageRequest.of(0, 1000);
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
+	private static final SimpleDateFormat SIMPLE_DATE_FORMAT = new SimpleDateFormat("ddMMyyyy");
 
 	public ClassificationService() {
 		classificationsInProgress = new ArrayList<>();
@@ -230,7 +232,7 @@ public class ClassificationService {
 		}
 
 		try {
-			File deltaExport = exportService.exportRF2ArchiveFile(path, "", RF2Type.DELTA, true);
+			File deltaExport = exportService.exportRF2ArchiveFile(path, SIMPLE_DATE_FORMAT.format(new Date()), RF2Type.DELTA, true);
 			String remoteClassificationId = serviceClient.createClassification(previousPackage, deltaExport, path, reasonerId);
 			classification.setId(remoteClassificationId);
 			classification.setStatus(ClassificationStatus.SCHEDULED);
