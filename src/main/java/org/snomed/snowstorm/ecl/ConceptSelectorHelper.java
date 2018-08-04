@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
@@ -80,6 +81,10 @@ public class ConceptSelectorHelper {
 				return ids.isEmpty() ? Page.empty() : new PageImpl<>(ids, PageRequest.of(0, total), total);
 			}
 		}
+	}
+
+	public static FieldSortBuilder getOrder() {
+		return SortBuilders.fieldSort(QueryConcept.CONCEPT_ID_FIELD).order(SortOrder.DESC);
 	}
 
 	private static String[] getRequiredFields(Function<QueryConcept, Boolean> inclusionFilter) {

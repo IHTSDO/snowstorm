@@ -58,13 +58,42 @@ public class QueryService {
 
 	public Page<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		Optional<Page<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
+
+		if (conceptIdPageOptional.isPresent()) {
+			Page<Long> conceptIdPage = conceptIdPageOptional.get();
+			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptIdPage.getContent());
+			return new PageImpl<>(getOrderedConceptList(conceptIdPage.getContent(), conceptMinis.getResultsMap()), pageRequest, conceptIdPage.getTotalElements());
+		} else {
+			// No ids - return page of all concepts
+			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, pageRequest);
+			return new PageImpl<>(new ArrayList<>(conceptMinis.getResultsMap().values()), pageRequest, conceptMinis.getTotalElements());
+		}
+	}
+
+	public Page<Long> searchForIds(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
+		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		Optional<Page<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
+
+		return conceptIdPageOptional.orElseGet(() -> {
+			// No ids - return page of all concept ids
+			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+					.withQuery(boolQuery().must(branchCriteria))
+					.withSort(SortBuilders.fieldSort(Concept.Fields.CONCEPT_ID))
+					.withPageable(pageRequest);
+			Page<Concept> concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
+			return new PageImpl<>(concepts.getContent().stream().map(Concept::getConceptIdAsLong).collect(Collectors.toList()), pageRequest, concepts.getTotalElements());
+		});
+	}
+
+	private Optional<Page<Long>> doSearchForIds(ConceptQueryBuilder conceptQuery, String branchPath, QueryBuilder branchCriteria, PageRequest pageRequest) {
 
 		// Validate Lexical criteria
 		String term = conceptQuery.getTermPrefix();
 		boolean hasLexicalCriteria;
 		if (term != null) {
 			if (term.length() < 3) {
-				return new PageImpl<>(Collections.emptyList());
+				return Optional.of(new PageImpl<>(Collections.emptyList()));
 			}
 			hasLexicalCriteria = true;
 		} else {
@@ -162,13 +191,9 @@ public class QueryService {
 		}
 
 		if (conceptIdPage != null) {
-			List<Long> pageOfConceptIds = conceptIdPage.getContent();
-			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, pageOfConceptIds);
-			return new PageImpl<>(getOrderedConceptList(pageOfConceptIds, conceptMinis.getResultsMap()), pageRequest, conceptIdPage.getTotalElements());
+			return Optional.of(conceptIdPage);
 		} else {
-			// No Criteria - return all concepts
-			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, pageRequest);
-			return new PageImpl<>(new ArrayList<>(conceptMinis.getResultsMap().values()), pageRequest, conceptMinis.getTotalElements());
+			return Optional.empty();
 		}
 	}
 
