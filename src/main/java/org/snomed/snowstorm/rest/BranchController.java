@@ -4,8 +4,10 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.core.data.domain.BranchMergeJob;
 import org.snomed.snowstorm.core.data.services.BranchMergeService;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.rest.pojo.CreateBranchRequest;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.snomed.snowstorm.rest.pojo.UpdateBranchRequest;
@@ -13,7 +15,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.constraints.NotNull;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping(produces = "application/json")
@@ -24,6 +29,9 @@ public class BranchController {
 
 	@Autowired
 	private BranchMergeService branchMergeService;
+
+	@Autowired
+	private QueryService queryService;
 
 	@ApiOperation("Retrieve all branches")
 	@RequestMapping(value = "/branches", method = RequestMethod.GET)
@@ -67,6 +75,15 @@ public class BranchController {
 	@RequestMapping(value = "/merges/{mergeId}", method = RequestMethod.GET)
 	public BranchMergeJob retrieveMerge(@PathVariable String mergeId) {
 		return branchMergeService.getBranchMergeJobOrThrow(mergeId);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "/{branch}/integrity-check", method = RequestMethod.GET)
+	@ApiOperation(value = "Perform integrity check against this branch.",
+			notes = "Returns a map of problem components. " +
+					"Each map key is the id of problem component. The corresponding map value is a set of ids of concepts which are referred to by the component but which are missing or inactive.")
+	public Map<Long, Set<Long>> integrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) {
+		return queryService.findActiveRelationshipsReferencingNotActiveConcepts(BranchPathUriUtil.decodePath(branchPath), true);
 	}
 
 }

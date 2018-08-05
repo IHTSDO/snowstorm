@@ -22,9 +22,6 @@ public class ConceptValidationController {
 	@Autowired
 	private DroolsValidationService validationService;
 
-	@Autowired
-	private QueryService queryService;
-
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/validate/concept", method = RequestMethod.POST)
 	@ApiOperation("Validation using the Snomed-Drools project.")
@@ -43,15 +40,6 @@ public class ConceptValidationController {
 
 		String branchPath1 = BranchPathUriUtil.decodePath(branchPath);
 		return validationService.validateConcepts(branchPath1, concepts);
-	}
-
-	@ResponseBody
-	@RequestMapping("/{branch}/integrity-check")
-	@ApiOperation(value = "Perform integrity check against this branch.",
-			notes = "Returns a map of problem components. " +
-					"Each map key is the id of problem component. The corresponding map value is a set of ids of concepts which are referred to by the component but which are missing or inactive.")
-	public Map<Long, Set<Long>> integrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) {
-		return queryService.findActiveRelationshipsReferencingNotActiveConcepts(BranchPathUriUtil.decodePath(branchPath), true);
 	}
 
 }
