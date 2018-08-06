@@ -1,9 +1,13 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Branch;
+import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -194,47 +198,6 @@ public class QueryService {
 			return Optional.of(conceptIdPage);
 		} else {
 			return Optional.empty();
-		}
-	}
-
-	public Map<Long, Set<Long>> findActiveRelationshipsReferencingNotActiveConcepts(String branchPath, boolean stated) {
-		Map<Long, Set<Long>> relationshipToInactiveConceptMap = new Long2ObjectOpenHashMap<>();
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		TimerUtil timer = new TimerUtil("Integrity check");
-		Collection<Long> activeConcepts = conceptService.findAllActiveConcepts(branchCriteria);
-		timer.checkpoint("Fetch active concepts");
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
-		queryBuilder
-				.withQuery(boolQuery()
-						.must(branchCriteria)
-						.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID,
-								stated ? Sets.newHashSet(Relationship.CharacteristicType.stated.getConceptId(), Relationship.CharacteristicType.additional.getConceptId()) :
-										Sets.newHashSet(Relationship.CharacteristicType.inferred.getConceptId(), Relationship.CharacteristicType.additional.getConceptId())))
-						.mustNot(
-								boolQuery()
-									.should(termsQuery(Relationship.Fields.SOURCE_ID, activeConcepts))
-									.should(termsQuery(Relationship.Fields.TYPE_ID, activeConcepts))
-									.should(termsQuery(Relationship.Fields.DESTINATION_ID, activeConcepts))
-						)
-				)
-				.withPageable(LARGE_PAGE);
-		try (CloseableIterator<Relationship> relationshipStream = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
-			relationshipStream.forEachRemaining(relationship -> {
-				Set<Long> inactiveConcepts = new HashSet<>();
-				addIfInactive(relationship.getSourceId(), activeConcepts, inactiveConcepts);
-				addIfInactive(relationship.getTypeId(), activeConcepts, inactiveConcepts);
-				addIfInactive(relationship.getDestinationId(), activeConcepts, inactiveConcepts);
-				relationshipToInactiveConceptMap.put(parseLong(relationship.getId()), inactiveConcepts);
-			});
-		}
-		timer.finish();
-		return relationshipToInactiveConceptMap;
-	}
-
-	private void addIfInactive(String conceptId, Collection<Long> activeConcepts, Set<Long> inactiveConcepts) {
-		long conceptLong = parseLong(conceptId);
-		if (!activeConcepts.contains(conceptLong)) {
-			inactiveConcepts.add(conceptLong);
 		}
 	}
 

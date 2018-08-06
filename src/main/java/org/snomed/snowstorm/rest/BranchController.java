@@ -7,7 +7,8 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.core.data.domain.BranchMergeJob;
 import org.snomed.snowstorm.core.data.services.BranchMergeService;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.IntegrityService;
+import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.rest.pojo.CreateBranchRequest;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.snomed.snowstorm.rest.pojo.UpdateBranchRequest;
@@ -17,8 +18,6 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.constraints.NotNull;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 @RestController
 @RequestMapping(produces = "application/json")
@@ -31,7 +30,7 @@ public class BranchController {
 	private BranchMergeService branchMergeService;
 
 	@Autowired
-	private QueryService queryService;
+	private IntegrityService integrityService;
 
 	@ApiOperation("Retrieve all branches")
 	@RequestMapping(value = "/branches", method = RequestMethod.GET)
@@ -67,6 +66,8 @@ public class BranchController {
 	}
 
 	@RequestMapping(value = "/merges", method = RequestMethod.POST)
+	@ApiOperation(value = "Perform a branch rebase or promotion.",
+			notes = "The integrity-check endpoint should be used before performing a promotion to avoid a promotion errors.")
 	public ResponseEntity<Void> mergeBranch(@RequestBody MergeRequest mergeRequest) {
 		BranchMergeJob mergeJob = branchMergeService.mergeBranchAsync(mergeRequest);
 		return ControllerHelper.getCreatedResponse(mergeJob.getId());
@@ -78,12 +79,23 @@ public class BranchController {
 	}
 
 	@ResponseBody
-	@RequestMapping(value = "/{branch}/integrity-check", method = RequestMethod.GET)
-	@ApiOperation(value = "Perform integrity check against this branch.",
-			notes = "Returns a map of problem components. " +
-					"Each map key is the id of problem component. The corresponding map value is a set of ids of concepts which are referred to by the component but which are missing or inactive.")
-	public Map<Long, Set<Long>> integrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) {
-		return queryService.findActiveRelationshipsReferencingNotActiveConcepts(BranchPathUriUtil.decodePath(branchPath), true);
+	@RequestMapping(value = "/{branch}/integrity-check", method = RequestMethod.POST)
+	@ApiOperation(value = "Perform integrity check against changed components on this branch.",
+			notes = "Returns a report containing an entry for each type of issue found together with a map of components. " +
+					"In the component map each key represents an existing component and the corresponding map value is the id of a component which is missing or inactive.")
+	public IntegrityIssueReport integrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) {
+		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branchPath));
+		return integrityService.findChangedComponentsWithBadIntegrity(branch);
+	}
+
+	@ResponseBody
+	@RequestMapping(value = "/{branch}/integrity-check-full", method = RequestMethod.POST)
+	@ApiOperation(value = "Perform integrity check against all components on this branch.",
+			notes = "Returns a report containing an entry for each type of issue found together with a map of components. " +
+					"In the component map each key represents an existing component and the corresponding map value is the id of a component which is missing or inactive.")
+	public IntegrityIssueReport fullIntegrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) {
+		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branchPath));
+		return integrityService.findAllComponentsWithBadIntegrity(branch, true);
 	}
 
 }

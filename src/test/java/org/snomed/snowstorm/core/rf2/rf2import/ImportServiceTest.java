@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.core.rf2.rf2import;
 
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
@@ -12,10 +11,8 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.QueryService;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -46,6 +43,9 @@ public class ImportServiceTest extends AbstractTest {
 
 	@Autowired
 	private QueryService queryService;
+
+	@Autowired
+	private IntegrityService integrityService;
 
 	@Autowired
 	private CodeSystemService codeSystemService;
@@ -155,23 +155,34 @@ public class ImportServiceTest extends AbstractTest {
 		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/2005-01-31", false));
 		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/2006-01-31", false));
 
-		Map<Long, Set<Long>> expectedInvalidRelationships = new HashMap<>();
-		expectedInvalidRelationships.put(108874022L, Sets.newHashSet(116680003L, 106237007L, 116676008L));
-		expectedInvalidRelationships.put(108921029L, Sets.newHashSet(116680003L, 106237007L));
+		IntegrityIssueReport expectedIssueReport = new IntegrityIssueReport();
+		Map<Long, Long> relationshipWithInactiveSource = new HashMap<>();
+		relationshipWithInactiveSource.put(108874022L, 116676008L);
+		relationshipWithInactiveSource.put(108921029L, 116680003L);
+		expectedIssueReport.setRelationshipsWithMissingOrInactiveSource(relationshipWithInactiveSource);
+		Map<Long, Long> relationshipWithInactiveType = new HashMap<>();
+		relationshipWithInactiveType.put(108874022L, 116680003L);
+		relationshipWithInactiveType.put(108921029L, 116680003L);
+		expectedIssueReport.setRelationshipsWithMissingOrInactiveType(relationshipWithInactiveType);
+		Map<Long, Long> relationshipWithInactiveDest = new HashMap<>();
+		relationshipWithInactiveDest.put(108874022L, 106237007L);
+		relationshipWithInactiveDest.put(108921029L, 106237007L);
+		expectedIssueReport.setRelationshipsWithMissingOrInactiveDestination(relationshipWithInactiveDest);
 
-		assertEquals(Collections.emptyMap(), queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2002-07-31", true));
-		assertEquals(expectedInvalidRelationships, queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2002-07-31", false));
+		IntegrityIssueReport emptyReport = new IntegrityIssueReport();
+		assertEquals(emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/2002-07-31"), true));
+		assertEquals(expectedIssueReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/2002-07-31"), false));
 		assertConceptsMissingOrInactive("MAIN/2002-07-31", "116680003", "106237007", "116676008");
 
-		assertEquals(Collections.emptyMap(), queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2010-01-31", true));
-		assertEquals(expectedInvalidRelationships, queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2010-01-31", false));
+		assertEquals(emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/2010-01-31"), true));
+		assertEquals(expectedIssueReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/2010-01-31"), false));
 		assertConceptsMissingOrInactive("MAIN/2010-01-31", "116680003", "106237007", "116676008");
 
-		assertEquals(Collections.emptyMap(), queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2010-07-31", true));
-		assertEquals(expectedInvalidRelationships, queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2010-07-31", false));
+		assertEquals(emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/2010-07-31"), true));
+		assertEquals(expectedIssueReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/2010-07-31"), false));
 
-		assertEquals(Collections.emptyMap(), queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2011-01-31", true));
-		assertEquals(Collections.emptyMap(), queryService.findActiveRelationshipsReferencingNotActiveConcepts("MAIN/2011-01-31", false));
+		assertEquals(emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/2011-01-31"), true));
+		assertEquals(emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/2011-01-31"), false));
 		assertConceptsActive("MAIN/2011-01-31", "116680003", "106237007", "116676008");
 	}
 
@@ -286,10 +297,11 @@ public class ImportServiceTest extends AbstractTest {
 		final Page<Concept> conceptPage = conceptService.findAll(branchPath, PageRequest.of(0, 200));
 		Assert.assertEquals(77, conceptPage.getNumberOfElements());
 
+		IntegrityIssueReport emptyReport = new IntegrityIssueReport();
 		assertEquals("Branch " + branchPath + " should contain no invalid stated relationships.",
-				Collections.emptySet(), queryService.findActiveRelationshipsReferencingNotActiveConcepts(branchPath, true).keySet());
+				emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest(branchPath), true));
 		assertEquals("Branch " + branchPath + " should contain no invalid inferred relationships.",
-				Collections.emptySet(), queryService.findActiveRelationshipsReferencingNotActiveConcepts(branchPath, false).keySet());
+				emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest(branchPath), false));
 	}
 
 	private Set<Long> asSet(String string) {
