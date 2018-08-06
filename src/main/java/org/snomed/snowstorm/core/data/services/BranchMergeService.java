@@ -17,6 +17,7 @@ import org.snomed.snowstorm.core.data.domain.JobStatus;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.snomed.snowstorm.core.data.domain.review.BranchReview;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
+import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -54,6 +55,9 @@ public class BranchMergeService {
 	@Autowired
 	private DomainEntityConfiguration domainEntityConfiguration;
 
+	@Autowired
+	private IntegrityService integrityService;
+
 	// TODO: Move to persistent storage to prepare for autoscaling
 	private final Cache<String, BranchMergeJob> branchMergeJobStore = CacheBuilder.newBuilder()
 			.expireAfterWrite(12, TimeUnit.HOURS)
@@ -87,6 +91,7 @@ public class BranchMergeService {
 				mergeJob.setEndDate(new Date());
 			} catch (Exception e) {
 				mergeJob.setStatus(JobStatus.FAILED);
+				mergeJob.setMessage(e.getMessage());
 				logger.error("Failed to merge branch",e);
 			}
 		});
@@ -148,6 +153,14 @@ public class BranchMergeService {
 			}
 		} else {
 			// Promotion
+
+			logger.info("Integrity check before promotion of {}", source);
+			IntegrityIssueReport issueReport = integrityService.findChangedComponentsWithBadIntegrity(sourceBranch);
+			if (!issueReport.isEmpty()) {
+				logger.error("Aborting promotion of {}. Integrity issues found: {}", source, issueReport);
+				throw new ServiceException("Aborting promotion of " + source + ". Integrity issues found.");
+			}
+
 			logger.info("Performing promotion {} -> {}", source, target);
 			try (Commit commit = branchService.openPromotionCommit(targetBranch.getPath(), source)) {
 				final Set<String> versionsReplaced = sourceBranch.getVersionsReplaced();

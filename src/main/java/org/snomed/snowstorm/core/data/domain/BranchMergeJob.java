@@ -12,6 +12,7 @@ public class BranchMergeJob {
 	private Date startDate;
 	private JobStatus status;
 	private Date endDate;
+	private String message;
 
 	public BranchMergeJob(String source, String target, JobStatus status) {
 		id = UUID.randomUUID().toString();
@@ -59,5 +60,13 @@ public class BranchMergeJob {
 
 	public Date getEndDate() {
 		return endDate;
+	}
+
+	public void setMessage(String message) {
+		this.message = message;
+	}
+
+	public String getMessage() {
+		return message;
 	}
 }
