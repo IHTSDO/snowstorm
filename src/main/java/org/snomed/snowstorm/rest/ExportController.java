@@ -3,6 +3,8 @@ package org.snomed.snowstorm.rest;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,8 +36,8 @@ public class ExportController {
 		ExportConfiguration exportConfiguration = exportService.getExportJobOrThrow(exportId);
 
 		String filename = exportService.getFilename(exportConfiguration);
-		exportService.exportRF2Archive(exportConfiguration, response.getOutputStream());
 		response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
+		exportService.exportRF2Archive(exportConfiguration, response.getOutputStream());
 	}
 
 }
