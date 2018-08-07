@@ -85,7 +85,7 @@ public class ConceptController {
 	@ResponseBody
 	public ItemsPage<ConceptMini> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
 		ItemsPage<ConceptMini> concepts = findConcepts(BranchPathUriUtil.decodePath(branch),
-				searchRequest.isStated(),
+				searchRequest.getStated(),
 				searchRequest.getActiveFilter(),
 				searchRequest.getTermFilter(),
 				searchRequest.getEclFilter(),
