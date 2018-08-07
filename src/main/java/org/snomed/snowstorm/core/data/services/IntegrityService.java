@@ -53,6 +53,8 @@ public class IntegrityService {
 
 		// Find any active stated relationships using the concepts which have been deleted or inactivated on this branch
 		Set<Long> deletedOrInactiveConcepts = findDeletedOrInactivatedConcepts(branch, branchCriteria);
+		timer.checkpoint("Collect deleted or inactive concepts: " + deletedOrInactiveConcepts.size());
+
 		try (CloseableIterator<Relationship> changedOrDeletedConceptStream = elasticsearchTemplate.stream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
@@ -79,7 +81,8 @@ public class IntegrityService {
 				}
 			});
 		}
-		timer.checkpoint("Collect deleted or inactive concepts: " + deletedOrInactiveConcepts.size());
+		timer.checkpoint("Collect changed relationships referencing deleted or inactive concepts: " +
+				(relationshipWithInactiveSource.size() + relationshipWithInactiveType.size() + relationshipWithInactiveDestination.size()));
 
 		// Gather all the concept ids used in active stated relationships which have been changed on this task
 		Map<Long, Set<Long>> conceptUsedAsSourceInRelationships = new Long2ObjectOpenHashMap<>();
@@ -107,7 +110,7 @@ public class IntegrityService {
 		conceptsRequiredActive.addAll(conceptUsedAsSourceInRelationships.keySet());
 		conceptsRequiredActive.addAll(conceptUsedAsTypeInRelationships.keySet());
 		conceptsRequiredActive.addAll(conceptUsedAsDestinationInRelationships.keySet());
-		timer.checkpoint("Collect concepts referenced in changed relationships " + conceptsRequiredActive);
+		timer.checkpoint("Collect concepts referenced in changed relationships: " + conceptsRequiredActive.size());
 
 		Set<Long> activeConcepts = new LongOpenHashSet();
 		try (CloseableIterator<Concept> activeConceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
@@ -116,10 +119,11 @@ public class IntegrityService {
 						.must(termQuery(Concept.Fields.ACTIVE, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptsRequiredActive))
 				)
+				.withFields(Concept.Fields.CONCEPT_ID)
 				.build(), Concept.class)) {
 			activeConceptStream.forEachRemaining(concept -> activeConcepts.add(concept.getConceptIdAsLong()));
 		}
-		timer.checkpoint("Collect active concepts referenced in changed relationships " + activeConcepts);
+		timer.checkpoint("Collect active concepts referenced in changed relationships: " + activeConcepts.size());
 
 		// If any concepts not active add the relationships which use them to the report
 		Set<Long> conceptsNotActive = new LongOpenHashSet(conceptsRequiredActive);
@@ -213,19 +217,22 @@ public class IntegrityService {
 		try (CloseableIterator<Concept> changedOrDeletedConceptStream = elasticsearchTemplate.stream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery().must(versionControlHelper.getBranchCriteriaUnpromotedChangesAndDeletions(branch)))
+						.withFields(Concept.Fields.CONCEPT_ID)
 						.withPageable(LARGE_PAGE).build(),
 				Concept.class)) {
 			changedOrDeletedConceptStream.forEachRemaining(conceptState -> changedOrDeletedConcepts.add(conceptState.getConceptIdAsLong()));
 		}
 
-		// Of these concepts which are currently present and active
+		// Of these concepts, which are currently present and active?
 		final Set<Long> changedAndActiveConcepts = new LongOpenHashSet();
 		try (CloseableIterator<Concept> changedOrDeletedConceptStream = elasticsearchTemplate.stream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(branchCriteria)
-								.must(termsQuery(Concept.Fields.ACTIVE, true))
+								.must(termsQuery(Concept.Fields.CONCEPT_ID, changedOrDeletedConcepts))
+								.must(termQuery(Concept.Fields.ACTIVE, true))
 						)
+						.withFields(Concept.Fields.CONCEPT_ID)
 						.withPageable(LARGE_PAGE).build(),
 				Concept.class)) {
 			changedOrDeletedConceptStream.forEachRemaining(conceptState -> changedAndActiveConcepts.add(conceptState.getConceptIdAsLong()));
