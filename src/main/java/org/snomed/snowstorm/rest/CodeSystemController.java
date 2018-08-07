@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
@@ -11,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@Api(tags = "Admin", description = "Code Systems")
 @RequestMapping(value = "/codesystems", produces = "application/json")
 public class CodeSystemController {
 

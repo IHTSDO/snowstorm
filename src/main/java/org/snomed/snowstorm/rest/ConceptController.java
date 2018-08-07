@@ -2,6 +2,7 @@ package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
@@ -23,6 +24,7 @@ import javax.validation.Valid;
 import java.util.*;
 
 @RestController
+@Api(tags = "Concepts", description = "-")
 @RequestMapping(produces = "application/json")
 public class ConceptController {
 

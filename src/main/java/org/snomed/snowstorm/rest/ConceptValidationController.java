@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.rest;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.ihtsdo.drools.response.InvalidContent;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.Set;
 
 @RestController
+@Api(tags = "Concept Validation", description = "-")
 @RequestMapping(produces = "application/json")
 public class ConceptValidationController {
 

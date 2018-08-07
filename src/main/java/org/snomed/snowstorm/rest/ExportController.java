@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import io.swagger.annotations.Api;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,7 @@ import javax.validation.Valid;
 import java.io.IOException;
 
 @RestController
+@Api(tags = "Export", description = "RF2")
 @RequestMapping(value = "/exports", produces = "application/json")
 public class ExportController {
 

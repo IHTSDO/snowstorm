@@ -2,6 +2,7 @@ package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import io.swagger.annotations.Api;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
@@ -10,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
+@Api(tags = "Refset Members", description = "-")
 @RequestMapping(produces = "application/json")
 public class ReferenceSetMemberController {
 

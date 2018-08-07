@@ -1,4 +1,4 @@
-package org.snomed.snowstorm.rest;
+package org.snomed.snowstorm.rest.config;
 
 import io.kaicode.elasticvc.api.BranchNotFoundException;
 import org.slf4j.Logger;

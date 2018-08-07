@@ -2,6 +2,7 @@ package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.ConceptView;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
@@ -22,6 +23,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 @RestController
+@Api(tags = "Classification", description = "-")
 @RequestMapping(value = "/{branch}/classifications", produces = "application/json")
 public class ClassificationController {
 

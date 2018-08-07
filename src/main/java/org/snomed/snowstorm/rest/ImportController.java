@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import io.swagger.annotations.Api;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportJob;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.core.rf2.rf2import.RF2ImportConfiguration;
@@ -11,6 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 
 @RestController
+@Api(tags = "Import", description = "RF2")
 @RequestMapping(value = "/imports", produces = "application/json")
 public class ImportController {
 

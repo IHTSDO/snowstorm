@@ -2,6 +2,7 @@ package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
@@ -21,6 +22,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
+@Api(tags = "Descriptions", description = "-")
 @RequestMapping(produces = "application/json")
 public class DescriptionController {
 

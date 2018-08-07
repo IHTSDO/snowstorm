@@ -3,6 +3,7 @@ package org.snomed.snowstorm.rest;
 import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.rest.pojo.ConceptMiniNestedFsn;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;

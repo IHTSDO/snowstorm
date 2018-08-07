@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import io.swagger.annotations.Api;
 import org.snomed.snowstorm.core.data.services.AuthoringMirrorService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 
 @RestController
+@Api(tags = "Extra", description = "Authoring Mirror")
 @RequestMapping(produces = "application/json")
 public class AuthoringMirrorController {
 

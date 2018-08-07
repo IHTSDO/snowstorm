@@ -1,7 +1,8 @@
-package org.snomed.snowstorm.rest;
+package org.snomed.snowstorm.rest.pojo;
 
 import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.rest.View;
 
 public class ConceptMiniNestedFsn {
 

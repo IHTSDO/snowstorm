@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.rest;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.mrcm.MRCMService;
@@ -14,6 +15,7 @@ import java.util.Collection;
 import java.util.Set;
 
 @RestController
+@Api(tags = "MRCM XML", description = "-")
 @RequestMapping(produces = "application/json")
 public class MRCMController {
 

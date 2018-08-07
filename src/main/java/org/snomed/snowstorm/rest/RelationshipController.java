@@ -3,6 +3,7 @@ package org.snomed.snowstorm.rest;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.google.common.collect.Sets;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import io.swagger.annotations.Api;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -19,6 +20,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
+@Api(tags = "Relationships", description = "-")
 @RequestMapping(produces = "application/json")
 public class RelationshipController {
 
