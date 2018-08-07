@@ -67,7 +67,7 @@ public class ConceptController {
 
 		if (stated == null) {
 			// Default to inferred if ECL given, otherwise stated
-			stated = ecl != null && !ecl.isEmpty();
+			stated = ecl == null || ecl.isEmpty();
 		}
 
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated)
