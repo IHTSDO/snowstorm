@@ -47,7 +47,7 @@ public class ConceptController {
 	@ResponseBody
 	public ItemsPage<ConceptMini> findConcepts(
 			@PathVariable String branch,
-			@RequestParam(defaultValue = "false") boolean stated,
+			@RequestParam(required = false) Boolean stated,
 			@RequestParam(required = false) Boolean activeFilter,
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) String ecl,
@@ -63,6 +63,11 @@ public class ConceptController {
 			for (String id : ids) {
 				conceptIds.add(id.trim());
 			}
+		}
+
+		if (stated == null) {
+			// Default to inferred if ECL given, otherwise stated
+			stated = ecl != null && !ecl.isEmpty();
 		}
 
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated)
