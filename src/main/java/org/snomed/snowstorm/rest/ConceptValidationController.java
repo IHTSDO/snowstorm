@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.Set;
 
 @RestController
-@Api(tags = "Concept Validation", description = "-")
+@Api(tags = "Validation", description = "Drools")
 @RequestMapping(produces = "application/json")
 public class ConceptValidationController {
 

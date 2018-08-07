@@ -75,7 +75,7 @@ public class ConceptMini {
 	@JsonProperty("fsn")
 	public String getJsonFsn() {
 		String term = getFsn();
-		return nestFsn ? "{ \"term\": \"" + term + "\" }" : "\"" + term + "\"";
+		return nestFsn ? "{ \"term\": \"" + term + "\", \"conceptId\": \"" + conceptId + "\" }" : "\"" + term + "\"";
 	}
 
 	public void setDefinitionStatusId(String definitionStatusId) {
