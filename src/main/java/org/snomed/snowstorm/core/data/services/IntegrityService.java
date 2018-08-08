@@ -7,6 +7,8 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Relationship;
@@ -36,6 +38,8 @@ public class IntegrityService {
 	@Autowired
 	private ConceptService conceptService;
 
+	private Logger logger = LoggerFactory.getLogger(getClass());
+
 	public IntegrityIssueReport findChangedComponentsWithBadIntegrity(Branch branch) {
 
 		if (branch.getPath().equals("MAIN")) {
@@ -52,9 +56,11 @@ public class IntegrityService {
 		final Map<Long, Long> relationshipWithInactiveDestination = new Long2LongOpenHashMap();
 
 		// Find any active stated relationships using the concepts which have been deleted or inactivated on this branch
+		// First find those concept
 		Set<Long> deletedOrInactiveConcepts = findDeletedOrInactivatedConcepts(branch, branchCriteria);
 		timer.checkpoint("Collect deleted or inactive concepts: " + deletedOrInactiveConcepts.size());
 
+		// Then find the relationships with bad integrity
 		try (CloseableIterator<Relationship> changedOrDeletedConceptStream = elasticsearchTemplate.stream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
@@ -105,7 +111,7 @@ public class IntegrityService {
 			});
 		}
 
-		// Of these concepts which are active
+		// Of these concepts which are active?
 		Set<Long> conceptsRequiredActive = new LongOpenHashSet();
 		conceptsRequiredActive.addAll(conceptUsedAsSourceInRelationships.keySet());
 		conceptsRequiredActive.addAll(conceptUsedAsTypeInRelationships.keySet());
@@ -115,7 +121,7 @@ public class IntegrityService {
 		Set<Long> activeConcepts = new LongOpenHashSet();
 		try (CloseableIterator<Concept> activeConceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(versionControlHelper.getBranchCriteriaUnpromotedChanges(branch))
+						.must(branchCriteria)
 						.must(termQuery(Concept.Fields.ACTIVE, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptsRequiredActive))
 				)
@@ -125,7 +131,7 @@ public class IntegrityService {
 		}
 		timer.checkpoint("Collect active concepts referenced in changed relationships: " + activeConcepts.size());
 
-		// If any concepts not active add the relationships which use them to the report
+		// If any concepts not active add the relationships which use them to the report because they have bad integrity
 		Set<Long> conceptsNotActive = new LongOpenHashSet(conceptsRequiredActive);
 		conceptsNotActive.removeAll(activeConcepts);
 		for (Long conceptNotActive : conceptsNotActive) {
@@ -153,17 +159,16 @@ public class IntegrityService {
 		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		TimerUtil timer = new TimerUtil("Full integrity check on " + branch.getPath());
 		Collection<Long> activeConcepts = conceptService.findAllActiveConcepts(branchCriteria);
-		timer.checkpoint("Fetch active concepts");
+		timer.checkpoint("Fetch active concepts: " + activeConcepts.size());
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 		BoolQueryBuilder boolQueryBuilder = boolQuery();
 		queryBuilder
 				.withQuery(boolQueryBuilder
 						.must(branchCriteria)
-						.mustNot(
-								boolQuery()
-										.should(termsQuery(Relationship.Fields.SOURCE_ID, activeConcepts))
-										.should(termsQuery(Relationship.Fields.TYPE_ID, activeConcepts))
-										.should(termsQuery(Relationship.Fields.DESTINATION_ID, activeConcepts))
+						.must(boolQuery()
+							.should(boolQuery().mustNot(termsQuery(Relationship.Fields.SOURCE_ID, activeConcepts)))
+							.should(boolQuery().mustNot(termsQuery(Relationship.Fields.TYPE_ID, activeConcepts)))
+							.should(boolQuery().mustNot(termsQuery(Relationship.Fields.DESTINATION_ID, activeConcepts)))
 						)
 				)
 				.withPageable(LARGE_PAGE);
@@ -222,6 +227,7 @@ public class IntegrityService {
 				Concept.class)) {
 			changedOrDeletedConceptStream.forEachRemaining(conceptState -> changedOrDeletedConcepts.add(conceptState.getConceptIdAsLong()));
 		}
+		logger.info("Concepts changed or deleted on branch {} = {}", branch.getPath(), changedOrDeletedConcepts.size());
 
 		// Of these concepts, which are currently present and active?
 		final Set<Long> changedAndActiveConcepts = new LongOpenHashSet();
@@ -237,10 +243,12 @@ public class IntegrityService {
 				Concept.class)) {
 			changedOrDeletedConceptStream.forEachRemaining(conceptState -> changedAndActiveConcepts.add(conceptState.getConceptIdAsLong()));
 		}
+		logger.info("Concepts changed, currently present and active on branch {} = {}", branch.getPath(), changedAndActiveConcepts.size());
 
 		// Therefore concepts deleted or inactive are:
 		Set<Long> deletedOrInactiveConcepts = new LongOpenHashSet(changedOrDeletedConcepts);
 		deletedOrInactiveConcepts.removeAll(changedAndActiveConcepts);
+		logger.info("Concepts deleted or inactive on branch {} = {}", branch.getPath(), deletedOrInactiveConcepts.size());
 		return deletedOrInactiveConcepts;
 	}
 }
