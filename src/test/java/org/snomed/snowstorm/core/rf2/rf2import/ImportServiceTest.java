@@ -186,14 +186,15 @@ public class ImportServiceTest extends AbstractTest {
 		assertConceptsMissingOrInactive("MAIN/2010-01-31", "116680003", "106237007", "116676008");
 
 		IntegrityIssueReport report2010JanStated = integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/2010-01-31"), true);
-		assertEquals("{3926512020=>116680003, 4279586029=>106237007, 3924382025=>116676008}", report2010JanStated.getRelationshipsWithMissingOrInactiveSource().toString());
+		assertEquals("{3924382025=116676008, 3926512020=116680003, 4279586029=106237007}", mapToString(report2010JanStated.getRelationshipsWithMissingOrInactiveSource()));
 		assertEquals(116, report2010JanStated.getRelationshipsWithMissingOrInactiveType().size());
-		assertEquals("{3878891026=>106237007}", report2010JanStated.getRelationshipsWithMissingOrInactiveDestination().toString());
+		assertEquals("{3878891026=106237007}", mapToString(report2010JanStated.getRelationshipsWithMissingOrInactiveDestination()));
 
 		IntegrityIssueReport report2010JanInferred = integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/2010-01-31"), false);
-		assertEquals("{20244025=>106237007, 108874022=>116676008, 144474020=>246188002, 2537147023=>116676008, 2764316020=>106237007, " +
-				"108921029=>116680003, 2537148029=>116680003, 127116020=>118225008, 2530694025=>106237007}",
-				report2010JanInferred.getRelationshipsWithMissingOrInactiveSource().toString());
+
+		assertEquals("{20244025=106237007, 108874022=116676008, 108921029=116680003, 127116020=118225008, 144474020=246188002, " +
+						"2530694025=106237007, 2537147023=116676008, 2537148029=116680003, 2764316020=106237007}",
+				mapToString(report2010JanInferred.getRelationshipsWithMissingOrInactiveSource()));
 		assertEquals(127, report2010JanInferred.getRelationshipsWithMissingOrInactiveType().size());
 
 		assertConceptsActive("MAIN/2011-01-31", "116680003", "106237007", "116676008");
@@ -201,9 +202,14 @@ public class ImportServiceTest extends AbstractTest {
 
 		assertEquals(emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/2011-01-31"), true));
 		IntegrityIssueReport report2011JanInferred = integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/2011-01-31"), false);
-		assertEquals("{144474020=>246188002, 127116020=>118225008}", report2011JanInferred.getRelationshipsWithMissingOrInactiveSource().toString());
+		assertEquals("{127116020=118225008, 144474020=246188002}", mapToString(report2011JanInferred.getRelationshipsWithMissingOrInactiveSource()));
 		assertNull(report2011JanInferred.getRelationshipsWithMissingOrInactiveType());
-		assertEquals("{69485025=>246188002, 266232022=>118225008}", report2011JanInferred.getRelationshipsWithMissingOrInactiveDestination().toString());
+		assertEquals("{69485025=246188002, 266232022=118225008}", mapToString(report2011JanInferred.getRelationshipsWithMissingOrInactiveDestination()));
+	}
+
+	private String mapToString(Map<Long, Long> map) {
+		// Sort the map before converting to string to ensure consistent output
+		return new TreeMap<>(map).toString();
 	}
 
 	private void assertConceptsMissingOrInactive(String path, String... ids) {
