@@ -33,22 +33,24 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 				relationships.add(new DroolsRelationship(r));
 			});
 		}
-		if (concept.getAdditionalAxioms() != null) {
-			concept.getAdditionalAxioms().forEach(axiom -> {
-				axiom.getRelationships().forEach(r -> {
-					r.setSourceId(conceptId);
-					relationships.add(new DroolsRelationship(r));
-				});
-			});
-		}
-		if (concept.getGciAxioms() != null) {
-			concept.getGciAxioms().forEach(axiom -> {
-				axiom.getRelationships().forEach(r -> {
-					r.setSourceId(conceptId);
-					relationships.add(new DroolsRelationship(r));
-				});
-			});
-		}
+
+		// TODO: Get the frontend to set a UUID against the relationships so that any validation errors can be shown against the correct fragment.
+//		if (concept.getAdditionalAxioms() != null) {
+//			concept.getAdditionalAxioms().forEach(axiom -> {
+//				axiom.getRelationships().forEach(r -> {
+//					r.setSourceId(conceptId);
+//					relationships.add(new DroolsRelationship(r));
+//				});
+//			});
+//		}
+//		if (concept.getGciAxioms() != null) {
+//			concept.getGciAxioms().forEach(axiom -> {
+//				axiom.getRelationships().forEach(r -> {
+//					r.setSourceId(conceptId);
+//					relationships.add(new DroolsRelationship(r));
+//				});
+//			});
+//		}
 		// TODO: Validate 'ontology axioms' when these are implemented. e.g. property chains.
 	}
 
