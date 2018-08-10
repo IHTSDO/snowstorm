@@ -24,13 +24,13 @@
 		<packageName>${project.artifactId}</packageName>
 
 		<!--
-		ElasticVC 1.5.1-SNAPSHOT
+		ElasticVC 1.6.0-SNAPSHOT
 		- uses Snomed International's Fork of Spring Data Elasticsearch
 		- uses Elasticsearch 6.0.1
 
 		N.B. Remember to update TestConfig.ELASTIC_SEARCH_VERSION
 		-->
-		<elasticvc.version>1.5.1-SNAPSHOT</elasticvc.version>
+		<elasticvc.version>1.6.0-SNAPSHOT</elasticvc.version>
 		<elasticsearch.version>6.0.1</elasticsearch.version>
 
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
