@@ -58,10 +58,8 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	@JsonView(value = View.Component.class)
 	private Set<Relationship> relationships;
 
-	@JsonView(value = View.Component.class)
 	private Set<Axiom> axioms;
 
-	@JsonView(value = View.Component.class)
 	private Set<Axiom> generalConceptInclusionAxioms;
 
 	public Concept() {
@@ -319,6 +317,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		this.relationships = relationships;
 	}
 
+	@JsonView(value = View.Component.class)
 	public Set<Axiom> getAdditionalAxioms() {
 		return axioms;
 	}
@@ -327,6 +326,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		this.axioms = axioms;
 	}
 
+	@JsonView(value = View.Component.class)
 	public Set<Axiom> getGciAxioms() {
 		return generalConceptInclusionAxioms;
 	}
