@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.snomed.otf.owltoolkit.service.SnomedReasonerService;
 import org.snomed.snowstorm.core.data.domain.ConceptView;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
 import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus;
@@ -81,8 +82,9 @@ public class ClassificationController {
 	@RequestMapping(method = RequestMethod.POST)
 	@ResponseBody
 	public ResponseEntity createClassification(@PathVariable String branch,
-													   @RequestParam(required = false) String reasonerId,
-													   UriComponentsBuilder uriComponentsBuilder) throws ServiceException {
+			@RequestParam(required = false, defaultValue = SnomedReasonerService.ELK_REASONER_FACTORY) String reasonerId,
+			UriComponentsBuilder uriComponentsBuilder) throws ServiceException {
+
 		branch = BranchPathUriUtil.decodePath(branch);
 		Classification classification = classificationService.createClassification(branch, reasonerId);
 		return ResponseEntity.created(uriComponentsBuilder.path("/{branch}/classifications/{classificationId}")
