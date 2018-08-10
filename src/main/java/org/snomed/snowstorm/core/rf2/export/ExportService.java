@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.rf2.export;
 
 import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.apache.tomcat.util.http.fileupload.util.Streams;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -47,11 +48,15 @@ public class ExportService {
 	@Autowired
 	private ExportConfigurationRepository exportConfigurationRepository;
 
+	@Autowired
+	private BranchService branchService;
+
 	private Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_AXIOM_REFERENCE_SET);
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	public String createJob(ExportConfiguration exportConfiguration) {
+		branchService.findBranchOrThrow(exportConfiguration.getBranchPath());
 		exportConfiguration.setId(UUID.randomUUID().toString());
 		if (exportConfiguration.getFilenameEffectiveDate() == null) {
 			exportConfiguration.setFilenameEffectiveDate(DateUtil.DATE_STAMP_FORMAT.format(new Date()));
