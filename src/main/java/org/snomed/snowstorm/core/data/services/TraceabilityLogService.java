@@ -31,7 +31,7 @@ public class TraceabilityLogService {
 
 	private ObjectMapper objectMapper;
 
-	private static final int RECORD_MAX_INFERRED_CHANGES = 1_000;
+	private static final int RECORD_MAX_INFERRED_CHANGES = 300;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
