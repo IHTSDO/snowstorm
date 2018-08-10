@@ -262,30 +262,31 @@ public class ClassificationService {
 						.withSort(new FieldSortBuilder("sourceId"))
 						.withPageable(LARGE_PAGE);
 				try (CloseableIterator<RelationshipChange> relationshipChangeStream = elasticsearchOperations.stream(queryBuilder.build(), RelationshipChange.class)) {
+					while (relationshipChangeStream.hasNext()) {
+						List<RelationshipChange> changesBatch = new ArrayList<>();
+						int i = 0;
+						while (i++ < 10_000 && relationshipChangeStream.hasNext()) {
+							changesBatch.add(relationshipChangeStream.next());
+						}
 
-					List<RelationshipChange> changesBatch = new ArrayList<>();
-					int i = 0;
-					while (i++ < 10_000 && relationshipChangeStream.hasNext()) {
-						changesBatch.add(relationshipChangeStream.next());
+						// Group changes by concept
+						Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
+						for (RelationshipChange relationshipChange : changesBatch) {
+							conceptToChangeMap.computeIfAbsent(Long.parseLong(relationshipChange.getSourceId()), conceptId -> new ArrayList<>()).add(relationshipChange);
+						}
+
+						// Load concepts
+						Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet());
+
+						// Apply changes to concepts
+						for (Concept concept : concepts) {
+							List<RelationshipChange> relationshipChanges = conceptToChangeMap.get(concept.getConceptIdAsLong());
+							applyRelationshipChangesToConcept(concept, relationshipChanges, false);
+						}
+
+						// Update concepts
+						conceptService.updateWithinCommit(concepts, commit);
 					}
-
-					// Group changes by concept
-					Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
-					for (RelationshipChange relationshipChange : changesBatch) {
-						conceptToChangeMap.computeIfAbsent(Long.parseLong(relationshipChange.getSourceId()), conceptId -> new ArrayList<>()).add(relationshipChange);
-					}
-
-					// Load concepts
-					Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet());
-
-					// Apply changes to concepts
-					for (Concept concept : concepts) {
-						List<RelationshipChange> relationshipChanges = conceptToChangeMap.get(concept.getConceptIdAsLong());
-						applyRelationshipChangesToConcept(concept, relationshipChanges, false);
-					}
-
-					// Update concepts
-					conceptService.updateWithinCommit(concepts, commit);
 				}
 
 				commit.markSuccessful();
@@ -352,7 +353,6 @@ public class ClassificationService {
 
 		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
 		for (RelationshipChange relationshipChange : relationshipChanges) {
-			relationshipChange.setChangeNature(relationshipChange.isActive() ? ChangeNature.INFERRED : ChangeNature.REDUNDANT);
 			if (fetchDescriptions) {
 				relationshipChange.setSource(conceptMiniMap.computeIfAbsent(relationshipChange.getSourceId(), ConceptMini::new));
 				relationshipChange.setDestination(conceptMiniMap.computeIfAbsent(relationshipChange.getDestinationId(), ConceptMini::new));

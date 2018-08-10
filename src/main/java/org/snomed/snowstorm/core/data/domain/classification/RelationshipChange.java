@@ -48,9 +48,6 @@ public class RelationshipChange {
 	@Transient
 	private ConceptMini type;
 
-	@Transient
-	private ChangeNature changeNature;
-
 	public RelationshipChange() {
 	}
 
@@ -184,11 +181,7 @@ public class RelationshipChange {
 	}
 
 	public ChangeNature getChangeNature() {
-		return changeNature;
-	}
-
-	public void setChangeNature(ChangeNature changeNature) {
-		this.changeNature = changeNature;
+		return active ? ChangeNature.INFERRED : ChangeNature.REDUNDANT;
 	}
 
 	@Override
