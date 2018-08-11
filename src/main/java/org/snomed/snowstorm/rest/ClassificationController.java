@@ -17,6 +17,7 @@ import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -103,7 +104,7 @@ public class ClassificationController {
 		}
 		String path = BranchPathUriUtil.decodePath(branch);
 		classificationService.classificationSaveStatusCheck(path, classificationId);
-		classificationService.saveClassificationResultsToBranch(path, classificationId);
+		classificationService.saveClassificationResultsToBranch(path, classificationId, SecurityContextHolder.getContext());
 	}
 
 }

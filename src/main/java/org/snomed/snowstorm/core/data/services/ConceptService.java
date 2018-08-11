@@ -38,6 +38,9 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
@@ -469,7 +472,8 @@ public class ConceptService extends ComponentService {
 	}
 
 	@Async
-	public void createUpdateAsync(List<Concept> concepts, String path, AsyncConceptChangeBatch batchConceptChange) {
+	public void createUpdateAsync(List<Concept> concepts, String path, AsyncConceptChangeBatch batchConceptChange, SecurityContext securityContext) {
+		SecurityContextHolder.setContext(securityContext);
 		synchronized (batchConceptChanges) {
 			batchConceptChanges.put(batchConceptChange.getId(), batchConceptChange);
 		}

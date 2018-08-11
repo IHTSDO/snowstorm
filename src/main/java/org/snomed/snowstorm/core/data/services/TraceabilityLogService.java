@@ -46,6 +46,10 @@ public class TraceabilityLogService {
 			return;
 		}
 
+		if (userId == null) {
+			userId = "System";
+		}
+
 		String commitComment;
 		if (concepts.size() == 1) {
 			Concept concept = concepts.iterator().next();

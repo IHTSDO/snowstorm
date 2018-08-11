@@ -38,6 +38,8 @@ import org.springframework.data.elasticsearch.core.query.GetQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
@@ -248,7 +250,8 @@ public class ClassificationService {
 	}
 
 	@Async
-	public void saveClassificationResultsToBranch(String path, String classificationId) {
+	public void saveClassificationResultsToBranch(String path, String classificationId, SecurityContext securityContext) {
+		SecurityContextHolder.setContext(securityContext);
 		Classification classification = classificationSaveStatusCheck(path, classificationId);
 
 		if (classification.getInferredRelationshipChangesFound()) {
