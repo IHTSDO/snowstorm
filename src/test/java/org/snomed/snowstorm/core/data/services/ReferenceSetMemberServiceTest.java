@@ -40,11 +40,11 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void createFindDeleteMember() throws Exception {
+	public void createFindDeleteMember() {
 		assertEquals(0, memberService.findMembers(MAIN, Concepts.CLINICAL_FINDING, PAGE).getTotalElements());
 
 		memberService.createMember(
-				MAIN, new ReferenceSetMember<>(Concepts.CORE_MODULE, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, Concepts.CLINICAL_FINDING));
+				MAIN, new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, Concepts.CLINICAL_FINDING));
 
 		Page<ReferenceSetMember> members = memberService.findMembers(MAIN, Concepts.CLINICAL_FINDING, PAGE);
 		assertEquals(1, members.getTotalElements());

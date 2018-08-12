@@ -58,8 +58,8 @@ public class AxiomConversionService {
 		}
 	}
 
-	private ReferenceSetMember<ReferenceSetMember> createMember(Concept concept, Axiom axiom, String owlExpression) {
-		return new ReferenceSetMember<>(axiom.getAxiomId() != null ? axiom.getAxiomId() : UUID.randomUUID().toString(), null, axiom.isActive(), axiom.getModuleId(), Concepts.OWL_AXIOM_REFERENCE_SET, concept.getConceptId())
+	private ReferenceSetMember createMember(Concept concept, Axiom axiom, String owlExpression) {
+		return new ReferenceSetMember(axiom.getAxiomId() != null ? axiom.getAxiomId() : UUID.randomUUID().toString(), null, axiom.isActive(), axiom.getModuleId(), Concepts.OWL_AXIOM_REFERENCE_SET, concept.getConceptId())
 				.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION, owlExpression);
 	}
 

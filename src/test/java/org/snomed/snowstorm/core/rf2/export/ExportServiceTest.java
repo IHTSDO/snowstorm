@@ -23,7 +23,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -49,7 +48,7 @@ public class ExportServiceTest extends AbstractTest {
 
 	private String descriptionId;
 	private String textDefId;
-	private ReferenceSetMember<ReferenceSetMember> owlMember;
+	private ReferenceSetMember owlMember;
 
 	@Before
 	public void setup() throws ServiceException {
@@ -89,7 +88,7 @@ public class ExportServiceTest extends AbstractTest {
 		concept.addRelationship(new Relationship("125023", "", true, Concepts.CORE_MODULE, conceptId, "100003", 0, Concepts.ISA, Concepts.ADDITIONAL_RELATIONSHIP, Concepts.EXISTENTIAL));
 		conceptService.create(concept, path);
 
-		owlMember = new ReferenceSetMember<>(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, "123005000");
+		owlMember = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, "123005000");
 		owlMember.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION, "TransitiveObjectProperty(:123005000)");
 		referenceSetMemberService.createMember(path, owlMember);
 	}

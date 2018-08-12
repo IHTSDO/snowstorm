@@ -10,7 +10,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import java.util.*;
 
 @Document(indexName = "es-member", type = "member", shards = 8)
-public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComponent<C> {
+public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 
 	public interface Fields extends SnomedComponent.Fields {
 		String MEMBER_ID = "memberId";
@@ -75,7 +75,7 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 	}
 
 	@Override
-	public boolean isComponentChanged(C that) {
+	public boolean isComponentChanged(ReferenceSetMember that) {
 		return that == null
 				|| active != that.isActive()
 				|| !moduleId.equals(that.getModuleId())
@@ -100,7 +100,7 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		return getAdditionalFields().get(fieldName);
 	}
 
-	public ReferenceSetMember<C> setAdditionalField(String fieldName, String value) {
+	public ReferenceSetMember setAdditionalField(String fieldName, String value) {
 		getAdditionalFields().put(fieldName, value);
 		return this;
 	}
@@ -140,7 +140,7 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		return referencedComponentId;
 	}
 
-	public ReferenceSetMember<C> setReferencedComponentId(String referencedComponentId) {
+	public ReferenceSetMember setReferencedComponentId(String referencedComponentId) {
 		this.referencedComponentId = referencedComponentId;
 		return this;
 	}
@@ -149,7 +149,7 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 		return conceptId;
 	}
 
-	public ReferenceSetMember<C> setConceptId(String conceptId) {
+	public ReferenceSetMember setConceptId(String conceptId) {
 		this.conceptId = conceptId;
 		return this;
 	}
@@ -166,7 +166,7 @@ public class ReferenceSetMember<C extends ReferenceSetMember> extends SnomedComp
 	public boolean equals(Object o) {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
-		ReferenceSetMember<?> that = (ReferenceSetMember<?>) o;
+		ReferenceSetMember that = (ReferenceSetMember) o;
 
 		if (memberId != null && memberId.equals(that.memberId)) {
 			return true;
