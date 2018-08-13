@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
@@ -9,16 +10,15 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 
@@ -423,6 +423,25 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(0, conceptService.find(conceptId, "MAIN/A").getDescriptions().size());
 	}
 
+	@Test
+	public void testConcurrentPromotionBlockedByBranchLock() throws ServiceException, InterruptedException {
+		conceptService.create(new Concept("100").addDescription(new Description("1")), "MAIN/A");
+		conceptService.create(new Concept("100").addDescription(new Description("2")), "MAIN/C");
+
+		BranchMergeJob branchMergeJobA = branchMergeService.mergeBranchAsync(new MergeRequest("MAIN/A", "MAIN", "Promote A", null));
+		BranchMergeJob branchMergeJobC = branchMergeService.mergeBranchAsync(new MergeRequest("MAIN/C", "MAIN", "Promote C", null));
+
+		Thread.sleep(2000);
+
+		List<BranchMergeJob> jobs = Lists.newArrayList(branchMergeJobA, branchMergeJobC);
+		List<BranchMergeJob> completeJobs = jobs.stream().filter(job -> job.getStatus() == JobStatus.COMPLETED).collect(Collectors.toList());
+		List<BranchMergeJob> failedJobs = jobs.stream().filter(job -> job.getStatus() == JobStatus.FAILED).collect(Collectors.toList());
+
+		assertEquals(1, completeJobs.size());
+		assertEquals(1, failedJobs.size());
+		assertEquals("Branch MAIN is already locked", failedJobs.get(0).getMessage());
+	}
+
 	/**
 	 * Set up a content conflict situation.
 	 * Three versions of the same concept should be given.
@@ -430,10 +449,6 @@ public class BranchMergeServiceTest extends AbstractTest {
 	 * leftConcept is then saved and promoted from MAIN/A/A1 to MAIN/A.
 	 * rightConcept is then saved to MAIN/A/A2.
 	 * At that point MAIN/A/A2 has a conflict in the rebase.
-	 * @param parentConcept
-	 * @param leftConcept
-	 * @param rightConcept
-	 * @throws ServiceException 
 	 */
 	private void setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept) throws ServiceException {
 		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);

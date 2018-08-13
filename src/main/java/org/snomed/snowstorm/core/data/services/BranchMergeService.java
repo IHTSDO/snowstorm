@@ -141,10 +141,11 @@ public class BranchMergeService {
 			}
 		}
 
-		// TODO: Lock both branches
 		if (rebase) {
 			// Rebase
 			logger.info("Performing rebase {} -> {}", source, target);
+			// This just locks the target branch.
+			// Content will be taken from the latest complete commit on the source branch.
 			try (Commit commit = branchService.openRebaseCommit(targetBranch.getPath())) {
 				if (manuallyMergedConcepts != null && !manuallyMergedConcepts.isEmpty()) {
 					conceptService.updateWithinCommit(manuallyMergedConcepts, commit);
@@ -153,16 +154,18 @@ public class BranchMergeService {
 			}
 		} else {
 			// Promotion
-
-			logger.info("Integrity check before promotion of {}", source);
-			IntegrityIssueReport issueReport = integrityService.findChangedComponentsWithBadIntegrity(sourceBranch);
-			if (!issueReport.isEmpty()) {
-				logger.error("Aborting promotion of {}. Integrity issues found: {}", source, issueReport);
-				throw new ServiceException("Aborting promotion of " + source + ". Integrity issues found.");
-			}
-
-			logger.info("Performing promotion {} -> {}", source, target);
+			// Locks both branches until exiting this try block closes the commit
 			try (Commit commit = branchService.openPromotionCommit(targetBranch.getPath(), source)) {
+
+				logger.info("Integrity check before promotion of {}", source);
+				IntegrityIssueReport issueReport = integrityService.findChangedComponentsWithBadIntegrity(sourceBranch);
+				if (!issueReport.isEmpty()) {
+					logger.error("Aborting promotion of {}. Integrity issues found: {}", source, issueReport);
+					throw new ServiceException("Aborting promotion of " + source + ". Integrity issues found.");
+					// Throwing an exception before marking the commit as successful automatically rolls back the commit
+				}
+
+				logger.info("Performing promotion {} -> {}", source, target);
 				final Set<String> versionsReplaced = sourceBranch.getVersionsReplaced();
 				final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = domainEntityConfiguration.getComponentTypeRepositoryMap();
 				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));

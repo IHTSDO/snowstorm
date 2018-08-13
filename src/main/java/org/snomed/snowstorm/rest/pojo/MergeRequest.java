@@ -7,6 +7,16 @@ public class MergeRequest {
 	private String commitComment;
 	private String reviewId;
 
+	public MergeRequest() {
+	}
+
+	public MergeRequest(String source, String target, String commitComment, String reviewId) {
+		this.source = source;
+		this.target = target;
+		this.commitComment = commitComment;
+		this.reviewId = reviewId;
+	}
+
 	public String getSource() {
 		return source;
 	}
