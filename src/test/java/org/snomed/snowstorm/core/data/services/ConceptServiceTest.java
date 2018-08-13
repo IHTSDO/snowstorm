@@ -1,8 +1,13 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationConfig;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.ComponentService;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -12,14 +17,15 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
@@ -53,11 +59,15 @@ public class ConceptServiceTest extends AbstractTest {
 	private ServiceTestUtil testUtil;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private ObjectMapper objectMapper;
 
 	@Before
 	public void setup() {
 		branchService.create("MAIN");
 		testUtil = new ServiceTestUtil(conceptService);
+		objectMapper = new ObjectMapper();
+		DeserializationConfig deserializationConfig = objectMapper.getDeserializationConfig().without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+		objectMapper.setConfig(deserializationConfig);
 	}
 
 	@Test
@@ -254,7 +264,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testUpdateExistingConceptOnNewBranch() throws InterruptedException, ServiceException {
+	public void testUpdateExistingConceptOnNewBranch() throws ServiceException {
 		conceptService.create(new Concept("1", "one"), "MAIN");
 
 		branchService.create("MAIN/A");
@@ -266,7 +276,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testOnlyUpdateWhatChanged() throws InterruptedException, ServiceException {
+	public void testOnlyUpdateWhatChanged() throws ServiceException {
 		final String effectiveTime = "20160731";
 
 		conceptService.create(new Concept("1", effectiveTime, true, Concepts.CORE_MODULE, Concepts.PRIMITIVE)
@@ -293,7 +303,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testFindConceptOnParentBranchUsingBaseVersion() throws InterruptedException, ServiceException {
+	public void testFindConceptOnParentBranchUsingBaseVersion() throws ServiceException {
 		conceptService.create(new Concept("1", "one"), "MAIN");
 		conceptService.update(new Concept("1", "one1"), "MAIN");
 
@@ -531,6 +541,59 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testChangeDescriptionCaseSignificance() throws ServiceException, IOException {
+		String conceptId = "50960005";
+		Concept concept = new Concept(conceptId, "20020131", true, "900000000000207008", "900000000000074008");
+		String descriptionId = "84923010";
+		concept.addDescription(
+				new Description(descriptionId, "20020131", true, "900000000000207008", conceptId, "en", "900000000000013009", "Bleeding",
+						Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE).addLanguageRefsetMember("900000000000509007", Concepts.PREFERRED)
+		);
+		String path = "MAIN";
+		concept = conceptService.create(concept, path);
+		concept = convertToJsonAndBack(concept);
+
+		// Check case significance and acceptability
+		Description description = concept.getDescriptions().iterator().next();
+		assertEquals(Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertEquals("PREFERRED", description.getAcceptabilityMap().get("900000000000509007"));
+		Page<ReferenceSetMember> membersPage = referenceSetMemberService.findMembers(path, descriptionId, ComponentService.LARGE_PAGE);
+		assertEquals(1L, membersPage.getTotalElements());
+
+		// Update case significance
+		description.setCaseSignificance("ENTIRE_TERM_CASE_SENSITIVE");
+		String testPath = "MAIN/test";
+		branchService.create(testPath);
+		concept = conceptService.update(concept, testPath);
+		concept = convertToJsonAndBack(concept);
+
+		// Check case significance and acceptability
+		description = concept.getDescriptions().iterator().next();
+		assertEquals(Concepts.ENTIRE_TERM_CASE_SENSITIVE, description.getCaseSignificanceId());
+		assertEquals("PREFERRED", description.getAcceptabilityMap().get("900000000000509007"));
+		membersPage = referenceSetMemberService.findMembers(testPath, descriptionId, ComponentService.LARGE_PAGE);
+		assertEquals(1L, membersPage.getTotalElements());
+
+		// Update case significance
+		description.setCaseSignificanceId(Concepts.CASE_INSENSITIVE);
+		concept = conceptService.update(concept, testPath);
+		concept = convertToJsonAndBack(concept);
+
+		// Check case significance and acceptability
+		description = concept.getDescriptions().iterator().next();
+		assertEquals(Concepts.CASE_INSENSITIVE, description.getCaseSignificanceId());
+		assertEquals("PREFERRED", description.getAcceptabilityMap().get("900000000000509007"));
+		membersPage = referenceSetMemberService.findMembers(testPath, descriptionId, ComponentService.LARGE_PAGE);
+		assertEquals(1L, membersPage.getTotalElements());
+	}
+
+	private Concept convertToJsonAndBack(Concept concept) throws IOException {
+		String conceptJson = objectMapper.writerWithView(View.Component.class).writeValueAsString(concept);
+		concept = objectMapper.readerWithView(View.Component.class).forType(Concept.class).readValue(conceptJson);
+		return concept;
+	}
+
+	@Test
 	public void testInactivateDescriptionAcceptability() throws ServiceException {
 		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
 		// Add acceptability with released refset member
@@ -547,7 +610,7 @@ public class ConceptServiceTest extends AbstractTest {
 		final Map<String, ReferenceSetMember> members1 = description1.getLangRefsetMembers();
 		ReferenceSetMember referenceSetMember = members1.get("900000000000509007");
 		assertEquals(Concepts.PREFERRED, referenceSetMember.getAdditionalField("acceptabilityId"));
-		assertEquals(true, referenceSetMember.isReleased());
+		assertTrue(referenceSetMember.isReleased());
 		assertEquals(1, description1.getAcceptabilityMap().size());
 
 		// Remove acceptability in next request
@@ -560,7 +623,7 @@ public class ConceptServiceTest extends AbstractTest {
 		final Description description2 = savedConcept2.getDescriptions().iterator().next();
 		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembers();
 		assertEquals(1, members2.size());
-		assertEquals(false, members2.get("900000000000509007").isActive());
+		assertFalse(members2.get("900000000000509007").isActive());
 
 		// Check that acceptability map is empty
 		assertEquals(0, description2.getAcceptabilityMap().size());
