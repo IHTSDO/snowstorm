@@ -90,9 +90,6 @@ public class QueryConceptUpdateService extends ComponentService implements Commi
 			Branch branch = commit.getBranch();
 			removeQConceptChangesOnBranch(commit);
 
-			Page<QueryConcept> page = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder().withQuery(versionControlHelper.getChangesOnBranchCriteria(branch)).build(), QueryConcept.class);
-			System.out.println("total QueryConcept on path = " + page.getTotalElements());
-
 			QueryBuilder changesBranchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch);
 			Set<String> deletedComponents = branch.getVersionsReplaced();
 			updateSemanticIndex(true, changesBranchCriteria, deletedComponents, commit, false);
@@ -129,12 +126,6 @@ public class QueryConceptUpdateService extends ComponentService implements Commi
 		Set<Long> existingDescendants = new HashSet<>();
 
 		String branchPath = commit.getBranch().getPath();
-		String committedContentPath = branchPath;
-		if (commit.isRebase()) {
-			// When rebasing this is a view onto the new parent state
-			committedContentPath = PathUtil.getParentPath(committedContentPath);
-			// TODO: Check history to establish what this unused variable was used then fix or remove.
-		}
 		QueryBuilder branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteriaBeforeOpenCommit(commit);
 		timer.checkpoint("get branch criteria");
 		if (rebuild) {
@@ -153,15 +144,27 @@ public class QueryConceptUpdateService extends ComponentService implements Commi
 					updateDestination.add(parseLong(relationship.getDestinationId()));
 				});
 			}
-			timer.checkpoint("Collect changed relationships.");
+			timer.checkpoint("Collect changed is-a relationships.");
 
 			if (updateSource.isEmpty()) {
-				return;
-			} else {
-				logger.info("Performing {} of {} semantic index", "incremental update", formName);
+				// There are no is-a relationships changes
+				// Are there any other relationship changes?
+				long notIsAUpdateCount = elasticsearchTemplate.count(new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								.must(changesBranchCriteria)
+								.mustNot(termQuery("typeId", Concepts.ISA))
+								.must(termsQuery("characteristicTypeId", characteristicTypeIds))
+						).build(), Relationship.class);
+
+				if (notIsAUpdateCount == 0) {
+					// Stop here - nothing to update
+					return;
+				}
 			}
 
-			// Identify parts of the graph nodes are moving from or to
+			logger.info("Performing {} of {} semantic index", "incremental update", formName);
+
+			// Identify parts of the graph that nodes are moving from or to
 
 			// Step: Identify existing TC of updated nodes
 			// Strategy: Find existing nodes where ID matches updated relationship source or destination ids, record TC
@@ -287,10 +290,6 @@ public class QueryConceptUpdateService extends ComponentService implements Commi
 		Set<Long> inactiveOrMissingConceptIds = getInactiveOrMissingConceptIds(requiredActiveConcepts, versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit));
 		if (!inactiveOrMissingConceptIds.isEmpty()) {
 			logger.error("The following concepts have been referred to in relationships but are missing or inactive: " + inactiveOrMissingConceptIds);
-
-			// TODO: Should we throw an IllegalStateException and roll back the commit here?
-
-//			throw new IllegalStateException("The following concepts have been referred to in relationships but are missing or inactive: " + inactiveOrMissingConceptIds);
 		}
 
 		// Step: Save changes
@@ -300,19 +299,28 @@ public class QueryConceptUpdateService extends ComponentService implements Commi
 				.forEach(node -> nodesToSave.put(node.getId(), node));
 		Set<Long> nodesNotFound = new LongOpenHashSet(nodesToSave.keySet());
 		Set<QueryConcept> queryConceptsToSave = new HashSet<>();
+
+		// Collect ids of nodes and attribute updates and convert to conceptIdForm
+		Set<Long> conceptIdsToUpdate = new LongOpenHashSet(nodesToSave.keySet());
+		conceptIdsToUpdate.addAll(conceptAttributeChanges.keySet());
+		List<String> conceptIdFormsToMatch = conceptIdsToUpdate.stream().map(id -> QueryConcept.toConceptIdForm(id, stated)).collect(Collectors.toList());
+
 		try (final CloseableIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteriaForAlreadyCommittedContent)
 						.must(termsQuery(QueryConcept.STATED_FIELD, stated))
 				)
 				.withFilter(boolQuery()
-						.must(termsQuery(QueryConcept.CONCEPT_ID_FORM_FIELD, nodesToSave.values().stream().map(n -> QueryConcept.toConceptIdForm(n.getId(), stated)).collect(Collectors.toList()))))
+						.must(termsQuery(QueryConcept.CONCEPT_ID_FORM_FIELD, conceptIdFormsToMatch)))
 				.withPageable(ConceptService.LARGE_PAGE).build(), QueryConcept.class)) {
 			existingQueryConcepts.forEachRemaining(queryConcept -> {
 				Long conceptId = queryConcept.getConceptIdL();
 				Node node = nodesToSave.get(conceptId);
-				queryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
-				queryConcept.setAncestors(node.getTransitiveClosure(branchPath));
+				if (node != null) {
+					// TC changes
+					queryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
+					queryConcept.setAncestors(node.getTransitiveClosure(branchPath));
+				}
 				applyAttributeChanges(queryConcept, conceptId, conceptAttributeChanges);
 				queryConceptsToSave.add(queryConcept);
 				nodesNotFound.remove(conceptId);

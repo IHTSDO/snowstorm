@@ -26,6 +26,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
@@ -172,6 +173,43 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 		assertTC(cheesePizza_3, pizzaWithTopping_4, pizza_2, root);
 		assertTC(pizzaWithTopping_4, pizza_2, root);
 		assertTC(brick_10, root);
+	}
+
+	@Test
+	public void testIncrementalStatedUpdateUsingNonIsAChanges() throws Exception {
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		Concept toppingAttribute = new Concept("110000000").addRelationship(new Relationship(ISA, root.getId()));
+		Concept cheeseTopping = new Concept("210000000").addRelationship(new Relationship(ISA, root.getId()));
+		Concept hamTopping = new Concept("220000000").addRelationship(new Relationship(ISA, root.getId()));
+
+		Concept pizza = new Concept("200000000").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+
+		Concept cheesePizza = new Concept("300000000").addRelationship(new Relationship(ISA, pizza.getId()))
+		// Cheese pizza has a topping
+				.addRelationship(new Relationship(toppingAttribute.getId(), cheeseTopping.getId()));
+
+		Concept hamPizza = new Concept("400000000").addRelationship(new Relationship(ISA, pizza.getId()));
+
+		String branch = "MAIN";
+		conceptService.create(Lists.newArrayList(root, toppingAttribute, cheeseTopping, hamTopping, pizza, cheesePizza, hamPizza), branch);
+
+		String ecl = "<<" + root.getId();
+		assertEquals(7, eclSearch(ecl, branch).getTotalElements());
+		String eclAnyConceptWithATopping = "<" + root.getId() + ":" + toppingAttribute.getId() + "=*";
+		assertEquals("Should find 1 pizza with a topping", 1, eclSearch(eclAnyConceptWithATopping, branch).getTotalElements());
+		assertTC(hamPizza, pizza, root);
+
+		// Add a topping to ham pizza
+		hamPizza.addRelationship(new Relationship(toppingAttribute.getId(), hamTopping.getId()));
+		conceptService.update(hamPizza, branch);
+
+		assertEquals("Should now find 2 pizzas with a topping", 2, eclSearch(eclAnyConceptWithATopping, branch).getTotalElements());
+
+		assertTC(hamPizza, pizza, root);
+	}
+
+	private Page<ConceptMini> eclSearch(String ecl, String branch) {
+		return queryService.search(queryService.createQueryBuilder(true).ecl(ecl), branch, LARGE_PAGE);
 	}
 
 	@Test
