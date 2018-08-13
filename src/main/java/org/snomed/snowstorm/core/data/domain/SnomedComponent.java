@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import org.elasticsearch.common.Strings;
@@ -37,6 +38,7 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 	private String releasedEffectiveTime;
 
 	@Transient
+	@JsonIgnore
 	private boolean creating;
 
 	public void release(String effectiveTime) {
