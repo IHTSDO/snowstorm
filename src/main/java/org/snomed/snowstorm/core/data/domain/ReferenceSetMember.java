@@ -27,6 +27,10 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 		String OWL_EXPRESSION = "owlExpression";
 	}
 
+	public interface InactivationReferenceSet {
+		String OWL_EXPRESSION = "owlExpression";
+	}
+
 	public interface MRCMAttributeDomainFields {
 		String GROUPED = "grouped";
 	}

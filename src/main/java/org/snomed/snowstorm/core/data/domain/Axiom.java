@@ -88,8 +88,9 @@ public class Axiom {
 		return relationships;
 	}
 
-	public void setRelationships(Set<Relationship> relationships) {
+	public Axiom setRelationships(Set<Relationship> relationships) {
 		this.relationships = relationships;
+		return this;
 	}
 
 	@JsonIgnore

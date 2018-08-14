@@ -14,17 +14,12 @@ import org.snomed.snowstorm.core.data.domain.review.MergeReview;
 import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -65,6 +60,8 @@ public class BranchReviewServiceTest extends AbstractTest {
 		createConcept("400", "MAIN");
 		createConcept("500", "MAIN");
 		createConcept("600", "MAIN");
+		createConcept("700000000", "MAIN");
+		createConcept("800000000", "MAIN");
 
 		// Rebase A
 		mergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
@@ -115,6 +112,20 @@ public class BranchReviewServiceTest extends AbstractTest {
 		conceptService.update(concept, "MAIN/A");
 
 
+		// Add concept 700000000 axiom only on B
+		concept = conceptService.find("700000000", "MAIN/B");
+		concept.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(Concepts.ISA, "200"))));
+		conceptService.update(concept, "MAIN/B");
+
+		// Add concept 800000000 axiom on B and A
+		concept = conceptService.find("800000000", "MAIN/B");
+		concept.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(Concepts.ISA, "200"))));
+		conceptService.update(concept, "MAIN/B");
+		concept = conceptService.find("800000000", "MAIN/A");
+		concept.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(Concepts.ISA, "200"))));
+		conceptService.update(concept, "MAIN/A");
+
+
 		// Promote B to MAIN
 		mergeService.mergeBranchSync("MAIN/B", "MAIN", Collections.emptySet());
 
@@ -131,11 +142,12 @@ public class BranchReviewServiceTest extends AbstractTest {
 		assertEquals(ReviewStatus.CURRENT, review.getStatus());
 
 		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId());
-		assertEquals(3, mergeReviewConflictingConcepts.size());
+		assertEquals(4, mergeReviewConflictingConcepts.size());
 		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getSourceConcept().getId()).collect(Collectors.toSet());
 		assertTrue(conceptIds.contains("200"));
 		assertTrue(conceptIds.contains("400"));
 		assertTrue(conceptIds.contains("600"));
+		assertTrue(conceptIds.contains("800000000"));
 	}
 
 	@Test

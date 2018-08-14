@@ -15,14 +15,10 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetType;
-import org.snomed.snowstorm.core.data.domain.SnomedComponent;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetTypeRepository;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
-import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -33,13 +29,15 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class ReferenceSetMemberService extends ComponentService {
+
+	private static final Set<String> LANG_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
+	private static final Set<String> OWL_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION);
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -147,8 +145,6 @@ public class ReferenceSetMemberService extends ComponentService {
 	/**
 	 * Persists members updates within commit.
 	 * Inactive members which have not been released will be deleted
-	 * @param members
-	 * @param commit
 	 * @return List of persisted components with updated metadata and filtered by deleted status.
 	 */
 	public Iterable<ReferenceSetMember> doSaveBatchMembers(Collection<ReferenceSetMember> members, Commit commit) {
@@ -157,22 +153,32 @@ public class ReferenceSetMemberService extends ComponentService {
 				.filter(member -> !member.isActive() && !member.isReleased())
 				.forEach(ReferenceSetMember::markDeleted);
 
-		// Set conceptId on members where appropriate
+		// Set conceptId on those members which are considered part of the concept or its components
 		List<ReferenceSetMember> descriptionMembers = new ArrayList<>();
 		LongSet descriptionIds = new LongArraySet();
 		members.stream()
 				.filter(member -> !member.isDeleted())
-				.filter(member -> IdentifierService.isDescriptionId(member.getReferencedComponentId()))
 				.filter(member -> member.getConceptId() == null)
 				.forEach(member -> {
-					descriptionMembers.add(member);
-					descriptionIds.add(parseLong(member.getReferencedComponentId()));
+					if (IdentifierService.isDescriptionId(member.getReferencedComponentId())
+							&& (member.getAdditionalFields().keySet().equals(LANG_REFSET_MEMBER_FIELD_SET))
+							|| Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET.equals(member.getRefsetId())) {
+						// Lang refset or description inactivation indicator
+						descriptionMembers.add(member);
+						descriptionIds.add(parseLong(member.getReferencedComponentId()));
+
+					} else if (IdentifierService.isConceptId(member.getReferencedComponentId())
+							&& (member.getAdditionalFields().keySet().equals(OWL_REFSET_MEMBER_FIELD_SET)
+							|| Concepts.inactivationAndAssociationRefsets.contains(member.getRefsetId()))) {
+						// Axiom, inactivation or historical association
+						member.setConceptId(member.getReferencedComponentId());
+					}
 				});
 
 		if (descriptionIds.size() != 0) {
 			final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 
-			Long2ObjectMap descriptionMap = new Long2ObjectOpenHashMap<>();
+			Long2ObjectMap<Description> descriptionMap = new Long2ObjectOpenHashMap<>();
 			for (List<Long> descriptionIdsSegment : Iterables.partition(descriptionIds, CLAUSE_LIMIT)) {
 				queryBuilder
 						.withQuery(boolQuery()
