@@ -173,8 +173,9 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		this.languageCode = languageCode;
 	}
 
-	public void clearLanguageRefsetMembers() {
+	public Description clearLanguageRefsetMembers() {
 		langRefsetMembers.clear();
+		return this;
 	}
 
 	public Description addLanguageRefsetMember(ReferenceSetMember member) {
@@ -225,6 +226,13 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		} else {
 			return acceptabilityMap;
 		}
+	}
+
+	@JsonIgnore
+	public Map<String, String> getAcceptabilityMapAndClearMembers() {
+		Map<String, String> acceptabilityMap = getAcceptabilityMap();
+		clearLanguageRefsetMembers();
+		return acceptabilityMap;
 	}
 
 	public Description setAcceptabilityMap(Map<String, String> acceptabilityMap) {

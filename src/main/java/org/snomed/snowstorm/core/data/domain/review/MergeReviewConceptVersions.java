@@ -44,4 +44,14 @@ public class MergeReviewConceptVersions {
 	public void setManuallyMergedConcept(Concept manuallyMergedConcept) {
 		this.manuallyMergedConcept = manuallyMergedConcept;
 	}
+
+	@Override
+	public String toString() {
+		return "MergeReviewConceptVersions{" +
+				"sourceConcept=" + sourceConcept +
+				", targetConcept=" + targetConcept +
+				", autoMergedConcept=" + autoMergedConcept +
+				", manuallyMergedConcept=" + manuallyMergedConcept +
+				'}';
+	}
 }

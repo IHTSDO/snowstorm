@@ -466,9 +466,11 @@ public class BranchMergeServiceTest extends AbstractTest {
 		conceptService.update(leftConcept, "MAIN/A/A1");
 		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", null);
 
-		// Update concept on A2 and rebase, providing manually merged concept
+		// Update concept on A2
 		conceptService.update(rightConcept, "MAIN/A/A2");
 		assertBranchState("MAIN/A/A2", Branch.BranchState.DIVERGED);
+
+		// Conflict setup complete - rebase A2 for conflict
 	}
 
 	private Concept assertBranchStateAndConceptVisibility(String path, Branch.BranchState expectedBranchState,
