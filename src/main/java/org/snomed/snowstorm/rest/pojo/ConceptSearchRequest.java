@@ -7,8 +7,8 @@ public class ConceptSearchRequest {
 	private String termFilter;
 	private Boolean activeFilter;
 	private String eclFilter;
+	private String statedEclFilter;
 	private Set<String> conceptIds;
-	private Boolean stated;
 	private int offset = 0;
 	private int limit = 50;
 //		  "moduleFilter": "",
@@ -46,20 +46,20 @@ public class ConceptSearchRequest {
 		this.eclFilter = eclFilter;
 	}
 
+	public String getStatedEclFilter() {
+		return statedEclFilter;
+	}
+
+	public void setStatedEclFilter(String statedEclFilter) {
+		this.statedEclFilter = statedEclFilter;
+	}
+
 	public Set<String> getConceptIds() {
 		return conceptIds;
 	}
 
 	public void setConceptIds(Set<String> conceptIds) {
 		this.conceptIds = conceptIds;
-	}
-
-	public Boolean getStated() {
-		return stated;
-	}
-
-	public void setStated(boolean stated) {
-		this.stated = stated;
 	}
 
 	public int getOffset() {

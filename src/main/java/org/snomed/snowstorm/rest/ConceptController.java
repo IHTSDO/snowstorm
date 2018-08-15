@@ -4,7 +4,6 @@ import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import org.ihtsdo.sso.integration.SecurityUtil;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ConceptView;
@@ -17,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
@@ -50,10 +48,10 @@ public class ConceptController {
 	@ResponseBody
 	public ItemsPage<ConceptMini> findConcepts(
 			@PathVariable String branch,
-			@RequestParam(required = false) Boolean stated,
 			@RequestParam(required = false) Boolean activeFilter,
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) String ecl,
+			@RequestParam(required = false) String statedEcl,
 			@RequestParam(required = false) String escg,
 			@RequestParam(required = false) Set<String> conceptIds,
 			@RequestParam(required = false, defaultValue = "0") int offset,
@@ -68,9 +66,10 @@ public class ConceptController {
 			}
 		}
 
-		if (stated == null) {
-			// Default to inferred if ECL given, otherwise stated
-			stated = ecl == null || ecl.isEmpty();
+		boolean stated = false;
+		if (statedEcl != null && !statedEcl.isEmpty()) {
+			stated = true;
+			ecl = statedEcl;
 		}
 
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated)
@@ -88,10 +87,10 @@ public class ConceptController {
 	@ResponseBody
 	public ItemsPage<ConceptMini> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
 		ItemsPage<ConceptMini> concepts = findConcepts(BranchPathUriUtil.decodePath(branch),
-				searchRequest.getStated(),
 				searchRequest.getActiveFilter(),
 				searchRequest.getTermFilter(),
 				searchRequest.getEclFilter(),
+				searchRequest.getStatedEclFilter(),
 				null,
 				searchRequest.getConceptIds(),
 				searchRequest.getOffset(),
@@ -177,7 +176,7 @@ public class ConceptController {
 	@ApiOperation(value = "Start a bulk concept change.", notes = "Concepts can be created or updated using this endpoint.")
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/bulk", method = RequestMethod.POST)
-	public ResponseEntity createConceptBulkChange(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts, UriComponentsBuilder uriComponentsBuilder) throws ServiceException {
+	public ResponseEntity createConceptBulkChange(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts, UriComponentsBuilder uriComponentsBuilder) {
 		List<Concept> conceptList = new ArrayList<>();
 		concepts.forEach(conceptView -> conceptList.add((Concept) conceptView));
 		AsyncConceptChangeBatch batchConceptChange = new AsyncConceptChangeBatch();
