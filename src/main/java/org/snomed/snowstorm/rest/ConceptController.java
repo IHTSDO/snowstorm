@@ -227,7 +227,7 @@ public class ConceptController {
 
 	@RequestMapping(value = "/rebuild/{branch}", method = RequestMethod.POST)
 	public void rebuildBranchTransitiveClosure(@PathVariable String branch) {
-		queryConceptUpdateService.rebuildStatedAndInferredSemanticIndex(branch);
+		queryConceptUpdateService.rebuildStatedAndInferredSemanticIndex(BranchPathUriUtil.decodePath(branch));
 	}
 	
 	@ResponseBody
@@ -235,7 +235,7 @@ public class ConceptController {
 	public Expression getConceptAuthoringForm(@PathVariable String branch,
 													   @PathVariable String conceptId) {
 
-		return expressionService.getConceptAuthoringForm(conceptId, branch);
+		return expressionService.getConceptAuthoringForm(conceptId, BranchPathUriUtil.decodePath(branch));
 	}
 
 }
