@@ -354,23 +354,25 @@ public class ConceptService extends ComponentService {
 		try {
 			String referencedComponentId = axiomMember.getReferencedComponentId();
 			SAxiomRepresentation axiomRepresentation = axiomConversionService.convertAxiomMemberToAxiomRepresentation(axiomMember);
-			Concept concept = conceptIdMap.get(referencedComponentId);
-			Set<Relationship> relationships;
-			if (axiomRepresentation.getLeftHandSideNamedConcept() != null) {
-				// Regular Axiom
-				relationships = axiomRepresentation.getRightHandSideRelationships();
-				concept.addAxiom(new Axiom(axiomMember, axiomRepresentation.isPrimitive() ? Concepts.PRIMITIVE : Concepts.FULLY_DEFINED, relationships));
-			} else {
-				// GCI Axiom
-				relationships = axiomRepresentation.getLeftHandSideRelationships();
-				concept.addGeneralConceptInclusionAxiom(new Axiom(axiomMember, axiomRepresentation.isPrimitive() ? Concepts.PRIMITIVE : Concepts.FULLY_DEFINED, relationships));
-			}
+			if (axiomRepresentation != null) {// Will be null if the axiom is an Ontology Axiom for example a property chain or transitive axiom rather than an Additional Axiom or GCI.
+				Concept concept = conceptIdMap.get(referencedComponentId);
+				Set<Relationship> relationships;
+				if (axiomRepresentation.getLeftHandSideNamedConcept() != null) {
+					// Regular Axiom
+					relationships = axiomRepresentation.getRightHandSideRelationships();
+					concept.addAxiom(new Axiom(axiomMember, axiomRepresentation.isPrimitive() ? Concepts.PRIMITIVE : Concepts.FULLY_DEFINED, relationships));
+				} else {
+					// GCI Axiom
+					relationships = axiomRepresentation.getLeftHandSideRelationships();
+					concept.addGeneralConceptInclusionAxiom(new Axiom(axiomMember, axiomRepresentation.isPrimitive() ? Concepts.PRIMITIVE : Concepts.FULLY_DEFINED, relationships));
+				}
 
-			// Add placeholders for relationship type and target details
-			relationships.forEach(relationship -> {
-				relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId()));
-				relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
-			});
+				// Add placeholders for relationship type and target details
+				relationships.forEach(relationship -> {
+					relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId()));
+					relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
+				});
+			}
 
 		} catch (ConversionException e) {
 			logger.error("Failed to deserialise axiom {}", axiomMember.getId(), e);

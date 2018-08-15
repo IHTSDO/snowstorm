@@ -32,6 +32,10 @@ public class AxiomConversionService {
 				parseLong(axiomMember.getReferencedComponentId()),
 				axiomMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
 
+		if (axiomRepresentation == null) {// Will be null if the axiom is an Ontology Axiom for example a property chain or transitive axiom rather than an Additional Axiom or GCI.
+			return null;
+		}
+
 		// Convert to Snowstorm Axiom Representation
 		SAxiomRepresentation sAxiom = new SAxiomRepresentation();
 		sAxiom.setPrimitive(axiomRepresentation.isPrimitive());
