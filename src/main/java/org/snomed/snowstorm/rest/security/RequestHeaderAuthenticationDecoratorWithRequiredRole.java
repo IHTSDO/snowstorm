@@ -8,6 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.servlet.FilterChain;
@@ -43,17 +44,24 @@ public class RequestHeaderAuthenticationDecoratorWithRequiredRole extends OncePe
 			return;
 		}
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-		if (authentication == null) {
-			accessDenied("Please log in.", response);
-			return;
-		}
-		List<String> roles = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList());
-		if (roles.contains(requiredRole)) {
+		if (authentication instanceof PreAuthenticatedAuthenticationToken) {
+			// IMS filter in use
+			if (authentication == null) {
+				accessDenied("Please log in.", response);
+				return;
+			}
+			List<String> roles = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList());
+			if (roles.contains(requiredRole)) {
+				filterChain.doFilter(request, response);
+				return;
+			}
+			logger.info("User does not have permission. username:{} - roles:{}", SecurityUtil.getUsername(), roles);
+			accessDenied("The current user does not have permission to access this resource.", response);
+		} else {
+			// IMS not in use - just allow through
+			logger.info("Granting direct access to {}. Although IMS security is configured, no headers were provided.", request.getServletPath());
 			filterChain.doFilter(request, response);
-			return;
 		}
-		logger.info("User does not have permission. username:{} - roles:{}", SecurityUtil.getUsername(), roles);
-		accessDenied("The current user does not have permission to access this resource.", response);
 	}
 
 	private boolean isPathExcluded(HttpServletRequest request) {
