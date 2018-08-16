@@ -17,10 +17,13 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -40,7 +43,9 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 	@Before
 	public void setup() {
-		branchService.create("MAIN");
+		Map metadata = new HashMap();
+		metadata.put(BranchMetadataKeys.ASSERTION_GROUP_NAMES, "common-authoring");
+		branchService.create("MAIN", metadata);
 		branchService.create("MAIN/A");
 		branchService.create("MAIN/A/A1");
 		branchService.create("MAIN/A/A2");
@@ -103,6 +108,12 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.BEHIND, conceptId, true);
 		assertBranchStateAndConceptVisibility("MAIN/A/A2", Branch.BranchState.BEHIND, conceptId, true);
 		assertBranchStateAndConceptVisibility("MAIN/C", Branch.BranchState.UP_TO_DATE, conceptId, false);
+
+		// Check MAIN metadata still present
+		Branch mainBranch = branchService.findLatest("MAIN");
+		assertNotNull(mainBranch.getMetadata());
+		assertEquals(1, mainBranch.getMetadata().size());
+		assertEquals("common-authoring", mainBranch.getMetadata().get(BranchMetadataKeys.ASSERTION_GROUP_NAMES));
 	}
 
 	@Test
