@@ -706,7 +706,7 @@ public class ConceptService extends ComponentService {
 		identifierService.persistAssignedIdsForRegistration(reservedIds);
 
 		// Log traceability activity
-		traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit.getTimepoint(), commit.getBranch().getPath(),
+		traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit,
 				concepts, descriptionsToPersist, relationshipsToPersist, refsetMembersToPersist);
 
 		return conceptsSaved;

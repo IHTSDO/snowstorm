@@ -2,7 +2,9 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
+import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -15,6 +17,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
+import static io.kaicode.elasticvc.domain.Commit.CommitType.REBASE;
 import static java.lang.Long.parseLong;
 
 @Service
@@ -39,7 +43,7 @@ public class TraceabilityLogService {
 		objectMapper = new ObjectMapper();
 	}
 
-	void logActivity(String userId, Date date, String branchPath, Collection<Concept> concepts, List<Description> descriptions,
+	void logActivity(String userId, Commit commit, Collection<Concept> concepts, List<Description> descriptions,
 					 List<Relationship> relationships, List<ReferenceSetMember> refsetMembers) {
 
 		if (!enabled) {
@@ -50,17 +54,9 @@ public class TraceabilityLogService {
 			userId = "System";
 		}
 
-		String commitComment;
-		if (concepts.size() == 1) {
-			Concept concept = concepts.iterator().next();
-			commitComment = (concept.isCreating() ? "Creating " : "Updating ") + "concept " + concept.getFsn();
-		} else if (concepts.isEmpty()) {
-			commitComment = "No concept changes.";
-		} else {
-			commitComment = "Bulk update.";
-		}
+		String commitComment = createCommitComment(commit, concepts);
 
-		Activity activity = new Activity(userId, commitComment, branchPath, date.getTime());
+		Activity activity = new Activity(userId, commitComment, commit.getBranch().getPath(), commit.getTimepoint().getTime());
 		Map<Long, Activity.ConceptActivity> activityMap = new Long2ObjectArrayMap<>();
 		Map<Long, Long> componentToConceptIdMap = new Long2ObjectArrayMap<>();
 		for (Concept concept : concepts) {
@@ -137,6 +133,26 @@ public class TraceabilityLogService {
 			logger.error("Failed to serialize activity {} to JSON.", activity.getCommitTimestamp());
 		}
 		jmsTemplate.convertAndSend(jmsQueuePrefix + ".traceability", activity);
+	}
+
+	String createCommitComment(Commit commit, Collection<Concept> concepts) {
+		Commit.CommitType commitType = commit.getCommitType();
+		if (commitType == CONTENT) {
+			if (concepts.size() == 1) {
+				Concept concept = concepts.iterator().next();
+				return (concept.isCreating() ? "Creating " : "Updating ") + "concept " + concept.getFsn();
+			} else if (concepts.isEmpty()) {
+				return "No concept changes.";
+			} else {
+				return "Bulk update.";
+			}
+		} else {
+			String username = SecurityUtil.getUsername();
+			if (username == null) {
+				username = "System";
+			}
+			return String.format("%s performed merge of %s to %s", username, commit.getSourceBranchPath(), commit.getBranch().getPath());
+		}
 	}
 
 	private Activity.ComponentChange getChange(SnomedComponent component) {
