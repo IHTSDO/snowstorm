@@ -22,13 +22,13 @@ public class TraceabilityLogServiceTest {
 	public void createCommitCommentRebase() {
 		Commit commit = new Commit(new Branch("MAIN/A"), Commit.CommitType.REBASE, null, null);
 		commit.setSourceBranchPath("MAIN");
-		assertEquals("System performed merge of MAIN to MAIN/A", traceabilityLogService.createCommitComment(commit, Collections.emptySet()));
+		assertEquals("kkewley performed merge of MAIN to MAIN/A", traceabilityLogService.createCommitComment("kkewley", commit, Collections.emptySet()));
 	}
 
 	@Test
 	public void createCommitCommentPromotion() {
 		Commit commit = new Commit(new Branch("MAIN"), Commit.CommitType.PROMOTION, null, null);
 		commit.setSourceBranchPath("MAIN/A");
-		assertEquals("System performed merge of MAIN/A to MAIN", traceabilityLogService.createCommitComment(commit, Collections.emptySet()));
+		assertEquals("kkewley performed merge of MAIN/A to MAIN", traceabilityLogService.createCommitComment("kkewley", commit, Collections.emptySet()));
 	}
 }

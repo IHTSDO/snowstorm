@@ -2,6 +2,9 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.CommitListener;
+import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
 import org.ihtsdo.sso.integration.SecurityUtil;
@@ -15,14 +18,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
-import static io.kaicode.elasticvc.domain.Commit.CommitType.REBASE;
+import static io.kaicode.elasticvc.domain.Commit.CommitType.PROMOTION;
 import static java.lang.Long.parseLong;
 
 @Service
-public class TraceabilityLogService {
+public class TraceabilityLogService implements CommitListener {
 
 	@Autowired
 	private JmsTemplate jmsTemplate;
@@ -33,7 +39,12 @@ public class TraceabilityLogService {
 	@Value("${jms.queue.prefix}")
 	private String jmsQueuePrefix;
 
+	@Autowired
+	private BranchService branchService;
+
 	private ObjectMapper objectMapper;
+
+	private Consumer<Activity> activityConsumer;
 
 	private static final int RECORD_MAX_INFERRED_CHANGES = 300;
 
@@ -41,6 +52,19 @@ public class TraceabilityLogService {
 
 	public TraceabilityLogService() {
 		objectMapper = new ObjectMapper();
+		activityConsumer = activity -> jmsTemplate.convertAndSend(jmsQueuePrefix + ".traceability", activity);
+	}
+
+	@PostConstruct
+	public void init() {
+		branchService.addCommitListener(this);
+	}
+
+	@Override
+	public void preCommitCompletion(Commit commit) throws IllegalStateException {
+		if (commit.getCommitType() != CONTENT) {
+			logActivity(SecurityUtil.getUsername(), commit, Collections.emptySet(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+		}
 	}
 
 	void logActivity(String userId, Commit commit, Collection<Concept> concepts, List<Description> descriptions,
@@ -54,7 +78,7 @@ public class TraceabilityLogService {
 			userId = "System";
 		}
 
-		String commitComment = createCommitComment(commit, concepts);
+		String commitComment = createCommitComment(userId, commit, concepts);
 
 		Activity activity = new Activity(userId, commitComment, commit.getBranch().getPath(), commit.getTimepoint().getTime());
 		Map<Long, Activity.ConceptActivity> activityMap = new Long2ObjectArrayMap<>();
@@ -132,10 +156,11 @@ public class TraceabilityLogService {
 		} catch (JsonProcessingException e) {
 			logger.error("Failed to serialize activity {} to JSON.", activity.getCommitTimestamp());
 		}
-		jmsTemplate.convertAndSend(jmsQueuePrefix + ".traceability", activity);
+
+		activityConsumer.accept(activity);
 	}
 
-	String createCommitComment(Commit commit, Collection<Concept> concepts) {
+	String createCommitComment(String userId, Commit commit, Collection<Concept> concepts) {
 		Commit.CommitType commitType = commit.getCommitType();
 		if (commitType == CONTENT) {
 			if (concepts.size() == 1) {
@@ -147,12 +172,18 @@ public class TraceabilityLogService {
 				return "Bulk update.";
 			}
 		} else {
-			String username = SecurityUtil.getUsername();
-			if (username == null) {
-				username = "System";
-			}
-			return String.format("%s performed merge of %s to %s", username, commit.getSourceBranchPath(), commit.getBranch().getPath());
+			String path = commit.getBranch().getPath();
+			String sourceBranchPath = commitType == PROMOTION ? commit.getSourceBranchPath() : PathUtil.getParentPath(path);
+			return String.format("%s performed merge of %s to %s", userId, sourceBranchPath, path);
 		}
+	}
+
+	void setActivityConsumer(Consumer<Activity> activityConsumer) {
+		this.activityConsumer = activityConsumer;
+	}
+
+	void setEnabled(boolean enabled) {
+		this.enabled = enabled;
 	}
 
 	private Activity.ComponentChange getChange(SnomedComponent component) {

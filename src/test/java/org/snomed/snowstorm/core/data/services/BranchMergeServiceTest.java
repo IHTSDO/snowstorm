@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,15 +12,13 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -41,6 +40,11 @@ public class BranchMergeServiceTest extends AbstractTest {
 	@Autowired
 	private QueryService queryService;
 
+	@Autowired
+	private TraceabilityLogService traceabilityLogService;
+
+	private List<Activity> activities;
+
 	@Before
 	public void setup() {
 		Map metadata = new HashMap();
@@ -50,6 +54,14 @@ public class BranchMergeServiceTest extends AbstractTest {
 		branchService.create("MAIN/A/A1");
 		branchService.create("MAIN/A/A2");
 		branchService.create("MAIN/C");
+		traceabilityLogService.setEnabled(true);
+		activities = new ArrayList<>();
+		traceabilityLogService.setActivityConsumer(activities::add);
+	}
+
+	@After
+	public void tearDown() {
+		traceabilityLogService.setEnabled(false);
 	}
 
 	@Test
@@ -71,14 +83,16 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		// Promote to A
 		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", null);
+		assertEquals("System performed merge of MAIN/A/A1 to MAIN/A", getLatestTraceabilityCommitComment());
 		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
 		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.FORWARD, conceptId, true);
 		assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.UP_TO_DATE, conceptId, true);
 		assertBranchStateAndConceptVisibility("MAIN/A/A2", Branch.BranchState.BEHIND, conceptId, false);
 		assertBranchStateAndConceptVisibility("MAIN/C", Branch.BranchState.UP_TO_DATE, conceptId, false);
 
-		// Bebase to A2
+		// Rebase to A2
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", null);
+		assertEquals("System performed merge of MAIN/A to MAIN/A/A2", getLatestTraceabilityCommitComment());
 		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
 		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.FORWARD, conceptId, true);
 		assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.UP_TO_DATE, conceptId, true);
@@ -114,6 +128,10 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertNotNull(mainBranch.getMetadata());
 		assertEquals(1, mainBranch.getMetadata().size());
 		assertEquals("common-authoring", mainBranch.getMetadata().get(BranchMetadataKeys.ASSERTION_GROUP_NAMES));
+	}
+
+	private String getLatestTraceabilityCommitComment() {
+		return activities.get(activities.size() - 1).getCommitComment();
 	}
 
 	@Test
