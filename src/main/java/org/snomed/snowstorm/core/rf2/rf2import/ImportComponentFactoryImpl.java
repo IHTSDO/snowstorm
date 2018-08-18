@@ -14,11 +14,14 @@ import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	private static final int FLUSH_INTERVAL = 5000;
 	private static final int MEMBER_ADDITIONAL_FIELD_OFFSET = 6;
+	private static final Pattern EFFECTIVE_DATE_PATTERN = Pattern.compile("\\d{8}");
+
 	private final BranchService branchService;
 	private final String path;
 	private Commit commit;
@@ -31,7 +34,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	private List<PersistBuffer> coreComponentPersistBuffers;
 	private MaxEffectiveTimeCollector maxEffectiveTimeCollector;
 
-	protected boolean coreComponentsFlushed;
+	boolean coreComponentsFlushed;
 
 	ImportComponentFactoryImpl(ConceptService conceptService, ReferenceSetMemberService memberService, BranchService branchService, String path) {
 		this.branchService = branchService;
@@ -44,7 +47,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			public void persistCollection(Collection<Concept> entities) {
 				entities.forEach(component -> {
 					component.setChanged(true);
-					maxEffectiveTimeCollector.add(component.getEffectiveTime());
+					maxEffectiveTimeCollector.add(component.getEffectiveTimeI());
 				});
 				conceptService.doSaveBatchConcepts(entities, commit);
 			}
@@ -56,7 +59,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			public void persistCollection(Collection<Description> entities) {
 				entities.forEach(component -> {
 					component.setChanged(true);
-					maxEffectiveTimeCollector.add(component.getEffectiveTime());
+					maxEffectiveTimeCollector.add(component.getEffectiveTimeI());
 				});
 				conceptService.doSaveBatchDescriptions(entities, commit);
 			}
@@ -68,7 +71,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			public void persistCollection(Collection<Relationship> entities) {
 				entities.forEach(component -> {
 					component.setChanged(true);
-					maxEffectiveTimeCollector.add(component.getEffectiveTime());
+					maxEffectiveTimeCollector.add(component.getEffectiveTimeI());
 				});
 				conceptService.doSaveBatchRelationships(entities, commit);
 			}
@@ -88,7 +91,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 				}
 				entities.forEach(component -> {
 					component.setChanged(true);
-					maxEffectiveTimeCollector.add(component.getEffectiveTime());
+					maxEffectiveTimeCollector.add(component.getEffectiveTimeI());
 				});
 				memberService.doSaveBatchMembers(entities, commit);
 			}
@@ -113,48 +116,59 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	@Override
 	public void newConceptState(String conceptId, String effectiveTime, String active, String moduleId, String definitionStatusId) {
-		final Concept concept = new Concept(conceptId, effectiveTime, isActive(active), moduleId, definitionStatusId);
-		if (effectiveTime != null) {
-			concept.release(effectiveTime);
+		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
+		final Concept concept = new Concept(conceptId, effectiveTimeI, isActive(active), moduleId, definitionStatusId);
+		if (effectiveTimeI != null) {
+			concept.release(effectiveTimeI);
 		}
 		conceptPersistBuffer.save(concept);
 	}
 
 	@Override
 	public void newRelationshipState(String id, String effectiveTime, String active, String moduleId, String sourceId, String destinationId,
-									 String relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
-		final Relationship relationship = new Relationship(id, effectiveTime, isActive(active), moduleId, sourceId,
+			String relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
+
+		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
+		final Relationship relationship = new Relationship(id, effectiveTimeI, isActive(active), moduleId, sourceId,
 				destinationId, Integer.parseInt(relationshipGroup), typeId, characteristicTypeId, modifierId);
 		if (effectiveTime != null) {
-			relationship.release(effectiveTime);
+			relationship.release(effectiveTimeI);
 		}
 		relationshipPersistBuffer.save(relationship);
 	}
 
 	@Override
 	public void newDescriptionState(String id, String effectiveTime, String active, String moduleId, String conceptId, String languageCode,
-									String typeId, String term, String caseSignificanceId) {
-		final Description description = new Description(id, effectiveTime, isActive(active), moduleId, conceptId, languageCode, typeId, term, caseSignificanceId);
-		if (effectiveTime != null) {
-			description.release(effectiveTime);
+			String typeId, String term, String caseSignificanceId) {
+
+		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
+		final Description description = new Description(id, effectiveTimeI, isActive(active), moduleId, conceptId, languageCode, typeId, term, caseSignificanceId);
+		if (effectiveTimeI != null) {
+			description.release(effectiveTimeI);
 		}
 		descriptionPersistBuffer.save(description);
 	}
 
 	@Override
 	public void newReferenceSetMemberState(String[] fieldNames, String id, String effectiveTime, String active, String moduleId, String refsetId,
-										   String referencedComponentId, String... otherValues) {
-		ReferenceSetMember member = new ReferenceSetMember(id, effectiveTime, isActive(active), moduleId, refsetId, referencedComponentId);
+			String referencedComponentId, String... otherValues) {
+
+		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
+		ReferenceSetMember member = new ReferenceSetMember(id, effectiveTimeI, isActive(active), moduleId, refsetId, referencedComponentId);
 		for (int i = MEMBER_ADDITIONAL_FIELD_OFFSET; i < fieldNames.length; i++) {
 			member.setAdditionalField(fieldNames[i], otherValues[i - MEMBER_ADDITIONAL_FIELD_OFFSET]);
 		}
 		if (effectiveTime != null) {
-			member.release(effectiveTime);
+			member.release(effectiveTimeI);
 		}
 		memberPersistBuffer.save(member);
 	}
 
-	public String getMaxEffectiveTime() {
+	private Integer getEffectiveTimeI(String effectiveTime) {
+		return effectiveTime != null && !effectiveTime.isEmpty() && EFFECTIVE_DATE_PATTERN.matcher(effectiveTime).matches() ? Integer.parseInt(effectiveTime) : null;
+	}
+
+	Integer getMaxEffectiveTime() {
 		return maxEffectiveTimeCollector.getMaxEffectiveTime();
 	}
 

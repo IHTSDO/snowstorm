@@ -21,8 +21,7 @@ public class CodeSystemVersion {
 	@Field(type = FieldType.keyword)
 	private String parentBranchPath;
 
-	@Field(type = FieldType.keyword)
-	private String effectiveDate;
+	private Integer effectiveDate;
 
 	@Field(type = FieldType.keyword)
 	private String version;
@@ -33,7 +32,7 @@ public class CodeSystemVersion {
 	public CodeSystemVersion() {
 	}
 
-	public CodeSystemVersion(String shortName, Date importDate, String parentBranchPath, String effectiveDate, String version, String description) {
+	public CodeSystemVersion(String shortName, Date importDate, String parentBranchPath, Integer effectiveDate, String version, String description) {
 		this.shortName = shortName;
 		this.importDate = importDate;
 		this.parentBranchPath = parentBranchPath;
@@ -74,11 +73,11 @@ public class CodeSystemVersion {
 		this.parentBranchPath = parentBranchPath;
 	}
 
-	public String getEffectiveDate() {
+	public Integer getEffectiveDate() {
 		return effectiveDate;
 	}
 
-	public void setEffectiveDate(String effectiveDate) {
+	public void setEffectiveDate(Integer effectiveDate) {
 		this.effectiveDate = effectiveDate;
 	}
 

@@ -182,7 +182,7 @@ public class ExportService {
 	private BoolQueryBuilder getContentQuery(RF2Type exportType, QueryBuilder branchCriteria) {
 		BoolQueryBuilder contentQuery = boolQuery().must(branchCriteria);
 		if (exportType == RF2Type.DELTA) {
-			contentQuery.mustNot(existsQuery("effectiveTime"));
+			contentQuery.mustNot(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME));
 		}
 		return contentQuery;
 	}

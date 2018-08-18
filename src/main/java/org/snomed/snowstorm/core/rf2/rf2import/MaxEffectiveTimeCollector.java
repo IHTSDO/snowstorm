@@ -1,25 +1,16 @@
 package org.snomed.snowstorm.core.rf2.rf2import;
 
-import java.util.regex.Pattern;
-
 public class MaxEffectiveTimeCollector {
 
-	private static final Pattern EFFECTIVE_TIME_PATTERN = Pattern.compile("\\d{8}");
+	private Integer maxEffectiveTime;
 
-	private Long maxEffectiveTime;
-
-	public void add(String effectiveTime) {
-		if (effectiveTime != null && EFFECTIVE_TIME_PATTERN.matcher(effectiveTime).matches()) {
-			if (maxEffectiveTime == null || Long.parseLong(effectiveTime) > maxEffectiveTime) {
-				maxEffectiveTime = Long.parseLong(effectiveTime);
-			}
+	public void add(Integer effectiveTime) {
+		if (maxEffectiveTime == null || maxEffectiveTime < effectiveTime) {
+			maxEffectiveTime = effectiveTime;
 		}
 	}
 
-	public String getMaxEffectiveTime() {
-		if (maxEffectiveTime != null) {
-			return maxEffectiveTime.toString();
-		}
-		return null;
+	public Integer getMaxEffectiveTime() {
+		return maxEffectiveTime;
 	}
 }

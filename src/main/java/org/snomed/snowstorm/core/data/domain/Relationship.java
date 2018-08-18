@@ -115,10 +115,10 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.destinationId = destinationId;
 	}
 
-	public Relationship(String id, String effectiveTime, boolean active, String moduleId, String sourceId, String destinationId, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
+	public Relationship(String id, Integer effectiveTime, boolean active, String moduleId, String sourceId, String destinationId, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
 		this();
 		this.relationshipId = id;
-		setEffectiveTime(effectiveTime);
+		setEffectiveTimeI(effectiveTime);
 		this.active = active;
 		this.moduleId = moduleId;
 		this.sourceId = sourceId;
@@ -330,7 +330,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 	public String toString() {
 		return "Relationship{" +
 				"relationshipId='" + relationshipId + '\'' +
-				", effectiveTime='" + getEffectiveTime() + '\'' +
+				", effectiveTime='" + getEffectiveTimeI() + '\'' +
 				", active=" + active +
 				", moduleId='" + moduleId + '\'' +
 				", sourceId='" + sourceId + '\'' +

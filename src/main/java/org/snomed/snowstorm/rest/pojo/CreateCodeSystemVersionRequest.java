@@ -2,14 +2,14 @@ package org.snomed.snowstorm.rest.pojo;
 
 public class CreateCodeSystemVersionRequest {
 
-	private String effectiveDate;
+	private Integer effectiveDate;
 	private String description;
 
-	public String getEffectiveDate() {
+	public Integer getEffectiveDate() {
 		return effectiveDate;
 	}
 
-	public void setEffectiveDate(String effectiveDate) {
+	public void setEffectiveDate(Integer effectiveDate) {
 		this.effectiveDate = effectiveDate;
 	}
 

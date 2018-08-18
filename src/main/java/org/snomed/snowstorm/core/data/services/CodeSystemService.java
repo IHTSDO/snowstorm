@@ -49,12 +49,13 @@ public class CodeSystemService {
 		}
 	}
 
-	public String createVersion(CodeSystem codeSystem, String effectiveDate, String description) {
+	public String createVersion(CodeSystem codeSystem, Integer effectiveDate, String description) {
 
-		if (!effectiveDate.matches("\\d{8}")) {
+		if (effectiveDate == null || effectiveDate.toString().length() != 8) {
 			throw new IllegalArgumentException("Effective Date must have format yyyymmdd");
 		}
-		String version = effectiveDate.substring(0, 4) + "-" + effectiveDate.substring(4, 6) + "-" + effectiveDate.substring(6, 8);
+		String effectiveDateString = effectiveDate.toString();
+		String version = effectiveDateString.substring(0, 4) + "-" + effectiveDateString.substring(4, 6) + "-" + effectiveDateString.substring(6, 8);
 		String branchPath = codeSystem.getBranchPath();
 		String releaseBranchPath = branchPath + "/" + version;
 
@@ -79,7 +80,7 @@ public class CodeSystemService {
 		return version;
 	}
 
-	public void createVersionIfCodeSystemFoundOnPath(String branchPath, String releaseDate, String description) {
+	public void createVersionIfCodeSystemFoundOnPath(String branchPath, Integer releaseDate, String description) {
 		List<CodeSystem> codeSystems = elasticsearchOperations.queryForList(new NativeSearchQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)), CodeSystem.class);
 		if (!codeSystems.isEmpty()) {
 			CodeSystem codeSystem = codeSystems.get(0);

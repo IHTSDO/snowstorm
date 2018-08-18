@@ -30,7 +30,8 @@ public class FullImportComponentFactoryImpl extends ImportComponentFactoryImpl i
 		completeImportCommit();
 
 		// Create codesystem version if there is one on this path
-		codeSystemService.createVersionIfCodeSystemFoundOnPath(basePath, releaseDate, "RF2 Full Import");
+		int effectiveDate = Integer.parseInt(releaseDate);
+		codeSystemService.createVersionIfCodeSystemFoundOnPath(basePath, effectiveDate, "RF2 Full Import");
 
 		if (stopImportAfterEffectiveTime != null && stopImportAfterEffectiveTime.equals(releaseDate)) {
 			throw new RuntimeException("Stopping import here after " + stopImportAfterEffectiveTime);

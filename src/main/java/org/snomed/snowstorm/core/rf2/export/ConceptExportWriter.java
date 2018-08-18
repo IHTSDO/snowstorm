@@ -23,7 +23,7 @@ class ConceptExportWriter extends ExportWriter<Concept> {
 			for (Concept concept : componentBuffer) {
 				bufferedWriter.write(concept.getConceptId());
 				bufferedWriter.write(TAB);
-				bufferedWriter.write(concept.getEffectiveTime() != null ? concept.getEffectiveTime() : "");
+				bufferedWriter.write(concept.getEffectiveTimeI() != null ? concept.getEffectiveTimeI().toString() : "");
 				bufferedWriter.write(TAB);
 				bufferedWriter.write(concept.isActive() ? "1" : "0");
 				bufferedWriter.write(TAB);

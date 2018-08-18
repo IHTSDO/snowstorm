@@ -27,10 +27,6 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 		String OWL_EXPRESSION = "owlExpression";
 	}
 
-	public interface InactivationReferenceSet {
-		String OWL_EXPRESSION = "owlExpression";
-	}
-
 	public interface MRCMAttributeDomainFields {
 		String GROUPED = "grouped";
 	}
@@ -63,11 +59,11 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 		additionalFields = new HashMap<>();
 	}
 
-	public ReferenceSetMember(String memberId, String effectiveTime, boolean active, String moduleId, String refsetId,
+	public ReferenceSetMember(String memberId, Integer effectiveTime, boolean active, String moduleId, String refsetId,
 			String referencedComponentId) {
 		this();
 		this.memberId = memberId;
-		setEffectiveTime(effectiveTime);
+		setEffectiveTimeI(effectiveTime);
 		this.active = active;
 		this.moduleId = moduleId;
 		this.refsetId = refsetId;
@@ -195,7 +191,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 	public String toString() {
 		return "ReferenceSetMember{" +
 				"memberId='" + memberId + '\'' +
-				", effectiveTime='" + getEffectiveTime() + '\'' +
+				", effectiveTime='" + getEffectiveTimeI() + '\'' +
 				", active=" + active +
 				", moduleId='" + moduleId + '\'' +
 				", refsetId='" + refsetId + '\'' +

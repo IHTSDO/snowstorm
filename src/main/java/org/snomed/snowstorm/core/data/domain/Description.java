@@ -116,10 +116,10 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		this.descriptionId = id;
 	}
 
-	public Description(String id, String effectiveTime, boolean active, String moduleId, String conceptId, String languageCode, String typeId, String term, String caseSignificanceId) {
+	public Description(String id, Integer effectiveTime, boolean active, String moduleId, String conceptId, String languageCode, String typeId, String term, String caseSignificanceId) {
 		this();
 		this.descriptionId = id;
-		setEffectiveTime(effectiveTime);
+		setEffectiveTimeI(effectiveTime);
 		this.active = active;
 		this.moduleId = moduleId;
 		this.conceptId = conceptId;
@@ -408,7 +408,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 				", active=" + active +
 				", term='" + term + '\'' +
 				", conceptId='" + conceptId + '\'' +
-				", effectiveTime='" + getEffectiveTime() + '\'' +
+				", effectiveTime='" + getEffectiveTimeI() + '\'' +
 				", moduleId='" + moduleId + '\'' +
 				", languageCode='" + languageCode + '\'' +
 				", typeId='" + typeId + '\'' +

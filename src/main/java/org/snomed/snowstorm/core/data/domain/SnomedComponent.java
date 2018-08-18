@@ -7,13 +7,12 @@ import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldIndex;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 public abstract class SnomedComponent<C> extends DomainEntity<C> {
 
 	public interface Fields {
-		String EFFECTIVE_TIME = "effectiveTime";
+		String EFFECTIVE_TIME = "effectiveTimeI";
 		String ACTIVE = "active";
 		String MODULE_ID = "moduleId";
 	}
@@ -22,9 +21,8 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 	@Field(type = FieldType.Boolean)
 	protected boolean active;
 
-	@Field(type = FieldType.keyword)
-	@JsonView(value = View.Component.class)
-	private String effectiveTime;
+	@Field(type = FieldType.Integer)
+	private Integer effectiveTimeI;
 
 	@Field(type = FieldType.keyword)
 	@JsonView(value = View.Component.class)
@@ -35,15 +33,15 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 
 	@Field(type = FieldType.keyword)
 	@JsonView(value = View.Component.class)
-	private String releasedEffectiveTime;
+	private Integer releasedEffectiveTime;
 
 	@Transient
 	@JsonIgnore
 	private boolean creating;
 
-	public void release(String effectiveTime) {
+	public void release(Integer effectiveTime) {
 		setReleaseHash(buildReleaseHash());
-		setEffectiveTime(effectiveTime);
+		setEffectiveTimeI(effectiveTime);
 		setReleasedEffectiveTime(effectiveTime);
 		setReleased(true);
 	}
@@ -54,21 +52,21 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 	 */
 	public void updateEffectiveTime() {
 		if (isReleased() && getReleaseHash().equals(buildReleaseHash())) {
-			setEffectiveTime(getReleasedEffectiveTime());
+			setEffectiveTimeI(getReleasedEffectiveTime());
 		} else {
-			setEffectiveTime(null);
+			setEffectiveTimeI(null);
 		}
 	}
 
 	public void copyReleaseDetails(SnomedComponent<C> component) {
-		setEffectiveTime(component.getEffectiveTime());
+		setEffectiveTimeI(component.getEffectiveTimeI());
 		setReleased(component.isReleased());
 		setReleaseHash(component.getReleaseHash());
 		setReleasedEffectiveTime(component.getReleasedEffectiveTime());
 	}
 
 	public void clearReleaseDetails() {
-		setEffectiveTime(null);
+		setEffectiveTimeI(null);
 		setReleased(false);
 		setReleaseHash(null);
 		setReleasedEffectiveTime(null);
@@ -105,20 +103,25 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 		this.releaseHash = releaseHash;
 	}
 
-	public String getReleasedEffectiveTime() {
+	public Integer getReleasedEffectiveTime() {
 		return releasedEffectiveTime;
 	}
 
-	public void setReleasedEffectiveTime(String releasedEffectiveTime) {
+	public void setReleasedEffectiveTime(Integer releasedEffectiveTime) {
 		this.releasedEffectiveTime = releasedEffectiveTime;
 	}
 
+	@JsonView(value = View.Component.class)
 	public String getEffectiveTime() {
-		return effectiveTime;
+		return effectiveTimeI != null ? effectiveTimeI.toString() : null;
 	}
 
-	public void setEffectiveTime(String effectiveTime) {
-		this.effectiveTime = effectiveTime;
+	public Integer getEffectiveTimeI() {
+		return effectiveTimeI;
+	}
+
+	public void setEffectiveTimeI(Integer effectiveTimeI) {
+		this.effectiveTimeI = effectiveTimeI;
 	}
 
 	public void setCreating(boolean creating) {

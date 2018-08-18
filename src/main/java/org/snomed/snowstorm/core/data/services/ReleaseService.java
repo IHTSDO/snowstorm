@@ -38,7 +38,7 @@ public class ReleaseService {
 	@Autowired
 	private ConceptService componentService;
 
-	public void createVersion(String effectiveTime, String path) {
+	public void createVersion(Integer effectiveTime, String path) {
 		try (Commit commit = branchService.openCommit(path)) {
 			QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
 
@@ -50,7 +50,7 @@ public class ReleaseService {
 		}
 	}
 
-	private <T extends SnomedComponent> void releaseComponentsOfType(Class<T> componentType, String effectiveTime, Commit commit, QueryBuilder branchCriteria) {
+	private <T extends SnomedComponent> void releaseComponentsOfType(Class<T> componentType, Integer effectiveTime, Commit commit, QueryBuilder branchCriteria) {
 		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria)

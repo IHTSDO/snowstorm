@@ -72,7 +72,7 @@ public class DroolsDescription implements Description {
 
 	@Override
 	public boolean isPublished() {
-		return description.getEffectiveTime() != null;
+		return description.getEffectiveTimeI() != null;
 	}
 
 	@Override

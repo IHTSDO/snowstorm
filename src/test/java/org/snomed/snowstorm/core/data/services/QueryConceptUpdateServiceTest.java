@@ -367,7 +367,7 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 				relationship.setRelationshipId(conceptId + "020");
 				relationship.setSourceId("" + conceptId);
 				relationship.setActive((relationshipVersion % 2) == 1);
-				relationship.setEffectiveTime("2018010" + relationshipVersion);
+				relationship.setEffectiveTimeI(20180100 + relationshipVersion);
 				relationship.markChanged();
 				relationshipVersions.add(relationship);
 			}
@@ -401,10 +401,10 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 
 		concepts.add(new Concept("34020007")
 				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
-				.addRelationship(new Relationship("756906025", "20040731", false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
-				.addRelationship(new Relationship("3250849023", "20100131", false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
-				.addRelationship(new Relationship("3332956025", "20150731", false, "900000000000207008", "34020007", "39607008", 2, "363698007", "900000000000011006", "900000000000451002"))
-				.addRelationship(new Relationship("5963641025", "20150731", true, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("756906025", 20040731, false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("3250849023", 20100131, false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("3332956025", 20150731, false, "900000000000207008", "34020007", "39607008", 2, "363698007", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("5963641025", 20150731, true, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
 		);
 
 		// Use low level component save to prevent effectiveTimes being stripped by concept service
@@ -444,8 +444,8 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 
 		concepts.add(new Concept("34020007")
 				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
-				.addRelationship(new Relationship("3332956025", "20150731", false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
-				.addRelationship(new Relationship("5963641025", "20150731", true, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("3332956025", 20150731, false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("5963641025", 20150731, true, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
 		);
 
 		// Use low level component save to prevent effectiveTimes being stripped by concept service

@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationConfig;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -277,7 +276,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Test
 	public void testOnlyUpdateWhatChanged() throws ServiceException {
-		final String effectiveTime = "20160731";
+		final Integer effectiveTime = 20160731;
 
 		conceptService.create(new Concept("1", effectiveTime, true, Concepts.CORE_MODULE, Concepts.PRIMITIVE)
 				.addDescription(new Description("11", effectiveTime, true, Concepts.CORE_MODULE, null, "en",
@@ -360,8 +359,8 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Test
 	public void testSaveConceptWithDescription() throws ServiceException {
-		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
-		concept.addDescription(new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
+		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
 		conceptService.create(concept, "MAIN");
 
 		final Concept savedConcept = conceptService.find("50960005", "MAIN");
@@ -375,7 +374,7 @@ public class ConceptServiceTest extends AbstractTest {
 	@Test
 	public void testSaveConceptWithAxioms() throws ServiceException {
 		String path = "MAIN";
-		final Concept concept = new Concept("50960005", "20020131", true, Concepts.CORE_MODULE, "900000000000074008");
+		final Concept concept = new Concept("50960005", 20020131, true, Concepts.CORE_MODULE, "900000000000074008");
 		concept.addAxiom(new Axiom(null, Concepts.FULLY_DEFINED, Sets.newHashSet(new Relationship(Concepts.ISA, "100"), new Relationship("200", "300"))).setModuleId(CORE_MODULE));
 		concept.addGeneralConceptInclusionAxiom(new Axiom(null, Concepts.PRIMITIVE, Sets.newHashSet(new Relationship(Concepts.ISA, "500"), new Relationship("600", "700"))).setModuleId(CORE_MODULE));
 		conceptService.create(concept, path);
@@ -435,8 +434,8 @@ public class ConceptServiceTest extends AbstractTest {
 	public void testConceptInactivation() throws ServiceException {
 		String path = "MAIN";
 		conceptService.create(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
-		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
-		concept.addDescription(new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
+		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
 		concept.addRelationship(new Relationship(ISA, "107658001"));
 		Concept savedConcept = conceptService.create(concept, path);
 
@@ -489,9 +488,9 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Test
 	public void testSaveConceptWithDescriptionAndAcceptabilityTogether() throws ServiceException {
-		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
+		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
-				new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
+				new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
 						.addLanguageRefsetMember("900000000000509007", Concepts.PREFERRED)
 		);
 		conceptService.create(concept, "MAIN");
@@ -508,9 +507,9 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Test
 	public void testChangeDescriptionAcceptabilityOnChildBranch() throws ServiceException {
-		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
+		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
-				new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
+				new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
 						.addLanguageRefsetMember("900000000000509007", Concepts.PREFERRED)
 		);
 		conceptService.create(concept, "MAIN");
@@ -543,10 +542,10 @@ public class ConceptServiceTest extends AbstractTest {
 	@Test
 	public void testChangeDescriptionCaseSignificance() throws ServiceException, IOException {
 		String conceptId = "50960005";
-		Concept concept = new Concept(conceptId, "20020131", true, "900000000000207008", "900000000000074008");
+		Concept concept = new Concept(conceptId, 20020131, true, "900000000000207008", "900000000000074008");
 		String descriptionId = "84923010";
 		concept.addDescription(
-				new Description(descriptionId, "20020131", true, "900000000000207008", conceptId, "en", "900000000000013009", "Bleeding",
+				new Description(descriptionId, 20020131, true, "900000000000207008", conceptId, "en", "900000000000013009", "Bleeding",
 						Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE).addLanguageRefsetMember("900000000000509007", Concepts.PREFERRED)
 		);
 		String path = "MAIN";
@@ -595,14 +594,14 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Test
 	public void testInactivateDescriptionAcceptability() throws ServiceException {
-		final Concept concept = new Concept("50960005", "20020131", true, "900000000000207008", "900000000000074008");
+		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		// Add acceptability with released refset member
 		concept.addDescription(
-				new Description("84923010", "20020131", true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
+				new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
 						.addLanguageRefsetMember("900000000000509007", Concepts.PREFERRED)
 		);
 		conceptService.create(concept, "MAIN");
-		releaseService.createVersion("20170731", "MAIN");
+		releaseService.createVersion(20170731, "MAIN");
 
 		// Check acceptability
 		final Concept savedConcept1 = conceptService.find("50960005", "MAIN");
@@ -659,7 +658,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Test
 	public void testRestoreEffectiveTime() throws ServiceException {
-		final String effectiveTime = "20170131";
+		final Integer effectiveTime = 20170131;
 		final String conceptId = "50960005";
 		final String originalModuleId = "900000000000207008";
 		final String path = "MAIN";
@@ -675,18 +674,18 @@ public class ConceptServiceTest extends AbstractTest {
 
 		// Check that release process applied correctly
 		final Concept savedConcept = conceptService.find(conceptId, path);
-		assertEquals(effectiveTime, savedConcept.getEffectiveTime());
+		assertEquals(effectiveTime, savedConcept.getEffectiveTimeI());
 		assertEquals(effectiveTime, savedConcept.getReleasedEffectiveTime());
 		assertEquals("true|900000000000207008|900000000000074008", savedConcept.getReleaseHash());
 		Assert.assertTrue(savedConcept.isReleased());
 
 		Description savedDescription = savedConcept.getDescriptions().iterator().next();
-		assertEquals(effectiveTime, savedDescription.getEffectiveTime());
+		assertEquals(effectiveTime, savedDescription.getEffectiveTimeI());
 		assertEquals(effectiveTime, savedDescription.getReleasedEffectiveTime());
 		assertEquals("true|Pizza|900000000000207008|en|900000000000003001|900000000000448009", savedDescription.getReleaseHash());
 
 		ReferenceSetMember savedMember = savedDescription.getLangRefsetMembers().values().iterator().next();
-		assertEquals(effectiveTime, savedMember.getEffectiveTime());
+		assertEquals(effectiveTime, savedMember.getEffectiveTimeI());
 		assertEquals(effectiveTime, savedMember.getReleasedEffectiveTime());
 		assertEquals("true|900000000000207008|acceptabilityId|900000000000548007", savedMember.getReleaseHash());
 
@@ -698,12 +697,12 @@ public class ConceptServiceTest extends AbstractTest {
 
 		// effectiveTimes cleared
 		final Concept conceptAfterUpdate = conceptService.find(conceptId, path);
-		Assert.assertNull(conceptAfterUpdate.getEffectiveTime());
+		Assert.assertNull(conceptAfterUpdate.getEffectiveTimeI());
 		assertEquals(effectiveTime, conceptAfterUpdate.getReleasedEffectiveTime());
 		Assert.assertTrue(conceptAfterUpdate.isReleased());
 		Description descriptionAfterUpdate = conceptAfterUpdate.getDescriptions().iterator().next();
-		Assert.assertNull(descriptionAfterUpdate.getEffectiveTime());
-		Assert.assertNull(descriptionAfterUpdate.getLangRefsetMembers().values().iterator().next().getEffectiveTime());
+		Assert.assertNull(descriptionAfterUpdate.getEffectiveTimeI());
+		Assert.assertNull(descriptionAfterUpdate.getLangRefsetMembers().values().iterator().next().getEffectiveTimeI());
 
 		// Change concept back
 		conceptAfterUpdate.setModuleId(originalModuleId);
@@ -711,7 +710,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 		// Concept effectiveTime restored
 		Concept conceptWithRestoredDate = conceptService.find(conceptId, path);
-		assertEquals(effectiveTime, conceptWithRestoredDate.getEffectiveTime());
+		assertEquals(effectiveTime, conceptWithRestoredDate.getEffectiveTimeI());
 		assertEquals(effectiveTime, conceptWithRestoredDate.getReleasedEffectiveTime());
 		Assert.assertTrue(conceptWithRestoredDate.isReleased());
 
@@ -721,7 +720,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 		// Description effectiveTime restored
 		conceptWithRestoredDate = conceptService.find(conceptId, path);
-		assertEquals(effectiveTime, conceptWithRestoredDate.getDescriptions().iterator().next().getEffectiveTime());
+		assertEquals(effectiveTime, conceptWithRestoredDate.getDescriptions().iterator().next().getEffectiveTimeI());
 
 		// Change lang member back
 		ReferenceSetMember member = conceptWithRestoredDate.getDescriptions().iterator().next().getLangRefsetMembers().values().iterator().next();
@@ -731,7 +730,7 @@ public class ConceptServiceTest extends AbstractTest {
 		// Lang member effectiveTime restored
 		conceptWithRestoredDate = conceptService.find(conceptId, path);
 		ReferenceSetMember memberWithRestoredDate = conceptWithRestoredDate.getDescriptions().iterator().next().getLangRefsetMembers().values().iterator().next();
-		assertEquals(effectiveTime, memberWithRestoredDate.getEffectiveTime());
+		assertEquals(effectiveTime, memberWithRestoredDate.getEffectiveTimeI());
 	}
 
 	// Uncomment to run - takes around 45 seconds.

@@ -16,7 +16,6 @@ import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.review.*;
-import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -176,7 +175,7 @@ public class BranchReviewService {
 
 		// If one of the concepts is unpublished, then it's values are newer.  If both are unpublished, source would win
 		Concept winner = sourceConcept;
-		if (targetConcept.getEffectiveTime() == null && sourceConcept.getEffectiveTime() != null) {
+		if (targetConcept.getEffectiveTimeI() == null && sourceConcept.getEffectiveTimeI() != null) {
 			winner = targetConcept;
 		}
 
@@ -184,7 +183,7 @@ public class BranchReviewService {
 		mergedConcept.setConceptId(winner.getConceptId());
 		mergedConcept.setActive(winner.isActive());
 		mergedConcept.setDefinitionStatus(winner.getDefinitionStatus());
-		mergedConcept.setEffectiveTime(winner.getEffectiveTime());
+		mergedConcept.setEffectiveTimeI(winner.getEffectiveTimeI());
 		mergedConcept.setModuleId(winner.getModuleId());
 
 		mergedConcept.setInactivationIndicatorName(winner.getInactivationIndicator());
@@ -194,7 +193,7 @@ public class BranchReviewService {
 		// if they're unpublished, which will cause an overwrite in the Set if the Description Id matches
 		final Set<Description> mergedDescriptions = new HashSet<>(sourceConcept.getDescriptions());
 		for (final Description thisDescription : targetConcept.getDescriptions()) {
-			if (thisDescription.getEffectiveTime() == null) {
+			if (thisDescription.getEffectiveTimeI() == null) {
 				mergedDescriptions.add(thisDescription);
 			}
 		}
@@ -203,7 +202,7 @@ public class BranchReviewService {
 		// Merge Relationships - same process using Set to remove duplicated
 		final Set<Relationship> mergedRelationships = new HashSet<>(sourceConcept.getRelationships());
 		for (final Relationship thisRelationship : targetConcept.getRelationships()) {
-			if (thisRelationship.getEffectiveTime() == null) {
+			if (thisRelationship.getEffectiveTimeI() == null) {
 				mergedRelationships.add(thisRelationship);
 			}
 		}

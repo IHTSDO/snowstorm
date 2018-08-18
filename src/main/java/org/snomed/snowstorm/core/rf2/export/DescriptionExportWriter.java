@@ -23,7 +23,7 @@ class DescriptionExportWriter extends ExportWriter<Description> {
 			for (Description description : componentBuffer) {
 				bufferedWriter.write(description.getDescriptionId());
 				bufferedWriter.write(TAB);
-				bufferedWriter.write(description.getEffectiveTime() != null ? description.getEffectiveTime() : "");
+				bufferedWriter.write(description.getEffectiveTimeI() != null ? description.getEffectiveTimeI().toString() : "");
 				bufferedWriter.write(TAB);
 				bufferedWriter.write(description.isActive() ? "1" : "0");
 				bufferedWriter.write(TAB);

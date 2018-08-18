@@ -65,27 +65,27 @@ public class ExportServiceTest extends AbstractTest {
 		// Version first two concepts
 		String path = "MAIN";
 		conceptService.create(concepts, path);
-		releaseService.createVersion("20100131", path);
+		releaseService.createVersion(20100131, path);
 
 		String conceptId = "123001";
 		descriptionId = "124011";
 		textDefId = "124012";
 		// Make some junk data just to test export
-		Concept concept = new Concept(conceptId, "", true, Concepts.CORE_MODULE, Concepts.PRIMITIVE);
+		Concept concept = new Concept(conceptId, null, true, Concepts.CORE_MODULE, Concepts.PRIMITIVE);
 		concept.addDescription(
-				new Description(descriptionId, "", true, Concepts.CORE_MODULE, conceptId, "en", Concepts.FSN, "Bleeding (finding)", Concepts.CASE_INSENSITIVE)
+				new Description(descriptionId, null, true, Concepts.CORE_MODULE, conceptId, "en", Concepts.FSN, "Bleeding (finding)", Concepts.CASE_INSENSITIVE)
 						.addLanguageRefsetMember(
-								new ReferenceSetMember(null, "", true, Concepts.CORE_MODULE, Concepts.GB_EN_LANG_REFSET, null)
+								new ReferenceSetMember(null, null, true, Concepts.CORE_MODULE, Concepts.GB_EN_LANG_REFSET, null)
 										.setAdditionalField("acceptabilityId", Concepts.PREFERRED)));
 		concept.addDescription(
-				new Description(textDefId, "", true, Concepts.CORE_MODULE, conceptId, "en", Concepts.TEXT_DEFINITION, "Bleeding Text Def", Concepts.CASE_INSENSITIVE)
+				new Description(textDefId, null, true, Concepts.CORE_MODULE, conceptId, "en", Concepts.TEXT_DEFINITION, "Bleeding Text Def", Concepts.CASE_INSENSITIVE)
 						.addLanguageRefsetMember(
-								new ReferenceSetMember(null, "", true, Concepts.CORE_MODULE, Concepts.GB_EN_LANG_REFSET, null)
+								new ReferenceSetMember(null, null, true, Concepts.CORE_MODULE, Concepts.GB_EN_LANG_REFSET, null)
 										.setAdditionalField("acceptabilityId", Concepts.PREFERRED)));
 
-		concept.addRelationship(new Relationship("125021", "", true, Concepts.CORE_MODULE, conceptId, "100001", 0, Concepts.ISA, Concepts.STATED_RELATIONSHIP, Concepts.EXISTENTIAL));
-		concept.addRelationship(new Relationship("125022", "", true, Concepts.CORE_MODULE, conceptId, "100002", 0, Concepts.ISA, Concepts.INFERRED_RELATIONSHIP, Concepts.EXISTENTIAL));
-		concept.addRelationship(new Relationship("125023", "", true, Concepts.CORE_MODULE, conceptId, "100003", 0, Concepts.ISA, Concepts.ADDITIONAL_RELATIONSHIP, Concepts.EXISTENTIAL));
+		concept.addRelationship(new Relationship("125021", null, true, Concepts.CORE_MODULE, conceptId, "100001", 0, Concepts.ISA, Concepts.STATED_RELATIONSHIP, Concepts.EXISTENTIAL));
+		concept.addRelationship(new Relationship("125022", null, true, Concepts.CORE_MODULE, conceptId, "100002", 0, Concepts.ISA, Concepts.INFERRED_RELATIONSHIP, Concepts.EXISTENTIAL));
+		concept.addRelationship(new Relationship("125023", null, true, Concepts.CORE_MODULE, conceptId, "100003", 0, Concepts.ISA, Concepts.ADDITIONAL_RELATIONSHIP, Concepts.EXISTENTIAL));
 		conceptService.create(concept, path);
 
 		owlMember = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, "123005000");

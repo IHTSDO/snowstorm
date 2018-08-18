@@ -9,5 +9,5 @@ public interface CodeSystemVersionRepository extends ElasticsearchCrudRepository
 
 	List<CodeSystemVersion> findByShortName(String shortName);
 
-	CodeSystemVersion findOneByShortNameAndEffectiveDate(String shortName, String effectiveDate);
+	CodeSystemVersion findOneByShortNameAndEffectiveDate(String shortName, Integer effectiveDate);
 }

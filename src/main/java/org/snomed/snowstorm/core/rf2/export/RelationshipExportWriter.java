@@ -25,7 +25,7 @@ class RelationshipExportWriter extends ExportWriter<Relationship> {
 			for (Relationship relationship : componentBuffer) {
 				bufferedWriter.write(relationship.getRelationshipId());
 				bufferedWriter.write(TAB);
-				bufferedWriter.write(relationship.getEffectiveTime() != null ? relationship.getEffectiveTime() : "");
+				bufferedWriter.write(relationship.getEffectiveTimeI() != null ? relationship.getEffectiveTimeI().toString() : "");
 				bufferedWriter.write(TAB);
 				bufferedWriter.write(relationship.isActive() ? "1" : "0");
 				bufferedWriter.write(TAB);

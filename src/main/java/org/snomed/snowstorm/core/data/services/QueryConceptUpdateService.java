@@ -33,7 +33,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static java.lang.Integer.parseInt;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
@@ -43,7 +42,7 @@ public class QueryConceptUpdateService extends ComponentService implements Commi
 	@Value("${commit-hook.semantic-indexing.enabled:true}")
 	private boolean semanticIndexingEnabled;
 
-	protected static final int BATCH_SAVE_SIZE = 10000;
+	static final int BATCH_SAVE_SIZE = 10000;
 	private static final long IS_A_TYPE = parseLong(Concepts.ISA);
 
 	@Autowired
@@ -84,7 +83,7 @@ public class QueryConceptUpdateService extends ComponentService implements Commi
 		}
 	}
 
-	void updateStatedAndInferredSemanticIndex(Commit commit) throws IllegalStateException {
+	private void updateStatedAndInferredSemanticIndex(Commit commit) throws IllegalStateException {
 		if (commit.isRebase()) {
 			// Recreate query index using new parent base point + content on this branch
 			Branch branch = commit.getBranch();
@@ -258,7 +257,7 @@ public class QueryConceptUpdateService extends ComponentService implements Commi
 					int groupId = relationship.getGroupId();
 					long type = parseLong(relationship.getTypeId());
 					long value = parseLong(relationship.getDestinationId());
-					String effectiveTime = relationship.getEffectiveTime();
+					Integer effectiveTime = relationship.getEffectiveTimeI();
 					if (!justDeleted && relationship.isActive()) {
 						if (type == IS_A_TYPE) {
 							graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()))
@@ -420,7 +419,7 @@ public class QueryConceptUpdateService extends ComponentService implements Commi
 		doSaveBatchComponents(queryConcepts, commit, "conceptIdForm", queryConceptRepository);
 	}
 
-	Set<Long> getInactiveOrMissingConceptIds(Set<Long> requiredActiveConcepts, QueryBuilder branchCriteria) {
+	private Set<Long> getInactiveOrMissingConceptIds(Set<Long> requiredActiveConcepts, QueryBuilder branchCriteria) {
 		// We can't select the concepts which are not there!
 		// For speed first we will count the concepts which are there and active
 		// If the count doesn't match we load the ids of the concepts which are there so we can work out those which are not.
@@ -464,11 +463,11 @@ public class QueryConceptUpdateService extends ComponentService implements Commi
 			changes = new ArrayList<>();
 		}
 
-		private void addAttribute(String effectiveTime, int groupId, Long type, Long value) {
+		private void addAttribute(Integer effectiveTime, int groupId, Long type, Long value) {
 			changes.add(new AttributeChange(effectiveTime, groupId, type, value, true));
 		}
 
-		private void removeAttribute(String effectiveTime, int groupId, long type, long value) {
+		private void removeAttribute(Integer effectiveTime, int groupId, long type, long value) {
 			changes.add(new AttributeChange(effectiveTime, groupId, type, value, false));
 		}
 
@@ -487,12 +486,12 @@ public class QueryConceptUpdateService extends ComponentService implements Commi
 		private final long type;
 		private final long value;
 
-		private AttributeChange(String effectiveTime, int group, long type, long value, boolean add) {
+		private AttributeChange(Integer effectiveTime, int group, long type, long value, boolean add) {
 			this.add = add;
-			if (effectiveTime == null || effectiveTime.isEmpty()) {
-				effectiveTime = "90000000";
+			if (effectiveTime == null) {
+				effectiveTime = 90000000;
 			}
-			this.effectiveTime = parseInt(effectiveTime);
+			this.effectiveTime = effectiveTime;
 			this.group = group;
 			this.type = type;
 			this.value = value;

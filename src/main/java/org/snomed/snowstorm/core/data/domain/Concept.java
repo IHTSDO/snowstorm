@@ -83,10 +83,10 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		this.moduleId = moduleId;
 	}
 
-	public Concept(String conceptId, String effectiveTime, boolean active, String moduleId, String definitionStatusId) {
+	public Concept(String conceptId, Integer effectiveTime, boolean active, String moduleId, String definitionStatusId) {
 		this();
 		this.conceptId = conceptId;
-		setEffectiveTime(effectiveTime);
+		setEffectiveTimeI(effectiveTime);
 		this.active = active;
 		this.moduleId = moduleId;
 		this.definitionStatusId = definitionStatusId;
@@ -339,7 +339,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	public String toString() {
 		return "Concept{" +
 				"conceptId='" + conceptId + '\'' +
-				", effectiveTime='" + getEffectiveTime() + '\'' +
+				", effectiveTime='" + getEffectiveTimeI() + '\'' +
 				", active=" + active +
 				", moduleId='" + moduleId + '\'' +
 				", definitionStatusId='" + definitionStatusId + '\'' +
