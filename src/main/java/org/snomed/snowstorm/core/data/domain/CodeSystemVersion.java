@@ -21,6 +21,7 @@ public class CodeSystemVersion {
 	@Field(type = FieldType.keyword)
 	private String parentBranchPath;
 
+	@Field(type = FieldType.Integer)
 	private Integer effectiveDate;
 
 	@Field(type = FieldType.keyword)

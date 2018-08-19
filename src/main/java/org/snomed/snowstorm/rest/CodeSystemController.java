@@ -19,6 +19,16 @@ public class CodeSystemController {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
+	@ApiOperation("Create a code system")
+	@RequestMapping(method = RequestMethod.POST)
+	@ResponseBody
+	public ResponseEntity<Void> createCodeSystem(@RequestBody CodeSystem codeSystem) {
+		ControllerHelper.requiredParam(codeSystem.getShortName(), "shortName");
+		ControllerHelper.requiredParam(codeSystem.getBranchPath(), "branchPath");
+		codeSystemService.createCodeSystem(codeSystem);
+		return ControllerHelper.getCreatedResponse(codeSystem.getShortName());
+	}
+
 	@ApiOperation("Retrieve all code systems")
 	@RequestMapping(method = RequestMethod.GET)
 	@ResponseBody
@@ -29,7 +39,7 @@ public class CodeSystemController {
 	@ApiOperation("Retrieve a code system")
 	@RequestMapping(value = "/{shortName}", method = RequestMethod.GET)
 	@ResponseBody
-	public CodeSystem findClassification(@PathVariable String shortName) {
+	public CodeSystem findCodeSystem(@PathVariable String shortName) {
 		return ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName));
 	}
 

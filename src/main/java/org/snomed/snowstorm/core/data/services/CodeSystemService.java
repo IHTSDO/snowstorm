@@ -41,15 +41,25 @@ public class CodeSystemService {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
-	public void init() {
+	public synchronized void init() {
 		// Create default code system if it does not yet exist
 		if (!repository.findById(SNOMEDCT).isPresent()) {
-			repository.save(new CodeSystem(SNOMEDCT, MAIN));
-			logger.info("Default Code System '{}' created.", SNOMEDCT);
+			createCodeSystem(new CodeSystem(SNOMEDCT, MAIN));
 		}
 	}
 
-	public String createVersion(CodeSystem codeSystem, Integer effectiveDate, String description) {
+	public synchronized void createCodeSystem(CodeSystem codeSystem) {
+		if (repository.findById(codeSystem.getShortName()).isPresent()) {
+			throw new IllegalArgumentException("A code system already exists with this short name.");
+		}
+		if (repository.findByBranchPath(codeSystem.getBranchPath()).isPresent()) {
+			throw new IllegalArgumentException("A code system already exists with this branch path.");
+		}
+		repository.save(codeSystem);
+		logger.info("Code System '{}' created.", codeSystem.getShortName());
+	}
+
+	public synchronized String createVersion(CodeSystem codeSystem, Integer effectiveDate, String description) {
 
 		if (effectiveDate == null || effectiveDate.toString().length() != 8) {
 			throw new IllegalArgumentException("Effective Date must have format yyyymmdd");
@@ -80,7 +90,7 @@ public class CodeSystemService {
 		return version;
 	}
 
-	public void createVersionIfCodeSystemFoundOnPath(String branchPath, Integer releaseDate, String description) {
+	public synchronized void createVersionIfCodeSystemFoundOnPath(String branchPath, Integer releaseDate, String description) {
 		List<CodeSystem> codeSystems = elasticsearchOperations.queryForList(new NativeSearchQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)), CodeSystem.class);
 		if (!codeSystems.isEmpty()) {
 			CodeSystem codeSystem = codeSystems.get(0);
