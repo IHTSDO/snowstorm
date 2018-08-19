@@ -8,9 +8,12 @@ import org.snomed.snowstorm.core.rf2.rf2import.RF2ImportConfiguration;
 import org.snomed.snowstorm.rest.pojo.ImportCreationRequest;
 import org.snomed.snowstorm.rest.pojo.ImportPatchCreationRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 
@@ -42,7 +45,10 @@ public class ImportController {
 		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(RF2Type.DELTA, importPatchRequest.getBranchPath());
 		importConfiguration.setPatchReleaseVersion(importPatchRequest.getPatchReleaseVersion());
 		String id = importService.createJob(importConfiguration);
-		return ControllerHelper.getCreatedResponse(id);
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setLocation(ServletUriComponentsBuilder.fromCurrentContextPath().path("/imports/{id}")
+				.buildAndExpand(id).toUri());
+		return new ResponseEntity<>(httpHeaders, HttpStatus.CREATED);
 	}
 
 	@RequestMapping(value = "/{importId}", method = RequestMethod.GET)
