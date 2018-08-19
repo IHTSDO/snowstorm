@@ -39,6 +39,8 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> {
 	@JsonIgnore
 	private boolean creating;
 
+	public abstract String getIdField();
+
 	public void release(Integer effectiveTime) {
 		setReleaseHash(buildReleaseHash());
 		setEffectiveTimeI(effectiveTime);

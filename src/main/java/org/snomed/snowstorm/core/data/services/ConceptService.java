@@ -906,4 +906,12 @@ public class ConceptService extends ComponentService {
 
 		return ids;
 	}
+
+	public ElasticsearchOperations getElasticsearchTemplate() {
+		return elasticsearchTemplate;
+	}
+
+	public VersionControlHelper getVersionControlHelper() {
+		return versionControlHelper;
+	}
 }

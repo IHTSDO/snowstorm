@@ -1,0 +1,10 @@
+id	effectiveTime	active	moduleId	definitionStatusId
+# All rows change concepts to fully defined - 900000000000073002
+# Older date than existing - won't import
+100000000	20170131	1	900000000000012004	900000000000073002
+# Same date as existing - won't import
+200000000	20180131	1	900000000000207008	900000000000073002
+# Later date than existing - will import
+300000000	20180731	1	900000000000012004	900000000000073002
+# Blank date - will import
+400000000		1	900000000000012004	900000000000073002

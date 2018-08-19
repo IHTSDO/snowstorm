@@ -1,30 +1,39 @@
 package org.snomed.snowstorm.core.rf2.rf2import;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Entity;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.otf.snomedboot.factory.ImpotentComponentFactory;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
+import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 
 public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
+	private static Logger logger = LoggerFactory.getLogger(ImportComponentFactoryImpl.class);
 	private static final int FLUSH_INTERVAL = 5000;
 	private static final int MEMBER_ADDITIONAL_FIELD_OFFSET = 6;
 	private static final Pattern EFFECTIVE_DATE_PATTERN = Pattern.compile("\\d{8}");
 
 	private final BranchService branchService;
+	private final VersionControlHelper versionControlHelper;
 	private final String path;
 	private Commit commit;
+	private QueryBuilder branchCriteriaBeforeOpenCommit;
 
 	private PersistBuffer<Concept> conceptPersistBuffer;
 	private PersistBuffer<Description> descriptionPersistBuffer;
@@ -42,14 +51,16 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		persistBuffers = new ArrayList<>();
 		maxEffectiveTimeCollector = new MaxEffectiveTimeCollector();
 		coreComponentPersistBuffers = new ArrayList<>();
+		ElasticsearchOperations elasticsearchTemplate = conceptService.getElasticsearchTemplate();
+		versionControlHelper = conceptService.getVersionControlHelper();
+
 		conceptPersistBuffer = new PersistBuffer<Concept>() {
 			@Override
 			public void persistCollection(Collection<Concept> entities) {
-				entities.forEach(component -> {
-					component.setChanged(true);
-					maxEffectiveTimeCollector.add(component.getEffectiveTimeI());
-				});
-				conceptService.doSaveBatchConcepts(entities, commit);
+				processEntities(entities, elasticsearchTemplate, Concept.class);
+				if (!entities.isEmpty()) {
+					conceptService.doSaveBatchConcepts(entities, commit);
+				}
 			}
 		};
 		coreComponentPersistBuffers.add(conceptPersistBuffer);
@@ -57,11 +68,10 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		descriptionPersistBuffer = new PersistBuffer<Description>() {
 			@Override
 			public void persistCollection(Collection<Description> entities) {
-				entities.forEach(component -> {
-					component.setChanged(true);
-					maxEffectiveTimeCollector.add(component.getEffectiveTimeI());
-				});
-				conceptService.doSaveBatchDescriptions(entities, commit);
+				processEntities(entities, elasticsearchTemplate, Description.class);
+				if (!entities.isEmpty()) {
+					conceptService.doSaveBatchDescriptions(entities, commit);
+				}
 			}
 		};
 		coreComponentPersistBuffers.add(descriptionPersistBuffer);
@@ -69,11 +79,10 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		relationshipPersistBuffer = new PersistBuffer<Relationship>() {
 			@Override
 			public void persistCollection(Collection<Relationship> entities) {
-				entities.forEach(component -> {
-					component.setChanged(true);
-					maxEffectiveTimeCollector.add(component.getEffectiveTimeI());
-				});
-				conceptService.doSaveBatchRelationships(entities, commit);
+				processEntities(entities, elasticsearchTemplate, Relationship.class);
+				if (!entities.isEmpty()) {
+					conceptService.doSaveBatchRelationships(entities, commit);
+				}
 			}
 		};
 		coreComponentPersistBuffers.add(relationshipPersistBuffer);
@@ -89,18 +98,58 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 						}
 					}
 				}
-				entities.forEach(component -> {
-					component.setChanged(true);
-					maxEffectiveTimeCollector.add(component.getEffectiveTimeI());
-				});
-				memberService.doSaveBatchMembers(entities, commit);
+				processEntities(entities, elasticsearchTemplate, ReferenceSetMember.class);
+				if (!entities.isEmpty()) {
+					memberService.doSaveBatchMembers(entities, commit);
+				}
 			}
 		};
+	}
+
+	/*
+		- Mark as changed for version control
+		- collect max effectiveTime
+		- remove c
+	 */
+	private <T extends SnomedComponent> void processEntities(Collection<T> components, ElasticsearchOperations elasticsearchTemplate, Class<T> componentClass) {
+		Map<Integer, List<T>> effectiveDateMap = new HashMap<>();
+		components.forEach(component -> {
+			component.setChanged(true);
+			Integer effectiveTimeI = component.getEffectiveTimeI();
+			if (effectiveTimeI != null) {
+				effectiveDateMap.computeIfAbsent(effectiveTimeI, i -> new ArrayList<>()).add(component);
+				maxEffectiveTimeCollector.add(effectiveTimeI);
+			}
+		});
+		for (Integer effectiveTime : effectiveDateMap.keySet()) {
+			// Find component states with an equal or greater effective time
+			List<T> componentsAtDate = effectiveDateMap.get(effectiveTime);
+			String idField = componentsAtDate.get(0).getIdField();
+			List<? extends SnomedComponent> componentsWithSameOrLaterEffectiveTime = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteriaBeforeOpenCommit)
+							.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).collect(Collectors.toList())))
+							.must(rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gte(effectiveTime)))
+					.withFields(idField)// Only fetch the id
+					.build(), componentClass);
+			if (!componentsWithSameOrLaterEffectiveTime.isEmpty()) {
+				// Remove ineffective components
+				logger.warn("{} {} components in the RF2 import with effectiveTime {} will not be imported because components already exist " +
+						"with the same identifier at the same or later effectiveTime.", componentsWithSameOrLaterEffectiveTime.size(), componentClass.getSimpleName(), effectiveTime);
+				components.removeAll(componentsWithSameOrLaterEffectiveTime);// Compared by id only
+			}
+		}
 	}
 
 	@Override
 	public void loadingComponentsStarting() {
 		commit = branchService.openCommit(path);
+		branchCriteriaBeforeOpenCommit = versionControlHelper.getBranchCriteriaBeforeOpenCommit(commit);
+	}
+
+	protected void setCommit(Commit commit) {
+		this.commit = commit;
+		branchCriteriaBeforeOpenCommit = versionControlHelper.getBranchCriteriaBeforeOpenCommit(commit);
 	}
 
 	@Override
@@ -170,10 +219,6 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	Integer getMaxEffectiveTime() {
 		return maxEffectiveTimeCollector.getMaxEffectiveTime();
-	}
-
-	protected void setCommit(Commit commit) {
-		this.commit = commit;
 	}
 
 	protected BranchService getBranchService() {

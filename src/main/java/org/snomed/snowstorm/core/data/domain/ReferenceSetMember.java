@@ -75,6 +75,11 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 	}
 
 	@Override
+	public String getIdField() {
+		return Fields.MEMBER_ID;
+	}
+
+	@Override
 	public boolean isComponentChanged(ReferenceSetMember that) {
 		return that == null
 				|| active != that.isActive()

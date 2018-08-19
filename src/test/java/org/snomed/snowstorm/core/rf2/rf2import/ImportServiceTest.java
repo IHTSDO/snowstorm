@@ -8,8 +8,10 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.TestUtil;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
@@ -20,7 +22,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
@@ -328,6 +334,72 @@ public class ImportServiceTest extends AbstractTest {
 				emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest(branchPath), true));
 		assertEquals("Branch " + branchPath + " should contain no invalid inferred relationships.",
 				emptyReport, integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest(branchPath), false));
+	}
+
+	@Test
+	public void testImportOnlyComponentsWithBlankOrLaterEffectiveTime() throws IOException, ReleaseImportException {
+
+		// The content in these zips is not correct or meaningful. We are just using rows to test how the import function behaves with effectiveTimes.
+
+		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/blankOrLaterEffectiveTimeBase");
+		String importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN");
+		importService.importArchive(importId, new FileInputStream(zipFile));
+
+		List<Concept> concepts = conceptService.findAll("MAIN", PageRequest.of(0, 10)).getContent();
+		assertEquals(5, concepts.size());
+		Map<String, AtomicInteger> conceptDefinitionStatuses = new HashMap<>();
+		Map<String, AtomicInteger> descriptionCaseSignificance = new HashMap<>();
+		Map<String, AtomicInteger> descriptionAcceptability = new HashMap<>();
+		Map<Integer, AtomicInteger> relationshipGroups = new HashMap<>();
+		collectContentCounts(concepts, conceptDefinitionStatuses, descriptionCaseSignificance, descriptionAcceptability, relationshipGroups);
+
+		assertEquals(5, conceptDefinitionStatuses.get(Concepts.PRIMITIVE).get());
+		assertNull(conceptDefinitionStatuses.get(Concepts.FULLY_DEFINED));
+
+		assertEquals(5, descriptionCaseSignificance.get(Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE).get());
+		assertNull(descriptionCaseSignificance.get(Concepts.CASE_INSENSITIVE));
+
+		assertEquals(5, descriptionAcceptability.get("PREFERRED").get());
+		assertNull(descriptionAcceptability.get("ACCEPTABLE"));
+
+		assertEquals(4, relationshipGroups.get(0).get());
+		assertNull(relationshipGroups.get(1));
+
+		zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/blankOrLaterEffectiveTimeTest");
+		importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN");
+		importService.importArchive(importId, new FileInputStream(zipFile));
+
+		concepts = conceptService.findAll("MAIN", PageRequest.of(0, 10)).getContent();
+		assertEquals(5, concepts.size());
+		collectContentCounts(concepts, conceptDefinitionStatuses, descriptionCaseSignificance, descriptionAcceptability, relationshipGroups);
+
+		// Expecting just two of each type to have changed
+		assertEquals(3, conceptDefinitionStatuses.get(Concepts.PRIMITIVE).get());
+		assertEquals(2, conceptDefinitionStatuses.get(Concepts.FULLY_DEFINED).get());
+
+		assertEquals(3, descriptionCaseSignificance.get(Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE).get());
+		assertEquals(2, descriptionCaseSignificance.get(Concepts.CASE_INSENSITIVE).get());
+
+		assertEquals(3, descriptionAcceptability.get("PREFERRED").get());
+		assertEquals(2, descriptionAcceptability.get("ACCEPTABLE").get());
+
+		assertEquals(2, relationshipGroups.get(0).get());
+		assertEquals(2, relationshipGroups.get(1).get());
+	}
+
+	private void collectContentCounts(List<Concept> concepts, Map<String, AtomicInteger> conceptDefinitionStatuses, Map<String, AtomicInteger> descriptionCaseSignificance, Map<String, AtomicInteger> descriptionAcceptability, Map<Integer, AtomicInteger> relationshipGroups) {
+		conceptDefinitionStatuses.clear();
+		descriptionCaseSignificance.clear();
+		descriptionAcceptability.clear();
+		relationshipGroups.clear();
+		for (Concept concept : concepts) {
+			conceptDefinitionStatuses.computeIfAbsent(concept.getDefinitionStatusId(), i -> new AtomicInteger(0)).incrementAndGet();
+			concept.getDescriptions().forEach(description -> {
+				descriptionCaseSignificance.computeIfAbsent(description.getCaseSignificanceId(), i -> new AtomicInteger(0)).incrementAndGet();
+				descriptionAcceptability.computeIfAbsent(description.getAcceptabilityMap().get("900000000000508004"), i -> new AtomicInteger(0)).incrementAndGet();
+			});
+			concept.getRelationships().forEach(relationship -> relationshipGroups.computeIfAbsent(relationship.getGroupId(), i -> new AtomicInteger(0)).incrementAndGet());
+		}
 	}
 
 	private Set<Long> asSet(String string) {

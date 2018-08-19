@@ -93,6 +93,11 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	@Override
+	public String getIdField() {
+		return Fields.CONCEPT_ID;
+	}
+
+	@Override
 	public boolean isComponentChanged(Concept that) {
 		return that == null
 				|| active != that.active
@@ -333,6 +338,29 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public void setGciAxioms(Set<Axiom> generalConceptInclusionAxioms) {
 		this.generalConceptInclusionAxioms = generalConceptInclusionAxioms;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		Concept that = (Concept) o;
+
+		if (conceptId != null && conceptId.equals(that.conceptId)) {
+			return true;
+		}
+
+		return Objects.equals(moduleId, that.moduleId) &&
+				Objects.equals(definitionStatusId, that.definitionStatusId);
+	}
+
+	@Override
+	public int hashCode() {
+		int result = conceptId != null ? conceptId.hashCode() : 0;
+		if (result != 0) {
+			return result;
+		}
+		return Objects.hash(conceptId, moduleId, definitionStatusId);
 	}
 
 	@Override

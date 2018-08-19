@@ -6,7 +6,7 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 /**
- * Represents an active concept with fields to assist logical searching.
+ * Represents an edition or extension of SNOMED-CT
  */
 @Document(indexName = "es-codesystem", type = "codesystem", shards = 8)
 public class CodeSystem {

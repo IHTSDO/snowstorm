@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
 	public interface Fields extends SnomedComponent.Fields {
+		String DESCRIPTION_ID = "descriptionId";
 		String TERM = "term";
 		String TERM_LEN = "termLen";
 		String TAG = "tag";
@@ -127,6 +128,11 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		this.typeId = typeId;
 		setTerm(term);
 		this.caseSignificanceId = caseSignificanceId;
+	}
+
+	@Override
+	public String getIdField() {
+		return Fields.DESCRIPTION_ID;
 	}
 
 	@Override

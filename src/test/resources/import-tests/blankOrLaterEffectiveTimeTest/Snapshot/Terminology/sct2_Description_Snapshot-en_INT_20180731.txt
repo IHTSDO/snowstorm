@@ -1,0 +1,10 @@
+id	effectiveTime	active	moduleId	conceptId	languageCode	typeId	term	caseSignificanceId
+# All rows change descriptions to Case Significant - 900000000000448009
+# Older date than existing - won't import
+100000010	20180101	1	900000000000207008	100000000	en	900000000000013009	Root Concept.	900000000000448009
+# Same date as existing - won't import
+200000010	20180131	1	900000000000012004	200000000	en	900000000000013009	Morphology	900000000000448009
+# Later date than existing - will import
+300000010	20180731	1	900000000000207008	300000000	en	900000000000013009	Clinical history and observations	900000000000448009
+# Blank date - will import
+400000010		1	900000000000012004	400000000	en	900000000000013009	Associated morphology	900000000000448009

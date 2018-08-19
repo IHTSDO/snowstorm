@@ -130,6 +130,11 @@ public class Relationship extends SnomedComponent<Relationship> {
 	}
 
 	@Override
+	public String getIdField() {
+		return Fields.RELATIONSHIP_ID;
+	}
+
+	@Override
 	public boolean isComponentChanged(Relationship that) {
 		return that == null
 				|| active != that.active
