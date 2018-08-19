@@ -1,9 +1,12 @@
 package org.snomed.snowstorm.rest;
 
 import io.swagger.annotations.Api;
+import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportJob;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.core.rf2.rf2import.RF2ImportConfiguration;
+import org.snomed.snowstorm.rest.pojo.ImportCreationRequest;
+import org.snomed.snowstorm.rest.pojo.ImportPatchCreationRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,10 +24,23 @@ public class ImportController {
 
 	@RequestMapping(method = RequestMethod.POST)
 	@ResponseBody
-	public ResponseEntity<Void> createImportJob(@RequestBody RF2ImportConfiguration importConfiguration) {
-		ControllerHelper.requiredParam(importConfiguration.getType(), "type");
-		ControllerHelper.requiredParam(importConfiguration.getBranchPath(), "branchPath");
+	public ResponseEntity<Void> createImportJob(@RequestBody ImportCreationRequest importRequest) {
+		ControllerHelper.requiredParam(importRequest.getType(), "type");
+		ControllerHelper.requiredParam(importRequest.getBranchPath(), "branchPath");
 
+		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(importRequest.getType(), importRequest.getBranchPath());
+		String id = importService.createJob(importConfiguration);
+		return ControllerHelper.getCreatedResponse(id);
+	}
+
+	@RequestMapping(value = "/release-patch", method = RequestMethod.POST)
+	@ResponseBody
+	public ResponseEntity<Void> createReleasePatchImportJob(@RequestBody ImportPatchCreationRequest importPatchRequest) {
+		ControllerHelper.requiredParam(importPatchRequest.getBranchPath(), "branchPath");
+		ControllerHelper.requiredParam(importPatchRequest.getPatchReleaseVersion(), "patchReleaseVersion");
+
+		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(RF2Type.DELTA, importPatchRequest.getBranchPath());
+		importConfiguration.setPatchReleaseVersion(importPatchRequest.getPatchReleaseVersion());
 		String id = importService.createJob(importConfiguration);
 		return ControllerHelper.getCreatedResponse(id);
 	}

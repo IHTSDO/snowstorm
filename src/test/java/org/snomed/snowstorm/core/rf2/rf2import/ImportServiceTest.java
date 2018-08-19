@@ -366,7 +366,7 @@ public class ImportServiceTest extends AbstractTest {
 		assertNull(relationshipGroups.get(1));
 
 		zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/blankOrLaterEffectiveTimeTest");
-		importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN");
+		importId = importService.createJob(RF2Type.DELTA, "MAIN");
 		importService.importArchive(importId, new FileInputStream(zipFile));
 
 		concepts = conceptService.findAll("MAIN", PageRequest.of(0, 10)).getContent();
@@ -385,6 +385,31 @@ public class ImportServiceTest extends AbstractTest {
 
 		assertEquals(2, relationshipGroups.get(0).get());
 		assertEquals(2, relationshipGroups.get(1).get());
+
+
+		// Import again allowing version 20180131 to be patched
+
+		importId = importService.createJob(new RF2ImportConfiguration(RF2Type.DELTA, "MAIN").setPatchReleaseVersion(20180131));
+		importService.importArchive(importId, new FileInputStream(zipFile));
+
+		concepts = conceptService.findAll("MAIN", PageRequest.of(0, 10)).getContent();
+		assertEquals(5, concepts.size());
+		collectContentCounts(concepts, conceptDefinitionStatuses, descriptionCaseSignificance, descriptionAcceptability, relationshipGroups);
+
+		// Now expecting three of each type to have changed because the row with the same effectiveTime will be allowed through
+		assertEquals(2, conceptDefinitionStatuses.get(Concepts.PRIMITIVE).get());
+		assertEquals(3, conceptDefinitionStatuses.get(Concepts.FULLY_DEFINED).get());
+
+		assertEquals(2, descriptionCaseSignificance.get(Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE).get());
+		assertEquals(3, descriptionCaseSignificance.get(Concepts.CASE_INSENSITIVE).get());
+
+		assertEquals(2, descriptionAcceptability.get("PREFERRED").get());
+		assertEquals(3, descriptionAcceptability.get("ACCEPTABLE").get());
+
+		assertEquals(1, relationshipGroups.get(0).get());
+		assertEquals(3, relationshipGroups.get(1).get());
+
+
 	}
 
 	private void collectContentCounts(List<Concept> concepts, Map<String, AtomicInteger> conceptDefinitionStatuses, Map<String, AtomicInteger> descriptionCaseSignificance, Map<String, AtomicInteger> descriptionAcceptability, Map<Integer, AtomicInteger> relationshipGroups) {

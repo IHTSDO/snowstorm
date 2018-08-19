@@ -41,6 +41,10 @@ public class ImportJob {
 		return importConfiguration.getModuleIds();
 	}
 
+	public Integer getPatchReleaseVersion() {
+		return importConfiguration.getPatchReleaseVersion();
+	}
+
 	public ImportStatus getStatus() {
 		return status;
 	}

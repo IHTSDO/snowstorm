@@ -45,7 +45,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	boolean coreComponentsFlushed;
 
-	ImportComponentFactoryImpl(ConceptService conceptService, ReferenceSetMemberService memberService, BranchService branchService, String path) {
+	ImportComponentFactoryImpl(ConceptService conceptService, ReferenceSetMemberService memberService, BranchService branchService, String path, Integer patchReleaseVersion) {
 		this.branchService = branchService;
 		this.path = path;
 		persistBuffers = new ArrayList<>();
@@ -57,7 +57,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		conceptPersistBuffer = new PersistBuffer<Concept>() {
 			@Override
 			public void persistCollection(Collection<Concept> entities) {
-				processEntities(entities, elasticsearchTemplate, Concept.class);
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Concept.class);
 				if (!entities.isEmpty()) {
 					conceptService.doSaveBatchConcepts(entities, commit);
 				}
@@ -68,7 +68,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		descriptionPersistBuffer = new PersistBuffer<Description>() {
 			@Override
 			public void persistCollection(Collection<Description> entities) {
-				processEntities(entities, elasticsearchTemplate, Description.class);
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Description.class);
 				if (!entities.isEmpty()) {
 					conceptService.doSaveBatchDescriptions(entities, commit);
 				}
@@ -79,7 +79,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		relationshipPersistBuffer = new PersistBuffer<Relationship>() {
 			@Override
 			public void persistCollection(Collection<Relationship> entities) {
-				processEntities(entities, elasticsearchTemplate, Relationship.class);
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Relationship.class);
 				if (!entities.isEmpty()) {
 					conceptService.doSaveBatchRelationships(entities, commit);
 				}
@@ -98,7 +98,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 						}
 					}
 				}
-				processEntities(entities, elasticsearchTemplate, ReferenceSetMember.class);
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, ReferenceSetMember.class);
 				if (!entities.isEmpty()) {
 					memberService.doSaveBatchMembers(entities, commit);
 				}
@@ -111,7 +111,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		- collect max effectiveTime
 		- remove c
 	 */
-	private <T extends SnomedComponent> void processEntities(Collection<T> components, ElasticsearchOperations elasticsearchTemplate, Class<T> componentClass) {
+	private <T extends SnomedComponent> void processEntities(Collection<T> components, Integer patchReleaseVersion, ElasticsearchOperations elasticsearchTemplate, Class<T> componentClass) {
 		Map<Integer, List<T>> effectiveDateMap = new HashMap<>();
 		components.forEach(component -> {
 			component.setChanged(true);
@@ -123,13 +123,16 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		});
 		for (Integer effectiveTime : effectiveDateMap.keySet()) {
 			// Find component states with an equal or greater effective time
+			boolean replacementOfThisEffectiveTimeAllowed = patchReleaseVersion != null && patchReleaseVersion.equals(effectiveTime);
 			List<T> componentsAtDate = effectiveDateMap.get(effectiveTime);
 			String idField = componentsAtDate.get(0).getIdField();
 			List<? extends SnomedComponent> componentsWithSameOrLaterEffectiveTime = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(branchCriteriaBeforeOpenCommit)
 							.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).collect(Collectors.toList())))
-							.must(rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gte(effectiveTime)))
+							.must(replacementOfThisEffectiveTimeAllowed ?
+									rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gt(effectiveTime)
+									: rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gte(effectiveTime)))
 					.withFields(idField)// Only fetch the id
 					.build(), componentClass);
 			if (!componentsWithSameOrLaterEffectiveTime.isEmpty()) {

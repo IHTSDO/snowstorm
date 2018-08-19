@@ -77,9 +77,10 @@ public class ImportService {
 		}
 		RF2Type importType = job.getType();
 		String branchPath = job.getBranchPath();
+		Integer patchReleaseVersion = job.getPatchReleaseVersion();
 
 		try {
-			logger.info("Starting RF2 {} import on branch {}. ID {}", importType, branchPath, importId);
+			logger.info("Starting RF2 {}{} import on branch {}. ID {}", importType, patchReleaseVersion != null ? " RELEASE PATCH on effectiveTime " + patchReleaseVersion : "", branchPath, importId);
 
 			ReleaseImporter releaseImporter = new ReleaseImporter();
 			job.setStatus(ImportJob.ImportStatus.RUNNING);
@@ -94,11 +95,11 @@ public class ImportService {
 
 			switch (importType) {
 				case DELTA:
-					releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, getImportComponentFactory(branchPath));
+					releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, getImportComponentFactory(branchPath, patchReleaseVersion));
 					break;
 				case SNAPSHOT:
 
-					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath);
+					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion);
 					releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
 
 					// Create Code System version of this snapshot content (if a code system exists on this path)
@@ -121,8 +122,8 @@ public class ImportService {
 		}
 	}
 
-	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath) {
-		return new ImportComponentFactoryImpl(conceptService, memberService, branchService, branchPath);
+	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath, Integer patchReleaseVersion) {
+		return new ImportComponentFactoryImpl(conceptService, memberService, branchService, branchPath, patchReleaseVersion);
 	}
 
 	private HistoryAwareComponentFactory getFullImportComponentFactory(String branchPath) {

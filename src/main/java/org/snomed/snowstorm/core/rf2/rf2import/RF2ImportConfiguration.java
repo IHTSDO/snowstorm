@@ -11,6 +11,7 @@ public final class RF2ImportConfiguration {
 	private RF2Type type;
 	private String branchPath;
 	private Set<String> moduleIds;
+	private Integer patchReleaseVersion;
 
 	public RF2ImportConfiguration() {
 	}
@@ -43,5 +44,14 @@ public final class RF2ImportConfiguration {
 
 	public void setModuleIds(Set<String> moduleIds) {
 		this.moduleIds = moduleIds;
+	}
+
+	public Integer getPatchReleaseVersion() {
+		return patchReleaseVersion;
+	}
+
+	public RF2ImportConfiguration setPatchReleaseVersion(Integer patchReleaseVersion) {
+		this.patchReleaseVersion = patchReleaseVersion;
+		return this;
 	}
 }
