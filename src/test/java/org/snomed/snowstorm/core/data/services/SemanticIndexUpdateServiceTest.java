@@ -34,13 +34,13 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class QueryConceptUpdateServiceTest extends AbstractTest {
+public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private QueryService queryService;
 
 	@Autowired
-	private QueryConceptUpdateService updateService;
+	private SemanticIndexUpdateService updateService;
 
 	@Autowired
 	private BranchService branchService;
@@ -335,7 +335,7 @@ public class QueryConceptUpdateServiceTest extends AbstractTest {
 	public void testSavePartialBatch() throws ServiceException {
 		List<Concept> concepts = new ArrayList<>();
 		concepts.add(new Concept(SNOMEDCT_ROOT));
-		int conceptCount = QueryConceptUpdateService.BATCH_SAVE_SIZE + 100;
+		int conceptCount = SemanticIndexUpdateService.BATCH_SAVE_SIZE + 100;
 		for (int i = 0; i < conceptCount; i++) {
 			concepts.add(new Concept("" + i).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		}

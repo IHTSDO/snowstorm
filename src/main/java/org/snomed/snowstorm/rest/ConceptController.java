@@ -42,7 +42,7 @@ public class ConceptController {
 	private ExpressionService expressionService;
 	
 	@Autowired
-	private QueryConceptUpdateService queryConceptUpdateService;
+	private SemanticIndexUpdateService queryConceptUpdateService;
 
 	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
 	@ResponseBody

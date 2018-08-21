@@ -37,7 +37,7 @@ import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
-public class QueryConceptUpdateService extends ComponentService implements CommitListener {
+public class SemanticIndexUpdateService extends ComponentService implements CommitListener {
 
 	@Value("${commit-hook.semantic-indexing.enabled:true}")
 	private boolean semanticIndexingEnabled;
