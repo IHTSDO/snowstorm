@@ -420,7 +420,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 		updatedConcept = conceptService.update(concept, path);
 		axiom = updatedConcept.getAdditionalAxioms().iterator().next();
-		assertNotEquals("Member id should be changed after changing the OWL expression.", memberId, axiom.getReferenceSetMember().getMemberId());
+		assertEquals("Member id should not be changed after changing the OWL expression.", memberId, axiom.getReferenceSetMember().getMemberId());
 		assertEquals("SubClassOf(:50960005 ObjectIntersectionOf(:100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:200 :300))))",
 				axiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
 

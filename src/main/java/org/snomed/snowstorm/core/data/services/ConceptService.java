@@ -574,7 +574,6 @@ public class ConceptService extends ComponentService {
 
 				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions(), savingMergedConcepts);
 				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships(), savingMergedConcepts);
-				resetMemberIdIfExpressionChanged(newOwlAxiomMembers, existingConcept.getAllOwlAxiomMembers());
 				markDeletionsAndUpdates(newOwlAxiomMembers, existingConcept.getAllOwlAxiomMembers(), savingMergedConcepts);
 				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
 			} else {
@@ -710,19 +709,6 @@ public class ConceptService extends ComponentService {
 				concepts, descriptionsToPersist, relationshipsToPersist, refsetMembersToPersist);
 
 		return conceptsSaved;
-	}
-
-	private void resetMemberIdIfExpressionChanged(Set<ReferenceSetMember> newStateOwlAxiomMembers, Set<ReferenceSetMember> existingOwlAxiomMembers) {
-		if (existingOwlAxiomMembers == null) return;
-
-		Map<String, ReferenceSetMember> existingMembers = existingOwlAxiomMembers.stream().collect(Collectors.toMap(ReferenceSetMember::getMemberId, Function.identity()));
-		for (ReferenceSetMember newStateOwlAxiomMember : newStateOwlAxiomMembers) {
-			ReferenceSetMember existingMember = existingMembers.get(newStateOwlAxiomMember.getMemberId());
-			if (existingMember != null && !existingMember.getAdditionalField(OWL_EXPRESSION).equals(newStateOwlAxiomMember.getAdditionalField(OWL_EXPRESSION))) {
-				// OWL Expression has changed - clear member id to trigger inactivation or deletion of the existing member.
-				newStateOwlAxiomMember.setMemberId(UUID.randomUUID().toString());
-			}
-		}
 	}
 
 	private void updateAssociations(SnomedComponentWithAssociations newComponent, SnomedComponentWithAssociations existingComponent, List<ReferenceSetMember> refsetMembersToPersist) {
