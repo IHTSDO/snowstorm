@@ -41,8 +41,8 @@ public class AxiomConversionService {
 		sAxiom.setPrimitive(axiomRepresentation.isPrimitive());
 		sAxiom.setLeftHandSideNamedConcept(axiomRepresentation.getLeftHandSideNamedConcept());
 		sAxiom.setRightHandSideNamedConcept(axiomRepresentation.getRightHandSideNamedConcept());
-		sAxiom.setLeftHandSideRelationships(mapToInternalRelationshipType(axiomRepresentation.getLeftHandSideRelationships()));
-		sAxiom.setRightHandSideRelationships(mapToInternalRelationshipType(axiomRepresentation.getRightHandSideRelationships()));
+		sAxiom.setLeftHandSideRelationships(mapToInternalRelationshipType(null, axiomRepresentation.getLeftHandSideRelationships()));
+		sAxiom.setRightHandSideRelationships(mapToInternalRelationshipType(axiomRepresentation.getLeftHandSideNamedConcept(), axiomRepresentation.getRightHandSideRelationships()));
 		return sAxiom;
 	}
 
@@ -77,12 +77,12 @@ public class AxiomConversionService {
 		return new AxiomRelationshipConversionService(neverGroupedAttributes);
 	}
 
-	private Set<Relationship> mapToInternalRelationshipType(Map<Integer, List<org.snomed.otf.owltoolkit.domain.Relationship>> relationships) {
+	private Set<Relationship> mapToInternalRelationshipType(Long sourceId, Map<Integer, List<org.snomed.otf.owltoolkit.domain.Relationship>> relationships) {
 		if (relationships == null) return null;
 
 		return relationships.values().stream()
 				.flatMap(Collection::stream)
-				.map(r -> new Relationship(r.getTypeId() + "", r.getDestinationId() + "").setGroupId(r.getGroup()))
+				.map(r -> new Relationship(r.getTypeId() + "", r.getDestinationId() + "").setSourceId(sourceId != null ? sourceId.toString() : null).setGroupId(r.getGroup()))
 				.collect(Collectors.toSet());
 	}
 

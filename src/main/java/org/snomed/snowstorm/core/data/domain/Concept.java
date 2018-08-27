@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
+import com.google.common.collect.Sets;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -198,6 +199,13 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	public Concept addAxiom(Axiom axiom) {
+		axiom.getRelationships().forEach(r -> r.setSourceId(this.conceptId));
+		axioms.add(axiom);
+		return this;
+	}
+
+	public Concept addAxiom(Relationship... axiomFragments) {
+		Axiom axiom = new Axiom(moduleId, true, Concepts.PRIMITIVE, Sets.newHashSet(axiomFragments));
 		axiom.getRelationships().forEach(r -> r.setSourceId(this.conceptId));
 		axioms.add(axiom);
 		return this;

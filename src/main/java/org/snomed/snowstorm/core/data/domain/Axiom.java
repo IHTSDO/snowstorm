@@ -34,6 +34,14 @@ public class Axiom {
 		}
 	}
 
+	public Axiom(String moduleId, boolean active, String definitionStatusId, Set<Relationship> relationships) {
+		this();
+		this.moduleId = moduleId;
+		this.active = active;
+		this.definitionStatusId = definitionStatusId;
+		this.relationships = relationships;
+	}
+
 	@JsonView(value = View.Component.class)
 	public String getDefinitionStatus() {
 		return Concepts.definitionStatusNames.get(definitionStatusId);

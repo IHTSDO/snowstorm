@@ -8,6 +8,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -424,7 +425,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRebuildSemanticIndexWithSameTripleActiveAndInactiveOnSameDate() throws ServiceException, InterruptedException {
+	public void testRebuildSemanticIndexWithSameTripleActiveAndInactiveOnSameDate() throws ServiceException, InterruptedException, ConversionException {
 		String path = "MAIN";
 		List<Concept> concepts = new ArrayList<>();
 

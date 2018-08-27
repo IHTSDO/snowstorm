@@ -15,16 +15,15 @@ import java.util.*;
 @Document(indexName = "es-query", type = "query-concept", shards = 8)
 public class QueryConcept extends DomainEntity<QueryConcept> {
 
-	public static final String CONCEPT_ID_FORM_FIELD = "conceptIdForm";
-	public static final String CONCEPT_ID_FIELD = "conceptIdL";
-	public static final String PARENTS_FIELD = "parents";
-	public static final String ANCESTORS_FIELD = "ancestors";
-	public static final String STATED_FIELD = "stated";
-	public static final String ATTR_FIELD = "attr";
 	public static final String ATTR_TYPE_WILDCARD = "all";
 
 	public interface Fields {
+		String CONCEPT_ID_FORM = "conceptIdForm";
 		String CONCEPT_ID = "conceptIdL";
+		String PARENTS = "parents";
+		String ANCESTORS = "ancestors";
+		String STATED = "stated";
+		String ATTR = "attr";
 		String ATTR_MAP = "attrMap";
 	}
 	@Field(type = FieldType.keyword)
@@ -182,14 +181,10 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	public String toString() {
 		return "QueryConcept{" +
 				"conceptIdForm=" + conceptIdForm +
-				", conceptIdL=" + conceptIdL +
 				", parents=" + parents +
 				", ancestors=" + ancestors +
 				", stated=" + stated +
-				", internalId='" + getInternalId() + '\'' +
-				", start='" + getStart() + '\'' +
-				", end='" + getEnd() + '\'' +
-				", path='" + getPath() + '\'' +
+				", attrMap=" + getAttrMap() +
 				'}';
 	}
 

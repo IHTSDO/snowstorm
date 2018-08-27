@@ -56,7 +56,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			}
 			Collection<Long> destinationConceptIds = refinementBuilder.getQueryService()
 					.retrieveRelationshipDestinations(attributeRange.getPossibleAttributeValues(), attributeRange.getAttributeTypesOptional().map(Slice::getContent).orElse(null), branchCriteria, stated);
-			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, destinationConceptIds));
+			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, destinationConceptIds));
 
 		} else {
 			// Not reverse flag
@@ -265,7 +265,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 	}
 
 	private String getAttributeTypeField(String attributeTypeProperty) {
-		return QueryConcept.ATTR_FIELD + "." + attributeTypeProperty;
+		return QueryConcept.Fields.ATTR + "." + attributeTypeProperty;
 	}
 
 }

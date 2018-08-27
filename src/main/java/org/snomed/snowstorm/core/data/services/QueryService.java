@@ -1,13 +1,9 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.common.collect.Sets;
-import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import io.kaicode.elasticvc.domain.Branch;
-import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
-import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongArraySet;
+import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -39,6 +35,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 public class QueryService {
 
 	static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
+	private static final long IS_A_LONG = parseLong(Concepts.ISA);
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
@@ -162,7 +159,7 @@ public class QueryService {
 									.must(branchCriteria)
 									.must(conceptQuery.getRootBuilder())
 							)
-							.withFilter(termsQuery(QueryConcept.CONCEPT_ID_FIELD, allLexicalMatchesWithOrdering))
+							.withFilter(termsQuery(QueryConcept.Fields.CONCEPT_ID, allLexicalMatchesWithOrdering))
 							.withFields(QueryConcept.Fields.CONCEPT_ID)
 							.withPageable(LARGE_PAGE);
 
@@ -329,7 +326,7 @@ public class QueryService {
 				)
 				.withFields(QueryConcept.Fields.CONCEPT_ID)
 				.withPageable(LARGE_PAGE)
-				.withSort(SortBuilders.fieldSort(QueryConcept.CONCEPT_ID_FIELD))// This could be anything
+				.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID))// This could be anything
 				.build();
 		Page<QueryConcept> conceptsPage = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class);
 		List<Long> conceptIdsFound = conceptsPage.getContent().stream().map(QueryConcept::getConceptIdL).collect(Collectors.toList());
@@ -341,7 +338,62 @@ public class QueryService {
 	}
 
 	public List<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {
-		return relationshipService.retrieveRelationshipDestinations(sourceConceptIds, attributeTypeIds, branchCriteria, stated);
+		if (!stated) {
+			// Use relationships - it's faster
+			return relationshipService.retrieveRelationshipDestinations(sourceConceptIds, attributeTypeIds, branchCriteria, false);
+		}
+
+		// For the stated view we'll use the semantic index to access relationships from both stated relationships or axioms.
+
+		if (attributeTypeIds != null && attributeTypeIds.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		BoolQueryBuilder boolQuery = boolQuery()
+				.must(branchCriteria)
+				.must(termsQuery(QueryConcept.Fields.STATED, stated));
+
+		if (attributeTypeIds != null) {
+			BoolQueryBuilder shoulds = boolQuery();
+			boolQuery.must(shoulds);
+			for (Long attributeTypeId : attributeTypeIds) {
+				if (!attributeTypeId.equals(IS_A_LONG)) {
+					shoulds.should(existsQuery(QueryConcept.Fields.ATTR + "." + attributeTypeId));
+				}
+			}
+		}
+
+		if (sourceConceptIds != null) {
+			boolQuery.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, sourceConceptIds));
+		}
+
+		NativeSearchQuery query = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery)
+				.withPageable(LARGE_PAGE)
+				.build();
+
+		Set<Long> destinationIds = new LongArraySet();
+		try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(query, QueryConcept.class)) {
+			stream.forEachRemaining(queryConcept -> {
+				if (attributeTypeIds != null) {
+					for (Long attributeTypeId : attributeTypeIds) {
+						if (attributeTypeId.equals(IS_A_LONG)) {
+							destinationIds.addAll(queryConcept.getParents());
+						} else {
+							queryConcept.getAttr().getOrDefault(attributeTypeId.toString(), Collections.emptySet()).forEach(id -> destinationIds.add(parseLong(id)));
+						}
+					}
+				} else {
+					queryConcept.getAttr().values().forEach(destinationSet -> destinationSet.forEach(destinationId -> destinationIds.add(parseLong(destinationId))));
+				}
+			});
+		}
+
+		// Stream search doesn't sort for us
+		// Sorting meaningless but supports deterministic pagination
+		List<Long> sortedIds = new LongArrayList(destinationIds);
+		sortedIds.sort(LongComparators.OPPOSITE_COMPARATOR);
+		return sortedIds;
 	}
 
 	public Page<ConceptMini> findConceptDescendants(String conceptId, String path, Relationship.CharacteristicType form, PageRequest pageRequest, ConceptService conceptService) {

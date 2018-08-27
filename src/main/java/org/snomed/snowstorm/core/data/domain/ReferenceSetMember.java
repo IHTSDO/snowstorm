@@ -17,6 +17,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 		String REFSET_ID = "refsetId";
 		String CONCEPT_ID = "conceptId";
 		String REFERENCED_COMPONENT_ID = "referencedComponentId";
+		String ADDITIONAL_FIELDS = "additionalFields";
 	}
 
 	public interface LanguageFields {
@@ -25,6 +26,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 
 	public interface OwlExpressionFields {
 		String OWL_EXPRESSION = "owlExpression";
+		String OWL_EXPRESSION_FIELD_PATH = "additionalFields.owlExpression";
 	}
 
 	public interface MRCMAttributeDomainFields {

@@ -61,7 +61,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			if (operator != null) {
 				applyConceptCriteriaWithOperator(Collections.singleton(parseLong(conceptId)), operator, refinementBuilder);
 			} else {
-				query.must(QueryBuilders.termQuery(QueryConcept.CONCEPT_ID_FIELD, conceptId));
+				query.must(QueryBuilders.termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId));
 			}
 		} else if (nestedExpressionConstraint != null) {
 			Optional<Page<Long>> conceptIdsOptional = ((SExpressionConstraint)nestedExpressionConstraint).select(refinementBuilder);
@@ -80,19 +80,19 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				SubRefinementBuilder filterRefinementBuilder = new SubRefinementBuilder(refinementBuilder, filterQuery);
 				applyConceptCriteriaWithOperator(conceptIds, operator, filterRefinementBuilder);
 			} else {
-				filterQuery.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptIds));
+				filterQuery.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds));
 			}
 		} else if (operator == Operator.memberOf) {
 			// Member of wildcard (any reference set)
-			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, refinementBuilder.getQueryService().retrieveConceptsInReferenceSet(refinementBuilder.getBranchCriteria(), null)));
+			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, refinementBuilder.getQueryService().retrieveConceptsInReferenceSet(refinementBuilder.getBranchCriteria(), null)));
 		} else if (operator == Operator.descendantof || operator == Operator.childof) {
 			// Descendant of wildcard / Child of wildcard = anything but root
-			query.mustNot(termQuery(QueryConcept.CONCEPT_ID_FIELD, Concepts.SNOMEDCT_ROOT));
+			query.mustNot(termQuery(QueryConcept.Fields.CONCEPT_ID, Concepts.SNOMEDCT_ROOT));
 		} else if (operator == Operator.ancestorof || operator == Operator.parentof) {
 			// Ancestor of wildcard / Parent of wildcard = all non-leaf concepts
 			Collection<Long> conceptsWithDescendants = refinementBuilder.getQueryService().retrieveRelationshipDestinations(
 					null, Collections.singletonList(parseLong(Concepts.ISA)), refinementBuilder.getBranchCriteria(), refinementBuilder.isStated());
-			query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptsWithDescendants));
+			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptsWithDescendants));
 		}
 		// Else Wildcard! which has no constraints
 	}
@@ -106,42 +106,42 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 		switch (operator) {
 			case childof:
-				query.must(termsQuery(QueryConcept.PARENTS_FIELD, conceptIds));
+				query.must(termsQuery(QueryConcept.Fields.PARENTS, conceptIds));
 				break;
 			case descendantorselfof:
 				// <<
 				query.must(
 						boolQuery()
-								.should(termsQuery(QueryConcept.ANCESTORS_FIELD, conceptIds))
-								.should(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptIds))
+								.should(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIds))
+								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
 				);
 				break;
 			case descendantof:
 				// <
-				query.must(termsQuery(QueryConcept.ANCESTORS_FIELD, conceptIds));
+				query.must(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIds));
 				break;
 			case parentof:
 				for (Long conceptId : conceptIds) {
 					Set<Long> parents = queryService.retrieveParents(branchCriteria, stated, conceptId.toString());
-					query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, parents));
+					query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, parents));
 				}
 				break;
 			case ancestororselfof:
 				Set<Long> allAncestors = retrieveAllAncestors(conceptIds, branchCriteria, path, stated, queryService);
 				query.must(
 						boolQuery()
-								.should(termsQuery(QueryConcept.CONCEPT_ID_FIELD, allAncestors))
-								.should(termsQuery(QueryConcept.CONCEPT_ID_FIELD, conceptIds))
+								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, allAncestors))
+								.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
 				);
 				break;
 			case ancestorof:
 				// > x
 				Set<Long> allAncestors2 = retrieveAllAncestors(conceptIds, branchCriteria, path, stated, queryService);
-				query.must(termsQuery(QueryConcept.CONCEPT_ID_FIELD, allAncestors2));
+				query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, allAncestors2));
 				break;
 			case memberOf:
 				// ^
-				query.filter(termsQuery(QueryConcept.CONCEPT_ID_FIELD, queryService.retrieveConceptsInReferenceSet(branchCriteria, conceptId)));
+				query.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, queryService.retrieveConceptsInReferenceSet(branchCriteria, conceptId)));
 				break;
 		}
 	}

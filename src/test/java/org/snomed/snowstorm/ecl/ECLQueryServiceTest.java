@@ -4,26 +4,29 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
@@ -32,63 +35,66 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 public class ECLQueryServiceTest extends AbstractTest {
 
 	// Model
-	private static final String MODEL_COMPONENT = "900000000000441003";
+	protected static final String MODEL_COMPONENT = "900000000000441003";
 
 	// Attributes
-	private static final String FINDING_SITE = "363698007";
-	private static final String ASSOCIATED_MORPHOLOGY = "116676008";
-	private static final String PROCEDURE_SITE = "363704007";
-	private static final String PROCEDURE_SITE_DIRECT = "405813007";
-	private static final String LATERALITY = "272741003";
+	protected static final String FINDING_SITE = "363698007";
+	protected static final String ASSOCIATED_MORPHOLOGY = "116676008";
+	protected static final String PROCEDURE_SITE = "363704007";
+	protected static final String PROCEDURE_SITE_DIRECT = "405813007";
+	protected static final String LATERALITY = "272741003";
 
 	// Qualifier Value
-	private static final String RIGHT = "24028007";
+	protected static final String RIGHT = "24028007";
 
 	// Body Structure
-	private static final String BODY_STRUCTURE = "123037004";
-	private static final String HEART_STRUCTURE = "80891009";
-	private static final String SKIN_STRUCTURE = "39937001";
-	private static final String THORACIC_STRUCTURE = "51185008";
-	private static final String PULMONARY_VALVE_STRUCTURE = "39057004";
-	private static final String RIGHT_VENTRICULAR_STRUCTURE = "53085002";
-	private static final String STENOSIS = "415582006";
-	private static final String HYPERTROPHY = "56246009";
-	private static final String HEMORRHAGE = "50960005";
+	protected static final String BODY_STRUCTURE = "123037004";
+	protected static final String HEART_STRUCTURE = "80891009";
+	protected static final String SKIN_STRUCTURE = "39937001";
+	protected static final String THORACIC_STRUCTURE = "51185008";
+	protected static final String PULMONARY_VALVE_STRUCTURE = "39057004";
+	protected static final String RIGHT_VENTRICULAR_STRUCTURE = "53085002";
+	protected static final String STENOSIS = "415582006";
+	protected static final String HYPERTROPHY = "56246009";
+	protected static final String HEMORRHAGE = "50960005";
 
 	// Finding
-	private static final String DISORDER = "64572001";
-	private static final String BLEEDING = "131148009";
-	private static final String BLEEDING_SKIN = "297968009";
-	private static final String PENTALOGY_OF_FALLOT = "204306007";
-	private static final String PENTALOGY_OF_FALLOT_INCORRECT_GROUPING = "999204306007";
+	protected static final String DISORDER = "64572001";
+	protected static final String BLEEDING = "131148009";
+	protected static final String BLEEDING_SKIN = "297968009";
+	protected static final String PENTALOGY_OF_FALLOT = "204306007";
+	protected static final String PENTALOGY_OF_FALLOT_INCORRECT_GROUPING = "999204306007";
 
 	// Procedure
-	private static final String PROCEDURE = "71388002";
-	private static final String OPERATION_ON_HEART = "64915003";
-	private static final String CHEST_IMAGING = "413815006";
+	protected static final String PROCEDURE = "71388002";
+	protected static final String OPERATION_ON_HEART = "64915003";
+	protected static final String CHEST_IMAGING = "413815006";
 
-	private static final String NON_EXISTENT_CONCEPT = "12345001";
+	protected static final String NON_EXISTENT_CONCEPT = "12345001";
 
-	private static final String MAIN = "MAIN";
-	private static final boolean STATED = true;
-
-	@Autowired
-	private ECLQueryService eclQueryService;
+	protected static final String MAIN = "MAIN";
+	protected static final boolean STATED = true;
 
 	@Autowired
-	private BranchService branchService;
+	protected ECLQueryService eclQueryService;
 
 	@Autowired
-	private ConceptService conceptService;
+	protected BranchService branchService;
 
 	@Autowired
-	private ReferenceSetMemberService memberService;
+	protected ConceptService conceptService;
 
 	@Autowired
-	private VersionControlHelper versionControlHelper;
+	protected ReferenceSetMemberService memberService;
 
-	private Set<String> allConceptIds;
-	private QueryBuilder branchCriteria;
+	@Autowired
+	protected VersionControlHelper versionControlHelper;
+
+	@Autowired
+	protected ElasticsearchTemplate elasticsearchTemplate;
+
+	protected Set<String> allConceptIds;
+	protected QueryBuilder branchCriteria;
 
 	@Before
 	public void setup() throws ServiceException {
@@ -173,6 +179,12 @@ public class ECLQueryServiceTest extends AbstractTest {
 				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, BODY_STRUCTURE)));
 
 		branchCriteria = versionControlHelper.getBranchCriteria(MAIN);
+
+		List<QueryConcept> queryConcepts = elasticsearchTemplate.queryForList(
+				new NativeSearchQueryBuilder()
+						.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID))
+						.withPageable(LARGE_PAGE).build(), QueryConcept.class);
+		System.out.println(queryConcepts);
 	}
 
 	@Test
@@ -588,11 +600,11 @@ public class ECLQueryServiceTest extends AbstractTest {
 				strings(selectConceptIds("* MINUS >*")).toString());
 	}
 
-	private Set<String> strings(Collection<Long> ids) {
+	protected Set<String> strings(Collection<Long> ids) {
 		return ids.stream().map(Object::toString).collect(Collectors.toSet());
 	}
 
-	private Collection<Long> selectConceptIds(String ecl) {
+	protected Collection<Long> selectConceptIds(String ecl) {
 		return selectConceptIds(ecl, null);
 	}
 

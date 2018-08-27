@@ -30,7 +30,7 @@ public class ConceptSelectorHelper {
 	public static BoolQueryBuilder getBranchAndStatedQuery(QueryBuilder branchCriteria, boolean stated) {
 		return boolQuery()
 				.must(branchCriteria)
-				.must(termQuery(QueryConcept.STATED_FIELD, stated));
+				.must(termQuery(QueryConcept.Fields.STATED, stated));
 	}
 
 	public static Page<Long> fetchIds(BoolQueryBuilder query, Collection<Long> filterByConceptIds, Function<QueryConcept, Boolean> inclusionFilter, PageRequest pageRequest, QueryService queryService) {
@@ -39,7 +39,7 @@ public class ConceptSelectorHelper {
 				.withFields(getRequiredFields(inclusionFilter));// This will cause the FastResultsMapper to be used
 
 		if (filterByConceptIds != null) {
-			searchQueryBuilder.withFilter(termsQuery(QueryConcept.CONCEPT_ID_FIELD, filterByConceptIds));
+			searchQueryBuilder.withFilter(termsQuery(QueryConcept.Fields.CONCEPT_ID, filterByConceptIds));
 		}
 		if (inclusionFilter == null) {
 			searchQueryBuilder.withFields(QueryConcept.Fields.CONCEPT_ID);
@@ -49,7 +49,7 @@ public class ConceptSelectorHelper {
 			// Fetch a page of IDs
 			searchQueryBuilder
 					.withPageable(pageRequest)
-					.withSort(SortBuilders.fieldSort(QueryConcept.CONCEPT_ID_FIELD).order(SortOrder.DESC));// Sorting meaningless but supports deterministic pagination
+					.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID).order(SortOrder.DESC));// Sorting meaningless but supports deterministic pagination
 
 			Page<QueryConcept> queryConcepts = queryService.queryForPage(searchQueryBuilder.build());
 			List<Long> ids = queryConcepts.getContent().stream().map(QueryConcept::getConceptIdL).collect(toList());
@@ -84,7 +84,7 @@ public class ConceptSelectorHelper {
 	}
 
 	public static FieldSortBuilder getOrder() {
-		return SortBuilders.fieldSort(QueryConcept.CONCEPT_ID_FIELD).order(SortOrder.DESC);
+		return SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID).order(SortOrder.DESC);
 	}
 
 	private static String[] getRequiredFields(Function<QueryConcept, Boolean> inclusionFilter) {
