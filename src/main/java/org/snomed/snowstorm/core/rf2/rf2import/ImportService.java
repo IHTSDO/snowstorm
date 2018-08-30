@@ -28,16 +28,7 @@ public class ImportService {
 
 	private Map<String, ImportJob> importJobMap;
 
-	private static final LoadingProfile DEFAULT_LOADING_PROFILE = LoadingProfile.complete.withoutAllRefsets()
-			.withFullRefsetMemberObjects()
-			.withRefset(ConceptConstants.US_EN_LANGUAGE_REFERENCE_SET)
-			.withRefset(ConceptConstants.GB_EN_LANGUAGE_REFERENCE_SET)
-			.withRefset(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET)
-			.withRefset(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET)
-			.withRefset("447563008")// ICD-9 Map
-			.withRefset("447562003")// ICD-10 Map
-			.withRefsets(Concepts.historicalAssociationNames.keySet().toArray(new String[0]))
-			.withRefsets(Concepts.MRCM_INTERNATIONAL_REFSETS.toArray(new String[0]));
+	private static final LoadingProfile DEFAULT_LOADING_PROFILE = LoadingProfile.complete.withFullRefsetMemberObjects();
 
 	@Autowired
 	private ConceptService conceptService;
@@ -86,12 +77,6 @@ public class ImportService {
 			job.setStatus(ImportJob.ImportStatus.RUNNING);
 			LoadingProfile loadingProfile = DEFAULT_LOADING_PROFILE
 					.withModuleIds(job.getModuleIds().toArray(new String[]{}));
-
-			// Also import all configured reference set types and their descendants
-			List<ReferenceSetType> configuredReferenceSetTypes = memberService.findConfiguredReferenceSetTypes(branchPath);
-			for (ReferenceSetType refsetType : configuredReferenceSetTypes) {
-				loadingProfile = loadingProfile.withIncludedReferenceSetFilenamePattern(".*_" + refsetType.getFieldTypes() + "Refset_" + refsetType.getName() + ".*");
-			}
 
 			switch (importType) {
 				case DELTA:
