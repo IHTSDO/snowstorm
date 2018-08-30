@@ -68,8 +68,8 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public Concept() {
 		active = true;
-		moduleId = "";
-		definitionStatusId = "";
+		moduleId = Concepts.CORE_MODULE;
+		definitionStatusId = Concepts.PRIMITIVE;
 		descriptions = new HashSet<>();
 		relationships = new HashSet<>();
 		axioms = new HashSet<>();

@@ -99,10 +99,10 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	public Description() {
 		active = true;
 		term = "";
-		moduleId = "";
-		languageCode = "";
-		typeId = "";
-		caseSignificanceId = "";
+		moduleId = Concepts.CORE_MODULE;
+		languageCode = "en";
+		typeId = Concepts.SYNONYM;
+		caseSignificanceId = Concepts.CASE_INSENSITIVE;
 		acceptabilityMap = new HashMap<>();
 		langRefsetMembers = new HashMap<>();
 	}

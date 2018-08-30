@@ -66,6 +66,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 	private Map<String, String> additionalFields;
 
 	public ReferenceSetMember() {
+		moduleId = Concepts.CORE_MODULE;
 		additionalFields = new HashMap<>();
 	}
 

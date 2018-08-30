@@ -92,11 +92,11 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public Relationship() {
 		active = true;
-		moduleId = "";
+		moduleId = Concepts.CORE_MODULE;
 		destinationId = "";
 		typeId = "";
 		characteristicTypeId = Concepts.STATED_RELATIONSHIP;
-		modifierId = "";
+		modifierId = Concepts.EXISTENTIAL;
 	}
 
 	public Relationship(String relationshipId) {
