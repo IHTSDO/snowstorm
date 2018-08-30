@@ -7,6 +7,7 @@ import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -23,7 +24,8 @@ public class ControllerAdvice {
 			IllegalArgumentException.class,
 			IllegalStateException.class,
 			HttpRequestMethodNotSupportedException.class,
-			HttpMediaTypeNotSupportedException.class
+			HttpMediaTypeNotSupportedException.class,
+			MethodArgumentNotValidException.class
 	})
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	@ResponseBody

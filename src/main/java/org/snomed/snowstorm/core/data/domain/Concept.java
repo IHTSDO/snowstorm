@@ -9,6 +9,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.*;
@@ -54,9 +55,11 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	private String definitionStatusId;
 
 	@JsonView(value = View.Component.class)
+	@Valid
 	private Set<Description> descriptions;
 
 	@JsonView(value = View.Component.class)
+	@Valid
 	private Set<Relationship> relationships;
 
 	private Set<Axiom> axioms;

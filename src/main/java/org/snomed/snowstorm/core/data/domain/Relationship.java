@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
+import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -196,7 +197,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public void setType(ConceptMini type) {
 		this.type = type;
-		this.typeId = type == null ? null : type.getConceptId();
+		if (type != null && !Strings.isNullOrEmpty(type.getConceptId())) {
+			this.typeId = type.getConceptId();
+		}
 	}
 
 	@JsonView(value = View.Component.class)
@@ -206,7 +209,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public void setTarget(ConceptMini target) {
 		this.target = target;
-		this.destinationId = target == null ? null : target.getConceptId();
+		if (target != null && !Strings.isNullOrEmpty(target.getConceptId())) {
+			this.destinationId = target.getConceptId();
+		}
 	}
 
 	@JsonView(value = View.Component.class)

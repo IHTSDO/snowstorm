@@ -43,6 +43,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
+import javax.validation.ConstraintViolation;
+import javax.validation.Validation;
+import javax.validation.Validator;
+import javax.validation.ValidatorFactory;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
@@ -51,7 +55,6 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
-import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION;
 
 @Service
 public class ConceptService extends ComponentService {
@@ -96,11 +99,13 @@ public class ConceptService extends ComponentService {
 	private TraceabilityLogService traceabilityLogService;
 
 	private final Cache<String, AsyncConceptChangeBatch> batchConceptChanges;
+	private final ValidatorFactory validatorFactory;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	public ConceptService() {
 		batchConceptChanges = CacheBuilder.newBuilder().expireAfterWrite(2, TimeUnit.HOURS).build();
+		validatorFactory = Validation.buildDefaultValidatorFactory();
 	}
 
 	public Concept find(String id, String path) {
@@ -479,7 +484,7 @@ public class ConceptService extends ComponentService {
 			Iterable<Concept> updatedConcepts = createUpdate(concepts, path);
 			batchConceptChange.setConceptIds(StreamSupport.stream(updatedConcepts.spliterator(), false).map(Concept::getConceptIdAsLong).collect(Collectors.toList()));
 			batchConceptChange.setStatus(AsyncConceptChangeBatch.Status.COMPLETED);
-		} catch (ServiceException e) {
+		} catch (IllegalArgumentException | ServiceException e) {
 			batchConceptChange.setStatus(AsyncConceptChangeBatch.Status.FAILED);
 			batchConceptChange.setMessage(e.getMessage());
 			logger.error("Batch concept change failed, id:{}, branch:{}", batchConceptChange.getId(), path, e);
@@ -531,6 +536,9 @@ public class ConceptService extends ComponentService {
 
 	private Iterable<Concept> doSaveBatchConceptsAndComponents(Collection<Concept> concepts, Commit commit) throws ServiceException {
 		final boolean savingMergedConcepts = commit.isRebase();
+
+		validateConcepts(concepts);
+
 		final List<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toList());
 		final Map<String, Concept> existingConceptsMap = new HashMap<>();
 		if (!conceptIds.isEmpty()) {
@@ -709,6 +717,17 @@ public class ConceptService extends ComponentService {
 				concepts, descriptionsToPersist, relationshipsToPersist, refsetMembersToPersist);
 
 		return conceptsSaved;
+	}
+
+	private void validateConcepts(Collection<Concept> concepts) {
+		Validator validator = validatorFactory.getValidator();
+		for (Concept concept : concepts) {
+			Set<ConstraintViolation<Concept>> violations = validator.validate(concept);
+			if (!violations.isEmpty()) {
+				ConstraintViolation<Concept> violation = violations.iterator().next();
+				throw new IllegalArgumentException(String.format("Invalid concept property %s %s", violation.getPropertyPath().toString(), violation.getMessage()));
+			}
+		}
 	}
 
 	private void updateAssociations(SnomedComponentWithAssociations newComponent, SnomedComponentWithAssociations existingComponent, List<ReferenceSetMember> refsetMembersToPersist) {
