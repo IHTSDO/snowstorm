@@ -54,19 +54,19 @@ public class ExpressionServiceTest extends AbstractTest {
 		//ISA needs to exist to use in it's own definition!
 		isa = new Concept(ISA);
 		isa = createConcept(ISA, root, PRIMITIVE);
-		attribute1 = createConcept("90", root, PRIMITIVE);
-		attribute2 = createConcept("91", root, PRIMITIVE);
-		target1 = createConcept("92", root, FULLY_DEFINED);
-		target2 = createConcept("93", root, PRIMITIVE);
+		attribute1 = createConcept("1000090", root, PRIMITIVE);
+		attribute2 = createConcept("1000091", root, PRIMITIVE);
+		target1 = createConcept("1000092", root, FULLY_DEFINED);
+		target2 = createConcept("1000093", root, PRIMITIVE);
 	}
 
 	@Test
 	public void testConceptAuthoringFormSimple() throws ServiceException {
 
-		Concept concept1 = createConcept("1", root, PRIMITIVE);
-		Concept concept2 = createConcept("2", concept1, PRIMITIVE);
-		Concept concept3 = createConcept("3", concept2, FULLY_DEFINED);
-		Concept concept4 = createConcept("4", concept3, FULLY_DEFINED);
+		Concept concept1 = createConcept("100001", root, PRIMITIVE);
+		Concept concept2 = createConcept("100002", concept1, PRIMITIVE);
+		Concept concept3 = createConcept("100003", concept2, FULLY_DEFINED);
+		Concept concept4 = createConcept("100004", concept3, FULLY_DEFINED);
 		concept4.addRelationship(createRelationship(attribute1, target1, 0));
 		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
 
@@ -94,14 +94,14 @@ public class ExpressionServiceTest extends AbstractTest {
 		//
 		// For manual testing, a worst case scenario is suggested to be: 719378009 |Microcephalus with brachydactyly and kyphoscoliosis syndrome (disorder)|
 		
-		Concept concept1 = createConcept("21", root, PRIMITIVE);
-		Concept concept2 = createConcept("22", root, PRIMITIVE);
-		Concept concept3 = createConcept("23", concept1, FULLY_DEFINED);
-		Concept concept4 = createConcept("24", concept1, PRIMITIVE);
-		Concept concept5 = createConcept("25", concept2, FULLY_DEFINED);
+		Concept concept1 = createConcept("1000021", root, PRIMITIVE);
+		Concept concept2 = createConcept("1000022", root, PRIMITIVE);
+		Concept concept3 = createConcept("1000023", concept1, FULLY_DEFINED);
+		Concept concept4 = createConcept("1000024", concept1, PRIMITIVE);
+		Concept concept5 = createConcept("1000025", concept2, FULLY_DEFINED);
 		
 		Concept[] parents = new Concept[] { concept3, concept4, concept5};
-		Concept concept6 = createConcept("26", parents, FULLY_DEFINED);
+		Concept concept6 = createConcept("1000026", parents, FULLY_DEFINED);
 		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
 
 		Expression exp = expressionService.getConceptAuthoringForm(concept6.getConceptId(), EXPRESSION_TEST_BRANCH);
@@ -124,10 +124,10 @@ public class ExpressionServiceTest extends AbstractTest {
 
 	@Test
 	public void testConceptAuthoringFormAttributeGroups() throws ServiceException {
-		Concept concept1 = createConcept("31", root, PRIMITIVE);
-		Concept concept2 = createConcept("32", concept1, PRIMITIVE);
-		Concept concept3 = createConcept("33", concept2, FULLY_DEFINED);
-		Concept concept4 = createConcept("34", concept3, FULLY_DEFINED);
+		Concept concept1 = createConcept("1000031", root, PRIMITIVE);
+		Concept concept2 = createConcept("1000032", concept1, PRIMITIVE);
+		Concept concept3 = createConcept("1000033", concept2, FULLY_DEFINED);
+		Concept concept4 = createConcept("1000034", concept3, FULLY_DEFINED);
 		concept4.addRelationship(createRelationship(attribute1, target1, 1));
 		concept4.addRelationship(createRelationship(attribute2, target2, 1));
 		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);

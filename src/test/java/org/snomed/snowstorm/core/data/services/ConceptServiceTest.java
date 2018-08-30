@@ -71,55 +71,55 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Test
 	public void testConceptCreationBranchingVisibility() throws ServiceException {
-		Assert.assertNull("Concept 1 does not exist on MAIN.", conceptService.find("1", "MAIN"));
+		Assert.assertNull("Concept 100001 does not exist on MAIN.", conceptService.find("100001", "MAIN"));
 
-		conceptService.create(new Concept("1", "one"), "MAIN");
+		conceptService.create(new Concept("100001", "10000111"), "MAIN");
 
-		final Concept c1 = conceptService.find("1", "MAIN");
-		Assert.assertNotNull("Concept 1 exists on MAIN.", c1);
+		final Concept c1 = conceptService.find("100001", "MAIN");
+		Assert.assertNotNull("Concept 100001 exists on MAIN.", c1);
 		assertEquals("MAIN", c1.getPath());
-		assertEquals("one", c1.getModuleId());
+		assertEquals("10000111", c1.getModuleId());
 
 		branchService.create("MAIN/A");
-		conceptService.create(new Concept("2", "two"), "MAIN/A");
-		Assert.assertNull("Concept 2 does not exist on MAIN.", conceptService.find("2", "MAIN"));
-		Assert.assertNotNull("Concept 2 exists on branch A.", conceptService.find("2", "MAIN/A"));
-		Assert.assertNotNull("Concept 1 is accessible on branch A because of the base time.", conceptService.find("1", "MAIN/A"));
+		conceptService.create(new Concept("100002", "10000222"), "MAIN/A");
+		Assert.assertNull("Concept 100002 does not exist on MAIN.", conceptService.find("100002", "MAIN"));
+		Assert.assertNotNull("Concept 100002 exists on branch A.", conceptService.find("100002", "MAIN/A"));
+		Assert.assertNotNull("Concept 100001 is accessible on branch A because of the base time.", conceptService.find("100001", "MAIN/A"));
 
-		conceptService.create(new Concept("3", "three"), "MAIN");
-		Assert.assertNull("Concept 3 is not accessible on branch A because created after branching.", conceptService.find("3", "MAIN/A"));
-		Assert.assertNotNull(conceptService.find("3", "MAIN"));
+		conceptService.create(new Concept("100003", "10000333"), "MAIN");
+		Assert.assertNull("Concept 100003 is not accessible on branch A because created after branching.", conceptService.find("100003", "MAIN/A"));
+		Assert.assertNotNull(conceptService.find("100003", "MAIN"));
 	}
 
 	@Test
 	public void testDeleteDescription() throws ServiceException {
 		final Concept concept = conceptService.create(
-				new Concept("1")
-						.addDescription(new Description("1", "one"))
-						.addDescription(new Description("2", "two"))
-						.addDescription(new Description("3", "three"))
+				new Concept("100001")
+						.addDescription(new Description("100001", "one"))
+						.addDescription(new Description("100002", "two"))
+						.addDescription(new Description("100003", "three"))
 				, "MAIN");
 
 		assertEquals(3, concept.getDescriptions().size());
-		assertEquals(3, conceptService.find("1", "MAIN").getDescriptions().size());
+		assertEquals(3, conceptService.find("100001", "MAIN").getDescriptions().size());
 
 		branchService.create("MAIN/one");
 		branchService.create("MAIN/one/one-1");
 		branchService.create("MAIN/two");
 
-		concept.getDescriptions().remove(new Description("2", ""));
+		concept.getDescriptions().remove(new Description("100002", ""));
 		final Concept updatedConcept = conceptService.update(concept, "MAIN/one");
 
 		assertEquals(2, updatedConcept.getDescriptions().size());
-		assertEquals(2, conceptService.find("1", "MAIN/one").getDescriptions().size());
-		assertEquals(3, conceptService.find("1", "MAIN").getDescriptions().size());
-		assertEquals(3, conceptService.find("1", "MAIN/one/one-1").getDescriptions().size());
-		assertEquals(3, conceptService.find("1", "MAIN/two").getDescriptions().size());
+		assertEquals(2, conceptService.find("100001", "MAIN/one").getDescriptions().size());
+		assertEquals(3, conceptService.find("100001", "MAIN").getDescriptions().size());
+		assertEquals(3, conceptService.find("100001", "MAIN/one/one-1").getDescriptions().size());
+		assertEquals(3, conceptService.find("100001", "MAIN/two").getDescriptions().size());
 	}
 
 	@Test
 	public void testDeleteLangMembersDuringDescriptionDeletion() throws ServiceException {
-		Concept concept = new Concept("123");
+		Concept concept = new Concept("10000123");
 		Description fsn = fsn("Is a (attribute)");
 		conceptService.create(concept
 				.addDescription(
@@ -146,7 +146,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Test
 	public void testDescriptionInactivation() throws ServiceException {
-		Concept concept = new Concept("123");
+		Concept concept = new Concept("10000123");
 		Description fsn = fsn("Is a (attribute)");
 		conceptService.create(concept
 				.addDescription(
@@ -211,10 +211,10 @@ public class ConceptServiceTest extends AbstractTest {
 		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), "MAIN");
 
 		final Concept concept = conceptService.create(
-				new Concept("1")
-						.addRelationship(new Relationship("1", ISA, SNOMEDCT_ROOT))
-						.addRelationship(new Relationship("2", ISA, SNOMEDCT_ROOT))
-						.addRelationship(new Relationship("3", ISA, SNOMEDCT_ROOT))
+				new Concept("100001")
+						.addRelationship(new Relationship("100001", ISA, SNOMEDCT_ROOT))
+						.addRelationship(new Relationship("100002", ISA, SNOMEDCT_ROOT))
+						.addRelationship(new Relationship("100003", ISA, SNOMEDCT_ROOT))
 				, "MAIN");
 
 		Relationship createdRelationship = concept.getRelationships().iterator().next();
@@ -224,7 +224,7 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals("Creation response should contain definition status within relationship target", "PRIMITIVE", createdRelationship.target().getDefinitionStatus());
 
 		assertEquals(3, concept.getRelationships().size());
-		Concept foundConcept = conceptService.find("1", "MAIN");
+		Concept foundConcept = conceptService.find("100001", "MAIN");
 		assertEquals(3, foundConcept.getRelationships().size());
 
 		Relationship foundRelationship = foundConcept.getRelationships().iterator().next();
@@ -233,11 +233,11 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals("Find response should contain FSN within relationship target", "SNOMED CT Concept", foundRelationship.target().getFsn());
 		assertEquals("Find response should contain definition status within relationship target", "PRIMITIVE", foundRelationship.target().getDefinitionStatus());
 
-		concept.getRelationships().remove(new Relationship("3"));
+		concept.getRelationships().remove(new Relationship("100003"));
 		final Concept updatedConcept = conceptService.update(concept, "MAIN");
 
 		assertEquals(2, updatedConcept.getRelationships().size());
-		assertEquals(2, conceptService.find("1", "MAIN").getRelationships().size());
+		assertEquals(2, conceptService.find("100001", "MAIN").getRelationships().size());
 
 		Relationship updatedRelationship = foundConcept.getRelationships().iterator().next();
 		assertEquals("Update response should contain FSN within relationship type", "Is a (attribute)", updatedRelationship.type().getFsn());
@@ -249,112 +249,112 @@ public class ConceptServiceTest extends AbstractTest {
 	@Test
 	public void testMultipleConceptVersionsOnOneBranch() throws ServiceException {
 		assertEquals(0, conceptService.findAll("MAIN", ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		conceptService.create(new Concept("1", "one"), "MAIN");
+		conceptService.create(new Concept("100001", "10000111"), "MAIN");
 
-		final Concept concept1 = conceptService.find("1", "MAIN");
-		assertEquals("one", concept1.getModuleId());
+		final Concept concept1 = conceptService.find("100001", "MAIN");
+		assertEquals("10000111", concept1.getModuleId());
 		assertEquals(1, conceptService.findAll("MAIN", ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
-		conceptService.update(new Concept("1", "oneee"), "MAIN");
+		conceptService.update(new Concept("100001", "10000222"), "MAIN");
 
-		final Concept concept1Version2 = conceptService.find("1", "MAIN");
-		assertEquals("oneee", concept1Version2.getModuleId());
+		final Concept concept1Version2 = conceptService.find("100001", "MAIN");
+		assertEquals("10000222", concept1Version2.getModuleId());
 		assertEquals(1, conceptService.findAll("MAIN", ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 	}
 
 	@Test
 	public void testUpdateExistingConceptOnNewBranch() throws ServiceException {
-		conceptService.create(new Concept("1", "one"), "MAIN");
+		conceptService.create(new Concept("100001", "10000111"), "MAIN");
 
 		branchService.create("MAIN/A");
 
-		conceptService.update(new Concept("1", "one1"), "MAIN/A");
+		conceptService.update(new Concept("100001", "10000222"), "MAIN/A");
 
-		assertEquals("one", conceptService.find("1", "MAIN").getModuleId());
-		assertEquals("one1", conceptService.find("1", "MAIN/A").getModuleId());
+		assertEquals("10000111", conceptService.find("100001", "MAIN").getModuleId());
+		assertEquals("10000222", conceptService.find("100001", "MAIN/A").getModuleId());
 	}
 
 	@Test
 	public void testOnlyUpdateWhatChanged() throws ServiceException {
 		final Integer effectiveTime = 20160731;
 
-		conceptService.create(new Concept("1", effectiveTime, true, Concepts.CORE_MODULE, Concepts.PRIMITIVE)
-				.addDescription(new Description("11", effectiveTime, true, Concepts.CORE_MODULE, null, "en",
+		conceptService.create(new Concept("100001", effectiveTime, true, Concepts.CORE_MODULE, Concepts.PRIMITIVE)
+				.addDescription(new Description("1000011", effectiveTime, true, Concepts.CORE_MODULE, null, "en",
 						Concepts.FSN, "My Concept (finding)", Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE))
-				.addDescription(new Description("12", effectiveTime, true, Concepts.CORE_MODULE, null, "en",
+				.addDescription(new Description("1000012", effectiveTime, true, Concepts.CORE_MODULE, null, "en",
 						Concepts.SYNONYM, "My Concept", Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE)),
 				"MAIN");
 
-		final Concept conceptAfterSave = conceptService.find("1", "MAIN");
+		final Concept conceptAfterSave = conceptService.find("100001", "MAIN");
 
-		conceptAfterSave.getDescription("11").setActive(false);
+		conceptAfterSave.getDescription("1000011").setActive(false);
 		conceptService.update(conceptAfterSave, "MAIN");
 
-		final Concept conceptAfterUpdate = conceptService.find("1", "MAIN");
+		final Concept conceptAfterUpdate = conceptService.find("100001", "MAIN");
 
 		assertEquals("Concept document should not have been updated.",
 				conceptAfterSave.getInternalId(), conceptAfterUpdate.getInternalId());
 		assertEquals("Synonym document should not have been updated.",
-				conceptAfterSave.getDescription("12").getInternalId(), conceptAfterUpdate.getDescription("12").getInternalId());
+				conceptAfterSave.getDescription("1000012").getInternalId(), conceptAfterUpdate.getDescription("1000012").getInternalId());
 		Assert.assertNotEquals("FSN document should have been updated.",
-				conceptAfterSave.getDescription("11").getInternalId(), conceptAfterUpdate.getDescription("11").getInternalId());
+				conceptAfterSave.getDescription("1000011").getInternalId(), conceptAfterUpdate.getDescription("1000011").getInternalId());
 
 	}
 
 	@Test
 	public void testFindConceptOnParentBranchUsingBaseVersion() throws ServiceException {
-		conceptService.create(new Concept("1", "one"), "MAIN");
-		conceptService.update(new Concept("1", "one1"), "MAIN");
+		conceptService.create(new Concept("100001", "10000111"), "MAIN");
+		conceptService.update(new Concept("100001", "10000222"), "MAIN");
 
 		branchService.create("MAIN/A");
 
-		conceptService.update(new Concept("1", "one2"), "MAIN");
+		conceptService.update(new Concept("100001", "10000333"), "MAIN");
 
-		assertEquals("one2", conceptService.find("1", "MAIN").getModuleId());
-		assertEquals("one1", conceptService.find("1", "MAIN/A").getModuleId());
+		assertEquals("10000333", conceptService.find("100001", "MAIN").getModuleId());
+		assertEquals("10000222", conceptService.find("100001", "MAIN/A").getModuleId());
 
 		branchService.create("MAIN/A/A1");
 
-		assertEquals("one1", conceptService.find("1", "MAIN/A/A1").getModuleId());
+		assertEquals("10000222", conceptService.find("100001", "MAIN/A/A1").getModuleId());
 
-		conceptService.update(new Concept("1", "one3"), "MAIN/A");
+		conceptService.update(new Concept("100001", "10000333"), "MAIN/A");
 
-		assertEquals("one1", conceptService.find("1", "MAIN/A/A1").getModuleId());
+		assertEquals("10000222", conceptService.find("100001", "MAIN/A/A1").getModuleId());
 	}
 
 	@Test
 	public void testListConceptsOnGrandchildBranchWithUpdateOnChildBranch() throws ServiceException {
-		conceptService.create(new Concept("1", "orig value"), "MAIN");
-		assertEquals("orig value", conceptService.find("1", "MAIN").getModuleId());
+		conceptService.create(new Concept("100001", "10000111"), "MAIN");
+		assertEquals("10000111", conceptService.find("100001", "MAIN").getModuleId());
 
 		branchService.create("MAIN/A");
 		branchService.create("MAIN/A/A1");
-		conceptService.update(new Concept("1", "updated value"), "MAIN/A");
+		conceptService.update(new Concept("100001", "10000222"), "MAIN/A");
 		branchService.create("MAIN/A/A2");
 
-		assertEquals("orig value", conceptService.find("1", "MAIN").getModuleId());
-		assertEquals("updated value", conceptService.find("1", "MAIN/A").getModuleId());
-		assertEquals("orig value", conceptService.find("1", "MAIN/A/A1").getModuleId());
-		assertEquals("updated value", conceptService.find("1", "MAIN/A/A2").getModuleId());
+		assertEquals("10000111", conceptService.find("100001", "MAIN").getModuleId());
+		assertEquals("10000222", conceptService.find("100001", "MAIN/A").getModuleId());
+		assertEquals("10000111", conceptService.find("100001", "MAIN/A/A1").getModuleId());
+		assertEquals("10000222", conceptService.find("100001", "MAIN/A/A2").getModuleId());
 
 		final Page<Concept> allOnGrandChild = conceptService.findAll("MAIN/A/A1", ServiceTestUtil.PAGE_REQUEST);
 		assertEquals(1, allOnGrandChild.getTotalElements());
-		assertEquals("orig value", allOnGrandChild.getContent().get(0).getModuleId());
+		assertEquals("10000111", allOnGrandChild.getContent().get(0).getModuleId());
 
 		final Page<Concept> allOnChild = conceptService.findAll("MAIN/A", ServiceTestUtil.PAGE_REQUEST);
 		assertEquals(1, allOnChild.getTotalElements());
-		assertEquals("updated value", allOnChild.getContent().get(0).getModuleId());
+		assertEquals("10000222", allOnChild.getContent().get(0).getModuleId());
 
-		conceptService.update(new Concept("1", "updated value for A"), "MAIN/A");
+		conceptService.update(new Concept("100001", "10000333"), "MAIN/A");
 
 		final Page<Concept> allOnChildAfterSecondUpdate = conceptService.findAll("MAIN/A", ServiceTestUtil.PAGE_REQUEST);
 		assertEquals(1, allOnChildAfterSecondUpdate.getTotalElements());
-		assertEquals("updated value for A", allOnChildAfterSecondUpdate.getContent().get(0).getModuleId());
+		assertEquals("10000333", allOnChildAfterSecondUpdate.getContent().get(0).getModuleId());
 
-		assertEquals("orig value", conceptService.find("1", "MAIN").getModuleId());
-		assertEquals("updated value for A", conceptService.find("1", "MAIN/A").getModuleId());
-		assertEquals("orig value", conceptService.find("1", "MAIN/A/A1").getModuleId());
-		assertEquals("updated value", conceptService.find("1", "MAIN/A/A2").getModuleId());
+		assertEquals("10000111", conceptService.find("100001", "MAIN").getModuleId());
+		assertEquals("10000333", conceptService.find("100001", "MAIN/A").getModuleId());
+		assertEquals("10000111", conceptService.find("100001", "MAIN/A/A1").getModuleId());
+		assertEquals("10000222", conceptService.find("100001", "MAIN/A/A2").getModuleId());
 	}
 
 	@Test
@@ -375,8 +375,8 @@ public class ConceptServiceTest extends AbstractTest {
 	public void testSaveConceptWithAxioms() throws ServiceException {
 		String path = "MAIN";
 		final Concept concept = new Concept("50960005", 20020131, true, Concepts.CORE_MODULE, "900000000000074008");
-		concept.addAxiom(new Axiom(null, Concepts.FULLY_DEFINED, Sets.newHashSet(new Relationship(Concepts.ISA, "100"), new Relationship("200", "300"))).setModuleId(CORE_MODULE));
-		concept.addGeneralConceptInclusionAxiom(new Axiom(null, Concepts.PRIMITIVE, Sets.newHashSet(new Relationship(Concepts.ISA, "500"), new Relationship("600", "700"))).setModuleId(CORE_MODULE));
+		concept.addAxiom(new Axiom(null, Concepts.FULLY_DEFINED, Sets.newHashSet(new Relationship(Concepts.ISA, "10000100"), new Relationship("10000200", "10000300"))).setModuleId(CORE_MODULE));
+		concept.addGeneralConceptInclusionAxiom(new Axiom(null, Concepts.PRIMITIVE, Sets.newHashSet(new Relationship(Concepts.ISA, "10000500"), new Relationship("10000600", "10000700"))).setModuleId(CORE_MODULE));
 		conceptService.create(concept, path);
 		assertEquals(1, conceptService.find(concept.getConceptId(), path).getAdditionalAxioms().size());
 
@@ -390,10 +390,10 @@ public class ConceptServiceTest extends AbstractTest {
 		List<Relationship> relationships = new ArrayList<>(axiom.getRelationships());
 		assertEquals(2, relationships.size());
 		relationships.sort(Comparator.comparing(Relationship::getTypeId));
-		assertEquals(Concepts.ISA, relationships.get(0).getTypeId());
-		assertEquals("100", relationships.get(0).getDestinationId());
-		assertEquals("200", relationships.get(1).getTypeId());
-		assertEquals("300", relationships.get(1).getDestinationId());
+		assertEquals("10000200", relationships.get(0).getTypeId());
+		assertEquals("10000300", relationships.get(0).getDestinationId());
+		assertEquals(Concepts.ISA, relationships.get(1).getTypeId());
+		assertEquals("10000100", relationships.get(1).getDestinationId());
 		Axiom gciAxiom = savedConcept.getGciAxioms().iterator().next();
 		assertEquals(Concepts.PRIMITIVE, gciAxiom.getDefinitionStatusId());
 
@@ -401,7 +401,7 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals(2, members.getTotalElements());
 		String axiomId = axiom.getAxiomId();
 		ReferenceSetMember referenceSetMember = members.getContent().stream().filter(member -> member.getMemberId().equals(axiomId)).collect(Collectors.toList()).get(0);
-		assertEquals("EquivalentClasses(:50960005 ObjectIntersectionOf(:100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:200 :300))) )",
+		assertEquals("EquivalentClasses(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))) )",
 				referenceSetMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
 		String memberId = referenceSetMember.getMemberId();
 
@@ -421,7 +421,7 @@ public class ConceptServiceTest extends AbstractTest {
 		updatedConcept = conceptService.update(concept, path);
 		axiom = updatedConcept.getAdditionalAxioms().iterator().next();
 		assertEquals("Member id should not be changed after changing the OWL expression.", memberId, axiom.getReferenceSetMember().getMemberId());
-		assertEquals("SubClassOf(:50960005 ObjectIntersectionOf(:100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:200 :300))))",
+		assertEquals("SubClassOf(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))",
 				axiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
 
 		concept.getAdditionalAxioms().clear();
@@ -630,7 +630,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Test
 	public void testLatestVersionMatch() throws ServiceException {
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
+		testUtil.createConceptWithPathIdAndTerms("MAIN", "100001", "Heart");
 
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
 		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
@@ -639,7 +639,7 @@ public class ConceptServiceTest extends AbstractTest {
 		branchService.create("MAIN/A");
 
 		// Make further changes ahead of A's base point on MAIN
-		final Concept concept = conceptService.find("1", "MAIN");
+		final Concept concept = conceptService.find("100001", "MAIN");
 		concept.getDescriptions().iterator().next().setTerm("Bone");
 		conceptService.update(concept, "MAIN");
 
@@ -652,7 +652,7 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals("Branch A should see old version of concept because of old base point.", 1, descriptionService.findDescriptionsWithAggregations("MAIN/A", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
 		assertEquals("Branch A should not see new version of concept because of old base point.", 0, descriptionService.findDescriptionsWithAggregations("MAIN/A", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
 
-		final Concept concept1 = conceptService.find("1", "MAIN");
+		final Concept concept1 = conceptService.find("100001", "MAIN");
 		assertEquals(1, concept1.getDescriptions().size());
 	}
 
@@ -665,7 +665,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 		// Create concept
 		final Concept concept = new Concept(conceptId, null, true, originalModuleId, "900000000000074008")
-				.addDescription(new Description("123", null, true, originalModuleId, conceptId, "en",
+				.addDescription(new Description("10000123", null, true, originalModuleId, conceptId, "en",
 						Concepts.FSN, "Pizza", Concepts.CASE_INSENSITIVE).addLanguageRefsetMember(Concepts.GB_EN_LANG_REFSET, Concepts.PREFERRED));
 		conceptService.create(concept, path);
 
@@ -690,7 +690,7 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals("true|900000000000207008|acceptabilityId|900000000000548007", savedMember.getReleaseHash());
 
 		// Change concept, description and member
-		savedConcept.setModuleId("123");
+		savedConcept.setModuleId("10000123");
 		savedDescription.setCaseSignificanceId(Concepts.ENTIRE_TERM_CASE_SENSITIVE);
 		savedMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, Concepts.ACCEPTABLE);
 		conceptService.update(savedConcept, "MAIN");

@@ -44,18 +44,18 @@ public class ConceptDroolsValidationServiceTest extends AbstractTest {
 	public void setup() throws ServiceException {
 		String branch = "MAIN";
 		branchService.create(branch);
-		conceptService.create(new Concept("1", null, true, null, Concepts.PRIMITIVE), branch);
-		conceptService.create(new Concept("2", null, false, null, Concepts.PRIMITIVE), branch);
+		conceptService.create(new Concept("100001", null, true, "10000111", Concepts.PRIMITIVE), branch);
+		conceptService.create(new Concept("100002", null, false, "10000111", Concepts.PRIMITIVE), branch);
 
 		validationService = new ConceptDroolsValidationService(branch, versionControlHelper.getBranchCriteria(branch), elasticsearchOperations, queryService);
 	}
 
 	@Test
 	public void isActive() throws Exception {
-		Assert.assertTrue(validationService.isActive("1"));
-		Assert.assertFalse(validationService.isActive("2"));
+		Assert.assertTrue(validationService.isActive("100001"));
+		Assert.assertFalse(validationService.isActive("100002"));
 		try {
-			Assert.assertFalse(validationService.isActive("3"));
+			Assert.assertFalse(validationService.isActive("100003"));
 			Assert.fail("Should have thrown exception.");
 		} catch (RuleExecutorException e) {
 			// good

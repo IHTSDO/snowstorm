@@ -73,7 +73,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertBranchState("MAIN/C", Branch.BranchState.UP_TO_DATE);
 
 		// Create concept on A1
-		final String conceptId = "123";
+		final String conceptId = "10000123";
 		conceptService.create(new Concept(conceptId), "MAIN/A/A1");
 		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
 		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.UP_TO_DATE, conceptId, false);
@@ -143,14 +143,14 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertBranchState("MAIN/C", Branch.BranchState.UP_TO_DATE);
 
 		// - Create a concepts on A1 and A2
-		final String concept1 = "100";
-		final String concept2 = "200";
+		final String concept1 = "10000100";
+		final String concept2 = "10000200";
 		conceptService.create(new Concept(concept1)
 						.addDescription(new Description("One")),
 				"MAIN/A/A1");
 		conceptService.create(new Concept(concept2)
-						.addDescription(new Description("21", "Two1"))
-						.addDescription(new Description("22", "Two2")),
+						.addDescription(new Description("1000021", "Two1"))
+						.addDescription(new Description("1000022", "Two2")),
 				"MAIN/A/A2");
 
 		// MAIN can't see concepts
@@ -285,13 +285,13 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
 
-		// MAIN: 1 Root
+		// MAIN: 100001 Root
 		System.out.println("// MAIN: 1 Root");
-		conceptService.create(new Concept("1"), "MAIN");
+		conceptService.create(new Concept("100001"), "MAIN");
 
-		// MAIN: 2 -> 1
-		System.out.println("// MAIN: 2 -> 1");
-		conceptService.create(new Concept("2").addRelationship(new Relationship(Concepts.ISA, "1")), "MAIN");
+		// MAIN: 100002 -> 100001
+		System.out.println("// MAIN: 100002 -> 100001");
+		conceptService.create(new Concept("100002").addRelationship(new Relationship(Concepts.ISA, "100001")), "MAIN");
 
 		// Rebase MAIN/A
 		System.out.println("// Rebase MAIN/A");
@@ -299,18 +299,18 @@ public class BranchMergeServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", null);
 
 		// MAIN: 4 -> 1
-		System.out.println("// MAIN: 4 -> 1");
-		conceptService.create(new Concept("4").addRelationship(new Relationship(Concepts.ISA, "1")), "MAIN");
+		System.out.println("// MAIN: 100004 -> 100001");
+		conceptService.create(new Concept("100004").addRelationship(new Relationship(Concepts.ISA, "100001")), "MAIN");
 
 		// MAIN: 2 -> 4
-		System.out.println("// MAIN: 2 -> 4");
-		conceptService.update(new Concept("2").addRelationship(new Relationship(Concepts.ISA, "4")), "MAIN");
-		Assert.assertEquals(Sets.newHashSet(1L, 4L), queryService.retrieveAncestors("2", "MAIN", true));
+		System.out.println("// MAIN: 100002 -> 100004");
+		conceptService.update(new Concept("100002").addRelationship(new Relationship(Concepts.ISA, "100004")), "MAIN");
+		Assert.assertEquals(Sets.newHashSet(100001L, 100004L), queryService.retrieveAncestors("100002", "MAIN", true));
 
 		// MAIN/A: 3 -> 2
-		System.out.println("// MAIN/A: 3 -> 2");
-		conceptService.create(new Concept("3").addRelationship(new Relationship(Concepts.ISA, "2")), "MAIN/A");
-		Assert.assertEquals(Sets.newHashSet(1L, 2L), queryService.retrieveAncestors("3", "MAIN/A", true));
+		System.out.println("// MAIN/A: 100003 -> 100002");
+		conceptService.create(new Concept("100003").addRelationship(new Relationship(Concepts.ISA, "100002")), "MAIN/A");
+		Assert.assertEquals(Sets.newHashSet(100001L, 100002L), queryService.retrieveAncestors("100003", "MAIN/A", true));
 
 		// Rebase MAIN/A
 		System.out.println("// Rebase MAIN/A");
@@ -318,8 +318,8 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
 
-		Assert.assertEquals(Sets.newHashSet(1L, 4L), queryService.retrieveAncestors("2", "MAIN/A", true));
-		Assert.assertEquals(Sets.newHashSet(1L, 4L, 2L), queryService.retrieveAncestors("3", "MAIN/A", true));
+		Assert.assertEquals(Sets.newHashSet(100001L, 100004L), queryService.retrieveAncestors("100002", "MAIN/A", true));
+		Assert.assertEquals(Sets.newHashSet(100001L, 100004L, 100002L), queryService.retrieveAncestors("100003", "MAIN/A", true));
 	}
 
 /*
@@ -336,86 +336,86 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 	@Test
 	public void testConflictConceptMergeChangesFromLeft() throws ServiceException {
-		final String conceptId = "100";
+		final String conceptId = "10000100";
 		final Description description = new Description("One");
 
 		setupConflictSituation(
-				new Concept(conceptId, "9001").addDescription(description),
-				new Concept(conceptId, "9002").addDescription(description),
-				new Concept(conceptId, "9003").addDescription(description));
+				new Concept(conceptId, "100009001").addDescription(description),
+				new Concept(conceptId, "100009002").addDescription(description),
+				new Concept(conceptId, "100009003").addDescription(description));
 
 		// Rebase the diverged branch supplying the manually merged concept
-		final Concept conceptFromLeft = new Concept(conceptId, "9002").addDescription(description);
+		final Concept conceptFromLeft = new Concept(conceptId, "100009002").addDescription(description);
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromLeft));
 
-		assertEquals("9002", conceptService.find(conceptId, "MAIN/A/A2").getModuleId());
+		assertEquals("100009002", conceptService.find(conceptId, "MAIN/A/A2").getModuleId());
 
 		// Promote the branch (no conflicts at this point)
 		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
-		assertEquals("9002", conceptService.find(conceptId, "MAIN/A").getModuleId());
+		assertEquals("100009002", conceptService.find(conceptId, "MAIN/A").getModuleId());
 	}
 
 	@Test
 	public void testConflictConceptMergeChangesFromRight() throws ServiceException {
-		final String conceptId = "100";
+		final String conceptId = "10000100";
 		final Description description = new Description("One");
 
 		setupConflictSituation(
-				new Concept(conceptId, "9001").addDescription(description),
-				new Concept(conceptId, "9002").addDescription(description),
-				new Concept(conceptId, "9003").addDescription(description));
+				new Concept(conceptId, "100009001").addDescription(description),
+				new Concept(conceptId, "100009002").addDescription(description),
+				new Concept(conceptId, "100009003").addDescription(description));
 
 		// Rebase the diverged branch supplying the manually merged concept
-		final Concept conceptFromRight = new Concept(conceptId, "9003").addDescription(description);
+		final Concept conceptFromRight = new Concept(conceptId, "100009003").addDescription(description);
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromRight));
 
 		final String conceptFromMergedA2 = conceptService.find(conceptId, "MAIN/A/A2").getModuleId();
-		Assert.assertEquals("9003", conceptFromMergedA2);
+		Assert.assertEquals("100009003", conceptFromMergedA2);
 
 		// Promote the branch (no conflicts at this point)
 		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
-		assertEquals("9003", conceptService.find(conceptId, "MAIN/A").getModuleId());
+		assertEquals("100009003", conceptService.find(conceptId, "MAIN/A").getModuleId());
 	}
 
 	@Test
 	public void testConflictConceptMergeChangesFromNowhere() throws ServiceException {
-		final String conceptId = "100";
+		final String conceptId = "10000100";
 		final Description description = new Description("One");
 
 		setupConflictSituation(
-				new Concept(conceptId, "9001").addDescription(description),
-				new Concept(conceptId, "9002").addDescription(description),
-				new Concept(conceptId, "9003").addDescription(description));
+				new Concept(conceptId, "100009001").addDescription(description),
+				new Concept(conceptId, "100009002").addDescription(description),
+				new Concept(conceptId, "100009003").addDescription(description));
 
 		// Rebase the diverged branch supplying the manually merged concept
-		final Concept conceptFromRight = new Concept(conceptId, "9099").addDescription(description);
+		final Concept conceptFromRight = new Concept(conceptId, "100009099").addDescription(description);
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromRight));
 
-		assertEquals("9099", conceptService.find(conceptId, "MAIN/A/A2").getModuleId());
+		assertEquals("100009099", conceptService.find(conceptId, "MAIN/A/A2").getModuleId());
 
 		// Promote the branch (no conflicts at this point)
 		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
-		assertEquals("9099", conceptService.find(conceptId, "MAIN/A").getModuleId());
+		assertEquals("100009099", conceptService.find(conceptId, "MAIN/A").getModuleId());
 	}
 
 	@Test
 	public void testConflictDescriptionsNewOnBothSides() throws ServiceException {
-		final String conceptId = "100";
+		final String conceptId = "10000100";
 
 		setupConflictSituation(
-				new Concept(conceptId, "9001").addDescription(new Description("101", "Orig")),
+				new Concept(conceptId, "100009001").addDescription(new Description("10000101", "Orig")),
 
-				new Concept(conceptId, "9002").addDescription(new Description("101", "Orig"))
-						.addDescription(new Description("201", "New Left")),
+				new Concept(conceptId, "100009002").addDescription(new Description("10000101", "Orig"))
+						.addDescription(new Description("10000201", "New Left")),
 
-				new Concept(conceptId, "9003").addDescription(new Description("101", "Orig"))
-						.addDescription(new Description("301", "New Right")));
+				new Concept(conceptId, "100009003").addDescription(new Description("10000101", "Orig"))
+						.addDescription(new Description("10000301", "New Right")));
 
 		// Rebase the diverged branch supplying the manually merged concept
-		final Concept conceptMerge = new Concept(conceptId, "9099");
-		conceptMerge.addDescription(new Description("101", "Orig"));
-		conceptMerge.addDescription(new Description("201", "New Left"));
-		conceptMerge.addDescription(new Description("301", "New Right"));
+		final Concept conceptMerge = new Concept(conceptId, "100009099");
+		conceptMerge.addDescription(new Description("10000101", "Orig"));
+		conceptMerge.addDescription(new Description("10000201", "New Left"));
+		conceptMerge.addDescription(new Description("10000301", "New Right"));
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptMerge));
 
 		assertEquals(3, conceptService.find(conceptId, "MAIN/A/A2").getDescriptions().size());
@@ -427,22 +427,22 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 	@Test
 	public void testConflictDescriptionsNewOnBothSidesAllDeletedInManualMerge() throws ServiceException {
-		final String conceptId = "100";
+		final String conceptId = "10000100";
 
 		setupConflictSituation(
-				new Concept(conceptId, "9001").addDescription(new Description("101", "Orig")),
+				new Concept(conceptId, "100009001").addDescription(new Description("10000101", "Orig")),
 
-				new Concept(conceptId, "9002").addDescription(new Description("101", "Orig"))
-						.addDescription(new Description("201", "New Left")),
+				new Concept(conceptId, "100009002").addDescription(new Description("10000101", "Orig"))
+						.addDescription(new Description("10000201", "New Left")),
 
-				new Concept(conceptId, "9003").addDescription(new Description("101", "Orig"))
-						.addDescription(new Description("301", "New Right")));
+				new Concept(conceptId, "100009003").addDescription(new Description("10000101", "Orig"))
+						.addDescription(new Description("10000301", "New Right")));
 
 		assertEquals(2, conceptService.find(conceptId, "MAIN/A").getDescriptions().size());
 		assertEquals(2, conceptService.find(conceptId, "MAIN/A/A2").getDescriptions().size());
 
 		// Rebase the diverged branch supplying the manually merged concept
-		final Concept conceptMerge = new Concept(conceptId, "9099");
+		final Concept conceptMerge = new Concept(conceptId, "100009099");
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptMerge));
 
 		assertEquals(0, conceptService.find(conceptId, "MAIN/A/A2").getDescriptions().size());
@@ -454,8 +454,8 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 	@Test
 	public void testConcurrentPromotionBlockedByBranchLock() throws ServiceException, InterruptedException {
-		conceptService.create(new Concept("100").addDescription(new Description("1")), "MAIN/A");
-		conceptService.create(new Concept("100").addDescription(new Description("2")), "MAIN/C");
+		conceptService.create(new Concept("10000100").addDescription(new Description("100001")), "MAIN/A");
+		conceptService.create(new Concept("10000100").addDescription(new Description("100002")), "MAIN/C");
 
 		BranchMergeJob branchMergeJobA = branchMergeService.mergeBranchAsync(new MergeRequest("MAIN/A", "MAIN", "Promote A", null));
 		BranchMergeJob branchMergeJobC = branchMergeService.mergeBranchAsync(new MergeRequest("MAIN/C", "MAIN", "Promote C", null));
@@ -502,8 +502,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 		// Conflict setup complete - rebase A2 for conflict
 	}
 
-	private Concept assertBranchStateAndConceptVisibility(String path, Branch.BranchState expectedBranchState,
-														  String conceptId, boolean expectedVisible) {
+	private Concept assertBranchStateAndConceptVisibility(String path, Branch.BranchState expectedBranchState, String conceptId, boolean expectedVisible) {
 		assertBranchState(path, expectedBranchState);
 		if (expectedVisible) {
 			return assertConceptVisible(path, conceptId);

@@ -40,7 +40,7 @@ public class RelationshipDroolsValidationServiceTest extends AbstractTest {
 	public void setup() throws ServiceException {
 		String branchPath = "MAIN";
 		branchService.create(branchPath);
-		conceptService.create(new Concept("1").addRelationship(
+		conceptService.create(new Concept("100001").addRelationship(
 				new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
 				branchPath);
 
@@ -49,9 +49,9 @@ public class RelationshipDroolsValidationServiceTest extends AbstractTest {
 
 	@Test
 	public void hasActiveInboundStatedRelationship() throws Exception {
-		Assert.assertTrue(service.hasActiveInboundStatedRelationship("1", Concepts.ISA));
-		Assert.assertFalse(service.hasActiveInboundStatedRelationship("1", "123"));
-		Assert.assertFalse(service.hasActiveInboundStatedRelationship("2", Concepts.ISA));
+		Assert.assertTrue(service.hasActiveInboundStatedRelationship("100001", Concepts.ISA));
+		Assert.assertFalse(service.hasActiveInboundStatedRelationship("100001", "10000123"));
+		Assert.assertFalse(service.hasActiveInboundStatedRelationship("100002", Concepts.ISA));
 	}
 
 }

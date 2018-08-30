@@ -56,13 +56,13 @@ public class DescriptionServiceTest extends AbstractTest {
 
 	@Test
 	public void testDescriptionSearch() throws ServiceException {
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "1", "Heart");
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "2", "Lung");
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "6", "Foot cramps");
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "7", "Foot cramp");
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "3", "Foot bone");
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "4", "Foot");
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "5", "Footwear");
+		testUtil.createConceptWithPathIdAndTerms("MAIN", "100001", "Heart");
+		testUtil.createConceptWithPathIdAndTerms("MAIN", "100002", "Lung");
+		testUtil.createConceptWithPathIdAndTerms("MAIN", "100006", "Foot cramps");
+		testUtil.createConceptWithPathIdAndTerms("MAIN", "100007", "Foot cramp");
+		testUtil.createConceptWithPathIdAndTerms("MAIN", "100003", "Foot bone");
+		testUtil.createConceptWithPathIdAndTerms("MAIN", "100004", "Foot");
+		testUtil.createConceptWithPathIdAndTerms("MAIN", "100005", "Footwear");
 
 		List<Description> content = descriptionService.findDescriptionsWithAggregations("MAIN", "Foo cr", ServiceTestUtil.PAGE_REQUEST).getContent();
 		List<String> actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
@@ -81,18 +81,18 @@ public class DescriptionServiceTest extends AbstractTest {
 	public void testDescriptionSearchAggregations() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
-		Concept pizza_2 = new Concept("2").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
-		Concept cheesePizza_3 = new Concept("3").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)");
-		Concept reallyCheesyPizza_4 = new Concept("4").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
-		Concept reallyCheesyPizza_5 = new Concept("5").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
+		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
+		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)");
+		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
+		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
 		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		setModulesAndLanguage(concepts);
 		conceptService.create(concepts, path);
 
 		referenceSetMemberService.createMembers(path, Sets.newHashSet(
-				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN, "3"),
-				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN, "4"),
-				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE, "5")
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN, "100003"),
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN, "100004"),
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE, "100005")
 		));
 
 		Aggregations foodAggs = descriptionService.findDescriptionsWithAggregations(path, "food", PageRequest.of(0, 10)).getAggregations();

@@ -42,23 +42,23 @@ public class IntegrityServiceTest extends AbstractTest {
 
 		branchService.create("MAIN/project/test1");
 
-		conceptService.create(new Concept("1"), "MAIN/project");
+		conceptService.create(new Concept("100001"), "MAIN/project");
 		// Valid relationship on MAIN/project
-		conceptService.create(new Concept("101").addRelationship(new Relationship("101", "1")), "MAIN/project");
+		conceptService.create(new Concept("10000101").addRelationship(new Relationship("10000101", "100001")), "MAIN/project");
 		// Valid relationship on MAIN/project
-		conceptService.create(new Concept("2").addRelationship(new Relationship("101", "1")), "MAIN/project");
+		conceptService.create(new Concept("100002").addRelationship(new Relationship("10000101", "100001")), "MAIN/project");
 		// Missing Type on MAIN/project
-		conceptService.create(new Concept("3").addRelationship(new Relationship("102", "2")), "MAIN/project");
+		conceptService.create(new Concept("100003").addRelationship(new Relationship("10000102", "100002")), "MAIN/project");
 		// Missing Destination on MAIN/project
-		conceptService.create(new Concept("4").addRelationship(new Relationship("101", "1000")), "MAIN/project");
+		conceptService.create(new Concept("100004").addRelationship(new Relationship("10000101", "100001000")), "MAIN/project");
 		// Valid relationship on MAIN/project
-		conceptService.create(new Concept("5").addRelationship(new Relationship("101", "2")), "MAIN/project");
+		conceptService.create(new Concept("100005").addRelationship(new Relationship("10000101", "100002")), "MAIN/project");
 
 		branchService.create("MAIN/project/test2");
 		// Valid relationship on MAIN/project/test2
-		conceptService.create(new Concept("6").addRelationship(new Relationship("101", "5")), "MAIN/project/test2");
+		conceptService.create(new Concept("100006").addRelationship(new Relationship("10000101", "100005")), "MAIN/project/test2");
 		// Missing Destination on MAIN/project/test2
-		conceptService.create(new Concept("7").addRelationship(new Relationship("101", "1000")), "MAIN/project/test2");
+		conceptService.create(new Concept("100007").addRelationship(new Relationship("10000101", "100001000")), "MAIN/project/test2");
 
 		// Two bad relationships are on MAIN/project
 		IntegrityIssueReport reportProject = integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/project"), true);
@@ -79,7 +79,7 @@ public class IntegrityServiceTest extends AbstractTest {
 		assertEquals(2, reportProjectTest2.getRelationshipsWithMissingOrInactiveDestination().size());
 
 		// Let's make concept 5 inactive on MAIN/project
-		conceptService.update((Concept) new Concept("5").setActive(false), "MAIN/project");
+		conceptService.update((Concept) new Concept("100005").setActive(false), "MAIN/project");
 
 		// MAIN/project should have no new issues. Concept 5's relationship will not have a missing source concept because the relationship will have been deleted automatically
 
@@ -112,23 +112,23 @@ public class IntegrityServiceTest extends AbstractTest {
 
 		branchService.create("MAIN/project/test1");
 
-		conceptService.create(new Concept("1"), "MAIN/project");
+		conceptService.create(new Concept("100001"), "MAIN/project");
 		// Valid relationship on MAIN/project
-		conceptService.create(new Concept("101").addRelationship(new Relationship("101", "1")), "MAIN/project");
+		conceptService.create(new Concept("10000101").addRelationship(new Relationship("10000101", "100001")), "MAIN/project");
 		// Valid relationship on MAIN/project
-		conceptService.create(new Concept("2").addRelationship(new Relationship("101", "1")), "MAIN/project");
+		conceptService.create(new Concept("100002").addRelationship(new Relationship("10000101", "100001")), "MAIN/project");
 		// Missing Type on MAIN/project
-		conceptService.create(new Concept("3").addRelationship(new Relationship("102", "2")), "MAIN/project");
+		conceptService.create(new Concept("100003").addRelationship(new Relationship("10000102", "100002")), "MAIN/project");
 		// Missing Destination on MAIN/project
-		conceptService.create(new Concept("4").addRelationship(new Relationship("101", "1000")), "MAIN/project");
+		conceptService.create(new Concept("100004").addRelationship(new Relationship("10000101", "100001000")), "MAIN/project");
 		// Valid relationship on MAIN/project
-		conceptService.create(new Concept("5").addRelationship(new Relationship("101", "2")), "MAIN/project");
+		conceptService.create(new Concept("100005").addRelationship(new Relationship("10000101", "100002")), "MAIN/project");
 
 		branchService.create("MAIN/project/test2");
 		// Valid relationship on MAIN/project/test2
-		conceptService.create(new Concept("6").addRelationship(new Relationship("101", "5")), "MAIN/project/test2");
+		conceptService.create(new Concept("100006").addRelationship(new Relationship("10000101", "100005")), "MAIN/project/test2");
 		// Missing Destination on MAIN/project/test2
-		conceptService.create(new Concept("7").addRelationship(new Relationship("101", "1000")), "MAIN/project/test2");
+		conceptService.create(new Concept("100007").addRelationship(new Relationship("10000101", "100001000")), "MAIN/project/test2");
 
 		try {
 			integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest("MAIN"));
@@ -157,7 +157,7 @@ public class IntegrityServiceTest extends AbstractTest {
 		assertEquals(1, reportProjectTest2.getRelationshipsWithMissingOrInactiveDestination().size());
 
 		// Let's make concept 5 inactive on MAIN/project
-		conceptService.update((Concept) new Concept("5").setActive(false), "MAIN/project");
+		conceptService.update((Concept) new Concept("100005").setActive(false), "MAIN/project");
 
 		// MAIN/project should have no new issues. Concept 5's relationship will not have a missing source concept because the relationship will have been deleted automatically
 

@@ -63,9 +63,9 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	public void testIncrementalStatedTransitiveClosureUpdate() throws Exception {
 		// Create three nodes, each parent of the next
 		Concept root = new Concept(SNOMEDCT_ROOT);
-		Concept pizza_2 = new Concept("2").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
-		Concept cheesePizza_3 = new Concept("3").addRelationship(new Relationship(ISA, pizza_2.getId()));
-		Concept brick_10 = new Concept("10").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId()));
+		Concept brick_10 = new Concept("1000010").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
 
 		String branch = "MAIN";
 		System.out.println("Create first three nodes");
@@ -78,7 +78,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Add another leaf node
 		System.out.println("Add a second leaf to node 2");
-		Concept pizzaWithTopping_4 = new Concept("4").addRelationship(new Relationship(ISA, pizza_2.getId()));
+		Concept pizzaWithTopping_4 = new Concept("100004").addRelationship(new Relationship(ISA, pizza_2.getId()));
 		conceptService.create(pizzaWithTopping_4, branch);
 
 		assertTC(root);
@@ -101,7 +101,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Make all exiting nodes a descendant of a new root child node
 		System.out.println("Add node 5. Move 2 and descendants from root to 5.");
-		Concept food_5 = new Concept("5").addRelationship(new Relationship(ISA, root.getId()));
+		Concept food_5 = new Concept("100005").addRelationship(new Relationship(ISA, root.getId()));
 		pizza_2.getRelationships().iterator().next().setActive(false);
 		pizza_2.addRelationship(new Relationship(ISA, food_5.getId()));
 		conceptService.createUpdate(Lists.newArrayList(food_5, pizza_2), branch);
@@ -218,14 +218,14 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		// Create two hierarchy branches of three and four concepts in length under the root
 		Concept root = new Concept(SNOMEDCT_ROOT);
 
-		Concept n11 = new Concept("11").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
-		Concept n12 = new Concept("12").addRelationship(new Relationship(ISA, n11.getId()));
-		Concept n13 = new Concept("13").addRelationship(new Relationship(ISA, n12.getId()));
+		Concept n11 = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept n12 = new Concept("1000012").addRelationship(new Relationship(ISA, n11.getId()));
+		Concept n13 = new Concept("1000013").addRelationship(new Relationship(ISA, n12.getId()));
 
-		Concept n21 = new Concept("21").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
-		Concept n22 = new Concept("22").addRelationship(new Relationship(ISA, n21.getId()));
-		Concept n23 = new Concept("23").addRelationship(new Relationship(ISA, n22.getId()));
-		Concept n24 = new Concept("24").addRelationship(new Relationship(ISA, n23.getId()));
+		Concept n21 = new Concept("1000021").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept n22 = new Concept("1000022").addRelationship(new Relationship(ISA, n21.getId()));
+		Concept n23 = new Concept("1000023").addRelationship(new Relationship(ISA, n22.getId()));
+		Concept n24 = new Concept("1000024").addRelationship(new Relationship(ISA, n23.getId()));
 
 		String branch = "MAIN";
 		conceptService.create(Lists.newArrayList(root, n11, n12, n13, n21, n22, n23, n24), branch);
@@ -264,10 +264,10 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	public void testSecondIsARemoval() throws ServiceException {
 		Concept root = new Concept(SNOMEDCT_ROOT);
 
-		Concept n11 = new Concept("11").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
-		Concept n12 = new Concept("12").addRelationship(new Relationship(ISA, n11.getId()));
-		Concept n13 = new Concept("13").addRelationship(new Relationship(ISA, n12.getId()));
-		Concept n14 = new Concept("14").addRelationship(new Relationship(ISA, n13.getId())).addRelationship(new Relationship(ISA, n12.getId()));
+		Concept n11 = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept n12 = new Concept("1000012").addRelationship(new Relationship(ISA, n11.getId()));
+		Concept n13 = new Concept("1000013").addRelationship(new Relationship(ISA, n12.getId()));
+		Concept n14 = new Concept("1000014").addRelationship(new Relationship(ISA, n13.getId())).addRelationship(new Relationship(ISA, n12.getId()));
 
 		String branch = "MAIN";
 		conceptService.create(Lists.newArrayList(root, n11, n12, n13, n14), branch);
@@ -276,7 +276,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		Set<Relationship> relationships = n14.getRelationships();
 		assertEquals(2, relationships.size());
-		List<Relationship> list = relationships.stream().filter(r -> r.getDestinationId().equals("13")).collect(Collectors.toList());
+		List<Relationship> list = relationships.stream().filter(r -> r.getDestinationId().equals("1000013")).collect(Collectors.toList());
 		relationships.removeAll(list);
 		assertEquals(1, relationships.size());
 		n14 = conceptService.update(n14, branch);
@@ -288,9 +288,9 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	public void testCircularReference() throws ServiceException {
 		Concept root = new Concept(SNOMEDCT_ROOT);
 
-		Concept n11 = new Concept("11").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
-		Concept n12 = new Concept("12").addRelationship(new Relationship(ISA, n11.getId()));
-		Concept n13 = new Concept("13").addRelationship(new Relationship(ISA, n12.getId()));
+		Concept n11 = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept n12 = new Concept("1000012").addRelationship(new Relationship(ISA, n11.getId()));
+		Concept n13 = new Concept("1000013").addRelationship(new Relationship(ISA, n12.getId()));
 		n11.addRelationship(new Relationship(ISA, n13.getId()));
 
 		String branch = "MAIN";
@@ -313,7 +313,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	public void inactiveConceptsRemoved() throws ServiceException {
 		String path = "MAIN";
 		conceptService.create(new Concept(SNOMEDCT_ROOT), path);
-		Concept ambulanceman = conceptService.create(new Concept("123").addFSN("Ambulanceman").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)), path);
+		Concept ambulanceman = conceptService.create(new Concept("10000123").addFSN("Ambulanceman").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)), path);
 
 		Page<ConceptMini> concepts = queryService.search(queryService.createQueryBuilder(true).selfOrDescendant(parseLong(SNOMEDCT_ROOT)), path, PAGE_REQUEST);
 		assertEquals(2, concepts.getTotalElements());
@@ -338,7 +338,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		concepts.add(new Concept(SNOMEDCT_ROOT));
 		int conceptCount = SemanticIndexUpdateService.BATCH_SAVE_SIZE + 100;
 		for (int i = 0; i < conceptCount; i++) {
-			concepts.add(new Concept("" + i).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+			concepts.add(new Concept("10000" + i).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		}
 		String branch = "MAIN";
 		conceptService.create(concepts, branch);
@@ -354,7 +354,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		for (int conceptId = 0; conceptId < 50; conceptId++) {
 			Relationship relationship = new Relationship(ISA, SNOMEDCT_ROOT);
 			relationship.setRelationshipId(conceptId + "020");
-			concepts.add(new Concept("" + conceptId).addRelationship(relationship));
+			concepts.add(new Concept("10000" + conceptId).addRelationship(relationship));
 		}
 		String branch = "MAIN";
 		conceptService.create(concepts, branch);
@@ -365,8 +365,8 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		for (int conceptId = 0; conceptId < 50; conceptId++) {
 			for (int relationshipVersion = 1; relationshipVersion < 10; relationshipVersion++) {
 				Relationship relationship = new Relationship(ISA, SNOMEDCT_ROOT);
-				relationship.setRelationshipId(conceptId + "020");
-				relationship.setSourceId("" + conceptId);
+				relationship.setRelationshipId("10000" + conceptId + "020");
+				relationship.setSourceId("10000" + conceptId);
 				relationship.setActive((relationshipVersion % 2) == 1);
 				relationship.setEffectiveTimeI(20180100 + relationshipVersion);
 				relationship.markChanged();
