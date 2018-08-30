@@ -113,7 +113,7 @@ public class ExportServiceTest extends AbstractTest {
 		try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(exportFile))) {
 			// Concepts
 			ZipEntry concepts = zipInputStream.getNextEntry();
-			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Delta_20180131.txt", concepts.getName());
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Delta_INT_20180131.txt", concepts.getName());
 			List<String> lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
 			assertEquals(ConceptExportWriter.HEADER, lines.get(0));
@@ -121,7 +121,7 @@ public class ExportServiceTest extends AbstractTest {
 
 			// Descriptions
 			ZipEntry descriptions = zipInputStream.getNextEntry();
-			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Description_Delta_20180131.txt", descriptions.getName());
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Description_Delta_INT_20180131.txt", descriptions.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
 			assertEquals(DescriptionExportWriter.HEADER, lines.get(0));
@@ -129,7 +129,7 @@ public class ExportServiceTest extends AbstractTest {
 
 			// Text Definitions
 			ZipEntry textDefinitions = zipInputStream.getNextEntry();
-			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_TextDefinition_Delta_20180131.txt", textDefinitions.getName());
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_TextDefinition_Delta_INT_20180131.txt", textDefinitions.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
 			assertEquals(DescriptionExportWriter.HEADER, lines.get(0));
@@ -137,7 +137,7 @@ public class ExportServiceTest extends AbstractTest {
 
 			// Stated Relationships
 			ZipEntry statedRelationships = zipInputStream.getNextEntry();
-			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_StatedRelationship_Delta_20180131.txt", statedRelationships.getName());
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_StatedRelationship_Delta_INT_20180131.txt", statedRelationships.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
 			assertEquals(RelationshipExportWriter.HEADER, lines.get(0));
@@ -145,7 +145,7 @@ public class ExportServiceTest extends AbstractTest {
 
 			// Inferred Relationships
 			ZipEntry relationships = zipInputStream.getNextEntry();
-			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Relationship_Delta_20180131.txt", relationships.getName());
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Relationship_Delta_INT_20180131.txt", relationships.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(3, lines.size());
 			assertEquals(RelationshipExportWriter.HEADER, lines.get(0));
@@ -154,7 +154,7 @@ public class ExportServiceTest extends AbstractTest {
 
 			// Language Refset
 			ZipEntry langRefset = zipInputStream.getNextEntry();
-			assertEquals("SnomedCT_Export/RF2Release/Refset/Language/der2_cRefset_Language900000000000508004Delta_20180131.txt", langRefset.getName());
+			assertEquals("SnomedCT_Export/RF2Release/Refset/Language/der2_cRefset_Language900000000000508004Delta_INT_20180131.txt", langRefset.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(3, lines.size());
 			assertEquals(ReferenceSetMemberExportWriter.HEADER + "\tacceptabilityId", lines.get(0));
@@ -163,7 +163,7 @@ public class ExportServiceTest extends AbstractTest {
 
 			// OWL Axiom Refset
 			ZipEntry axioms = zipInputStream.getNextEntry();
-			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OWLAxiomDelta_20180131.txt", axioms.getName());
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OWLAxiomDelta_INT_20180131.txt", axioms.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
 			assertEquals(ReferenceSetMemberExportWriter.HEADER + "\towlExpression", lines.get(0));
