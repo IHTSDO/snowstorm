@@ -7,6 +7,8 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 import java.util.*;
 
 @Document(indexName = "es-member", type = "member", shards = 8)
@@ -39,14 +41,20 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.keyword)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String moduleId;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.keyword)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String refsetId;
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.keyword, store = true)
+	@NotNull
+	@Size(min = 5, max = 18)
 	private String referencedComponentId;
 
 	// Used when the referencedComponentId is a description (or later possibly a relationship, depending how we implement concrete domains)
