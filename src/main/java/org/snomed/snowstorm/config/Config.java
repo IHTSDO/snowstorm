@@ -8,6 +8,10 @@ import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.repositories.config.BranchStoreMixIn;
+import org.apache.http.HttpHost;
+import org.apache.http.client.config.RequestConfig;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
@@ -51,10 +55,7 @@ import springfox.documentation.spring.web.plugins.ApiSelectorBuilder;
 import springfox.documentation.spring.web.plugins.Docket;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -87,7 +88,20 @@ public abstract class Config {
 
 	@Bean
 	public ElasticsearchRestClient elasticsearchClient() {
-		return new ElasticsearchRestClient(new HashMap<>(), elasticsearchProperties().getUrls());
+		RestClientBuilder restClientBuilder = RestClient.builder(getHttpHosts(elasticsearchProperties().getUrls()));
+		restClientBuilder.setRequestConfigCallback(builder -> {
+			builder.setConnectionRequestTimeout(0); //Disable lease handling for the connection pool! See https://github.com/elastic/elasticsearch/issues/24069
+			return builder;
+		});
+		return new ElasticsearchRestClient(new HashMap<>(), restClientBuilder);
+	}
+
+	private static HttpHost[] getHttpHosts(String[] hosts) {
+		List<HttpHost> httpHosts = new ArrayList<>();
+		for (String host : hosts) {
+			httpHosts.add(HttpHost.create(host));
+		}
+		return httpHosts.toArray(new HttpHost[]{});
 	}
 
 	@Bean
