@@ -1,10 +1,10 @@
 package org.snomed.snowstorm.core.rf2.rf2import;
 
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Entity;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.otf.snomedboot.factory.ImpotentComponentFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,9 +18,7 @@ import java.util.*;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.rangeQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
@@ -33,7 +31,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	private final VersionControlHelper versionControlHelper;
 	private final String path;
 	private Commit commit;
-	private QueryBuilder branchCriteriaBeforeOpenCommit;
+	private BranchCriteria branchCriteriaBeforeOpenCommit;
 
 	private PersistBuffer<Concept> conceptPersistBuffer;
 	private PersistBuffer<Description> descriptionPersistBuffer;
@@ -128,7 +126,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			String idField = componentsAtDate.get(0).getIdField();
 			List<? extends SnomedComponent> componentsWithSameOrLaterEffectiveTime = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
-							.must(branchCriteriaBeforeOpenCommit)
+							.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
 							.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).collect(Collectors.toList())))
 							.must(replacementOfThisEffectiveTimeAllowed ?
 									rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gt(effectiveTime)

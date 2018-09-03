@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.ecl;
 
 import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -94,7 +95,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	protected ElasticsearchTemplate elasticsearchTemplate;
 
 	protected Set<String> allConceptIds;
-	protected QueryBuilder branchCriteria;
+	protected BranchCriteria branchCriteria;
 
 	@Before
 	public void setup() throws ServiceException {

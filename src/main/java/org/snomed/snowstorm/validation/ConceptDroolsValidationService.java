@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.validation;
 
-import org.elasticsearch.index.query.QueryBuilder;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import org.ihtsdo.drools.domain.Relationship;
 import org.ihtsdo.drools.exception.RuleExecutorException;
 import org.snomed.snowstorm.config.Config;
@@ -27,11 +27,11 @@ import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 public class ConceptDroolsValidationService implements org.ihtsdo.drools.service.ConceptService {
 
 	private final String branchPath;
-	private final QueryBuilder branchCriteria;
+	private final BranchCriteria branchCriteria;
 	private final ElasticsearchOperations elasticsearchTemplate;
 	private final QueryService queryService;
 
-	ConceptDroolsValidationService(String branchPath, QueryBuilder branchCriteria, ElasticsearchOperations elasticsearchTemplate, QueryService queryService) {
+	ConceptDroolsValidationService(String branchPath, BranchCriteria branchCriteria, ElasticsearchOperations elasticsearchTemplate, QueryService queryService) {
 		this.branchPath = branchPath;
 		this.branchCriteria = branchCriteria;
 		this.elasticsearchTemplate = elasticsearchTemplate;
@@ -42,7 +42,7 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 	public boolean isActive(String conceptId) {
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery("conceptId", conceptId)))
 				.withPageable(Config.PAGE_OF_ONE)
 				.build();

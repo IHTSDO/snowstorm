@@ -6,6 +6,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -112,7 +113,7 @@ public class ConceptService extends ComponentService {
 		final Page<Concept> concepts = doFind(Collections.singleton(id), path, PageRequest.of(0, 10));
 		if (concepts.getTotalElements() > 1) {
 			final Branch latestBranch = branchService.findLatest(path);
-			final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+			final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 			logger.error("Found more than one concept {} on branch (latest) {} using criteria {}",
 					concepts.getContent(), latestBranch, branchCriteria);
 			concepts.forEach(c -> logger.info("id:{} path:{}, start:{}, end:{}", c.getInternalId(), c.getPath(), c.getStartDebugFormat(), c.getEndDebugFormat()));
@@ -132,10 +133,10 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Collection<String> getNonExistentConcepts(Collection<String> ids, String path) {
-		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 		final BoolQueryBuilder builder = boolQuery()
-				.must(branchCriteria)
+				.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 				.must(termsQuery("conceptId", ids));
 
 		Set<String> conceptsNotFound = new HashSet<>(ids);
@@ -153,7 +154,7 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Collection<ConceptMini> findConceptChildren(String conceptId, String path, Relationship.CharacteristicType relationshipType) {
-		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 		// Gather children ids
 		final Set<String> childrenIds = new HashSet<>();
@@ -165,7 +166,7 @@ public class ConceptService extends ComponentService {
 		final Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
 		try (final CloseableIterator<Concept> conceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termsQuery("conceptId", childrenIds))
 				)
 				.withPageable(LARGE_PAGE)
@@ -189,12 +190,12 @@ public class ConceptService extends ComponentService {
 		return concept.getRelationships().stream().filter(r -> form.getConceptId().equals(r.getCharacteristicTypeId())).map(Relationship::target).collect(Collectors.toList());
 	}
 
-	private CloseableIterator<Relationship> openRelationshipStream(QueryBuilder branchCriteria,
+	private CloseableIterator<Relationship> openRelationshipStream(BranchCriteria branchCriteria,
 																   QueryBuilder destinationCriteria,
 																   Relationship.CharacteristicType relationshipType) {
 		return elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 						.must(termQuery("active", true))
 						.must(termQuery("typeId", Concepts.ISA))
 						.must(destinationCriteria)
@@ -206,12 +207,12 @@ public class ConceptService extends ComponentService {
 	}
 
 	private Page<Concept> doFind(Collection<? extends Object> conceptIds, Commit commit, PageRequest pageRequest) {
-		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 		return doFind(conceptIds, branchCriteria, pageRequest, true, true);
 	}
 
 	private Page<Concept> doFind(Collection<? extends Object> conceptIds, String path, PageRequest pageRequest) {
-		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		return doFind(conceptIds, branchCriteria, pageRequest, true, true);
 	}
 
@@ -219,22 +220,22 @@ public class ConceptService extends ComponentService {
 		if (conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
-		final QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		return findConceptMinis(branchCriteria, conceptIds);
 	}
 
-	public ResultMapPage<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, PageRequest pageRequest) {
+	public ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, PageRequest pageRequest) {
 		return findConceptMinis(branchCriteria, null, pageRequest);
 	}
 
-	public ResultMapPage<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, Collection<? extends Object> conceptIds) {
+	public ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, Collection<? extends Object> conceptIds) {
 		if (conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
 		return findConceptMinis(branchCriteria, conceptIds, PageRequest.of(0, conceptIds.size()));
 	}
 
-	private ResultMapPage<String, ConceptMini> findConceptMinis(QueryBuilder branchCriteria, Collection<? extends Object> conceptIds, PageRequest pageRequest) {
+	private ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, Collection<? extends Object> conceptIds, PageRequest pageRequest) {
 		if (conceptIds != null && conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
@@ -244,7 +245,7 @@ public class ConceptService extends ComponentService {
 				concepts.getTotalElements());
 	}
 
-	private void populateConceptMinis(QueryBuilder branchCriteria, Map<String, ConceptMini> minisToPopulate) {
+	private void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate) {
 		if (!minisToPopulate.isEmpty()) {
 			Set<String> conceptIds = minisToPopulate.keySet();
 			Page<Concept> concepts = doFind(conceptIds, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false);
@@ -257,12 +258,12 @@ public class ConceptService extends ComponentService {
 	}
 
 	private Page<Concept> doFind(Collection<? extends Object> conceptIdsToFind,
-								 QueryBuilder branchCriteria,
+								 BranchCriteria branchCriteria,
 								 PageRequest pageRequest,
 								 boolean includeRelationships,
 								 boolean includeDescriptionInactivationInfo) {
 
-		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
+		final TimerUtil timer = new TimerUtil("Find concept", Level.INFO);
 		timer.checkpoint("get branch criteria");
 
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
@@ -274,7 +275,7 @@ public class ConceptService extends ComponentService {
 			for (List<? extends Object> conceptIdsToFindSegment : Iterables.partition(conceptIdsToFind, CLAUSE_LIMIT)) {
 				queryBuilder
 						.withQuery(boolQuery()
-								.must(branchCriteria)
+								.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 								.must(termsQuery("conceptId", conceptIdsToFindSegment))
 						)
 						.withPageable(PageRequest.of(0, conceptIdsToFindSegment.size()));
@@ -284,7 +285,7 @@ public class ConceptService extends ComponentService {
 			concepts = new PageImpl<>(allConcepts, pageRequest, tempPage.getTotalElements());
 		} else {
 			queryBuilder
-					.withQuery(boolQuery().must(branchCriteria))
+					.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(Concept.class)))
 					.withPageable(pageRequest);
 			concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
 		}
@@ -304,7 +305,7 @@ public class ConceptService extends ComponentService {
 			for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
 				queryBuilder.withQuery(boolQuery()
 						.must(termsQuery("sourceId", conceptIds))
-						.must(branchCriteria))
+						.must(branchCriteria.getEntityBranchCriteria(Relationship.class)))
 						.withPageable(LARGE_PAGE);
 				try (final CloseableIterator<Relationship> relationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
 					relationships.forEachRemaining(relationship -> {
@@ -324,7 +325,7 @@ public class ConceptService extends ComponentService {
 				queryBuilder.withQuery(boolQuery()
 						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
 						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
-						.must(branchCriteria))
+						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class)))
 						.withPageable(LARGE_PAGE);
 
 				try (final CloseableIterator<ReferenceSetMember> axiomMembers = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
@@ -340,7 +341,7 @@ public class ConceptService extends ComponentService {
 		for (List<String> conceptIds : Iterables.partition(conceptMiniMap.keySet(), CLAUSE_LIMIT)) {
 			queryBuilder.withQuery(boolQuery()
 					.must(termsQuery("conceptId", conceptIds))
-					.must(branchCriteria))
+					.must(branchCriteria.getEntityBranchCriteria(Concept.class)))
 					.withPageable(LARGE_PAGE);
 			try (final CloseableIterator<Concept> conceptsForMini = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
 				conceptsForMini.forEachRemaining(concept ->
@@ -843,7 +844,7 @@ public class ConceptService extends ComponentService {
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(
 						boolQuery()
-								.must(versionControlHelper.getBranchCriteria(commit.getBranch()))
+								.must(versionControlHelper.getBranchCriteria(commit.getBranch()).getEntityBranchCriteria(ReferenceSetMember.class))
 								.must(termsQuery("referencedComponentId", entityVersionsDeleted))
 				).withPageable(LARGE_PAGE).build();
 
@@ -897,10 +898,10 @@ public class ConceptService extends ComponentService {
 		}
 	}
 
-	public Collection<Long> findAllActiveConcepts(QueryBuilder branchCriteria) {
+	public Collection<Long> findAllActiveConcepts(BranchCriteria branchCriteria) {
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true)))
 				.withPageable(LARGE_PAGE)
 				.withFields(Concept.Fields.CONCEPT_ID);

@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
+import io.kaicode.elasticvc.api.BranchCriteria;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
@@ -27,7 +27,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	}
 
 	@Override
-	public Optional<Page<Long>> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
+	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
 		if (isUnconstrained()) {
 			return Optional.empty();
 		}
@@ -100,7 +100,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	private void applyConceptCriteriaWithOperator(Collection<Long> conceptIds, Operator operator, RefinementBuilder refinementBuilder) {
 		BoolQueryBuilder query = refinementBuilder.getQuery();
 		QueryService queryService = refinementBuilder.getQueryService();
-		QueryBuilder branchCriteria = refinementBuilder.getBranchCriteria();
+		BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
 		String path = refinementBuilder.getPath();
 		boolean stated = refinementBuilder.isStated();
 
@@ -146,7 +146,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		}
 	}
 
-	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, QueryBuilder branchCriteria, String path, boolean stated, QueryService queryService) {
+	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, BranchCriteria branchCriteria, String path, boolean stated, QueryService queryService) {
 		Set<Long> allAncestors = new LongArraySet();
 		for (Long conceptId : conceptIds) {
 			allAncestors.addAll(queryService.retrieveAncestors(branchCriteria, path, stated, conceptId.toString()));

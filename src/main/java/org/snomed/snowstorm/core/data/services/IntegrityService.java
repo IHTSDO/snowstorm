@@ -1,12 +1,12 @@
 package org.snomed.snowstorm.core.data.services;
 
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -20,7 +20,10 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
@@ -49,7 +52,7 @@ public class IntegrityService {
 
 		TimerUtil timer = new TimerUtil("Changed component integrity check on " + branch.getPath());
 
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
 		final Map<Long, Long> relationshipWithInactiveSource = new Long2LongOpenHashMap();
 		final Map<Long, Long> relationshipWithInactiveType = new Long2LongOpenHashMap();
@@ -64,7 +67,7 @@ public class IntegrityService {
 		try (CloseableIterator<Relationship> changedOrDeletedConceptStream = elasticsearchTemplate.stream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
-								.must(branchCriteria)
+								.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 								.must(termsQuery(Relationship.Fields.ACTIVE, true))
 								.mustNot(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
 								.must(boolQuery()
@@ -96,7 +99,7 @@ public class IntegrityService {
 		Map<Long, Set<Long>> conceptUsedAsDestinationInRelationships = new Long2ObjectOpenHashMap<>();
 		try (CloseableIterator<Relationship> relationshipStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
-								.must(versionControlHelper.getBranchCriteriaUnpromotedChanges(branch))
+								.must(versionControlHelper.getBranchCriteriaUnpromotedChanges(branch).getEntityBranchCriteria(Relationship.class))
 								.must(termQuery(Relationship.Fields.ACTIVE, true))
 								.mustNot(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
 						)
@@ -121,7 +124,7 @@ public class IntegrityService {
 		Set<Long> activeConcepts = new LongOpenHashSet();
 		try (CloseableIterator<Concept> activeConceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.ACTIVE, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptsRequiredActive))
 				)
@@ -156,7 +159,7 @@ public class IntegrityService {
 		final Map<Long, Long> relationshipWithInactiveType = new Long2LongOpenHashMap();
 		final Map<Long, Long> relationshipWithInactiveDestination = new Long2LongOpenHashMap();
 
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		TimerUtil timer = new TimerUtil("Full integrity check on " + branch.getPath());
 		Collection<Long> activeConcepts = conceptService.findAllActiveConcepts(branchCriteria);
 		timer.checkpoint("Fetch active concepts: " + activeConcepts.size());
@@ -164,7 +167,7 @@ public class IntegrityService {
 		BoolQueryBuilder boolQueryBuilder = boolQuery();
 		queryBuilder
 				.withQuery(boolQueryBuilder
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 						.must(boolQuery()
 							.should(boolQuery().mustNot(termsQuery(Relationship.Fields.SOURCE_ID, activeConcepts)))
 							.should(boolQuery().mustNot(termsQuery(Relationship.Fields.TYPE_ID, activeConcepts)))
@@ -216,12 +219,12 @@ public class IntegrityService {
 		}
 	}
 
-	private Set<Long> findDeletedOrInactivatedConcepts(Branch branch, QueryBuilder branchCriteria) {
+	private Set<Long> findDeletedOrInactivatedConcepts(Branch branch, BranchCriteria branchCriteria) {
 		// Find Concepts changed or deleted on this branch
 		final Set<Long> changedOrDeletedConcepts = new LongOpenHashSet();
 		try (CloseableIterator<Concept> changedOrDeletedConceptStream = elasticsearchTemplate.stream(
 				new NativeSearchQueryBuilder()
-						.withQuery(boolQuery().must(versionControlHelper.getBranchCriteriaUnpromotedChangesAndDeletions(branch)))
+						.withQuery(boolQuery().must(versionControlHelper.getBranchCriteriaUnpromotedChangesAndDeletions(branch).getEntityBranchCriteria(Concept.class)))
 						.withFields(Concept.Fields.CONCEPT_ID)
 						.withPageable(LARGE_PAGE).build(),
 				Concept.class)) {
@@ -234,7 +237,7 @@ public class IntegrityService {
 		try (CloseableIterator<Concept> changedOrDeletedConceptStream = elasticsearchTemplate.stream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
-								.must(branchCriteria)
+								.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 								.must(termsQuery(Concept.Fields.CONCEPT_ID, changedOrDeletedConcepts))
 								.must(termQuery(Concept.Fields.ACTIVE, true))
 						)

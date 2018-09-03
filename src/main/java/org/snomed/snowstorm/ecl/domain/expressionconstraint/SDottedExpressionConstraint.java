@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
-import org.elasticsearch.index.query.QueryBuilder;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import org.snomed.langauges.ecl.domain.expressionconstraint.DottedExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -22,7 +22,7 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 	}
 
 	@Override
-	public Optional<Page<Long>> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
+	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
 		Optional<Page<Long>> conceptIds = SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, null, queryService);
 
 		if (!conceptIds.isPresent()) {

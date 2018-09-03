@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.ecl.domain;
 
+import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 
@@ -11,13 +11,13 @@ public class RefinementBuilderImpl implements RefinementBuilder {
 
 	private final BoolQueryBuilder query;
 	private final String path;
-	private final QueryBuilder branchCriteria;
+	private final BranchCriteria branchCriteria;
 	private final boolean stated;
 	private final QueryService queryService;
 	private Function<QueryConcept, Boolean> inclusionFilter;
 	private boolean inclusionFilterRequired;
 
-	public RefinementBuilderImpl(BoolQueryBuilder query, String path, QueryBuilder branchCriteria, boolean stated, QueryService queryService) {
+	public RefinementBuilderImpl(BoolQueryBuilder query, String path, BranchCriteria branchCriteria, boolean stated, QueryService queryService) {
 		this.query = query;
 		this.path = path;
 		this.branchCriteria = branchCriteria;
@@ -43,7 +43,7 @@ public class RefinementBuilderImpl implements RefinementBuilder {
 		return path;
 	}
 
-	public QueryBuilder getBranchCriteria() {
+	public BranchCriteria getBranchCriteria() {
 		return branchCriteria;
 	}
 

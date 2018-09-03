@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -73,9 +74,9 @@ public class ReferenceSetMemberService extends ComponentService {
 												String targetComponentId,
 												PageRequest pageRequest) {
 
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
-		BoolQueryBuilder query = boolQuery().must(branchCriteria);
+		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
 
 		if (active != null) {
 			query.must(termQuery("active", active));
@@ -95,8 +96,8 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	public ReferenceSetMember findMember(String branch, String uuid) {
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branch);
-		BoolQueryBuilder query = boolQuery().must(branchCriteria)
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 				.must(termQuery(ReferenceSetMember.Fields.MEMBER_ID, uuid));
 		List<ReferenceSetMember> referenceSetMembers = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
 				.withQuery(query).build(), ReferenceSetMember.class);
@@ -124,9 +125,9 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	public void deleteMember(String branch, String uuid) {
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		List<ReferenceSetMember> matches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
-				boolQuery().must(branchCriteria)
+				boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(ReferenceSetMember.Fields.MEMBER_ID, uuid))
 		).build(), ReferenceSetMember.class);
 
@@ -183,7 +184,7 @@ public class ReferenceSetMemberService extends ComponentService {
 				queryBuilder
 						.withQuery(boolQuery()
 								.must(termsQuery("descriptionId", descriptionIdsSegment))
-								.must(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit)))
+								.must(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit).getEntityBranchCriteria(Description.class)))
 						.withPageable(LARGE_PAGE);
 				try (final CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(queryBuilder.build(), Description.class)) {
 					descriptions.forEachRemaining(description ->
@@ -205,9 +206,9 @@ public class ReferenceSetMemberService extends ComponentService {
 		return doSaveBatchComponents(members, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
 	}
 
-	Set<Long> findConceptsInReferenceSet(QueryBuilder branchCriteria, String referenceSetId) {
+	Set<Long> findConceptsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
 		// Build query
-		BoolQueryBuilder boolQuery = boolQuery().must(branchCriteria)
+		BoolQueryBuilder boolQuery = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 				.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 				.must(regexpQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ".*0."));// Matches the concept partition identifier
 		// Allow searching across all refsets
@@ -265,7 +266,7 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	public List<ReferenceSetType> findConfiguredReferenceSetTypes(String path) {
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path).getEntityBranchCriteria(ReferenceSetType.class);
 		NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(branchCriteria).withPageable(LARGE_PAGE).build();
 		return elasticsearchTemplate.queryForList(query, ReferenceSetType.class);
 	}

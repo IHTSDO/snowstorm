@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.rf2.export;
 
 import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.apache.tomcat.util.http.fileupload.util.Streams;
@@ -98,54 +99,57 @@ public class ExportService {
 			throw new IllegalArgumentException("Full RF2 export is not implemented.");
 		}
 
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 
 		try {
 			File exportFile = File.createTempFile("export-" + new Date().getTime(), ".zip");
 			try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
 				// Write Concepts
-				int conceptLines = exportComponents(Concept.class, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria), null);
+				int conceptLines = exportComponents(Concept.class, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria.getEntityBranchCriteria(Concept.class)), null);
 				logger.info("{} concept states exported", conceptLines);
 
 				if (!forClassification) {
 					// Write Descriptions
-					BoolQueryBuilder descriptionContentQuery = getContentQuery(exportType, branchCriteria);
+					BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
+					BoolQueryBuilder descriptionContentQuery = getContentQuery(exportType, descriptionBranchCriteria);
 					descriptionContentQuery.mustNot(termQuery(Description.Fields.TYPE_ID, Concepts.TEXT_DEFINITION));
 					int descriptionLines = exportComponents(Description.class, "Terminology/", "sct2_Description_", filenameEffectiveDate, exportType, zipOutputStream, descriptionContentQuery, null);
 					logger.info("{} description states exported", descriptionLines);
 
 					// Write Text Definitions
-					BoolQueryBuilder textDefinitionContentQuery = getContentQuery(exportType, branchCriteria);
+					BoolQueryBuilder textDefinitionContentQuery = getContentQuery(exportType, descriptionBranchCriteria);
 					textDefinitionContentQuery.must(termQuery(Description.Fields.TYPE_ID, Concepts.TEXT_DEFINITION));
 					int textDefinitionLines = exportComponents(Description.class, "Terminology/", "sct2_TextDefinition_", filenameEffectiveDate, exportType, zipOutputStream, textDefinitionContentQuery, null);
 					logger.info("{} text defintion states exported", textDefinitionLines);
 				}
 
 				// Write Stated Relationships
-				BoolQueryBuilder relationshipQuery = getContentQuery(exportType, branchCriteria);
+				BoolQueryBuilder relationshipBranchCritera = branchCriteria.getEntityBranchCriteria(Relationship.class);
+				BoolQueryBuilder relationshipQuery = getContentQuery(exportType, relationshipBranchCritera);
 				relationshipQuery.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
 				int statedRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_StatedRelationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, null);
 				logger.info("{} stated relationship states exported", statedRelationshipLines);
 
 				// Write Inferred Relationships
-				relationshipQuery = getContentQuery(exportType, branchCriteria);
+				relationshipQuery = getContentQuery(exportType, relationshipBranchCritera);
 				// Not 'stated' will include inferred and additional
 				relationshipQuery.mustNot(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
 				int inferredRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_Relationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, null);
 				logger.info("{} inferred and additional relationship states exported", inferredRelationshipLines);
 
 				// Write Reference Sets
-				List<ReferenceSetType> referenceSetTypes = getReferenceSetTypes(branchCriteria).stream()
+				List<ReferenceSetType> referenceSetTypes = getReferenceSetTypes(branchCriteria.getEntityBranchCriteria(ReferenceSetType.class)).stream()
 						.filter(type -> !forClassification || refsetTypesRequiredForClassification.contains(type.getConceptId()))
 						.collect(Collectors.toList());
 
 				logger.info("{} Reference Set Types found for this export: {}", referenceSetTypes.size(), referenceSetTypes);
 
+				BoolQueryBuilder memberBranchCriteria = branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class);
 				for (ReferenceSetType referenceSetType : referenceSetTypes) {
 					List<Long> refsetsOfThisType = new ArrayList<>(queryService.retrieveAllDescendants(branchCriteria, true, Collections.singleton(Long.parseLong(referenceSetType.getConceptId()))));
 					refsetsOfThisType.add(Long.parseLong(referenceSetType.getConceptId()));
 					for (Long refsetToExport : refsetsOfThisType) {
-						BoolQueryBuilder memberQuery = getContentQuery(exportType, branchCriteria);
+						BoolQueryBuilder memberQuery = getContentQuery(exportType, memberBranchCriteria);
 						memberQuery.must(QueryBuilders.termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetToExport));
 						long memberCount = elasticsearchTemplate.count(getNativeSearchQuery(memberQuery), ReferenceSetMember.class);
 						if (memberCount > 0) {

@@ -1,14 +1,12 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,13 +18,13 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class RelationshipService extends ComponentService {
@@ -59,10 +57,10 @@ public class RelationshipService extends ComponentService {
 			Integer group,
 			PageRequest page) {
 
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 
 		BoolQueryBuilder query = boolQuery()
-				.must(branchCriteria);
+				.must(branchCriteria.getEntityBranchCriteria(Relationship.class));
 
 		if (relationshipId != null) {
 			query.must(termQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipId));
@@ -99,13 +97,13 @@ public class RelationshipService extends ComponentService {
 		return elasticsearchOperations.queryForPage(queryBuilder.build(), Relationship.class);
 	}
 
-	List<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {
+	List<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
 		if (attributeTypeIds != null && attributeTypeIds.isEmpty()) {
 			return Collections.emptyList();
 		}
 
 		BoolQueryBuilder boolQuery = boolQuery()
-				.must(branchCriteria)
+				.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 				.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, stated ? Concepts.STATED_RELATIONSHIP : Concepts.INFERRED_RELATIONSHIP))
 				.must(termsQuery(Relationship.Fields.ACTIVE, true));
 

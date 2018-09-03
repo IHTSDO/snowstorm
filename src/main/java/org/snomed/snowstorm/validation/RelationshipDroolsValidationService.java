@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.validation;
 
+import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -15,9 +15,9 @@ import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 public class RelationshipDroolsValidationService implements org.ihtsdo.drools.service.RelationshipService {
 
 	private ElasticsearchOperations elasticsearchTemplate;
-	private QueryBuilder branchCriteria;
+	private BranchCriteria branchCriteria;
 
-	RelationshipDroolsValidationService(QueryBuilder branchCriteria, ElasticsearchOperations elasticsearchTemplate) {
+	RelationshipDroolsValidationService(BranchCriteria branchCriteria, ElasticsearchOperations elasticsearchTemplate) {
 		this.branchCriteria = branchCriteria;
 		this.elasticsearchTemplate = elasticsearchTemplate;
 	}
@@ -30,7 +30,7 @@ public class RelationshipDroolsValidationService implements org.ihtsdo.drools.se
 	@Override
 	public boolean hasActiveInboundStatedRelationship(String conceptId, String relationshipTypeId) {
 		final BoolQueryBuilder builder = boolQuery()
-				.must(branchCriteria)
+				.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 				.must(termQuery("sourceId", conceptId))
 				.must(termQuery("active", true));
 		if (!Strings.isNullOrEmpty(relationshipTypeId)) {

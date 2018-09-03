@@ -1,11 +1,11 @@
 package org.snomed.snowstorm.core.data.services;
 
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +58,7 @@ public class QueryService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Page<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Optional<Page<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
 
 		if (conceptIdPageOptional.isPresent()) {
@@ -73,13 +73,13 @@ public class QueryService {
 	}
 
 	public Page<Long> searchForIds(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Optional<Page<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
 
 		return conceptIdPageOptional.orElseGet(() -> {
 			// No ids - return page of all concept ids
 			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-					.withQuery(boolQuery().must(branchCriteria))
+					.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(Concept.class)))
 					.withSort(SortBuilders.fieldSort(Concept.Fields.CONCEPT_ID))
 					.withPageable(pageRequest);
 			Page<Concept> concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
@@ -87,7 +87,7 @@ public class QueryService {
 		});
 	}
 
-	private Optional<Page<Long>> doSearchForIds(ConceptQueryBuilder conceptQuery, String branchPath, QueryBuilder branchCriteria, PageRequest pageRequest) {
+	private Optional<Page<Long>> doSearchForIds(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, PageRequest pageRequest) {
 
 		// Validate Lexical criteria
 		String term = conceptQuery.getTermPrefix();
@@ -106,10 +106,10 @@ public class QueryService {
 		if (hasLexicalCriteria && !hasLogicalConditions) {
 			// Lexical Only
 			logger.info("Lexical search {}", term);
-			NativeSearchQuery query = getLexicalQuery(term, branchCriteria, pageRequest);
-			query.addFields(Description.Fields.CONCEPT_ID);
+			NativeSearchQuery descriptionQuery = getLexicalQuery(term, branchCriteria, pageRequest);
+			descriptionQuery.addFields(Description.Fields.CONCEPT_ID);
 			final List<Long> pageOfIds = new LongArrayList();
-			Page<Description> descriptionPage = elasticsearchTemplate.queryForPage(query, Description.class);
+			Page<Description> descriptionPage = elasticsearchTemplate.queryForPage(descriptionQuery, Description.class);
 			descriptionPage.getContent().forEach(d -> pageOfIds.add(parseLong(d.getConceptId())));
 
 			conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, descriptionPage.getTotalElements());
@@ -156,7 +156,7 @@ public class QueryService {
 
 					NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
 							.withQuery(boolQuery()
-									.must(branchCriteria)
+									.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 									.must(conceptQuery.getRootBuilder())
 							)
 							.withFilter(termsQuery(QueryConcept.Fields.CONCEPT_ID, allLexicalMatchesWithOrdering))
@@ -171,7 +171,7 @@ public class QueryService {
 					if (!conceptQuery.hasRelationshipConditions()) {
 						NativeSearchQueryBuilder inactiveConceptQuery = new NativeSearchQueryBuilder()
 								.withQuery(boolQuery()
-										.must(branchCriteria)
+										.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 										.must(termQuery(Concept.Fields.ACTIVE, false))
 								)
 								.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, allLexicalMatchesWithOrdering))
@@ -198,11 +198,11 @@ public class QueryService {
 		}
 	}
 
-	private Page<Long> getSimpleLogicalSearchPage(ConceptQueryBuilder conceptQuery, QueryBuilder branchCriteria, PageRequest pageRequest) {
+	private Page<Long> getSimpleLogicalSearchPage(ConceptQueryBuilder conceptQuery, BranchCriteria branchCriteria, PageRequest pageRequest) {
 		Page<Long> conceptIdPage;
 		NativeSearchQueryBuilder logicalSearchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 						.must(conceptQuery.getRootBuilder())
 				)
 				.withFields(QueryConcept.Fields.CONCEPT_ID)
@@ -214,7 +214,7 @@ public class QueryService {
 		return conceptIdPage;
 	}
 
-	private List<Long> fetchAllLexicalMatches(QueryBuilder branchCriteria, String term) {
+	private List<Long> fetchAllLexicalMatches(BranchCriteria branchCriteria, String term) {
 		final List<Long> allLexicalMatchesWithOrdering = new LongArrayList();
 
 		NativeSearchQuery query = getLexicalQuery(term, branchCriteria, LARGE_PAGE);
@@ -226,21 +226,21 @@ public class QueryService {
 		return allLexicalMatchesWithOrdering.stream().distinct().collect(Collectors.toList());
 	}
 
-	private Page<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, QueryBuilder branchCriteria) {
+	private Page<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, BranchCriteria branchCriteria) {
 		String ecl = conceptQuery.getEcl();
 		logger.info("ECL Search {}", ecl);
 		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), pageRequest);
 	}
 
-	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, QueryBuilder branchCriteria, List<Long> conceptIdFilter) {
+	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, List<Long> conceptIdFilter) {
 		String ecl = conceptQuery.getEcl();
 		logger.info("ECL Search {}", ecl);
 		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter).getContent();
 	}
 
-	private NativeSearchQuery getLexicalQuery(String term, QueryBuilder branchCriteria, PageRequest pageable) {
+	private NativeSearchQuery getLexicalQuery(String term, BranchCriteria branchCriteria, PageRequest pageable) {
 		BoolQueryBuilder lexicalQuery = boolQuery()
-				.must(branchCriteria)
+				.must(branchCriteria.getEntityBranchCriteria(Description.class))
 				.must(termQuery("active", true));
 		DescriptionService.addTermClauses(term, lexicalQuery);
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
@@ -267,10 +267,10 @@ public class QueryService {
 		return retrieveAncestors(versionControlHelper.getBranchCriteria(path), path, stated, conceptId);
 	}
 
-	public Set<Long> retrieveParents(QueryBuilder branchCriteria, boolean stated, String conceptId) {
+	public Set<Long> retrieveParents(BranchCriteria branchCriteria, boolean stated, String conceptId) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
 						.must(termQuery("stated", stated))
 				)
@@ -280,10 +280,10 @@ public class QueryService {
 		return concepts.isEmpty() ? Collections.emptySet() : concepts.get(0).getParents();
 	}
 
-	public Set<Long> retrieveAncestors(QueryBuilder branchCriteria, String path, boolean stated, String conceptId) {
+	public Set<Long> retrieveAncestors(BranchCriteria branchCriteria, String path, boolean stated, String conceptId) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
 						.must(termQuery("stated", stated))
 				)
@@ -300,10 +300,10 @@ public class QueryService {
 		return concepts.get(0).getAncestors();
 	}
 
-	public Set<Long> retrieveAllAncestors(QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptId) {
+	public Set<Long> retrieveAllAncestors(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptId) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
 						.must(termQuery("stated", stated))
 				)
@@ -317,10 +317,10 @@ public class QueryService {
 		return allAncestors;
 	}
 	
-	public List<Long> retrieveAllDescendants(QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIds) {
+	public List<Long> retrieveAllDescendants(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 						.must(termsQuery("ancestors", conceptIds))
 						.must(termQuery("stated", stated))
 				)
@@ -333,11 +333,11 @@ public class QueryService {
 		return new PageImpl<>(conceptIdsFound, LARGE_PAGE, conceptsPage.getTotalElements()).getContent();
 	}
 
-	public Set<Long> retrieveConceptsInReferenceSet(QueryBuilder branchCriteria, String referenceSetId) {
+	public Set<Long> retrieveConceptsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
 		return memberService.findConceptsInReferenceSet(branchCriteria, referenceSetId);
 	}
 
-	public List<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, QueryBuilder branchCriteria, boolean stated) {
+	public List<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
 		if (!stated) {
 			// Use relationships - it's faster
 			return relationshipService.retrieveRelationshipDestinations(sourceConceptIds, attributeTypeIds, branchCriteria, false);
@@ -350,7 +350,7 @@ public class QueryService {
 		}
 
 		BoolQueryBuilder boolQuery = boolQuery()
-				.must(branchCriteria)
+				.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
 				.must(termsQuery(QueryConcept.Fields.STATED, stated));
 
 		if (attributeTypeIds != null) {

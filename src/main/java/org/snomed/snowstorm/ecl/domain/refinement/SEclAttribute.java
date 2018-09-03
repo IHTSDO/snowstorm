@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
+import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.langauges.ecl.domain.refinement.EclAttribute;
@@ -42,7 +43,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		}
 
 		BoolQueryBuilder query = refinementBuilder.getQuery();
-		QueryBuilder branchCriteria = refinementBuilder.getBranchCriteria();
+		BranchCriteria branchCriteria = refinementBuilder.getBranchCriteria();
 		boolean stated = refinementBuilder.isStated();
 
 		if (reverse) {

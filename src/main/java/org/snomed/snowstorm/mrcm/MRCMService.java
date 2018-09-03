@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.mrcm;
 
 import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -43,7 +43,7 @@ public class MRCMService {
 	}
 
 	public Collection<ConceptMini> retrieveDomainAttributes(String branchPath, Set<Long> parentIds) {
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Set<Long> allAncestors = queryService.retrieveAllAncestors(branchCriteria, false, parentIds);
 		allAncestors.addAll(parentIds);
 

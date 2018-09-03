@@ -166,7 +166,7 @@ public class BranchMergeService {
 				}
 
 				logger.info("Performing promotion {} -> {}", source, target);
-				final Set<String> versionsReplaced = sourceBranch.getVersionsReplaced();
+				final Map<String, Set<String>> versionsReplaced = sourceBranch.getVersionsReplaced();
 				final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = domainEntityConfiguration.getComponentTypeRepositoryMap();
 				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
 				commit.markSuccessful();
@@ -175,13 +175,14 @@ public class BranchMergeService {
 	}
 
 	private <T extends SnomedComponent> void promoteEntities(String source, Commit commit, Class<T> entityClass,
-			ElasticsearchCrudRepository<T, String> entityRepository, Set<String> versionsReplaced) {
+			ElasticsearchCrudRepository<T, String> entityRepository, Map<String, Set<String>> versionsReplaced) {
 
 		final String targetPath = commit.getBranch().getPath();
 
 		// End entities on target which have been replaced on source branch
 		List<T> toEnd = new ArrayList<>();
-		for (List<String> versionsReplacedSegment : Iterables.partition(versionsReplaced, 1)) {
+		String entityClassName = entityClass.getSimpleName();
+		for (List<String> versionsReplacedSegment : Iterables.partition(versionsReplaced.getOrDefault(entityClassName, Collections.emptySet()), 1000)) {
 			try (final CloseableIterator<T> entitiesToEnd = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(termQuery("path", targetPath))
@@ -202,14 +203,14 @@ public class BranchMergeService {
 			toEnd.forEach(entity -> entity.setEnd(commit.getTimepoint()));
 			entityRepository.saveAll(toEnd);
 
-			commit.getEntityVersionsReplaced().removeAll(toEnd.stream().map(Entity::getInternalId).collect(Collectors.toList()));
+			commit.getEntityVersionsReplaced().getOrDefault(entityClassName, Collections.emptySet()).removeAll(toEnd.stream().map(Entity::getInternalId).collect(Collectors.toList()));
 
-			logger.debug("Ended {} {}", versionsReplaced.size(), entityClass.getSimpleName());
+			logger.debug("Ended {} {}", versionsReplaced.size(), entityClassName);
 		}
 
 		// Load all entities on source
 		try (final CloseableIterator<T> entities = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-				.withQuery(versionControlHelper.getChangesOnBranchCriteria(source))
+				.withQuery(versionControlHelper.getChangesOnBranchCriteria(source).getEntityBranchCriteria(entityClass))
 				.withPageable(ConceptService.LARGE_PAGE)
 				.build(), entityClass)) {
 
@@ -218,7 +219,7 @@ public class BranchMergeService {
 			if (toPromote.isEmpty()) {
 				return;
 			}
-			logger.info("Promoting {} {}", toPromote.size(), entityClass.getSimpleName());
+			logger.info("Promoting {} {}", toPromote.size(), entityClassName);
 
 			// End entities on source
 			toPromote.forEach(entity -> entity.setEnd(commit.getTimepoint()));

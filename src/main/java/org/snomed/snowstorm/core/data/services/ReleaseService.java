@@ -1,9 +1,9 @@
 package org.snomed.snowstorm.core.data.services;
 
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -40,7 +40,7 @@ public class ReleaseService {
 
 	public void createVersion(Integer effectiveTime, String path) {
 		try (Commit commit = branchService.openCommit(path)) {
-			QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(path);
+			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 			Set<Class<? extends SnomedComponent>> componentTypes = domainEntityConfiguration.getComponentTypeRepositoryMap().keySet();
 			for (Class<? extends SnomedComponent> componentType : componentTypes) {
@@ -50,10 +50,10 @@ public class ReleaseService {
 		}
 	}
 
-	private <T extends SnomedComponent> void releaseComponentsOfType(Class<T> componentType, Integer effectiveTime, Commit commit, QueryBuilder branchCriteria) {
+	private <T extends SnomedComponent> void releaseComponentsOfType(Class<T> componentType, Integer effectiveTime, Commit commit, BranchCriteria branchCriteria) {
 		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(componentType))
 						.mustNot(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME))
 				)
 				.withPageable(LARGE_PAGE)

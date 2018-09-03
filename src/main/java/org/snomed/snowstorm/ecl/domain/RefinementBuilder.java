@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.ecl.domain;
 
+import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 
@@ -17,7 +17,7 @@ public interface RefinementBuilder {
 
 	String getPath();
 
-	QueryBuilder getBranchCriteria();
+	BranchCriteria getBranchCriteria();
 
 	boolean isStated();
 

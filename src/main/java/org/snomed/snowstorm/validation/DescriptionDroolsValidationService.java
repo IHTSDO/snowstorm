@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.validation;
 
 import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.drools.domain.Concept;
@@ -33,7 +34,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 
 	private final VersionControlHelper versionControlHelper;
 	private String branchPath;
-	private final QueryBuilder branchCriteria;
+	private final BranchCriteria branchCriteria;
 	private ElasticsearchOperations elasticsearchTemplate;
 	private final DescriptionService descriptionService;
 	private final QueryService queryService;
@@ -47,11 +48,12 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	private static final Logger LOGGER = LoggerFactory.getLogger(DescriptionDroolsValidationService.class);
 
 	DescriptionDroolsValidationService(String branchPath,
-									   QueryBuilder branchCriteria,
-									   VersionControlHelper versionControlHelper,
-									   ElasticsearchOperations elasticsearchTemplate,
-									   DescriptionService descriptionService,
-									   QueryService queryService) {
+			BranchCriteria branchCriteria,
+			VersionControlHelper versionControlHelper,
+			ElasticsearchOperations elasticsearchTemplate,
+			DescriptionService descriptionService,
+			QueryService queryService) {
+
 		this.branchPath = branchPath;
 		this.branchCriteria = branchCriteria;
 		this.versionControlHelper = versionControlHelper;
@@ -88,7 +90,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	private Set<org.ihtsdo.drools.domain.Description> findDescriptionByExactTerm(String exactTerm, boolean active) {
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(org.snomed.snowstorm.core.data.domain.Description.class))
 						.must(termQuery("active", active))
 						.must(termQuery("term", exactTerm))
 				)
@@ -210,7 +212,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(versionControlHelper.getBranchCriteria(branchPath))
+						.must(branchCriteria.getEntityBranchCriteria(org.snomed.snowstorm.core.data.domain.Description.class))
 						.must(termsQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.CONCEPT_ID, statedParents))
 						.must(termQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.ACTIVE, true))
 						.must(termQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.TYPE_ID, Concepts.FSN))
@@ -250,7 +252,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	private Set<String> findHierarchyRootsOnMAIN() {
 		if (hierarchyRootIds == null) {
 			synchronized (DescriptionDroolsValidationService.class) {
-				QueryBuilder mainBranchCriteria = versionControlHelper.getBranchCriteria("MAIN");
+				QueryBuilder mainBranchCriteria = versionControlHelper.getBranchCriteria("MAIN").getEntityBranchCriteria(org.snomed.snowstorm.core.data.domain.Description.class);
 				NativeSearchQuery query = new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(mainBranchCriteria)

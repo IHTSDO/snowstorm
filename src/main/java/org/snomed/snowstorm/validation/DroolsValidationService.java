@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.validation;
 
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
@@ -70,7 +71,7 @@ public class DroolsValidationService {
 			return Collections.emptyList();
 		}
 
-		QueryBuilder branchCriteria = versionControlHelper.getBranchCriteria(branchWithInheritedMetadata);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchWithInheritedMetadata);
 		Set<DroolsConcept> droolsConcepts = concepts.stream().map(DroolsConcept::new).collect(Collectors.toSet());
 
 		ConceptDroolsValidationService conceptService = new ConceptDroolsValidationService(branchPath, branchCriteria, elasticsearchOperations, queryService);

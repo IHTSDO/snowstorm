@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
-import org.elasticsearch.index.query.QueryBuilder;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import org.snomed.langauges.ecl.domain.expressionconstraint.RefinedExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.refinement.EclRefinement;
@@ -22,7 +22,7 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 	}
 
 	@Override
-	public Optional<Page<Long>> select(String path, QueryBuilder branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
+	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
 		return SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
 	}
 

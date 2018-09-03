@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.ecl.domain;
 
+import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 
@@ -38,7 +38,7 @@ public class SubRefinementBuilder implements RefinementBuilder {
 	}
 
 	@Override
-	public QueryBuilder getBranchCriteria() {
+	public BranchCriteria getBranchCriteria() {
 		return refinementBuilder.getBranchCriteria();
 	}
 

@@ -318,19 +318,19 @@ public class BranchReviewService {
 		if (!sourceIsParent) {
 			logger.debug("Collecting versions replaced for change report: branch {} time range {} to {}", path, start, end);
 			// Technique: Iterate child's 'versionsReplaced' set
-			final Set<String> versionsReplaced = branchService.findBranchOrThrow(path).getVersionsReplaced();
-			try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(versionsReplaced, Concept.Fields.CONCEPT_ID).build(), Concept.class)) {
+			Branch branch = branchService.findBranchOrThrow(path);
+			try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(branch.getVersionsReplaced(Concept.class), Concept.Fields.CONCEPT_ID).build(), Concept.class)) {
 				stream.forEachRemaining(concept -> conceptsWithEndedVersions.add(parseLong(concept.getConceptId())));
 			}
-			try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(versionsReplaced, Description.Fields.CONCEPT_ID).build(), Description.class)) {
+			try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(branch.getVersionsReplaced(Description.class), Description.Fields.CONCEPT_ID).build(), Description.class)) {
 				stream.forEachRemaining(description -> conceptsWithComponentChange.add(parseLong(description.getConceptId())));
 			}
-			try (final CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(versionsReplaced, Relationship.Fields.SOURCE_ID).build(), Relationship.class)) {
+			try (final CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(branch.getVersionsReplaced(Relationship.class), Relationship.Fields.SOURCE_ID).build(), Relationship.class)) {
 				stream.forEachRemaining(relationship -> conceptsWithComponentChange.add(parseLong(relationship.getSourceId())));
 			}
 
 			// Refsets with the internal "conceptId" field are related to a concept in terms of authoring
-			NativeSearchQueryBuilder refsetQuery = componentsReplacedCriteria(versionsReplaced, ReferenceSetMember.Fields.CONCEPT_ID)
+			NativeSearchQueryBuilder refsetQuery = componentsReplacedCriteria(branch.getVersionsReplaced(ReferenceSetMember.class), ReferenceSetMember.Fields.CONCEPT_ID)
 					.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)));
 			try (final CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(refsetQuery.build(), ReferenceSetMember.class)) {
 				stream.forEachRemaining(member -> conceptsWithComponentChange.add(parseLong(member.getConceptId())));
