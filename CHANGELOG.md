@@ -3,7 +3,11 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## Unreleased
+## 2.0.0 Release Candidate - 2018-09-19
+
+This major version brings support for the new SNOMED Axiom component as well as many productionisation fixes.
+
+This version is ready for testing.
 
 ### Breaking
 - Elasticsearch indexes must be recreated due to changes in their format.
