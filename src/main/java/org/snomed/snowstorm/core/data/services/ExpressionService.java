@@ -38,7 +38,7 @@ public class ExpressionService {
 	}
 	
 	private Collection<ConceptMini> getAncestors(String conceptId, String branchPath) {
-		Set<Long> ancestorIds = queryService.retrieveAncestors(conceptId, branchPath, false);
+		Set<Long> ancestorIds = queryService.findAncestorIds(conceptId, branchPath, false);
 		ResultMapPage<String, ConceptMini> pages = conceptService.findConceptMinis(branchPath, ancestorIds);
 		return pages.getResultsMap().values();
 	}
@@ -100,7 +100,7 @@ public class ExpressionService {
 	 * @param subType
 	 */
 	public boolean isSuperTypeOf(Long superType, String subType, String branchPath) {
-		return queryService.retrieveAncestors(subType, branchPath, false).contains(superType);
+		return queryService.findAncestorIds(subType, branchPath, false).contains(superType);
 	}
 
 	/**
@@ -109,7 +109,7 @@ public class ExpressionService {
 	 * @param superType
 	 */
 	public boolean isSubTypeOf(String subType, Long superType, String branchPath) {
-		return queryService.retrieveAncestors(subType, branchPath, false).contains(superType);
+		return queryService.findAncestorIds(subType, branchPath, false).contains(superType);
 	}
 
 }

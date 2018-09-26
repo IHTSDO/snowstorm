@@ -99,7 +99,7 @@ public class RelationshipController {
 	@JsonView(value = View.Component.class)
 	public Relationship fetchRelationship(@PathVariable String branch, @PathVariable String relationshipId) {
 		branch = BranchPathUriUtil.decodePath(branch);
-		Relationship relationship = relationshipService.fetchRelationship(BranchPathUriUtil.decodePath(branch), relationshipId);
+		Relationship relationship = relationshipService.findRelationship(BranchPathUriUtil.decodePath(branch), relationshipId);
 		if (relationship != null) {
 			expandSourceAndTarget(branch, Collections.singletonList(relationship));
 		}

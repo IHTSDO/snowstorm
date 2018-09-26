@@ -67,17 +67,17 @@ public class DescriptionService extends ComponentService {
 		return descriptions;
 	}
 
-	public Set<Description> fetchDescriptions(String branchPath, Set<String> conceptIds) {
+	public Set<Description> findDescriptions(String branchPath, Set<String> conceptIds) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Map<String, Concept> conceptMap = new HashMap<>();
 		for (String conceptId : conceptIds) {
 			conceptMap.put(conceptId, new Concept(conceptId));
 		}
-		fetchDescriptions(branchCriteria, conceptMap, null, null, false);
+		joinDescriptions(branchCriteria, conceptMap, null, null, false);
 		return conceptMap.values().stream().flatMap(c -> c.getDescriptions().stream()).collect(Collectors.toSet());
 	}
 
-	void fetchDescriptions(BranchCriteria branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap,
+	void joinDescriptions(BranchCriteria branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap,
 						   TimerUtil timer, boolean fetchInactivationInfo) {
 
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
@@ -305,7 +305,7 @@ public class DescriptionService extends ComponentService {
 		return query;
 	}
 
-	public Description fetchDescription(String path, String descriptionId) {
+	public Description findDescription(String path, String descriptionId) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class))
 				.must(termsQuery("descriptionId", descriptionId));
@@ -317,7 +317,7 @@ public class DescriptionService extends ComponentService {
 		return null;
 	}
 
-	public void fetchFsnDescriptions(String path, Map<String, ConceptMini> conceptMiniMap) {
+	public void joinFsnDescriptions(String path, Map<String, ConceptMini> conceptMiniMap) {
 		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery().must(versionControlHelper.getBranchCriteria(path).getEntityBranchCriteria(Description.class))
 						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))

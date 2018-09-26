@@ -756,7 +756,7 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals(concepts.size() + 1, page.getTotalElements());
 		assertEquals(Concepts.CORE_MODULE, page.getContent().get(50).getModuleId());
 
-		Page<ConceptMini> conceptDescendants = queryService.findConceptDescendants(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated, PageRequest.of(0, 50), conceptService);
+		Page<ConceptMini> conceptDescendants = queryService.findDescendantsAsConceptMinis(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated, PageRequest.of(0, 50), conceptService);
 		assertEquals(10 * 1000, conceptDescendants.getTotalElements());
 
 		List<Relationship> inboundRelationships = relationshipService.findInboundRelationships(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated).getContent();

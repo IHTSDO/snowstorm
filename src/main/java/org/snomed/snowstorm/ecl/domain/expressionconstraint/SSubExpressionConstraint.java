@@ -84,13 +84,13 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			}
 		} else if (operator == Operator.memberOf) {
 			// Member of wildcard (any reference set)
-			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, refinementBuilder.getQueryService().retrieveConceptsInReferenceSet(refinementBuilder.getBranchCriteria(), null)));
+			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, refinementBuilder.getQueryService().findConceptIdsInReferenceSet(refinementBuilder.getBranchCriteria(), null)));
 		} else if (operator == Operator.descendantof || operator == Operator.childof) {
 			// Descendant of wildcard / Child of wildcard = anything but root
 			query.mustNot(termQuery(QueryConcept.Fields.CONCEPT_ID, Concepts.SNOMEDCT_ROOT));
 		} else if (operator == Operator.ancestorof || operator == Operator.parentof) {
 			// Ancestor of wildcard / Parent of wildcard = all non-leaf concepts
-			Collection<Long> conceptsWithDescendants = refinementBuilder.getQueryService().retrieveRelationshipDestinations(
+			Collection<Long> conceptsWithDescendants = refinementBuilder.getQueryService().findRelationshipDestinationIds(
 					null, Collections.singletonList(parseLong(Concepts.ISA)), refinementBuilder.getBranchCriteria(), refinementBuilder.isStated());
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptsWithDescendants));
 		}
@@ -122,7 +122,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				break;
 			case parentof:
 				for (Long conceptId : conceptIds) {
-					Set<Long> parents = queryService.retrieveParents(branchCriteria, stated, conceptId.toString());
+					Set<Long> parents = queryService.findParentIds(branchCriteria, stated, conceptId.toString());
 					query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, parents));
 				}
 				break;
@@ -141,7 +141,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 				break;
 			case memberOf:
 				// ^
-				query.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, queryService.retrieveConceptsInReferenceSet(branchCriteria, conceptId)));
+				query.filter(termsQuery(QueryConcept.Fields.CONCEPT_ID, queryService.findConceptIdsInReferenceSet(branchCriteria, conceptId)));
 				break;
 		}
 	}
@@ -149,7 +149,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, BranchCriteria branchCriteria, String path, boolean stated, QueryService queryService) {
 		Set<Long> allAncestors = new LongArraySet();
 		for (Long conceptId : conceptIds) {
-			allAncestors.addAll(queryService.retrieveAncestors(branchCriteria, path, stated, conceptId.toString()));
+			allAncestors.addAll(queryService.findAncestorIds(branchCriteria, path, stated, conceptId.toString()));
 		}
 		return allAncestors;
 	}

@@ -221,7 +221,7 @@ public class ConceptController {
 													  @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
 
 		String branchPath = BranchPathUriUtil.decodePath(branch);
-		Set<Long> ancestorIds = queryService.retrieveAncestors(conceptId, branchPath, form == Relationship.CharacteristicType.stated);
+		Set<Long> ancestorIds = queryService.findAncestorIds(conceptId, branchPath, form == Relationship.CharacteristicType.stated);
 		return conceptService.findConceptMinis(branchPath, ancestorIds).getResultsMap().values();
 	}
 

@@ -129,10 +129,10 @@ public class ConceptService extends ComponentService {
 	}
 
 	public boolean exists(String id, String path) {
-		return getNonExistentConcepts(Collections.singleton(id), path).isEmpty();
+		return getNonExistentConceptIds(Collections.singleton(id), path).isEmpty();
 	}
 
-	public Collection<String> getNonExistentConcepts(Collection<String> ids, String path) {
+	public Collection<String> getNonExistentConceptIds(Collection<String> ids, String path) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 		final BoolQueryBuilder builder = boolQuery()
@@ -180,7 +180,7 @@ public class ConceptService extends ComponentService {
 			relationshipStream.forEachRemaining(relationship -> conceptMiniMap.get(relationship.getDestinationId()).setLeaf(relationshipType, false));
 		}
 		// Fetch descriptions and Lang refsets
-		descriptionService.fetchDescriptions(branchCriteria, null, conceptMiniMap, null, false);
+		descriptionService.joinDescriptions(branchCriteria, null, conceptMiniMap, null, false);
 
 		return conceptMiniMap.values();
 	}
@@ -350,7 +350,7 @@ public class ConceptService extends ComponentService {
 		}
 		timer.checkpoint("get relationship def status " + getFetchCount(conceptMiniMap.size()));
 
-		descriptionService.fetchDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer, includeDescriptionInactivationInfo);
+		descriptionService.joinDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer, includeDescriptionInactivationInfo);
 		timer.finish();
 
 		return concepts;
@@ -386,14 +386,8 @@ public class ConceptService extends ComponentService {
 	}
 
 	private ConceptMini getConceptMini(Map<String, ConceptMini> conceptMiniMap, String id) {
-		ConceptMini mini = conceptMiniMap.get(id);
-		if (mini == null) {
-			mini = new ConceptMini(id);
-			if (id != null) {
-				conceptMiniMap.put(id, mini);
-			}
-		}
-		return mini;
+		if (id == null) return new ConceptMini((String)null);
+		return conceptMiniMap.computeIfAbsent(id, i -> new ConceptMini(id));
 	}
 
 	public void deleteConceptAndComponents(String conceptId, String path, boolean force) {
@@ -450,8 +444,8 @@ public class ConceptService extends ComponentService {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final Set<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toSet());
 		if (!conceptIds.isEmpty()) {
-			final Collection<String> nonExistentConcepts = getNonExistentConcepts(conceptIds, path);
-			conceptIds.removeAll(nonExistentConcepts);
+			final Collection<String> nonExistentConceptIds = getNonExistentConceptIds(conceptIds, path);
+			conceptIds.removeAll(nonExistentConceptIds);
 			if (!conceptIds.isEmpty()) {
 				throw new IllegalArgumentException("Some concepts already exist on branch '" + path + "', " + conceptIds);
 			}
@@ -885,11 +879,11 @@ public class ConceptService extends ComponentService {
 				executorService.submit(() -> queryConceptRepository.deleteAll())
 		);
 		for (int i = 0; i < futures.size(); i++) {
-			getWithTimeoutOrCancel(futures.get(i), i);
+			getFutureWithTimeoutOrCancel(futures.get(i), i);
 		}
 	}
 
-	private void getWithTimeoutOrCancel(Future<?> future, int index) {
+	private void getFutureWithTimeoutOrCancel(Future<?> future, int index) {
 		try {
 			future.get(20, TimeUnit.SECONDS);
 		} catch (InterruptedException | ExecutionException | TimeoutException e) {

@@ -491,7 +491,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 	private void assertTC(Concept concept, Concept... ancestors) {
 		Set<Long> expectedAncestors = Arrays.stream(ancestors).map(Concept::getConceptIdAsLong).collect(Collectors.toSet());
-		assertEquals(expectedAncestors, queryService.retrieveAncestors(concept.getId(),"MAIN", true));
+		assertEquals(expectedAncestors, queryService.findAncestorIds(concept.getId(),"MAIN", true));
 	}
 
 }

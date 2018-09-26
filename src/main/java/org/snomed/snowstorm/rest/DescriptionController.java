@@ -68,7 +68,8 @@ public class DescriptionController {
 	@JsonView(value = View.Component.class)
 	public ItemsPage<Description> findDescriptions(@PathVariable String branch,
 			@RequestParam(required = false) @ApiParam("The concept id to match") String concept,
-			@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "50") int limit) {
+			@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "50") int limit,
+			@RequestHeader("Accept-Language") String acceptLanguage) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		return new ItemsPage<>(descriptionService.findDescriptions(branch, null, concept, ControllerHelper.getPageRequest(offset, limit)));
@@ -78,7 +79,7 @@ public class DescriptionController {
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Description fetchDescription(@PathVariable String branch, @PathVariable String descriptionId) {
-		return ControllerHelper.throwIfNotFound("Description", descriptionService.fetchDescription(BranchPathUriUtil.decodePath(branch), descriptionId));
+		return ControllerHelper.throwIfNotFound("Description", descriptionService.findDescription(BranchPathUriUtil.decodePath(branch), descriptionId));
 	}
 
 }

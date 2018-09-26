@@ -64,7 +64,7 @@ public class QueryService {
 		if (conceptIdPageOptional.isPresent()) {
 			Page<Long> conceptIdPage = conceptIdPageOptional.get();
 			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptIdPage.getContent());
-			return new PageImpl<>(getOrderedConceptList(conceptIdPage.getContent(), conceptMinis.getResultsMap()), pageRequest, conceptIdPage.getTotalElements());
+			return new PageImpl<>(sortConceptMinisByTermOrder(conceptIdPage.getContent(), conceptMinis.getResultsMap()), pageRequest, conceptIdPage.getTotalElements());
 		} else {
 			// No ids - return page of all concepts
 			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, pageRequest);
@@ -138,7 +138,7 @@ public class QueryService {
 			// Use term search for ordering and provide filter for logical search
 			logger.info("Lexical search before logical {}", term);
 			TimerUtil timer = new TimerUtil("Lexical and Logical Search");
-			final List<Long> allLexicalMatchesWithOrdering = fetchAllLexicalMatches(branchCriteria, term);
+			final List<Long> allLexicalMatchesWithOrdering = findLexicalMatchDescriptionConceptIds(branchCriteria, term);
 			timer.checkpoint("lexical complete");
 
 			// Fetch Logical matches
@@ -214,7 +214,7 @@ public class QueryService {
 		return conceptIdPage;
 	}
 
-	private List<Long> fetchAllLexicalMatches(BranchCriteria branchCriteria, String term) {
+	private List<Long> findLexicalMatchDescriptionConceptIds(BranchCriteria branchCriteria, String term) {
 		final List<Long> allLexicalMatchesWithOrdering = new LongArrayList();
 
 		NativeSearchQuery query = getLexicalQuery(term, branchCriteria, LARGE_PAGE);
@@ -251,7 +251,7 @@ public class QueryService {
 		return query;
 	}
 
-	private List<ConceptMini> getOrderedConceptList(List<Long> termConceptIds, Map<String, ConceptMini> conceptMiniMap) {
+	private List<ConceptMini> sortConceptMinisByTermOrder(List<Long> termConceptIds, Map<String, ConceptMini> conceptMiniMap) {
 		return termConceptIds.stream().filter(id -> conceptMiniMap.keySet().contains(id.toString())).map(id -> conceptMiniMap.get(id.toString())).collect(Collectors.toList());
 	}
 
@@ -259,15 +259,15 @@ public class QueryService {
 		return elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class);
 	}
 
-	public CloseableIterator<QueryConcept> stream(NativeSearchQuery searchQuery) {
+	public CloseableIterator<QueryConcept> streamQueryResults(NativeSearchQuery searchQuery) {
 		return elasticsearchTemplate.stream(searchQuery, QueryConcept.class);
 	}
 
-	public Set<Long> retrieveAncestors(String conceptId, String path, boolean stated) {
-		return retrieveAncestors(versionControlHelper.getBranchCriteria(path), path, stated, conceptId);
+	public Set<Long> findAncestorIds(String conceptId, String path, boolean stated) {
+		return findAncestorIds(versionControlHelper.getBranchCriteria(path), path, stated, conceptId);
 	}
 
-	public Set<Long> retrieveParents(BranchCriteria branchCriteria, boolean stated, String conceptId) {
+	public Set<Long> findParentIds(BranchCriteria branchCriteria, boolean stated, String conceptId) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
@@ -280,7 +280,7 @@ public class QueryService {
 		return concepts.isEmpty() ? Collections.emptySet() : concepts.get(0).getParents();
 	}
 
-	public Set<Long> retrieveAncestors(BranchCriteria branchCriteria, String path, boolean stated, String conceptId) {
+	public Set<Long> findAncestorIds(BranchCriteria branchCriteria, String path, boolean stated, String conceptId) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
@@ -300,7 +300,7 @@ public class QueryService {
 		return concepts.get(0).getAncestors();
 	}
 
-	public Set<Long> retrieveAllAncestors(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptId) {
+	public Set<Long> findAncestorIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptId) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
@@ -317,7 +317,7 @@ public class QueryService {
 		return allAncestors;
 	}
 	
-	public List<Long> retrieveAllDescendants(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
+	public List<Long> findDescendantIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
@@ -333,14 +333,14 @@ public class QueryService {
 		return new PageImpl<>(conceptIdsFound, LARGE_PAGE, conceptsPage.getTotalElements()).getContent();
 	}
 
-	public Set<Long> retrieveConceptsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
+	public Set<Long> findConceptIdsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
 		return memberService.findConceptsInReferenceSet(branchCriteria, referenceSetId);
 	}
 
-	public List<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
+	public List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, List<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
 		if (!stated) {
 			// Use relationships - it's faster
-			return relationshipService.retrieveRelationshipDestinations(sourceConceptIds, attributeTypeIds, branchCriteria, false);
+			return relationshipService.findRelationshipDestinationIds(sourceConceptIds, attributeTypeIds, branchCriteria, false);
 		}
 
 		// For the stated view we'll use the semantic index to access relationships from both stated relationships or axioms.
@@ -396,7 +396,7 @@ public class QueryService {
 		return sortedIds;
 	}
 
-	public Page<ConceptMini> findConceptDescendants(String conceptId, String path, Relationship.CharacteristicType form, PageRequest pageRequest, ConceptService conceptService) {
+	public Page<ConceptMini> findDescendantsAsConceptMinis(String conceptId, String path, Relationship.CharacteristicType form, PageRequest pageRequest, ConceptService conceptService) {
 		ConceptQueryBuilder queryBuilder = createQueryBuilder(form == Relationship.CharacteristicType.stated);
 		queryBuilder.ecl("<" + conceptId);
 		return search(queryBuilder, path, pageRequest);

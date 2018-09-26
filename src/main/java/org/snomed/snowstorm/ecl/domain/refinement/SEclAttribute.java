@@ -2,7 +2,6 @@ package org.snomed.snowstorm.ecl.domain.refinement;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.langauges.ecl.domain.refinement.EclAttribute;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
@@ -56,7 +55,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 				throw new UnsupportedOperationException("Returning the attribute values of all concepts is not supported.");
 			}
 			Collection<Long> destinationConceptIds = refinementBuilder.getQueryService()
-					.retrieveRelationshipDestinations(attributeRange.getPossibleAttributeValues(), attributeRange.getAttributeTypesOptional().map(Slice::getContent).orElse(null), branchCriteria, stated);
+					.findRelationshipDestinationIds(attributeRange.getPossibleAttributeValues(), attributeRange.getAttributeTypesOptional().map(Slice::getContent).orElse(null), branchCriteria, stated);
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, destinationConceptIds));
 
 		} else {

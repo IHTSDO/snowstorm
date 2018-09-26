@@ -71,7 +71,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 
 	@Override
 	public Set<String> getFSNs(Set<String> conceptIds, String... languageRefsetIds) {
-		return descriptionService.fetchDescriptions(branchPath, conceptIds).stream()
+		return descriptionService.findDescriptions(branchPath, conceptIds).stream()
 				.filter(d -> d.getTypeId().equals(Concepts.FSN))
 				.map(org.snomed.snowstorm.core.data.domain.Description::getTerm)
 				.collect(Collectors.toSet());
@@ -113,7 +113,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 				LOGGER.info("Found stated hierarchy id {}", conceptHierarchyRootId);
 
 				return matchingDescriptions.stream().filter(d -> {
-					Set<Long> matchingDescriptionAncestors = queryService.retrieveAncestors(d.getConceptId(), branchPath, true);
+					Set<Long> matchingDescriptionAncestors = queryService.findAncestorIds(d.getConceptId(), branchPath, true);
 					return matchingDescriptionAncestors.contains(new Long(conceptHierarchyRootId));
 				}).collect(Collectors.toSet());
 			}
@@ -240,7 +240,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 
 		// Search ancestors of stated is-a relationships
 		String firstStatedParentId = statedIsARelationships.iterator().next().getDestinationId();
-		Set<Long> statedAncestors = queryService.retrieveAncestors(firstStatedParentId, branchPath, true);
+		Set<Long> statedAncestors = queryService.findAncestorIds(firstStatedParentId, branchPath, true);
 		statedHierarchyRoot = Sets.intersection(hierarchyRootIds, statedAncestors);
 		if (!statedHierarchyRoot.isEmpty()) {
 			return statedHierarchyRoot.iterator().next();

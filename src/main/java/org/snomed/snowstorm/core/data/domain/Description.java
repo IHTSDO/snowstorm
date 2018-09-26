@@ -350,8 +350,9 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return languageCode;
 	}
 
-	public void setLanguageCode(String languageCode) {
+	public Description setLanguageCode(String languageCode) {
 		this.languageCode = languageCode;
+		return this;
 	}
 
 	public String getTypeId() {

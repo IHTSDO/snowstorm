@@ -44,7 +44,7 @@ public class MRCMService {
 
 	public Collection<ConceptMini> retrieveDomainAttributes(String branchPath, Set<Long> parentIds) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		Set<Long> allAncestors = queryService.retrieveAllAncestors(branchCriteria, false, parentIds);
+		Set<Long> allAncestors = queryService.findAncestorIdsAsUnion(branchCriteria, false, parentIds);
 		allAncestors.addAll(parentIds);
 
 		Set<Domain> matchedDomains = mrcm.getDomainMap().values().stream().filter(d -> {
@@ -67,7 +67,7 @@ public class MRCMService {
 		Set<Long> descendantTypeAttributes = matchedAttributes.stream().filter(attribute -> attribute.getInclusionType() == InclusionType.DESCENDANT).map(Attribute::getConceptId).collect(Collectors.toSet());
 		Set<Long> selfOrDescendantTypeAttributes = matchedAttributes.stream().filter(attribute -> attribute.getInclusionType() == InclusionType.SELF_OR_DESCENDANT).map(Attribute::getConceptId).collect(Collectors.toSet());
 
-		List<Long> descendantAttributes = queryService.retrieveAllDescendants(branchCriteria, false, Sets.union(descendantTypeAttributes, selfOrDescendantTypeAttributes));
+		List<Long> descendantAttributes = queryService.findDescendantIdsAsUnion(branchCriteria, false, Sets.union(descendantTypeAttributes, selfOrDescendantTypeAttributes));
 
 		allMatchedAttributeIds.removeAll(descendantAttributes);
 		allMatchedAttributeIds.addAll(descendantAttributes);

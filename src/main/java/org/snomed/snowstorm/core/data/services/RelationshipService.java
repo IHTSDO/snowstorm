@@ -35,7 +35,7 @@ public class RelationshipService extends ComponentService {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
-	public Relationship fetchRelationship(String branchPath, String relationshipId) {
+	public Relationship findRelationship(String branchPath, String relationshipId) {
 		Page<Relationship> relationships = findRelationships(branchPath, relationshipId, null, null, null, null, null, null, null, null, PageRequest.of(0, 1));
 		return relationships.getTotalElements() > 0 ? relationships.getContent().get(0) : null;
 	}
@@ -97,7 +97,7 @@ public class RelationshipService extends ComponentService {
 		return elasticsearchOperations.queryForPage(queryBuilder.build(), Relationship.class);
 	}
 
-	List<Long> retrieveRelationshipDestinations(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
+	List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
 		if (attributeTypeIds != null && attributeTypeIds.isEmpty()) {
 			return Collections.emptyList();
 		}

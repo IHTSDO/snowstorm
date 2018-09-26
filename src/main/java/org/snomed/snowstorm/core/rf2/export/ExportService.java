@@ -146,7 +146,7 @@ public class ExportService {
 
 				BoolQueryBuilder memberBranchCriteria = branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class);
 				for (ReferenceSetType referenceSetType : referenceSetTypes) {
-					List<Long> refsetsOfThisType = new ArrayList<>(queryService.retrieveAllDescendants(branchCriteria, true, Collections.singleton(Long.parseLong(referenceSetType.getConceptId()))));
+					List<Long> refsetsOfThisType = new ArrayList<>(queryService.findDescendantIdsAsUnion(branchCriteria, true, Collections.singleton(Long.parseLong(referenceSetType.getConceptId()))));
 					refsetsOfThisType.add(Long.parseLong(referenceSetType.getConceptId()));
 					for (Long refsetToExport : refsetsOfThisType) {
 						BoolQueryBuilder memberQuery = getContentQuery(exportType, memberBranchCriteria);

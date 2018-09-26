@@ -33,7 +33,7 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 			Optional<Page<Long>> attributeTypeIdsOptional = ((SSubExpressionConstraint)dottedAttribute).select(path, branchCriteria, stated, conceptIdFilter, null, queryService);
 			List<Long> attributeTypeIds = attributeTypeIdsOptional.map(Slice::getContent).orElse(null);
 			// XXX Note that this content is not paginated
-			List<Long> idList = new ArrayList<>(queryService.retrieveRelationshipDestinations(conceptIds.get().getContent(), attributeTypeIds, branchCriteria, stated));
+			List<Long> idList = new ArrayList<>(queryService.findRelationshipDestinationIds(conceptIds.get().getContent(), attributeTypeIds, branchCriteria, stated));
 			conceptIds = Optional.of(new PageImpl<>(idList, PageRequest.of(0, idList.size()), idList.size()));
 		}
 

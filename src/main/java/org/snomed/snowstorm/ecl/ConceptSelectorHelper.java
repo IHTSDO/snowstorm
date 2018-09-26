@@ -58,7 +58,7 @@ public class ConceptSelectorHelper {
 			// Fetch all IDs
 			searchQueryBuilder.withPageable(LARGE_PAGE);
 			List<Long> ids = new LongArrayList();
-			try (CloseableIterator<QueryConcept> stream = queryService.stream(searchQueryBuilder.build())) {
+			try (CloseableIterator<QueryConcept> stream = queryService.streamQueryResults(searchQueryBuilder.build())) {
 				stream.forEachRemaining(c -> {
 					if (inclusionFilter == null || inclusionFilter.apply(c)) {
 						ids.add(c.getConceptIdL());

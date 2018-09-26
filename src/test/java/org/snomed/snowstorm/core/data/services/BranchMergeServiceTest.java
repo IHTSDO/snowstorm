@@ -305,12 +305,12 @@ public class BranchMergeServiceTest extends AbstractTest {
 		// MAIN: 2 -> 4
 		System.out.println("// MAIN: 100002 -> 100004");
 		conceptService.update(new Concept("100002").addRelationship(new Relationship(Concepts.ISA, "100004")), "MAIN");
-		Assert.assertEquals(Sets.newHashSet(100001L, 100004L), queryService.retrieveAncestors("100002", "MAIN", true));
+		Assert.assertEquals(Sets.newHashSet(100001L, 100004L), queryService.findAncestorIds("100002", "MAIN", true));
 
 		// MAIN/A: 3 -> 2
 		System.out.println("// MAIN/A: 100003 -> 100002");
 		conceptService.create(new Concept("100003").addRelationship(new Relationship(Concepts.ISA, "100002")), "MAIN/A");
-		Assert.assertEquals(Sets.newHashSet(100001L, 100002L), queryService.retrieveAncestors("100003", "MAIN/A", true));
+		Assert.assertEquals(Sets.newHashSet(100001L, 100002L), queryService.findAncestorIds("100003", "MAIN/A", true));
 
 		// Rebase MAIN/A
 		System.out.println("// Rebase MAIN/A");
@@ -318,8 +318,8 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
 
-		Assert.assertEquals(Sets.newHashSet(100001L, 100004L), queryService.retrieveAncestors("100002", "MAIN/A", true));
-		Assert.assertEquals(Sets.newHashSet(100001L, 100004L, 100002L), queryService.retrieveAncestors("100003", "MAIN/A", true));
+		Assert.assertEquals(Sets.newHashSet(100001L, 100004L), queryService.findAncestorIds("100002", "MAIN/A", true));
+		Assert.assertEquals(Sets.newHashSet(100001L, 100004L, 100002L), queryService.findAncestorIds("100003", "MAIN/A", true));
 	}
 
 /*

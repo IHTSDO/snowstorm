@@ -11,7 +11,6 @@ import org.junit.runner.RunWith;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.TestUtil;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
@@ -157,9 +156,9 @@ public class ImportServiceTest extends AbstractTest {
 		Assert.assertEquals(102, conceptService.findAll(path, PageRequest.of(0, 10)).getTotalElements());
 		Assert.assertEquals(102, conceptService.findAll("MAIN", PageRequest.of(0, 10)).getTotalElements());
 
-		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryService.retrieveAncestors("131148009", "MAIN/2002-01-31", false));
-		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/2005-01-31", false));
-		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryService.retrieveAncestors("131148009", "MAIN/2006-01-31", false));
+		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 246188002"), queryService.findAncestorIds("131148009", "MAIN/2002-01-31", false));
+		Assert.assertEquals(asSet("250171008, 138875005, 300577008, 118222006, 404684003"), queryService.findAncestorIds("131148009", "MAIN/2005-01-31", false));
+		Assert.assertEquals(asSet("250171008, 138875005, 118222006, 404684003"), queryService.findAncestorIds("131148009", "MAIN/2006-01-31", false));
 
 		IntegrityIssueReport expectedIssueReport = new IntegrityIssueReport();
 		Map<Long, Long> relationshipWithInactiveSource = new HashMap<>();
