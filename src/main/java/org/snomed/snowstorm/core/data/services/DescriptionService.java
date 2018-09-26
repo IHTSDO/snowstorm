@@ -47,14 +47,26 @@ public class DescriptionService extends ComponentService {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
-	public Page<Description> findDescriptions(String branch, String term, String concept, PageRequest pageRequest) {
+	public Description findDescription(String path, String descriptionId) {
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
+		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class))
+				.must(termsQuery("descriptionId", descriptionId));
+		List<Description> descriptions = elasticsearchTemplate.queryForList(
+				new NativeSearchQueryBuilder().withQuery(query).build(), Description.class);
+		if (!descriptions.isEmpty()) {
+			return descriptions.get(0);
+		}
+		return null;
+	}
+
+	public Page<Description> findDescriptions(String branch, String exactTerm, String concept, PageRequest pageRequest) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class));
 		if (concept != null && !concept.isEmpty()) {
 			query.must(termQuery(Description.Fields.CONCEPT_ID, concept));
 		}
-		if (term != null && !term.isEmpty()) {
-			query.must(termQuery(Description.Fields.TERM, term));
+		if (exactTerm != null && !exactTerm.isEmpty()) {
+			query.must(termQuery(Description.Fields.TERM, exactTerm));
 		}
 		Page<Description> descriptions = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
 				.withQuery(query)
@@ -77,8 +89,64 @@ public class DescriptionService extends ComponentService {
 		return conceptMap.values().stream().flatMap(c -> c.getDescriptions().stream()).collect(Collectors.toSet());
 	}
 
+	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
+		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
+		timer.checkpoint("Build branch criteria");
+		List<Aggregation> allAggregations = new ArrayList<>();
+
+		final BoolQueryBuilder descriptionCriteria = boolQuery();
+		BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
+		descriptionCriteria.must(descriptionBranchCriteria);
+		addTermClauses(term, descriptionCriteria);
+
+		// Fetch concept semantic tag aggregation
+		// Not all descriptions are FSNs so use: description -> concept -> active FSN
+		Set<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria);
+		timer.checkpoint("Fetch all related concept ids for semantic tag aggregation");
+		AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(descriptionBranchCriteria)
+						.must(termsQuery(Description.Fields.ACTIVE, true))
+						.must(termsQuery(Description.Fields.TYPE_ID, Concepts.FSN))
+						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
+				)
+				.withPageable(PAGE_OF_ONE)
+				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG))
+				.build(), Description.class);
+		allAggregations.add(semanticTagResults.getAggregation("semanticTags"));
+		timer.checkpoint("Semantic tag aggregation");
+
+		// Fetch concept refset membership aggregation
+		AggregatedPage<ReferenceSetMember> membershipResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+						.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, true))
+						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
+				)
+				.withPageable(PAGE_OF_ONE)
+				.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID))
+				.build(), ReferenceSetMember.class);
+		allAggregations.add(membershipResults.getAggregation("membership"));
+		timer.checkpoint("Concept refset membership aggregation");
+
+		// Perform description search with description property aggregations
+		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(descriptionCriteria)
+				.addAggregation(AggregationBuilders.terms("module").field(Description.Fields.MODULE_ID))
+				.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
+				.withPageable(pageRequest);
+		AggregatedPage<Description> descriptions = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(addTermSort(queryBuilder.build()), Description.class);
+		allAggregations.addAll(descriptions.getAggregations().asList());
+		timer.checkpoint("Fetch descriptions including module and language aggregations");
+		timer.finish();
+
+		// Merge aggregations
+		return new AggregatedPageImpl<>(descriptions.getContent(), descriptions.getPageable(), descriptions.getTotalElements(), new Aggregations(allAggregations));
+	}
+
 	void joinDescriptions(BranchCriteria branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap,
-						   TimerUtil timer, boolean fetchInactivationInfo) {
+			TimerUtil timer, boolean fetchInactivationInfo) {
 
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 
@@ -197,74 +265,31 @@ public class DescriptionService extends ComponentService {
 			try (final CloseableIterator<ReferenceSetMember> langRefsetMembers = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
 				langRefsetMembers.forEachRemaining(langRefsetMember -> {
 					Description description = descriptionIdMap.get(langRefsetMember.getReferencedComponentId());
-						if (description != null) {
-							description.addLanguageRefsetMember(langRefsetMember);
-						} else {
-							logger.error("Description {} for lang refset member {} not found on branch {}!",
-									langRefsetMember.getReferencedComponentId(), langRefsetMember.getMemberId(), branchCriteria.toString().replace("\n", ""));
-						}
-					});
+					if (description != null) {
+						description.addLanguageRefsetMember(langRefsetMember);
+					} else {
+						logger.error("Description {} for lang refset member {} not found on branch {}!",
+								langRefsetMember.getReferencedComponentId(), langRefsetMember.getMemberId(), branchCriteria.toString().replace("\n", ""));
+					}
+				});
 			}
 		}
 	}
 
-	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
-		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
-		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
-		timer.checkpoint("Build branch criteria");
-		List<Aggregation> allAggregations = new ArrayList<>();
-
-		final BoolQueryBuilder descriptionCriteria = boolQuery();
-		BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
-		descriptionCriteria.must(descriptionBranchCriteria);
-		addTermClauses(term, descriptionCriteria);
-
-		// Fetch concept semantic tag aggregation
-		// Not all descriptions are FSNs so use: description -> concept -> active FSN
-		Set<Long> conceptIds = getAllConceptIds(descriptionCriteria);
-		timer.checkpoint("Fetch all related concept ids for semantic tag aggregation");
-		AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(descriptionBranchCriteria)
-						.must(termsQuery(Description.Fields.ACTIVE, true))
-						.must(termsQuery(Description.Fields.TYPE_ID, Concepts.FSN))
-						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
-				)
-				.withPageable(PAGE_OF_ONE)
-				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG))
-				.build(), Description.class);
-		allAggregations.add(semanticTagResults.getAggregation("semanticTags"));
-		timer.checkpoint("Semantic tag aggregation");
-
-		// Fetch concept refset membership aggregation
-		AggregatedPage<ReferenceSetMember> membershipResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, true))
-						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
-				)
-				.withPageable(PAGE_OF_ONE)
-				.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID))
-				.build(), ReferenceSetMember.class);
-		allAggregations.add(membershipResults.getAggregation("membership"));
-		timer.checkpoint("Concept refset membership aggregation");
-
-		// Perform description search with description property aggregations
-		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(descriptionCriteria)
-				.addAggregation(AggregationBuilders.terms("module").field(Description.Fields.MODULE_ID))
-				.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
-				.withPageable(pageRequest);
-		AggregatedPage<Description> descriptions = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(addTermSort(queryBuilder.build()), Description.class);
-		allAggregations.addAll(descriptions.getAggregations().asList());
-		timer.checkpoint("Fetch descriptions including module and language aggregations");
-		timer.finish();
-
-		// Merge aggregations
-		return new AggregatedPageImpl<>(descriptions.getContent(), descriptions.getPageable(), descriptions.getTotalElements(), new Aggregations(allAggregations));
+	public void joinFsnDescriptions(String path, Map<String, ConceptMini> conceptMiniMap) {
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery().must(versionControlHelper.getBranchCriteria(path).getEntityBranchCriteria(Description.class))
+						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
+						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptMiniMap.keySet())))
+				.withPageable(LARGE_PAGE)
+				.build();
+		try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(searchQuery, Description.class)) {
+			stream.forEachRemaining(description -> conceptMiniMap.get(description.getConceptId()).addActiveFsn(description));
+		}
 	}
 
-	private Set<Long> getAllConceptIds(BoolQueryBuilder descriptionCriteria) {
+	private Set<Long> findDescriptionConceptIds(BoolQueryBuilder descriptionCriteria) {
 		Set<Long> conceptIds = new HashSet<>();
 		try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(
 				new NativeSearchQueryBuilder()
@@ -286,13 +311,13 @@ public class DescriptionService extends ComponentService {
 				// Must match one of the following 'should' clauses:
 				boolBuilder.must(boolQuery()
 
-						// All given words. Match Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query.html
-						.should(matchQuery(Description.Fields.TERM, term)
-								.operator(Operator.AND))
+								// All given words. Match Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query.html
+								.should(matchQuery(Description.Fields.TERM, term)
+										.operator(Operator.AND))
 
-						// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
-						.should(simpleQueryStringQuery((term.trim().replace(" ", "* ") + "*") .replace("**", "*"))
-								.field(Description.Fields.TERM).defaultOperator(Operator.AND))
+								// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
+								.should(simpleQueryStringQuery((term.trim().replace(" ", "* ") + "*") .replace("**", "*"))
+										.field(Description.Fields.TERM).defaultOperator(Operator.AND))
 						// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
 				);
 			}
@@ -303,30 +328,5 @@ public class DescriptionService extends ComponentService {
 		query.addSort(Sort.by("termLen"));
 		query.addSort(Sort.by("_score"));
 		return query;
-	}
-
-	public Description findDescription(String path, String descriptionId) {
-		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
-		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class))
-				.must(termsQuery("descriptionId", descriptionId));
-		List<Description> descriptions = elasticsearchTemplate.queryForList(
-				new NativeSearchQueryBuilder().withQuery(query).build(), Description.class);
-		if (!descriptions.isEmpty()) {
-			return descriptions.get(0);
-		}
-		return null;
-	}
-
-	public void joinFsnDescriptions(String path, Map<String, ConceptMini> conceptMiniMap) {
-		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery().must(versionControlHelper.getBranchCriteria(path).getEntityBranchCriteria(Description.class))
-						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
-						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
-						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptMiniMap.keySet())))
-				.withPageable(LARGE_PAGE)
-				.build();
-		try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(searchQuery, Description.class)) {
-			stream.forEachRemaining(description -> conceptMiniMap.get(description.getConceptId()).addActiveFsn(description));
-		}
 	}
 }
