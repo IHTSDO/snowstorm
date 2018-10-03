@@ -15,7 +15,7 @@ public class ConceptMini {
 
 	private String conceptId;
 	private String effectiveTime;
-	private Set<Description> activeFsns;
+	private Set<Description> activeDescriptions;
 	private String definitionStatusId;
 	private Boolean leafInferred;
 	private Boolean leafStated;
@@ -24,7 +24,7 @@ public class ConceptMini {
 	private boolean flattenFsn;
 
 	public ConceptMini() {
-		activeFsns = new HashSet<>();
+		activeDescriptions = new HashSet<>();
 	}
 
 	public ConceptMini(String conceptId) {
@@ -40,16 +40,16 @@ public class ConceptMini {
 		moduleId = concept.getModuleId();
 		Set<Description> descriptions = concept.getDescriptions();
 		if (descriptions != null) {
-			activeFsns = descriptions.stream().filter(d -> d.isActive() && Concepts.FSN.equals(d.getTypeId())).collect(Collectors.toSet());
+			activeDescriptions = descriptions.stream().filter(SnomedComponent::isActive).collect(Collectors.toSet());
 		}
 	}
 
-	public void addActiveFsn(Description fsn) {
-		activeFsns.add(fsn);
+	public void addActiveDescription(Description fsn) {
+		activeDescriptions.add(fsn);
 	}
 
-	public void addActiveFsns(Collection<Description> fsns) {
-		activeFsns.addAll(fsns);
+	public void addActiveDescriptions(Collection<Description> fsns) {
+		activeDescriptions.addAll(fsns);
 	}
 
 	@JsonView(value = View.Component.class)
@@ -67,7 +67,21 @@ public class ConceptMini {
 	}
 
 	public String getFsn() {
-		return activeFsns.isEmpty() ? null : activeFsns.iterator().next().getTerm();
+		for (Description activeDescription : activeDescriptions) {
+			if (Concepts.FSN.equals(activeDescription.getTypeId())) {
+				return activeDescription.getTerm();
+			}
+		}
+		return null;
+	}
+
+	public String getPt() {
+		for (Description activeDescription : activeDescriptions) {
+			if (Concepts.SYNONYM.equals(activeDescription.getTypeId()) && activeDescription.getAcceptabilityMap().values().contains(Concepts.PREFERRED_CONSTANT)) {
+				return activeDescription.getTerm();
+			}
+		}
+		return null;
 	}
 
 	@JsonView(value = View.Component.class)
@@ -75,7 +89,15 @@ public class ConceptMini {
 	@JsonProperty("fsn")
 	public String getJsonFsn() {
 		String term = getFsn();
-		return flattenFsn ? "\"" + term + "\"" : "{ \"term\": \"" + term + "\", \"conceptId\": \"" + conceptId + "\" }";
+		return flattenFsn ? "\"" + term + "\"" : String.format("{ \"term\": \"%s\", \"conceptId\": \"%s\" }", term, conceptId);
+	}
+
+	@JsonView(value = View.Component.class)
+	@JsonRawValue
+	@JsonProperty("pt")
+	public String getJsonPt() {
+		String term = getPt();
+		return flattenFsn ? "\"" + term + "\"" : String.format("{ \"term\": \"%s\", \"conceptId\": \"%s\" }", term, conceptId);
 	}
 
 	public void setDefinitionStatusId(String definitionStatusId) {

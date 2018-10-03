@@ -252,7 +252,7 @@ public class ConceptService extends ComponentService {
 			concepts.getContent().forEach(c -> {
 				ConceptMini conceptMini = minisToPopulate.get(c.getConceptId());
 				conceptMini.setDefinitionStatus(c.getDefinitionStatus());
-				conceptMini.addActiveFsns(c.getDescriptions().stream().filter(d -> d.isActive() && d.getTypeId().equals(Concepts.FSN)).collect(Collectors.toSet()));
+				conceptMini.addActiveDescriptions(c.getDescriptions().stream().filter(SnomedComponent::isActive).collect(Collectors.toSet()));
 			});
 		}
 	}

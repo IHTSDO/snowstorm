@@ -363,7 +363,7 @@ public class ClassificationService {
 			}
 		}
 		if (fetchDescriptions) {
-			descriptionService.joinFsnDescriptions(path, conceptMiniMap);
+			descriptionService.joinActiveDescriptions(path, conceptMiniMap);
 		}
 
 		return relationshipChanges;
@@ -396,7 +396,7 @@ public class ClassificationService {
 				conceptMiniMap.put(conceptId, new ConceptMini(conceptId));
 			}
 		}
-		descriptionService.joinFsnDescriptions(path, conceptMiniMap);
+		descriptionService.joinActiveDescriptions(path, conceptMiniMap);
 
 		List<EquivalentConceptsResponse> responseContent = new ArrayList<>();
 		for (EquivalentConcepts equivalentConcepts : relationshipChanges.getContent()) {

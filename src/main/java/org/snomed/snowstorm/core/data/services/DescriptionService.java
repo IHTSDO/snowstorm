@@ -183,8 +183,8 @@ public class DescriptionService extends ComponentService {
 					}
 					if (conceptMiniMap != null) {
 						final ConceptMini conceptMini = conceptMiniMap.get(descriptionConceptId);
-						if (conceptMini != null && Concepts.FSN.equals(description.getTypeId()) && description.isActive()) {
-							conceptMini.addActiveFsn(description);
+						if (conceptMini != null && description.isActive()) {
+							conceptMini.addActiveDescription(description);
 						}
 					}
 
@@ -276,16 +276,15 @@ public class DescriptionService extends ComponentService {
 		}
 	}
 
-	public void joinFsnDescriptions(String path, Map<String, ConceptMini> conceptMiniMap) {
+	public void joinActiveDescriptions(String path, Map<String, ConceptMini> conceptMiniMap) {
 		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery().must(versionControlHelper.getBranchCriteria(path).getEntityBranchCriteria(Description.class))
-						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptMiniMap.keySet())))
 				.withPageable(LARGE_PAGE)
 				.build();
 		try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(searchQuery, Description.class)) {
-			stream.forEachRemaining(description -> conceptMiniMap.get(description.getConceptId()).addActiveFsn(description));
+			stream.forEachRemaining(description -> conceptMiniMap.get(description.getConceptId()).addActiveDescription(description));
 		}
 	}
 
