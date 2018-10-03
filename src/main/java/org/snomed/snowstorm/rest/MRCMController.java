@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Set;
 
 @RestController
@@ -27,7 +26,7 @@ public class MRCMController {
 	@ResponseBody
 	public ItemsPage<ConceptMini> retrieveDomainAttributes(@PathVariable String path, @RequestParam Set<Long> parentIds) {
 		String branchPath = BranchPathUriUtil.decodePath(path);
-		return getItemsPageWithNestedFSNs(mrcmService.retrieveDomainAttributes(branchPath, parentIds));
+		return new ItemsPage<>(mrcmService.retrieveDomainAttributes(branchPath, parentIds));
 	}
 
 	@ApiOperation("Retrieve valid values for the given attribute and term prefix.")
@@ -35,18 +34,13 @@ public class MRCMController {
 	@ResponseBody
 	public ItemsPage<ConceptMini> retrieveAttributeValues(@PathVariable String path, @PathVariable String attributeId, @RequestParam String termPrefix) {
 		String branchPath = BranchPathUriUtil.decodePath(path);
-		return getItemsPageWithNestedFSNs(mrcmService.retrieveAttributeValues(branchPath, attributeId, termPrefix));
+		return new ItemsPage<>(mrcmService.retrieveAttributeValues(branchPath, attributeId, termPrefix));
 	}
 
 	@ApiOperation("Update system wide MRCM from XML file. This is an alternative implementation to the reference sets.")
 	@RequestMapping(value = "/mrcm", method = RequestMethod.POST, consumes = "multipart/form-data")
 	public void updateMRCMFromXml(@RequestParam MultipartFile file) throws IOException {
 		mrcmService.loadFromStream(file.getInputStream());
-	}
-
-	private ItemsPage<ConceptMini> getItemsPageWithNestedFSNs(Collection<ConceptMini> conceptMinis) {
-		conceptMinis.forEach(ConceptMini::nestFsn);
-		return new ItemsPage<>(conceptMinis);
 	}
 
 }

@@ -75,11 +75,6 @@ public class RelationshipController {
 
 		expandSourceAndTarget(branch, relationshipPage.getContent());
 
-		relationshipPage.getContent().forEach(r -> {
-			r.getSource().nestFsn();
-			r.getType().nestFsn();
-		});
-
 		return new ItemsPage<>(relationshipPage);
 	}
 

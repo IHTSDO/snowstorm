@@ -14,6 +14,7 @@ public class BrowserDescriptionSearchResult {
 		this.term = term;
 		this.active = active;
 		this.concept = concept;
+		concept.flattenFsn();
 	}
 
 	@JsonView(value = View.Component.class)

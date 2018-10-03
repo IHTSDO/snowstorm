@@ -21,7 +21,7 @@ public class ConceptMini {
 	private Boolean leafStated;
 	private String moduleId;
 	private Boolean active;
-	private boolean nestFsn;
+	private boolean flattenFsn;
 
 	public ConceptMini() {
 		activeFsns = new HashSet<>();
@@ -75,7 +75,7 @@ public class ConceptMini {
 	@JsonProperty("fsn")
 	public String getJsonFsn() {
 		String term = getFsn();
-		return nestFsn ? "{ \"term\": \"" + term + "\", \"conceptId\": \"" + conceptId + "\" }" : "\"" + term + "\"";
+		return flattenFsn ? "\"" + term + "\"" : "{ \"term\": \"" + term + "\", \"conceptId\": \"" + conceptId + "\" }";
 	}
 
 	public void setDefinitionStatusId(String definitionStatusId) {
@@ -147,7 +147,12 @@ public class ConceptMini {
 		this.active = active;
 	}
 
-	public void nestFsn() {
-		this.nestFsn = true;
+	/**
+	 * Changes the way that the FSN is returned in the JSON representation.
+	 * By default the FSN is displayed as an object with a term and conceptId property.
+	 * Calling this method results in just the term being returned as the value of the fsn property.
+	 */
+	public void flattenFsn() {
+		this.flattenFsn = true;
 	}
 }

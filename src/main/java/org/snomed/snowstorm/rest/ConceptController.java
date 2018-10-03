@@ -79,15 +79,13 @@ public class ConceptController {
 				.termPrefix(term)
 				.conceptIds(conceptIds);
 
-		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), ControllerHelper.getPageRequest(offset, limit));
-		conceptMiniPage.getContent().forEach(ConceptMini::nestFsn);
-		return new ItemsPage<>(conceptMiniPage);
+		return new ItemsPage<>(queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), ControllerHelper.getPageRequest(offset, limit)));
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST, produces = {"application/json", "text/csv"})
 	@ResponseBody
 	public ItemsPage<ConceptMini> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
-		ItemsPage<ConceptMini> concepts = findConcepts(BranchPathUriUtil.decodePath(branch),
+		return findConcepts(BranchPathUriUtil.decodePath(branch),
 				searchRequest.getActiveFilter(),
 				searchRequest.getTermFilter(),
 				searchRequest.getEclFilter(),
@@ -96,8 +94,6 @@ public class ConceptController {
 				searchRequest.getConceptIds(),
 				searchRequest.getOffset(),
 				searchRequest.getLimit());
-		concepts.getItems().forEach(ConceptMini::nestFsn);
-		return concepts;
 	}
 
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET)
