@@ -15,8 +15,6 @@ public class ConceptSearchRequest {
 //		  "activeFilter": false,
 //		  "escgFilter": "",
 //		  "expand": "",
-//		  "limit": 0,
-//		  "offset": 0
 
 
 	public ConceptSearchRequest() {

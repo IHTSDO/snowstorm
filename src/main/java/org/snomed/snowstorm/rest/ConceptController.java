@@ -56,7 +56,8 @@ public class ConceptController {
 			@RequestParam(required = false) String escg,
 			@RequestParam(required = false) Set<String> conceptIds,
 			@RequestParam(required = false, defaultValue = "0") int offset,
-			@RequestParam(required = false, defaultValue = "50") int limit) {
+			@RequestParam(required = false, defaultValue = "50") int limit,
+			@RequestHeader(value = "Accept-Language", defaultValue = "en-US;q=0.8,en-GB;q=0.6") String acceptLanguageHeader) {
 
 		// TODO: Remove this partial ESCG support
 		if (ecl == null && escg != null && !escg.isEmpty()) {
@@ -77,6 +78,7 @@ public class ConceptController {
 				.activeFilter(activeFilter)
 				.ecl(ecl)
 				.termPrefix(term)
+				.languageCodes(ControllerHelper.getLanguageCodes(acceptLanguageHeader))
 				.conceptIds(conceptIds);
 
 		return new ItemsPage<>(queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), ControllerHelper.getPageRequest(offset, limit)));
@@ -84,7 +86,11 @@ public class ConceptController {
 
 	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST, produces = {"application/json", "text/csv"})
 	@ResponseBody
-	public ItemsPage<ConceptMini> search(@PathVariable String branch, @RequestBody ConceptSearchRequest searchRequest) {
+	public ItemsPage<ConceptMini> search(
+			@PathVariable String branch,
+			@RequestBody ConceptSearchRequest searchRequest,
+			@RequestHeader("Accept-Language") String acceptLanguageHeader) {
+
 		return findConcepts(BranchPathUriUtil.decodePath(branch),
 				searchRequest.getActiveFilter(),
 				searchRequest.getTermFilter(),
@@ -93,7 +99,8 @@ public class ConceptController {
 				null,
 				searchRequest.getConceptIds(),
 				searchRequest.getOffset(),
-				searchRequest.getLimit());
+				searchRequest.getLimit(),
+				acceptLanguageHeader);
 	}
 
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET)
@@ -134,11 +141,12 @@ public class ConceptController {
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descendants", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ConceptMini> findConceptDescendants(@PathVariable String branch,
-													@PathVariable String conceptId,
-													@PathVariable(value = "false", required = false) boolean stated,
-													@RequestParam(required = false, defaultValue = "0") int offset,
-													@RequestParam(required = false, defaultValue = "50") int limit) {
-		return findConcepts(branch, stated, null, null, "<" + conceptId, null, null, offset, limit);
+			@PathVariable String conceptId,
+			@PathVariable(value = "false", required = false) boolean stated,
+			@RequestParam(required = false, defaultValue = "0") int offset,
+			@RequestParam(required = false, defaultValue = "50") int limit,
+			@RequestHeader("Accept-Language") String acceptLanguageHeader) {
+		return findConcepts(branch, stated, null, null, "<" + conceptId, null, null, offset, limit, acceptLanguageHeader);
 	}
 
 	@ResponseBody

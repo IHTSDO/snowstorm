@@ -34,6 +34,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 @Service
 public class QueryService {
 
+	private static final Set<String> DEFAULT_LANGUAGE_CODES = Collections.singleton("en");
 	static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 	private static final long IS_A_LONG = parseLong(Concepts.ISA);
 
@@ -91,6 +92,7 @@ public class QueryService {
 
 		// Validate Lexical criteria
 		String term = conceptQuery.getTermPrefix();
+		Collection<String> languageCodes = conceptQuery.getLanguageCodes();
 		boolean hasLexicalCriteria;
 		if (term != null) {
 			if (term.length() < 3) {
@@ -106,7 +108,7 @@ public class QueryService {
 		if (hasLexicalCriteria && !hasLogicalConditions) {
 			// Lexical Only
 			logger.info("Lexical search {}", term);
-			NativeSearchQuery descriptionQuery = getLexicalQuery(term, branchCriteria, pageRequest);
+			NativeSearchQuery descriptionQuery = getLexicalQuery(term, languageCodes, branchCriteria, pageRequest);
 			descriptionQuery.addFields(Description.Fields.CONCEPT_ID);
 			final List<Long> pageOfIds = new LongArrayList();
 			Page<Description> descriptionPage = elasticsearchTemplate.queryForPage(descriptionQuery, Description.class);
@@ -138,7 +140,7 @@ public class QueryService {
 			// Use term search for ordering and provide filter for logical search
 			logger.info("Lexical search before logical {}", term);
 			TimerUtil timer = new TimerUtil("Lexical and Logical Search");
-			final List<Long> allLexicalMatchesWithOrdering = findLexicalMatchDescriptionConceptIds(branchCriteria, term);
+			final List<Long> allLexicalMatchesWithOrdering = findLexicalMatchDescriptionConceptIds(branchCriteria, term, languageCodes);
 			timer.checkpoint("lexical complete");
 
 			// Fetch Logical matches
@@ -214,10 +216,10 @@ public class QueryService {
 		return conceptIdPage;
 	}
 
-	private List<Long> findLexicalMatchDescriptionConceptIds(BranchCriteria branchCriteria, String term) {
+	private List<Long> findLexicalMatchDescriptionConceptIds(BranchCriteria branchCriteria, String term, Collection<String> languageCodes) {
 		final List<Long> allLexicalMatchesWithOrdering = new LongArrayList();
 
-		NativeSearchQuery query = getLexicalQuery(term, branchCriteria, LARGE_PAGE);
+		NativeSearchQuery query = getLexicalQuery(term, languageCodes, branchCriteria, LARGE_PAGE);
 		query.addFields(Description.Fields.CONCEPT_ID);
 		try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(query, Description.class)) {
 			descriptionStream.forEachRemaining(description -> allLexicalMatchesWithOrdering.add(parseLong(description.getConceptId())));
@@ -238,11 +240,11 @@ public class QueryService {
 		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter).getContent();
 	}
 
-	private NativeSearchQuery getLexicalQuery(String term, BranchCriteria branchCriteria, PageRequest pageable) {
+	private NativeSearchQuery getLexicalQuery(String term, Collection<String> languageCodes, BranchCriteria branchCriteria, PageRequest pageable) {
 		BoolQueryBuilder lexicalQuery = boolQuery()
 				.must(branchCriteria.getEntityBranchCriteria(Description.class))
 				.must(termQuery("active", true));
-		DescriptionService.addTermClauses(term, lexicalQuery);
+		DescriptionService.addTermClauses(term, languageCodes, lexicalQuery);
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(lexicalQuery)
 				.withPageable(pageable);
@@ -419,6 +421,7 @@ public class QueryService {
 		private final boolean stated;
 		private Boolean activeFilter;
 		private String termPrefix;
+		private Collection<String> languageCodes;
 		private String ecl;
 		private Set<String> conceptIds;
 
@@ -428,6 +431,7 @@ public class QueryService {
 			logicalConditionBuilder = boolQuery();
 			rootBuilder.must(termQuery("stated", stated));
 			rootBuilder.must(logicalConditionBuilder);
+			languageCodes = DEFAULT_LANGUAGE_CODES;
 		}
 
 		public ConceptQueryBuilder self(Long conceptId) {
@@ -464,6 +468,11 @@ public class QueryService {
 			return this;
 		}
 
+		public ConceptQueryBuilder languageCodes(Collection<String> languageCodes) {
+			this.languageCodes = languageCodes;
+			return this;
+		}
+
 		public ConceptQueryBuilder conceptIds(Set<String> conceptIds) {
 			this.conceptIds = conceptIds;
 			return this;
@@ -490,6 +499,10 @@ public class QueryService {
 
 		private String getTermPrefix() {
 			return termPrefix;
+		}
+
+		private Collection<String> getLanguageCodes() {
+			return languageCodes;
 		}
 
 		private String getEcl() {

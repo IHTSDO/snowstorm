@@ -11,8 +11,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 public class ControllerHelper {
@@ -58,5 +58,13 @@ public class ControllerHelper {
 		int page = ((offset + limit) / limit) - 1;
 		int size = limit;
 		return PageRequest.of(page, size);
+	}
+
+	public static List<String> getLanguageCodes(String acceptLanguageHeader) {
+		List<Locale.LanguageRange> languageRanges = Locale.LanguageRange.parse(acceptLanguageHeader);
+
+		return new ArrayList<>(languageRanges.stream()
+				.map(languageRange -> languageRange.getRange().contains("-") ? languageRange.getRange().substring(0, languageRange.getRange().indexOf("-")) : languageRange.getRange())
+				.collect(Collectors.toCollection((Supplier<Set<String>>) LinkedHashSet::new)));
 	}
 }

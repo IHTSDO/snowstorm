@@ -90,6 +90,10 @@ public class DescriptionService extends ComponentService {
 	}
 
 	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
+		return findDescriptionsWithAggregations(path, term, Collections.singleton("en"), pageRequest);
+	}
+
+	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, Collection<String> languageCodes, PageRequest pageRequest) {
 		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		timer.checkpoint("Build branch criteria");
@@ -98,7 +102,7 @@ public class DescriptionService extends ComponentService {
 		final BoolQueryBuilder descriptionCriteria = boolQuery();
 		BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
 		descriptionCriteria.must(descriptionBranchCriteria);
-		addTermClauses(term, descriptionCriteria);
+		addTermClauses(term, languageCodes, descriptionCriteria);
 
 		// Fetch concept semantic tag aggregation
 		// Not all descriptions are FSNs so use: description -> concept -> active FSN
@@ -301,9 +305,9 @@ public class DescriptionService extends ComponentService {
 		return conceptIds;
 	}
 
-	static void addTermClauses(String term, BoolQueryBuilder boolBuilder) {
+	static void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder) {
 		if (IdentifierService.isConceptId(term)) {
-			boolBuilder.must(termQuery("conceptId", term));
+			boolBuilder.must(termQuery(Description.Fields.CONCEPT_ID, term));
 		} else {
 			if (!Strings.isNullOrEmpty(term)) {
 
@@ -319,6 +323,9 @@ public class DescriptionService extends ComponentService {
 										.field(Description.Fields.TERM).defaultOperator(Operator.AND))
 						// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
 				);
+
+				// Must match the requested language
+				boolBuilder.must(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes));
 			}
 		}
 	}

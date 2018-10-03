@@ -47,13 +47,17 @@ public class DescriptionController {
 	@RequestMapping(value = "browser/{branch}/descriptions", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public Page<BrowserDescriptionSearchResult> findBrowserDescriptions(@PathVariable String branch, @RequestParam(required = false) String term,
-			@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "50") int limit) {
+	public Page<BrowserDescriptionSearchResult> findBrowserDescriptions(
+			@PathVariable String branch,
+			@RequestParam(required = false) String term,
+			@RequestParam(defaultValue = "0") int offset,
+			@RequestParam(defaultValue = "50") int limit,
+			@RequestHeader(value = "Accept-Language", defaultValue = "en-US;q=0.8,en-GB;q=0.6") String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 
-		AggregatedPage<Description> page = descriptionService.findDescriptionsWithAggregations(branch, term, pageRequest);
+		AggregatedPage<Description> page = descriptionService.findDescriptionsWithAggregations(branch, term, ControllerHelper.getLanguageCodes(acceptLanguageHeader), pageRequest);
 		Set<String> conceptIds = page.getContent().stream().map(Description::getConceptId).collect(Collectors.toSet());
 		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds).getResultsMap();
 
