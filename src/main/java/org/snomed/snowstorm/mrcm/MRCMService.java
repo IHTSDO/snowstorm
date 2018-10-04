@@ -42,7 +42,7 @@ public class MRCMService {
 		this.mrcm = new MRCMLoader().loadFromFile();
 	}
 
-	public Collection<ConceptMini> retrieveDomainAttributes(String branchPath, Set<Long> parentIds) {
+	public Collection<ConceptMini> retrieveDomainAttributes(String branchPath, Set<Long> parentIds, List<String> languageCodes) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Set<Long> allAncestors = queryService.findAncestorIdsAsUnion(branchCriteria, false, parentIds);
 		allAncestors.addAll(parentIds);
@@ -72,17 +72,20 @@ public class MRCMService {
 		allMatchedAttributeIds.removeAll(descendantAttributes);
 		allMatchedAttributeIds.addAll(descendantAttributes);
 
-		return conceptService.findConceptMinis(branchCriteria, allMatchedAttributeIds).getResultsMap().values();
+		return conceptService.findConceptMinis(branchCriteria, allMatchedAttributeIds, languageCodes).getResultsMap().values();
 	}
 
 
-	public Collection<ConceptMini> retrieveAttributeValues(String branchPath, String attributeId, String termPrefix) {
+	public Collection<ConceptMini> retrieveAttributeValues(String branchPath, String attributeId, String termPrefix, List<String> languageCodes) {
 		Attribute attribute = mrcm.getAttributeMap().get(parseLong(attributeId));
 		if (attribute == null) {
 			throw new IllegalArgumentException("MRCM Attribute " + attributeId + " not found.");
 		}
 
-		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);
+		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false)
+				.termPrefix(termPrefix)
+				.languageCodes(languageCodes);
+
 		for (Range range : attribute.getRangeSet()) {
 			Long conceptId = range.getConceptId();
 			InclusionType inclusionType = range.getInclusionType();
@@ -99,7 +102,6 @@ public class MRCMService {
 			}
 		}
 
-		queryBuilder.termPrefix(termPrefix);
 		return queryService.search(queryBuilder, branchPath, PageRequest.of(0, 50)).getContent();
 	}
 

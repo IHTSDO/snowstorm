@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 
 public class ControllerHelper {
 
+	public static final String DEFAULT_ACCEPT_LANG_HEADER = "en-US;q=0.8,en-GB;q=0.6";
+
 	static ResponseEntity<Void> getCreatedResponse(String id) {
 		HttpHeaders httpHeaders = new HttpHeaders();
 		httpHeaders.setLocation(ServletUriComponentsBuilder
@@ -63,8 +65,14 @@ public class ControllerHelper {
 	public static List<String> getLanguageCodes(String acceptLanguageHeader) {
 		List<Locale.LanguageRange> languageRanges = Locale.LanguageRange.parse(acceptLanguageHeader);
 
-		return new ArrayList<>(languageRanges.stream()
+		List<String> languageCodes = new ArrayList<>(languageRanges.stream()
 				.map(languageRange -> languageRange.getRange().contains("-") ? languageRange.getRange().substring(0, languageRange.getRange().indexOf("-")) : languageRange.getRange())
 				.collect(Collectors.toCollection((Supplier<Set<String>>) LinkedHashSet::new)));
+
+		// Always include en at the end if not already present because this is the default language.
+		if (!languageCodes.contains("en")) {
+			languageCodes.add("en");
+		}
+		return languageCodes;
 	}
 }

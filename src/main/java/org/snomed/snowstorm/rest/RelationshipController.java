@@ -57,9 +57,11 @@ public class RelationshipController {
 			@RequestParam(required = false) RelationshipCharacteristicType characteristicType,
 			@RequestParam(required = false) Integer group,
 			@RequestParam(defaultValue = "0") int offset,
-			@RequestParam(defaultValue = "50") int limit) {
+			@RequestParam(defaultValue = "50") int limit,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
+		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		Page<Relationship> relationshipPage = relationshipService.findRelationships(
 				branch,
 				null,
@@ -73,16 +75,16 @@ public class RelationshipController {
 				group,
 				ControllerHelper.getPageRequest(offset, limit));
 
-		expandSourceAndTarget(branch, relationshipPage.getContent());
+		expandSourceAndTarget(branch, relationshipPage.getContent(), languageCodes);
 
 		return new ItemsPage<>(relationshipPage);
 	}
 
-	private void expandSourceAndTarget(String branch, List<Relationship> relationships) {
+	private void expandSourceAndTarget(String branch, List<Relationship> relationships, List<String> languageCodes) {
 		Set<String> sourceIds = relationships.stream().map(Relationship::getSourceId).collect(Collectors.toSet());
 		Set<String> typeIds = relationships.stream().map(Relationship::getTypeId).collect(Collectors.toSet());
 
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, Sets.union(sourceIds, typeIds)).getResultsMap();
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, Sets.union(sourceIds, typeIds), languageCodes).getResultsMap();
 		relationships.forEach(r -> {
 			r.setSource(conceptMinis.get(r.getSourceId()));
 			r.setType(conceptMinis.get(r.getTypeId()));
@@ -92,11 +94,15 @@ public class RelationshipController {
 	@RequestMapping(value = "{branch}/relationship/{relationshipId}", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public Relationship fetchRelationship(@PathVariable String branch, @PathVariable String relationshipId) {
+	public Relationship fetchRelationship(
+			@PathVariable String branch,
+			@PathVariable String relationshipId,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 		branch = BranchPathUriUtil.decodePath(branch);
+		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		Relationship relationship = relationshipService.findRelationship(BranchPathUriUtil.decodePath(branch), relationshipId);
 		if (relationship != null) {
-			expandSourceAndTarget(branch, Collections.singletonList(relationship));
+			expandSourceAndTarget(branch, Collections.singletonList(relationship), languageCodes);
 		}
 		return ControllerHelper.throwIfNotFound("Relationship", relationship);
 	}

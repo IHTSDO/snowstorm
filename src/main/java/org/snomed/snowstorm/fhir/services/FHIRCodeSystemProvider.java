@@ -9,6 +9,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.hl7.fhir.dstu3.model.*;
 import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
 import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Relationship;
@@ -25,7 +26,7 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 
 @Component
 public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants {
-	
+
 	@Autowired
 	private ConceptService conceptService;
 	
@@ -50,8 +51,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		}
 		
 		String branch = helper.getBranchForVersion(version);
-		Concept c = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), BranchPathUriUtil.decodePath(branch)));
-		Collection<ConceptMini> children = conceptService.findConceptChildren(code.getValue(), branch, Relationship.CharacteristicType.inferred);
+		Concept c = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), Config.DEFAULT_LANGUAGE_CODES, BranchPathUriUtil.decodePath(branch)));
+		Collection<ConceptMini> children = conceptService.findConceptChildren(code.getValue(), Config.DEFAULT_LANGUAGE_CODES, branch, Relationship.CharacteristicType.inferred);
 		return mapper.mapToFHIR(c, children); 
 	}
 	

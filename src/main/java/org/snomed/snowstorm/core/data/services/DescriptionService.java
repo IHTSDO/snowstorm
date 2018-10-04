@@ -260,9 +260,10 @@ public class DescriptionService extends ComponentService {
 	private void joinLangRefsetMembers(BranchCriteria branchCriteria, Set<String> allConceptIds, Map<String, Description> descriptionIdMap) {
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 		for (List<String> conceptIds : Iterables.partition(allConceptIds, CLAUSE_LIMIT)) {
+
 			queryBuilder.withQuery(boolQuery()
 					.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-					.must(termsQuery("refsetId", Concepts.US_EN_LANG_REFSET, Concepts.GB_EN_LANG_REFSET)) // TODO: Replace with ECL selection
+					.must(termsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED, Concepts.ACCEPTABLE))
 					.must(termsQuery("conceptId", conceptIds)))
 					.withPageable(LARGE_PAGE);
 			// Join Lang Refset Members

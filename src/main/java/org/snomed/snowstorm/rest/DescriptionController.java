@@ -52,14 +52,15 @@ public class DescriptionController {
 			@RequestParam(required = false) String term,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
-			@RequestHeader(value = "Accept-Language", defaultValue = "en-US;q=0.8,en-GB;q=0.6") String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 
-		AggregatedPage<Description> page = descriptionService.findDescriptionsWithAggregations(branch, term, ControllerHelper.getLanguageCodes(acceptLanguageHeader), pageRequest);
+		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		AggregatedPage<Description> page = descriptionService.findDescriptionsWithAggregations(branch, term, languageCodes, pageRequest);
 		Set<String> conceptIds = page.getContent().stream().map(Description::getConceptId).collect(Collectors.toSet());
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds).getResultsMap();
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds, languageCodes).getResultsMap();
 
 		List<BrowserDescriptionSearchResult> results = new ArrayList<>();
 		page.getContent().forEach(d -> results.add(new BrowserDescriptionSearchResult(d.getTerm(), d.isActive(), conceptMinis.get(d.getConceptId()))));

@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class ExpressionService {
@@ -22,24 +23,24 @@ public class ExpressionService {
 	@Autowired
 	private QueryService queryService;
 
-	public Expression getConceptAuthoringForm(String conceptId, String branchPath) {
+	public Expression getConceptAuthoringForm(String conceptId, List<String> languageCodes, String branchPath) {
 		//First add the existing attributes
 		Expression expression = new Expression();
-		Concept concept = conceptService.find(conceptId, branchPath);
+		Concept concept = conceptService.find(conceptId, languageCodes, branchPath);
 		concept.getRelationships().stream()
 				.filter(relationship -> relationship.isActive() && !Concepts.STATED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId()))
 				.forEach(relationship -> addAttributeToExpression(relationship, expression));
 
 		//Now work out the nearest primitive parents
-		Collection<ConceptMini> ancestors = getAncestors(conceptId, branchPath);
-		final Collection<ConceptMini> proxPrimParents = getProximalPrimitiveParents(ancestors, branchPath);
+		Collection<ConceptMini> ancestors = getAncestors(conceptId, languageCodes, branchPath);
+		final Collection<ConceptMini> proxPrimParents = getProximalPrimitiveParents(ancestors, languageCodes, branchPath);
 		expression.addConcepts(proxPrimParents);
 		return expression;
 	}
 	
-	private Collection<ConceptMini> getAncestors(String conceptId, String branchPath) {
+	private Collection<ConceptMini> getAncestors(String conceptId, List<String> languageCodes, String branchPath) {
 		Set<Long> ancestorIds = queryService.findAncestorIds(conceptId, branchPath, false);
-		ResultMapPage<String, ConceptMini> pages = conceptService.findConceptMinis(branchPath, ancestorIds);
+		ResultMapPage<String, ConceptMini> pages = conceptService.findConceptMinis(branchPath, ancestorIds, languageCodes);
 		return pages.getResultsMap().values();
 	}
 
@@ -58,9 +59,9 @@ public class ExpressionService {
 		}
 	}
 	
-	public Collection<ConceptMini> getProximalPrimitiveParents(Collection<ConceptMini> ancestors, String branchPath) {
+	public Collection<ConceptMini> getProximalPrimitiveParents(Collection<ConceptMini> ancestors, List<String> languageCodes, String branchPath) {
 		Set<String> proxPrimIds = getProximalPrimitiveParentIds(ancestors, branchPath);
-		ResultMapPage<String, ConceptMini> pages = conceptService.findConceptMinis(branchPath, proxPrimIds);
+		ResultMapPage<String, ConceptMini> pages = conceptService.findConceptMinis(branchPath, proxPrimIds, languageCodes);
 		return pages.getResultsMap().values();
 	}
 	

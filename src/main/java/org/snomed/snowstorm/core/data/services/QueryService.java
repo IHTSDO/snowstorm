@@ -30,11 +30,11 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 
 @Service
 public class QueryService {
 
-	private static final Set<String> DEFAULT_LANGUAGE_CODES = Collections.singleton("en");
 	static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 	private static final long IS_A_LONG = parseLong(Concepts.ISA);
 
@@ -64,11 +64,11 @@ public class QueryService {
 
 		if (conceptIdPageOptional.isPresent()) {
 			Page<Long> conceptIdPage = conceptIdPageOptional.get();
-			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptIdPage.getContent());
+			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptIdPage.getContent(), conceptQuery.getLanguageCodes());
 			return new PageImpl<>(sortConceptMinisByTermOrder(conceptIdPage.getContent(), conceptMinis.getResultsMap()), pageRequest, conceptIdPage.getTotalElements());
 		} else {
 			// No ids - return page of all concepts
-			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, pageRequest);
+			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptQuery.getLanguageCodes(), pageRequest);
 			return new PageImpl<>(new ArrayList<>(conceptMinis.getResultsMap().values()), pageRequest, conceptMinis.getTotalElements());
 		}
 	}
@@ -421,7 +421,7 @@ public class QueryService {
 		private final boolean stated;
 		private Boolean activeFilter;
 		private String termPrefix;
-		private Collection<String> languageCodes;
+		private List<String> languageCodes;
 		private String ecl;
 		private Set<String> conceptIds;
 
@@ -468,7 +468,7 @@ public class QueryService {
 			return this;
 		}
 
-		public ConceptQueryBuilder languageCodes(Collection<String> languageCodes) {
+		public ConceptQueryBuilder languageCodes(List<String> languageCodes) {
 			this.languageCodes = languageCodes;
 			return this;
 		}
@@ -501,7 +501,7 @@ public class QueryService {
 			return termPrefix;
 		}
 
-		private Collection<String> getLanguageCodes() {
+		private List<String> getLanguageCodes() {
 			return languageCodes;
 		}
 

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 
 @RestController
@@ -24,17 +25,28 @@ public class MRCMController {
 	@ApiOperation("Retrieve MRCM domain attributes applicable for the given parents.")
 	@RequestMapping(value = "/mrcm/{path}/domain-attributes", method = RequestMethod.GET)
 	@ResponseBody
-	public ItemsPage<ConceptMini> retrieveDomainAttributes(@PathVariable String path, @RequestParam Set<Long> parentIds) {
+	public ItemsPage<ConceptMini> retrieveDomainAttributes(
+			@PathVariable String path,
+			@RequestParam Set<Long> parentIds,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
 		String branchPath = BranchPathUriUtil.decodePath(path);
-		return new ItemsPage<>(mrcmService.retrieveDomainAttributes(branchPath, parentIds));
+		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		return new ItemsPage<>(mrcmService.retrieveDomainAttributes(branchPath, parentIds, languageCodes));
 	}
 
 	@ApiOperation("Retrieve valid values for the given attribute and term prefix.")
 	@RequestMapping(value = "/mrcm/{path}/attribute-values/{attributeId}", method = RequestMethod.GET)
 	@ResponseBody
-	public ItemsPage<ConceptMini> retrieveAttributeValues(@PathVariable String path, @PathVariable String attributeId, @RequestParam String termPrefix) {
+	public ItemsPage<ConceptMini> retrieveAttributeValues(
+			@PathVariable String path,
+			@PathVariable String attributeId,
+			@RequestParam String termPrefix,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
 		String branchPath = BranchPathUriUtil.decodePath(path);
-		return new ItemsPage<>(mrcmService.retrieveAttributeValues(branchPath, attributeId, termPrefix));
+		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		return new ItemsPage<>(mrcmService.retrieveAttributeValues(branchPath, attributeId, termPrefix, languageCodes));
 	}
 
 	@ApiOperation("Update system wide MRCM from XML file. This is an alternative implementation to the reference sets.")

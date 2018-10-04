@@ -11,7 +11,9 @@ import pl.allegro.tech.embeddedelasticsearch.EmbeddedElastic;
 import pl.allegro.tech.embeddedelasticsearch.PopularProperties;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @PropertySource("application.properties")
@@ -20,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 public class TestConfig extends Config {
 
 	private static final String ELASTIC_SEARCH_VERSION = "6.0.1";
+	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList("en");
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;

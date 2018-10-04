@@ -57,7 +57,7 @@ public class ConceptController {
 			@RequestParam(required = false) Set<String> conceptIds,
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
-			@RequestHeader(value = "Accept-Language", defaultValue = "en-US;q=0.8,en-GB;q=0.6") String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		// TODO: Remove this partial ESCG support
 		if (ecl == null && escg != null && !escg.isEmpty()) {
@@ -109,8 +109,10 @@ public class ConceptController {
 	public Page<? extends ConceptView> getBrowserConcepts(
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "0") int number,
-			@RequestParam(defaultValue = "100") int size) {
-		return conceptService.findAll(BranchPathUriUtil.decodePath(branch), PageRequest.of(number, size));
+			@RequestParam(defaultValue = "100") int size,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		return conceptService.findAll(BranchPathUriUtil.decodePath(branch), ControllerHelper.getLanguageCodes(acceptLanguageHeader), PageRequest.of(number, size));
 	}
 
 	@RequestMapping(value = "/browser/{branch}/concepts/bulk-load", method = RequestMethod.POST)
@@ -118,22 +120,32 @@ public class ConceptController {
 	@JsonView(value = View.Component.class)
 	public Collection<Concept> getBrowserConcepts(
 			@PathVariable String branch,
-			@RequestBody ConceptIdsPojo request) {
-		return conceptService.find(BranchPathUriUtil.decodePath(branch), request.getConceptIds());
+			@RequestBody ConceptIdsPojo request,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		return conceptService.find(BranchPathUriUtil.decodePath(branch), request.getConceptIds(), ControllerHelper.getLanguageCodes(acceptLanguageHeader));
 	}
 
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
-	public ConceptView findConcept(@PathVariable String branch, @PathVariable String conceptId) {
-		return ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, BranchPathUriUtil.decodePath(branch)));
+	public ConceptView findConcept(
+			@PathVariable String branch,
+			@PathVariable String conceptId,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		return ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, ControllerHelper.getLanguageCodes(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch)));
 	}
 
 	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descriptions", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
-	public ConceptDescriptionsResult findConceptDescriptions(@PathVariable String branch, @PathVariable String conceptId) {
-		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, BranchPathUriUtil.decodePath(branch)));
+	public ConceptDescriptionsResult findConceptDescriptions(
+			@PathVariable String branch,
+			@PathVariable String conceptId,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, ControllerHelper.getLanguageCodes(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch)));
 		return new ConceptDescriptionsResult(concept.getDescriptions());
 	}
 
@@ -145,7 +157,8 @@ public class ConceptController {
 			@PathVariable(value = "false", required = false) boolean stated,
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
-			@RequestHeader("Accept-Language") String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
 		return findConcepts(branch, stated, null, null, "<" + conceptId, null, null, offset, limit, acceptLanguageHeader);
 	}
 
@@ -160,17 +173,26 @@ public class ConceptController {
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.PUT)
 	@JsonView(value = View.Component.class)
-	public ConceptView updateConcept(@PathVariable String branch, @PathVariable String conceptId, @RequestBody @Valid ConceptView concept) throws ServiceException {
+	public ConceptView updateConcept(
+			@PathVariable String branch,
+			@PathVariable String conceptId,
+			@RequestBody @Valid ConceptView concept,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
+
 		Assert.isTrue(concept.getConceptId() != null && conceptId != null && concept.getConceptId().equals(conceptId), "The conceptId in the " +
 				"path must match the one in the request body.");
-		return conceptService.update((Concept) concept, BranchPathUriUtil.decodePath(branch));
+		return conceptService.update((Concept) concept, ControllerHelper.getLanguageCodes(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
 	}
 
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.POST)
 	@JsonView(value = View.Component.class)
-	public ConceptView createConcept(@PathVariable String branch, @RequestBody @Valid ConceptView concept) throws ServiceException {
-		return conceptService.create((Concept) concept, BranchPathUriUtil.decodePath(branch));
+	public ConceptView createConcept(
+			@PathVariable String branch,
+			@RequestBody @Valid ConceptView concept,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
+
+		return conceptService.create((Concept) concept, ControllerHelper.getLanguageCodes(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.DELETE)
@@ -201,32 +223,37 @@ public class ConceptController {
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/children", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptChildren(@PathVariable String branch,
-													   @PathVariable String conceptId,
-													   @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
+			@PathVariable String conceptId,
+			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return conceptService.findConceptChildren(conceptId, BranchPathUriUtil.decodePath(branch), form);
+		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		return conceptService.findConceptChildren(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch), form);
 	}
 
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/parents", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptParents(@PathVariable String branch,
-													  @PathVariable String conceptId,
-													  @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
+			@PathVariable String conceptId,
+			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return conceptService.findConceptParents(conceptId, BranchPathUriUtil.decodePath(branch), form);
+		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		return conceptService.findConceptParents(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch), form);
 	}
 
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/ancestors", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptAncestors(@PathVariable String branch,
-													  @PathVariable String conceptId,
-													  @RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form) {
+			@PathVariable String conceptId,
+			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		String branchPath = BranchPathUriUtil.decodePath(branch);
 		Set<Long> ancestorIds = queryService.findAncestorIds(conceptId, branchPath, form == Relationship.CharacteristicType.stated);
-		return conceptService.findConceptMinis(branchPath, ancestorIds).getResultsMap().values();
+		return conceptService.findConceptMinis(branchPath, ancestorIds, ControllerHelper.getLanguageCodes(acceptLanguageHeader)).getResultsMap().values();
 	}
 
 	@RequestMapping(value = "/rebuild/{branch}", method = RequestMethod.POST)
@@ -236,10 +263,13 @@ public class ConceptController {
 	
 	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/authoring-form", method = RequestMethod.GET)
-	public Expression getConceptAuthoringForm(@PathVariable String branch,
-													   @PathVariable String conceptId) {
+	public Expression getConceptAuthoringForm(
+			@PathVariable String branch,
+			@PathVariable String conceptId,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return expressionService.getConceptAuthoringForm(conceptId, BranchPathUriUtil.decodePath(branch));
+		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		return expressionService.getConceptAuthoringForm(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch));
 	}
 
 }

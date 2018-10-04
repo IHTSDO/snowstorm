@@ -115,8 +115,11 @@ public class BranchController {
 
 	@ResponseBody
 	@RequestMapping(value = "/merge-reviews/{id}/details", method = RequestMethod.GET)
-	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(@PathVariable String id) {
-		return reviewService.getMergeReviewConflictingConcepts(id);
+	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(
+			@PathVariable String id,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		return reviewService.getMergeReviewConflictingConcepts(id, ControllerHelper.getLanguageCodes(acceptLanguageHeader));
 	}
 
 	@RequestMapping(value = "/merge-reviews/{id}/{conceptId}", method = RequestMethod.POST)

@@ -117,7 +117,7 @@ public class BranchReviewService {
 		return mergeReview;
 	}
 
-	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(String id) {
+	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(String id, List<String> languageCodes) {
 		final MergeReview mergeReview = getMergeReviewOrThrow(id);
 		assertMergeReviewCurrent(mergeReview);
 
@@ -125,8 +125,8 @@ public class BranchReviewService {
 
 		final Map<Long, MergeReviewConceptVersions> conflicts = new HashMap<>();
 		if (!conceptsChangedInBoth.isEmpty()) {
-			final Collection<Concept> conceptOnSource = conceptService.find(mergeReview.getSourcePath(), conceptsChangedInBoth);
-			final Collection<Concept> conceptOnTarget = conceptService.find(mergeReview.getTargetPath(), conceptsChangedInBoth);
+			final Collection<Concept> conceptOnSource = conceptService.find(mergeReview.getSourcePath(), conceptsChangedInBoth, languageCodes);
+			final Collection<Concept> conceptOnTarget = conceptService.find(mergeReview.getTargetPath(), conceptsChangedInBoth, languageCodes);
 
 			conceptOnSource.stream().forEach(concept -> conflicts.put(concept.getConceptIdAsLong(), new MergeReviewConceptVersions(concept)));
 			conceptOnTarget.stream().forEach(targetConcept -> {

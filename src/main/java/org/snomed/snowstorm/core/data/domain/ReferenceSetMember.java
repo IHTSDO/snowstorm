@@ -24,6 +24,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 
 	public interface LanguageFields {
 		String ACCEPTABILITY_ID = "acceptabilityId";
+		String ACCEPTABILITY_ID_FIELD_PATH = "additionalFields.acceptabilityId";
 	}
 
 	public interface OwlExpressionFields {

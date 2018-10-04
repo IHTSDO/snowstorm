@@ -13,11 +13,14 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.util.CloseableIterator;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
@@ -119,12 +122,13 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 				maxEffectiveTimeCollector.add(effectiveTimeI);
 			}
 		});
-		for (Integer effectiveTime : effectiveDateMap.keySet()) {
+		for (Integer effectiveTime : new TreeSet<>(effectiveDateMap.keySet())) {
 			// Find component states with an equal or greater effective time
 			boolean replacementOfThisEffectiveTimeAllowed = patchReleaseVersion != null && patchReleaseVersion.equals(effectiveTime);
 			List<T> componentsAtDate = effectiveDateMap.get(effectiveTime);
 			String idField = componentsAtDate.get(0).getIdField();
-			List<? extends SnomedComponent> componentsWithSameOrLaterEffectiveTime = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+			AtomicInteger alreadyExistingComponentCount = new AtomicInteger();
+			try (CloseableIterator<T> componentsWithSameOrLaterEffectiveTime = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
 							.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).collect(Collectors.toList())))
@@ -132,12 +136,17 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 									rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gt(effectiveTime)
 									: rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gte(effectiveTime)))
 					.withFields(idField)// Only fetch the id
-					.build(), componentClass);
-			if (!componentsWithSameOrLaterEffectiveTime.isEmpty()) {
+					.withPageable(LARGE_PAGE)
+					.build(), componentClass)) {
+				componentsWithSameOrLaterEffectiveTime.forEachRemaining(component -> {
+					components.remove(component);// Compared by id only
+					alreadyExistingComponentCount.incrementAndGet();
+				});
+			}
+			if (alreadyExistingComponentCount.get() > 0) {
 				// Remove ineffective components
 				logger.warn("{} {} components in the RF2 import with effectiveTime {} will not be imported because components already exist " +
-						"with the same identifier at the same or later effectiveTime.", componentsWithSameOrLaterEffectiveTime.size(), componentClass.getSimpleName(), effectiveTime);
-				components.removeAll(componentsWithSameOrLaterEffectiveTime);// Compared by id only
+						"with the same identifier at the same or later effectiveTime.", alreadyExistingComponentCount.get(), componentClass.getSimpleName(), effectiveTime);
 			}
 		}
 	}

@@ -28,6 +28,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODES;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -769,7 +770,7 @@ public class ConceptServiceTest extends AbstractTest {
 			toUpdate.add(concept);
 		});
 
-		conceptService.createUpdate(toUpdate, "MAIN/A");
+		conceptService.createUpdate(toUpdate, DEFAULT_LANGUAGE_CODES, "MAIN/A");
 
 		final Page<Concept> pageAfterUpdate = conceptService.findAll("MAIN/A", PageRequest.of(0, 100));
 		assertEquals(tenThousand + 1, pageAfterUpdate.getTotalElements());
@@ -786,7 +787,7 @@ public class ConceptServiceTest extends AbstractTest {
 			c.getRelationships().iterator().next().setActive(false);
 			c.addRelationship(new Relationship(ISA, Concepts.CLINICAL_FINDING));
 		});
-		conceptService.createUpdate(concepts, "MAIN/A");
+		conceptService.createUpdate(concepts, DEFAULT_LANGUAGE_CODES, "MAIN/A");
 	}
 
 	private void printAllDescriptions(String path) {

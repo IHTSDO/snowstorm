@@ -56,6 +56,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 
 @Service
 public class ConceptService extends ComponentService {
@@ -110,7 +111,11 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Concept find(String id, String path) {
-		final Page<Concept> concepts = doFind(Collections.singleton(id), path, PageRequest.of(0, 10));
+		return find(id, DEFAULT_LANGUAGE_CODES, path);
+	}
+
+	public Concept find(String id, List<String> languageCodes, String path) {
+		final Page<Concept> concepts = doFind(Collections.singleton(id), languageCodes, path, PageRequest.of(0, 10));
 		if (concepts.getTotalElements() > 1) {
 			final Branch latestBranch = branchService.findLatest(path);
 			final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
@@ -124,8 +129,8 @@ public class ConceptService extends ComponentService {
 		return concept;
 	}
 
-	public Collection<Concept> find(String path, Collection<? extends Object> ids) {
-		return doFind(ids, path, PageRequest.of(0, ids.size())).getContent();
+	public Collection<Concept> find(String path, Collection<? extends Object> ids, List<String> languageCodes) {
+		return doFind(ids, languageCodes, path, PageRequest.of(0, ids.size())).getContent();
 	}
 
 	public boolean exists(String id, String path) {
@@ -150,10 +155,14 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Page<Concept> findAll(String path, PageRequest pageRequest) {
-		return doFind(null, path, pageRequest);
+		return findAll(path, DEFAULT_LANGUAGE_CODES, pageRequest);
 	}
 
-	public Collection<ConceptMini> findConceptChildren(String conceptId, String path, Relationship.CharacteristicType relationshipType) {
+	public Page<Concept> findAll(String path, List<String> languageCodes, PageRequest pageRequest) {
+		return doFind(null, languageCodes, path, pageRequest);
+	}
+
+	public Collection<ConceptMini> findConceptChildren(String conceptId, List<String> languageCodes, String path, Relationship.CharacteristicType relationshipType) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 		// Gather children ids
@@ -172,7 +181,7 @@ public class ConceptService extends ComponentService {
 				.withPageable(LARGE_PAGE)
 				.build(), Concept.class
 		)) {
-			conceptStream.forEachRemaining(concept -> conceptMiniMap.put(concept.getConceptId(), new ConceptMini(concept).setLeaf(relationshipType, true)));
+			conceptStream.forEachRemaining(concept -> conceptMiniMap.put(concept.getConceptId(), new ConceptMini(concept, languageCodes).setLeaf(relationshipType, true)));
 		}
 
 		// Find children of the children to set the isLeaf flag
@@ -185,8 +194,8 @@ public class ConceptService extends ComponentService {
 		return conceptMiniMap.values();
 	}
 
-	public Collection<ConceptMini> findConceptParents(String conceptId, String path, Relationship.CharacteristicType form) {
-		Concept concept = find(conceptId, path);
+	public Collection<ConceptMini> findConceptParents(String conceptId, List<String> languageCodes, String path, Relationship.CharacteristicType form) {
+		Concept concept = find(conceptId, languageCodes, path);
 		return concept.getRelationships().stream().filter(r -> form.getConceptId().equals(r.getCharacteristicTypeId())).map(Relationship::target).collect(Collectors.toList());
 	}
 
@@ -206,49 +215,49 @@ public class ConceptService extends ComponentService {
 		);
 	}
 
-	private Page<Concept> doFind(Collection<? extends Object> conceptIds, Commit commit, PageRequest pageRequest) {
+	private Page<Concept> doFind(Collection<? extends Object> conceptIds, List<String> languageCodes, Commit commit, PageRequest pageRequest) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-		return doFind(conceptIds, branchCriteria, pageRequest, true, true);
+		return doFind(conceptIds, languageCodes, branchCriteria, pageRequest, true, true);
 	}
 
-	private Page<Concept> doFind(Collection<? extends Object> conceptIds, String path, PageRequest pageRequest) {
+	private Page<Concept> doFind(Collection<? extends Object> conceptIds, List<String> languageCodes, String path, PageRequest pageRequest) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
-		return doFind(conceptIds, branchCriteria, pageRequest, true, true);
+		return doFind(conceptIds, languageCodes, branchCriteria, pageRequest, true, true);
 	}
 
-	public ResultMapPage<String, ConceptMini> findConceptMinis(String path, Collection<? extends Object> conceptIds) {
+	public ResultMapPage<String, ConceptMini> findConceptMinis(String path, Collection<? extends Object> conceptIds, List<String> languageCodes) {
 		if (conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
-		return findConceptMinis(branchCriteria, conceptIds);
+		return findConceptMinis(branchCriteria, conceptIds, languageCodes);
 	}
 
-	public ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, PageRequest pageRequest) {
-		return findConceptMinis(branchCriteria, null, pageRequest);
+	public ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, List<String> languageCodes, PageRequest pageRequest) {
+		return findConceptMinis(branchCriteria, null, languageCodes, pageRequest);
 	}
 
-	public ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, Collection<? extends Object> conceptIds) {
+	public ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, Collection<? extends Object> conceptIds, List<String> languageCodes) {
 		if (conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
-		return findConceptMinis(branchCriteria, conceptIds, PageRequest.of(0, conceptIds.size()));
+		return findConceptMinis(branchCriteria, conceptIds, languageCodes, PageRequest.of(0, conceptIds.size()));
 	}
 
-	private ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, Collection<? extends Object> conceptIds, PageRequest pageRequest) {
+	private ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, Collection<? extends Object> conceptIds, List<String> languageCodes, PageRequest pageRequest) {
 		if (conceptIds != null && conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
-		Page<Concept> concepts = doFind(conceptIds, branchCriteria, pageRequest, false, false);
+		Page<Concept> concepts = doFind(conceptIds, languageCodes, branchCriteria, pageRequest, false, false);
 		return new ResultMapPage<>(
-				concepts.getContent().stream().map(ConceptMini::new).collect(Collectors.toMap(ConceptMini::getConceptId, Function.identity())),
+				concepts.getContent().stream().map(concept -> new ConceptMini(concept, languageCodes)).collect(Collectors.toMap(ConceptMini::getConceptId, Function.identity())),
 				concepts.getTotalElements());
 	}
 
-	private void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate) {
+	private void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate, List<String> languageCodes) {
 		if (!minisToPopulate.isEmpty()) {
 			Set<String> conceptIds = minisToPopulate.keySet();
-			Page<Concept> concepts = doFind(conceptIds, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false);
+			Page<Concept> concepts = doFind(conceptIds, languageCodes, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false);
 			concepts.getContent().forEach(c -> {
 				ConceptMini conceptMini = minisToPopulate.get(c.getConceptId());
 				conceptMini.setDefinitionStatus(c.getDefinitionStatus());
@@ -257,11 +266,13 @@ public class ConceptService extends ComponentService {
 		}
 	}
 
-	private Page<Concept> doFind(Collection<? extends Object> conceptIdsToFind,
-								 BranchCriteria branchCriteria,
-								 PageRequest pageRequest,
-								 boolean includeRelationships,
-								 boolean includeDescriptionInactivationInfo) {
+	private Page<Concept> doFind(
+			Collection<? extends Object> conceptIdsToFind,
+			List<String> languageCodes,
+			BranchCriteria branchCriteria,
+			PageRequest pageRequest,
+			boolean includeRelationships,
+			boolean includeDescriptionInactivationInfo) {
 
 		final TimerUtil timer = new TimerUtil("Find concept", Level.INFO);
 		timer.checkpoint("get branch criteria");
@@ -313,8 +324,8 @@ public class ConceptService extends ComponentService {
 						conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
 
 						// Add placeholders for relationship type and target details
-						relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId()));
-						relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
+						relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId(), languageCodes));
+						relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId(), languageCodes));
 					});
 				}
 			}
@@ -330,7 +341,7 @@ public class ConceptService extends ComponentService {
 
 				try (final CloseableIterator<ReferenceSetMember> axiomMembers = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
 					axiomMembers.forEachRemaining(axiomMember -> {
-						joinAxiom(axiomMember, conceptIdMap, conceptMiniMap);
+						joinAxiom(axiomMember, conceptIdMap, conceptMiniMap, languageCodes);
 					});
 				}
 			}
@@ -356,7 +367,7 @@ public class ConceptService extends ComponentService {
 		return concepts;
 	}
 
-	private void joinAxiom(ReferenceSetMember axiomMember, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap) {
+	private void joinAxiom(ReferenceSetMember axiomMember, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap, List<String> languageCodes) {
 		try {
 			String referencedComponentId = axiomMember.getReferencedComponentId();
 			SAxiomRepresentation axiomRepresentation = axiomConversionService.convertAxiomMemberToAxiomRepresentation(axiomMember);
@@ -375,8 +386,8 @@ public class ConceptService extends ComponentService {
 
 				// Add placeholders for relationship type and target details
 				relationships.forEach(relationship -> {
-					relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId()));
-					relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId()));
+					relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId(), languageCodes));
+					relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId(), languageCodes));
 				});
 			}
 
@@ -385,14 +396,14 @@ public class ConceptService extends ComponentService {
 		}
 	}
 
-	private ConceptMini getConceptMini(Map<String, ConceptMini> conceptMiniMap, String id) {
-		if (id == null) return new ConceptMini((String)null);
-		return conceptMiniMap.computeIfAbsent(id, i -> new ConceptMini(id));
+	private ConceptMini getConceptMini(Map<String, ConceptMini> conceptMiniMap, String id, List<String> languageCodes) {
+		if (id == null) return new ConceptMini((String)null, languageCodes);
+		return conceptMiniMap.computeIfAbsent(id, i -> new ConceptMini(id, languageCodes));
 	}
 
 	public void deleteConceptAndComponents(String conceptId, String path, boolean force) {
 		try (final Commit commit = branchService.openCommit(path)) {
-			final Concept concept = find(conceptId, path);
+			final Concept concept = find(conceptId, DEFAULT_LANGUAGE_CODES, path);
 			if (concept == null) {
 				throw new IllegalArgumentException("Concept " + conceptId + " not found.");
 			}
@@ -433,14 +444,22 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Concept create(Concept conceptVersion, String path) throws ServiceException {
+		return create(conceptVersion, DEFAULT_LANGUAGE_CODES, path);
+	}
+
+	public Concept create(Concept conceptVersion, List<String> languageCodes, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		if (conceptVersion.getConceptId() != null && exists(conceptVersion.getConceptId(), path)) {
 			throw new IllegalArgumentException("Concept '" + conceptVersion.getConceptId() + "' already exists on branch '" + path + "'.");
 		}
-		return doSave(conceptVersion, branch);
+		return doSave(conceptVersion, languageCodes, branch);
 	}
 
 	public Iterable<Concept> create(List<Concept> concepts, String path) throws ServiceException {
+		return create(concepts, DEFAULT_LANGUAGE_CODES, path);
+	}
+
+	public Iterable<Concept> create(List<Concept> concepts, List<String> languageCodes, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final Set<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toSet());
 		if (!conceptIds.isEmpty()) {
@@ -450,10 +469,14 @@ public class ConceptService extends ComponentService {
 				throw new IllegalArgumentException("Some concepts already exist on branch '" + path + "', " + conceptIds);
 			}
 		}
-		return doSave(concepts, branch);
+		return doSave(concepts, languageCodes, branch);
 	}
 
 	public Concept update(Concept conceptVersion, String path) throws ServiceException {
+		return update(conceptVersion, DEFAULT_LANGUAGE_CODES, path);
+	}
+
+	public Concept update(Concept conceptVersion, List<String> languageCodes, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final String conceptId = conceptVersion.getConceptId();
 		Assert.isTrue(!Strings.isNullOrEmpty(conceptId), "conceptId is required.");
@@ -461,12 +484,12 @@ public class ConceptService extends ComponentService {
 			throw new IllegalArgumentException("Concept '" + conceptId + "' does not exist on branch '" + path + "'.");
 		}
 
-		return doSave(conceptVersion, branch);
+		return doSave(conceptVersion, languageCodes, branch);
 	}
 
-	public Iterable<Concept> createUpdate(List<Concept> concepts, String path) throws ServiceException {
+	public Iterable<Concept> createUpdate(List<Concept> concepts, List<String> languageCodes, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
-		return doSave(concepts, branch);
+		return doSave(concepts, languageCodes, branch);
 	}
 
 	@Async
@@ -476,7 +499,7 @@ public class ConceptService extends ComponentService {
 			batchConceptChanges.put(batchConceptChange.getId(), batchConceptChange);
 		}
 		try {
-			Iterable<Concept> updatedConcepts = createUpdate(concepts, path);
+			Iterable<Concept> updatedConcepts = createUpdate(concepts, DEFAULT_LANGUAGE_CODES, path);
 			batchConceptChange.setConceptIds(StreamSupport.stream(updatedConcepts.spliterator(), false).map(Concept::getConceptIdAsLong).collect(Collectors.toList()));
 			batchConceptChange.setStatus(AsyncConceptChangeBatch.Status.COMPLETED);
 		} catch (IllegalArgumentException | ServiceException e) {
@@ -513,23 +536,23 @@ public class ConceptService extends ComponentService {
 		}
 	}
 
-	private Concept doSave(Concept concept, Branch branch) throws ServiceException {
-		return doSave(Collections.singleton(concept), branch).iterator().next();
+	private Concept doSave(Concept concept, List<String> languageCodes, Branch branch) throws ServiceException {
+		return doSave(Collections.singleton(concept), languageCodes, branch).iterator().next();
 	}
 
-	private Iterable<Concept> doSave(Collection<Concept> concepts, Branch branch) throws ServiceException {
+	private Iterable<Concept> doSave(Collection<Concept> concepts, List<String> languageCodes, Branch branch) throws ServiceException {
 		try (final Commit commit = branchService.openCommit(branch.getPath())) {
-			final Iterable<Concept> savedConcepts = doSaveBatchConceptsAndComponents(concepts, commit);
+			final Iterable<Concept> savedConcepts = doSaveBatchConceptsAndComponents(concepts, languageCodes, commit);
 			commit.markSuccessful();
 			return savedConcepts;
 		}
 	}
 
 	public void updateWithinCommit(Collection<Concept> concepts, Commit commit) throws ServiceException {
-		doSaveBatchConceptsAndComponents(concepts, commit);
+		doSaveBatchConceptsAndComponents(concepts, DEFAULT_LANGUAGE_CODES, commit);
 	}
 
-	private Iterable<Concept> doSaveBatchConceptsAndComponents(Collection<Concept> concepts, Commit commit) throws ServiceException {
+	private Iterable<Concept> doSaveBatchConceptsAndComponents(Collection<Concept> concepts, List<String> languageCodes, Commit commit) throws ServiceException {
 		final boolean savingMergedConcepts = commit.isRebase();
 
 		validateConcepts(concepts);
@@ -538,7 +561,7 @@ public class ConceptService extends ComponentService {
 		final Map<String, Concept> existingConceptsMap = new HashMap<>();
 		if (!conceptIds.isEmpty()) {
 			for (List<String> conceptIdPartition : Iterables.partition(conceptIds, 500)) {
-				final List<Concept> existingConcepts = doFind(conceptIdPartition, commit, PageRequest.of(0, conceptIds.size())).getContent();
+				final List<Concept> existingConcepts = doFind(conceptIdPartition, DEFAULT_LANGUAGE_CODES, commit, PageRequest.of(0, conceptIds.size())).getContent();
 				for (Concept existingConcept : existingConcepts) {
 					existingConceptsMap.put(existingConcept.getConceptId(), existingConcept);
 				}
@@ -696,13 +719,13 @@ public class ConceptService extends ComponentService {
 		Map<String, ConceptMini> minisToLoad = new HashMap<>();
 		for (Relationship relationship : relationshipsSaved) {
 			conceptMap.get(relationship.getSourceId()).addRelationship(relationship);
-			relationship.setType(getConceptMini(minisToLoad, relationship.getTypeId()));
-			relationship.setTarget(getConceptMini(minisToLoad, relationship.getDestinationId()));
+			relationship.setType(getConceptMini(minisToLoad, relationship.getTypeId(), languageCodes));
+			relationship.setTarget(getConceptMini(minisToLoad, relationship.getDestinationId(), languageCodes));
 		}
 		StreamSupport.stream(referenceSetMembersSaved.spliterator(), false)
 				.filter(member -> Concepts.OWL_AXIOM_REFERENCE_SET.equals(member.getRefsetId()))
-				.forEach(member -> joinAxiom(member, conceptMap, minisToLoad));
-		populateConceptMinis(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit), minisToLoad);
+				.forEach(member -> joinAxiom(member, conceptMap, minisToLoad, languageCodes));
+		populateConceptMinis(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit), minisToLoad, languageCodes);
 
 		// Store assigned identifiers for registration with CIS
 		identifierService.persistAssignedIdsForRegistration(reservedIds);

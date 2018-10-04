@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.junit.Assert.assertEquals;
+import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODES;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 
@@ -104,7 +105,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		Concept food_5 = new Concept("100005").addRelationship(new Relationship(ISA, root.getId()));
 		pizza_2.getRelationships().iterator().next().setActive(false);
 		pizza_2.addRelationship(new Relationship(ISA, food_5.getId()));
-		conceptService.createUpdate(Lists.newArrayList(food_5, pizza_2), branch);
+		conceptService.createUpdate(Lists.newArrayList(food_5, pizza_2), DEFAULT_LANGUAGE_CODES, branch);
 
 		assertTC(root);
 		assertTC(food_5, root);

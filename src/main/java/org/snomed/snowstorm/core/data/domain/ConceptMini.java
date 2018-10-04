@@ -6,9 +6,9 @@ import com.fasterxml.jackson.annotation.JsonRawValue;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.rest.View;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 public class ConceptMini {
@@ -16,6 +16,7 @@ public class ConceptMini {
 	private String conceptId;
 	private String effectiveTime;
 	private Set<Description> activeDescriptions;
+	private Collection<String> languageCodes;
 	private String definitionStatusId;
 	private Boolean leafInferred;
 	private Boolean leafStated;
@@ -27,13 +28,14 @@ public class ConceptMini {
 		activeDescriptions = new HashSet<>();
 	}
 
-	public ConceptMini(String conceptId) {
+	public ConceptMini(String conceptId, List<String> languageCodes) {
 		this();
 		this.conceptId = conceptId;
+		this.languageCodes = languageCodes;
 	}
 
-	public ConceptMini(Concept concept) {
-		this(concept.getConceptId());
+	public ConceptMini(Concept concept, List<String> languageCodes) {
+		this(concept.getConceptId(), languageCodes);
 		effectiveTime = concept.getEffectiveTime();
 		active = concept.isActive();
 		definitionStatusId = concept.getDefinitionStatusId();
@@ -42,6 +44,7 @@ public class ConceptMini {
 		if (descriptions != null) {
 			activeDescriptions = descriptions.stream().filter(SnomedComponent::isActive).collect(Collectors.toSet());
 		}
+		this.languageCodes = languageCodes;
 	}
 
 	public void addActiveDescription(Description fsn) {
@@ -67,18 +70,30 @@ public class ConceptMini {
 	}
 
 	public String getFsn() {
-		for (Description activeDescription : activeDescriptions) {
-			if (Concepts.FSN.equals(activeDescription.getTypeId())) {
-				return activeDescription.getTerm();
-			}
-		}
-		return null;
+		Description description = getFsnDescription();
+		return description != null ? description.getTerm() : null;
+	}
+
+	private Description getFsnDescription() {
+		return getBestDescription(description -> Concepts.FSN.equals(description.getTypeId()));
 	}
 
 	public String getPt() {
-		for (Description activeDescription : activeDescriptions) {
-			if (Concepts.SYNONYM.equals(activeDescription.getTypeId()) && activeDescription.getAcceptabilityMap().values().contains(Concepts.PREFERRED_CONSTANT)) {
-				return activeDescription.getTerm();
+		Description description = getPtDescription();
+		return description != null ? description.getTerm() : null;
+	}
+
+	private Description getPtDescription() {
+		return getBestDescription(description -> Concepts.SYNONYM.equals(description.getTypeId()) && description.getAcceptabilityMap().values().contains(Concepts.PREFERRED_CONSTANT));
+	}
+
+	private Description getBestDescription(Predicate<Description> descriptionPredicate) {
+		Map<String, Description> descriptionsByLanguageCode = activeDescriptions.stream().filter(descriptionPredicate).collect(Collectors.toMap(Description::getLanguageCode, Function.identity()));
+		if (languageCodes != null) {
+			for (String languageCode : languageCodes) {
+				if (descriptionsByLanguageCode.containsKey(languageCode)) {
+					return descriptionsByLanguageCode.get(languageCode);
+				}
 			}
 		}
 		return null;
@@ -88,16 +103,21 @@ public class ConceptMini {
 	@JsonRawValue
 	@JsonProperty("fsn")
 	public String getJsonFsn() {
-		String term = getFsn();
-		return flattenFsn ? "\"" + term + "\"" : String.format("{ \"term\": \"%s\", \"conceptId\": \"%s\" }", term, conceptId);
+		return getJsonTerm(getFsnDescription());
 	}
 
 	@JsonView(value = View.Component.class)
 	@JsonRawValue
 	@JsonProperty("pt")
 	public String getJsonPt() {
-		String term = getPt();
-		return flattenFsn ? "\"" + term + "\"" : String.format("{ \"term\": \"%s\", \"conceptId\": \"%s\" }", term, conceptId);
+		return getJsonTerm(getPtDescription());
+	}
+
+	private String getJsonTerm(Description description) {
+		if (description == null) return null;
+		return flattenFsn ?
+				String.format("\"%s\"", description.getTerm()) :
+				String.format("{ \"term\": \"%s\", \"lang\": \"%s\", \"conceptId\": \"%s\" }", description.getTerm(), description.getLang(), conceptId);
 	}
 
 	public void setDefinitionStatusId(String definitionStatusId) {

@@ -16,13 +16,9 @@ import org.snomed.snowstorm.rest.pojo.ClassificationUpdateRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
-
-import java.net.URI;
-import java.net.URISyntaxException;
 
 @RestController
 @Api(tags = "Classification", description = "-")
@@ -49,9 +45,12 @@ public class ClassificationController {
 	@ApiOperation("Retrieve relationship changes made by a classification run on a branch")
 	@RequestMapping(value = "/{classificationId}/relationship-changes", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
 	@ResponseBody
-	public ItemsPage<RelationshipChange> getRelationshipChanges(@PathVariable String branch, @PathVariable String classificationId,
-																							   @RequestParam(required = false, defaultValue = "0") int offset,
-																							   @RequestParam(required = false, defaultValue = "1000") int limit) {
+	public ItemsPage<RelationshipChange> getRelationshipChanges(
+			@PathVariable String branch,
+			@PathVariable String classificationId,
+			@RequestParam(required = false, defaultValue = "0") int offset,
+			@RequestParam(required = false, defaultValue = "1000") int limit,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		int maxLimit = 10_000;
 		if (limit > maxLimit) {
@@ -59,24 +58,35 @@ public class ClassificationController {
 			offset = 0;
 		}
 
-		return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.decodePath(branch), classificationId, ControllerHelper.getPageRequest(offset, limit)));
+		return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.decodePath(branch), classificationId,
+				ControllerHelper.getLanguageCodes(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
 	}
 
 	@ApiOperation("Retrieve a preview of a concept with classification changes applied")
 	@RequestMapping(value = "/{classificationId}/concept-preview/{conceptId}", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public ConceptView getConceptPreview(@PathVariable String branch, @PathVariable String classificationId, @PathVariable String conceptId) {
-		return classificationService.getConceptPreview(BranchPathUriUtil.decodePath(branch), classificationId, conceptId);
+	public ConceptView getConceptPreview(
+			@PathVariable String branch,
+			@PathVariable String classificationId,
+			@PathVariable String conceptId,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		return classificationService.getConceptPreview(BranchPathUriUtil.decodePath(branch), classificationId, conceptId, ControllerHelper.getLanguageCodes(acceptLanguageHeader));
 	}
 
 	@ApiOperation("Retrieve equivalent concepts from a classification run on a branch")
 	@RequestMapping(value = "/{classificationId}/equivalent-concepts", method = RequestMethod.GET)
 	@ResponseBody
-	public ItemsPage<EquivalentConceptsResponse> getEquivalentConcepts(@PathVariable String branch, @PathVariable String classificationId,
-																									  @RequestParam(required = false, defaultValue = "0") int offset,
-																									  @RequestParam(required = false, defaultValue = "1000") int limit) {
-		return new ItemsPage<>(classificationService.getEquivalentConcepts(BranchPathUriUtil.decodePath(branch), classificationId, ControllerHelper.getPageRequest(offset, limit)));
+	public ItemsPage<EquivalentConceptsResponse> getEquivalentConcepts(
+			@PathVariable String branch,
+			@PathVariable String classificationId,
+			@RequestParam(required = false, defaultValue = "0") int offset,
+			@RequestParam(required = false, defaultValue = "1000") int limit,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		return new ItemsPage<>(classificationService.getEquivalentConcepts(BranchPathUriUtil.decodePath(branch), classificationId,
+				ControllerHelper.getLanguageCodes(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
 	}
 
 	@ApiOperation("Create a classification on a branch")

@@ -19,6 +19,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODES;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.junit.Assert.*;
 
@@ -68,9 +69,9 @@ public class ExpressionServiceTest extends AbstractTest {
 		Concept concept3 = createConcept("100003", concept2, FULLY_DEFINED);
 		Concept concept4 = createConcept("100004", concept3, FULLY_DEFINED);
 		concept4.addRelationship(createRelationship(attribute1, target1, 0));
-		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
+		conceptService.createUpdate(allKnownConcepts, DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
 
-		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), EXPRESSION_TEST_BRANCH);
+		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
 		
 		// Expecting one attribute (fully defined), and a single focus concept of concept 2
 		assertEquals(1, exp.getAttributes().size());
@@ -102,9 +103,9 @@ public class ExpressionServiceTest extends AbstractTest {
 		
 		Concept[] parents = new Concept[] { concept3, concept4, concept5};
 		Concept concept6 = createConcept("1000026", parents, FULLY_DEFINED);
-		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
+		conceptService.createUpdate(allKnownConcepts, DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
 
-		Expression exp = expressionService.getConceptAuthoringForm(concept6.getConceptId(), EXPRESSION_TEST_BRANCH);
+		Expression exp = expressionService.getConceptAuthoringForm(concept6.getConceptId(), DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
 		
 		// Expecting concepts 2 and 4 to be identified as PPPs
 		assertEquals(0, exp.getAttributes().size()); //zero attributes
@@ -130,9 +131,9 @@ public class ExpressionServiceTest extends AbstractTest {
 		Concept concept4 = createConcept("1000034", concept3, FULLY_DEFINED);
 		concept4.addRelationship(createRelationship(attribute1, target1, 1));
 		concept4.addRelationship(createRelationship(attribute2, target2, 1));
-		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
+		conceptService.createUpdate(allKnownConcepts, DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
 
-		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), EXPRESSION_TEST_BRANCH);
+		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
 		
 		// Expecting: 
 		assertEquals(0, exp.getAttributes().size()); //zero attributes
