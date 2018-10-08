@@ -168,6 +168,7 @@ public class IntegrityService {
 		queryBuilder
 				.withQuery(boolQueryBuilder
 						.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
+						.must(termQuery(Relationship.Fields.ACTIVE, true))
 						.must(boolQuery()
 							.should(boolQuery().mustNot(termsQuery(Relationship.Fields.SOURCE_ID, activeConcepts)))
 							.should(boolQuery().mustNot(termsQuery(Relationship.Fields.TYPE_ID, activeConcepts)))

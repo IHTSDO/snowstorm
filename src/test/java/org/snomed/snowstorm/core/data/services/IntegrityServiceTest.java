@@ -1,18 +1,21 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Commit;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.Collections;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
 
@@ -31,6 +34,9 @@ public class IntegrityServiceTest extends AbstractTest {
 
 	@Autowired
 	private IntegrityService integrityService;
+
+	@Autowired
+	private RelationshipService relationshipService;
 
 	@Test
 	/*
@@ -99,6 +105,29 @@ public class IntegrityServiceTest extends AbstractTest {
 		assertNull(reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveSource());
 		assertEquals(1, reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveType().size());
 		assertEquals("There should be an extra rel with missing destination.", 3, reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveDestination().size());
+
+		// Making relationships inactive should remove them from the report
+		Set<Long> ids = new HashSet<>(reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveType().keySet());
+		ids.addAll(reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveDestination().keySet());
+		makeRelationshipInactive(ids, "MAIN/project/test2");
+
+		IntegrityIssueReport reportProjectTest2Run3 = integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/project/test2"), true);
+		assertNull(reportProjectTest2Run3.getRelationshipsWithMissingOrInactiveSource());
+		assertNull(reportProjectTest2Run3.getRelationshipsWithMissingOrInactiveType());
+		assertNull(reportProjectTest2Run3.getRelationshipsWithMissingOrInactiveDestination());
+	}
+
+	private void makeRelationshipInactive(Collection<Long> relationshipIds, String branchPath) {
+		try (Commit commit = branchService.openCommit(branchPath)) {
+			Set<Relationship> relationships = relationshipIds.stream().map(id -> {
+						Relationship relationship = relationshipService.findRelationship(branchPath, id.toString());
+						relationship.setActive(false);
+						relationship.markChanged();
+						return relationship;
+					}).collect(Collectors.toSet());
+			conceptService.doSaveBatchRelationships(relationships, commit);
+			commit.markSuccessful();
+		}
 	}
 
 	@Test
