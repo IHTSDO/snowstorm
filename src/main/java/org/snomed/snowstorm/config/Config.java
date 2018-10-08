@@ -50,6 +50,8 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import springfox.documentation.builders.RequestHandlerSelectors;
+import springfox.documentation.service.ApiInfo;
+import springfox.documentation.service.Contact;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.ApiSelectorBuilder;
 import springfox.documentation.spring.web.plugins.Docket;
@@ -246,7 +248,9 @@ public abstract class Config {
 
 	@Bean
 	public Docket api() {
-		ApiSelectorBuilder apiSelectorBuilder = new Docket(DocumentationType.SWAGGER_2).select();
+		Docket docket = new Docket(DocumentationType.SWAGGER_2);
+		docket.apiInfo(new ApiInfo("Snowstorm", "SNOMED CT Terminology Server REST API", "1.0", null, new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null), "Apache 2.0", "http://www.apache.org/licenses/LICENSE-2.0"));
+		ApiSelectorBuilder apiSelectorBuilder = docket.select();
 
 		if (restApiReadOnly) {
 			// Read-only mode
