@@ -14,7 +14,7 @@ Elasticsearch will work best with another 4G of memory left free on the server f
 
 ## Setup
 ### Install Elasticsearch
-Download and unzip [Elasticsearch **6.0.1**](https://www.elastic.co/downloads/past-releases/elasticsearch-6-0-1) (must be this version).
+Download and install [Elasticsearch **6.x**](https://www.elastic.co/downloads/past-releases/elasticsearch-6-4-2) (tested against 6.4.2).
 
 Update the configuration file _config/jvm.options_ with the memory options `-Xms4g` and `-Xmx4g`.
 

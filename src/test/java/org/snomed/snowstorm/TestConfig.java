@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 @TestConfiguration
 public class TestConfig extends Config {
 
-	private static final String ELASTIC_SEARCH_VERSION = "6.0.1";
+	private static final String ELASTIC_SEARCH_VERSION = "6.4.2";
 	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList("en");
 
 	@Autowired
