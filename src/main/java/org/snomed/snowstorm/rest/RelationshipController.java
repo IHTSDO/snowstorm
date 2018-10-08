@@ -91,7 +91,7 @@ public class RelationshipController {
 		});
 	}
 
-	@RequestMapping(value = "{branch}/relationship/{relationshipId}", method = RequestMethod.GET)
+	@RequestMapping(value = "{branch}/relationships/{relationshipId}", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Relationship fetchRelationship(
