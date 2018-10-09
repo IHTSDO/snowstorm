@@ -1,0 +1,2 @@
+These are fictitious release files for the purpose of testing RF2 import.
+These files only contain a handful of concepts, do not contain the correct identifiers and are not well formed so do not use them for anything other than unit tests!

@@ -21,12 +21,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 import static org.junit.Assert.*;
 
@@ -55,19 +55,22 @@ public class ImportServiceTest extends AbstractTest {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
+	private File rf2Archive;
+
 	@Before
-	public void setup() {
+	public void setup() throws IOException {
 		codeSystemService.init();
 		referenceSetMemberService.init();
+		rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/MiniCT_INT_20180731");
 	}
 
 	@Test
-	public void testImportFull() throws ReleaseImportException {
+	public void testImportFull() throws ReleaseImportException, FileNotFoundException {
 		final String branchPath = "MAIN";
 		Assert.assertEquals(1, branchService.findAll().size());
 
 		String importId = importService.createJob(RF2Type.FULL, branchPath);
-		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_20180731.zip"));
+		importService.importArchive(importId, new FileInputStream(rf2Archive));
 
 		final List<Branch> branches = branchService.findAll();
 		List<String> branchPaths = branches.stream().map(Branch::getPath).collect(Collectors.toList());
@@ -230,14 +233,14 @@ public class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testImportSnapshot() throws ReleaseImportException {
+	public void testImportSnapshotThenDelta() throws ReleaseImportException, FileNotFoundException {
 		final String branchPath = "MAIN";
 
 		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
 		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT).isEmpty());
 
 		String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath);
-		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_20180731.zip"));
+		importService.importArchive(importId, new FileInputStream(rf2Archive));
 
 
 		final Concept conceptBleeding = conceptService.find("131148009", branchPath);
@@ -312,7 +315,7 @@ public class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testImportSnapshotOnlyModelModule() throws ReleaseImportException {
+	public void testImportSnapshotOnlyModelModule() throws ReleaseImportException, FileNotFoundException {
 		final String branchPath = "MAIN";
 
 		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
@@ -321,7 +324,7 @@ public class ImportServiceTest extends AbstractTest {
 		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(RF2Type.SNAPSHOT, branchPath);
 		importConfiguration.setModuleIds(Collections.singleton(Concepts.MODEL_MODULE));
 		String importId = importService.createJob(importConfiguration);
-		importService.importArchive(importId, getClass().getResourceAsStream("/MiniCT_INT_20180731.zip"));
+		importService.importArchive(importId, new FileInputStream(rf2Archive));
 
 		final Page<Concept> conceptPage = conceptService.findAll(branchPath, PageRequest.of(0, 200));
 		Assert.assertEquals(77, conceptPage.getNumberOfElements());
