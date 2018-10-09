@@ -312,6 +312,17 @@ public class ImportServiceTest extends AbstractTest {
 		assertEquals(new Integer(20180731), codeSystemVersion.getEffectiveDate());
 		assertEquals("2018-07-31", codeSystemVersion.getVersion());
 		assertEquals("MAIN", codeSystemVersion.getParentBranchPath());
+
+		// Import delta
+		String importDeltaId = importService.createJob(RF2Type.DELTA, branchPath);
+		importService.importArchive(importDeltaId, new FileInputStream(rf2Archive));
+
+		Branch mainBranch = branchService.findLatest("MAIN");
+		Map<String, Set<String>> versionsReplaced = mainBranch.getVersionsReplaced();
+		System.out.println(versionsReplaced);
+		assertEquals(Collections.emptySet(), versionsReplaced.get("Concept"));
+		assertEquals(Collections.emptySet(), versionsReplaced.get("Description"));
+		assertEquals(Collections.emptySet(), versionsReplaced.get("Relationship"));
 	}
 
 	@Test

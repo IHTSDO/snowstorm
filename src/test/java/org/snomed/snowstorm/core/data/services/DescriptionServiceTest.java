@@ -2,6 +2,8 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.common.util.set.Sets;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
@@ -20,6 +22,7 @@ import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -106,6 +109,41 @@ public class DescriptionServiceTest extends AbstractTest {
 		assertEquals("{en=3}", getAggregationString("language", pizzaAggs));
 		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaAggs));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", pizzaAggs));
+	}
+
+	@Test
+	public void testVersionControlOnChildOfMainBranch() throws ServiceException {
+		branchService.create("MAIN/A");
+		Concept concept = testUtil.createConceptWithPathIdAndTerms("MAIN/A", "100001", "Heart");
+
+		assertEquals(Collections.emptySet(), branchService.findLatest("MAIN/A").getVersionsReplaced().get("Description"));
+
+		Description description = concept.getDescriptions().iterator().next();
+		description.setActive(false);
+		try (Commit commit = branchService.openCommit("MAIN/A")) {
+			description.markChanged();
+			conceptService.doSaveBatchDescriptions(Collections.singleton(description), commit);
+			commit.markSuccessful();
+		}
+
+		assertEquals(Collections.emptySet(), branchService.findLatest("MAIN/A").getVersionsReplaced().get("Description"));
+	}
+
+	@Test
+	public void testVersionControlOnMainBranch() throws ServiceException {
+		Concept concept = testUtil.createConceptWithPathIdAndTerms("MAIN", "100001", "Heart");
+
+		assertEquals(Collections.emptySet(), branchService.findLatest("MAIN").getVersionsReplaced().get("Description"));
+
+		Description description = concept.getDescriptions().iterator().next();
+		description.setActive(false);
+		try (Commit commit = branchService.openCommit("MAIN")) {
+			description.markChanged();
+			conceptService.doSaveBatchDescriptions(Collections.singleton(description), commit);
+			commit.markSuccessful();
+		}
+
+		assertEquals(Collections.emptySet(), branchService.findLatest("MAIN").getVersionsReplaced().get("Description"));
 	}
 
 	private String getAggregationString(String name, Aggregations aggregations) {

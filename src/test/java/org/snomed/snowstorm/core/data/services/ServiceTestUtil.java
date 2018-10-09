@@ -22,11 +22,11 @@ public class ServiceTestUtil {
 		return Arrays.stream(longString).map(Long::parseLong).collect(Collectors.toSet());
 	}
 
-	public void createConceptWithPathIdAndTerms(String path, String conceptId, String... terms) throws ServiceException {
+	public Concept createConceptWithPathIdAndTerms(String path, String conceptId, String... terms) throws ServiceException {
 		final Concept concept = new Concept(conceptId);
 		for (String term : terms) {
 			concept.addDescription(new Description(term));
 		}
-		conceptService.create(concept, path);
+		return conceptService.create(concept, path);
 	}
 }

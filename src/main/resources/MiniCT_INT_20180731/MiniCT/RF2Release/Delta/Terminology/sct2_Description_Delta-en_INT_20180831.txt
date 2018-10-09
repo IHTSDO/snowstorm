@@ -1,0 +1,2 @@
+id	effectiveTime	active	moduleId	conceptId	languageCode	typeId	term	caseSignificanceId
+210860014	20180831	1	900000000000207008	131148009	en	900000000000013009	Bleeding	900000000000448009
