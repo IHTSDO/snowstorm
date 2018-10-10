@@ -4,7 +4,7 @@
 
 - Java 8
 - Maven 3
-- [SNOMED CT International Edition RF2 release files](https://www.snomed.org/snomed-ct/get-snomed-ct)
+- [SNOMED CT International Edition RF2 release files](https://www.snomed.org/snomed-ct/get-snomed)
 - About 8G of memory
 
 ## More on Memory Requirements
@@ -24,6 +24,9 @@ Build Snowstorm using maven:
 mvn clean package
 ```
 
+**Or** download the most latest released jar from [the repository releases](https://github.com/IHTSDO/snowstorm/releases).
+
+
 ## Start Snowstorm
 
 First start Elasticsearch from wherever it has been installed.
@@ -33,7 +36,7 @@ First start Elasticsearch from wherever it has been installed.
 
 On the first run of Snowstorm the SNOMED CT data needs to be loaded. [Follow instructions here](loading-snomed.md).
 
-On subsequent runs just start Snowstorm.
+On subsequent runs just start Snowstorm (in read only mode).
 ```bash
-java -Xms2g -Xmx2g -jar target/snowstorm*.jar
+java -Xms2g -Xmx2g -jar target/snowstorm*.jar --snowstorm.rest-api.readonly=true
 ```

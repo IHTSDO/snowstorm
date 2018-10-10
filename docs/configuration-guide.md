@@ -18,6 +18,7 @@ For example to override the HTTP port configuration using a properties file.
 Create a properties named **application-local.properties** with content:
 ```properties
 server.port=8095
+snowstorm.rest-api.readonly=true
 ```
 Then start Snowstorm with an extra JVM parameter:
 ```bash
@@ -29,4 +30,5 @@ Properties can also be overridden using command line arguments.
 For example by starting Snowstorm with an extra JVM parameter:
 ```bash
 --server.port=8095
+--snowstorm.rest-api.readonly=true
 ```
