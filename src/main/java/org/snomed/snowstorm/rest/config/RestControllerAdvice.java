@@ -8,24 +8,27 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.HashMap;
 import java.util.Map;
 
-@org.springframework.web.bind.annotation.ControllerAdvice
-public class ControllerAdvice {
+@ControllerAdvice
+public class RestControllerAdvice {
 
-	private static final Logger logger = LoggerFactory.getLogger(ControllerAdvice.class);
+	private static final Logger logger = LoggerFactory.getLogger(RestControllerAdvice.class);
 
 	@ExceptionHandler({
 			IllegalArgumentException.class,
 			IllegalStateException.class,
 			HttpRequestMethodNotSupportedException.class,
 			HttpMediaTypeNotSupportedException.class,
-			MethodArgumentNotValidException.class
+			MethodArgumentNotValidException.class,
+			MethodArgumentTypeMismatchException.class
 	})
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	@ResponseBody
