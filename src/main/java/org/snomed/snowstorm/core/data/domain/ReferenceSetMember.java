@@ -77,6 +77,10 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 	@Field(type = FieldType.Object)
 	private Map<String, String> additionalFields;
 
+	// Transient property
+	@JsonView(value = View.Component.class)
+	private ConceptMini referencedComponent;
+
 	public ReferenceSetMember() {
 		moduleId = Concepts.CORE_MODULE;
 		additionalFields = new HashMap<>();
@@ -133,6 +137,13 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 		return this;
 	}
 
+	public ConceptMini getReferencedComponent() {
+		return referencedComponent;
+	}
+
+	public void setReferencedComponent(ConceptMini referencedComponent) {
+		this.referencedComponent = referencedComponent;
+	}
 
 	@Override
 	@JsonIgnore

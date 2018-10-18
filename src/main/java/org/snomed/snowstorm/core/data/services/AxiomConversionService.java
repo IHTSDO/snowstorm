@@ -68,7 +68,7 @@ public class AxiomConversionService {
 	}
 
 	private AxiomRelationshipConversionService setupConversionService(String branchPath) {
-		Page<ReferenceSetMember> mrcmAttributeDomainMembers = memberService.findMembers(branchPath, true, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL, null, null, LARGE_PAGE);
+		Page<ReferenceSetMember> mrcmAttributeDomainMembers = memberService.findMembers(branchPath, true, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL, null, null, null, LARGE_PAGE);
 		Set<Long> neverGroupedAttributes = mrcmAttributeDomainMembers.getContent().stream()
 				.filter(member -> "0".equals(member.getAdditionalField(ReferenceSetMember.MRCMAttributeDomainFields.GROUPED)))
 				.map(ReferenceSetMember::getReferencedComponentId)

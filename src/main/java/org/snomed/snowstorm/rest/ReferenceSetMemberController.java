@@ -3,12 +3,23 @@ package org.snomed.snowstorm.rest;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @Api(tags = "Refset Members", description = "-")
@@ -17,6 +28,9 @@ public class ReferenceSetMemberController {
 
 	@Autowired
 	private ReferenceSetMemberService memberService;
+
+	@Autowired
+	private ConceptService conceptService;
 
 	@RequestMapping(value = "/{branch}/members", method = RequestMethod.GET)
 	@ResponseBody
@@ -29,6 +43,7 @@ public class ReferenceSetMemberController {
 			@RequestParam(required = false) String mapTarget,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		Page<ReferenceSetMember> members = memberService.findMembers(
 				BranchPathUriUtil.decodePath(branch),
@@ -39,15 +54,33 @@ public class ReferenceSetMemberController {
 				mapTarget,
 				ControllerHelper.getPageRequest(offset, limit)
 		);
+		joinReferencedComponents(members.getContent(), ControllerHelper.getLanguageCodes(acceptLanguageHeader), branch);
 		return new ItemsPage<>(members);
 	}
+
+	private void joinReferencedComponents(List<ReferenceSetMember> members, List<String> languageCodes, String branch) {
+		Set<String> conceptIds = members.stream().map(ReferenceSetMember::getReferencedComponentId).filter(IdentifierService::isConceptId).collect(Collectors.toSet());
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds, languageCodes).getResultsMap();
+		members.forEach(member -> {
+			ConceptMini conceptMini = conceptMinis.get(member.getReferencedComponentId());
+			if (conceptMini != null) {
+				member.setReferencedComponent(conceptMini);
+			}
+		});
+	}
+
 
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMember fetchMember(@PathVariable String branch,
-										  @PathVariable String uuid) {
-		return ControllerHelper.throwIfNotFound("Member", memberService.findMember(BranchPathUriUtil.decodePath(branch), uuid));
+			@PathVariable String uuid,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		ReferenceSetMember member = memberService.findMember(BranchPathUriUtil.decodePath(branch), uuid);
+		ControllerHelper.throwIfNotFound("Member", member);
+		joinReferencedComponents(Collections.singletonList(member), ControllerHelper.getLanguageCodes(acceptLanguageHeader), branch);
+		return member;
 	}
 
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.DELETE)
