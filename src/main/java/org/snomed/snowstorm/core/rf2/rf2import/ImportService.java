@@ -3,13 +3,10 @@ package org.snomed.snowstorm.core.rf2.rf2import;
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.ihtsdo.otf.snomedboot.ReleaseImporter;
-import org.ihtsdo.otf.snomedboot.domain.ConceptConstants;
 import org.ihtsdo.otf.snomedboot.factory.HistoryAwareComponentFactory;
 import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetType;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -20,7 +17,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.io.InputStream;
-import java.util.*;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 @Service
@@ -57,6 +57,9 @@ public class ImportService {
 
 	public String createJob(RF2ImportConfiguration importConfiguration) {
 		String id = UUID.randomUUID().toString();
+		if (!branchService.exists(importConfiguration.getBranchPath())) {
+			throw new IllegalArgumentException("Branch does not exist.");
+		}
 		importJobMap.put(id, new ImportJob(importConfiguration));
 		return id;
 	}
@@ -71,6 +74,7 @@ public class ImportService {
 		Integer patchReleaseVersion = job.getPatchReleaseVersion();
 
 		try {
+			Date start = new Date();
 			logger.info("Starting RF2 {}{} import on branch {}. ID {}", importType, patchReleaseVersion != null ? " RELEASE PATCH on effectiveTime " + patchReleaseVersion : "", branchPath, importId);
 
 			ReleaseImporter releaseImporter = new ReleaseImporter();
@@ -99,7 +103,8 @@ public class ImportService {
 					break;
 			}
 			job.setStatus(ImportJob.ImportStatus.COMPLETED);
-			logger.info("Completed RF2 {} import on branch {}. ID {}", importType, branchPath, importId);
+			long seconds = new Date().getTime() - start.getTime() / 1000;
+			logger.info("Completed RF2 {} import on branch {} in {} seconds. ID {}", importType, branchPath, seconds, importId);
 		} catch (Exception e) {
 			logger.error("Failed RF2 {} import on branch {}. ID {}", importType, branchPath, importId, e);
 			job.setStatus(ImportJob.ImportStatus.FAILED);

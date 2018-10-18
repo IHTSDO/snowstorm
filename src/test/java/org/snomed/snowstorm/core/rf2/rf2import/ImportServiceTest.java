@@ -25,8 +25,6 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import java.util.zip.ZipInputStream;
-import java.util.zip.ZipOutputStream;
 
 import static org.junit.Assert.*;
 
@@ -313,13 +311,15 @@ public class ImportServiceTest extends AbstractTest {
 		assertEquals("2018-07-31", codeSystemVersion.getVersion());
 		assertEquals("MAIN", codeSystemVersion.getParentBranchPath());
 
-		// Import delta
+		// Import delta (test archive has a delta at a later date than the snapshot which is not normal but convenient for this test)
 		String importDeltaId = importService.createJob(RF2Type.DELTA, branchPath);
 		importService.importArchive(importDeltaId, new FileInputStream(rf2Archive));
 
 		Branch mainBranch = branchService.findLatest("MAIN");
 		Map<String, Set<String>> versionsReplaced = mainBranch.getVersionsReplaced();
 		System.out.println(versionsReplaced);
+		// There should be no versionsReplaced in the version control system for MAIN
+		// because that is only used when components exist on the parent branch which is impossible because MAIN is the root.
 		assertEquals(Collections.emptySet(), versionsReplaced.get("Concept"));
 		assertEquals(Collections.emptySet(), versionsReplaced.get("Description"));
 		assertEquals(Collections.emptySet(), versionsReplaced.get("Relationship"));
