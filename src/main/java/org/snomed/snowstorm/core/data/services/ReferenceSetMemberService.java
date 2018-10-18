@@ -61,18 +61,19 @@ public class ReferenceSetMemberService extends ComponentService {
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Page<ReferenceSetMember> findMembers(String branch,
-												String referencedComponentId,
-												PageRequest pageRequest) {
+			String referencedComponentId,
+			PageRequest pageRequest) {
 
-		return findMembers(branch, null, null, referencedComponentId, null, pageRequest);
+		return findMembers(branch, null, null, referencedComponentId, null, null, pageRequest);
 	}
 
 	public Page<ReferenceSetMember> findMembers(String branch,
-												Boolean active,
-												String referenceSetId,
-												String referencedComponentId,
-												String targetComponentId,
-												PageRequest pageRequest) {
+			Boolean active,
+			String referenceSetId,
+			String referencedComponentId,
+			String targetComponentId,
+			String mapTarget,
+			PageRequest pageRequest) {
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
@@ -88,7 +89,10 @@ public class ReferenceSetMemberService extends ComponentService {
 			query.must(termQuery("referencedComponentId", referencedComponentId));
 		}
 		if (!Strings.isNullOrEmpty(targetComponentId)) {
-			query.must(termQuery("additionalFields.targetComponentId", targetComponentId));
+			query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping("targetComponentId"), targetComponentId));
+		}
+		if (!Strings.isNullOrEmpty(mapTarget)) {
+			query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping("mapTarget"), mapTarget));
 		}
 
 		return elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()

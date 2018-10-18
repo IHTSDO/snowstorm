@@ -22,20 +22,24 @@ public class ReferenceSetMemberController {
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
-														   @RequestParam(required = false) String referenceSet,
-														   @RequestParam(required = false) String referencedComponentId,
-														   @RequestParam(required = false) Boolean active,
-														   @RequestParam(required = false) String targetComponent,
-														   @RequestParam(defaultValue = "0") int offset,
-														   @RequestParam(defaultValue = "50") int limit) {
-		return new ItemsPage<>(
-				memberService.findMembers(
-						BranchPathUriUtil.decodePath(branch),
-						active,
-						referenceSet,
-						referencedComponentId,
-						targetComponent,
-						ControllerHelper.getPageRequest(offset, limit)));
+			@RequestParam(required = false) String referenceSet,
+			@RequestParam(required = false) String referencedComponentId,
+			@RequestParam(required = false) Boolean active,
+			@RequestParam(required = false) String targetComponent,
+			@RequestParam(required = false) String mapTarget,
+			@RequestParam(defaultValue = "0") int offset,
+			@RequestParam(defaultValue = "50") int limit,
+
+		Page<ReferenceSetMember> members = memberService.findMembers(
+				BranchPathUriUtil.decodePath(branch),
+				active,
+				referenceSet,
+				referencedComponentId,
+				targetComponent,
+				mapTarget,
+				ControllerHelper.getPageRequest(offset, limit)
+		);
+		return new ItemsPage<>(members);
 	}
 
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.GET)

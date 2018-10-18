@@ -398,7 +398,7 @@ public class ConceptServiceTest extends AbstractTest {
 		Axiom gciAxiom = savedConcept.getGciAxioms().iterator().next();
 		assertEquals(Concepts.PRIMITIVE, gciAxiom.getDefinitionStatusId());
 
-		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(path, true, Concepts.OWL_AXIOM_REFERENCE_SET, savedConcept.getConceptId(), null, PageRequest.of(0, 10));
+		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(path, true, Concepts.OWL_AXIOM_REFERENCE_SET, savedConcept.getConceptId(), null, null, PageRequest.of(0, 10));
 		assertEquals(2, members.getTotalElements());
 		String axiomId = axiom.getAxiomId();
 		ReferenceSetMember referenceSetMember = members.getContent().stream().filter(member -> member.getMemberId().equals(axiomId)).collect(Collectors.toList()).get(0);
@@ -428,7 +428,7 @@ public class ConceptServiceTest extends AbstractTest {
 		concept.getAdditionalAxioms().clear();
 		concept.getGciAxioms().clear();
 		conceptService.update(concept, path);
-		assertEquals(0, referenceSetMemberService.findMembers(path, true, Concepts.OWL_AXIOM_REFERENCE_SET, savedConcept.getConceptId(), null, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(0, referenceSetMemberService.findMembers(path, true, Concepts.OWL_AXIOM_REFERENCE_SET, savedConcept.getConceptId(), null, null, PageRequest.of(0, 10)).getTotalElements());
 	}
 
 	@Test

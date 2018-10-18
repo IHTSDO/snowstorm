@@ -20,16 +20,27 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 		String CONCEPT_ID = "conceptId";
 		String REFERENCED_COMPONENT_ID = "referencedComponentId";
 		String ADDITIONAL_FIELDS = "additionalFields";
+		String ADDITIONAL_FIELDS_PREFIX = ADDITIONAL_FIELDS + ".";
+
+		static String getAdditionalFieldTextTypeMapping(String fieldname) {
+			return ADDITIONAL_FIELDS_PREFIX + fieldname;
+		}
+
+		static String getAdditionalFieldKeywordTypeMapping(String fieldname) {
+			// Elasticsearch automatically creates an additional field for these,
+			// useful for matching on the exact string.
+			return ADDITIONAL_FIELDS_PREFIX + fieldname + ".keyword";
+		}
 	}
 
 	public interface LanguageFields {
 		String ACCEPTABILITY_ID = "acceptabilityId";
-		String ACCEPTABILITY_ID_FIELD_PATH = "additionalFields.acceptabilityId";
+		String ACCEPTABILITY_ID_FIELD_PATH = Fields.ADDITIONAL_FIELDS_PREFIX + ACCEPTABILITY_ID;
 	}
 
 	public interface OwlExpressionFields {
 		String OWL_EXPRESSION = "owlExpression";
-		String OWL_EXPRESSION_FIELD_PATH = "additionalFields.owlExpression";
+		String OWL_EXPRESSION_FIELD_PATH = Fields.ADDITIONAL_FIELDS_PREFIX + OWL_EXPRESSION;
 	}
 
 	public interface MRCMAttributeDomainFields {
