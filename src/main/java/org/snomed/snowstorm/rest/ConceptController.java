@@ -154,7 +154,7 @@ public class ConceptController {
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ConceptMini> findConceptDescendants(@PathVariable String branch,
 			@PathVariable String conceptId,
-			@PathVariable(value = "false", required = false) boolean stated,
+			@RequestParam(required = false, defaultValue = "false") boolean stated,
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {

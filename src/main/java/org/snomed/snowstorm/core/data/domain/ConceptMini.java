@@ -88,7 +88,12 @@ public class ConceptMini {
 	}
 
 	private Description getBestDescription(Predicate<Description> descriptionPredicate) {
-		Map<String, Description> descriptionsByLanguageCode = activeDescriptions.stream().filter(descriptionPredicate).collect(Collectors.toMap(Description::getLanguageCode, Function.identity()));
+		Map<String, Description> descriptionsByLanguageCode = new HashMap<>();
+		for (Description activeDescription : activeDescriptions) {
+			if (descriptionPredicate.test(activeDescription)) {
+				descriptionsByLanguageCode.put(activeDescription.getLanguageCode(), activeDescription);
+			}
+		}
 		if (languageCodes != null) {
 			for (String languageCode : languageCodes) {
 				if (descriptionsByLanguageCode.containsKey(languageCode)) {

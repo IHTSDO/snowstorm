@@ -90,10 +90,10 @@ public class DescriptionService extends ComponentService {
 	}
 
 	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
-		return findDescriptionsWithAggregations(path, term, Collections.singleton("en"), pageRequest);
+		return findDescriptionsWithAggregations(path, term, null, Collections.singleton("en"), pageRequest);
 	}
 
-	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, Collection<String> languageCodes, PageRequest pageRequest) {
+	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, Boolean conceptActive, Collection<String> languageCodes, PageRequest pageRequest) {
 		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		timer.checkpoint("Build branch criteria");
@@ -106,7 +106,7 @@ public class DescriptionService extends ComponentService {
 
 		// Fetch concept semantic tag aggregation
 		// Not all descriptions are FSNs so use: description -> concept -> active FSN
-		Set<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria);
+		Set<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria, conceptActive);
 		timer.checkpoint("Fetch all related concept ids for semantic tag aggregation");
 		AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
@@ -137,6 +137,7 @@ public class DescriptionService extends ComponentService {
 		// Perform description search with description property aggregations
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(descriptionCriteria)
+				.withFilter(boolQuery().must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds)))
 				.addAggregation(AggregationBuilders.terms("module").field(Description.Fields.MODULE_ID))
 				.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
 				.withPageable(pageRequest);
@@ -293,7 +294,7 @@ public class DescriptionService extends ComponentService {
 		}
 	}
 
-	private Set<Long> findDescriptionConceptIds(BoolQueryBuilder descriptionCriteria) {
+	private Set<Long> findDescriptionConceptIds(BoolQueryBuilder descriptionCriteria, Boolean conceptActive) {
 		Set<Long> conceptIds = new HashSet<>();
 		try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(
 				new NativeSearchQueryBuilder()
@@ -303,6 +304,22 @@ public class DescriptionService extends ComponentService {
 						.build(), Description.class)) {
 			descriptionStream.forEachRemaining(description -> conceptIds.add(Long.parseLong(description.getConceptId())));
 		}
+
+		if (!conceptIds.isEmpty() && conceptActive != null) {
+			// Apply concept active filter
+			Set<Long> conceptsWithActiveStatus = new HashSet<>();
+			try (CloseableIterator<Concept> conceptStream = elasticsearchTemplate.stream(
+					new NativeSearchQueryBuilder()
+							.withQuery(boolQuery()
+									.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
+									.must(termQuery(Concept.Fields.ACTIVE, conceptActive.booleanValue())))
+							.withFields(Concept.Fields.CONCEPT_ID)
+							.build(), Concept.class)) {
+				conceptStream.forEachRemaining(concept -> conceptsWithActiveStatus.add(Long.parseLong(concept.getConceptId())));
+			}
+			return conceptsWithActiveStatus;
+		}
+
 		return conceptIds;
 	}
 
