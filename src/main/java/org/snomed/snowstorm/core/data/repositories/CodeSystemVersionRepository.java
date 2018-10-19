@@ -7,7 +7,7 @@ import java.util.List;
 
 public interface CodeSystemVersionRepository extends ElasticsearchCrudRepository<CodeSystemVersion, String> {
 
-	List<CodeSystemVersion> findByShortName(String shortName);
+	List<CodeSystemVersion> findByShortNameOrderByEffectiveDate(String shortName);
 
 	CodeSystemVersion findOneByShortNameAndEffectiveDate(String shortName, Integer effectiveDate);
 }

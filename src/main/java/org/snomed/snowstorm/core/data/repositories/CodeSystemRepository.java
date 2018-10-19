@@ -7,6 +7,4 @@ import java.util.Optional;
 
 public interface CodeSystemRepository extends ElasticsearchCrudRepository<CodeSystem, String> {
 
-	Optional<CodeSystem> findByBranchPath(String branchPath);
-
 }

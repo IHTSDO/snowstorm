@@ -9,14 +9,19 @@ import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
+import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 
 @Service
 public class CodeSystemService {
@@ -52,11 +57,26 @@ public class CodeSystemService {
 		if (repository.findById(codeSystem.getShortName()).isPresent()) {
 			throw new IllegalArgumentException("A code system already exists with this short name.");
 		}
-		if (repository.findByBranchPath(codeSystem.getBranchPath()).isPresent()) {
+		String branchPath = codeSystem.getBranchPath();
+		if (findByBranchPath(branchPath).isPresent()) {
 			throw new IllegalArgumentException("A code system already exists with this branch path.");
+		}
+		if (!branchService.exists(branchPath)) {
+			logger.info("Creating Code System branch '{}'.", branchPath);
+			branchService.create(branchPath);
 		}
 		repository.save(codeSystem);
 		logger.info("Code System '{}' created.", codeSystem.getShortName());
+	}
+
+	private Optional<CodeSystem> findByBranchPath(String branchPath) {
+		List<CodeSystem> codeSystems = elasticsearchOperations.queryForList(
+				new NativeSearchQueryBuilder()
+						.withQuery(boolQuery().must(termsQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)))
+						.build(),
+				CodeSystem.class);
+
+		return codeSystems.isEmpty() ? Optional.empty() : Optional.of(codeSystems.get(0));
 	}
 
 	public synchronized String createVersion(CodeSystem codeSystem, Integer effectiveDate, String description) {
@@ -99,7 +119,7 @@ public class CodeSystemService {
 	}
 
 	public List<CodeSystem> findAll() {
-		return repository.findAll(PageRequest.of(0, 1000)).getContent();
+		return repository.findAll(PageRequest.of(0, 1000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent();
 	}
 
 	public CodeSystem find(String codeSystemShortName) {
@@ -107,7 +127,7 @@ public class CodeSystemService {
 	}
 
 	public List<CodeSystemVersion> findAllVersions(String shortName) {
-		return versionRepository.findByShortName(shortName);
+		return versionRepository.findByShortNameOrderByEffectiveDate(shortName);
 	}
 
 	public void deleteAll() {
