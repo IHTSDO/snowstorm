@@ -16,8 +16,14 @@ public abstract class BranchMixIn {
 	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = Entity.DATE_FORMAT_STRING)
 	abstract Date getHead();
 
+	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = Entity.DATE_FORMAT_STRING)
+	abstract Date getCreation();
+
 	@JsonIgnore
 	abstract Set<String> getVersionsReplaced();
+
+	@JsonIgnore
+	abstract String getInternalId();
 
 	@JsonIgnore
 	abstract Date getStart();

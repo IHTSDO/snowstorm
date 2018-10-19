@@ -5,9 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
 import org.ihtsdo.sso.integration.RequestHeaderAuthenticationDecorator;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
 import org.snomed.snowstorm.rest.config.BranchMixIn;
 import org.snomed.snowstorm.rest.config.ClassificationMixIn;
+import org.snomed.snowstorm.rest.config.CodeSystemVersionMixIn;
 import org.snomed.snowstorm.rest.config.PageMixin;
 import org.snomed.snowstorm.rest.security.RequestHeaderAuthenticationDecoratorWithRequiredRole;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +50,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 				.mixIn(Page.class, PageMixin.class)
 				.mixIn(Branch.class, BranchMixIn.class)
 				.mixIn(Classification.class, ClassificationMixIn.class)
+				.mixIn(CodeSystemVersion.class, CodeSystemVersionMixIn.class)
 				.build();
 	}
 
