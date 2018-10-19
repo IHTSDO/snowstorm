@@ -274,7 +274,7 @@ public class ConceptService extends ComponentService {
 			boolean includeRelationships,
 			boolean includeDescriptionInactivationInfo) {
 
-		final TimerUtil timer = new TimerUtil("Find concept", Level.INFO);
+		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
 		timer.checkpoint("get branch criteria");
 
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
