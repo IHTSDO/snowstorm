@@ -60,7 +60,7 @@ public class ReferenceSetMemberController {
 
 	private void joinReferencedComponents(List<ReferenceSetMember> members, List<String> languageCodes, String branch) {
 		Set<String> conceptIds = members.stream().map(ReferenceSetMember::getReferencedComponentId).filter(IdentifierService::isConceptId).collect(Collectors.toSet());
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds, languageCodes).getResultsMap();
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(BranchPathUriUtil.decodePath(branch), conceptIds, languageCodes).getResultsMap();
 		members.forEach(member -> {
 			ConceptMini conceptMini = conceptMinis.get(member.getReferencedComponentId());
 			if (conceptMini != null) {
