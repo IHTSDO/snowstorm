@@ -103,7 +103,7 @@ public class ImportService {
 					break;
 			}
 			job.setStatus(ImportJob.ImportStatus.COMPLETED);
-			long seconds = new Date().getTime() - start.getTime() / 1000;
+			long seconds = (new Date().getTime() - start.getTime()) / 1_000;
 			logger.info("Completed RF2 {} import on branch {} in {} seconds. ID {}", importType, branchPath, seconds, importId);
 		} catch (Exception e) {
 			logger.error("Failed RF2 {} import on branch {}. ID {}", importType, branchPath, importId, e);
