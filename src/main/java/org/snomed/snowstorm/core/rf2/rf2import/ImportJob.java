@@ -45,6 +45,10 @@ public class ImportJob {
 		return importConfiguration.getPatchReleaseVersion();
 	}
 
+	public boolean isCreateCodeSystemVersion() {
+		return importConfiguration.isCreateCodeSystemVersion();
+	}
+
 	public ImportStatus getStatus() {
 		return status;
 	}

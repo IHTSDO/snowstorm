@@ -110,11 +110,11 @@ public class CodeSystemService {
 		return version;
 	}
 
-	public synchronized void createVersionIfCodeSystemFoundOnPath(String branchPath, Integer releaseDate, String description) {
+	public synchronized void createVersionIfCodeSystemFoundOnPath(String branchPath, Integer releaseDate) {
 		List<CodeSystem> codeSystems = elasticsearchOperations.queryForList(new NativeSearchQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)), CodeSystem.class);
 		if (!codeSystems.isEmpty()) {
 			CodeSystem codeSystem = codeSystems.get(0);
-			createVersion(codeSystem, releaseDate, description);
+			createVersion(codeSystem, releaseDate, String.format("%s %s import.", codeSystem.getShortName(), releaseDate));
 		}
 	}
 

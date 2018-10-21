@@ -7,6 +7,7 @@ import org.ihtsdo.otf.snomedboot.factory.HistoryAwareComponentFactory;
 import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -17,11 +18,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.io.InputStream;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
+
+import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
 
 @Service
 public class ImportService {
@@ -57,8 +57,11 @@ public class ImportService {
 
 	public String createJob(RF2ImportConfiguration importConfiguration) {
 		String id = UUID.randomUUID().toString();
-		if (!branchService.exists(importConfiguration.getBranchPath())) {
-			throw new IllegalArgumentException("Branch does not exist.");
+
+		// Validate branch
+		String branchPath = importConfiguration.getBranchPath();
+		if (!branchService.exists(branchPath)) {
+			throw new IllegalArgumentException(String.format("Branch %s does not exist.", branchPath));
 		}
 		importJobMap.put(id, new ImportJob(importConfiguration));
 		return id;
@@ -82,26 +85,33 @@ public class ImportService {
 			LoadingProfile loadingProfile = DEFAULT_LOADING_PROFILE
 					.withModuleIds(job.getModuleIds().toArray(new String[]{}));
 
+			Integer maxEffectiveTime = null;
 			switch (importType) {
-				case DELTA:
-					releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, getImportComponentFactory(branchPath, patchReleaseVersion));
+				case DELTA: {
+					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion);
+					releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
+					maxEffectiveTime = importComponentFactory.getMaxEffectiveTime();
 					break;
-				case SNAPSHOT:
-
+				}
+				case SNAPSHOT: {
 					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion);
 					releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
-
-					// Create Code System version of this snapshot content (if a code system exists on this path)
-					Integer maxEffectiveTime = importComponentFactory.getMaxEffectiveTime();
-					if (maxEffectiveTime != null) {
-						codeSystemService.createVersionIfCodeSystemFoundOnPath(branchPath, maxEffectiveTime, "RF2 Snapshot Import");
-					}
-
+					maxEffectiveTime = importComponentFactory.getMaxEffectiveTime();
 					break;
-				case FULL:
+				}
+				case FULL: {
 					releaseImporter.loadFullReleaseFiles(releaseFileStream, loadingProfile, getFullImportComponentFactory(branchPath));
 					break;
+				}
 			}
+
+			if (job.isCreateCodeSystemVersion() && importType != FULL) {
+				// Create Code System version if a code system exists on this path
+				if (maxEffectiveTime != null) {
+					codeSystemService.createVersionIfCodeSystemFoundOnPath(branchPath, maxEffectiveTime);
+				}
+			}
+
 			job.setStatus(ImportJob.ImportStatus.COMPLETED);
 			long seconds = (new Date().getTime() - start.getTime()) / 1_000;
 			logger.info("Completed RF2 {} import on branch {} in {} seconds. ID {}", importType, branchPath, seconds, importId);

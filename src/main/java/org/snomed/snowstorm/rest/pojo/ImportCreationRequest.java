@@ -7,6 +7,8 @@ public class ImportCreationRequest {
 	private RF2Type type;
 	private String branchPath;
 
+	private boolean createCodeSystemVersion;
+
 	public RF2Type getType() {
 		return type;
 	}
@@ -21,5 +23,13 @@ public class ImportCreationRequest {
 
 	public void setBranchPath(String branchPath) {
 		this.branchPath = branchPath;
+	}
+
+	public boolean getCreateCodeSystemVersion() {
+		return createCodeSystemVersion;
+	}
+
+	public void setCreateCodeSystemVersion(boolean createCodeSystemVersion) {
+		this.createCodeSystemVersion = createCodeSystemVersion;
 	}
 }

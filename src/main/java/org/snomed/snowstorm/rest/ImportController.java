@@ -32,6 +32,7 @@ public class ImportController {
 		ControllerHelper.requiredParam(importRequest.getBranchPath(), "branchPath");
 
 		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(importRequest.getType(), importRequest.getBranchPath());
+		importConfiguration.setCreateCodeSystemVersion(importRequest.getCreateCodeSystemVersion());
 		String id = importService.createJob(importConfiguration);
 		return ControllerHelper.getCreatedResponse(id);
 	}

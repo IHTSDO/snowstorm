@@ -10,6 +10,7 @@ public final class RF2ImportConfiguration {
 
 	private RF2Type type;
 	private String branchPath;
+	private boolean createCodeSystemVersion;
 	private Set<String> moduleIds;
 	private Integer patchReleaseVersion;
 
@@ -36,6 +37,14 @@ public final class RF2ImportConfiguration {
 
 	public void setBranchPath(String branchPath) {
 		this.branchPath = branchPath;
+	}
+
+	public boolean isCreateCodeSystemVersion() {
+		return createCodeSystemVersion;
+	}
+
+	public void setCreateCodeSystemVersion(boolean createCodeSystemVersion) {
+		this.createCodeSystemVersion = createCodeSystemVersion;
 	}
 
 	public Set<String> getModuleIds() {
