@@ -67,7 +67,7 @@ public class ImportServiceTest extends AbstractTest {
 		final String branchPath = "MAIN";
 		Assert.assertEquals(1, branchService.findAll().size());
 
-		String importId = importService.createJob(RF2Type.FULL, branchPath);
+		String importId = importService.createJob(RF2Type.FULL, branchPath, true);
 		importService.importArchive(importId, new FileInputStream(rf2Archive));
 
 		final List<Branch> branches = branchService.findAll();
@@ -237,7 +237,7 @@ public class ImportServiceTest extends AbstractTest {
 		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
 		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT).isEmpty());
 
-		String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath);
+		String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath, true);
 		importService.importArchive(importId, new FileInputStream(rf2Archive));
 
 
@@ -312,7 +312,7 @@ public class ImportServiceTest extends AbstractTest {
 		assertEquals("MAIN", codeSystemVersion.getParentBranchPath());
 
 		// Import delta (test archive has a delta at a later date than the snapshot which is not normal but convenient for this test)
-		String importDeltaId = importService.createJob(RF2Type.DELTA, branchPath);
+		String importDeltaId = importService.createJob(RF2Type.DELTA, branchPath, true);
 		importService.importArchive(importDeltaId, new FileInputStream(rf2Archive));
 
 		Branch mainBranch = branchService.findLatest("MAIN");
@@ -353,7 +353,7 @@ public class ImportServiceTest extends AbstractTest {
 		// The content in these zips is not correct or meaningful. We are just using rows to test how the import function behaves with effectiveTimes.
 
 		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/blankOrLaterEffectiveTimeBase");
-		String importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN");
+		String importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true);
 		importService.importArchive(importId, new FileInputStream(zipFile));
 
 		List<Concept> concepts = conceptService.findAll("MAIN", PageRequest.of(0, 10)).getContent();
@@ -377,7 +377,7 @@ public class ImportServiceTest extends AbstractTest {
 		assertNull(relationshipGroups.get(1));
 
 		zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/blankOrLaterEffectiveTimeTest");
-		importId = importService.createJob(RF2Type.DELTA, "MAIN");
+		importId = importService.createJob(RF2Type.DELTA, "MAIN", true);
 		importService.importArchive(importId, new FileInputStream(zipFile));
 
 		concepts = conceptService.findAll("MAIN", PageRequest.of(0, 10)).getContent();

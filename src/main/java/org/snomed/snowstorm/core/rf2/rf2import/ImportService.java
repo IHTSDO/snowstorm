@@ -51,8 +51,8 @@ public class ImportService {
 		importJobMap = new HashMap<>();
 	}
 
-	public String createJob(RF2Type importType, String branchPath) {
-		return createJob(new RF2ImportConfiguration(importType, branchPath));
+	public String createJob(RF2Type importType, String branchPath, boolean createCodeSystemVersion) {
+		return createJob(new RF2ImportConfiguration(importType, branchPath).setCreateCodeSystemVersion(createCodeSystemVersion));
 	}
 
 	public String createJob(RF2ImportConfiguration importConfiguration) {

@@ -43,8 +43,9 @@ public final class RF2ImportConfiguration {
 		return createCodeSystemVersion;
 	}
 
-	public void setCreateCodeSystemVersion(boolean createCodeSystemVersion) {
+	public RF2ImportConfiguration setCreateCodeSystemVersion(boolean createCodeSystemVersion) {
 		this.createCodeSystemVersion = createCodeSystemVersion;
+		return this;
 	}
 
 	public Set<String> getModuleIds() {
