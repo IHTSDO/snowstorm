@@ -63,6 +63,15 @@ public class ImportService {
 		if (!branchService.exists(branchPath)) {
 			throw new IllegalArgumentException(String.format("Branch %s does not exist.", branchPath));
 		}
+
+		if (importConfiguration.isCreateCodeSystemVersion()) {
+			// Check there is a code system on this branch
+			Optional<CodeSystem> optionalCodeSystem = codeSystemService.findAll().stream().filter(codeSystem -> codeSystem.getBranchPath().equals(branchPath)).findAny();
+			if (!optionalCodeSystem.isPresent()) {
+				throw new IllegalArgumentException(String.format("The %s option has been used but there is no codesystem on branchPath %s.", "createCodeSystemVersion", branchPath));
+			}
+		}
+
 		importJobMap.put(id, new ImportJob(importConfiguration));
 		return id;
 	}
