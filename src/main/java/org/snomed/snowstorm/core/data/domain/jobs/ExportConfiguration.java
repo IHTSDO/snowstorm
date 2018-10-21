@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.domain.jobs;
 
+import io.swagger.annotations.ApiModelProperty;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.data.elasticsearch.annotations.Document;
 
@@ -17,7 +18,8 @@ public final class ExportConfiguration {
 
 	private String filenameEffectiveDate;
 
-	private boolean conceptsAndRelationshipsOnly = false;
+	@ApiModelProperty(value = "false")
+	private boolean conceptsAndRelationshipsOnly;
 
 	private String id;
 	private Date startDate;
