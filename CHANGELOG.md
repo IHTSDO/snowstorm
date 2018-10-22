@@ -3,9 +3,44 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+
+## 2.1.0 Release - 2018-10-22
+
+Snowstorm is now production ready as a read-only terminology server.
+
+### Features
+- Running with latest Elasticsearch server (6.4.2) is now tested recommended.
+- Include Preferred Term (PT) in concepts returned from API.
+- Translated content support.
+  - Translated Fully Specified Name (FSN) and Preferred Term (PT) are returned
+  against all API responses when language is set in the Accept-Language header.
+- Add conceptActive filter to description search API.
+- Search reference set members by mapTarget.
+
+### Improvements
+- Performance improvement when holding large change sets in MAIN branch.
+- ReferenceComponent concept included in reference set member response.
+- Creating import configuration checks branch path and code system.
+- Better date formatting in branch created date and code system versions.
+- Make concept lookup performance logging quieter.
+- New flag to create code system version automatically during import.
+
+## Fixes
+- Inactive relationships excluded from integrity check.
+- Correct path of Relationship API.
+- Correct full integrity check branch mapping.
+- Correct reference set member lookup branch mapping.
+- Concept parents endpoint excludes inactive parent relationships.
+- Allow creating code system on branches other than MAIN.
+- RF2 import time logging calculation.
+- Export configuration conceptsAndRelationshipsOnly defaults to false.
+
+
+
 ## 2.0.0 Release Candidate - 2018-09-19
 
-This major version brings support for the new SNOMED Axiom component as well as many productionisation fixes.
+This major version brings support for the new SNOMED Axiom component as well as
+many productionisation fixes.
 
 This version is ready for testing.
 
