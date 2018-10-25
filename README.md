@@ -1,6 +1,6 @@
 # ❄️ Snowstorm Terminology Server
 
-Snowstorm is a prototype SNOMED CT terminology server built on top of Elasticsearch, with a focus on performance and enterprise scalability.
+Snowstorm is a SNOMED CT terminology server built on top of Elasticsearch, with a focus on performance and enterprise scalability.
 
 ## Project Status
 
