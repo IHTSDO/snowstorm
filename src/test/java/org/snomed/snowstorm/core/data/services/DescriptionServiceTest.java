@@ -16,6 +16,7 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
@@ -109,6 +110,39 @@ public class DescriptionServiceTest extends AbstractTest {
 		assertEquals("{en=3}", getAggregationString("language", pizzaAggs));
 		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaAggs));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", pizzaAggs));
+	}
+
+	@Test
+	public void testDescriptionSearchAggregationsSemanticTagFilter() throws ServiceException {
+		String path = "MAIN";
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
+		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)");
+		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
+		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
+		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		setModulesAndLanguage(concepts);
+		conceptService.create(concepts, path);
+
+		referenceSetMemberService.createMembers(path, Sets.newHashSet(
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN, "100003"),
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN, "100004"),
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE, "100005")
+		));
+
+		List<String> languageCodes = ControllerHelper.getLanguageCodes("en");
+		Aggregations allAggregations = descriptionService.findDescriptionsWithAggregations(path, null, null, null, languageCodes, PageRequest.of(0, 10)).getAggregations();
+		assertEquals("{900000000000207008=4}", getAggregationString("module", allAggregations));
+		assertEquals("{en=4}", getAggregationString("language", allAggregations));
+		assertEquals("{pizza=3, food=1}", getAggregationString("semanticTags", allAggregations));
+		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", allAggregations));
+
+		String semanticTag = "pizza";
+		Aggregations pizzaFilteredAggregations = descriptionService.findDescriptionsWithAggregations(path, null, null, semanticTag, languageCodes, PageRequest.of(0, 10)).getAggregations();
+		assertEquals("{900000000000207008=4}", getAggregationString("module", pizzaFilteredAggregations));
+		assertEquals("{en=4}", getAggregationString("language", pizzaFilteredAggregations));
+		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaFilteredAggregations));
+		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", pizzaFilteredAggregations));
 	}
 
 	@Test
