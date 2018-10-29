@@ -2,14 +2,8 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.common.util.set.Sets;
-import org.elasticsearch.search.aggregations.Aggregation;
-import org.elasticsearch.search.aggregations.Aggregations;
-import org.elasticsearch.search.aggregations.bucket.range.Range;
-import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
-import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -19,17 +13,14 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static java.lang.Long.parseLong;
 import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
@@ -99,15 +90,15 @@ public class DescriptionServiceTest extends AbstractTest {
 				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE, "100005")
 		));
 
-		Aggregations foodAggs = descriptionService.findDescriptionsWithAggregations(path, "food", PageRequest.of(0, 10)).getAggregations();
+		Map<String, Map<String, Long>> foodAggs = descriptionService.findDescriptionsWithAggregations(path, "food", PageRequest.of(0, 10)).getBuckets();
 		assertEquals("{900000000000207008=1}", getAggregationString("module", foodAggs));
-		assertEquals("{en=1}", getAggregationString("language", foodAggs));
+		assertEquals("{english=1}", getAggregationString("language", foodAggs));
 		assertEquals("{food=1}", getAggregationString("semanticTags", foodAggs));
 		assertEquals("{}", getAggregationString("membership", foodAggs));
 
-		Aggregations pizzaAggs = descriptionService.findDescriptionsWithAggregations(path, "pizza", PageRequest.of(0, 10)).getAggregations();
+		Map<String, Map<String, Long>> pizzaAggs = descriptionService.findDescriptionsWithAggregations(path, "pizza", PageRequest.of(0, 10)).getBuckets();
 		assertEquals("{900000000000207008=3}", getAggregationString("module", pizzaAggs));
-		assertEquals("{en=3}", getAggregationString("language", pizzaAggs));
+		assertEquals("{english=3}", getAggregationString("language", pizzaAggs));
 		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaAggs));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", pizzaAggs));
 	}
@@ -131,16 +122,16 @@ public class DescriptionServiceTest extends AbstractTest {
 		));
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes("en");
-		Aggregations allAggregations = descriptionService.findDescriptionsWithAggregations(path, null, null, null, languageCodes, PageRequest.of(0, 10)).getAggregations();
+		Map<String, Map<String, Long>> allAggregations = descriptionService.findDescriptionsWithAggregations(path, null, null, null, languageCodes, PageRequest.of(0, 10)).getBuckets();
 		assertEquals("{900000000000207008=4}", getAggregationString("module", allAggregations));
-		assertEquals("{en=4}", getAggregationString("language", allAggregations));
+		assertEquals("{english=4}", getAggregationString("language", allAggregations));
 		assertEquals("{pizza=3, food=1}", getAggregationString("semanticTags", allAggregations));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", allAggregations));
 
 		String semanticTag = "pizza";
-		Aggregations pizzaFilteredAggregations = descriptionService.findDescriptionsWithAggregations(path, null, null, semanticTag, languageCodes, PageRequest.of(0, 10)).getAggregations();
+		Map<String, Map<String, Long>> pizzaFilteredAggregations = descriptionService.findDescriptionsWithAggregations(path, null, null, semanticTag, languageCodes, PageRequest.of(0, 10)).getBuckets();
 		assertEquals("{900000000000207008=4}", getAggregationString("module", pizzaFilteredAggregations));
-		assertEquals("{en=4}", getAggregationString("language", pizzaFilteredAggregations));
+		assertEquals("{english=4}", getAggregationString("language", pizzaFilteredAggregations));
 		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaFilteredAggregations));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", pizzaFilteredAggregations));
 	}
@@ -180,10 +171,8 @@ public class DescriptionServiceTest extends AbstractTest {
 		assertEquals(Collections.emptySet(), branchService.findLatest("MAIN").getVersionsReplaced().get("Description"));
 	}
 
-	private String getAggregationString(String name, Aggregations aggregations) {
-		Map<String, Aggregation> aggregationMap = aggregations.asList().stream().collect(Collectors.toMap(Aggregation::getName, Function.identity()));
-		ParsedStringTerms ag = (ParsedStringTerms) aggregationMap.get(name);
-		return ag.getBuckets().stream().collect(Collectors.toMap(Terms.Bucket::getKeyAsString, Terms.Bucket::getDocCount)).toString();
+	private String getAggregationString(String name, Map<String, Map<String, Long>> buckets) {
+		return buckets.containsKey(name) ? buckets.get(name).toString() : null;
 	}
 
 	private void setModulesAndLanguage(List<Concept> concepts) {
