@@ -12,20 +12,20 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.Aggregations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
+import org.snomed.snowstorm.core.data.services.pojo.SimpleAggregation;
 import org.snomed.snowstorm.core.util.TimerUtil;
-import org.snomed.snowstorm.rest.pojo.PageWithFilters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
-import org.springframework.data.elasticsearch.core.aggregation.impl.AggregatedPageImpl;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
@@ -92,11 +92,11 @@ public class DescriptionService extends ComponentService {
 		return conceptMap.values().stream().flatMap(c -> c.getDescriptions().stream()).collect(Collectors.toSet());
 	}
 
-	AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
+	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
 		return findDescriptionsWithAggregations(path, term, null, null, Collections.singleton("en"), pageRequest);
 	}
 
-	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term,
+	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term,
 			Boolean conceptActive, String semanticTag,
 			Collection<String> languageCodes, PageRequest pageRequest) {
 
@@ -147,7 +147,7 @@ public class DescriptionService extends ComponentService {
 				descriptionStream.forEachRemaining(description -> conceptSemanticTagMatches.add(parseLong(description.getConceptId())));
 			}
 			conceptIds = conceptSemanticTagMatches;
-			allAggregations.add(new PageWithFilters.SimpleAggregation("semanticTag", semanticTag, conceptSemanticTagMatches.size()));
+			allAggregations.add(new SimpleAggregation("semanticTags", semanticTag, conceptSemanticTagMatches.size()));
 		}
 
 
@@ -177,7 +177,7 @@ public class DescriptionService extends ComponentService {
 		timer.finish();
 
 		// Merge aggregations
-		return new AggregatedPageImpl<>(descriptions.getContent(), descriptions.getPageable(), descriptions.getTotalElements(), new Aggregations(allAggregations));
+		return PageWithBucketAggregationsFactory.createPage(descriptions, allAggregations);
 	}
 
 	void joinDescriptions(BranchCriteria branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap,
