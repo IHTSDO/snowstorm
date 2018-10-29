@@ -34,7 +34,7 @@ First start Elasticsearch from wherever it has been installed.
 ./bin/elasticsearch
 ```
 
-On the first run of Snowstorm the SNOMED CT data needs to be loaded. [Follow instructions here](loading-snomed.md).
+On the first run of Snowstorm the SNOMED CT data may need to be loaded. [Follow instructions here](loading-snomed.md).
 
 On subsequent runs just start Snowstorm (in read only mode).
 ```bash
