@@ -8,17 +8,18 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
-import org.snomed.snowstorm.rest.converter.AggregationNameConverter;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.rest.pojo.BrowserDescriptionSearchResult;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
-import org.snomed.snowstorm.rest.pojo.PageWithFilters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -31,18 +32,6 @@ public class DescriptionController {
 
 	@Autowired
 	private DescriptionService descriptionService;
-
-	private final AggregationNameConverter languageAggregationNameConverter = new AggregationNameConverter() {
-		@Override
-		public boolean canConvert(String aggregationGroupName) {
-			return aggregationGroupName.equals("language");
-		}
-
-		@Override
-		public String convert(String aggregationName) {
-			return new Locale(aggregationName).getDisplayLanguage().toLowerCase();
-		}
-	};
 
 	@RequestMapping(value = "browser/{branch}/descriptions", method = RequestMethod.GET)
 	@ResponseBody
@@ -61,7 +50,7 @@ public class DescriptionController {
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 
-		AggregatedPage<Description> page = descriptionService.findDescriptionsWithAggregations(
+		PageWithBucketAggregations<Description> page = descriptionService.findDescriptionsWithAggregations(
 				// Query
 				branch, term,
 				// Filters
@@ -75,7 +64,7 @@ public class DescriptionController {
 		List<BrowserDescriptionSearchResult> results = new ArrayList<>();
 		page.getContent().forEach(d -> results.add(new BrowserDescriptionSearchResult(d.getTerm(), d.isActive(), conceptMinis.get(d.getConceptId()))));
 
-		return new PageWithFilters<>(results, pageRequest, page.getTotalElements(), page.getAggregations(), languageAggregationNameConverter);
+		return new PageWithBucketAggregations<>(results, page.getPageable(), page.getTotalElements(), page.getBuckets());
 	}
 
 	@RequestMapping(value = "{branch}/descriptions", method = RequestMethod.GET)
