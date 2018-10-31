@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
@@ -12,15 +13,9 @@ import org.snomed.snowstorm.core.data.domain.review.BranchReview;
 import org.snomed.snowstorm.core.data.domain.review.BranchReviewConceptChanges;
 import org.snomed.snowstorm.core.data.domain.review.MergeReview;
 import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
-import org.snomed.snowstorm.core.data.services.BranchMergeService;
-import org.snomed.snowstorm.core.data.services.BranchReviewService;
-import org.snomed.snowstorm.core.data.services.IntegrityService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
-import org.snomed.snowstorm.rest.pojo.CreateBranchRequest;
-import org.snomed.snowstorm.rest.pojo.CreateReviewRequest;
-import org.snomed.snowstorm.rest.pojo.MergeRequest;
-import org.snomed.snowstorm.rest.pojo.UpdateBranchRequest;
+import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +24,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @Api(tags = "Branching", description = "-")
@@ -37,6 +33,9 @@ public class BranchController {
 
 	@Autowired
 	private BranchService branchService;
+
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
 
 	@Autowired
 	private BranchReviewService reviewService;
@@ -51,27 +50,38 @@ public class BranchController {
 	@RequestMapping(value = "/branches", method = RequestMethod.GET)
 	@ResponseBody
 	public List<Branch> retrieveAllBranches() {
-		return branchService.findAll();
+		List<Branch> allBranches = branchService.findAll();
+		// Clear metadata
+		for (Branch branch : allBranches) {
+			branch.setMetadata(null);
+		}
+		return allBranches;
 	}
 
 	@RequestMapping(value = "/branches", method = RequestMethod.POST)
 	@ResponseBody
-	public Branch createBranch(@RequestBody CreateBranchRequest request) {
-		return branchService.create(request.getParent() + "/" + request.getName(), request.getMetadata());
+	public BranchPojo createBranch(@RequestBody CreateBranchRequest request) {
+		Map<String, String> flatMetadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
+		return getBranchPojo(branchService.create(request.getParent() + "/" + request.getName(), flatMetadata));
+	}
+
+	private BranchPojo getBranchPojo(Branch branch) {
+		return new BranchPojo(branch, branchMetadataHelper.expandObjectValues(branch.getMetadata()));
 	}
 
 	@ApiOperation("Update branch metadata")
 	@RequestMapping(value = "/branches/{path}", method = RequestMethod.PUT)
 	@ResponseBody
-	public Branch updateBranch(@PathVariable String path, @RequestBody UpdateBranchRequest request) {
-		return branchService.updateMetadata(path, request.getMetadata());
+	public BranchPojo updateBranch(@PathVariable String path, @RequestBody UpdateBranchRequest request) throws JsonProcessingException {
+		Map<String, String> metadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
+		return getBranchPojo(branchService.updateMetadata(BranchPathUriUtil.decodePath(path), metadata));
 	}
 
 	@ApiOperation("Retrieve a single branch")
 	@RequestMapping(value = "/branches/{path}", method = RequestMethod.GET)
 	@ResponseBody
-	public Branch retrieveBranch(@PathVariable String path, @RequestParam(required = false, defaultValue = "false") boolean includeInheritedMetadata) {
-		return branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(path), includeInheritedMetadata);
+	public BranchPojo retrieveBranch(@PathVariable String path, @RequestParam(required = false, defaultValue = "false") boolean includeInheritedMetadata) {
+		return getBranchPojo(branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(path), includeInheritedMetadata));
 	}
 
 	@RequestMapping(value = "/branches/{path}/actions/unlock", method = RequestMethod.POST)
