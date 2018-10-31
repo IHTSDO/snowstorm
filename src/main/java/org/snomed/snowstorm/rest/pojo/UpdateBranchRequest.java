@@ -4,13 +4,13 @@ import java.util.Map;
 
 public class UpdateBranchRequest {
 
-	private Map<String, String> metadata;
+	private Map<String, Object> metadata;
 
-	public Map<String, String> getMetadata() {
+	public Map<String, Object> getMetadata() {
 		return metadata;
 	}
 
-	public void setMetadata(Map<String, String> metadata) {
+	public void setMetadata(Map<String, Object> metadata) {
 		this.metadata = metadata;
 	}
 }
