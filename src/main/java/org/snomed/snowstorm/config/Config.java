@@ -9,7 +9,10 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.repositories.config.BranchStoreMixIn;
 import org.apache.http.HttpHost;
-import org.apache.http.client.config.RequestConfig;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.slf4j.Logger;
@@ -82,6 +85,12 @@ public abstract class Config {
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean restApiReadOnly;
 
+	@Value("${elasticsearch.username}")
+	private String elasticsearchUsername;
+
+	@Value("${elasticsearch.password}")
+	private String elasticsearchPassword;
+
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Bean
@@ -96,6 +105,13 @@ public abstract class Config {
 			builder.setConnectionRequestTimeout(0); //Disable lease handling for the connection pool! See https://github.com/elastic/elasticsearch/issues/24069
 			return builder;
 		});
+
+		if (elasticsearchUsername != null && !elasticsearchUsername.isEmpty()) {
+			final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
+			credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(elasticsearchUsername, elasticsearchPassword));
+			restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider));
+		}
+
 		return new ElasticsearchRestClient(new HashMap<>(), restClientBuilder);
 	}
 
