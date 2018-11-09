@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
@@ -42,6 +44,9 @@ public class CodeSystemService {
 
 	@Autowired
 	private ReleaseService releaseService;
+
+	@Autowired
+	private BranchMergeService mergeService;
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
@@ -155,5 +160,36 @@ public class CodeSystemService {
 	public void deleteAll() {
 		repository.deleteAll();
 		versionRepository.deleteAll();
+	}
+
+	public void migrateDependantCodeSystemVersion(CodeSystem codeSystem, String dependantCodeSystem, Integer newDependantVersion, boolean copyMetadata) {
+		CodeSystemVersion newDependantCodeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(dependantCodeSystem, newDependantVersion);
+		if (newDependantCodeSystemVersion == null) {
+			throw new IllegalStateException("No matching Code System version found for " + dependantCodeSystem + " at " + newDependantVersion);
+		}
+		if (newDependantCodeSystemVersion.getShortName().equals(codeSystem.getShortName())) {
+			throw new IllegalArgumentException("Code System can not depend on itself.");
+		}
+
+		logger.info("Migrating code system {} to depend on {} release {}", codeSystem.getShortName(), newDependantCodeSystemVersion.getShortName(),
+				newDependantCodeSystemVersion.getEffectiveDate());
+
+		String sourceBranchPath = codeSystem.getBranchPath();
+		String targetBranchPath = newDependantCodeSystemVersion.getParentBranchPath() + BranchPathUriUtil.SLASH
+				+ newDependantCodeSystemVersion.getVersion() + BranchPathUriUtil.SLASH + codeSystem.getShortName();
+
+		mergeService.copyBranchToNewParent(sourceBranchPath, targetBranchPath);
+
+		// Update code system branch path
+		codeSystem.setBranchPath(targetBranchPath);
+		repository.save(codeSystem);
+
+		if (copyMetadata) {
+			Branch sourceBranch = branchService.findBranchOrThrow(sourceBranchPath);
+			Branch targetBranch = branchService.findBranchOrThrow(targetBranchPath);
+			branchService.updateMetadata(targetBranch.getPath(), sourceBranch.getMetadata());
+		}
+
+		logger.info("Migrated code system {} to {}. Run an integrity check next then fix content.", codeSystem.getShortName(), targetBranchPath);
 	}
 }
