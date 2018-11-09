@@ -112,7 +112,27 @@ public class BranchMergeService {
 		mergeBranchSync(source, target, manuallyMergedConcepts, false);
 	}
 
-	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts, boolean permissive) throws ServiceException {
+	/**
+	 * Merge content from one branch to another without one being a parent of the other.
+	 * This should probably only be used for code system upgrades/downgrades.
+	 * @param source The branch to copy content from.
+	 * @param target The branch to copy content to.
+	 */
+	void copyBranchToNewParent(String source, String target) {
+
+		if (!branchService.exists(target)) {
+			branchService.create(target);
+		}
+
+		try (Commit commit = branchService.openCommit(target)) {
+			logger.info("Performing migration {} -> {}", source, target);
+			final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = domainEntityConfiguration.getComponentTypeRepositoryMap();
+			componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> copyChangesOnBranchToCommit(source, commit, entry.getKey(), entry.getValue(), "Migrating", false));
+			commit.markSuccessful();
+		}
+	}
+
+	void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts, boolean permissive) throws ServiceException {
 		logger.info("Request merge {} -> {}", source, target);
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
 		final Branch targetBranch = branchService.findBranchOrThrow(target);
@@ -208,6 +228,12 @@ public class BranchMergeService {
 			logger.debug("Ended {} {}", versionsReplaced.size(), entityClassName);
 		}
 
+		copyChangesOnBranchToCommit(source, commit, entityClass, entityRepository, "Promoting", true);
+	}
+
+	private <T extends SnomedComponent> void copyChangesOnBranchToCommit(String source, Commit commit, Class<T> entityClass,
+			ElasticsearchCrudRepository<T, String> entityRepository, String logAction, boolean endEntitiesOnSource) {
+
 		// Load all entities on source
 		try (final CloseableIterator<T> entities = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(versionControlHelper.getChangesOnBranchCriteria(source).getEntityBranchCriteria(entityClass))
@@ -219,11 +245,13 @@ public class BranchMergeService {
 			if (toPromote.isEmpty()) {
 				return;
 			}
-			logger.info("Promoting {} {}", toPromote.size(), entityClassName);
+			logger.info(logAction + " {} {}", toPromote.size(), entityClass.getSimpleName());
 
-			// End entities on source
-			toPromote.forEach(entity -> entity.setEnd(commit.getTimepoint()));
-			entityRepository.saveAll(toPromote);
+			if (endEntitiesOnSource) {
+				// End entities on source
+				toPromote.forEach(entity -> entity.setEnd(commit.getTimepoint()));
+				entityRepository.saveAll(toPromote);
+			}
 
 			// Save entities on target
 			toPromote.forEach(DomainEntity::markChanged);

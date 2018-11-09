@@ -1,0 +1,8 @@
+#
+# Comments are removed by unit test
+#
+id	effectiveTime	active	moduleId	definitionStatusId
+
+# Extension A Module
+900101001	20180231	1	900101001	900000000000074008
+18736003	20180231	1	900101001	900000000000074008
