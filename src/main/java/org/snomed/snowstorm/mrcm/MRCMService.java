@@ -3,18 +3,22 @@ package org.snomed.snowstorm.mrcm;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -32,14 +36,15 @@ public class MRCMService {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
-	private MRCM mrcm;
+	private Map<String, MRCM> branchMrcmMap;
 
-	public void loadFromStream(InputStream inputStream) throws IOException {
-		this.mrcm = new MRCMLoader().load(inputStream);
-	}
+	@Value("${validation.mrcm.xml.path}")
+	private String mrcmXmlPath;
 
-	public void loadFromFile() throws IOException {
-		this.mrcm = new MRCMLoader().loadFromFile();
+	private Logger logger = LoggerFactory.getLogger(getClass());
+
+	public void loadFromFiles() throws ServiceException {
+		this.branchMrcmMap = new MRCMLoader(mrcmXmlPath).loadFromFiles();
 	}
 
 	public Collection<ConceptMini> retrieveDomainAttributes(String branchPath, Set<Long> parentIds, List<String> languageCodes) {
@@ -47,7 +52,7 @@ public class MRCMService {
 		Set<Long> allAncestors = queryService.findAncestorIdsAsUnion(branchCriteria, false, parentIds);
 		allAncestors.addAll(parentIds);
 
-		Set<Domain> matchedDomains = mrcm.getDomainMap().values().stream().filter(d -> {
+		Set<Domain> matchedDomains = getClosestMrcm(branchPath).getDomainMap().values().stream().filter(d -> {
 			Long domainConceptId = d.getConceptId();
 			InclusionType inclusionType = d.getInclusionType();
 			if ((inclusionType == InclusionType.SELF || inclusionType == InclusionType.SELF_OR_DESCENDANT)
@@ -75,9 +80,8 @@ public class MRCMService {
 		return conceptService.findConceptMinis(branchCriteria, allMatchedAttributeIds, languageCodes).getResultsMap().values();
 	}
 
-
 	public Collection<ConceptMini> retrieveAttributeValues(String branchPath, String attributeId, String termPrefix, List<String> languageCodes) {
-		Attribute attribute = mrcm.getAttributeMap().get(parseLong(attributeId));
+		Attribute attribute = getClosestMrcm(branchPath).getAttributeMap().get(parseLong(attributeId));
 		if (attribute == null) {
 			throw new IllegalArgumentException("MRCM Attribute " + attributeId + " not found.");
 		}
@@ -105,7 +109,23 @@ public class MRCMService {
 		return queryService.search(queryBuilder, branchPath, PageRequest.of(0, 50)).getContent();
 	}
 
-	public static void main(String[] args) throws IOException {
-		new MRCMService().loadFromFile();
+	private MRCM getClosestMrcm(final String branchPath) {
+		String searchPath = branchPath;
+		while (searchPath.contains("/")) {
+			MRCM mrcm = branchMrcmMap.get(searchPath);
+			if (mrcm != null) {
+				if (searchPath.contains("/")) {
+					logger.debug("MRCM branch match {}", searchPath);
+				}
+				return mrcm;
+			}
+			searchPath = searchPath.substring(0, searchPath.lastIndexOf("/"));
+		}
+		throw new RuntimeServiceException("Failed to find any relevant MRCM for branch path " + branchPath);
+	}
+
+	// Test method
+	public static void main(String[] args) throws ServiceException {
+		new MRCMService().loadFromFiles();
 	}
 }
