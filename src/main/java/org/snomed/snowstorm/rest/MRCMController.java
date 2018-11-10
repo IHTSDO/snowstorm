@@ -4,13 +4,12 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.mrcm.MRCMService;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 
@@ -49,10 +48,10 @@ public class MRCMController {
 		return new ItemsPage<>(mrcmService.retrieveAttributeValues(branchPath, attributeId, termPrefix, languageCodes));
 	}
 
-	@ApiOperation("Update system wide MRCM from XML file. This is an alternative implementation to the reference sets.")
-	@RequestMapping(value = "/mrcm", method = RequestMethod.POST, consumes = "multipart/form-data")
-	public void updateMRCMFromXml(@RequestParam MultipartFile file) throws IOException {
-		mrcmService.loadFromStream(file.getInputStream());
+	@ApiOperation("Reload MRCM from XML files. This is an alternative implementation to the reference sets.")
+	@RequestMapping(value = "/mrcm/reload", method = RequestMethod.POST, consumes = "multipart/form-data")
+	public void reloadMrcm() throws ServiceException {
+		mrcmService.loadFromFiles();
 	}
 
 }

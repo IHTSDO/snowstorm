@@ -2,27 +2,82 @@ package org.snomed.snowstorm.mrcm;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import org.apache.tomcat.util.http.fileupload.util.Streams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.mrcm.model.Attribute;
 import org.snomed.snowstorm.mrcm.model.Domain;
 import org.snomed.snowstorm.mrcm.model.MRCM;
 import org.snomed.snowstorm.mrcm.model.load.*;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Map;
 
-public class MRCMLoader {
+class MRCMLoader {
+
+	private final String mrcmXmlPath;
 
 	private static Logger logger = LoggerFactory.getLogger(MRCMLoader.class);
+	private static final String MRCM_FILE_NAME = "mrcm.xmi";
 
-	public MRCM loadFromFile() throws IOException {
-		return load(getClass().getResourceAsStream("/mrcm/mrcm.xmi"));
+	public MRCMLoader(String mrcmXmlPath) {
+		this.mrcmXmlPath = mrcmXmlPath;
 	}
 
-	public MRCM load(InputStream mrcmXmlStream) throws IOException {
+	Map<String, MRCM> loadFromFiles() throws ServiceException {
+		// Create MRCM config directory if it does not exist
+		File mrcmDir = new File(mrcmXmlPath);
+		File mrcmMainDir = new File(mrcmDir, "MAIN");
+		if (!mrcmMainDir.exists()){
+			if (!mrcmMainDir.mkdirs()) {
+				throw new ServiceException("Failed to create MRCM configuration directory " + mrcmMainDir.getAbsolutePath());
+			}
+		}
+
+		// Create MAIN MRCM file from the default if it does not yet exist
+		File mrcmMainFile = new File(mrcmMainDir, "mrcm.xmi");
+		if (!mrcmMainFile.isFile()) {
+			try {
+			if (!mrcmMainFile.createNewFile()) {
+				throw new ServiceException("Failed to create MRCM configuration file " + mrcmMainFile.getAbsolutePath());
+			}
+				Streams.copy(getClass().getResourceAsStream("/mrcm/" + MRCM_FILE_NAME), new FileOutputStream(mrcmMainFile), true);
+			} catch (IOException e) {
+				throw new ServiceException("Failed to write default MRCM configuration file " + mrcmMainFile.getAbsolutePath());
+			}
+		}
+
+		// Walk mrcm directories. The directory path will be used as the branch path for each mrcm.xmi file.
+
+		Map<String, MRCM> branchMrcmMap = new HashMap<>();
+		try {
+			Files.walkFileTree(mrcmDir.toPath(), new SimpleFileVisitor<Path>() {
+				@Override
+				public FileVisitResult visitFile(Path filePath, BasicFileAttributes attrs) throws IOException {
+					File file = filePath.toFile();
+					if (file.isFile() && file.getName().equals(MRCM_FILE_NAME)) {
+						MRCM mrcm = load(new FileInputStream(file));
+						String branchPath = file.getAbsolutePath().substring(mrcmDir.getAbsolutePath().length());
+						branchMrcmMap.put(branchPath, mrcm);
+					}
+					return FileVisitResult.CONTINUE;
+				}
+			});
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
+		return branchMrcmMap;
+	}
+
+	private MRCM load(InputStream mrcmXmlStream) throws IOException {
 		Map<Long, Domain> domainMap = new HashMap<>();
 		Map<Long, Attribute> attributeMap = new HashMap<>();
 
