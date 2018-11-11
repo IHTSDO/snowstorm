@@ -194,11 +194,6 @@ public class ConceptService extends ComponentService {
 		return conceptMiniMap.values();
 	}
 
-	public Collection<ConceptMini> findConceptParents(String conceptId, List<String> languageCodes, String path, Relationship.CharacteristicType form) {
-		Concept concept = find(conceptId, languageCodes, path);
-		return concept.getRelationships().stream().filter(r -> r.isActive() && form.getConceptId().equals(r.getCharacteristicTypeId())).map(Relationship::target).collect(Collectors.toList());
-	}
-
 	private CloseableIterator<Relationship> openRelationshipStream(BranchCriteria branchCriteria,
 																   QueryBuilder destinationCriteria,
 																   Relationship.CharacteristicType relationshipType) {
