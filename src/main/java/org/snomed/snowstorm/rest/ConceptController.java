@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
+import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -45,6 +47,9 @@ public class ConceptController {
 	
 	@Autowired
 	private SemanticIndexUpdateService queryConceptUpdateService;
+
+	@Autowired
+	private VersionControlHelper versionControlHelper;
 
 	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
 	@ResponseBody
@@ -252,8 +257,12 @@ public class ConceptController {
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
+		branch = BranchPathUriUtil.decodePath(branch);
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
-		return conceptService.findConceptParents(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch), form);
+
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		Set<Long> parentIds = queryService.findParentIds(branchCriteria, form == Relationship.CharacteristicType.stated, conceptId);
+		return conceptService.findConceptMinis(branchCriteria, parentIds, languageCodes).getResultsMap().values();
 	}
 
 	@ResponseBody
