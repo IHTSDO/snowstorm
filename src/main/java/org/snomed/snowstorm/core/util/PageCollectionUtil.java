@@ -8,10 +8,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class CollectionUtil {
+public class PageCollectionUtil {
 
 	public static <T> Page<T> listIntersection(List<T> orderedListA, List<T> listB, Pageable pageable) {
 		List<T> fullResultList = orderedListA.stream().filter(listB::contains).collect(Collectors.toList());
+		return listToPage(fullResultList, pageable);
+	}
+
+	public static <T> Page<T> listToPage(List<T> fullResultList, Pageable pageable) {
 		List<T> pageOfResults = subList(fullResultList, pageable.getPageNumber(), pageable.getPageSize());
 		return new PageImpl<T>(pageOfResults, pageable, fullResultList.size());
 	}

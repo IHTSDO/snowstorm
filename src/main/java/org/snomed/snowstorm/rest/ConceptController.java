@@ -56,6 +56,7 @@ public class ConceptController {
 	public ItemsPage<ConceptMini> findConcepts(
 			@PathVariable String branch,
 			@RequestParam(required = false) Boolean activeFilter,
+			@RequestParam(required = false) String definitionStatusFilter,
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) String ecl,
 			@RequestParam(required = false) String statedEcl,
@@ -82,6 +83,7 @@ public class ConceptController {
 
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated)
 				.activeFilter(activeFilter)
+				.definitionStatusFilter(definitionStatusFilter)
 				.ecl(ecl)
 				.termPrefix(term)
 				.languageCodes(ControllerHelper.getLanguageCodes(acceptLanguageHeader))
@@ -111,6 +113,7 @@ public class ConceptController {
 
 		return findConcepts(BranchPathUriUtil.decodePath(branch),
 				searchRequest.getActiveFilter(),
+				searchRequest.getDefinitionStatusFilter(),
 				searchRequest.getTermFilter(),
 				searchRequest.getEclFilter(),
 				searchRequest.getStatedEclFilter(),
@@ -177,7 +180,7 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return findConcepts(branch, stated, null, null, "<" + conceptId, null, null, offset, limit, acceptLanguageHeader);
+		return findConcepts(branch, stated, null, null, null, "<" + conceptId, null, null, offset, limit, acceptLanguageHeader);
 	}
 
 	@ResponseBody

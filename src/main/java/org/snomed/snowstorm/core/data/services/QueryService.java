@@ -11,7 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
-import org.snomed.snowstorm.core.util.CollectionUtil;
+import org.snomed.snowstorm.core.util.PageCollectionUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +24,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.Nullable;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -123,11 +124,11 @@ public class QueryService {
 			if (conceptIds != null && !conceptIds.isEmpty()) {
 				// Concept ID pass-through
 				List<Long> conceptIdList = conceptIds.stream().map(Long::parseLong).collect(Collectors.toList());
-				List<Long> pageOfIds = CollectionUtil.subList(conceptIdList, pageRequest.getPageNumber(), pageRequest.getPageSize());
+				List<Long> pageOfIds = PageCollectionUtil.subList(conceptIdList, pageRequest.getPageNumber(), pageRequest.getPageSize());
 				conceptIdPage = new PageImpl<>(pageOfIds, pageRequest, conceptIdList.size());
 			} else if (conceptQuery.getEcl() != null) {
 				// ECL search
-				conceptIdPage = doEclSearch(conceptQuery, branchPath, pageRequest, branchCriteria);
+				conceptIdPage = doEclSearchAndDefinitionFilter(conceptQuery, branchPath, pageRequest, branchCriteria);
 			} else {
 				// Primitive logical search
 				conceptIdPage = getSimpleLogicalSearchPage(conceptQuery, branchCriteria, pageRequest);
@@ -185,12 +186,14 @@ public class QueryService {
 					}
 				}
 			}
+			List<Long> allFilteredLogicalMatchesFinal = filterByDefinitionStatus(allFilteredLogicalMatches, conceptQuery.getDefinitionStatusFilter(), branchCriteria);
+
 			timer.checkpoint("filtered logical complete");
 
-			logger.info("{} lexical results, {} logical results", allLexicalMatchesWithOrdering.size(), allFilteredLogicalMatches.size());
+			logger.info("{} lexical results, {} logical results", allLexicalMatchesWithOrdering.size(), allFilteredLogicalMatchesFinal.size());
 
 			// Create page of ids which is an intersection of the lexical and logical lists using the lexical ordering
-			conceptIdPage = CollectionUtil.listIntersection(allLexicalMatchesWithOrdering, allFilteredLogicalMatches, pageRequest);
+			conceptIdPage = PageCollectionUtil.listIntersection(allLexicalMatchesWithOrdering, allFilteredLogicalMatchesFinal, pageRequest);
 		}
 
 		if (conceptIdPage != null) {
@@ -198,6 +201,29 @@ public class QueryService {
 		} else {
 			return Optional.empty();
 		}
+	}
+
+	private List<Long> filterByDefinitionStatus(List<Long> conceptIds, @Nullable String definitionStatus, BranchCriteria branchCriteria) {
+		if (definitionStatus == null || definitionStatus.isEmpty()) {
+			return conceptIds;
+		}
+
+		List<Long> filteredConceptIds = new LongArrayList();
+
+		NativeSearchQueryBuilder conceptDefinitionQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, definitionStatus))
+				)
+				.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
+				.withFields(Concept.Fields.CONCEPT_ID)
+				.withPageable(LARGE_PAGE);
+
+		try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(conceptDefinitionQuery.build(), Concept.class)) {
+			stream.forEachRemaining(concept -> filteredConceptIds.add(concept.getConceptIdAsLong()));
+		}
+
+		return filteredConceptIds;
 	}
 
 	private Page<Long> getSimpleLogicalSearchPage(ConceptQueryBuilder conceptQuery, BranchCriteria branchCriteria, PageRequest pageRequest) {
@@ -228,10 +254,18 @@ public class QueryService {
 		return allLexicalMatchesWithOrdering.stream().distinct().collect(Collectors.toList());
 	}
 
-	private Page<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, BranchCriteria branchCriteria) {
+	private Page<Long> doEclSearchAndDefinitionFilter(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, BranchCriteria branchCriteria) {
 		String ecl = conceptQuery.getEcl();
 		logger.info("ECL Search {}", ecl);
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), pageRequest);
+
+		String definitionStatusFilter = conceptQuery.definitionStatusFilter;
+		if (definitionStatusFilter != null && definitionStatusFilter.isEmpty()) {
+			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), null, null);
+			List<Long> filteredConceptIds = filterByDefinitionStatus(allConceptIds.getContent(), conceptQuery.definitionStatusFilter, branchCriteria);
+			return PageCollectionUtil.listToPage(filteredConceptIds, pageRequest);
+		} else {
+			return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), pageRequest);
+		}
 	}
 
 	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, List<Long> conceptIdFilter) {
@@ -420,6 +454,7 @@ public class QueryService {
 		private final BoolQueryBuilder logicalConditionBuilder;
 		private final boolean stated;
 		private Boolean activeFilter;
+		private String definitionStatusFilter;
 		private String termPrefix;
 		private List<String> languageCodes;
 		private String ecl;
@@ -483,10 +518,15 @@ public class QueryService {
 			return this;
 		}
 
+		public ConceptQueryBuilder definitionStatusFilter(String definitionStatusFilter) {
+			this.definitionStatusFilter = definitionStatusFilter;
+			return this;
+		}
+
 		private boolean hasLogicalConditions() {
 			return hasRelationshipConditions() ||
 					(conceptIds != null && !conceptIds.isEmpty()) ||
-					activeFilter != null;
+					activeFilter != null || definitionStatusFilter != null;
 		}
 
 		private boolean hasRelationshipConditions() {
@@ -519,6 +559,10 @@ public class QueryService {
 
 		private Boolean getActiveFilter() {
 			return activeFilter;
+		}
+
+		private String getDefinitionStatusFilter() {
+			return definitionStatusFilter;
 		}
 	}
 
