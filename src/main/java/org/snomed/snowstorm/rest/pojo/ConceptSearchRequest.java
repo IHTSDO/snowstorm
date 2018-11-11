@@ -6,13 +6,13 @@ public class ConceptSearchRequest {
 
 	private String termFilter;
 	private Boolean activeFilter;
+	private String definitionStatusFilter;
 	private String eclFilter;
 	private String statedEclFilter;
 	private Set<String> conceptIds;
 	private int offset = 0;
 	private int limit = 50;
 //		  "moduleFilter": "",
-//		  "activeFilter": false,
 //		  "escgFilter": "",
 //		  "expand": "",
 
@@ -34,6 +34,14 @@ public class ConceptSearchRequest {
 
 	public void setActiveFilter(Boolean activeFilter) {
 		this.activeFilter = activeFilter;
+	}
+
+	public String getDefinitionStatusFilter() {
+		return definitionStatusFilter;
+	}
+
+	public void setDefinitionStatusFilter(String definitionStatusFilter) {
+		this.definitionStatusFilter = definitionStatusFilter;
 	}
 
 	public String getEclFilter() {
