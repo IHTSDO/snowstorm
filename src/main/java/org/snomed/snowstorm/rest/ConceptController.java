@@ -89,6 +89,8 @@ public class ConceptController {
 				.languageCodes(ControllerHelper.getLanguageCodes(acceptLanguageHeader))
 				.conceptIds(conceptIds);
 
+		validatePageSize(limit);
+
 		return new ItemsPage<>(queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), ControllerHelper.getPageRequest(offset, limit)));
 	}
 
@@ -133,6 +135,7 @@ public class ConceptController {
 			@RequestParam(defaultValue = "100") int size,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
+		validatePageSize(size);
 		return conceptService.findAll(BranchPathUriUtil.decodePath(branch), ControllerHelper.getLanguageCodes(acceptLanguageHeader), PageRequest.of(number, size));
 	}
 
@@ -285,7 +288,7 @@ public class ConceptController {
 	public void rebuildBranchTransitiveClosure(@PathVariable String branch) throws ConversionException {
 		queryConceptUpdateService.rebuildStatedAndInferredSemanticIndex(BranchPathUriUtil.decodePath(branch));
 	}
-	
+
 	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/authoring-form", method = RequestMethod.GET)
 	public Expression getConceptAuthoringForm(
@@ -295,6 +298,12 @@ public class ConceptController {
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		return expressionService.getConceptAuthoringForm(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch));
+	}
+
+	private void validatePageSize(@RequestParam(required = false, defaultValue = "50") int limit) {
+		if (limit > 10_000) {
+			throw new IllegalArgumentException("Maximum page size is 10000.");
+		}
 	}
 
 }
