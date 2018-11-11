@@ -5,3 +5,4 @@ target
 /release
 application-*.properties
 *.log
+/resources
