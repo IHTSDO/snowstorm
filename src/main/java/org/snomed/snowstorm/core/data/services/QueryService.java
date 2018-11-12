@@ -259,7 +259,7 @@ public class QueryService {
 		logger.info("ECL Search {}", ecl);
 
 		String definitionStatusFilter = conceptQuery.definitionStatusFilter;
-		if (definitionStatusFilter != null && definitionStatusFilter.isEmpty()) {
+		if (definitionStatusFilter != null && !definitionStatusFilter.isEmpty()) {
 			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), null, null);
 			List<Long> filteredConceptIds = filterByDefinitionStatus(allConceptIds.getContent(), conceptQuery.definitionStatusFilter, branchCriteria);
 			return PageCollectionUtil.listToPage(filteredConceptIds, pageRequest);
