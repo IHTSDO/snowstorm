@@ -64,7 +64,8 @@ class MRCMLoader {
 					File file = filePath.toFile();
 					if (file.isFile() && file.getName().equals(MRCM_FILE_NAME)) {
 						MRCM mrcm = load(new FileInputStream(file));
-						String branchPath = file.getAbsolutePath().substring(mrcmDir.getAbsolutePath().length());
+						String branchPath = file.getAbsolutePath().substring(mrcmDir.getAbsolutePath().length() + 1);
+						branchPath = branchPath.substring(0, branchPath.length() - file.getName().length() - 1);
 						branchMrcmMap.put(branchPath, mrcm);
 					}
 					return FileVisitResult.CONTINUE;

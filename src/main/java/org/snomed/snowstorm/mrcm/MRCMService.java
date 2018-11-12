@@ -16,10 +16,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
@@ -111,7 +108,8 @@ public class MRCMService {
 
 	private MRCM getClosestMrcm(final String branchPath) {
 		String searchPath = branchPath;
-		while (searchPath.contains("/")) {
+		boolean searchedRoot = false;
+		while (!searchedRoot) {
 			MRCM mrcm = branchMrcmMap.get(searchPath);
 			if (mrcm != null) {
 				if (searchPath.contains("/")) {
@@ -119,7 +117,11 @@ public class MRCMService {
 				}
 				return mrcm;
 			}
-			searchPath = searchPath.substring(0, searchPath.lastIndexOf("/"));
+			if (searchPath.contains("/")) {
+				searchPath = searchPath.substring(0, searchPath.lastIndexOf("/"));
+			} else {
+				searchedRoot = true;
+			}
 		}
 		throw new RuntimeServiceException("Failed to find any relevant MRCM for branch path " + branchPath);
 	}
