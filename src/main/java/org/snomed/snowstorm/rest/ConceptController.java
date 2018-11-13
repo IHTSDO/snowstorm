@@ -75,9 +75,10 @@ public class ConceptController {
 			}
 		}
 
-		boolean stated = false;
-		if (statedEcl != null && !statedEcl.isEmpty()) {
-			stated = true;
+		boolean stated = true;
+		if (ecl != null && !ecl.isEmpty()) {
+			stated = false;
+		} else {
 			ecl = statedEcl;
 		}
 
