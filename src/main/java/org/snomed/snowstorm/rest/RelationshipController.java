@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
-import com.google.common.collect.Sets;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
@@ -13,11 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.*;
 
 @RestController
 @Api(tags = "Relationships", description = "-")
@@ -75,19 +70,25 @@ public class RelationshipController {
 				group,
 				ControllerHelper.getPageRequest(offset, limit));
 
-		expandSourceAndTarget(branch, relationshipPage.getContent(), languageCodes);
+		expandSourceTypeAndDestination(branch, relationshipPage.getContent(), languageCodes);
 
 		return new ItemsPage<>(relationshipPage);
 	}
 
-	private void expandSourceAndTarget(String branch, List<Relationship> relationships, List<String> languageCodes) {
-		Set<String> sourceIds = relationships.stream().map(Relationship::getSourceId).collect(Collectors.toSet());
-		Set<String> typeIds = relationships.stream().map(Relationship::getTypeId).collect(Collectors.toSet());
-
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, Sets.union(sourceIds, typeIds), languageCodes).getResultsMap();
+	private void expandSourceTypeAndDestination(String branch, List<Relationship> relationships, List<String> languageCodes) {
+		Set<String> allIds = new HashSet<>();
+		relationships.forEach(r -> {
+			allIds.add(r.getSourceId());
+			allIds.add(r.getTypeId());
+			allIds.add(r.getDestinationId());
+		});
+		
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, allIds, languageCodes).getResultsMap();
+		
 		relationships.forEach(r -> {
 			r.setSource(conceptMinis.get(r.getSourceId()));
 			r.setType(conceptMinis.get(r.getTypeId()));
+			r.setTarget(conceptMinis.get(r.getDestinationId()));
 		});
 	}
 
@@ -102,7 +103,7 @@ public class RelationshipController {
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		Relationship relationship = relationshipService.findRelationship(BranchPathUriUtil.decodePath(branch), relationshipId);
 		if (relationship != null) {
-			expandSourceAndTarget(branch, Collections.singletonList(relationship), languageCodes);
+			expandSourceTypeAndDestination(branch, Collections.singletonList(relationship), languageCodes);
 		}
 		return ControllerHelper.throwIfNotFound("Relationship", relationship);
 	}
