@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.QueryService.ConceptQueryBuilder;
 import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.mrcm.model.*;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
@@ -78,11 +80,12 @@ public class MRCMService {
 	}
 
 	public Collection<ConceptMini> retrieveAttributeValues(String branchPath, String attributeId, String termPrefix, List<String> languageCodes) {
-		Attribute attribute = getClosestMrcm(branchPath).getAttributeMap().get(parseLong(attributeId));
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		Attribute attribute = findSelfOrFirstAncestorAttribute(branchPath, branchCriteria, attributeId);
 		if (attribute == null) {
 			throw new IllegalArgumentException("MRCM Attribute " + attributeId + " not found.");
 		}
-
+		
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false)
 				.termPrefix(termPrefix)
 				.languageCodes(languageCodes);
@@ -104,6 +107,25 @@ public class MRCMService {
 		}
 
 		return queryService.search(queryBuilder, branchPath, PageRequest.of(0, 50)).getContent();
+	}
+
+	private Attribute findSelfOrFirstAncestorAttribute(String branchPath, BranchCriteria branchCriteria, String attributeIdStr) {
+		//Breadth first scan of ancestors requires use of Queue
+		Queue<Long> ancestorIds = new LinkedBlockingQueue<>(); 
+		ancestorIds.add(Long.parseLong(attributeIdStr));
+		
+		Attribute attribute = null;
+		while (!ancestorIds.isEmpty()) {
+			Long attributeId = ancestorIds.poll();
+			attribute = getClosestMrcm(branchPath).getAttributeMap().get(attributeId);
+			if (attribute != null) {
+				break;
+			}
+			//If we haven't found an attribute, then add all immediate inferred parents to the queue.
+			//But we'll check the same level parents first, since they'll be earlier in the queue
+			ancestorIds.addAll(queryService.findParentIds(branchCriteria, false, attributeId.toString()));
+		}
+		return attribute;
 	}
 
 	private MRCM getClosestMrcm(final String branchPath) {
