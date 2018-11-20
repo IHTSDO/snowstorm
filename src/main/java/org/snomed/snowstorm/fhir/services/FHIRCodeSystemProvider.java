@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -45,14 +46,14 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="coding") Coding coding,
 //				@OperationParam(name="date") DateTimeType date,   // Not supported
 			@OperationParam(name="property") List<CodeType> properties) throws FHIROperationException {
-		
+
 		if (system == null || system.isEmpty() || !system.equals(SNOMED_URI)) {
 			throw new FHIROperationException(IssueType.VALUE, "System must be present, and currently only " + SNOMED_URI + " is supported.");
 		}
-		
+		FHIRConstants.SnomedEdition snomedEdition = helper.getSnomedEdition(version);
 		String branch = helper.getBranchForVersion(version);
-		Concept c = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), Config.DEFAULT_LANGUAGE_CODES, BranchPathUriUtil.decodePath(branch)));
-		Collection<ConceptMini> children = conceptService.findConceptChildren(code.getValue(), Config.DEFAULT_LANGUAGE_CODES, branch, Relationship.CharacteristicType.inferred);
+		Concept c = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), Collections.singletonList(snomedEdition.languageCode()), BranchPathUriUtil.decodePath(branch)));
+		Collection<ConceptMini> children = conceptService.findConceptChildren(code.getValue(), Collections.singletonList(snomedEdition.languageCode()), branch, Relationship.CharacteristicType.inferred);
 		return mapper.mapToFHIR(c, children); 
 	}
 	
