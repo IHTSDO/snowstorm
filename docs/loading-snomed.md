@@ -9,6 +9,7 @@ Then make sure Elasticsearch is running and choose one of the sections below.
 This loads the content of the current release and skips loading outdated content. This is the recommended option.
 
 ### Through Swagger
+
 Once Snowstorm is running, you will need to start the import process by creating a new import job. Look for the Imports endpoint on swagger, (http://localhost:8080) and then create a new import using
 
 ```json
@@ -21,7 +22,7 @@ Once Snowstorm is running, you will need to start the import process by creating
 
 and then click on 'Try it now' and then note the id of the import as you will need it for the next step (it will look something like - _d0b30d96-3714-443e-99a5-2f282b1f1b0_).
 
-You now need to upload the file. You can do this through the swagger interface at the *imports/archive* end point, but the following will allow you to run it using curl to do this from the command line:
+You now need to upload the file. You can do this through the swagger interface at the *imports/archive* end point, but the following will allow you to run it using curl to do this from the command line (*this example uses the January 2018 release file*):
 
 ```bash
 curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_InternationalRF2_PRODUCTION_20180131T120000Z.zip 'http://localhost:8080/imports/<import id>/archive'
@@ -39,6 +40,6 @@ This will take between 30-60 minutes depending on the performance of your machin
 
 ## Loading Release Full Files
 
-It's possible to load the RF2 **Full** files which gives you access to previous releases in addition to the current content. This will  take many hours (*one import has taken more than 24 hours*).
+It's possible to load the RF2 **Full** files which gives you access to previous releases in addition to the current content. However, this will  take longer (*last run took 2h15 on an m5.xlarge AWS instance with 4 vCPU and 16GB Memory*), but will not have an impact to the performance.
 
 Simply replace the `--import` argument above with `--import-full` or the `type` with `FULL` within Swagger.
