@@ -54,7 +54,7 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 	}
 
 	@Override
-	public Set<String> getAllTopLevelHierachies() {
+	public Set<String> getAllTopLevelHierarchies() {
 		return getConceptIdsByEcl(false, "<!" + Concepts.SNOMEDCT_ROOT);
 	}
 
@@ -80,7 +80,7 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 	}
 
 	@Override
-	public Set<String> findTopLevelHierachiesOfConcept(org.ihtsdo.drools.domain.Concept concept) {
+	public Set<String> findTopLevelHierarchiesOfConcept(org.ihtsdo.drools.domain.Concept concept) {
 		Set<String> statedParents = getStatedParents(concept);
 
 		StringBuilder ecl = new StringBuilder("<!" + Concepts.SNOMEDCT_ROOT + " AND ");
