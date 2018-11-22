@@ -45,4 +45,10 @@ public class ConceptValidationController {
 		return validationService.validateConcepts(branchPath1, concepts);
 	}
 
+	@RequestMapping(value = "/validation-maintenance/reload-validation-rules", method = RequestMethod.POST)
+	@ApiOperation("Reload SNOMED Drools assertions and test resources.")
+	public void reloadDrools() throws ServiceException {
+		validationService.newRuleExecutorAndResources();
+	}
+
 }
