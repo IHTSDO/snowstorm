@@ -8,24 +8,23 @@ import org.ihtsdo.drools.domain.Concept;
 import org.ihtsdo.drools.domain.Constants;
 import org.ihtsdo.drools.domain.Description;
 import org.ihtsdo.drools.domain.Relationship;
+import org.ihtsdo.drools.helper.DescriptionHelper;
+import org.ihtsdo.drools.service.TestResourceProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.validation.domain.DroolsDescription;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
-import javax.annotation.PostConstruct;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -38,13 +37,9 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	private ElasticsearchOperations elasticsearchTemplate;
 	private final DescriptionService descriptionService;
 	private final QueryService queryService;
-
-	@Value("${validation.resourceFiles.path}")
-	private String testResourcesPath;
+	private final TestResourceProvider testResourceProvider;
 
 	private static Set<String> hierarchyRootIds;
-	private static final Map<String, Set<String>> refsetToLanguageSpecificWordsMap = new HashMap<>();
-	private static final Set<String> caseSignificantWords = new HashSet<>();
 	private static final Logger LOGGER = LoggerFactory.getLogger(DescriptionDroolsValidationService.class);
 
 	DescriptionDroolsValidationService(String branchPath,
@@ -52,7 +47,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 			VersionControlHelper versionControlHelper,
 			ElasticsearchOperations elasticsearchTemplate,
 			DescriptionService descriptionService,
-			QueryService queryService) {
+			QueryService queryService, TestResourceProvider testResourceProvider) {
 
 		this.branchPath = branchPath;
 		this.branchCriteria = branchCriteria;
@@ -60,13 +55,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 		this.elasticsearchTemplate = elasticsearchTemplate;
 		this.descriptionService = descriptionService;
 		this.queryService = queryService;
-	}
-
-	@PostConstruct
-	public void init() {
-		loadRefsetSpecificWords(Concepts.GB_EN_LANG_REFSET, testResourcesPath, "gbTerms.txt");
-		loadRefsetSpecificWords(Concepts.US_EN_LANG_REFSET, testResourcesPath, "usTerms.txt");
-		loadCaseSignificantWords(testResourcesPath);
+		this.testResourceProvider = testResourceProvider;
 	}
 
 	@Override
@@ -127,80 +116,20 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 			return "";
 		}
 
-		String errorMessage = "";
-
-		String[] words = description.getTerm().split("\\s+");
-
-		// convenience variables
-		String usAcc = description.getAcceptabilityMap().get(Concepts.US_EN_LANG_REFSET);
-		String gbAcc = description.getAcceptabilityMap().get(Concepts.GB_EN_LANG_REFSET);
-
-		// NOTE: Supports international only at this point
-		// Only check active synonyms
-		if (description.isActive() && Concepts.SYNONYM.equals(description.getTypeId())) {
-			for (String word : words) {
-
-				// Step 1: Check en-us preferred synonyms for en-gb spellings
-				if (usAcc != null && refsetToLanguageSpecificWordsMap.containsKey(Concepts.GB_EN_LANG_REFSET)
-						&& refsetToLanguageSpecificWordsMap.get(Concepts.GB_EN_LANG_REFSET)
-						.contains(word.toLowerCase())) {
-					errorMessage += "Synonym is preferred in the en-us refset but refers to a word that has en-gb spelling: "
-							+ word + "\n";
-				}
-
-				// Step 2: Check en-gb preferred synonyms for en-en spellings
-				if (gbAcc != null && refsetToLanguageSpecificWordsMap.containsKey(Concepts.US_EN_LANG_REFSET)
-						&& refsetToLanguageSpecificWordsMap.get(Concepts.US_EN_LANG_REFSET)
-						.contains(word.toLowerCase())) {
-					errorMessage += "Synonym is preferred in the en-gb refset but refers to a word that has en-us spelling: "
-							+ word + "\n";
-				}
-			}
-		}
-
-		return errorMessage;
+		return DescriptionHelper.getLanguageSpecificErrorMessage(description, testResourceProvider.getUsToGbTermMap());
 	}
 
 	@Override
 	public String getCaseSensitiveWordsErrorMessage(org.ihtsdo.drools.domain.Description description) {
-		String result = "";
-
-		// return immediately if description or term null
 		if (description == null || description.getTerm() == null) {
-			return result;
+			return "";
 		}
 
-		String[] words = description.getTerm().split("\\s+");
-
-		for (String word : words) {
-
-			// NOTE: Simple test to see if a case-sensitive term exists as
-			// written. Original check for mis-capitalization, but false
-			// positives, e.g. "oF" appears in list but spuriously reports "of"
-			// Map preserved for lower-case matching in future
-			if (caseSignificantWords.contains(word)) {
-
-				// term starting with case sensitive word must be ETCS
-				if (description.getTerm().startsWith(word)
-						&& !Concepts.ENTIRE_TERM_CASE_SENSITIVE.equals(description.getCaseSignificanceId())) {
-					result += "Description starts with case-sensitive word but is not marked entire term case " +
-							"sensitive: " + word + ".\n";
-				}
-
-				// term containing case sensitive word (not at start) must be
-				// ETCS or OICCI
-				else if (!Concepts.ENTIRE_TERM_CASE_SENSITIVE.equals(description.getCaseSignificanceId())
-						&& !Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE.equals(description.getCaseSignificanceId())) {
-					result += "Description contains case-sensitive word but is not marked entire term case sensitive " +
-							"or only initial character case insensitive: " + word + ".\n";
-				}
-			}
-		}
-		return result;
+		return DescriptionHelper.getCaseSensitiveWordsErrorMessage(description, testResourceProvider.getCaseSignificantWords());
 	}
 
 	@Override
-	public Set<String> findParentsNotContainSematicTag(Concept concept, String termSemanticTag, String... languageRefsetIds) {
+	public Set<String> findParentsNotContainingSemanticTag(Concept concept, String termSemanticTag, String... languageRefsetIds) {
 		Set<String> statedParents = new HashSet<>();
 		for (Relationship relationship : concept.getRelationships()) {
 			if (Constants.IS_A.equals(relationship.getTypeId())
@@ -221,6 +150,11 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 				.build();
 		List<Description> descriptions = elasticsearchTemplate.queryForList(query, Description.class);
 		return descriptions.stream().map(Description::getConceptId).collect(Collectors.toSet());
+	}
+
+	@Override
+	public boolean isRecognisedSemanticTag(String semanticTag) {
+		return semanticTag != null && !semanticTag.isEmpty() && testResourceProvider.getSemanticTags().contains(semanticTag);
 	}
 
 	private String findStatedHierarchyRootId(org.ihtsdo.drools.domain.Concept concept) {
@@ -268,41 +202,6 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 		return hierarchyRootIds;
 	}
 
-	private void loadRefsetSpecificWords(String refsetId, String testResourcesPath, String fileName) {
-		Set<String> words = new HashSet<>();
-		File file = new File(testResourcesPath, fileName);
-		try (BufferedReader bufferedReader = new BufferedReader(new FileReader(file))) {
-			// skip header line
-			bufferedReader.readLine();
-			String line;
-			while ((line = bufferedReader.readLine()) != null) {
-				words.add(line.toLowerCase());
-			}
-			LOGGER.info("Loaded {} language-specific spellings into cache for refset {} from file {}",
-					words.size(), refsetId, fileName);
-			refsetToLanguageSpecificWordsMap.put(refsetId, words);
-		} catch (IOException e) {
-			LOGGER.error("Failed to load language-specific terms for refset {} in file {}", refsetId, fileName);
-		}
-	}
 
-	private void loadCaseSignificantWords(String testResourcesPath) {
-		String fileName = "cs_words.txt";
-		File file = new File(testResourcesPath, fileName);
-		try (BufferedReader bufferedReader = new BufferedReader(new FileReader(file))) {
-			// skip header line
-			bufferedReader.readLine();
-			String line;
-			while ((line = bufferedReader.readLine()) != null) {
-				String[] words = line.split("\\s+");
-				// format: 0: word, 1: type (only use type 1 words)
-				if (words[1].equals("1")) {
-					caseSignificantWords.add(words[0]);
-				}
-			}
-			LOGGER.info("Loaded {} case sensitive words into cache from file {}", caseSignificantWords.size(), fileName);
-		} catch (IOException e) {
-			LOGGER.error("Failed to load case sensitive words file {}", fileName);
-		}
-	}
+
 }
