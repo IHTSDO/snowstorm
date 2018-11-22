@@ -4,9 +4,11 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.drools.RuleExecutor;
+import org.ihtsdo.drools.RuleExecutorFactory;
 import org.ihtsdo.drools.response.InvalidContent;
+import org.ihtsdo.drools.service.TestResourceProvider;
+import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -17,6 +19,7 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.validation.domain.DroolsConcept;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
@@ -42,15 +45,22 @@ public class DroolsValidationService {
 	@Autowired
 	private BranchService branchService;
 
-	private RuleExecutor ruleExecutor;
+	private final String droolsRulesPath;
+	private final ResourceManager testResourceManager;
 
-	private String droolsRulesPath;
+	private RuleExecutor ruleExecutor;
+	private TestResourceProvider testResourceProvider;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public DroolsValidationService(@Value("${validation.drools.rules.path}") String droolsRulesPath) {
+	public DroolsValidationService(
+			@Value("${validation.drools.rules.path}") String droolsRulesPath,
+			@Autowired TestResourcesResourceManagerConfiguration resourceManagerConfiguration,
+			@Autowired ResourceLoader cloudResourceLoader) {
+
 		this.droolsRulesPath = droolsRulesPath;
-		newRuleExecutor();
+		testResourceManager = new ResourceManager(resourceManagerConfiguration, cloudResourceLoader);
+		newRuleExecutorAndResources();
 	}
 
 	public List<InvalidContent> validateConcept(String branchPath, Concept concept) throws ServiceException {
@@ -75,18 +85,15 @@ public class DroolsValidationService {
 		Set<DroolsConcept> droolsConcepts = concepts.stream().map(DroolsConcept::new).collect(Collectors.toSet());
 
 		ConceptDroolsValidationService conceptService = new ConceptDroolsValidationService(branchPath, branchCriteria, elasticsearchOperations, queryService);
-		DescriptionDroolsValidationService descriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, versionControlHelper, elasticsearchOperations, this.descriptionService, queryService);
+		DescriptionDroolsValidationService descriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, versionControlHelper, elasticsearchOperations,
+				this.descriptionService, queryService, testResourceProvider);
 		RelationshipDroolsValidationService relationshipService = new RelationshipDroolsValidationService(branchCriteria, elasticsearchOperations);
 		return ruleExecutor.execute(ruleSetNames, droolsConcepts, conceptService, descriptionService, relationshipService, false, false);
 	}
 
-	public int reloadRules() {
-		newRuleExecutor();
-		return ruleExecutor.getTotalRulesLoaded();
-	}
-
-	private void newRuleExecutor() {
+	public void newRuleExecutorAndResources() {
 		Assert.notNull(droolsRulesPath, "Path to drools rules is required.");
-		ruleExecutor = new RuleExecutor(droolsRulesPath);
+		this.ruleExecutor = new RuleExecutorFactory().createRuleExecutor(droolsRulesPath);
+		this.testResourceProvider = ruleExecutor.newTestResourceProvider(testResourceManager);
 	}
 }
