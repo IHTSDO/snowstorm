@@ -6,7 +6,7 @@ public class CreateBranchRequest {
 
 	private String parent;
 	private String name;
-	private Map<String, String> metadata;
+	private Map<String, Object> metadata;
 
 	public String getParent() {
 		return parent;
@@ -24,11 +24,11 @@ public class CreateBranchRequest {
 		this.name = name;
 	}
 
-	public Map<String, String> getMetadata() {
+	public Map<String, Object> getMetadata() {
 		return metadata;
 	}
 
-	public void setMetadata(Map<String, String> metadata) {
+	public void setMetadata(Map<String, Object> metadata) {
 		this.metadata = metadata;
 	}
 }

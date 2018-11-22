@@ -8,17 +8,18 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
-import org.snomed.snowstorm.rest.converter.AggregationNameConverter;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.rest.pojo.BrowserDescriptionSearchResult;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
-import org.snomed.snowstorm.rest.pojo.PageWithFilters;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -32,18 +33,6 @@ public class DescriptionController {
 	@Autowired
 	private DescriptionService descriptionService;
 
-	private final AggregationNameConverter languageAggregationNameConverter = new AggregationNameConverter() {
-		@Override
-		public boolean canConvert(String aggregationGroupName) {
-			return aggregationGroupName.equals("language");
-		}
-
-		@Override
-		public String convert(String aggregationName) {
-			return new Locale(aggregationName).getDisplayLanguage().toLowerCase();
-		}
-	};
-
 	@RequestMapping(value = "browser/{branch}/descriptions", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
@@ -51,6 +40,7 @@ public class DescriptionController {
 			@PathVariable String branch,
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) Boolean conceptActive,
+			@RequestParam(required = false) String semanticTag,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -59,14 +49,22 @@ public class DescriptionController {
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
-		AggregatedPage<Description> page = descriptionService.findDescriptionsWithAggregations(branch, term, conceptActive, languageCodes, pageRequest);
+
+		PageWithBucketAggregations<Description> page = descriptionService.findDescriptionsWithAggregations(
+				// Query
+				branch, term,
+				// Filters
+				conceptActive, semanticTag,
+				// Language and page
+				languageCodes, pageRequest);
+
 		Set<String> conceptIds = page.getContent().stream().map(Description::getConceptId).collect(Collectors.toSet());
 		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds, languageCodes).getResultsMap();
 
 		List<BrowserDescriptionSearchResult> results = new ArrayList<>();
 		page.getContent().forEach(d -> results.add(new BrowserDescriptionSearchResult(d.getTerm(), d.isActive(), conceptMinis.get(d.getConceptId()))));
 
-		return new PageWithFilters<>(results, pageRequest, page.getTotalElements(), page.getAggregations(), languageAggregationNameConverter);
+		return new PageWithBucketAggregations<>(results, page.getPageable(), page.getTotalElements(), page.getBuckets());
 	}
 
 	@RequestMapping(value = "{branch}/descriptions", method = RequestMethod.GET)

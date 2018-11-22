@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
+import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -12,6 +14,7 @@ import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
+import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -45,11 +48,15 @@ public class ConceptController {
 	@Autowired
 	private SemanticIndexUpdateService queryConceptUpdateService;
 
+	@Autowired
+	private VersionControlHelper versionControlHelper;
+
 	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
 	@ResponseBody
 	public ItemsPage<ConceptMini> findConcepts(
 			@PathVariable String branch,
 			@RequestParam(required = false) Boolean activeFilter,
+			@RequestParam(required = false) String definitionStatusFilter,
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) String ecl,
 			@RequestParam(required = false) String statedEcl,
@@ -68,20 +75,36 @@ public class ConceptController {
 			}
 		}
 
-		boolean stated = false;
-		if (statedEcl != null && !statedEcl.isEmpty()) {
-			stated = true;
+		boolean stated = true;
+		if (ecl != null && !ecl.isEmpty()) {
+			stated = false;
+		} else {
 			ecl = statedEcl;
 		}
 
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated)
 				.activeFilter(activeFilter)
+				.definitionStatusFilter(definitionStatusFilter)
 				.ecl(ecl)
 				.termPrefix(term)
 				.languageCodes(ControllerHelper.getLanguageCodes(acceptLanguageHeader))
 				.conceptIds(conceptIds);
 
+		validatePageSize(limit);
+
 		return new ItemsPage<>(queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), ControllerHelper.getPageRequest(offset, limit)));
+	}
+
+	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
+	@ResponseBody
+	public ConceptMini findConcept(
+			@PathVariable String branch,
+			@PathVariable String conceptId,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(BranchPathUriUtil.decodePath(branch), Collections.singleton(conceptId), ControllerHelper.getLanguageCodes(acceptLanguageHeader));
+		ConceptMini concept = conceptMinis.getTotalElements() > 0 ? conceptMinis.getResultsMap().values().iterator().next() : null;
+		return ControllerHelper.throwIfNotFound("Concept", concept);
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST, produces = {"application/json", "text/csv"})
@@ -93,6 +116,7 @@ public class ConceptController {
 
 		return findConcepts(BranchPathUriUtil.decodePath(branch),
 				searchRequest.getActiveFilter(),
+				searchRequest.getDefinitionStatusFilter(),
 				searchRequest.getTermFilter(),
 				searchRequest.getEclFilter(),
 				searchRequest.getStatedEclFilter(),
@@ -112,6 +136,7 @@ public class ConceptController {
 			@RequestParam(defaultValue = "100") int size,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
+		validatePageSize(size);
 		return conceptService.findAll(BranchPathUriUtil.decodePath(branch), ControllerHelper.getLanguageCodes(acceptLanguageHeader), PageRequest.of(number, size));
 	}
 
@@ -129,7 +154,7 @@ public class ConceptController {
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
-	public ConceptView findConcept(
+	public ConceptView findBrowserConcept(
 			@PathVariable String branch,
 			@PathVariable String conceptId,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -159,7 +184,7 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return findConcepts(branch, stated, null, null, "<" + conceptId, null, null, offset, limit, acceptLanguageHeader);
+		return findConcepts(branch, stated, null, null, null, "<" + conceptId, null, null, offset, limit, acceptLanguageHeader);
 	}
 
 	@ResponseBody
@@ -239,8 +264,12 @@ public class ConceptController {
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
+		branch = BranchPathUriUtil.decodePath(branch);
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
-		return conceptService.findConceptParents(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch), form);
+
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		Set<Long> parentIds = queryService.findParentIds(branchCriteria, form == Relationship.CharacteristicType.stated, conceptId);
+		return conceptService.findConceptMinis(branchCriteria, parentIds, languageCodes).getResultsMap().values();
 	}
 
 	@ResponseBody
@@ -260,7 +289,7 @@ public class ConceptController {
 	public void rebuildBranchTransitiveClosure(@PathVariable String branch) throws ConversionException {
 		queryConceptUpdateService.rebuildStatedAndInferredSemanticIndex(BranchPathUriUtil.decodePath(branch));
 	}
-	
+
 	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/authoring-form", method = RequestMethod.GET)
 	public Expression getConceptAuthoringForm(
@@ -270,6 +299,12 @@ public class ConceptController {
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		return expressionService.getConceptAuthoringForm(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch));
+	}
+
+	private void validatePageSize(@RequestParam(required = false, defaultValue = "50") int limit) {
+		if (limit > 10_000) {
+			throw new IllegalArgumentException("Maximum page size is 10000.");
+		}
 	}
 
 }

@@ -58,7 +58,7 @@ public class App extends Config implements ApplicationRunner {
 			initialiseIndices(deleteIndices);
 
 			codeSystemService.init();
-			mrcmService.loadFromFile();
+			mrcmService.loadFromFiles();
 			referenceSetMemberService.init();
 
 			if (applicationArguments.containsOption(IMPORT_ARG)) {

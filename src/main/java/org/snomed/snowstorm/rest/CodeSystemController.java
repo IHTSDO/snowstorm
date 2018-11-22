@@ -5,6 +5,7 @@ import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.rest.pojo.CodeSystemMigrationRequest;
 import org.snomed.snowstorm.rest.pojo.CreateCodeSystemVersionRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +60,17 @@ public class CodeSystemController {
 
 		String versionId = codeSystemService.createVersion(codeSystem, input.getEffectiveDate(), input.getDescription());
 		return ControllerHelper.getCreatedResponse(versionId);
+	}
+
+	@ApiOperation(value = "Migrate code system to a different dependant version.",
+			notes = "An integrity check should be run after this operation to find content that needs fixing.")
+	@RequestMapping(value = "/{shortName}/migrate", method = RequestMethod.POST)
+	@ResponseBody
+	public void migrateCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemMigrationRequest request) {
+		CodeSystem codeSystem = codeSystemService.find(shortName);
+		ControllerHelper.throwIfNotFound("CodeSystem", codeSystem);
+
+		codeSystemService.migrateDependantCodeSystemVersion(codeSystem, request.getDependantCodeSystem(), request.getNewDependantVersion(), request.isCopyMetadata());
 	}
 
 }

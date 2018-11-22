@@ -5,6 +5,8 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.util.Objects;
+
 /**
  * Represents an edition or extension of SNOMED-CT
  */
@@ -45,5 +47,19 @@ public class CodeSystem {
 
 	public void setBranchPath(String branchPath) {
 		this.branchPath = branchPath;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		CodeSystem that = (CodeSystem) o;
+		return Objects.equals(shortName, that.shortName) &&
+				Objects.equals(branchPath, that.branchPath);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(shortName, branchPath);
 	}
 }

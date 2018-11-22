@@ -408,7 +408,6 @@ public class ClassificationService {
 			HashSet<EquivalentConceptsResponse.ConceptIdAndLabel> labels = new HashSet<>();
 			responseContent.add(new EquivalentConceptsResponse(labels));
 			for (String conceptId : equivalentConcepts.getConceptIds()) {
-				conceptMiniMap.put(conceptId, new ConceptMini(conceptId, languageCodes));
 				labels.add(new EquivalentConceptsResponse.ConceptIdAndLabel(conceptId, conceptMiniMap.get(conceptId).getFsn()));
 			}
 		}

@@ -6,16 +6,19 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.Aggregations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
+import org.snomed.snowstorm.core.data.services.pojo.SimpleAggregation;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -23,7 +26,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
-import org.springframework.data.elasticsearch.core.aggregation.impl.AggregatedPageImpl;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
@@ -33,6 +35,7 @@ import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
 
@@ -89,11 +92,14 @@ public class DescriptionService extends ComponentService {
 		return conceptMap.values().stream().flatMap(c -> c.getDescriptions().stream()).collect(Collectors.toSet());
 	}
 
-	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
-		return findDescriptionsWithAggregations(path, term, null, Collections.singleton("en"), pageRequest);
+	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
+		return findDescriptionsWithAggregations(path, term, null, null, Collections.singleton("en"), pageRequest);
 	}
 
-	public AggregatedPage<Description> findDescriptionsWithAggregations(String path, String term, Boolean conceptActive, Collection<String> languageCodes, PageRequest pageRequest) {
+	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term,
+			Boolean conceptActive, String semanticTag,
+			Collection<String> languageCodes, PageRequest pageRequest) {
+
 		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		timer.checkpoint("Build branch criteria");
@@ -108,18 +114,42 @@ public class DescriptionService extends ComponentService {
 		// Not all descriptions are FSNs so use: description -> concept -> active FSN
 		Set<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria, conceptActive);
 		timer.checkpoint("Fetch all related concept ids for semantic tag aggregation");
-		AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
+
+		BoolQueryBuilder fsnClauses = boolQuery();
+		boolean semanticTagFiltering = !Strings.isNullOrEmpty(semanticTag);
+		if (semanticTagFiltering) {
+			fsnClauses.must(termQuery(Description.Fields.TAG, semanticTag));
+		}
+
+		NativeSearchQueryBuilder fsnQueryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(fsnClauses
 						.must(descriptionBranchCriteria)
 						.must(termsQuery(Description.Fields.ACTIVE, true))
 						.must(termsQuery(Description.Fields.TYPE_ID, Concepts.FSN))
-						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
+						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
 				)
-				.withPageable(PAGE_OF_ONE)
-				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG))
-				.build(), Description.class);
-		allAggregations.add(semanticTagResults.getAggregation("semanticTags"));
-		timer.checkpoint("Semantic tag aggregation");
+				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG));
+
+		if (!semanticTagFiltering) {
+			fsnQueryBuilder
+					.withPageable(PAGE_OF_ONE);
+			AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(fsnQueryBuilder.build(), Description.class);
+			allAggregations.add(semanticTagResults.getAggregation("semanticTags"));
+			timer.checkpoint("Semantic tag aggregation");
+		} else {
+			// Apply semantic tag filter
+			fsnQueryBuilder
+					.withPageable(LARGE_PAGE)
+					.withFields(Description.Fields.CONCEPT_ID);
+
+			Set<Long> conceptSemanticTagMatches = new LongOpenHashSet();
+			try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(fsnQueryBuilder.build(), Description.class)) {
+				descriptionStream.forEachRemaining(description -> conceptSemanticTagMatches.add(parseLong(description.getConceptId())));
+			}
+			conceptIds = conceptSemanticTagMatches;
+			allAggregations.add(new SimpleAggregation("semanticTags", semanticTag, conceptSemanticTagMatches.size()));
+		}
+
 
 		// Fetch concept refset membership aggregation
 		AggregatedPage<ReferenceSetMember> membershipResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
@@ -147,7 +177,7 @@ public class DescriptionService extends ComponentService {
 		timer.finish();
 
 		// Merge aggregations
-		return new AggregatedPageImpl<>(descriptions.getContent(), descriptions.getPageable(), descriptions.getTotalElements(), new Aggregations(allAggregations));
+		return PageWithBucketAggregationsFactory.createPage(descriptions, allAggregations);
 	}
 
 	void joinDescriptions(BranchCriteria branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap,
@@ -302,7 +332,7 @@ public class DescriptionService extends ComponentService {
 						.withFields(Description.Fields.CONCEPT_ID)
 						.withPageable(LARGE_PAGE)
 						.build(), Description.class)) {
-			descriptionStream.forEachRemaining(description -> conceptIds.add(Long.parseLong(description.getConceptId())));
+			descriptionStream.forEachRemaining(description -> conceptIds.add(parseLong(description.getConceptId())));
 		}
 
 		if (!conceptIds.isEmpty() && conceptActive != null) {
@@ -315,7 +345,7 @@ public class DescriptionService extends ComponentService {
 									.must(termQuery(Concept.Fields.ACTIVE, conceptActive.booleanValue())))
 							.withFields(Concept.Fields.CONCEPT_ID)
 							.build(), Concept.class)) {
-				conceptStream.forEachRemaining(concept -> conceptsWithActiveStatus.add(Long.parseLong(concept.getConceptId())));
+				conceptStream.forEachRemaining(concept -> conceptsWithActiveStatus.add(parseLong(concept.getConceptId())));
 			}
 			return conceptsWithActiveStatus;
 		}
