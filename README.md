@@ -5,6 +5,7 @@ Snowstorm is a SNOMED CT terminology server built on top of Elasticsearch, with 
 ## Project Status
 
 **Read-Only** - tested and already used in the SNOMED International Browser for ECL queries. Snowstorm can be used in local implementations to query SNOMED CT with the following features:
+
 - Hosting multiple extensions alongside the International Edition of SNOMED CT
 - Multi-lingual search and content retrieval
 - Fully ECL v1.3 compliant
@@ -15,6 +16,7 @@ Snowstorm is a SNOMED CT terminology server built on top of Elasticsearch, with 
 Please add any issues or any questions in the [GitHub issues page](https://github.com/IHTSDO/snowstorm/issues).
 
 ## Documentation
+
 Documentation is sparse for now, but will be improved as the project moves out of a proof of concept phase.
 
 - [Getting Started (plain installation)](docs/getting-started.md)
@@ -34,6 +36,6 @@ Documentation is sparse for now, but will be improved as the project moves out o
 
 ## License
 
-Apache 2.0 
+Apache 2.0
 
 See the included LICENSE file for details.
