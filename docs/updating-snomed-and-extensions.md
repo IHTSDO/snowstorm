@@ -28,7 +28,7 @@ and then click on 'Try it now'. You now need to import the Spanish extension. Yo
 }
 ```
 
-and then click on 'Try it now' and then note the id of the import as you will need it for the next step (it will look something like - d0b30d96-3714-443e-99a5-2f282b1f1b0). As before, you now need to upload the file. And again, we will use curl to do this:
+and then click on 'Try it now' and then note the id of the import as you will need it for the next step (it will look something like - d0b30d96-3714-443e-99a5-2f282b1f1b0). As before, you now need to upload the file. This can be done through Swagger using the /imports/{importId}/archive endpoint, or via curl.  In both cases, specify the ID recovered in the previous step:
 
 ```bash
 curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_SpanishRelease-es_Production_20180430T120000Z.zip 'http://localhost:8080/imports/<import id>/archive'
