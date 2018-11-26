@@ -27,6 +27,7 @@ public interface FHIRConstants {
 	final String SNOMED_EDITION = "SNOMED CT International Edition";
 	final String SNOMED_INTERNATIONAL = "SNOMED International";
 	final String SNOMED_URI = "http://snomed.info/sct";
+	
 	final StringType SUFFICIENTLY_DEFINED = new StringType("sufficientlyDefined");
 	final String URL = "url";
 	final String USE = "use";
@@ -37,28 +38,30 @@ public interface FHIRConstants {
 
 
 	public enum SnomedEdition {
-		INTERNATIONAL("900000000000207008", "en-US"),
-		AUSTRALIA("32506021000036107", "en-AU"),
-		SWEDEN("45991000052106", "sv-SE"),
-		BELGIUM("11000172109", "fr-BE"),
-		DENMARK("554471000005108", "da-DK"),
-		CANADA_ENGLISH("20621000087109", "en-CA"),
-		CANADA_FRENCH("20611000087101", "fr-CA"),
-		NETHERLANDS("11000146104", "nl-NL"),
-		NEW_ZEALAND("21000210109", "en-NZ"),
-		SPAIN("449081005", "es-ES"),
-		UK_CLINICAL("999000021000000109", "en-GB"),
-		UK("999000031000000106", "en-GB"),
-		URUGUAY("5631000179106", "es-UY"),
-		US("731000124108", "en-US"),
-		US_ICD10("5991000124107", "en-US");
+		INTERNATIONAL("900000000000207008", "en-US", ""),
+		AUSTRALIA("32506021000036107", "en-AU", "SNOMEDCT-AU"),
+		SWEDEN("45991000052106", "sv-SE", "SNOMEDCT-SE"),
+		BELGIUM("11000172109", "fr-BE", "SNOMEDCT-BE"),
+		DENMARK("554471000005108", "da-DK", "SNOMEDCT-DK"),
+		CANADA_ENGLISH("20621000087109", "en-CA", "SNOMEDCT-CAE"),
+		CANADA_FRENCH("20611000087101", "fr-CA", "SNOMEDCT-CAF"),
+		NETHERLANDS("11000146104", "nl-NL", "SNOMEDCT-NL"),
+		NEW_ZEALAND("21000210109", "en-NZ", "SNOMEDCT-NZ"),
+		SPAIN("449081005", "es-ES", "SNOMEDCT-ES"),
+		UK_CLINICAL("999000021000000109", "en-GB", "SNOMEDCT-UKC"),
+		UK("999000031000000106", "en-GB", "SNOMEDCT-UK"),
+		URUGUAY("5631000179106", "es-UY", "SNOMEDCT-UY"),
+		US("731000124108", "en-US", "SNOMEDCT-US"),
+		US_ICD10("5991000124107", "en-US", "SNOMEDCT-ICD10");
 
 		private final String sctid;   // defined in https://confluence.ihtsdotools.org/display/DOC/List+of+SNOMED+CT+Edition+URIs
 		private final String language; // default language and locale
+		private final String shortName; // CodeSystem ShortName
 
-		SnomedEdition(String sctid, String language) {
+		SnomedEdition(String sctid, String language, String shortName) {
 			this.sctid = sctid;
 			this.language = language;
+			this.shortName = shortName;
 		}
 
 		public String sctid() {
@@ -67,6 +70,10 @@ public interface FHIRConstants {
 
 		public String language() {
 			return language;
+		}
+
+		public String shortName() {
+			return shortName;
 		}
 
 		public String languageCode() {return language.substring(0, 2);}
@@ -79,9 +86,9 @@ public interface FHIRConstants {
 			return this == SnomedEdition.INTERNATIONAL ? DEFAULT_BRANCH : DEFAULT_BRANCH + "/" + sctid();
 		}
 
-		public static SnomedEdition lookup(String sctId){
+		public static SnomedEdition lookup(String moduleId){
 			for (SnomedEdition s : SnomedEdition.values()){
-				if(s.sctid.equals(sctId)){
+				if(s.sctid.equals(moduleId)){
 					return s;
 				}
 			}
