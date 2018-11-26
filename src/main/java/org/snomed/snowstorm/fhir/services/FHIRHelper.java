@@ -29,16 +29,16 @@ public class FHIRHelper {
 		try {
 			logger.info("Snomed version requested {}", versionStr.getValueAsString());
 			// separate edition and version
-			String sctid = FHIRConstants.SnomedEdition.lookup(getSnomedEdition(versionStr.getValueAsString())).sctid();
+			String codeSystemShortname = FHIRConstants.SnomedEdition.lookup(getSnomedEdition(versionStr.getValueAsString())).shortName();
 			String snomedVersion = getSnomedVersion(versionStr.getValueAsString());
 			if(snomedVersion != null && !snomedVersion.isEmpty()) {
 				int version = Integer.parseInt(snomedVersion);
 				if (version < MIN_RELEASE || version > MAX_RELEASE) {
 					throw new FHIROperationException(IssueType.VALUE, "Version outside of range" + versionStr);
 				}
-				return FHIRConstants.DEFAULT_BRANCH + "/" + sctid + "/" + version;
+				return FHIRConstants.DEFAULT_BRANCH + "/" + codeSystemShortname + "/" + version;
 			}
-			return FHIRConstants.DEFAULT_BRANCH + "/" + sctid;
+			return FHIRConstants.DEFAULT_BRANCH + "/" + codeSystemShortname;
 		} catch (NumberFormatException e) {
 			throw new FHIROperationException(IssueType.VALUE, "Invalid version: " + versionStr, e);
 		}
