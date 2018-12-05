@@ -253,6 +253,12 @@ public abstract class Config {
 	}
 
 	@Bean
+	@ConfigurationProperties(prefix = "codesystem")
+	public CodeSystemConfigurationService getCodeSystemConfigurationService() {
+		return new CodeSystemConfigurationService();
+	}
+
+	@Bean
 	public ECLQueryBuilder eclQueryBuilder() {
 		return new ECLQueryBuilder(new SECLObjectFactory());
 	}
