@@ -1,64 +1,24 @@
 package org.snomed.snowstorm.fhir.services;
 
-
-import java.time.Year;
-
-import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
 import org.hl7.fhir.dstu3.model.StringType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 
-public class FHIRHelper {
+class FHIRHelper {
 
-	private static int MIN_RELEASE = 19920131;
-	private static int MAX_RELEASE = Integer.parseInt((Year.now().getValue() + 1) + "0731");
-
-	private final Logger logger = LoggerFactory.getLogger(getClass());
-	
-/*	public FHIROperationOutcome validationFailure(String diagnostics) {
-		FHIRIssue issue = new FHIRIssue(IssueType.Invariant, diagnostics);
-		return new FHIROperationOutcome(issue);
-	}*/
-
-	public String getBranchForVersion(StringType versionStr) throws FHIROperationException {
-		if (versionStr == null || versionStr.getValueAsString().isEmpty() || versionStr.getValueAsString().equals(FHIRConstants.SNOMED_URI)) {
-			return FHIRConstants.DEFAULT_BRANCH;
-		}
-		try {
-			logger.info("Snomed version requested {}", versionStr.getValueAsString());
-			// separate edition and version
-			String codeSystemShortname = FHIRConstants.SnomedEdition.lookup(getSnomedEdition(versionStr.getValueAsString())).shortName();
-			String snomedVersion = getSnomedVersion(versionStr.getValueAsString());
-			if(snomedVersion != null && !snomedVersion.isEmpty()) {
-				int version = Integer.parseInt(snomedVersion);
-				if (version < MIN_RELEASE || version > MAX_RELEASE) {
-					throw new FHIROperationException(IssueType.VALUE, "Version outside of range" + versionStr);
-				}
-				return FHIRConstants.DEFAULT_BRANCH + "/" + codeSystemShortname + "/" + version;
-			}
-			return FHIRConstants.DEFAULT_BRANCH + "/" + codeSystemShortname;
-		} catch (NumberFormatException e) {
-			throw new FHIROperationException(IssueType.VALUE, "Invalid version: " + versionStr, e);
-		}
-	}
-
-	private String getSnomedVersion(String versionStr) {
+	Integer getSnomedVersion(String versionStr) {
 		String versionUri = "/" + FHIRConstants.VERSION + "/";
 		return !versionStr.contains("/" + FHIRConstants.VERSION + "/")
 				? null
-				: versionStr.substring(versionStr.indexOf(versionUri) + versionUri.length());
-	}
-
-	private String getSnomedEdition(String versionStr) {
-		return !versionStr.contains("/" + FHIRConstants.VERSION + "/")
-				? versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1,  FHIRConstants.SNOMED_URI.length() + versionStr.length() - FHIRConstants.SNOMED_URI.length())
-				: versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1, versionStr.indexOf("/" + FHIRConstants.VERSION + "/"));
+				: Integer.parseInt(versionStr.substring(versionStr.indexOf(versionUri) + versionUri.length()));
 	}
 
 	//TODO Maintain a cache of known concepts so we can look up the preferred term at runtime
-	public static String translateDescType(String typeSctid) {
+	// ... Peter, this doesn't sound like a good idea. Just lookup all required preferred terms in batch including these known concepts.
+	// 		Looking up every time means you don't need to cache multiple versions of PTs for different snomed versions/extensions/languages. Kaicode
+
+
+	static String translateDescType(String typeSctid) {
 		switch (typeSctid) {
 			case Concepts.FSN : return "Fully specified name";
 			case Concepts.SYNONYM : return "Synonym";
@@ -67,10 +27,16 @@ public class FHIRHelper {
 		return null;
 	}
 
-	public FHIRConstants.SnomedEdition getSnomedEdition(StringType versionStr) {
+	String getSnomedEditionModule(StringType versionStr) {
 		if (versionStr == null || versionStr.getValueAsString().isEmpty() || versionStr.getValueAsString().equals(FHIRConstants.SNOMED_URI)) {
-			return FHIRConstants.SnomedEdition.INTERNATIONAL;
+			return Concepts.CORE_MODULE;
 		}
-		return FHIRConstants.SnomedEdition.lookup(getSnomedEdition(versionStr.getValueAsString()));
+		return getSnomedEditionModule(versionStr.getValueAsString());
+	}
+
+	private String getSnomedEditionModule(String versionStr) {
+		return !versionStr.contains("/" + FHIRConstants.VERSION + "/")
+				? versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1,  FHIRConstants.SNOMED_URI.length() + versionStr.length() - FHIRConstants.SNOMED_URI.length())
+				: versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1, versionStr.indexOf("/" + FHIRConstants.VERSION + "/"));
 	}
 }
