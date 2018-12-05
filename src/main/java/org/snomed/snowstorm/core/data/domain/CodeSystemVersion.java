@@ -42,6 +42,10 @@ public class CodeSystemVersion {
 		this.description = description;
 	}
 
+	public String getBranchPath() {
+		return parentBranchPath + "/" + version;
+	}
+
 	public String getId() {
 		return id;
 	}

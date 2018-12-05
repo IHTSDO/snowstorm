@@ -7,6 +7,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -19,9 +20,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class CodeSystemService {
@@ -34,6 +33,9 @@ public class CodeSystemService {
 
 	@Autowired
 	private CodeSystemVersionRepository versionRepository;
+
+	@Autowired
+	private CodeSystemConfigurationService codeSystemConfigurationService;
 
 	@Autowired
 	private BranchService branchService;
@@ -50,6 +52,10 @@ public class CodeSystemService {
 		// Create default code system if it does not yet exist
 		if (!repository.findById(SNOMEDCT).isPresent()) {
 			createCodeSystem(new CodeSystem(SNOMEDCT, MAIN));
+		}
+		logger.info("{} code system configurations available.", codeSystemConfigurationService.getConfigurations().size());
+		for (CodeSystemConfiguration configuration : codeSystemConfigurationService.getConfigurations()) {
+			System.out.println(configuration);
 		}
 	}
 
@@ -124,6 +130,14 @@ public class CodeSystemService {
 
 	public CodeSystem find(String codeSystemShortName) {
 		return repository.findById(codeSystemShortName).orElse(null);
+	}
+
+	public CodeSystem findByDefaultModule(String moduleId) {
+		CodeSystemConfiguration codeSystemConfiguration = codeSystemConfigurationService.findByModule(moduleId);
+		if (codeSystemConfiguration == null) {
+			return null;
+		}
+		return find(codeSystemConfiguration.getShortName());
 	}
 
 	public List<CodeSystemVersion> findAllVersions(String shortName) {
