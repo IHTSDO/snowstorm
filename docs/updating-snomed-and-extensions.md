@@ -9,7 +9,7 @@ Now, you will need to load a SNAPSHOT of the International Edition (this could b
 
 ## Loading another Extension
 
-As this is the first time we will be importing anothe extension, we will need to create a CodeSystem on the server. For this example, we are going to use the Spanish Edition but it should be the same for any other edition or extension. On the swagger interface, look for the create a code system POST on the admin endpoint. Use the following in the request to create the branch
+As this is the first time we will be importing anothe extension, we will need to create a CodeSystem on the server. For this example, we are going to use the Spanish Edition but it should be the same for any other edition or extension. On the swagger interface, look for the create a code system POST on the admin endpoint ( http://localhost:8080/swagger-ui.html#!/Admin/createCodeSystemUsingPOST ). Use the following in the request to create the branch
 
 ```json
 {
@@ -18,7 +18,9 @@ As this is the first time we will be importing anothe extension, we will need to
 }
 ```
 
-and then click on 'Try it now'. You now need to import the Spanish extension. You need to start the import process by creating a new import job. Look for the Import endpoint and then create a new import using
+and then click on 'Try it now'. 
+
+You now need to import the Spanish extension. You need to start the import process by creating a new import job. Look for the Import endpoint ( http://localhost:8080/swagger-ui.html#!/Import/createImportJobUsingPOST ) and then create a new import using
 
 ```json
 {
@@ -60,7 +62,7 @@ You can tail the system log to see how this is progressing, or simply to the imp
 
 ## Upgrading the Edition branch to the new International Edition (merging the branch) and new Edition version
 
-You should only really do this once the relevant edition update is also available. We first need to merge the Spanish branch and so we will now merge the MAIN branch into the SNOMEDCT-SE branch using the merge endpoint
+You should only really do this once the relevant edition update is also available. We first need to merge the Spanish branch and so we will now merge the MAIN branch into the SNOMEDCT-SE branch using the merge endpoint ( http://localhost:8080/swagger-ui.html#!/Branching/mergeBranchUsingPOST )
 
 ```json
 {
