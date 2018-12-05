@@ -186,7 +186,7 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
-					<mainClass>org.snomed.snowstorm.App</mainClass>
+					<mainClass>org.snomed.snowstorm.SnowstormApplication</mainClass>
 				</configuration>
 				<executions>
 					<execution>
