@@ -145,8 +145,16 @@ public class CodeSystemService {
 		return find(codeSystemConfiguration.getShortName());
 	}
 
+	public CodeSystemVersion findVersion(String shortName, int effectiveTime) {
+		return versionRepository.findOneByShortNameAndEffectiveDate(shortName, effectiveTime);
+	}
+
 	public List<CodeSystemVersion> findAllVersions(String shortName) {
 		return versionRepository.findByShortNameOrderByEffectiveDate(shortName);
+	}
+
+	public CodeSystemVersion findLatestVersion(String shortName) {
+		return versionRepository.findOneByShortNameOrderByEffectiveDateDesc(shortName);
 	}
 
 	public void deleteAll() {

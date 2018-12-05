@@ -38,8 +38,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="url") String url) throws FHIROperationException {
-		
-		String branch = helper.getBranchForVersion(null);
+
+		// TODO: Surely we should be doing the same code system and version mapping here as we are in the $lookup operation?
+		String branch = "MAIN";
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		String ecl = url.substring(url.indexOf("fhir_vs=ecl/") + 12);
 		queryBuilder.ecl(ecl);
