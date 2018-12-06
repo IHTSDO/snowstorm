@@ -59,7 +59,7 @@ public class ImportServiceTest extends AbstractTest {
 	public void setup() throws IOException {
 		codeSystemService.init();
 		referenceSetMemberService.init();
-		rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/MiniCT_INT_20180731");
+		rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/RF2Release");
 	}
 
 	@Test
