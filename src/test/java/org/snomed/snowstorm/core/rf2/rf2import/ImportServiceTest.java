@@ -45,6 +45,9 @@ public class ImportServiceTest extends AbstractTest {
 	private ReferenceSetMemberService referenceSetMemberService;
 
 	@Autowired
+	private RelationshipService relationshipService;
+
+	@Autowired
 	private QueryService queryService;
 
 	@Autowired
@@ -54,12 +57,14 @@ public class ImportServiceTest extends AbstractTest {
 	private CodeSystemService codeSystemService;
 
 	private File rf2Archive;
+	private File completeOwlRf2Archive;
 
 	@Before
 	public void setup() throws IOException {
 		codeSystemService.init();
 		referenceSetMemberService.init();
 		rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/RF2Release");
+		completeOwlRf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/conversion-to-complete-owl");
 	}
 
 	@Test
@@ -323,6 +328,44 @@ public class ImportServiceTest extends AbstractTest {
 		assertEquals(Collections.emptySet(), versionsReplaced.get("Concept"));
 		assertEquals(Collections.emptySet(), versionsReplaced.get("Description"));
 		assertEquals(Collections.emptySet(), versionsReplaced.get("Relationship"));
+	}
+
+	@Test
+	public void testImportSnapshotThenUpgradeToCompleteOWL() throws ReleaseImportException, FileNotFoundException {
+		final String branchPath = "MAIN";
+
+		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
+		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT).isEmpty());
+
+
+		// Import Snapshot using Stated Relationships
+		String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath, true);
+		importService.importArchive(importId, new FileInputStream(rf2Archive));
+
+		final Concept conceptBleeding = conceptService.find("131148009", branchPath);
+		Assert.assertEquals("true|900000000000207008|900000000000073002", conceptBleeding.getReleaseHash());
+		assertEquals(118, getActiveStatedRelationshipCount(branchPath));
+		assertEquals(3, eclQuery(branchPath, ">>131148009").size());
+
+
+		// Import Delta making all Stated Relationships inactive and replacing with OWL Axioms
+		String importDeltaId = importService.createJob(RF2Type.DELTA, branchPath, false);
+		importService.importArchive(importDeltaId, new FileInputStream(completeOwlRf2Archive));
+
+		assertEquals("All stated relationships now inactive.", 0, getActiveStatedRelationshipCount(branchPath));
+		assertEquals(3, eclQuery(branchPath, ">>131148009").size());
+
+		ReferenceSetMember member = referenceSetMemberService.findMember(branchPath, "e44340d1-7da9-4156-8fb0-5dc5694eeef7");
+		assertEquals("SubClassOf(:900000000000006009 :900000000000449001)", member.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
+	}
+
+	private List<ConceptMini> eclQuery(String branchPath, String ecl) {
+		return queryService.search(queryService.createQueryBuilder(true).ecl(ecl), branchPath, PageRequest.of(0, 1000)).getContent();
+	}
+
+	private int getActiveStatedRelationshipCount(String branchPath) {
+		return (int) relationshipService.findRelationships(branchPath, null, true, null, null, null, null, null,
+				Relationship.CharacteristicType.stated, null, PageRequest.of(0, 1)).getTotalElements();
 	}
 
 	@Test
