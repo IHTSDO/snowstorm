@@ -4,10 +4,17 @@ import org.snomed.snowstorm.core.data.domain.Relationship;
 
 public class DroolsRelationship implements org.ihtsdo.drools.domain.Relationship {
 
+	private final String axiomId;
 	private Relationship relationship;
 
-	public DroolsRelationship(Relationship relationship) {
+	public DroolsRelationship(String axiomId, Relationship relationship) {
+		this.axiomId = axiomId;
 		this.relationship = relationship;
+	}
+
+	@Override
+	public String getAxiomId() {
+		return axiomId;
 	}
 
 	@Override

@@ -30,7 +30,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 		if (concept.getRelationships() != null) {
 			concept.getRelationships().forEach(r -> {
 				r.setSourceId(conceptId);
-				relationships.add(new DroolsRelationship(r));
+				relationships.add(new DroolsRelationship(null, r));
 			});
 		}
 
