@@ -43,3 +43,7 @@ This will take between 30-60 minutes depending on the performance of your machin
 It's possible to load the RF2 **Full** files which gives you access to previous releases in addition to the current content. However, this will  take longer (*last run took 2h15 on an m5.xlarge AWS instance with 4 vCPU and 16GB Memory*), but will not have an impact to the performance.
 
 Simply replace the `--import` argument above with `--import-full` or the `type` with `FULL` within Swagger.
+
+## Stopping After Loading
+
+To shutdown Snowstorm after loading data include the `--exit` flag.

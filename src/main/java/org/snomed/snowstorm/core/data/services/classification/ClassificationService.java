@@ -46,6 +46,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -93,6 +94,7 @@ public class ClassificationService {
 	private final List<Classification> classificationsInProgress;
 
 	private Thread classificationStatusPollingThread;
+	private boolean shutdownRequested;
 
 	private static final int SECOND = 1000;
 
@@ -130,7 +132,7 @@ public class ClassificationService {
 		classificationStatusPollingThread = new Thread(() -> {
 			List<Classification> classificationsToCheck = new ArrayList<>();
 			try {
-				while (true) {
+				while (!shutdownRequested) {
 					try {
 						// Copy the in-progress list to avoid long synchronized block
 						synchronized (classificationsInProgress) {
@@ -182,6 +184,9 @@ public class ClassificationService {
 									classificationsInProgress.remove(classification);
 								}
 							}
+							if (shutdownRequested) {
+								break;
+							}
 						}
 						classificationsToCheck.clear();
 						Thread.sleep(SECOND);
@@ -201,6 +206,11 @@ public class ClassificationService {
 		});
 		classificationStatusPollingThread.setName("classification-status-polling");
 		classificationStatusPollingThread.start();
+	}
+
+	@PreDestroy
+	public void shutdownPolling() {
+		shutdownRequested = true;
 	}
 
 	public Page<Classification> findClassifications(String path) {
