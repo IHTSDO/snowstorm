@@ -13,6 +13,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jms.annotation.EnableJms;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
@@ -29,6 +31,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	public static final String IMPORT_ARG = "import";
 	public static final String IMPORT_FULL_ARG = "import-full";
 	public static final String REPLAY_TRACEABILITY_DIRECTORY = "replay-traceability-directory";
+	public static final String EXIT = "exit";
 
 	@Autowired
 	private ImportService importService;
@@ -42,6 +45,9 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
+	@Autowired
+	private ApplicationContext applicationContext;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public static void main(String[] args) {
@@ -49,7 +55,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 		System.setProperty("tomcat.util.http.parser.HttpParser.requestTargetAllow", "{}|"); // Allow these unencoded characters in URL (used in ECL)
 		SpringApplication.run(SnowstormApplication.class, args);
 	}
-	
+
 	@Override
 	public void run(ApplicationArguments applicationArguments) throws Exception {
 		try {
@@ -84,6 +90,10 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 				}
 
 				getAuthoringMirrorService().replayDirectoryOfFiles(replayDirectory);
+			}
+			if (applicationArguments.containsOption(EXIT)) {
+				logger.info("Exiting application.");
+				((ConfigurableApplicationContext)applicationContext).close();
 			}
 		} catch (Exception e) {
 			// Logging and rethrowing because Spring does not seem to log this
