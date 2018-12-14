@@ -22,6 +22,7 @@ Documentation is sparse for now, but will be improved as the project moves out o
 - [Getting Started (plain installation)](docs/getting-started.md)
 - [Loading SNOMED](docs/loading-snomed.md)
 - [Using the API](docs/using-the-api.md)
+- [Using the FHIR API](docs/using-the-fhir-api.md)
 - [Updating SNOMED CT and using Extensions](docs/updating-snomed-and-extensions.md)
 - [Configuration Guide](docs/configuration-guide.md)
 - [Docker Quickstart](docs/using-docker.md)
