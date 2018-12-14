@@ -1,5 +1,7 @@
 # Working with the FHIR API
 
+**Please be aware that the Snowstorm FHIR interface is in development, with more focus on the full implementation in early 2019.**
+
 ## Design Overview
 
 Snowstorms's FHIR capabilities are managed using the HAPI Server package, which brings a number of benefits such as automatic creation of the Capabilities resource. It also means that future releases of the FHIR Specification will not require code changes by SNOMED International as we'll be able migrate to the next version of HAPI.

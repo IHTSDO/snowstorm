@@ -1,16 +1,22 @@
 # Loading SNOMED CT into Snowstorm
 
-First download the most recent [SNOMED CT International Edition RF2 release files](https://www.snomed.org/snomed-ct/get-snomed-ct) release files.
+Before anything, get hold of the most recent [SNOMED CT International Edition RF2 release files](https://www.snomed.org/snomed-ct/get-snomed-ct) release files.
 
-Then make sure Elasticsearch is running and choose one of the sections below.
+## Contents
+
+- [Loading Release Snapshot](#loading-release-snapshot)
+  * [Via REST](#via-rest)
+  * [Via Command line](#via-command-line)
+- [Loading Release Full Files](#loading-release-full-files)
+- [Stopping After Loading](#stopping-after-loading)
 
 ## Loading Release Snapshot
 
-This loads the content of the current release and skips loading outdated content. This is the recommended option.
+This loads the content of the current release and skips loading outdated content. This is the recommended option for development due to the speed of loading. There are two ways to do this:
 
-### Through Swagger
+### Via REST
 
-Once Snowstorm is running, you will need to start the import process by creating a new import job. Look for the Imports endpoint on swagger, (http://localhost:8080) and then create a new import using
+Once Snowstorm is running, you will need to start the import process by creating a new import job. Look for the Imports endpoint on Swagger, (http://localhost:8080) and then create a new import using
 
 ```json
 {
@@ -40,10 +46,10 @@ This will take between 30-60 minutes depending on the performance of your machin
 
 ## Loading Release Full Files
 
-It's possible to load the RF2 **Full** files which gives you access to previous releases in addition to the current content. However, this will  take longer (*last run took 2h15 on an m5.xlarge AWS instance with 4 vCPU and 16GB Memory*), but will not have an impact to the performance.
+It's possible to load the RF2 **Full** files which gives you access to all previous releases of SNOMED CT in addition to the current content. However, this will  take longer (*last run took 2h15 on an m5.xlarge AWS instance with 4 vCPU and 16GB Memory*), but will not have an impact to the performance.
 
 Simply replace the `--import` argument above with `--import-full` or the `type` with `FULL` within Swagger.
 
 ## Stopping After Loading
 
-To shutdown Snowstorm after loading data include the `--exit` flag.
+To shutdown Snowstorm after loading data automatically include the `--exit` flag.
