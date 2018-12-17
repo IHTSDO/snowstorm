@@ -274,7 +274,7 @@ public class ImportServiceTest extends AbstractTest {
 		Assert.assertEquals(3, conceptBleeding.getRelationships().stream().filter(r -> r.getCharacteristicTypeId().equals(Concepts.STATED_RELATIONSHIP)).count());
 
 		final Page<Concept> conceptPage = conceptService.findAll(branchPath, PageRequest.of(0, 200));
-		Assert.assertEquals(102, conceptPage.getNumberOfElements());
+		Assert.assertEquals(103, conceptPage.getNumberOfElements());
 		final List<Concept> concepts = conceptPage.getContent();
 		Concept conceptMechanicalAbnormality = null;
 		for (Concept concept : concepts) {
@@ -344,8 +344,8 @@ public class ImportServiceTest extends AbstractTest {
 
 		final Concept conceptBleeding = conceptService.find("131148009", branchPath);
 		Assert.assertEquals("true|900000000000207008|900000000000073002", conceptBleeding.getReleaseHash());
-		assertEquals(118, getActiveStatedRelationshipCount(branchPath));
-		assertEquals(3, eclQuery(branchPath, ">>131148009").size());
+		assertEquals(120, getActiveStatedRelationshipCount(branchPath));
+		assertEquals(3, statedEclQuery(branchPath, ">>131148009").size());
 
 
 		// Import Delta making all Stated Relationships inactive and replacing with OWL Axioms
@@ -353,13 +353,20 @@ public class ImportServiceTest extends AbstractTest {
 		importService.importArchive(importDeltaId, new FileInputStream(completeOwlRf2Archive));
 
 		assertEquals("All stated relationships now inactive.", 0, getActiveStatedRelationshipCount(branchPath));
-		assertEquals(3, eclQuery(branchPath, ">>131148009").size());
+		assertEquals("Concepts have ancestors, after semantic update from axioms.", 3, statedEclQuery(branchPath, ">>131148009").size());
+		assertEquals("Concepts have ancestors, after semantic update from axioms.", "404684003,138875005,131148009", getIds(statedEclQuery(branchPath, ">>131148009")));
+		assertEquals("Attributes have ancestors, after semantic update from axioms.",
+				"900000000000441003,762705008,410662002,408729009,246061005,138875005,106237007", getIds(statedEclQuery(branchPath, ">>408729009")));
 
 		ReferenceSetMember member = referenceSetMemberService.findMember(branchPath, "e44340d1-7da9-4156-8fb0-5dc5694eeef7");
 		assertEquals("SubClassOf(:900000000000006009 :900000000000449001)", member.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
 	}
 
-	private List<ConceptMini> eclQuery(String branchPath, String ecl) {
+	private String getIds(List<ConceptMini> conceptMinis) {
+		return conceptMinis.stream().map(ConceptMini::getConceptId).collect(Collectors.joining(","));
+	}
+
+	private List<ConceptMini> statedEclQuery(String branchPath, String ecl) {
 		return queryService.search(queryService.createQueryBuilder(true).ecl(ecl), branchPath, PageRequest.of(0, 1000)).getContent();
 	}
 
@@ -381,7 +388,7 @@ public class ImportServiceTest extends AbstractTest {
 		importService.importArchive(importId, new FileInputStream(rf2Archive));
 
 		final Page<Concept> conceptPage = conceptService.findAll(branchPath, PageRequest.of(0, 200));
-		Assert.assertEquals(77, conceptPage.getNumberOfElements());
+		Assert.assertEquals(78, conceptPage.getNumberOfElements());
 
 		IntegrityIssueReport emptyReport = new IntegrityIssueReport();
 		assertEquals("Branch " + branchPath + " should contain no invalid stated relationships.",
