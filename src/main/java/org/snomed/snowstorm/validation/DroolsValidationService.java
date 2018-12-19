@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.validation;
 
+import java.io.File;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -93,6 +94,12 @@ public class DroolsValidationService {
 
 	public void newRuleExecutorAndResources() {
 		Assert.notNull(droolsRulesPath, "Path to drools rules is required.");
+		File dir = new File(droolsRulesPath);
+		if (!dir.isDirectory()) {
+			if (!dir.mkdirs()) {
+				logger.warn("Failed to create directory {}", droolsRulesPath);
+			}
+		}
 		this.ruleExecutor = new RuleExecutorFactory().createRuleExecutor(droolsRulesPath);
 		this.testResourceProvider = ruleExecutor.newTestResourceProvider(testResourceManager);
 	}
