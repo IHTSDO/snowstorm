@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.rest.pojo.BrowserDescriptionSearchResult;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,10 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -64,7 +62,23 @@ public class DescriptionController {
 		List<BrowserDescriptionSearchResult> results = new ArrayList<>();
 		page.getContent().forEach(d -> results.add(new BrowserDescriptionSearchResult(d.getTerm(), d.isActive(), conceptMinis.get(d.getConceptId()))));
 
-		return new PageWithBucketAggregations<>(results, page.getPageable(), page.getTotalElements(), page.getBuckets());
+		PageWithBucketAggregations<BrowserDescriptionSearchResult> pageWithBucketAggregations = new PageWithBucketAggregations<>(results, page.getPageable(), page.getTotalElements(), page.getBuckets());
+		addBucketConcepts(branch, languageCodes, pageWithBucketAggregations);
+		return pageWithBucketAggregations;
+	}
+
+	private void addBucketConcepts(@PathVariable String branch, List<String> languageCodes, PageWithBucketAggregations<BrowserDescriptionSearchResult> pageWithBucketAggregations) {
+		Map<String, Map<String, Long>> buckets = pageWithBucketAggregations.getBuckets();
+		Set<String> bucketConceptIds = new HashSet<>();
+		if (buckets.containsKey("membership")) {
+			bucketConceptIds.addAll(buckets.get("membership").keySet());
+		}
+		if (buckets.containsKey("module")) {
+			bucketConceptIds.addAll(buckets.get("module").keySet());
+		}
+		if (!bucketConceptIds.isEmpty()) {
+			pageWithBucketAggregations.setBucketConcepts(conceptService.findConceptMinis(branch, bucketConceptIds, languageCodes).getResultsMap());
+		}
 	}
 
 	@RequestMapping(value = "{branch}/descriptions", method = RequestMethod.GET)
