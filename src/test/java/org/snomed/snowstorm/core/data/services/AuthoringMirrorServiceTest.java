@@ -267,6 +267,11 @@ public class AuthoringMirrorServiceTest extends AbstractTest {
 			Concept before = mapper.readValue(beforeFile, Concept.class);
 			conceptService.create(before, branchPath);
 		}
+		try {
+			Thread.sleep(1000);
+		} catch (InterruptedException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	private InputStream loadResource(String name) {
