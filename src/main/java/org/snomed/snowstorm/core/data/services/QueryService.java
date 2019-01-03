@@ -432,7 +432,7 @@ public class QueryService {
 		return sortedIds;
 	}
 
-	public Page<ConceptMini> findDescendantsAsConceptMinis(String conceptId, String path, Relationship.CharacteristicType form, PageRequest pageRequest, ConceptService conceptService) {
+	public Page<ConceptMini> findDescendantsAsConceptMinis(String conceptId, String path, Relationship.CharacteristicType form, PageRequest pageRequest) {
 		ConceptQueryBuilder queryBuilder = createQueryBuilder(form == Relationship.CharacteristicType.stated);
 		queryBuilder.ecl("<" + conceptId);
 		return search(queryBuilder, path, pageRequest);
@@ -446,6 +446,10 @@ public class QueryService {
 	 */
 	public ConceptQueryBuilder createQueryBuilder(boolean stated) {
 		return new ConceptQueryBuilder(stated);
+	}
+
+	public ConceptQueryBuilder createQueryBuilder(Relationship.CharacteristicType form) {
+		return new ConceptQueryBuilder(form == Relationship.CharacteristicType.stated);
 	}
 
 	public final class ConceptQueryBuilder {
