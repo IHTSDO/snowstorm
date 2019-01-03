@@ -28,6 +28,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 import javax.validation.Valid;
 import java.util.*;
 
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+
 @RestController
 @Api(tags = "Concepts", description = "-")
 @RequestMapping(produces = "application/json")
@@ -253,7 +255,13 @@ public class ConceptController {
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
-		return conceptService.findConceptChildren(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch), form);
+		String branchPath = BranchPathUriUtil.decodePath(branch);
+
+		QueryService.ConceptQueryBuilder conceptQuery = queryService.createQueryBuilder(form)
+				.ecl("<!" + conceptId)
+				.languageCodes(languageCodes);
+		Page<ConceptMini> children = queryService.search(conceptQuery, branchPath, LARGE_PAGE);
+		return children.getContent();
 	}
 
 	@ResponseBody

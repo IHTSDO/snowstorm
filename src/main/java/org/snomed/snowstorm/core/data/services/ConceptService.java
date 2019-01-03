@@ -162,54 +162,6 @@ public class ConceptService extends ComponentService {
 		return doFind(null, languageCodes, path, pageRequest);
 	}
 
-	public Collection<ConceptMini> findConceptChildren(String conceptId, List<String> languageCodes, String path, Relationship.CharacteristicType relationshipType) {
-		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
-
-		// Gather children ids
-		final Set<String> childrenIds = new HashSet<>();
-		try (final CloseableIterator<Relationship> relationshipStream = openRelationshipStream(branchCriteria, termQuery("destinationId", conceptId), relationshipType)) {
-			relationshipStream.forEachRemaining(relationship -> childrenIds.add(relationship.getSourceId()));
-		}
-
-		// Fetch concept details
-		final Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
-		try (final CloseableIterator<Concept> conceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termsQuery("conceptId", childrenIds))
-				)
-				.withPageable(LARGE_PAGE)
-				.build(), Concept.class
-		)) {
-			conceptStream.forEachRemaining(concept -> conceptMiniMap.put(concept.getConceptId(), new ConceptMini(concept, languageCodes).setLeaf(relationshipType, true)));
-		}
-
-		// Find children of the children to set the isLeaf flag
-		try (final CloseableIterator<Relationship> relationshipStream = openRelationshipStream(branchCriteria, termsQuery("destinationId", childrenIds), relationshipType)) {
-			relationshipStream.forEachRemaining(relationship -> conceptMiniMap.get(relationship.getDestinationId()).setLeaf(relationshipType, false));
-		}
-		// Fetch descriptions and Lang refsets
-		descriptionService.joinDescriptions(branchCriteria, null, conceptMiniMap, null, false);
-
-		return conceptMiniMap.values();
-	}
-
-	private CloseableIterator<Relationship> openRelationshipStream(BranchCriteria branchCriteria,
-																   QueryBuilder destinationCriteria,
-																   Relationship.CharacteristicType relationshipType) {
-		return elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
-						.must(termQuery("active", true))
-						.must(termQuery("typeId", Concepts.ISA))
-						.must(destinationCriteria)
-						.must(termQuery("characteristicTypeId", relationshipType.getConceptId()))
-				)
-				.withPageable(LARGE_PAGE)
-				.build(), Relationship.class
-		);
-	}
-
 	private Page<Concept> doFind(Collection<? extends Object> conceptIds, List<String> languageCodes, Commit commit, PageRequest pageRequest) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 		return doFind(conceptIds, languageCodes, branchCriteria, pageRequest, true, true);
