@@ -10,14 +10,14 @@ import org.snomed.snowstorm.fhir.config.FHIRConstants;
 
 public class HapiCodeSystemMapper implements FHIRConstants {
 	
-	public Parameters mapToFHIR(Concept c, Collection<ConceptMini> children) {
+	public Parameters mapToFHIR(Concept c, Collection<Long> childIds) {
 		Parameters parameters = getStandardParameters();
 		Parameters.ParametersParameterComponent preferredTerm = new Parameters.ParametersParameterComponent(DISPLAY);
 		parameters.addParameter(preferredTerm);
 		addDesignations(parameters, c, preferredTerm);
 		addProperties(parameters, c);
 		addParents(parameters,c);
-		addChildren(parameters, children);
+		addChildren(parameters, childIds);
 		return parameters;
 	}
 
@@ -59,9 +59,9 @@ public class HapiCodeSystemMapper implements FHIRConstants {
 		}
 	}
 	
-	private void addChildren(Parameters p, Collection<ConceptMini> children) {
-		for (ConceptMini child : children) {
-			p.addParameter(createProperty(CHILD, child.getConceptId(), true));
+	private void addChildren(Parameters p, Collection<Long> childIds) {
+		for (Long childId : childIds) {
+			p.addParameter(createProperty(CHILD, childId.toString(), true));
 		}
 	}
 

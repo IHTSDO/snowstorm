@@ -13,9 +13,12 @@ import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.RequestHeader;
 
@@ -23,6 +26,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Collection;
 import java.util.List;
+
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 
 @Component
 public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants {
@@ -32,6 +37,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private QueryService queryService;
 
 	@Autowired
 	private HapiCodeSystemMapper mapper;
@@ -79,8 +87,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 
 		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), languageCodes, branchPath));
-		Collection<ConceptMini> children = conceptService.findConceptChildren(code.getValue(), languageCodes, branchPath, Relationship.CharacteristicType.inferred);
-		return mapper.mapToFHIR(concept, children);
+		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + code.getValue()), branchPath, LARGE_PAGE);
+		return mapper.mapToFHIR(concept, childIds.getContent());
 	}
 	
 	@Override
