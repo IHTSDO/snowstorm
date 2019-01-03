@@ -261,6 +261,7 @@ public class ConceptController {
 				.ecl("<!" + conceptId)
 				.languageCodes(languageCodes);
 		Page<ConceptMini> children = queryService.search(conceptQuery, branchPath, LARGE_PAGE);
+		queryService.joinIsLeafFlag(children.getContent(), branchPath, form);
 		return children.getContent();
 	}
 

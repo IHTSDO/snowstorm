@@ -26,6 +26,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
@@ -450,6 +451,37 @@ public class QueryService {
 
 	public ConceptQueryBuilder createQueryBuilder(Relationship.CharacteristicType form) {
 		return new ConceptQueryBuilder(form == Relationship.CharacteristicType.stated);
+	}
+
+	public void joinIsLeafFlag(List<ConceptMini> concepts, String branchPath, Relationship.CharacteristicType form) {
+		if (concepts.isEmpty()) {
+			return;
+		}
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		Map<Long, ConceptMini> conceptMap = concepts.stream().map(mini -> mini.setLeaf(form, true)).collect(Collectors.toMap(mini -> Long.parseLong(mini.getConceptId()), Function.identity()));
+		Set<Long> conceptIdsToFind = new HashSet<>(conceptMap.keySet());
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(new BoolQueryBuilder()
+						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
+						.must(termQuery(QueryConcept.Fields.STATED, form == Relationship.CharacteristicType.stated))
+						.must(termsQuery(QueryConcept.Fields.PARENTS, conceptIdsToFind)))
+				.withPageable(LARGE_PAGE);
+		try (CloseableIterator<QueryConcept> children = elasticsearchTemplate.stream(queryBuilder.build(), QueryConcept.class)) {
+			children.forEachRemaining(child -> {
+				if (conceptIdsToFind.isEmpty()) {
+					return;
+				}
+				Set<Long> parents = child.getParents();
+				for (Long parent : parents) {
+					if (conceptIdsToFind.contains(parent)) {
+						// Concept has at least one child in this form - mark as not a leaf.
+						conceptMap.get(parent).setLeaf(form, false);
+						// We don't need to check this one again
+						conceptIdsToFind.remove(parent);
+					}
+				}
+			});
+		}
 	}
 
 	public final class ConceptQueryBuilder {
