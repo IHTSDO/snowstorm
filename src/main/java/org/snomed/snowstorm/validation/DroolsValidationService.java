@@ -60,7 +60,7 @@ public class DroolsValidationService {
 	public List<InvalidContent> validateConcepts(String branchPath, Set<Concept> concepts) throws ServiceException {
 		// Get drools assertion groups to run
 		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow(branchPath, true);
-		String assertionGroupNamesMetaString = branchWithInheritedMetadata.getMetadata().get(BranchMetadataKeys.ASSERTION_GROUP_NAMES);
+		String assertionGroupNamesMetaString = branchWithInheritedMetadata.getMetadata() == null ? null : branchWithInheritedMetadata.getMetadata().get(BranchMetadataKeys.ASSERTION_GROUP_NAMES);
 		if (assertionGroupNamesMetaString == null) {
 			throw new ServiceException("'" + BranchMetadataKeys.ASSERTION_GROUP_NAMES + "' not set on branch metadata for Snomed-Drools validation configuration.");
 		}
