@@ -7,7 +7,7 @@ import org.snomed.snowstorm.rest.View;
 import java.util.Set;
 
 @JsonView(value = View.Component.class)
-public class Axiom {
+public class Axiom implements IdAndEffectiveTimeComponent {
 
 	private String axiomId;
 	private String moduleId;
@@ -40,6 +40,16 @@ public class Axiom {
 		this.active = active;
 		this.definitionStatusId = definitionStatusId;
 		this.relationships = relationships;
+	}
+
+	@Override
+	public String getId() {
+		return axiomId;
+	}
+
+	@Override
+	public Integer getEffectiveTimeI() {
+		return referenceSetMember.getEffectiveTimeI();
 	}
 
 	@JsonView(value = View.Component.class)
