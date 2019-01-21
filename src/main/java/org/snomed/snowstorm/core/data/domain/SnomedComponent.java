@@ -9,7 +9,7 @@ import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-public abstract class SnomedComponent<C> extends DomainEntity<C> {
+public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAndEffectiveTimeComponent {
 
 	public interface Fields {
 		String EFFECTIVE_TIME = "effectiveTimeI";

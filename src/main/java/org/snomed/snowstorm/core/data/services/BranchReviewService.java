@@ -11,10 +11,7 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.review.*;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -173,42 +170,46 @@ public class BranchReviewService {
 	private Concept autoMergeConcept(Concept sourceConcept, Concept targetConcept) {
 		final Concept mergedConcept = new Concept();
 
-		// If one of the concepts is unpublished, then it's values are newer.  If both are unpublished, source would win
-		Concept winner = sourceConcept;
-		if (targetConcept.getEffectiveTimeI() == null && sourceConcept.getEffectiveTimeI() != null) {
-			winner = targetConcept;
-		}
+		// In each component favour the source version unless only the target is unpublished
+		Concept winningConcept = sourceConcept.getEffectiveTimeI() != null && targetConcept.getEffectiveTimeI() == null ? targetConcept : sourceConcept;
 
 		// Set directly owned values
-		mergedConcept.setConceptId(winner.getConceptId());
-		mergedConcept.setActive(winner.isActive());
-		mergedConcept.setDefinitionStatus(winner.getDefinitionStatus());
-		mergedConcept.setEffectiveTimeI(winner.getEffectiveTimeI());
-		mergedConcept.setModuleId(winner.getModuleId());
+		mergedConcept.setConceptId(winningConcept.getConceptId());
+		mergedConcept.setActive(winningConcept.isActive());
+		mergedConcept.setDefinitionStatus(winningConcept.getDefinitionStatus());
+		mergedConcept.setEffectiveTimeI(winningConcept.getEffectiveTimeI());
+		mergedConcept.setModuleId(winningConcept.getModuleId());
 
-		mergedConcept.setInactivationIndicatorName(winner.getInactivationIndicator());
-		mergedConcept.setAssociationTargets(winner.getAssociationTargets());
+		mergedConcept.setInactivationIndicatorName(winningConcept.getInactivationIndicator());
+		mergedConcept.setAssociationTargets(winningConcept.getAssociationTargets());
 
-		// Merge Descriptions - take all the descriptions from source, and add in from target
-		// if they're unpublished, which will cause an overwrite in the Set if the Description Id matches
-		final Set<Description> mergedDescriptions = new HashSet<>(sourceConcept.getDescriptions());
-		for (final Description thisDescription : targetConcept.getDescriptions()) {
-			if (thisDescription.getEffectiveTimeI() == null) {
-				mergedDescriptions.add(thisDescription);
-			}
-		}
-		mergedConcept.setDescriptions(mergedDescriptions);
+		// Merge Descriptions
+		mergedConcept.setDescriptions(mergeComponentSets(sourceConcept.getDescriptions(), targetConcept.getDescriptions()));
 
-		// Merge Relationships - same process using Set to remove duplicated
-		final Set<Relationship> mergedRelationships = new HashSet<>(sourceConcept.getRelationships());
-		for (final Relationship thisRelationship : targetConcept.getRelationships()) {
-			if (thisRelationship.getEffectiveTimeI() == null) {
-				mergedRelationships.add(thisRelationship);
-			}
-		}
-		mergedConcept.setRelationships(mergedRelationships);
+		// Merge Relationships
+		mergedConcept.setRelationships(mergeComponentSets(sourceConcept.getRelationships(), targetConcept.getRelationships()));
 
 		return mergedConcept;
+	}
+
+	private <T extends IdAndEffectiveTimeComponent> Set<T> mergeComponentSets(Set<T> sourceDescriptions, Set<T> targetDescriptions) {
+		final Set<T> mergedDescriptions = new HashSet<>(sourceDescriptions);
+		for (final T targetDescription : targetDescriptions) {
+			if (targetDescription.getEffectiveTimeI() == null) {
+				if (mergedDescriptions.contains(targetDescription)) {
+					Optional<T> sourceDescription = mergedDescriptions.stream()
+							.filter(otherDescription -> otherDescription.getId().equals(targetDescription.getId())).findFirst();
+					if (sourceDescription.isPresent() && sourceDescription.get().getEffectiveTimeI() != null) {
+						// Only target description is unpublished, replace.
+						mergedDescriptions.add(targetDescription);
+					}
+				} else {
+					// Target description is new and not yet promoted to source.
+					mergedDescriptions.add(targetDescription);
+				}
+			}
+		}
+		return mergedDescriptions;
 	}
 
 	public BranchReview getCreateReview(String source, String target) {
