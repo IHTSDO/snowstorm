@@ -62,20 +62,10 @@ public class ConceptController {
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) String ecl,
 			@RequestParam(required = false) String statedEcl,
-			@RequestParam(required = false) String escg,
 			@RequestParam(required = false) Set<String> conceptIds,
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
-
-		// TODO: Remove this partial ESCG support
-		if (ecl == null && escg != null && !escg.isEmpty()) {
-			conceptIds = new HashSet<>();
-			String[] ids = escg.split("UNION");
-			for (String id : ids) {
-				conceptIds.add(id.trim());
-			}
-		}
 
 		boolean stated = true;
 		if (ecl != null && !ecl.isEmpty()) {
@@ -122,7 +112,6 @@ public class ConceptController {
 				searchRequest.getTermFilter(),
 				searchRequest.getEclFilter(),
 				searchRequest.getStatedEclFilter(),
-				null,
 				searchRequest.getConceptIds(),
 				searchRequest.getOffset(),
 				searchRequest.getLimit(),
@@ -186,7 +175,7 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return findConcepts(branch, stated, null, null, null, "<" + conceptId, null, null, offset, limit, acceptLanguageHeader);
+		return findConcepts(branch, stated, null, null, null, "<" + conceptId, null, offset, limit, acceptLanguageHeader);
 	}
 
 	@ResponseBody
