@@ -243,14 +243,15 @@ public class ClassificationService {
 
 		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow(path, true);
 		Map<String, String> metadata = branchWithInheritedMetadata.getMetadata();
-		String previousPackage = metadata != null ? metadata.get(BranchMetadataKeys.CLASSIFICATION_PREVIOUS_PACKAGE) : null;
-		if (Strings.isNullOrEmpty(previousPackage)) {
-			throw new IllegalStateException("Missing branch metadata for " + BranchMetadataKeys.CLASSIFICATION_PREVIOUS_PACKAGE);
+		String previousPackage = metadata != null ? metadata.get(BranchMetadataKeys.PREVIOUS_PACKAGE) : null;
+		String dependencyPackage = metadata != null ? metadata.get(BranchMetadataKeys.DEPENDENCY_PACKAGE) : null;
+		if (Strings.isNullOrEmpty(previousPackage) && Strings.isNullOrEmpty(dependencyPackage)) {
+			throw new IllegalStateException("Missing branch metadata for " + BranchMetadataKeys.PREVIOUS_PACKAGE + " or " + BranchMetadataKeys.DEPENDENCY_PACKAGE);
 		}
 
 		try {
 			File deltaExport = exportService.exportRF2ArchiveFile(path, SIMPLE_DATE_FORMAT.format(new Date()), RF2Type.DELTA, true);
-			String remoteClassificationId = serviceClient.createClassification(previousPackage, deltaExport, path, reasonerId);
+			String remoteClassificationId = serviceClient.createClassification(previousPackage, dependencyPackage, deltaExport, path, reasonerId);
 			classification.setId(remoteClassificationId);
 			classification.setStatus(ClassificationStatus.SCHEDULED);
 			classificationRepository.save(classification);
