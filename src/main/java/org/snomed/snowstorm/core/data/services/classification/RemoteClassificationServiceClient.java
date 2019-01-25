@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services.classification;
 
 import org.apache.tomcat.util.http.fileupload.util.Streams;
+import org.elasticsearch.common.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.classification.pojo.ClassificationStatusResponse;
@@ -46,16 +47,22 @@ class RemoteClassificationServiceClient {
 
 	/**
 	 *
-	 * @param previousPackage The path or identifier of the previous RF2 snapshot archive.
+	 * @param previousPackage The name of the previous RF2 snapshot archive.
+	 * @param dependencyPackage The name of the dependency RF2 snapshot archive.
 	 * @param deltaFile The RF2 delta archive of the content to be added to the previous package and classified.
 	 * @param branchPath The path of the branch which is being classified.
 	 * @param reasonerId The identifier of the reasoner to use for classification.
 	 * @return remoteClassificationId The identifier of the classification run on the remote service.
 	 * @throws RestClientException if something goes wrong when communicating with the remote service.
 	 */
-	String createClassification(String previousPackage, File deltaFile, String branchPath, String reasonerId) throws RestClientException {
+	String createClassification(String previousPackage, String dependencyPackage, File deltaFile, String branchPath, String reasonerId) throws RestClientException {
 		MultiValueMap<String, Object> params = new LinkedMultiValueMap<>();
-		params.put("previousRelease", Collections.singletonList(previousPackage));
+		if (Strings.hasLength(previousPackage)) {
+			params.put("previousPackage", Collections.singletonList(previousPackage));
+		}
+		if (Strings.hasLength(dependencyPackage)) {
+			params.put("dependencyPackage", Collections.singletonList(dependencyPackage));
+		}
 		params.put("rf2Delta", Collections.singletonList(new FileSystemResource(deltaFile)));
 		params.put("branch", Collections.singletonList(branchPath));
 		params.put("reasonerId", Collections.singletonList(reasonerId));
