@@ -105,30 +105,32 @@ public class TraceabilityLogService implements CommitListener {
 			componentToConceptIdMap.put(parseLong(relationship.getRelationshipId()), parseLong(relationship.getSourceId()));
 		}
 		for (ReferenceSetMember refsetMember : refsetMembers) {
-			String referencedComponentId = refsetMember.getReferencedComponentId();
-			long referencedComponentLong = parseLong(referencedComponentId);
-			Activity.ConceptActivity conceptActivity = null;
-			String componentType = null;
-			if (IdentifierService.isConceptId(referencedComponentId)) {
-				conceptActivity = activityMap.get(referencedComponentLong);
-				componentType = "Concept";
-			} else {
-				Long conceptId = componentToConceptIdMap.get(referencedComponentLong);
-				if (IdentifierService.isDescriptionId(referencedComponentId)) {
-					componentType = "Description";
-				} else if (IdentifierService.isRelationshipId(referencedComponentId)) {
-					componentType = "Relationship";
+			if (refsetMember.isChanged() || refsetMember.isDeleted()) {
+				String referencedComponentId = refsetMember.getReferencedComponentId();
+				long referencedComponentLong = parseLong(referencedComponentId);
+				Activity.ConceptActivity conceptActivity = null;
+				String componentType = null;
+				if (IdentifierService.isConceptId(referencedComponentId)) {
+					conceptActivity = activityMap.get(referencedComponentLong);
+					componentType = "Concept";
+				} else {
+					Long conceptId = componentToConceptIdMap.get(referencedComponentLong);
+					if (IdentifierService.isDescriptionId(referencedComponentId)) {
+						componentType = "Description";
+					} else if (IdentifierService.isRelationshipId(referencedComponentId)) {
+						componentType = "Relationship";
+					}
+					if (conceptId != null) {
+						conceptActivity = activityMap.get(conceptId);
+					}
 				}
-				if (conceptId != null) {
-					conceptActivity = activityMap.get(conceptId);
+				if (conceptActivity != null && componentType != null) {
+					conceptActivity.addComponentChange(new Activity.ComponentChange(
+							componentType,
+							referencedComponentId,
+							"UPDATE"))
+							.statedChange();
 				}
-			}
-			if (conceptActivity != null && componentType != null) {
-				conceptActivity.addComponentChange(new Activity.ComponentChange(
-						componentType,
-						referencedComponentId,
-						"UPDATE"))
-						.statedChange();
 			}
 		}
 

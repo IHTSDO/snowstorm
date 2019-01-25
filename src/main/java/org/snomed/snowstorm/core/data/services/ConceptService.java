@@ -537,7 +537,7 @@ public class ConceptService extends ComponentService {
 				concept.getRelationships().forEach(relationship -> relationship.setActive(false));
 			}
 
-			Set<ReferenceSetMember> newOwlAxiomMembers = concept.getAllOwlAxiomMembers();
+			Set<ReferenceSetMember> newVersionOwlAxiomMembers = concept.getAllOwlAxiomMembers();
 
 			// Mark changed concepts as changed
 			if (existingConcept != null) {
@@ -547,7 +547,7 @@ public class ConceptService extends ComponentService {
 
 				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions(), savingMergedConcepts);
 				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships(), savingMergedConcepts);
-				markDeletionsAndUpdates(newOwlAxiomMembers, existingConcept.getAllOwlAxiomMembers(), savingMergedConcepts);
+				markDeletionsAndUpdates(newVersionOwlAxiomMembers, existingConcept.getAllOwlAxiomMembers(), savingMergedConcepts);
 				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
 			} else {
 				concept.setCreating(true);
@@ -557,7 +557,7 @@ public class ConceptService extends ComponentService {
 				Stream.of(
 						concept.getDescriptions().stream(),
 						concept.getRelationships().stream(),
-						newOwlAxiomMembers.stream())
+						newVersionOwlAxiomMembers.stream())
 						.flatMap(i -> i)
 						.forEach(component -> {
 							component.setCreating(true);
@@ -643,7 +643,7 @@ public class ConceptService extends ComponentService {
 			concept.getDescriptions().clear();
 			relationshipsToPersist.addAll(concept.getRelationships());
 			concept.getRelationships().clear();
-			refsetMembersToPersist.addAll(newOwlAxiomMembers);
+			refsetMembersToPersist.addAll(newVersionOwlAxiomMembers);
 			concept.getAdditionalAxioms().clear();
 			concept.getGciAxioms().clear();
 		}
