@@ -18,6 +18,7 @@ import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.util.DateUtil;
+import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
@@ -99,6 +100,9 @@ public class ExportService {
 			throw new IllegalArgumentException("Full RF2 export is not implemented.");
 		}
 
+		logger.info("Starting {} export.", exportType);
+		Date startTime = new Date();
+
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 
 		try {
@@ -170,6 +174,7 @@ public class ExportService {
 					}
 				}
 			}
+			logger.info("{} export complete in {} seconds.", exportType, TimerUtil.secondsSince(startTime));
 			return exportFile;
 		} catch (IOException e) {
 			throw new ExportException("Failed to write RF2 zip file.", e);

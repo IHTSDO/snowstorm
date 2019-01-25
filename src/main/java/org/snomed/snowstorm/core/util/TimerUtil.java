@@ -26,6 +26,10 @@ public class TimerUtil {
 		log("Timer {}: started", timerName);
 	}
 
+	public static String secondsSince(Date startTime) {
+		return String.format("%,d", (new Date().getTime() - startTime.getTime()) / 1_000);
+	}
+
 	public void checkpoint(String name) {
 		final long now = new Date().getTime();
 		float millisTaken = now - lastCheck;
