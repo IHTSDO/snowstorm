@@ -274,43 +274,45 @@ public class ClassificationService {
 			classification.setStatus(SAVING_IN_PROGRESS);
 			classificationRepository.save(classification);
 
-			try (Commit commit = branchService.openCommit(path)) { // Commit in auto-close try block like this will roll back if an exception is thrown
+			try {
+				try (Commit commit = branchService.openCommit(path)) { // Commit in auto-close try block like this will roll back if an exception is thrown
 
-				NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-						.withQuery(termQuery("classificationId", classificationId))
-						.withSort(new FieldSortBuilder("sourceId"))
-						.withPageable(LARGE_PAGE);
-				try (CloseableIterator<RelationshipChange> relationshipChangeStream = elasticsearchOperations.stream(queryBuilder.build(), RelationshipChange.class)) {
-					while (relationshipChangeStream.hasNext()) {
-						List<RelationshipChange> changesBatch = new ArrayList<>();
-						int i = 0;
-						while (i++ < 10_000 && relationshipChangeStream.hasNext()) {
-							changesBatch.add(relationshipChangeStream.next());
+					NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+							.withQuery(termQuery("classificationId", classificationId))
+							.withSort(new FieldSortBuilder("sourceId"))
+							.withPageable(LARGE_PAGE);
+					try (CloseableIterator<RelationshipChange> relationshipChangeStream = elasticsearchOperations.stream(queryBuilder.build(), RelationshipChange.class)) {
+						while (relationshipChangeStream.hasNext()) {
+							List<RelationshipChange> changesBatch = new ArrayList<>();
+							int i = 0;
+							while (i++ < 10_000 && relationshipChangeStream.hasNext()) {
+								changesBatch.add(relationshipChangeStream.next());
+							}
+
+							// Group changes by concept
+							Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
+							for (RelationshipChange relationshipChange : changesBatch) {
+								conceptToChangeMap.computeIfAbsent(Long.parseLong(relationshipChange.getSourceId()), conceptId -> new ArrayList<>()).add(relationshipChange);
+							}
+
+							// Load concepts
+							Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet(), Config.DEFAULT_LANGUAGE_CODES);
+
+							// Apply changes to concepts
+							for (Concept concept : concepts) {
+								List<RelationshipChange> relationshipChanges = conceptToChangeMap.get(concept.getConceptIdAsLong());
+								applyRelationshipChangesToConcept(concept, relationshipChanges, false);
+							}
+
+							// Update concepts
+							conceptService.updateWithinCommit(concepts, commit);
 						}
-
-						// Group changes by concept
-						Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
-						for (RelationshipChange relationshipChange : changesBatch) {
-							conceptToChangeMap.computeIfAbsent(Long.parseLong(relationshipChange.getSourceId()), conceptId -> new ArrayList<>()).add(relationshipChange);
-						}
-
-						// Load concepts
-						Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet(), Config.DEFAULT_LANGUAGE_CODES);
-
-						// Apply changes to concepts
-						for (Concept concept : concepts) {
-							List<RelationshipChange> relationshipChanges = conceptToChangeMap.get(concept.getConceptIdAsLong());
-							applyRelationshipChangesToConcept(concept, relationshipChanges, false);
-						}
-
-						// Update concepts
-						conceptService.updateWithinCommit(concepts, commit);
 					}
-				}
 
-				commit.markSuccessful();
-				classification.setStatus(SAVED);
-				classification.setSaveDate(new Date());
+					commit.markSuccessful();
+					classification.setStatus(SAVED);
+					classification.setSaveDate(new Date());
+				}
 			} catch (ServiceException e) {
 				classification.setStatus(SAVE_FAILED);
 				logger.error("Classification save failed {} {}", classification.getPath(), classificationId, e);
