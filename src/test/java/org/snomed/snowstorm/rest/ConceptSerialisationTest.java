@@ -2,6 +2,7 @@ package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.Assert;
@@ -15,6 +16,9 @@ import org.snomed.snowstorm.core.data.repositories.config.DescriptionStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.RelationshipStoreMixIn;
 
 import java.io.IOException;
+
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public class ConceptSerialisationTest {
 
@@ -53,12 +57,45 @@ public class ConceptSerialisationTest {
 	}
 
 	@Test
-	public void testStoreSerialisation() throws JsonProcessingException, JSONException {
-		final String conceptJson = storeObjectMapper.writeValueAsString(new Concept("123", null, true, "33", "900000000000074008"));
-		final JSONObject c = new JSONObject(conceptJson);
+	public void testRESTApiSerialisation() throws JsonProcessingException {
+		ObjectWriter restApiWriter = generalObjectMapper.writerWithView(View.Component.class).forType(ConceptView.class);
+		final String conceptJson = restApiWriter.writeValueAsString(new Concept("123", null, true, "33", "900000000000074008"));
+		System.out.println(conceptJson);
+		assertFalse(conceptJson.contains("internalId"));
+		assertFalse(conceptJson.contains("path"));
+		assertFalse(conceptJson.contains("start"));
+		assertFalse(conceptJson.contains("end"));
+		assertFalse(conceptJson.contains("effectiveTimeI"));
+		assertFalse(conceptJson.contains("releaseHash"));
+		assertFalse(conceptJson.contains("allOwlAxiomMembers"));
 
-		Assert.assertEquals("900000000000074008", c.getString("definitionStatusId"));
-		Assert.assertTrue(c.isNull("definitionStatus"));
+		assertTrue(conceptJson.contains("fsn"));
+		assertTrue(conceptJson.contains("descriptions"));
+		assertTrue(conceptJson.contains("relationships"));
+		assertTrue(conceptJson.contains("additionalAxioms"));
+		assertTrue(conceptJson.contains("gciAxioms"));
+	}
+
+	@Test
+	public void testStoreSerialisation() throws JsonProcessingException {
+		final String conceptJson = storeObjectMapper.writeValueAsString(new Concept("123", null, true, "33", "900000000000074008"));
+		System.out.println(conceptJson);
+		assertFalse(conceptJson.contains("fsn"));
+		assertFalse(conceptJson.contains("idField"));
+		assertFalse(conceptJson.contains("descriptions"));
+		assertFalse(conceptJson.contains("relationships"));
+		assertFalse(conceptJson.contains("allOwlAxiomMembers"));
+		assertFalse(conceptJson.contains("additionalAxioms"));
+		assertFalse(conceptJson.contains("gciAxioms"));
+		assertFalse(conceptJson.contains("allOwlAxiomMembers"));
+		assertFalse(conceptJson.contains("associationTargets"));
+
+		assertTrue(conceptJson.contains("internalId"));
+		assertTrue(conceptJson.contains("path"));
+		assertTrue(conceptJson.contains("start"));
+		assertTrue(conceptJson.contains("end"));
+		assertTrue(conceptJson.contains("effectiveTimeI"));
+		assertTrue(conceptJson.contains("releaseHash"));
 	}
 
 }
