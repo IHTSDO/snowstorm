@@ -55,11 +55,9 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	@Size(min = 5, max = 18)
 	private String definitionStatusId;
 
-	@JsonView(value = View.Component.class)
 	@Valid
 	private Set<Description> descriptions;
 
-	@JsonView(value = View.Component.class)
 	@Valid
 	private Set<Relationship> relationships;
 
@@ -317,6 +315,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	@Override
+	@JsonView(value = View.Component.class)
 	public Set<Description> getDescriptions() {
 		return descriptions;
 	}
@@ -326,6 +325,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	@Override
+	@JsonView(value = View.Component.class)
 	public Set<Relationship> getRelationships() {
 		return relationships;
 	}

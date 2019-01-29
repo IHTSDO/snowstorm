@@ -39,6 +39,7 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 	@JsonIgnore
 	private boolean creating;
 
+	@JsonIgnore
 	public abstract String getIdField();
 
 	public void release(Integer effectiveTime) {
