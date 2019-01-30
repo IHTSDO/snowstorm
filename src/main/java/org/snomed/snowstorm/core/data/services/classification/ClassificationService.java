@@ -6,7 +6,16 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.elasticsearch.ElasticsearchException;
+import org.elasticsearch.action.ActionFuture;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.common.Strings;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.searchafter.SearchAfterBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
@@ -35,6 +44,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentEntity;
 import org.springframework.data.elasticsearch.core.query.GetQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
@@ -279,9 +289,11 @@ public class ClassificationService {
 
 					NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 							.withQuery(termQuery("classificationId", classificationId))
-							.withSort(new FieldSortBuilder("sourceId"))
+							.withSort(new FieldSortBuilder(RelationshipChange.Fields.SOURCE_ID))
+							.withSort(new FieldSortBuilder(RelationshipChange.Fields.GROUP))
+							.withSort(new FieldSortBuilder(RelationshipChange.Fields.SORT_NUMBER))// This gives a guaranteed sort order for a reliable stateless stream
 							.withPageable(LARGE_PAGE);
-					try (CloseableIterator<RelationshipChange> relationshipChangeStream = elasticsearchOperations.stream(queryBuilder.build(), RelationshipChange.class)) {
+					try (CloseableIterator<RelationshipChange> relationshipChangeStream = elasticsearchOperations.statelessStream(queryBuilder.build(), RelationshipChange.class)) {
 						while (relationshipChangeStream.hasNext()) {
 							List<RelationshipChange> changesBatch = new ArrayList<>();
 							int i = 0;
@@ -458,10 +470,12 @@ public class ClassificationService {
 		String line = reader.readLine(); // Read and discard header line
 
 		List<RelationshipChange> relationshipChanges = new ArrayList<>();
+		int recordSortNumber = 0;
 		while ((line = reader.readLine()) != null) {
 			String[] values = line.split("\\t");
 			// Header id	effectiveTime	active	moduleId	sourceId	destinationId	relationshipGroup	typeId	characteristicTypeId	modifierId
 			relationshipChanges.add(new RelationshipChange(
+					recordSortNumber++,
 					classificationId,
 					values[RelationshipFieldIndexes.id],
 					"1".equals(values[RelationshipFieldIndexes.active]),
