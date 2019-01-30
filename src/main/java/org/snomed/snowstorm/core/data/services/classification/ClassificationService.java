@@ -6,16 +6,7 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.elasticsearch.ElasticsearchException;
-import org.elasticsearch.action.ActionFuture;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchRequestBuilder;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.client.Client;
 import org.elasticsearch.common.Strings;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
-import org.elasticsearch.search.searchafter.SearchAfterBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
@@ -44,7 +35,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.mapping.ElasticsearchPersistentEntity;
 import org.springframework.data.elasticsearch.core.query.GetQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
@@ -344,30 +334,42 @@ public class ClassificationService {
 		return classification;
 	}
 
-	private void applyRelationshipChangesToConcept(Concept concept, List<RelationshipChange> relationshipChanges, boolean copyDescriptions) {
+	private void applyRelationshipChangesToConcept(Concept concept, List<RelationshipChange> relationshipChanges, boolean copyDescriptions) throws ServiceException {
 		for (RelationshipChange relationshipChange : relationshipChanges) {
-			if (relationshipChange.getChangeNature() == ChangeNature.INFERRED) {
-				Relationship relationship = new Relationship(
-						null,
-						null,
-						true,
-						concept.getModuleId(),
-						null,
-						relationshipChange.getDestinationId(),
-						relationshipChange.getGroup(),
-						relationshipChange.getTypeId(),
-						relationshipChange.getCharacteristicTypeId(),
-						relationshipChange.getModifierId());
+			Relationship relationship = null;
+			switch (relationshipChange.getChangeNature()) {
+				case INFERRED:
+					// Newly inferred relationship
+					relationship = new Relationship(
+							null,
+							null,
+							true,
+							concept.getModuleId(),
+							null,
+							relationshipChange.getDestinationId(),
+							relationshipChange.getGroup(),
+							relationshipChange.getTypeId(),
+							relationshipChange.getCharacteristicTypeId(),
+							relationshipChange.getModifierId());
 
-				if (copyDescriptions) {
-					relationship.setSource(relationshipChange.getSource());
-					relationship.setType(relationshipChange.getType());
-					relationship.setTarget(relationshipChange.getDestination());
-				}
-
-				concept.addRelationship(relationship);
-			} else {
-				concept.getRelationships().remove(new Relationship(relationshipChange.getRelationshipId()));
+					concept.addRelationship(relationship);
+					break;
+				case INFERRED_CHANGE:
+					// Role group change
+					relationship = concept.getRelationship(relationshipChange.getRelationshipId());
+					if (relationship == null) {
+						throw new ServiceException(String.format("Relationship %s not found within Concept %s so can not apply update.", relationshipChange.getRelationshipId(), concept.getConceptId()));
+					}
+					relationship.setGroupId(relationshipChange.getGroup());
+					break;
+				case REDUNDANT:
+					concept.getRelationships().remove(new Relationship(relationshipChange.getRelationshipId()));
+					break;
+			}
+			if (copyDescriptions && relationship != null) {
+				relationship.setSource(relationshipChange.getSource());
+				relationship.setType(relationshipChange.getType());
+				relationship.setTarget(relationshipChange.getDestination());
 			}
 		}
 	}
@@ -404,7 +406,7 @@ public class ClassificationService {
 		return doGetEquivalentConcepts(path, classificationId, languageCodes, pageRequest);
 	}
 
-	public Concept getConceptPreview(String path, String classificationId, String conceptId, List<String> languageCodes) {
+	public Concept getConceptPreview(String path, String classificationId, String conceptId, List<String> languageCodes) throws ServiceException {
 		checkClassificationHasResults(path, classificationId);
 
 		Concept concept = conceptService.find(conceptId, languageCodes, path);
