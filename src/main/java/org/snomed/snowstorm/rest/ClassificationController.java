@@ -70,7 +70,7 @@ public class ClassificationController {
 			@PathVariable String branch,
 			@PathVariable String classificationId,
 			@PathVariable String conceptId,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		return classificationService.getConceptPreview(BranchPathUriUtil.decodePath(branch), classificationId, conceptId, ControllerHelper.getLanguageCodes(acceptLanguageHeader));
 	}

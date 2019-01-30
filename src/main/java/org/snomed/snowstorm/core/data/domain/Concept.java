@@ -234,7 +234,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		}
 		return null;
 	}
-	
+
 	/**
 	 * TODO pass acceptability as an ordered list (by preference)
 	 * @param activeFlag 1 or 0 or pass null to obtain either
@@ -250,6 +250,15 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 							.filter(desc -> (acceptability == null || desc.hasAcceptability(acceptability, refsetId)))
 							.collect(Collectors.toList());
 		return matchingDescriptions;
+	}
+
+	public Relationship getRelationship(String relationshipId) {
+		for (Relationship relationship : relationships) {
+			if (relationshipId.equals(relationship.getRelationshipId())) {
+				return relationship;
+			}
+		}
+		return null;
 	}
 
 	@Override

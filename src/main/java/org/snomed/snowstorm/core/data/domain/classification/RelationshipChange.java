@@ -196,7 +196,7 @@ public class RelationshipChange {
 	}
 
 	public ChangeNature getChangeNature() {
-		return active ? ChangeNature.INFERRED : ChangeNature.REDUNDANT;
+		return active ? (relationshipId == null ? ChangeNature.INFERRED : ChangeNature.INFERRED_CHANGE) : ChangeNature.REDUNDANT;
 	}
 
 	@Override
