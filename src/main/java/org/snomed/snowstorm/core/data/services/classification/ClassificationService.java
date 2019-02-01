@@ -18,7 +18,10 @@ import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.classification.*;
+import org.snomed.snowstorm.core.data.domain.classification.Classification;
+import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus;
+import org.snomed.snowstorm.core.data.domain.classification.EquivalentConcepts;
+import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
 import org.snomed.snowstorm.core.data.repositories.ClassificationRepository;
 import org.snomed.snowstorm.core.data.repositories.classification.EquivalentConceptsRepository;
 import org.snomed.snowstorm.core.data.repositories.classification.RelationshipChangeRepository;
@@ -259,7 +262,7 @@ public class ClassificationService {
 				classificationsInProgress.add(classification);
 			}
 		} catch (RestClientException | ExportException e) {
-			throw new ServiceException("Failed to create classification.", e);
+			throw new ServiceException("Failed to batchCreate classification.", e);
 		}
 
 		return classification;

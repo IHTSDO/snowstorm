@@ -36,6 +36,9 @@ public class DescriptionServiceTest extends AbstractTest {
 	private ConceptService conceptService;
 
 	@Autowired
+	private ConceptUpdateHelper conceptUpdateHelper;
+
+	@Autowired
 	private DescriptionService descriptionService;
 
 	@Autowired
@@ -82,7 +85,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
 		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		setModulesAndLanguage(concepts);
-		conceptService.create(concepts, path);
+		conceptService.batchCreate(concepts, path);
 
 		referenceSetMemberService.createMembers(path, Sets.newHashSet(
 				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN, "100003"),
@@ -113,7 +116,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
 		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		setModulesAndLanguage(concepts);
-		conceptService.create(concepts, path);
+		conceptService.batchCreate(concepts, path);
 
 		referenceSetMemberService.createMembers(path, Sets.newHashSet(
 				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN, "100003"),
@@ -147,7 +150,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		description.setActive(false);
 		try (Commit commit = branchService.openCommit("MAIN/A")) {
 			description.markChanged();
-			conceptService.doSaveBatchDescriptions(Collections.singleton(description), commit);
+			conceptUpdateHelper.doSaveBatchDescriptions(Collections.singleton(description), commit);
 			commit.markSuccessful();
 		}
 
@@ -164,7 +167,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		description.setActive(false);
 		try (Commit commit = branchService.openCommit("MAIN")) {
 			description.markChanged();
-			conceptService.doSaveBatchDescriptions(Collections.singleton(description), commit);
+			conceptUpdateHelper.doSaveBatchDescriptions(Collections.singleton(description), commit);
 			commit.markSuccessful();
 		}
 

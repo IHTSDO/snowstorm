@@ -8,13 +8,15 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
@@ -31,6 +33,9 @@ public class IntegrityServiceTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private ConceptUpdateHelper conceptUpdateHelper;
 
 	@Autowired
 	private IntegrityService integrityService;
@@ -125,7 +130,7 @@ public class IntegrityServiceTest extends AbstractTest {
 						relationship.markChanged();
 						return relationship;
 					}).collect(Collectors.toSet());
-			conceptService.doSaveBatchRelationships(relationships, commit);
+			conceptUpdateHelper.doSaveBatchRelationships(relationships, commit);
 			commit.markSuccessful();
 		}
 	}

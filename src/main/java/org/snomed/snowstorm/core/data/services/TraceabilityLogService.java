@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +22,8 @@ import org.springframework.stereotype.Service;
 import javax.annotation.PostConstruct;
 import java.util.*;
 import java.util.function.Consumer;
-import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
 import static io.kaicode.elasticvc.domain.Commit.CommitType.PROMOTION;
@@ -62,13 +64,12 @@ public class TraceabilityLogService implements CommitListener {
 
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
-		if (commit.getCommitType() != CONTENT) {
-			logActivity(SecurityUtil.getUsername(), commit, Collections.emptySet(), Collections.emptyList(), Collections.emptyList(), Collections.emptyList());
+		if (commit.getCommitType() != CONTENT) {// Only use for rebase / promotion
+			logActivity(SecurityUtil.getUsername(), commit, new PersistedComponents());
 		}
 	}
 
-	void logActivity(String userId, Commit commit, Collection<Concept> concepts, List<Description> descriptions,
-					 List<Relationship> relationships, List<ReferenceSetMember> refsetMembers) {
+	void logActivity(String userId, Commit commit, PersistedComponents batchSavePersistedComponents) {
 
 		if (!enabled) {
 			return;
@@ -78,6 +79,12 @@ public class TraceabilityLogService implements CommitListener {
 			userId = "System";
 		}
 
+		Iterable<Concept> persistedConcepts = batchSavePersistedComponents.getPersistedConcepts();
+		Iterable<Description> persistedDescriptions = batchSavePersistedComponents.getPersistedDescriptions();
+		Iterable<Relationship> persistedRelationships = batchSavePersistedComponents.getPersistedRelationships();
+		Iterable<ReferenceSetMember> persistedReferenceSetMembers = batchSavePersistedComponents.getPersistedReferenceSetMembers();
+
+		Set<Concept> concepts = StreamSupport.stream(persistedConcepts.spliterator(), false).collect(Collectors.toSet());
 		String commitComment = createCommitComment(userId, commit, concepts);
 
 		Activity activity = new Activity(userId, commitComment, commit.getBranch().getPath(), commit.getTimepoint().getTime());
@@ -90,13 +97,13 @@ public class TraceabilityLogService implements CommitListener {
 				conceptActivity.addComponentChange(getChange(concept)).statedChange();
 			}
 		}
-		for (Description description : descriptions) {
+		for (Description description : persistedDescriptions) {
 			if (description.isChanged() || description.isDeleted()) {
 				activityMap.get(parseLong(description.getConceptId())).addComponentChange(getChange(description)).statedChange();
 			}
 			componentToConceptIdMap.put(parseLong(description.getDescriptionId()), parseLong(description.getConceptId()));
 		}
-		for (Relationship relationship : relationships) {
+		for (Relationship relationship : persistedRelationships) {
 			if (relationship.isChanged() || relationship.isDeleted()) {
 				activityMap.get(parseLong(relationship.getSourceId()))
 						.addComponentChange(getChange(relationship))
@@ -104,7 +111,7 @@ public class TraceabilityLogService implements CommitListener {
 			}
 			componentToConceptIdMap.put(parseLong(relationship.getRelationshipId()), parseLong(relationship.getSourceId()));
 		}
-		for (ReferenceSetMember refsetMember : refsetMembers) {
+		for (ReferenceSetMember refsetMember : persistedReferenceSetMembers) {
 			if (refsetMember.isChanged() || refsetMember.isDeleted()) {
 				String referencedComponentId = refsetMember.getReferencedComponentId();
 				long referencedComponentLong = parseLong(referencedComponentId);
@@ -171,7 +178,7 @@ public class TraceabilityLogService implements CommitListener {
 			} else if (concepts.isEmpty()) {
 				return "No concept changes.";
 			} else {
-				return "Bulk update.";
+				return "Bulk update to " + concepts.size() + " concepts.";
 			}
 		} else {
 			String path = commit.getBranch().getPath();
@@ -186,6 +193,10 @@ public class TraceabilityLogService implements CommitListener {
 
 	void setEnabled(boolean enabled) {
 		this.enabled = enabled;
+	}
+
+	public boolean isEnabled() {
+		return enabled;
 	}
 
 	private Activity.ComponentChange getChange(SnomedComponent component) {
