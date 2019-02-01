@@ -30,7 +30,6 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.junit.Assert.assertEquals;
-import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODES;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 
@@ -49,6 +48,9 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private ConceptUpdateHelper conceptUpdateHelper;
 
 	@Autowired
 	private ElasticsearchTemplate elasticsearchTemplate;
@@ -70,7 +72,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		String branch = "MAIN";
 		System.out.println("Create first three nodes");
-		conceptService.create(Lists.newArrayList(root, pizza_2, cheesePizza_3, brick_10), branch);
+		conceptService.batchCreate(Lists.newArrayList(root, pizza_2, cheesePizza_3, brick_10), branch);
 
 		assertTC(root);
 		assertTC(pizza_2, root);
@@ -105,7 +107,8 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		Concept food_5 = new Concept("100005").addRelationship(new Relationship(ISA, root.getId()));
 		pizza_2.getRelationships().iterator().next().setActive(false);
 		pizza_2.addRelationship(new Relationship(ISA, food_5.getId()));
-		conceptService.createUpdate(Lists.newArrayList(food_5, pizza_2), DEFAULT_LANGUAGE_CODES, branch);
+		conceptService.create(food_5, branch);
+		conceptService.update(pizza_2, branch);
 
 		assertTC(root);
 		assertTC(food_5, root);
@@ -193,7 +196,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		Concept hamPizza = new Concept("400000000").addRelationship(new Relationship(ISA, pizza.getId()));
 
 		String branch = "MAIN";
-		conceptService.create(Lists.newArrayList(root, toppingAttribute, cheeseTopping, hamTopping, pizza, cheesePizza, hamPizza), branch);
+		conceptService.batchCreate(Lists.newArrayList(root, toppingAttribute, cheeseTopping, hamTopping, pizza, cheesePizza, hamPizza), branch);
 
 		String ecl = "<<" + root.getId();
 		assertEquals(7, eclSearch(ecl, branch).getTotalElements());
@@ -229,7 +232,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		Concept n24 = new Concept("1000024").addRelationship(new Relationship(ISA, n23.getId()));
 
 		String branch = "MAIN";
-		conceptService.create(Lists.newArrayList(root, n11, n12, n13, n21, n22, n23, n24), branch);
+		conceptService.batchCreate(Lists.newArrayList(root, n11, n12, n13, n21, n22, n23, n24), branch);
 
 		assertTC(root);
 
@@ -271,7 +274,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		Concept n14 = new Concept("1000014").addRelationship(new Relationship(ISA, n13.getId())).addRelationship(new Relationship(ISA, n12.getId()));
 
 		String branch = "MAIN";
-		conceptService.create(Lists.newArrayList(root, n11, n12, n13, n14), branch);
+		conceptService.batchCreate(Lists.newArrayList(root, n11, n12, n13, n14), branch);
 
 		assertTC(n14, n13, n12, n11, root);
 
@@ -295,7 +298,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		n11.addRelationship(new Relationship(ISA, n13.getId()));
 
 		String branch = "MAIN";
-		conceptService.create(Lists.newArrayList(root, n11, n12, n13), branch);
+		conceptService.batchCreate(Lists.newArrayList(root, n11, n12, n13), branch);
 	}
 
 	@Test
@@ -342,7 +345,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 			concepts.add(new Concept("10000" + i).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		}
 		String branch = "MAIN";
-		conceptService.create(concepts, branch);
+		conceptService.batchCreate(concepts, branch);
 
 		Page<ConceptMini> page = queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT), branch, QueryService.PAGE_OF_ONE);
 		assertEquals(conceptCount + 1, page.getTotalElements());
@@ -358,7 +361,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 			concepts.add(new Concept("10000" + conceptId).addRelationship(relationship));
 		}
 		String branch = "MAIN";
-		conceptService.create(concepts, branch);
+		conceptService.batchCreate(concepts, branch);
 
 		assertEquals("Total concepts should be 51", 51, queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT), branch, QueryService.PAGE_OF_ONE).getTotalElements());
 
@@ -375,7 +378,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 			}
 		}
 		try (Commit commit = branchService.openCommit(branch)) {
-			conceptService.doSaveBatchRelationships(relationshipVersions, commit);
+			conceptUpdateHelper.doSaveBatchRelationships(relationshipVersions, commit);
 			commit.markSuccessful();
 		}
 
@@ -398,7 +401,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
 		);
 
-		conceptService.create(concepts, path);
+		conceptService.batchCreate(concepts, path);
 		concepts.clear();
 
 		concepts.add(new Concept("34020007")
@@ -412,11 +415,11 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		// Use low level component save to prevent effectiveTimes being stripped by concept service
 		try (Commit commit = branchService.openCommit(path)) {
 			concepts.forEach(Concept::markChanged);
-			conceptService.doSaveBatchConcepts(concepts, commit);
+			conceptUpdateHelper.doSaveBatchConcepts(concepts, commit);
 
 			Set<Relationship> relationships = concepts.stream().map(Concept::getRelationships).flatMap(Collection::stream).collect(Collectors.toSet());
 			relationships.forEach(Relationship::markChanged);
-			conceptService.doSaveBatchRelationships(relationships, commit);
+			conceptUpdateHelper.doSaveBatchRelationships(relationships, commit);
 
 			commit.markSuccessful();
 		}
@@ -441,7 +444,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
 		);
 
-		conceptService.create(concepts, path);
+		conceptService.batchCreate(concepts, path);
 		concepts.clear();
 
 		concepts.add(new Concept("34020007")
@@ -453,11 +456,11 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		// Use low level component save to prevent effectiveTimes being stripped by concept service
 		try (Commit commit = branchService.openCommit(path)) {
 			concepts.forEach(Concept::markChanged);
-			conceptService.doSaveBatchConcepts(concepts, commit);
+			conceptUpdateHelper.doSaveBatchConcepts(concepts, commit);
 
 			Set<Relationship> relationships = concepts.stream().map(Concept::getRelationships).flatMap(Collection::stream).collect(Collectors.toSet());
 			relationships.forEach(Relationship::markChanged);
-			conceptService.doSaveBatchRelationships(relationships, commit);
+			conceptUpdateHelper.doSaveBatchRelationships(relationships, commit);
 
 			commit.markSuccessful();
 		}

@@ -20,8 +20,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
-
 @Service
 public class AuthoringMirrorService {
 
@@ -81,7 +79,7 @@ public class AuthoringMirrorService {
 			}));
 			List<Concept> conceptsToCreateUpdate = changes.values().stream().filter(componentChange -> componentChange.getConcept() != null).map(ConceptChange::getConcept).collect(Collectors.toList());
 			if (!conceptsToCreateUpdate.isEmpty()) {
-				conceptService.createUpdate(conceptsToCreateUpdate, DEFAULT_LANGUAGE_CODES, branchPath);
+				conceptService.createUpdate(conceptsToCreateUpdate, branchPath);
 			}
 		} else if (matcher.matches()) {
 			logger.info("Mirroring traceability branch operation.");

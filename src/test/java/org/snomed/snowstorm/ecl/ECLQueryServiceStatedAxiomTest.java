@@ -83,7 +83,7 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 				new Relationship(PROCEDURE_SITE_DIRECT, THORACIC_STRUCTURE)));
 
 
-		conceptService.create(allConcepts, MAIN);
+		conceptService.batchCreate(allConcepts, MAIN);
 
 		allConceptIds = allConcepts.stream().map(Concept::getId).collect(Collectors.toSet());
 

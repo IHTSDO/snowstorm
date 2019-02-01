@@ -47,7 +47,7 @@ public class AtomicCommitTest extends AbstractTest {
 		assertNull("Concept 1 should not exist before the attempted commit.", conceptService.find("1", branch));
 
 		try {
-			conceptService.create(Lists.newArrayList(
+			conceptService.batchCreate(Lists.newArrayList(
 					new Concept("1").addDescription(new Description("one")),
 					new Concept("2").addDescription(new Description("two")),
 					new Concept("3").addDescription(new Description("three")).setInactivationIndicatorName("DOES_NOT_EXIST")

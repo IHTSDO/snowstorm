@@ -28,7 +28,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
-import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODES;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -219,6 +218,8 @@ public class ConceptServiceTest extends AbstractTest {
 				, "MAIN");
 
 		Relationship createdRelationship = concept.getRelationships().iterator().next();
+		assertNotNull(createdRelationship);
+		assertNotNull(createdRelationship.type());
 		assertEquals("Creation response should contain FSN within relationship type", "Is a (attribute)", createdRelationship.type().getFsn());
 		assertEquals("Creation response should contain definition status within relationship type", "PRIMITIVE", createdRelationship.type().getDefinitionStatus());
 		assertEquals("Creation response should contain FSN within relationship target", "SNOMED CT Concept", createdRelationship.target().getFsn());
@@ -434,7 +435,7 @@ public class ConceptServiceTest extends AbstractTest {
 	@Test
 	public void testConceptInactivation() throws ServiceException {
 		String path = "MAIN";
-		conceptService.create(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
+		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
 		concept.addRelationship(new Relationship(ISA, "107658001"));
@@ -751,7 +752,7 @@ public class ConceptServiceTest extends AbstractTest {
 			);
 		}
 
-		final Iterable<Concept> conceptsCreated = conceptService.create(concepts, "MAIN/A");
+		final Iterable<Concept> conceptsCreated = conceptService.batchCreate(concepts, "MAIN/A");
 
 		final Page<Concept> page = conceptService.findAll("MAIN/A", PageRequest.of(0, 100));
 		assertEquals(concepts.size() + 1, page.getTotalElements());
@@ -770,7 +771,7 @@ public class ConceptServiceTest extends AbstractTest {
 			toUpdate.add(concept);
 		});
 
-		conceptService.createUpdate(toUpdate, DEFAULT_LANGUAGE_CODES, "MAIN/A");
+		conceptService.createUpdate(toUpdate, "MAIN/A");
 
 		final Page<Concept> pageAfterUpdate = conceptService.findAll("MAIN/A", PageRequest.of(0, 100));
 		assertEquals(tenThousand + 1, pageAfterUpdate.getTotalElements());
@@ -787,7 +788,7 @@ public class ConceptServiceTest extends AbstractTest {
 			c.getRelationships().iterator().next().setActive(false);
 			c.addRelationship(new Relationship(ISA, Concepts.CLINICAL_FINDING));
 		});
-		conceptService.createUpdate(concepts, DEFAULT_LANGUAGE_CODES, "MAIN/A");
+		conceptService.createUpdate(concepts, "MAIN/A");
 	}
 
 	private void printAllDescriptions(String path) {

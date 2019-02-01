@@ -64,7 +64,7 @@ public class ExportServiceTest extends AbstractTest {
 
 		// Version first two concepts
 		String path = "MAIN";
-		conceptService.create(concepts, path);
+		conceptService.batchCreate(concepts, path);
 		releaseService.createVersion(20100131, path);
 
 		String conceptId = "123001";

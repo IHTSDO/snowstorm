@@ -4,8 +4,6 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,7 +17,6 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -171,7 +168,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 		);
 
 
-		conceptService.create(allConcepts, MAIN);
+		conceptService.batchCreate(allConcepts, MAIN);
 
 		allConceptIds = allConcepts.stream().map(Concept::getId).collect(Collectors.toSet());
 
