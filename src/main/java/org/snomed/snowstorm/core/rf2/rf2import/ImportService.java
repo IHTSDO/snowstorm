@@ -9,7 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ConceptUpdateHelper;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
@@ -31,7 +31,7 @@ public class ImportService {
 	private static final LoadingProfile DEFAULT_LOADING_PROFILE = LoadingProfile.complete.withFullRefsetMemberObjects();
 
 	@Autowired
-	private ConceptService conceptService;
+	private ConceptUpdateHelper conceptUpdateHelper;
 
 	@Autowired
 	private ReferenceSetMemberService memberService;
@@ -132,11 +132,11 @@ public class ImportService {
 	}
 
 	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath, Integer patchReleaseVersion) {
-		return new ImportComponentFactoryImpl(conceptService, memberService, branchService, branchPath, patchReleaseVersion);
+		return new ImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchPath, patchReleaseVersion);
 	}
 
 	private HistoryAwareComponentFactory getFullImportComponentFactory(String branchPath) {
-		return new FullImportComponentFactoryImpl(conceptService, memberService, branchService, codeSystemService, branchPath, null);
+		return new FullImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, codeSystemService, branchPath, null);
 	}
 
 	public void importArchiveAsync(String importId, InputStream releaseFileStream) {

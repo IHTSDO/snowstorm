@@ -5,37 +5,31 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
-import io.kaicode.elasticvc.domain.DomainEntity;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
-import org.snomed.snowstorm.core.data.services.identifier.IdentifierReservedBlock;
-import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
+import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.data.services.pojo.SAxiomRepresentation;
-import org.snomed.snowstorm.core.util.MapUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.scheduling.annotation.Async;
@@ -44,15 +38,11 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
-import javax.validation.ConstraintViolation;
-import javax.validation.Validation;
-import javax.validation.Validator;
-import javax.validation.ValidatorFactory;
+import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -60,6 +50,9 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 
 @Service
 public class ConceptService extends ComponentService {
+
+	@Autowired
+	private ConceptUpdateHelper conceptUpdateHelper;
 
 	@Autowired
 	private ConceptRepository conceptRepository;
@@ -83,9 +76,6 @@ public class ConceptService extends ComponentService {
 	private DescriptionService descriptionService;
 
 	@Autowired
-	private ReferenceSetMemberService memberService;
-
-	@Autowired
 	private AxiomConversionService axiomConversionService;
 
 	@Autowired
@@ -93,21 +83,16 @@ public class ConceptService extends ComponentService {
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
-	
-	@Autowired
-	private IdentifierService identifierService;
 
 	@Autowired
 	private TraceabilityLogService traceabilityLogService;
 
 	private final Cache<String, AsyncConceptChangeBatch> batchConceptChanges;
-	private final ValidatorFactory validatorFactory;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	public ConceptService() {
 		batchConceptChanges = CacheBuilder.newBuilder().expireAfterWrite(2, TimeUnit.HOURS).build();
-		validatorFactory = Validation.buildDefaultValidatorFactory();
 	}
 
 	public Concept find(String id, String path) {
@@ -129,7 +114,7 @@ public class ConceptService extends ComponentService {
 		return concept;
 	}
 
-	public Collection<Concept> find(String path, Collection<? extends Object> ids, List<String> languageCodes) {
+	public Collection<Concept> find(String path, Collection<?> ids, List<String> languageCodes) {
 		return doFind(ids, languageCodes, path, PageRequest.of(0, ids.size())).getContent();
 	}
 
@@ -162,17 +147,17 @@ public class ConceptService extends ComponentService {
 		return doFind(null, languageCodes, path, pageRequest);
 	}
 
-	private Page<Concept> doFind(Collection<? extends Object> conceptIds, List<String> languageCodes, Commit commit, PageRequest pageRequest) {
+	private Page<Concept> doFind(Collection<?> conceptIds, List<String> languageCodes, Commit commit, PageRequest pageRequest) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 		return doFind(conceptIds, languageCodes, branchCriteria, pageRequest, true, true);
 	}
 
-	private Page<Concept> doFind(Collection<? extends Object> conceptIds, List<String> languageCodes, String path, PageRequest pageRequest) {
+	private Page<Concept> doFind(Collection<?> conceptIds, List<String> languageCodes, String path, PageRequest pageRequest) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		return doFind(conceptIds, languageCodes, branchCriteria, pageRequest, true, true);
 	}
 
-	public ResultMapPage<String, ConceptMini> findConceptMinis(String path, Collection<? extends Object> conceptIds, List<String> languageCodes) {
+	public ResultMapPage<String, ConceptMini> findConceptMinis(String path, Collection<?> conceptIds, List<String> languageCodes) {
 		if (conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
@@ -184,14 +169,14 @@ public class ConceptService extends ComponentService {
 		return findConceptMinis(branchCriteria, null, languageCodes, pageRequest);
 	}
 
-	public ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, Collection<? extends Object> conceptIds, List<String> languageCodes) {
+	public ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, Collection<?> conceptIds, List<String> languageCodes) {
 		if (conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
 		return findConceptMinis(branchCriteria, conceptIds, languageCodes, PageRequest.of(0, conceptIds.size()));
 	}
 
-	private ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, Collection<? extends Object> conceptIds, List<String> languageCodes, PageRequest pageRequest) {
+	private ResultMapPage<String, ConceptMini> findConceptMinis(BranchCriteria branchCriteria, Collection<?> conceptIds, List<String> languageCodes, PageRequest pageRequest) {
 		if (conceptIds != null && conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
@@ -214,7 +199,7 @@ public class ConceptService extends ComponentService {
 	}
 
 	private Page<Concept> doFind(
-			Collection<? extends Object> conceptIdsToFind,
+			Collection<?> conceptIdsToFind,
 			List<String> languageCodes,
 			BranchCriteria branchCriteria,
 			PageRequest pageRequest,
@@ -229,18 +214,19 @@ public class ConceptService extends ComponentService {
 		Page<Concept> concepts;
 		if (conceptIdsToFind != null && !conceptIdsToFind.isEmpty()) {
 			List<Concept> allConcepts = new ArrayList<>();
-			Page<Concept> tempPage = null;
-			for (List<? extends Object> conceptIdsToFindSegment : Iterables.partition(conceptIdsToFind, CLAUSE_LIMIT)) {
+			long total = 0;
+			for (List<?> conceptIdsToFindSegment : Iterables.partition(conceptIdsToFind, CLAUSE_LIMIT)) {
 				queryBuilder
 						.withQuery(boolQuery()
 								.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 								.must(termsQuery("conceptId", conceptIdsToFindSegment))
 						)
 						.withPageable(PageRequest.of(0, conceptIdsToFindSegment.size()));
-				tempPage = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
-				allConcepts.addAll(tempPage.getContent());
+				Page<Concept> page = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
+				allConcepts.addAll(page.getContent());
+				total = page.getTotalElements();
 			}
-			concepts = new PageImpl<>(allConcepts, pageRequest, tempPage.getTotalElements());
+			concepts = new PageImpl<>(allConcepts, pageRequest, total);
 		} else {
 			queryBuilder
 					.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(Concept.class)))
@@ -314,7 +300,17 @@ public class ConceptService extends ComponentService {
 		return concepts;
 	}
 
-	private void joinAxiom(ReferenceSetMember axiomMember, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap, List<String> languageCodes) {
+	/**
+	 * Converts axiom owlExpression to axiom objects containing relationship and adds to the correct concept in the concept map.
+	 * Only works for regular or GCI axioms. Transitive/reflexive/property-chain axioms will be ignored.
+	 * conceptMiniMap can be null if conceptMinis for the relationships within converted axioms are not required.
+	 *
+	 * @param axiomMember The member to convert and join.
+	 * @param conceptIdMap Map of all concepts being processed.
+	 * @param conceptMiniMap Map of conceptMinis to contain placeholders for the types and targets of the axiom relationships.
+	 * @param languageCodes The language codes to be added to new conceptMinis in the conceptMiniMap.
+	 */
+	private void joinAxiom(ReferenceSetMember axiomMember, Map<String, Concept> conceptIdMap, @Nullable Map<String, ConceptMini> conceptMiniMap, @Nullable List<String> languageCodes) {
 		try {
 			String referencedComponentId = axiomMember.getReferencedComponentId();
 			SAxiomRepresentation axiomRepresentation = axiomConversionService.convertAxiomMemberToAxiomRepresentation(axiomMember);
@@ -331,11 +327,13 @@ public class ConceptService extends ComponentService {
 					concept.addGeneralConceptInclusionAxiom(new Axiom(axiomMember, axiomRepresentation.isPrimitive() ? Concepts.PRIMITIVE : Concepts.FULLY_DEFINED, relationships));
 				}
 
-				// Add placeholders for relationship type and target details
-				relationships.forEach(relationship -> {
-					relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId(), languageCodes));
-					relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId(), languageCodes));
-				});
+				if (conceptMiniMap != null) {
+					// Add placeholders for relationship type and target details
+					relationships.forEach(relationship -> {
+						relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId(), languageCodes));
+						relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId(), languageCodes));
+					});
+				}
 			}
 
 		} catch (ConversionException e) {
@@ -343,7 +341,7 @@ public class ConceptService extends ComponentService {
 		}
 	}
 
-	private ConceptMini getConceptMini(Map<String, ConceptMini> conceptMiniMap, String id, List<String> languageCodes) {
+	private static ConceptMini getConceptMini(Map<String, ConceptMini> conceptMiniMap, String id, List<String> languageCodes) {
 		if (id == null) return new ConceptMini((String)null, languageCodes);
 		return conceptMiniMap.computeIfAbsent(id, i -> new ConceptMini(id, languageCodes));
 	}
@@ -357,36 +355,7 @@ public class ConceptService extends ComponentService {
 			if (concept.isReleased() && !force) {
 				throw new IllegalStateException("Released concept will not be deleted.");
 			}
-
-			// Mark concept and components as deleted
-			logger.info("Deleting concept {} on branch {} at timepoint {}", concept.getConceptId(), path, commit.getTimepoint());
-			concept.markDeleted();
-			Set<ReferenceSetMember> membersToDelete = new HashSet<>();
-			concept.getDescriptions().forEach(description -> {
-				description.markDeleted();
-				membersToDelete.addAll(description.getLangRefsetMembers().values());
-				ReferenceSetMember inactivationIndicatorMember = description.getInactivationIndicatorMember();
-				if (inactivationIndicatorMember != null) {
-					membersToDelete.add(inactivationIndicatorMember);
-				}
-			});
-			ReferenceSetMember inactivationIndicatorMember = concept.getInactivationIndicatorMember();
-			if (inactivationIndicatorMember != null) {
-				inactivationIndicatorMember.markDeleted();
-			}
-			Set<ReferenceSetMember> associationTargetMembers = concept.getAssociationTargetMembers();
-			if (associationTargetMembers != null) {
-				membersToDelete.addAll(associationTargetMembers);
-			}
-			concept.getRelationships().forEach(Relationship::markDeleted);
-
-			// Persist deletion
-			doSaveBatchConcepts(Sets.newHashSet(concept), commit);
-			doSaveBatchDescriptions(concept.getDescriptions(), commit);
-			membersToDelete.forEach(ReferenceSetMember::markDeleted);
-			memberService.doSaveBatchMembers(membersToDelete, commit);
-			doSaveBatchRelationships(concept.getRelationships(), commit);
-			commit.markSuccessful();
+			conceptUpdateHelper.doDeleteConcept(path, commit, concept);
 		}
 	}
 
@@ -402,11 +371,11 @@ public class ConceptService extends ComponentService {
 		return doSave(conceptVersion, languageCodes, branch);
 	}
 
-	public Iterable<Concept> create(List<Concept> concepts, String path) throws ServiceException {
-		return create(concepts, DEFAULT_LANGUAGE_CODES, path);
+	public Iterable<Concept> batchCreate(List<Concept> concepts, String path) throws ServiceException {
+		return batchCreate(concepts, DEFAULT_LANGUAGE_CODES, path);
 	}
 
-	public Iterable<Concept> create(List<Concept> concepts, List<String> languageCodes, String path) throws ServiceException {
+	public Iterable<Concept> batchCreate(List<Concept> concepts, List<String> languageCodes, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final Set<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toSet());
 		if (!conceptIds.isEmpty()) {
@@ -416,7 +385,9 @@ public class ConceptService extends ComponentService {
 				throw new IllegalArgumentException("Some concepts already exist on branch '" + path + "', " + conceptIds);
 			}
 		}
-		return doSave(concepts, languageCodes, branch);
+		PersistedComponents persistedComponents = doSave(concepts, branch);
+		joinComponentsToConceptsWithExpandedDescriptions(persistedComponents, branch, languageCodes);
+		return persistedComponents.getPersistedConcepts();
 	}
 
 	public Concept update(Concept conceptVersion, String path) throws ServiceException {
@@ -434,9 +405,9 @@ public class ConceptService extends ComponentService {
 		return doSave(conceptVersion, languageCodes, branch);
 	}
 
-	public Iterable<Concept> createUpdate(List<Concept> concepts, List<String> languageCodes, String path) throws ServiceException {
+	PersistedComponents createUpdate(List<Concept> concepts, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
-		return doSave(concepts, languageCodes, branch);
+		return doSave(concepts, branch);
 	}
 
 	@Async
@@ -446,8 +417,8 @@ public class ConceptService extends ComponentService {
 			batchConceptChanges.put(batchConceptChange.getId(), batchConceptChange);
 		}
 		try {
-			Iterable<Concept> updatedConcepts = createUpdate(concepts, DEFAULT_LANGUAGE_CODES, path);
-			batchConceptChange.setConceptIds(StreamSupport.stream(updatedConcepts.spliterator(), false).map(Concept::getConceptIdAsLong).collect(Collectors.toList()));
+			PersistedComponents persistedComponents = createUpdate(concepts, path);
+			batchConceptChange.setConceptIds(StreamSupport.stream(persistedComponents.getPersistedConcepts().spliterator(), false).map(Concept::getConceptIdAsLong).collect(Collectors.toList()));
 			batchConceptChange.setStatus(AsyncConceptChangeBatch.Status.COMPLETED);
 		} catch (IllegalArgumentException | ServiceException e) {
 			batchConceptChange.setStatus(AsyncConceptChangeBatch.Status.FAILED);
@@ -460,52 +431,86 @@ public class ConceptService extends ComponentService {
 		return batchConceptChanges.getIfPresent(id);
 	}
 
-	private <C extends SnomedComponent> void markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents, boolean rebase) {
-		// Mark deletions
-		for (C existingComponent : existingComponents) {
-			if (!newComponents.contains(existingComponent)) {
-				existingComponent.markDeleted();
-				newComponents.add(existingComponent);// Add to newComponents collection so the deletion is persisted
-			}
-		}
-		// Mark updates
-		final Map<String, C> map = existingComponents.stream().collect(Collectors.toMap(DomainEntity::getId, Function.identity()));
-		for (C newComponent : newComponents) {
-			final C existingComponent = map.get(newComponent.getId());
-			newComponent.setChanged(newComponent.isComponentChanged(existingComponent) || rebase);
-			if (existingComponent != null) {
-				newComponent.copyReleaseDetails(existingComponent);
-				newComponent.updateEffectiveTime();
-			} else {
-				newComponent.setCreating(true);
-				newComponent.clearReleaseDetails();
-			}
-		}
-	}
-
 	private Concept doSave(Concept concept, List<String> languageCodes, Branch branch) throws ServiceException {
-		return doSave(Collections.singleton(concept), languageCodes, branch).iterator().next();
+		PersistedComponents persistedComponents = doSave(Collections.singleton(concept), branch);
+
+		// Join components to concept
+		joinComponentsToConceptsWithExpandedDescriptions(persistedComponents, branch, languageCodes);
+		return persistedComponents.getPersistedConcepts().iterator().next();
 	}
 
-	private Iterable<Concept> doSave(Collection<Concept> concepts, List<String> languageCodes, Branch branch) throws ServiceException {
+	private void joinComponentsToConceptsWithExpandedDescriptions(PersistedComponents persistedComponents, Branch branch, List<String> languageCodes) {
+		HashMap<String, ConceptMini> conceptMiniMap = new HashMap<>();
+		joinComponentsToConcepts(persistedComponents, conceptMiniMap, languageCodes);
+		// Populate relationship descriptions
+		populateConceptMinis(versionControlHelper.getBranchCriteria(branch), conceptMiniMap, languageCodes);
+	}
+
+	private PersistedComponents doSave(Collection<Concept> concepts, Branch branch) throws ServiceException {
 		try (final Commit commit = branchService.openCommit(branch.getPath())) {
-			final Iterable<Concept> savedConcepts = doSaveBatchConceptsAndComponents(concepts, languageCodes, commit);
+			final PersistedComponents persistedComponents = updateWithinCommit(concepts, commit);
 			commit.markSuccessful();
-			return savedConcepts;
+			return persistedComponents;
 		}
 	}
 
-	public void updateWithinCommit(Collection<Concept> concepts, Commit commit) throws ServiceException {
-		doSaveBatchConceptsAndComponents(concepts, DEFAULT_LANGUAGE_CODES, commit);
+	public PersistedComponents updateWithinCommit(Collection<Concept> concepts, Commit commit) throws ServiceException {
+		PersistedComponents persistedComponents = conceptUpdateHelper.saveNewOrUpdatedConcepts(concepts, commit, getExistingConceptsForSave(concepts, commit));
+
+		// Log traceability activity
+		if (traceabilityLogService.isEnabled()) {
+			joinComponentsToConcepts(persistedComponents, null, null);
+			traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit, persistedComponents);
+		}
+
+		return persistedComponents;
 	}
 
-	private Iterable<Concept> doSaveBatchConceptsAndComponents(Collection<Concept> concepts, List<String> languageCodes, Commit commit) throws ServiceException {
-		final boolean savingMergedConcepts = commit.isRebase();
+	private void joinComponentsToConcepts(PersistedComponents persistedComponents, Map<String, ConceptMini> conceptMiniMap, List<String> languageCodes) {
+		Iterable<Concept> persistedConcepts = persistedComponents.getPersistedConcepts();
+		Iterable<Description> persistedDescriptions = persistedComponents.getPersistedDescriptions();
+		Iterable<Relationship> persistedRelationships = persistedComponents.getPersistedRelationships();
+		Iterable<ReferenceSetMember> persistedReferenceSetMembers = persistedComponents.getPersistedReferenceSetMembers();
 
-		validateConcepts(concepts);
+		// Join not-deleted components onto their concept for traceability log
+		Map<String, Concept> conceptMap = new HashMap<>();
+		for (Concept concept : persistedConcepts) {
+			if (!concept.isDeleted()) {
+				conceptMap.put(concept.getConceptId(), concept);
+				// Clearing concept component collections; this join method can get called twice.
+				concept.getDescriptions().clear();
+				concept.getRelationships().clear();
+				concept.getAdditionalAxioms().clear();
+				concept.getGciAxioms().clear();
+			}
+		}
+		for (Description description : persistedDescriptions) {
+			if (!description.isDeleted()) {
+				conceptMap.get(description.getConceptId()).addDescription(description);
+			}
+		}
+		for (Relationship relationship : persistedRelationships) {
+			if (!relationship.isDeleted()) {
+				conceptMap.get(relationship.getSourceId()).addRelationship(relationship);
+				if (conceptMiniMap != null) {
+					relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId(), languageCodes));
+					relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId(), languageCodes));
+				}
+			}
+		}
+		StreamSupport.stream(persistedReferenceSetMembers.spliterator(), false)
+				.filter(member -> !member.isDeleted())
+				.filter(member -> Concepts.OWL_AXIOM_REFERENCE_SET.equals(member.getRefsetId()))
+				.forEach(member -> joinAxiom(member, conceptMap, conceptMiniMap, languageCodes));
+	}
 
+	<T extends SnomedComponent> void doSaveBatchComponents(List<T> componentsToSave, Class<T> componentType, Commit commit) {
+		conceptUpdateHelper.doSaveBatchComponents(componentsToSave, componentType, commit);
+	}
+
+	private Map<String, Concept> getExistingConceptsForSave(Collection<Concept> concepts, Commit commit) {
+		Map<String, Concept> existingConceptsMap = new HashMap<>();
 		final List<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toList());
-		final Map<String, Concept> existingConceptsMap = new HashMap<>();
 		if (!conceptIds.isEmpty()) {
 			for (List<String> conceptIdPartition : Iterables.partition(conceptIds, 500)) {
 				final List<Concept> existingConcepts = doFind(conceptIdPartition, DEFAULT_LANGUAGE_CODES, commit, PageRequest.of(0, conceptIds.size())).getContent();
@@ -514,329 +519,7 @@ public class ConceptService extends ComponentService {
 				}
 			}
 		}
-
-		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(concepts);
-
-		// Assign identifiers to new concepts
-		concepts.stream()
-				.filter(concept -> concept.getConceptId() == null)
-				.forEach(concept -> concept.setConceptId(reservedIds.getNextId(ComponentType.Concept).toString()));
-
-		// Convert axioms to OWLAxiom reference set members before persisting
-		axiomConversionService.populateAxiomMembers(concepts, commit.getBranch().getPath());
-
-		List<Description> descriptionsToPersist = new ArrayList<>();
-		List<Relationship> relationshipsToPersist = new ArrayList<>();
-		List<ReferenceSetMember> refsetMembersToPersist = new ArrayList<>();
-		for (Concept concept : concepts) {
-			final Concept existingConcept = existingConceptsMap.get(concept.getConceptId());
-			final Map<String, Description> existingDescriptions = new HashMap<>();
-
-			// Inactivate relationships of inactive concept
-			if (!concept.isActive()) {
-				concept.getRelationships().forEach(relationship -> relationship.setActive(false));
-			}
-
-			Set<ReferenceSetMember> newVersionOwlAxiomMembers = concept.getAllOwlAxiomMembers();
-
-			// Mark changed concepts as changed
-			if (existingConcept != null) {
-				concept.setChanged(concept.isComponentChanged(existingConcept) || savingMergedConcepts);
-				concept.copyReleaseDetails(existingConcept);
-				concept.updateEffectiveTime();
-
-				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions(), savingMergedConcepts);
-				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships(), savingMergedConcepts);
-				markDeletionsAndUpdates(newVersionOwlAxiomMembers, existingConcept.getAllOwlAxiomMembers(), savingMergedConcepts);
-				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
-			} else {
-				concept.setCreating(true);
-				concept.setChanged(true);
-				concept.clearReleaseDetails();
-
-				Stream.of(
-						concept.getDescriptions().stream(),
-						concept.getRelationships().stream(),
-						newVersionOwlAxiomMembers.stream())
-						.flatMap(i -> i)
-						.forEach(component -> {
-							component.setCreating(true);
-							component.setChanged(true);
-							component.clearReleaseDetails();
-						});
-			}
-
-			// Concept inactivation indicator changes
-			updateInactivationIndicator(concept, existingConcept, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET);
-
-			// Concept association changes
-			updateAssociations(concept, existingConcept, refsetMembersToPersist);
-
-			for (Description description : concept.getDescriptions()) {
-				description.setConceptId(concept.getConceptId());
-				final Description existingDescription = existingDescriptions.get(description.getDescriptionId());
-				final Map<String, ReferenceSetMember> existingMembersToMatch = new HashMap<>();
-				if (existingDescription != null) {
-					existingMembersToMatch.putAll(existingDescription.getLangRefsetMembers());
-				} else {
-					description.setCreating(true);
-					if (description.getDescriptionId() == null) {
-						description.setDescriptionId(reservedIds.getNextId(ComponentType.Description).toString());
-					}
-				}
-				if (!description.isActive()) {
-					description.clearLanguageRefsetMembers();
-				}
-
-				// Description inactivation indicator changes
-				updateInactivationIndicator(description, existingDescription, refsetMembersToPersist, Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET);
-
-				// Description association changes
-				updateAssociations(description, existingDescription, refsetMembersToPersist);
-
-				// Description acceptability / language reference set changes
-				for (Map.Entry<String, String> acceptability : description.getAcceptabilityMap().entrySet()) {
-					final String acceptabilityId = Concepts.descriptionAcceptabilityNames.inverse().get(acceptability.getValue());
-					if (acceptabilityId == null) {
-						throw new IllegalArgumentException("Acceptability value not recognised '" + acceptability.getValue() + "'.");
-					}
-
-					final String languageRefsetId = acceptability.getKey();
-					final ReferenceSetMember existingMember = existingMembersToMatch.get(languageRefsetId);
-					if (existingMember != null) {
-						final ReferenceSetMember member = new ReferenceSetMember(existingMember.getMemberId(), null, true,
-								existingMember.getModuleId(), languageRefsetId, description.getId());
-						member.setAdditionalField("acceptabilityId", acceptabilityId);
-						member.setConceptId(concept.getConceptId());
-
-						if (member.isComponentChanged(existingMember) || savingMergedConcepts) {
-							member.setChanged(true);
-							member.copyReleaseDetails(existingMember);
-							member.updateEffectiveTime();
-							refsetMembersToPersist.add(member);
-						}
-						existingMembersToMatch.remove(languageRefsetId);
-					} else {
-						final ReferenceSetMember member = new ReferenceSetMember(description.getModuleId(), languageRefsetId, description.getId());
-						member.setAdditionalField("acceptabilityId", acceptabilityId);
-						member.setConceptId(concept.getConceptId());
-						member.setChanged(true);
-						refsetMembersToPersist.add(member);
-					}
-				}
-				for (ReferenceSetMember leftoverMember : existingMembersToMatch.values()) {
-					if (leftoverMember.isActive()) {
-						leftoverMember.setActive(false);
-						leftoverMember.markChanged();
-						refsetMembersToPersist.add(leftoverMember);
-					}
-				}
-			}
-			concept.getRelationships()
-					.forEach(relationship -> relationship.setSourceId(concept.getConceptId()));
-			concept.getRelationships().stream()
-					.filter(relationship -> relationship.getRelationshipId() == null)
-					.forEach(relationship -> relationship.setRelationshipId(reservedIds.getNextId(ComponentType.Relationship).toString()));
-
-			// Detach concept's components to be persisted separately
-			descriptionsToPersist.addAll(concept.getDescriptions());
-			concept.getDescriptions().clear();
-			relationshipsToPersist.addAll(concept.getRelationships());
-			concept.getRelationships().clear();
-			refsetMembersToPersist.addAll(newVersionOwlAxiomMembers);
-			concept.getAdditionalAxioms().clear();
-			concept.getGciAxioms().clear();
-		}
-
-		// TODO: Try saving all core component types at once - Elasticsearch likes multi-threaded writes.
-		final Iterable<Concept> conceptsSaved = doSaveBatchConcepts(concepts, commit);
-		Iterable<Description> descriptionsSaved = doSaveBatchDescriptions(descriptionsToPersist, commit);
-		Iterable<Relationship> relationshipsSaved = doSaveBatchRelationships(relationshipsToPersist, commit);
-
-		Iterable<ReferenceSetMember> referenceSetMembersSaved = memberService.doSaveBatchMembers(refsetMembersToPersist, commit);
-		doDeleteMembersWhereReferencedComponentDeleted(commit.getEntityVersionsDeleted(), commit);
-
-		Map<String, Concept> conceptMap = new HashMap<>();
-		for (Concept concept : conceptsSaved) {
-			conceptMap.put(concept.getConceptId(), concept);
-		}
-		for (Description description : descriptionsSaved) {
-			conceptMap.get(description.getConceptId()).addDescription(description);
-		}
-		Map<String, ConceptMini> minisToLoad = new HashMap<>();
-		for (Relationship relationship : relationshipsSaved) {
-			conceptMap.get(relationship.getSourceId()).addRelationship(relationship);
-			relationship.setType(getConceptMini(minisToLoad, relationship.getTypeId(), languageCodes));
-			relationship.setTarget(getConceptMini(minisToLoad, relationship.getDestinationId(), languageCodes));
-		}
-		StreamSupport.stream(referenceSetMembersSaved.spliterator(), false)
-				.filter(member -> Concepts.OWL_AXIOM_REFERENCE_SET.equals(member.getRefsetId()))
-				.forEach(member -> joinAxiom(member, conceptMap, minisToLoad, languageCodes));
-		populateConceptMinis(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit), minisToLoad, languageCodes);
-
-		// Store assigned identifiers for registration with CIS
-		identifierService.persistAssignedIdsForRegistration(reservedIds);
-
-		// Log traceability activity
-		traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit,
-				concepts, descriptionsToPersist, relationshipsToPersist, refsetMembersToPersist);
-
-		return conceptsSaved;
-	}
-
-	private void validateConcepts(Collection<Concept> concepts) {
-		Validator validator = validatorFactory.getValidator();
-		for (Concept concept : concepts) {
-			Set<ConstraintViolation<Concept>> violations = validator.validate(concept);
-			if (!violations.isEmpty()) {
-				ConstraintViolation<Concept> violation = violations.iterator().next();
-				throw new IllegalArgumentException(String.format("Invalid concept property %s %s", violation.getPropertyPath().toString(), violation.getMessage()));
-			}
-		}
-	}
-
-	private void updateAssociations(SnomedComponentWithAssociations newComponent, SnomedComponentWithAssociations existingComponent, List<ReferenceSetMember> refsetMembersToPersist) {
-		Map<String, Set<String>> newAssociations = newComponent.getAssociationTargets();
-		Map<String, Set<String>> existingAssociations = existingComponent == null ? null : existingComponent.getAssociationTargets();
-		if (existingAssociations != null && !MapUtil.containsAllKeysAndSetsAreSupersets(newAssociations, existingAssociations)) {
-			// One or more existing associations need to be made inactive
-
-			Set<ReferenceSetMember> existingAssociationTargetMembers = existingComponent.getAssociationTargetMembers();
-			if (newAssociations == null) {
-				newAssociations = new HashMap<>();
-			}
-			for (String associationName : existingAssociations.keySet()) {
-				Set<String> existingAssociationsOfType = existingAssociations.get(associationName);
-				Set<String> newAssociationsOfType = newAssociations.get(associationName);
-				for (String existingAssociationOfType : existingAssociationsOfType) {
-					if (newAssociationsOfType == null || !newAssociationsOfType.contains(existingAssociationOfType)) {
-						// Existing association should be made inactive
-						String associationRefsetId = Concepts.historicalAssociationNames.inverse().get(associationName);
-						for (ReferenceSetMember existingMember : existingAssociationTargetMembers) {
-							if (existingMember.isActive() && existingMember.getRefsetId().equals(associationRefsetId)
-									&& existingAssociationOfType.equals(existingMember.getAdditionalField("targetComponentId"))) {
-								existingMember.setActive(false);
-								existingMember.markChanged();
-								refsetMembersToPersist.add(existingMember);
-							}
-						}
-					}
-				}
-			}
-		}
-		if (newAssociations != null) {
-			Map<String, Set<String>> missingKeyValues = MapUtil.collectMissingKeyValues(existingAssociations, newAssociations);
-			if (!missingKeyValues.isEmpty()) {
-				// One or more new associations need to be created
-				for (String associationName : missingKeyValues.keySet()) {
-					Set<String> missingValues = missingKeyValues.get(associationName);
-					for (String missingValue : missingValues) {
-						String associationRefsetId = Concepts.historicalAssociationNames.inverse().get(associationName);
-						if (associationRefsetId == null) {
-							throw new IllegalArgumentException("Association reference set not recognised '" + associationName + "'.");
-						}
-						ReferenceSetMember newTargetMember = new ReferenceSetMember(newComponent.getModuleId(), associationRefsetId, newComponent.getId());
-						newTargetMember.setAdditionalField("targetComponentId", missingValue);
-						newTargetMember.markChanged();
-						refsetMembersToPersist.add(newTargetMember);
-						newComponent.addAssociationTargetMember(newTargetMember);
-					}
-				}
-			}
-		}
-	}
-
-	private void updateInactivationIndicator(SnomedComponentWithInactivationIndicator newComponent,
-														   SnomedComponentWithInactivationIndicator existingComponent,
-														   Collection<ReferenceSetMember> refsetMembersToPersist,
-														   String indicatorReferenceSet) {
-
-		String newIndicator = newComponent.getInactivationIndicator();
-		String existingIndicator = existingComponent == null ? null : existingComponent.getInactivationIndicator();
-		if (existingIndicator != null && (newIndicator == null || !newIndicator.equals(existingIndicator))) {
-			// Make existing indicator inactive
-			ReferenceSetMember existingIndicatorMember = existingComponent.getInactivationIndicatorMember();
-			existingIndicatorMember.setActive(false);
-			existingIndicatorMember.markChanged();
-			refsetMembersToPersist.add(existingIndicatorMember);
-		}
-		if (newIndicator != null && (existingIndicator == null || !newIndicator.equals(existingIndicator))) {
-			// Create new indicator
-			String newIndicatorId = Concepts.inactivationIndicatorNames.inverse().get(newIndicator);
-			if (newIndicatorId == null) {
-				throw new IllegalArgumentException(newComponent.getClass().getSimpleName() + " inactivation indicator not recognised '" + newIndicator + "'.");
-			}
-			ReferenceSetMember newIndicatorMember = new ReferenceSetMember(newComponent.getModuleId(), indicatorReferenceSet, newComponent.getId());
-			newIndicatorMember.setAdditionalField("valueId", newIndicatorId);
-			newIndicatorMember.setChanged(true);
-			refsetMembersToPersist.add(newIndicatorMember);
-			newComponent.setInactivationIndicatorMember(newIndicatorMember);
-		}
-	}
-
-	/**
-	 * Persists concept updates within commit.
-	 * @param concepts
-	 * @param commit
-	 * @return List of persisted components with updated metadata and filtered by deleted status.
-	 */
-	public Iterable<Concept> doSaveBatchConcepts(Collection<Concept> concepts, Commit commit) {
-		return doSaveBatchComponents(concepts, commit, "conceptId", conceptRepository);
-	}
-
-	/**
-	 * Persists description updates within commit.
-	 * @param descriptions
-	 * @param commit
-	 * @return List of persisted components with updated metadata and filtered by deleted status.
-	 */
-	public Iterable<Description> doSaveBatchDescriptions(Collection<Description> descriptions, Commit commit) {
-		return doSaveBatchComponents(descriptions, commit, "descriptionId", descriptionRepository);
-	}
-
-	/**
-	 * Persists relationships updates within commit.
-	 * @param relationships
-	 * @param commit
-	 * @return List of persisted components with updated metadata and filtered by deleted status.
-	 */
-	public Iterable<Relationship> doSaveBatchRelationships(Collection<Relationship> relationships, Commit commit) {
-		return doSaveBatchComponents(relationships, commit, "relationshipId", relationshipRepository);
-	}
-
-	private void doDeleteMembersWhereReferencedComponentDeleted(Set<String> entityVersionsDeleted, Commit commit) {
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(
-						boolQuery()
-								.must(versionControlHelper.getBranchCriteria(commit.getBranch()).getEntityBranchCriteria(ReferenceSetMember.class))
-								.must(termsQuery("referencedComponentId", entityVersionsDeleted))
-				).withPageable(LARGE_PAGE).build();
-
-		List<ReferenceSetMember> membersToDelete = new ArrayList<>();
-		try (CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(query, ReferenceSetMember.class)) {
-			stream.forEachRemaining(member -> {
-				member.markDeleted();
-				membersToDelete.add(member);
-			});
-		}
-
-		for (List<ReferenceSetMember> membersBatch : Iterables.partition(membersToDelete, 500)) {
-			doSaveBatchComponents(membersBatch, ReferenceSetMember.class, commit);
-		}
-	}
-
-	public <T extends SnomedComponent> void doSaveBatchComponents(Collection<T> components, Class<T> type, Commit commit) {
-		if (type.equals(Concept.class)) {
-			doSaveBatchConcepts((Collection<Concept>) components, commit);
-		} else if (type.equals(Description.class)) {
-			doSaveBatchDescriptions((Collection<Description>) components, commit);
-		} else if (type.equals(Relationship.class)) {
-			doSaveBatchRelationships((Collection<Relationship>) components, commit);
-		} else if (ReferenceSetMember.class.isAssignableFrom(type)) {
-			memberService.doSaveBatchMembers((Collection<ReferenceSetMember>) components, commit);
-		} else {
-			throw new IllegalArgumentException("SnomedComponent type " + type + " not regognised");
-		}
+		return existingConceptsMap;
 	}
 
 	public void deleteAll() {
@@ -877,11 +560,4 @@ public class ConceptService extends ComponentService {
 		return ids;
 	}
 
-	public ElasticsearchOperations getElasticsearchTemplate() {
-		return elasticsearchTemplate;
-	}
-
-	public VersionControlHelper getVersionControlHelper() {
-		return versionControlHelper;
-	}
 }

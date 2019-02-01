@@ -9,7 +9,7 @@ import org.ihtsdo.otf.snomedboot.factory.ImpotentComponentFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ConceptUpdateHelper;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -46,21 +46,21 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	boolean coreComponentsFlushed;
 
-	ImportComponentFactoryImpl(ConceptService conceptService, ReferenceSetMemberService memberService, BranchService branchService, String path, Integer patchReleaseVersion) {
+	ImportComponentFactoryImpl(ConceptUpdateHelper conceptUpdateHelper, ReferenceSetMemberService memberService, BranchService branchService, String path, Integer patchReleaseVersion) {
 		this.branchService = branchService;
 		this.path = path;
 		persistBuffers = new ArrayList<>();
 		maxEffectiveTimeCollector = new MaxEffectiveTimeCollector();
 		coreComponentPersistBuffers = new ArrayList<>();
-		ElasticsearchOperations elasticsearchTemplate = conceptService.getElasticsearchTemplate();
-		versionControlHelper = conceptService.getVersionControlHelper();
+		ElasticsearchOperations elasticsearchTemplate = conceptUpdateHelper.getElasticsearchTemplate();
+		versionControlHelper = conceptUpdateHelper.getVersionControlHelper();
 
 		conceptPersistBuffer = new PersistBuffer<Concept>() {
 			@Override
 			public void persistCollection(Collection<Concept> entities) {
 				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Concept.class);
 				if (!entities.isEmpty()) {
-					conceptService.doSaveBatchConcepts(entities, commit);
+					conceptUpdateHelper.doSaveBatchConcepts(entities, commit);
 				}
 			}
 		};
@@ -71,7 +71,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			public void persistCollection(Collection<Description> entities) {
 				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Description.class);
 				if (!entities.isEmpty()) {
-					conceptService.doSaveBatchDescriptions(entities, commit);
+					conceptUpdateHelper.doSaveBatchDescriptions(entities, commit);
 				}
 			}
 		};
@@ -82,7 +82,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			public void persistCollection(Collection<Relationship> entities) {
 				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Relationship.class);
 				if (!entities.isEmpty()) {
-					conceptService.doSaveBatchRelationships(entities, commit);
+					conceptUpdateHelper.doSaveBatchRelationships(entities, commit);
 				}
 			}
 		};

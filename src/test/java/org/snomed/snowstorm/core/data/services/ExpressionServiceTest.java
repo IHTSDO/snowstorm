@@ -69,7 +69,7 @@ public class ExpressionServiceTest extends AbstractTest {
 		Concept concept3 = createConcept("100003", concept2, FULLY_DEFINED);
 		Concept concept4 = createConcept("100004", concept3, FULLY_DEFINED);
 		concept4.addRelationship(createRelationship(attribute1, target1, 0));
-		conceptService.createUpdate(allKnownConcepts, DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
+		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
 
 		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
 		
@@ -103,7 +103,7 @@ public class ExpressionServiceTest extends AbstractTest {
 		
 		Concept[] parents = new Concept[] { concept3, concept4, concept5};
 		Concept concept6 = createConcept("1000026", parents, FULLY_DEFINED);
-		conceptService.createUpdate(allKnownConcepts, DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
+		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
 
 		Expression exp = expressionService.getConceptAuthoringForm(concept6.getConceptId(), DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
 		
@@ -131,7 +131,7 @@ public class ExpressionServiceTest extends AbstractTest {
 		Concept concept4 = createConcept("1000034", concept3, FULLY_DEFINED);
 		concept4.addRelationship(createRelationship(attribute1, target1, 1));
 		concept4.addRelationship(createRelationship(attribute2, target2, 1));
-		conceptService.createUpdate(allKnownConcepts, DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
+		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
 
 		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
 		

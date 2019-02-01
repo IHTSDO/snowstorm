@@ -328,8 +328,8 @@ public class BranchMergeServiceTest extends AbstractTest {
 	public void testConflictWithoutManualMergeSupplied() throws ServiceException {
 		final String concept1 = "100";
 		final Concept concept = new Concept(concept1);
-		conceptService.create(concept, "MAIN/A/A1");
-		conceptService.create(concept, "MAIN/A");
+		conceptService.batchCreate(concept, "MAIN/A/A1");
+		conceptService.batchCreate(concept, "MAIN/A");
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", null);
 	}
 */
