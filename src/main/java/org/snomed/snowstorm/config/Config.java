@@ -36,6 +36,7 @@ import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAu
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
@@ -68,8 +69,11 @@ import static com.google.common.base.Predicates.not;
 import static springfox.documentation.builders.PathSelectors.regex;
 
 @SpringBootApplication(
-		exclude = {ElasticsearchAutoConfiguration.class,
-				ElasticsearchDataAutoConfiguration.class})
+		exclude = {
+				ElasticsearchAutoConfiguration.class,
+				ElasticsearchDataAutoConfiguration.class,
+				ContextStackAutoConfiguration.class,
+		})
 @EnableElasticsearchRepositories(
 		basePackages = {
 				"org.snomed.snowstorm.core.data.repositories",
