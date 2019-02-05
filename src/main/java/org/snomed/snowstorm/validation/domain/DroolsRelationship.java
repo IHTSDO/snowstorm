@@ -44,7 +44,11 @@ public class DroolsRelationship implements org.ihtsdo.drools.domain.Relationship
 
 	@Override
 	public String getId() {
-		return relationship.getId();
+		String id = relationship.getId();
+		if (id == null && axiomId != null) {
+			id = String.format("%s_%s_%s_%s", axiomId, getRelationshipGroup(), getTypeId(), getDestinationId());
+		}
+		return id;
 	}
 
 	@Override
