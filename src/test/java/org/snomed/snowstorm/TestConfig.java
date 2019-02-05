@@ -10,6 +10,7 @@ import org.springframework.data.elasticsearch.rest.ElasticsearchRestClient;
 import pl.allegro.tech.embeddedelasticsearch.EmbeddedElastic;
 import pl.allegro.tech.embeddedelasticsearch.PopularProperties;
 
+import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,26 +28,39 @@ public class TestConfig extends Config {
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
 
+	private EmbeddedElastic embeddedElastic;
+	private boolean fullyStarted;
+
 	@Bean
 	public ElasticsearchRestClient elasticsearchClient() {
 		// Create and start a clean standalone Elasticsearch test instance
 		String clusterName = "integration-test-cluster";
 		int port = 9931;
 		try {
-			EmbeddedElastic.builder()
+			embeddedElastic = EmbeddedElastic.builder()
 					.withElasticVersion(ELASTIC_SEARCH_VERSION)
 					.withStartTimeout(30, TimeUnit.SECONDS)
 					.withSetting(PopularProperties.CLUSTER_NAME, clusterName)
 					.withSetting(PopularProperties.HTTP_PORT, port)
-					.build()
+					.build();
+
+			embeddedElastic
 					.start()
 					.deleteIndices();
+			fullyStarted = true;
 		} catch (InterruptedException | IOException e) {
 			throw new RuntimeException("Failed to start standalone Elasticsearch instance.", e);
 		}
 
 		// Create client to to standalone instance
 		return new ElasticsearchRestClient(new HashMap<>(), "http://localhost:" + port);
+	}
+
+	@PreDestroy
+	public void shutdown() {
+		if (!fullyStarted) {
+			embeddedElastic.stop();
+		}
 	}
 
 }
