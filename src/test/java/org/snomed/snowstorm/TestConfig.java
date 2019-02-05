@@ -2,7 +2,11 @@ package org.snomed.snowstorm;
 
 import org.snomed.snowstorm.config.Config;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
+import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.cloud.aws.autoconfigure.context.*;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -20,6 +24,14 @@ import java.util.concurrent.TimeUnit;
 @PropertySource("application.properties")
 @PropertySource("application-test.properties")
 @TestConfiguration
+@SpringBootApplication(
+		exclude = {ContextCredentialsAutoConfiguration.class,
+				ContextInstanceDataAutoConfiguration.class,
+				ContextRegionProviderAutoConfiguration.class,
+				ContextResourceLoaderAutoConfiguration.class,
+				ContextStackAutoConfiguration.class,
+				ElasticsearchAutoConfiguration.class,
+				ElasticsearchDataAutoConfiguration.class})
 public class TestConfig extends Config {
 
 	private static final String ELASTIC_SEARCH_VERSION = "6.4.2";
