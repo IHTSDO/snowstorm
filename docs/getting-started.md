@@ -21,7 +21,7 @@ Update the configuration file _config/jvm.options_ with the memory options `-Xms
 ### Build Snowstorm
 Build Snowstorm using maven:
 ```bash
-mvn clean package
+./mvnw clean package
 ```
 
 **Or** download the most latest released jar from [the repository releases](https://github.com/IHTSDO/snowstorm/releases).
