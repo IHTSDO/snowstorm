@@ -1,5 +1,7 @@
 target
 .*
+!.gitignore
+!.travis.yml
 *.iml
 /data
 /release
