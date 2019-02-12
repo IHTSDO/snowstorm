@@ -39,7 +39,7 @@ public abstract class ConceptStoreMixIn {
 	abstract Set<Relationship> getRelationships();
 
 	@JsonIgnore
-	abstract Set<Axiom> getAdditionalAxioms();
+	abstract Set<Axiom> getClassAxioms();
 
 	@JsonIgnore
 	abstract Set<Axiom> getGciAxioms();

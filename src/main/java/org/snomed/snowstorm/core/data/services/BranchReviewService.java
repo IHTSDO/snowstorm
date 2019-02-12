@@ -190,7 +190,7 @@ public class BranchReviewService {
 		mergedConcept.setRelationships(mergeComponentSets(sourceConcept.getRelationships(), targetConcept.getRelationships()));
 
 		// Merge Axioms
-		mergedConcept.setAdditionalAxioms(mergeComponentSets(sourceConcept.getAdditionalAxioms(), targetConcept.getAdditionalAxioms()));
+		mergedConcept.setClassAxioms(mergeComponentSets(sourceConcept.getClassAxioms(), targetConcept.getClassAxioms()));
 		mergedConcept.setGciAxioms(mergeComponentSets(sourceConcept.getGciAxioms(), targetConcept.getGciAxioms()));
 
 		return mergedConcept;

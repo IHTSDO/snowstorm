@@ -61,7 +61,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	@Valid
 	private Set<Relationship> relationships;
 
-	private Set<Axiom> axioms;
+	private Set<Axiom> classAxioms;
 
 	private Set<Axiom> generalConceptInclusionAxioms;
 
@@ -71,7 +71,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		definitionStatusId = Concepts.PRIMITIVE;
 		descriptions = new HashSet<>();
 		relationships = new HashSet<>();
-		axioms = new HashSet<>();
+		classAxioms = new HashSet<>();
 		generalConceptInclusionAxioms = new HashSet<>();
 	}
 
@@ -202,14 +202,14 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public Concept addAxiom(Axiom axiom) {
 		axiom.getRelationships().forEach(r -> r.setSourceId(this.conceptId));
-		axioms.add(axiom);
+		classAxioms.add(axiom);
 		return this;
 	}
 
 	public Concept addAxiom(Relationship... axiomFragments) {
 		Axiom axiom = new Axiom(moduleId, true, Concepts.PRIMITIVE, Sets.newHashSet(axiomFragments));
 		axiom.getRelationships().forEach(r -> r.setSourceId(this.conceptId));
-		axioms.add(axiom);
+		classAxioms.add(axiom);
 		return this;
 	}
 
@@ -220,7 +220,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	public Set<ReferenceSetMember> getAllOwlAxiomMembers() {
-		Set<ReferenceSetMember> members = axioms.stream().map(Axiom::getReferenceSetMember).collect(Collectors.toSet());
+		Set<ReferenceSetMember> members = classAxioms.stream().map(Axiom::getReferenceSetMember).collect(Collectors.toSet());
 		members.addAll(generalConceptInclusionAxioms.stream().map(Axiom::getReferenceSetMember).collect(Collectors.toSet()));
 		return members;
 	}
@@ -344,12 +344,12 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	@JsonView(value = View.Component.class)
-	public Set<Axiom> getAdditionalAxioms() {
-		return axioms;
+	public Set<Axiom> getClassAxioms() {
+		return classAxioms;
 	}
 
-	public void setAdditionalAxioms(Set<Axiom> axioms) {
-		this.axioms = axioms;
+	public void setClassAxioms(Set<Axiom> axioms) {
+		this.classAxioms = axioms;
 	}
 
 	@JsonView(value = View.Component.class)
