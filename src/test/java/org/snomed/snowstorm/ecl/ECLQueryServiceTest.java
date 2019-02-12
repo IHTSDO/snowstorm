@@ -5,6 +5,7 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.search.sort.SortBuilders;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,6 +26,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
@@ -103,11 +105,13 @@ public class ECLQueryServiceTest extends AbstractTest {
 		allConcepts.add(new Concept(SNOMEDCT_ROOT));
 		allConcepts.add(new Concept(ISA).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept(MODEL_COMPONENT).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		allConcepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
-		allConcepts.add(new Concept(ASSOCIATED_MORPHOLOGY).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
-		allConcepts.add(new Concept(PROCEDURE_SITE).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
+		allConcepts.add(new Concept(CONCEPT_MODEL_ATTRIBUTE).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
+		allConcepts.add(new Concept(CONCEPT_MODEL_OBJECT_ATTRIBUTE).addRelationship(new Relationship(ISA, CONCEPT_MODEL_ATTRIBUTE)));
+		allConcepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
+		allConcepts.add(new Concept(ASSOCIATED_MORPHOLOGY).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
+		allConcepts.add(new Concept(PROCEDURE_SITE).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
 		allConcepts.add(new Concept(PROCEDURE_SITE_DIRECT).addRelationship(new Relationship(ISA, PROCEDURE_SITE)));
-		allConcepts.add(new Concept(LATERALITY).addRelationship(new Relationship(ISA, MODEL_COMPONENT)));
+		allConcepts.add(new Concept(LATERALITY).addRelationship(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE)));
 		allConcepts.add(new Concept(RIGHT).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 
 		allConcepts.add(new Concept(BODY_STRUCTURE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
@@ -191,7 +195,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 				Sets.newHashSet(SNOMEDCT_ROOT),
 				strings(selectConceptIds(SNOMEDCT_ROOT)));
 
-		// Not Self
+		// Descendant of Self
 		assertEquals(
 				// All concepts but not root
 				allConceptIds.stream().filter(id -> !SNOMEDCT_ROOT.equals(id)).collect(Collectors.toSet()),
@@ -229,6 +233,11 @@ public class ECLQueryServiceTest extends AbstractTest {
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING, DISORDER),
 				strings(selectConceptIds(">>" + DISORDER)));
+
+		// Ancestor or Self of attribute
+		assertEquals(
+				Sets.newHashSet(PROCEDURE_SITE_DIRECT, PROCEDURE_SITE, CONCEPT_MODEL_OBJECT_ATTRIBUTE, CONCEPT_MODEL_ATTRIBUTE, MODEL_COMPONENT, SNOMEDCT_ROOT),
+				strings(selectConceptIds(">>" + PROCEDURE_SITE_DIRECT)));
 	}
 
 	@Test
@@ -595,12 +604,12 @@ public class ECLQueryServiceTest extends AbstractTest {
 	public void testAncestorOfWildcard() {
 		// All non-leaf concepts
 		assertEquals(
-				"[123037004, 71388002, 138875005, 131148009, 363704007, 64572001, 900000000000441003, 404684003]",
+				"[123037004, 71388002, 410662002, 138875005, 131148009, 363704007, 762705008, 64572001, 900000000000441003, 404684003]",
 				strings(selectConceptIds(">*")).toString());
 
 		// All non-leaf concepts
 		assertEquals(
-				"[123037004, 71388002, 138875005, 131148009, 363704007, 64572001, 900000000000441003, 404684003]",
+				"[123037004, 71388002, 410662002, 138875005, 131148009, 363704007, 762705008, 64572001, 900000000000441003, 404684003]",
 				strings(selectConceptIds(">!*")).toString());
 
 		// All leaf concepts
