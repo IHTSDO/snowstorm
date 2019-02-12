@@ -49,7 +49,7 @@ public class AxiomConversionService {
 	public void populateAxiomMembers(Collection<Concept> concepts, String branchPath) {
 		AxiomRelationshipConversionService conversionService = setupConversionService(branchPath);
 		for (Concept concept : concepts) {
-			for (Axiom axiom : concept.getAdditionalAxioms()) {
+			for (Axiom axiom : concept.getClassAxioms()) {
 				String owlExpression = conversionService.convertRelationshipsToAxiom(
 						mapFromInternalRelationshipType(concept.getConceptId(), axiom.getDefinitionStatusId(), axiom.getRelationships(), true));
 				axiom.setReferenceSetMember(createMember(concept, axiom, owlExpression));

@@ -380,13 +380,13 @@ public class ConceptServiceTest extends AbstractTest {
 		concept.addAxiom(new Axiom(null, Concepts.FULLY_DEFINED, Sets.newHashSet(new Relationship(Concepts.ISA, "10000100"), new Relationship("10000200", "10000300"))).setModuleId(CORE_MODULE));
 		concept.addGeneralConceptInclusionAxiom(new Axiom(null, Concepts.PRIMITIVE, Sets.newHashSet(new Relationship(Concepts.ISA, "10000500"), new Relationship("10000600", "10000700"))).setModuleId(CORE_MODULE));
 		conceptService.create(concept, path);
-		assertEquals(1, conceptService.find(concept.getConceptId(), path).getAdditionalAxioms().size());
+		assertEquals(1, conceptService.find(concept.getConceptId(), path).getClassAxioms().size());
 
 		final Concept savedConcept = conceptService.find("50960005", path);
 		Assert.assertNotNull(savedConcept);
-		assertEquals(1, savedConcept.getAdditionalAxioms().size());
+		assertEquals(1, savedConcept.getClassAxioms().size());
 		assertEquals(1, savedConcept.getGciAxioms().size());
-		Axiom axiom = savedConcept.getAdditionalAxioms().iterator().next();
+		Axiom axiom = savedConcept.getClassAxioms().iterator().next();
 		assertEquals(Concepts.FULLY_DEFINED, axiom.getDefinitionStatusId());
 		assertEquals(Concepts.CORE_MODULE, axiom.getModuleId());
 		List<Relationship> relationships = new ArrayList<>(axiom.getRelationships());
@@ -408,25 +408,25 @@ public class ConceptServiceTest extends AbstractTest {
 		String memberId = referenceSetMember.getMemberId();
 
 		Concept updatedConcept = conceptService.update(concept, path);
-		assertEquals(1, conceptService.find(concept.getConceptId(), path).getAdditionalAxioms().size());
-		axiom = updatedConcept.getAdditionalAxioms().iterator().next();
+		assertEquals(1, conceptService.find(concept.getConceptId(), path).getClassAxioms().size());
+		axiom = updatedConcept.getClassAxioms().iterator().next();
 		assertEquals("Member id should be kept after update if no changes to OWL expression.", memberId, axiom.getReferenceSetMember().getMemberId());
 
 		String axiomMemberInternalId = axiom.getReferenceSetMember().getInternalId();
 		updatedConcept = conceptService.update(concept, path);
-		axiom = updatedConcept.getAdditionalAxioms().iterator().next();
+		axiom = updatedConcept.getClassAxioms().iterator().next();
 		assertEquals("A new state of the axiom member should not be created if there are no changes.",
 				axiomMemberInternalId, axiom.getReferenceSetMember().getInternalId());
 
 		axiom.setDefinitionStatusId(Concepts.PRIMITIVE);
 
 		updatedConcept = conceptService.update(concept, path);
-		axiom = updatedConcept.getAdditionalAxioms().iterator().next();
+		axiom = updatedConcept.getClassAxioms().iterator().next();
 		assertEquals("Member id should not be changed after changing the OWL expression.", memberId, axiom.getReferenceSetMember().getMemberId());
 		assertEquals("SubClassOf(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))",
 				axiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
 
-		concept.getAdditionalAxioms().clear();
+		concept.getClassAxioms().clear();
 		concept.getGciAxioms().clear();
 		conceptService.update(concept, path);
 		assertEquals(0, referenceSetMemberService.findMembers(path, true, Concepts.OWL_AXIOM_REFERENCE_SET, savedConcept.getConceptId(), null, null, PageRequest.of(0, 10)).getTotalElements());

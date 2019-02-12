@@ -72,7 +72,7 @@ public class ConceptSerialisationTest {
 		assertTrue(conceptJson.contains("fsn"));
 		assertTrue(conceptJson.contains("descriptions"));
 		assertTrue(conceptJson.contains("relationships"));
-		assertTrue(conceptJson.contains("additionalAxioms"));
+		assertTrue(conceptJson.contains("classAxioms"));
 		assertTrue(conceptJson.contains("gciAxioms"));
 	}
 
@@ -85,7 +85,7 @@ public class ConceptSerialisationTest {
 		assertFalse(conceptJson.contains("descriptions"));
 		assertFalse(conceptJson.contains("relationships"));
 		assertFalse(conceptJson.contains("allOwlAxiomMembers"));
-		assertFalse(conceptJson.contains("additionalAxioms"));
+		assertFalse(conceptJson.contains("classAxioms"));
 		assertFalse(conceptJson.contains("gciAxioms"));
 		assertFalse(conceptJson.contains("allOwlAxiomMembers"));
 		assertFalse(conceptJson.contains("associationTargets"));

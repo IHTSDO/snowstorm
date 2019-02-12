@@ -24,7 +24,7 @@ public interface ConceptView {
 
 	Set<Relationship> getRelationships();
 
-	Set<Axiom> getAdditionalAxioms();
+	Set<Axiom> getClassAxioms();
 
 	Set<Axiom> getGciAxioms();
 }
