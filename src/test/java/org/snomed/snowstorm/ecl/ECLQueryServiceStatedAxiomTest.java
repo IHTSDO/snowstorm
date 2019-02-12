@@ -1,11 +1,14 @@
 package org.snomed.snowstorm.ecl;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.ComponentService;
 import org.junit.Before;
 import org.junit.Test;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,6 +22,9 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.*;
  */
 public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
+
 	@Before
 	public void setup() throws ServiceException {
 		branchService.create(MAIN);
@@ -28,11 +34,26 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 		allConcepts.add(new Concept(SNOMEDCT_ROOT));
 		allConcepts.add(new Concept(ISA).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept(MODEL_COMPONENT).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)));
-		allConcepts.add(new Concept(FINDING_SITE).addAxiom(new Relationship(ISA, MODEL_COMPONENT)));
-		allConcepts.add(new Concept(ASSOCIATED_MORPHOLOGY).addAxiom(new Relationship(ISA, MODEL_COMPONENT)));
-		allConcepts.add(new Concept(PROCEDURE_SITE).addAxiom(new Relationship(ISA, MODEL_COMPONENT)));
-		allConcepts.add(new Concept(PROCEDURE_SITE_DIRECT).addAxiom(new Relationship(ISA, PROCEDURE_SITE)));
-		allConcepts.add(new Concept(LATERALITY).addAxiom(new Relationship(ISA, MODEL_COMPONENT)));
+		allConcepts.add(new Concept(CONCEPT_MODEL_ATTRIBUTE).addAxiom(new Relationship(ISA, MODEL_COMPONENT)));
+
+		// Add attributes using axioms
+		// NOTE there is no axiom linking the Concept Model Object Attribute to the concept hierarchy.
+		// This is because the properties are considered in a separate hierarchy in OWL.
+		List<ReferenceSetMember> axiomMembers = Lists.newArrayList(
+				axiomMember(MODEL_MODULE, OWL_AXIOM_REFERENCE_SET, FINDING_SITE, String.format("SubObjectPropertyOf(:%s :%s)", FINDING_SITE, CONCEPT_MODEL_OBJECT_ATTRIBUTE)),
+				axiomMember(MODEL_MODULE, OWL_AXIOM_REFERENCE_SET, ASSOCIATED_MORPHOLOGY, String.format("SubObjectPropertyOf(:%s :%s)", ASSOCIATED_MORPHOLOGY, CONCEPT_MODEL_OBJECT_ATTRIBUTE)),
+				axiomMember(MODEL_MODULE, OWL_AXIOM_REFERENCE_SET, PROCEDURE_SITE, String.format("SubObjectPropertyOf(:%s :%s)", PROCEDURE_SITE, CONCEPT_MODEL_OBJECT_ATTRIBUTE)),
+				axiomMember(MODEL_MODULE, OWL_AXIOM_REFERENCE_SET, PROCEDURE_SITE_DIRECT, String.format("SubObjectPropertyOf(:%s :%s)", PROCEDURE_SITE_DIRECT, PROCEDURE_SITE)),
+				axiomMember(MODEL_MODULE, OWL_AXIOM_REFERENCE_SET, LATERALITY, String.format("SubObjectPropertyOf(:%s :%s)", LATERALITY, CONCEPT_MODEL_OBJECT_ATTRIBUTE))
+		);
+		// Also add attribute concepts, with no stated relationships.
+		allConcepts.add(new Concept(CONCEPT_MODEL_OBJECT_ATTRIBUTE));
+		allConcepts.add(new Concept(FINDING_SITE));
+		allConcepts.add(new Concept(ASSOCIATED_MORPHOLOGY));
+		allConcepts.add(new Concept(PROCEDURE_SITE));
+		allConcepts.add(new Concept(PROCEDURE_SITE_DIRECT));
+		allConcepts.add(new Concept(LATERALITY));
+
 		allConcepts.add(new Concept(RIGHT).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)));
 
 		allConcepts.add(new Concept(BODY_STRUCTURE).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)));
@@ -84,6 +105,7 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 
 
 		conceptService.batchCreate(allConcepts, MAIN);
+		referenceSetMemberService.createMembers(MAIN, new HashSet<>(axiomMembers));
 
 		allConceptIds = allConcepts.stream().map(Concept::getId).collect(Collectors.toSet());
 
@@ -129,6 +151,12 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 		 */
 		assertEquals("SubClassOf(:297968009 ObjectIntersectionOf(:131148009 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:116676008 :50960005)) ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:363698007 :39937001))))",
 				memberService.findMembers(MAIN, BLEEDING_SKIN, ComponentService.LARGE_PAGE).getContent().iterator().next().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
+	}
+
+	private ReferenceSetMember axiomMember(String moduleId, String refsetId, String conceptId, String axiomOwlExpression) {
+		ReferenceSetMember member = new ReferenceSetMember(moduleId, refsetId, conceptId);
+		member.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION, axiomOwlExpression);
+		return member;
 	}
 
 	@Test
@@ -180,7 +208,7 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 
 		// Member of any reference set
 		// All concepts with axioms are members
-		assertEquals(allConceptIds.stream().filter(id -> !id.equals(Concepts.SNOMEDCT_ROOT)).collect(Collectors.toSet()), strings(selectConceptIds("^*")));
+		assertEquals(allConceptIds.stream().filter(id -> !id.equals(Concepts.SNOMEDCT_ROOT) && !id.equals(CONCEPT_MODEL_OBJECT_ATTRIBUTE)).collect(Collectors.toSet()), strings(selectConceptIds("^*")));
 	}
 
 }

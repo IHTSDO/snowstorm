@@ -9,9 +9,10 @@ import java.util.Set;
 public class Concepts {
 
 	public static final String SNOMEDCT_ROOT = "138875005";
+
+	// Modules
 	public static final String CORE_MODULE = "900000000000207008";
 	public static final String MODEL_MODULE = "900000000000012004";
-	public static final String CLINICAL_FINDING = "404684003";
 
 	public static final String PRIMITIVE = "900000000000074008";
 	public static final String FULLY_DEFINED = "900000000000073002";
@@ -31,7 +32,7 @@ public class Concepts {
 
 	public static final String ISA = "116680003";
 	public static final Long IS_A_LONG = 116680003L;
-	
+
 	public static final String CONCEPT_MODEL_ATTRIBUTE = "410662002";
 	public static final String CONCEPT_MODEL_OBJECT_ATTRIBUTE = "762705008";
 	public static final String CONCEPT_MODEL_DATA_ATTRIBUTE = "762706009";
@@ -162,5 +163,8 @@ public class Concepts {
 			.put(EXISTENTIAL, "EXISTENTIAL")
 			.put(UNIVERSAL, "UNIVERSAL")
 			.build();
+
+	// Notable concepts
+	public static final String CLINICAL_FINDING = "404684003";
 
 }
