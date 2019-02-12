@@ -43,6 +43,9 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 @Service
 public class SemanticIndexUpdateService extends ComponentService implements CommitListener {
 
+	private static final long CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG = parseLong(Concepts.CONCEPT_MODEL_OBJECT_ATTRIBUTE);
+	private static final long CONCEPT_MODEL_ATTRIBUTE_LONG = parseLong(Concepts.CONCEPT_MODEL_ATTRIBUTE);
+
 	@Value("${commit-hook.semantic-indexing.enabled:true}")
 	private boolean semanticIndexingEnabled;
 
@@ -178,6 +181,9 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 								updateSource.add(parseLong(relationship.getSourceId()));
 								updateDestination.add(parseLong(relationship.getDestinationId()));
 							});
+				}
+				if (updateDestination.contains(CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG)) {
+					updateDestination.add(CONCEPT_MODEL_ATTRIBUTE_LONG);
 				}
 				timer.checkpoint("Collect changed axiom is-a fragments.");
 			}
@@ -319,6 +325,13 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						graphBuilder.addParent(conceptId, value)
 								.markUpdated();
 						relationshipsAdded.incrementAndGet();
+
+						// Concept model object attribute is not linked to the concept hierarchy by any axiom
+						// however we want the link in the semantic index so let's add it here.
+						if (value == CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG) {
+							graphBuilder.addParent(CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG, CONCEPT_MODEL_ATTRIBUTE_LONG)
+									.markUpdated();
+						}
 					} else {
 						conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value);
 					}
