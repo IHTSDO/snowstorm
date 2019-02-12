@@ -480,7 +480,7 @@ public class ConceptService extends ComponentService {
 				// Clearing concept component collections; this join method can get called twice.
 				concept.getDescriptions().clear();
 				concept.getRelationships().clear();
-				concept.getAdditionalAxioms().clear();
+				concept.getClassAxioms().clear();
 				concept.getGciAxioms().clear();
 			}
 		}

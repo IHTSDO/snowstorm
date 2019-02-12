@@ -202,7 +202,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			relationshipsToPersist.addAll(concept.getRelationships());
 			concept.getRelationships().clear();
 			refsetMembersToPersist.addAll(newVersionOwlAxiomMembers);
-			concept.getAdditionalAxioms().clear();
+			concept.getClassAxioms().clear();
 			concept.getGciAxioms().clear();
 		}
 
