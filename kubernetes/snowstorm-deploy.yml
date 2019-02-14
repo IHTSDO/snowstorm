@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: snowstorm-deployment
+  labels:
+    app: snowstorm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: snowstorm
+  template:
+    metadata:
+      labels:
+        app: snowstorm
+    spec:
+      containers:
+      - name: snowstorm-elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:6.4.2
+        volumeMounts:
+          - name: elasticsearch-data
+            mountPath: /usr/share/elasticsearch/data
+        ports:
+        - containerPort: 9200
+          protocol: TCP
+        env:
+        - name: ES_JAVA_OPTS
+          value: "-Xms4g -Xmx4g"
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -f
+            - http://snowstorm-elasticsearch:9200
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          failureThreshold: 60
+      - name: snowstorm-front
+        image: snomedinternational/snowstorm:latest 
+        env:
+        - name: ES_JAVA_OPTS
+          value: "-Xms2g -Xmx4g"
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          protocol: TCP
+        args:
+          - java -jar snowstorm.jar --elasticsearch.urls=http://snowstorm-elasticsearch:9200
+      volumes:
+      - name: elasticsearch-data
+        hostPath:
+          path: /srv/production/snowstorm-elasticsearch-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+    labels:
+      app: snowstorm-front
+    name: snowstorm-front
+spec:
+    ports:
+      - port: 8080
+        name: snowstorm-front
+        targetPort: 8080
+    selector:
+      app: snowstorm
+---
+apiVersion: v1
+kind: Service
+metadata:
+    labels:
+      app: snowstorm-elasticsearch
+    name: snowstorm-elasticsearch
+spec:
+    ports:
+      - port: 9200
+        name: snowstorm-elasticsearch
+        targetPort: 9200
+    selector:
+      app: snowstorm
+
