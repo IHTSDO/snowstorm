@@ -1,0 +1,17 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: production-snowstorm
+spec:
+  rules:
+  - host: snowstorm.example.com
+    http:
+      paths:
+      - backend:
+          serviceName: snowstorm-front
+          servicePort: 8080
+        path: /
+  tls:
+  - hosts:
+    - snowstorm.example.com
+    secretName: snowstorm.example.com
