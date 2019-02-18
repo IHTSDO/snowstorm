@@ -120,9 +120,14 @@ public class ConceptMini {
 
 	private String getJsonTerm(Description description) {
 		if (description == null) return null;
+		String term = description.getTerm();
+		if (term != null) {
+			// Manually escape quotes because returned as JSON Raw Value
+			term = term.replace("\"", "\\\"");
+		}
 		return flattenFsn ?
-				String.format("\"%s\"", description.getTerm()) :
-				String.format("{ \"term\": \"%s\", \"lang\": \"%s\", \"conceptId\": \"%s\" }", description.getTerm(), description.getLang(), conceptId);
+				String.format("\"%s\"", term) :
+				String.format("{ \"term\": \"%s\", \"lang\": \"%s\", \"conceptId\": \"%s\" }", term, description.getLang(), conceptId);
 	}
 
 	public void setDefinitionStatusId(String definitionStatusId) {
