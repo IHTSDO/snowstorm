@@ -1,5 +1,7 @@
 package org.snomed.snowstorm;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -8,6 +10,7 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.rest.ElasticsearchRestClient;
 import pl.allegro.tech.embeddedelasticsearch.EmbeddedElastic;
+import pl.allegro.tech.embeddedelasticsearch.EmbeddedElasticsearchStartupException;
 import pl.allegro.tech.embeddedelasticsearch.PopularProperties;
 
 import javax.annotation.PreDestroy;
@@ -28,38 +31,48 @@ public class TestConfig extends Config {
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
 
-	private EmbeddedElastic embeddedElastic;
-	private boolean fullyStarted;
+	private static EmbeddedElastic testElasticsearchSingleton;
+	private static final int PORT = 9931;
 
 	@Bean
 	public ElasticsearchRestClient elasticsearchClient() {
-		// Create and start a clean standalone Elasticsearch test instance
-		String clusterName = "integration-test-cluster";
-		int port = 9931;
-		try {
-			embeddedElastic = EmbeddedElastic.builder()
-					.withElasticVersion(ELASTIC_SEARCH_VERSION)
-					.withStartTimeout(30, TimeUnit.SECONDS)
-					.withSetting(PopularProperties.CLUSTER_NAME, clusterName)
-					.withSetting(PopularProperties.HTTP_PORT, port)
-					.build();
+		// Share the Elasticsearch instance between test contexts
+		if (testElasticsearchSingleton == null) {
+			// Create and start a clean standalone Elasticsearch test instance
+			String clusterName = "integration-test-cluster";
+			try {
+				testElasticsearchSingleton = EmbeddedElastic.builder()
+						.withElasticVersion(ELASTIC_SEARCH_VERSION)
+						.withStartTimeout(30, TimeUnit.SECONDS)
+						.withSetting(PopularProperties.CLUSTER_NAME, clusterName)
+						.withSetting(PopularProperties.HTTP_PORT, PORT)
+						.build();
 
-			embeddedElastic
-					.start()
-					.deleteIndices();
-			fullyStarted = true;
-		} catch (InterruptedException | IOException e) {
-			throw new RuntimeException("Failed to start standalone Elasticsearch instance.", e);
+				testElasticsearchSingleton
+						.start()
+						.deleteIndices();
+			} catch (InterruptedException | IOException e) {
+				throw new RuntimeException("Failed to start standalone Elasticsearch instance.", e);
+			}
 		}
 
 		// Create client to to standalone instance
-		return new ElasticsearchRestClient(new HashMap<>(), "http://localhost:" + port);
+		return new ElasticsearchRestClient(new HashMap<>(), "http://localhost:" + PORT);
 	}
 
 	@PreDestroy
 	public void shutdown() {
-		if (!fullyStarted) {
-			embeddedElastic.stop();
+		synchronized (TestConfig.class) {
+			Logger logger = LoggerFactory.getLogger(getClass());
+			if (testElasticsearchSingleton != null) {
+				try {
+					testElasticsearchSingleton.stop();
+				} catch (Exception e) {
+					logger.info("The test Elasticsearch instance threw an exception during shutdown, probably due to multiple test contexts. This can be ignored.");
+					logger.debug("The test Elasticsearch instance threw an exception during shutdown.", e);
+				}
+			}
+			testElasticsearchSingleton = null;
 		}
 	}
 
