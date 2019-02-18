@@ -365,22 +365,18 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	public boolean equals(Object o) {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
-		Concept that = (Concept) o;
+		Concept concept = (Concept) o;
 
-		if (conceptId != null && conceptId.equals(that.conceptId)) {
-			return true;
+		if (conceptId != null || concept.conceptId != null) {
+			return Objects.equals(conceptId, concept.conceptId);
 		}
 
-		return Objects.equals(moduleId, that.moduleId) &&
-				Objects.equals(definitionStatusId, that.definitionStatusId);
+		return Objects.equals(moduleId, concept.moduleId) &&
+				Objects.equals(definitionStatusId, concept.definitionStatusId);
 	}
 
 	@Override
 	public int hashCode() {
-		int result = conceptId != null ? conceptId.hashCode() : 0;
-		if (result != 0) {
-			return result;
-		}
 		return Objects.hash(conceptId, moduleId, definitionStatusId);
 	}
 
