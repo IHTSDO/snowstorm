@@ -1,5 +1,6 @@
 package org.snomed.snowstorm;
 
+import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
@@ -18,6 +19,7 @@ import pl.allegro.tech.embeddedelasticsearch.EmbeddedElasticsearchStartupExcepti
 import pl.allegro.tech.embeddedelasticsearch.PopularProperties;
 
 import javax.annotation.PreDestroy;
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,6 +46,7 @@ public class TestConfig extends Config {
 	private ElasticsearchOperations elasticsearchTemplate;
 
 	private static EmbeddedElastic testElasticsearchSingleton;
+	private static File installationDirectory;
 	private static final int PORT = 9931;
 
 	@Bean
@@ -53,13 +56,16 @@ public class TestConfig extends Config {
 			// Create and start a clean standalone Elasticsearch test instance
 			String clusterName = "integration-test-cluster";
 			try {
+				installationDirectory = new File(System.getProperty("java.io.tmpdir"), "embedded-elasticsearch-temp-dir");
 				testElasticsearchSingleton = EmbeddedElastic.builder()
 						.withElasticVersion(ELASTIC_SEARCH_VERSION)
 						.withStartTimeout(30, TimeUnit.SECONDS)
 						.withSetting(PopularProperties.CLUSTER_NAME, clusterName)
 						.withSetting(PopularProperties.HTTP_PORT, PORT)
+						// Manually delete installation directory to prevent verbose error logging
+						.withCleanInstallationDirectoryOnStop(false)
+						.withInstallationDirectory(installationDirectory)
 						.build();
-
 				testElasticsearchSingleton
 						.start()
 						.deleteIndices();
@@ -82,6 +88,13 @@ public class TestConfig extends Config {
 				} catch (Exception e) {
 					logger.info("The test Elasticsearch instance threw an exception during shutdown, probably due to multiple test contexts. This can be ignored.");
 					logger.debug("The test Elasticsearch instance threw an exception during shutdown.", e);
+				}
+				if (installationDirectory != null && installationDirectory.exists()) {
+					try {
+						FileUtils.forceDelete(installationDirectory);
+					} catch (IOException e) {
+						logger.info("Error deleting the test Elasticsearch installation directory from temp {}", installationDirectory.getAbsolutePath());
+					}
 				}
 			}
 			testElasticsearchSingleton = null;
