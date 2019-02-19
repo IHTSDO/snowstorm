@@ -185,7 +185,6 @@ public class ECLQueryServiceTest extends AbstractTest {
 				new NativeSearchQueryBuilder()
 						.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID))
 						.withPageable(LARGE_PAGE).build(), QueryConcept.class);
-		System.out.println(queryConcepts);
 	}
 
 	@Test

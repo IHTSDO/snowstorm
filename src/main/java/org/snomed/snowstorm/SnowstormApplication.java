@@ -20,18 +20,18 @@ import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.List;
 
 @EnableSwagger2
 @EnableJms
 public class SnowstormApplication extends Config implements ApplicationRunner {
 
-	public static final String DELETE_INDICES_FLAG = "delete-indices";
-	public static final String IMPORT_ARG = "import";
-	public static final String IMPORT_FULL_ARG = "import-full";
-	public static final String REPLAY_TRACEABILITY_DIRECTORY = "replay-traceability-directory";
-	public static final String EXIT = "exit";
+	private static final String DELETE_INDICES_FLAG = "delete-indices";
+	private static final String IMPORT_ARG = "import";
+	private static final String IMPORT_FULL_ARG = "import-full";
+	private static final String REPLAY_TRACEABILITY_DIRECTORY = "replay-traceability-directory";
+	private static final String EXIT = "exit";
 
 	@Autowired
 	private ImportService importService;
@@ -74,13 +74,13 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 				String releasePath = getOneValue(applicationArguments, IMPORT_ARG);
 				fileExistsForArgument(releasePath, IMPORT_ARG);
 
-				importEditionRF2FromDisk(releasePath, RF2Type.SNAPSHOT, true);
+				importEditionRF2FromDisk(releasePath, RF2Type.SNAPSHOT);
 			} else if (applicationArguments.containsOption(IMPORT_FULL_ARG)) {
 				// Import many releases or 'Full' from an Edition RF2 zip file from disk at startup
 				String releasePath = getOneValue(applicationArguments, IMPORT_FULL_ARG);
 				fileExistsForArgument(releasePath, IMPORT_FULL_ARG);
 
-				importEditionRF2FromDisk(releasePath, RF2Type.FULL, true);
+				importEditionRF2FromDisk(releasePath, RF2Type.FULL);
 			}
 			if (applicationArguments.containsOption(REPLAY_TRACEABILITY_DIRECTORY)) {
 				String replayDirectory = getOneValue(applicationArguments, REPLAY_TRACEABILITY_DIRECTORY);
@@ -117,12 +117,12 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 		}
 	}
 
-	private void importEditionRF2FromDisk(String releasePath, RF2Type importType, boolean createCodeSystemVersion) {
+	private void importEditionRF2FromDisk(String releasePath, RF2Type importType) {
 		// Import archive
-		String importId = importService.createJob(importType, "MAIN", createCodeSystemVersion);
-		try {
-			importService.importArchive(importId, new FileInputStream(releasePath));
-		} catch (FileNotFoundException | ReleaseImportException e) {
+		String importId = importService.createJob(importType, "MAIN", true);
+		try (FileInputStream releaseFileStream = new FileInputStream(releasePath)) {
+			importService.importArchive(importId, releaseFileStream);
+		} catch (IOException | ReleaseImportException e) {
 			logger.error("Import failed.", e);
 		}
 	}

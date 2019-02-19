@@ -77,8 +77,10 @@ class RemoteClassificationServiceClient {
 	InputStream downloadRf2Results(String classificationId) throws IOException {
 		final Path tempFile = Files.createTempFile("classification-results", ".zip");
 		ResponseExtractor<Void> responseExtractor = response -> {
-			Streams.copy(response.getBody(), new FileOutputStream(tempFile.toFile()), true);
-			return null;
+			try (FileOutputStream outputStream = new FileOutputStream(tempFile.toFile())) {
+				Streams.copy(response.getBody(), outputStream, true);
+				return null;
+			}
 		};
 		restTemplate.execute("/classifications/{classificationId}/results/rf2", HttpMethod.GET, clientHttpRequest -> {}, responseExtractor, classificationId);
 		return new FileInputStream(tempFile.toFile()) {

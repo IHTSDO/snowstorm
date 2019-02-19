@@ -54,7 +54,7 @@ public class IdentifierCacheManager implements Runnable {
 	
 	public void run() {
 		logger.info("Identifier cache manager polling commencing with {} second period.", pollingIntervalMinutes);
-		long pollingIntervalMillis = pollingIntervalMinutes * 1000;
+		long pollingIntervalMillis = pollingIntervalMinutes * (long)1000;
 		while (stayAlive) {
 			Date timePollStarted = new Date();
 			checkTopUpRequired();
