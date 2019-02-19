@@ -46,10 +46,6 @@ public class RequestHeaderAuthenticationDecoratorWithRequiredRole extends OncePe
 		Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 		if (authentication instanceof PreAuthenticatedAuthenticationToken) {
 			// IMS filter in use
-			if (authentication == null) {
-				accessDenied("Please log in.", response);
-				return;
-			}
 			List<String> roles = authentication.getAuthorities().stream().map(GrantedAuthority::getAuthority).collect(Collectors.toList());
 			if (roles.contains(requiredRole)) {
 				filterChain.doFilter(request, response);
