@@ -13,17 +13,32 @@ public class TimerUtil {
 	private long lastCheck;
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	private final Level loggingLevel;
+	private float durationLoggingThreshold;
 
 	public TimerUtil(String timerName) {
 		this(timerName, Level.INFO);
 	}
 
 	public TimerUtil(String timerName, Level loggingLevel) {
+		this(timerName, loggingLevel, 0);
+	}
+
+	/**
+	 * Creates a timer which will make log entries at the specified logging level.
+	 * Logs a message when the checkpoint or finish methods are called.
+	 * A duration threshold can be used to suppress making a log entry if the number of seconds since
+	 * the last checkpoint is too small.
+	 *
+	 * @param timerName Name of the timer - used in the log message.
+	 * @param loggingLevel Level used to log messages.
+	 * @param durationLoggingThreshold Minimum number of seconds required to make a log message.
+	 */
+	public TimerUtil(String timerName, Level loggingLevel, float durationLoggingThreshold) {
 		this.loggingLevel = loggingLevel;
 		this.timerName = timerName;
 		this.start = new Date().getTime();
 		lastCheck = start;
-		log("Timer {}: started", timerName);
+		this.durationLoggingThreshold = durationLoggingThreshold;
 	}
 
 	public static String secondsSince(Date startTime) {
@@ -34,13 +49,19 @@ public class TimerUtil {
 		final long now = new Date().getTime();
 		float millisTaken = now - lastCheck;
 		lastCheck = now;
-		log("Timer {}: {} took {} seconds", timerName, name, millisTaken / 1000f);
+		float secondsTaken = millisTaken / 1000f;
+		if (secondsTaken >= durationLoggingThreshold) {
+			log("Timer {}: {} took {} seconds", timerName, name, secondsTaken);
+		}
 	}
 
 	public void finish() {
 		final long now = new Date().getTime();
 		float millisTaken = now - start;
-		log("Timer {}: total took {} seconds", timerName, millisTaken / 1000f);
+		float secondsTaken = millisTaken / 1000f;
+		if (secondsTaken >= durationLoggingThreshold) {
+			log("Timer {}: total took {} seconds", timerName, secondsTaken);
+		}
 	}
 
 	private void log(String s, Object... o) {
@@ -62,15 +83,6 @@ public class TimerUtil {
 			default:
 				logger.info(s, o);
 		}
-	}
-
-	public static void main(String[] args) throws InterruptedException {
-		final TimerUtil timer = new TimerUtil("A");
-		Thread.sleep(100);
-		timer.checkpoint("thing");
-		Thread.sleep(1000);
-		timer.checkpoint("other thing");
-		timer.finish();
 	}
 
 }
