@@ -133,7 +133,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			characteristicTypeIds.add(Concepts.ADDITIONAL_RELATIONSHIP);// Additional relationships should be in both forms.
 		}
 
-		TimerUtil timer = new TimerUtil("TC index " + formName, Level.INFO);
+		TimerUtil timer = new TimerUtil("TC index " + formName, Level.INFO, 1);
 		Set<Long> updateSource = new HashSet<>();
 		Set<Long> updateDestination = new HashSet<>();
 		Set<Long> existingAncestors = new HashSet<>();
