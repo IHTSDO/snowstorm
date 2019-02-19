@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.core.data.domain;
 
 
+import java.util.Objects;
+
 public class ConceptMicro {
 
 	private final String id;
@@ -44,7 +46,7 @@ public class ConceptMicro {
 	}
 	
 	@Override
-	public boolean equals (Object other) {
+	public boolean equals(Object other) {
 		if (other instanceof ConceptMicro) {
 			String otherId = ((ConceptMicro)other).getId();
 			return this.id.equals(otherId);
@@ -52,4 +54,8 @@ public class ConceptMicro {
 		return false;
 	}
 
+	@Override
+	public int hashCode() {
+		return Objects.hash(id);
+	}
 }

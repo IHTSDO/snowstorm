@@ -155,7 +155,9 @@ public class AuthoringMirrorService {
 		if (files != null) {
 			for (File file : files) {
 				logger.info("Replaying file {}", file.getName());
-				receiveActivityFile(new FileInputStream(file));
+				try (FileInputStream inputStream = new FileInputStream(file)) {
+					receiveActivityFile(inputStream);
+				}
 			}
 		} else {
 			logger.info("No traceability replay files found.");

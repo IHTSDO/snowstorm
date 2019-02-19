@@ -86,8 +86,8 @@ public class ExportService {
 
 		File exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
 				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly());
-		try {
-			Streams.copy(new FileInputStream(exportFile), outputStream, false);
+		try (FileInputStream inputStream = new FileInputStream(exportFile)) {
+			Streams.copy(inputStream, outputStream, false);
 		} catch (IOException e) {
 			throw new ExportException("Failed to copy RF2 data into output stream.", e);
 		} finally {
