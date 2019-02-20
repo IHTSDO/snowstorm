@@ -342,28 +342,30 @@ public class ClassificationService {
 			Relationship relationship = null;
 			switch (relationshipChange.getChangeNature()) {
 				case INFERRED:
-					// Newly inferred relationship
-					relationship = new Relationship(
-							null,
-							null,
-							true,
-							concept.getModuleId(),
-							null,
-							relationshipChange.getDestinationId(),
-							relationshipChange.getGroup(),
-							relationshipChange.getTypeId(),
-							relationshipChange.getCharacteristicTypeId(),
-							relationshipChange.getModifierId());
+					if (Strings.isNullOrEmpty(relationshipChange.getRelationshipId())) {
+						// Newly inferred relationship
+						relationship = new Relationship(
+								null,
+								null,
+								true,
+								concept.getModuleId(),
+								null,
+								relationshipChange.getDestinationId(),
+								relationshipChange.getGroup(),
+								relationshipChange.getTypeId(),
+								relationshipChange.getCharacteristicTypeId(),
+								relationshipChange.getModifierId());
 
-					concept.addRelationship(relationship);
-					break;
-				case INFERRED_CHANGE:
-					// Role group change
-					relationship = concept.getRelationship(relationshipChange.getRelationshipId());
-					if (relationship == null) {
-						throw new ServiceException(String.format("Relationship %s not found within Concept %s so can not apply update.", relationshipChange.getRelationshipId(), concept.getConceptId()));
+						concept.addRelationship(relationship);
+					} else {
+						// Existing relationship change - could be a reactivation or group change
+						relationship = concept.getRelationship(relationshipChange.getRelationshipId());
+						if (relationship == null) {
+							throw new ServiceException(String.format("Relationship %s not found within Concept %s so can not apply update.", relationshipChange.getRelationshipId(), concept.getConceptId()));
+						}
+						relationship.setActive(true);
+						relationship.setGroupId(relationshipChange.getGroup());
 					}
-					relationship.setGroupId(relationshipChange.getGroup());
 					break;
 				case REDUNDANT:
 					concept.getRelationships().remove(new Relationship(relationshipChange.getRelationshipId()));
