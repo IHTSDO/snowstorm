@@ -47,10 +47,7 @@ public class ConceptControllerTest extends AbstractTest {
 				new Concept("257751006")
 						.addDescription(new Description("Wallace \"69\" side-to-end anastomosis - action (qualifier value)")
 								.setTypeId(Concepts.FSN)
-								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED)),
-				"MAIN");
-		conceptService.create(
-				new Concept()
+								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
 						.addDescription(new Description("Wallace \"69\" side-to-end anastomosis - action")
 								.setTypeId(Concepts.SYNONYM)
 								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED)),
@@ -64,8 +61,8 @@ public class ConceptControllerTest extends AbstractTest {
 		System.out.println(responseBody);
 
 		// Assert that quotes are escaped
-		assertThat(responseBody).contains("Wallace \\\"69\\\" side-to-end anastomosis - action (qualifier value)");
-		assertThat(responseBody).contains("Wallace \\\"69\\\" side-to-end anastomosis - action");
+		assertThat(responseBody).contains("\"Wallace \\\"69\\\" side-to-end anastomosis - action (qualifier value)\"");
+		assertThat(responseBody).contains("\"Wallace \\\"69\\\" side-to-end anastomosis - action\"");
 
 
 		// Simple Concept
@@ -73,8 +70,8 @@ public class ConceptControllerTest extends AbstractTest {
 		System.out.println(responseBody);
 
 		// Assert that quotes are escaped
-		assertThat(responseBody).contains("Wallace \\\"69\\\" side-to-end anastomosis - action (qualifier value)");
-		assertThat(responseBody).contains("Wallace \\\"69\\\" side-to-end anastomosis - action");
+		assertThat(responseBody).contains("\"Wallace \\\"69\\\" side-to-end anastomosis - action (qualifier value)\"");
+		assertThat(responseBody).contains("\"Wallace \\\"69\\\" side-to-end anastomosis - action\"");
 
 
 		// Simple Concept ECL
@@ -84,7 +81,7 @@ public class ConceptControllerTest extends AbstractTest {
 		System.out.println(responseBody);
 
 		// Assert that quotes are escaped
-		assertThat(responseBody).contains("Wallace \\\"69\\\" side-to-end anastomosis - action (qualifier value)");
-		assertThat(responseBody).contains("Wallace \\\"69\\\" side-to-end anastomosis - action");
+		assertThat(responseBody).contains("\"Wallace \\\"69\\\" side-to-end anastomosis - action (qualifier value)\"");
+		assertThat(responseBody).contains("\"Wallace \\\"69\\\" side-to-end anastomosis - action\"");
 	}
 }
