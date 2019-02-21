@@ -30,7 +30,6 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	private static final String DELETE_INDICES_FLAG = "delete-indices";
 	private static final String IMPORT_ARG = "import";
 	private static final String IMPORT_FULL_ARG = "import-full";
-	private static final String REPLAY_TRACEABILITY_DIRECTORY = "replay-traceability-directory";
 	private static final String EXIT = "exit";
 
 	@Autowired
@@ -81,15 +80,6 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 				fileExistsForArgument(releasePath, IMPORT_FULL_ARG);
 
 				importEditionRF2FromDisk(releasePath, RF2Type.FULL);
-			}
-			if (applicationArguments.containsOption(REPLAY_TRACEABILITY_DIRECTORY)) {
-				String replayDirectory = getOneValue(applicationArguments, REPLAY_TRACEABILITY_DIRECTORY);
-				File file = new File(replayDirectory);
-				if (!file.isDirectory()) {
-					throw new IllegalArgumentException(REPLAY_TRACEABILITY_DIRECTORY + " directory could not be found at " + file.getAbsolutePath());
-				}
-
-				getAuthoringMirrorService().replayDirectoryOfFiles(replayDirectory);
 			}
 			if (applicationArguments.containsOption(EXIT)) {
 				logger.info("Exiting application.");
