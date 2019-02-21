@@ -49,7 +49,7 @@ public class MRCMController {
 	}
 
 	@ApiOperation("Reload MRCM from XML files. This is an alternative implementation to the reference sets.")
-	@RequestMapping(value = "/mrcm/reload", method = RequestMethod.POST, consumes = "multipart/form-data")
+	@RequestMapping(value = "/mrcm/reload", method = RequestMethod.POST)
 	public void reloadMrcm() throws ServiceException {
 		mrcmService.loadFromFiles();
 	}
