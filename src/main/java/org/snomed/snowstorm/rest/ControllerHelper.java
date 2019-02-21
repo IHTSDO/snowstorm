@@ -1,8 +1,10 @@
 package org.snomed.snowstorm.rest;
 
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.rest.pojo.ConceptMiniNestedFsn;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
@@ -15,9 +17,23 @@ import java.util.*;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil.ENCODED_PIPE;
+import static io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil.SLASH;
+
 public class ControllerHelper {
 
 	public static final String DEFAULT_ACCEPT_LANG_HEADER = "en-US;q=0.8,en-GB;q=0.6";
+
+	public static BranchTimepoint parseBranchTimepoint(String branch) {
+		String[] parts = BranchPathUriUtil.decodePath(branch).split("@");
+		if (parts.length == 1) {
+			return new BranchTimepoint(parts[0]);
+		} else if (parts.length == 2) {
+			return new BranchTimepoint(parts[0], parts[1]);
+		} else {
+			throw new IllegalArgumentException("Malformed branch path.");
+		}
+	}
 
 	static ResponseEntity<Void> getCreatedResponse(String id) {
 		HttpHeaders httpHeaders = new HttpHeaders();

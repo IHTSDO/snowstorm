@@ -24,6 +24,7 @@ import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.data.services.pojo.SAxiomRepresentation;
+import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -100,22 +101,23 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Concept find(String id, List<String> languageCodes, String path) {
-		final Page<Concept> concepts = doFind(Collections.singleton(id), languageCodes, path, PageRequest.of(0, 10));
+		return find(id, languageCodes, new BranchTimepoint(path));
+	}
+
+	public Concept find(String id, List<String> languageCodes, BranchTimepoint branchTimepoint) {
+		final Page<Concept> concepts = doFind(Collections.singleton(id), languageCodes, branchTimepoint, PageRequest.of(0, 10));
 		if (concepts.getTotalElements() > 1) {
-			final Branch latestBranch = branchService.findLatest(path);
-			final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
-			logger.error("Found more than one concept {} on branch (latest) {} using criteria {}",
-					concepts.getContent(), latestBranch, branchCriteria);
+			logger.error("Found more than one concept {} on branch {}", concepts.getContent(), branchTimepoint);
 			concepts.forEach(c -> logger.info("id:{} path:{}, start:{}, end:{}", c.getInternalId(), c.getPath(), c.getStartDebugFormat(), c.getEndDebugFormat()));
-			throw new IllegalStateException("More than one concept found for id " + id + " on branch " + path);
+			throw new IllegalStateException("More than one concept found for id " + id + " on branch " + branchTimepoint.getBranchPath());
 		}
 		Concept concept = concepts.getTotalElements() == 0 ? null : concepts.iterator().next();
-		logger.info("Find id:{}, path:{} found:{}", id, path, concept);
+		logger.debug("Find id:{}, branchTimepoint:{} found:{}", id, branchTimepoint, concept);
 		return concept;
 	}
 
 	public Collection<Concept> find(String path, Collection<?> ids, List<String> languageCodes) {
-		return doFind(ids, languageCodes, path, PageRequest.of(0, ids.size())).getContent();
+		return doFind(ids, languageCodes, new BranchTimepoint(path), PageRequest.of(0, ids.size())).getContent();
 	}
 
 	public boolean exists(String id, String path) {
@@ -144,7 +146,7 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Page<Concept> findAll(String path, List<String> languageCodes, PageRequest pageRequest) {
-		return doFind(null, languageCodes, path, pageRequest);
+		return doFind(null, languageCodes, new BranchTimepoint(path), pageRequest);
 	}
 
 	private Page<Concept> doFind(Collection<?> conceptIds, List<String> languageCodes, Commit commit, PageRequest pageRequest) {
@@ -152,9 +154,19 @@ public class ConceptService extends ComponentService {
 		return doFind(conceptIds, languageCodes, branchCriteria, pageRequest, true, true);
 	}
 
-	private Page<Concept> doFind(Collection<?> conceptIds, List<String> languageCodes, String path, PageRequest pageRequest) {
-		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
+	private Page<Concept> doFind(Collection<?> conceptIds, List<String> languageCodes, BranchTimepoint branchTimepoint, PageRequest pageRequest) {
+		final BranchCriteria branchCriteria = getBranchCriteria(branchTimepoint);
 		return doFind(conceptIds, languageCodes, branchCriteria, pageRequest, true, true);
+	}
+
+	private BranchCriteria getBranchCriteria(BranchTimepoint branchTimepoint) {
+		if (branchTimepoint.isBranchCreationTimepoint()) {
+			return versionControlHelper.getBranchCriteriaAtBranchCreation(branchTimepoint.getBranchPath());
+		} else if (branchTimepoint.getTimepoint() != null) {
+			return versionControlHelper.getBranchCriteriaAtTimepoint(branchTimepoint.getBranchPath(), branchTimepoint.getTimepoint());
+		} else {
+			return versionControlHelper.getBranchCriteria(branchTimepoint.getBranchPath());
+		}
 	}
 
 	public ResultMapPage<String, ConceptMini> findConceptMinis(String path, Collection<?> conceptIds, List<String> languageCodes) {
