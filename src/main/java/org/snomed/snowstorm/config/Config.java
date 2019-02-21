@@ -210,11 +210,6 @@ public abstract class Config {
 	}
 
 	@Bean
-	public AuthoringMirrorService getAuthoringMirrorService() {
-		return new AuthoringMirrorService();
-	}
-	
-	@Bean
 	public IdentifierSource getIdentifierStorage(
 			@Value("${cis.api.url}") String cisApiUrl,
 			@Value("${cis.username}") String username,
