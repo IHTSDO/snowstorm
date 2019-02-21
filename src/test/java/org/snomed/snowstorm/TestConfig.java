@@ -42,7 +42,7 @@ public class TestConfig extends Config {
 		// Share the Elasticsearch instance between test contexts
 		if (testElasticsearchSingleton == null) {
 			// Create and start a clean standalone Elasticsearch test instance
-			String clusterName = "integration-test-cluster";
+			String clusterName = "snowstorm-integration-test-cluster";
 			try {
 				installationDirectory = new File(System.getProperty("java.io.tmpdir"), "embedded-elasticsearch-temp-dir");
 				testElasticsearchSingleton = EmbeddedElastic.builder()
