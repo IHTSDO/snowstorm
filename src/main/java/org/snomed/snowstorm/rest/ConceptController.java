@@ -15,6 +15,7 @@ import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
+import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -29,6 +30,8 @@ import javax.validation.Valid;
 import java.util.*;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static org.snomed.snowstorm.core.pojo.BranchTimepoint.BRANCH_CREATION_TIMEPOINT;
+import static org.snomed.snowstorm.rest.ControllerHelper.parseBranchTimepoint;
 
 @RestController
 @Api(tags = "Concepts", description = "-")
@@ -142,6 +145,10 @@ public class ConceptController {
 		return conceptService.find(BranchPathUriUtil.decodePath(branch), request.getConceptIds(), ControllerHelper.getLanguageCodes(acceptLanguageHeader));
 	}
 
+	@ApiOperation(value = "Load a concept in the browser format.",
+			notes = "During content authoring previous versions of the concept can be loaded from version control. " +
+					"To do this use the branch path format {branch@" + BranchTimepoint.DATE_FORMAT_STRING + "} " +
+					"or {branch@" + BRANCH_CREATION_TIMEPOINT + "} to load the version of the concept when the branch was created.")
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
@@ -150,7 +157,7 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, ControllerHelper.getLanguageCodes(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch)));
+		return ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, ControllerHelper.getLanguageCodes(acceptLanguageHeader), parseBranchTimepoint(branch)));
 	}
 
 	@ResponseBody
