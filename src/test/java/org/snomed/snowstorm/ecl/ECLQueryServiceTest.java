@@ -511,6 +511,13 @@ public class ECLQueryServiceTest extends AbstractTest {
 				strings(selectConceptIds("<" + CLINICAL_FINDING + "." + FINDING_SITE + "." + LATERALITY)));
 	}
 
+	@Test
+	public void conjunctionWithReverseFlag() {
+		assertEquals(
+				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE),
+				strings(selectConceptIds("<" + BODY_STRUCTURE + " AND (<" + DISORDER + "." + FINDING_SITE + ")")));
+	}
+
 	// TODO: Add reverse flag with cardinality
 
 	@Test

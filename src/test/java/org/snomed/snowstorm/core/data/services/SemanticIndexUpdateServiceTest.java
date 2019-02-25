@@ -410,16 +410,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		);
 
 		// Use low level component save to prevent effectiveTimes being stripped by concept service
-		try (Commit commit = branchService.openCommit(path)) {
-			concepts.forEach(Concept::markChanged);
-			conceptService.doSaveBatchConcepts(concepts, commit);
-
-			Set<Relationship> relationships = concepts.stream().map(Concept::getRelationships).flatMap(Collection::stream).collect(Collectors.toSet());
-			relationships.forEach(Relationship::markChanged);
-			conceptService.doSaveBatchRelationships(relationships, commit);
-
-			commit.markSuccessful();
-		}
+		simulateRF2Import(path, concepts);
 
 		assertEquals(4, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007=*"), path, QueryService.PAGE_OF_ONE).getTotalElements());
@@ -451,16 +442,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		);
 
 		// Use low level component save to prevent effectiveTimes being stripped by concept service
-		try (Commit commit = branchService.openCommit(path)) {
-			concepts.forEach(Concept::markChanged);
-			conceptService.doSaveBatchConcepts(concepts, commit);
-
-			Set<Relationship> relationships = concepts.stream().map(Concept::getRelationships).flatMap(Collection::stream).collect(Collectors.toSet());
-			relationships.forEach(Relationship::markChanged);
-			conceptService.doSaveBatchRelationships(relationships, commit);
-
-			commit.markSuccessful();
-		}
+		simulateRF2Import(path, concepts);
 
 		assertEquals(4, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007=*"), path, QueryService.PAGE_OF_ONE).getTotalElements());
@@ -488,6 +470,19 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(4, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007=*"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(5, queryService.search(queryService.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
+	}
+
+	private void simulateRF2Import(String path, List<Concept> concepts) {
+		try (Commit commit = branchService.openCommit(path)) {
+			concepts.forEach(Concept::markChanged);
+			conceptService.doSaveBatchConcepts(concepts, commit);
+
+			Set<Relationship> relationships = concepts.stream().map(Concept::getRelationships).flatMap(Collection::stream).collect(Collectors.toSet());
+			relationships.forEach(Relationship::markChanged);
+			conceptService.doSaveBatchRelationships(relationships, commit);
+
+			commit.markSuccessful();
+		}
 	}
 
 	private void assertTC(Concept concept, Concept... ancestors) {
