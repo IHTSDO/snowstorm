@@ -49,7 +49,7 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 
 	@Override
 	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
-		return SExpressionConstraintHelper.select(this, refinementBuilder);
+		return select(refinementBuilder.getPath(), refinementBuilder.getBranchCriteria(), refinementBuilder.isStated(), null, null, refinementBuilder.getQueryService());
 	}
 
 	@Override
