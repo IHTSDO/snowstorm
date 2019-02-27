@@ -6,10 +6,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
@@ -40,6 +38,10 @@ public class ConceptControllerTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private CodeSystemService codeSystemService;
+
 	private Date timepointWithOneRelationship;
 
 	@Before
@@ -47,14 +49,16 @@ public class ConceptControllerTest extends AbstractTest {
 		branchService.create("MAIN");
 
 		// Create dummy concept with descriptions containing quotes
+		String conceptId = "257751006";
 		Concept concept = conceptService.create(
-				new Concept("257751006")
+				new Concept(conceptId)
 						.addDescription(new Description("Wallace \"69\" side-to-end anastomosis - action (qualifier value)")
 								.setTypeId(Concepts.FSN)
 								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
 						.addDescription(new Description("Wallace \"69\" side-to-end anastomosis - action")
 								.setTypeId(Concepts.SYNONYM)
-								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED)),
+								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+						.addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING)),
 				"MAIN");
 
 		// Add 1 second sleeps because the timepoint URI format uses second as the finest level
@@ -76,6 +80,11 @@ public class ConceptControllerTest extends AbstractTest {
 		concept.getRelationships().add(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING));
 		concept.getDescriptions().add(new Description("Test"));
 		conceptService.update(concept, "MAIN/projectA");
+
+		// Version content to fill effectiveTime fields
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystemService.createCodeSystem(codeSystem);
+		codeSystemService.createVersion(codeSystem, 20190731, "");
 	}
 
 	@Test
@@ -95,7 +104,7 @@ public class ConceptControllerTest extends AbstractTest {
 
 		// Load current version of dummy concept
 		timepoint = "";
-		Concept currentConceptVersion = this.restTemplate.getForObject("http://localhost:" + port + "/browser/MAIN/projectA" + timepoint + "/concepts/257751006", Concept.class);;
+		Concept currentConceptVersion = this.restTemplate.getForObject("http://localhost:" + port + "/browser/MAIN/projectA" + timepoint + "/concepts/257751006", Concept.class);
 		assertEquals(2, currentConceptVersion.getRelationships().size());
 		assertEquals(3, currentConceptVersion.getDescriptions().size());
 	}
@@ -129,5 +138,29 @@ public class ConceptControllerTest extends AbstractTest {
 		// Assert that quotes are escaped
 		assertThat(responseBody).contains("\"Wallace \\\"69\\\" side-to-end anastomosis - action (qualifier value)\"");
 		assertThat(responseBody).contains("\"Wallace \\\"69\\\" side-to-end anastomosis - action\"");
+	}
+
+	@Test
+	public void testConceptEndpointFields() {
+		// Browser Concept
+		String responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/browser/MAIN/concepts/257751006", String.class);
+		checkFields(responseBody);
+
+		// Simple Concept
+		responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/MAIN/concepts/257751006", String.class);
+		checkFields(responseBody);
+
+		// Simple Concept ECL
+		HashMap<String, Object> urlVariables = new HashMap<>();
+		urlVariables.put("ecl", "257751006");
+		responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/MAIN/concepts", String.class, urlVariables);
+		checkFields(responseBody);
+	}
+
+	private void checkFields(String responseBody) {
+		System.out.println(responseBody);
+		assertThat(responseBody).doesNotContain("\"internalId\"");
+		assertThat(responseBody).doesNotContain("\"start\"");
+		assertThat(responseBody).doesNotContain("\"effectiveTimeI\"");
 	}
 }
