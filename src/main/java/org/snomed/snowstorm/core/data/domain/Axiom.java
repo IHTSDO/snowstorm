@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.rest.View;
 
@@ -48,8 +49,9 @@ public class Axiom implements IdAndEffectiveTimeComponent {
 	}
 
 	@Override
+	@JsonProperty("effectiveTime")
 	public Integer getEffectiveTimeI() {
-		return referenceSetMember.getEffectiveTimeI();
+		return referenceSetMember == null ? null : referenceSetMember.getEffectiveTimeI();
 	}
 
 	@JsonView(value = View.Component.class)
