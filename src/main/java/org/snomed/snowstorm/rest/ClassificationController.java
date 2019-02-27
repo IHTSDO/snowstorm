@@ -58,8 +58,12 @@ public class ClassificationController {
 			offset = 0;
 		}
 
-		return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.decodePath(branch), classificationId,
-				ControllerHelper.getLanguageCodes(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
+		try {
+			return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.decodePath(branch), classificationId,
+					ControllerHelper.getLanguageCodes(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
+		} catch (IllegalStateException e) {
+			return null;
+		}
 	}
 
 	@ApiOperation("Retrieve a preview of a concept with classification changes applied")
