@@ -473,11 +473,11 @@ public class ClassificationService {
 		// Leave the stream open after use.
 		BufferedReader reader = new BufferedReader(new InputStreamReader(rf2Stream));
 
-		@SuppressWarnings("UnusedAssignment")
-		String line = reader.readLine(); // Read and discard header line
+		reader.readLine(); // Read and discard header line
 
 		List<RelationshipChange> relationshipChanges = new ArrayList<>();
 		int recordSortNumber = 0;
+		String line;
 		while ((line = reader.readLine()) != null) {
 			String[] values = line.split("\\t");
 			// Header id	effectiveTime	active	moduleId	sourceId	destinationId	relationshipGroup	typeId	characteristicTypeId	modifierId
