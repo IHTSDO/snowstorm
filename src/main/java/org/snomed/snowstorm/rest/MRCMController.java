@@ -26,7 +26,7 @@ public class MRCMController {
 	@ResponseBody
 	public ItemsPage<ConceptMini> retrieveDomainAttributes(
 			@PathVariable String path,
-			@RequestParam Set<Long> parentIds,
+			@RequestParam(required = false) Set<Long> parentIds,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		String branchPath = BranchPathUriUtil.decodePath(path);
