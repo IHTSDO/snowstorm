@@ -38,7 +38,6 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 public class QueryService {
 
 	static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
-	private static final long IS_A_LONG = parseLong(Concepts.ISA);
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
@@ -394,7 +393,7 @@ public class QueryService {
 			BoolQueryBuilder shoulds = boolQuery();
 			boolQuery.must(shoulds);
 			for (Long attributeTypeId : attributeTypeIds) {
-				if (!attributeTypeId.equals(IS_A_LONG)) {
+				if (!attributeTypeId.equals(Concepts.IS_A_LONG)) {
 					shoulds.should(existsQuery(QueryConcept.Fields.ATTR + "." + attributeTypeId));
 				}
 			}
@@ -414,7 +413,7 @@ public class QueryService {
 			stream.forEachRemaining(queryConcept -> {
 				if (attributeTypeIds != null) {
 					for (Long attributeTypeId : attributeTypeIds) {
-						if (attributeTypeId.equals(IS_A_LONG)) {
+						if (attributeTypeId.equals(Concepts.IS_A_LONG)) {
 							destinationIds.addAll(queryConcept.getParents());
 						} else {
 							queryConcept.getAttr().getOrDefault(attributeTypeId.toString(), Collections.emptySet()).forEach(id -> destinationIds.add(parseLong(id)));

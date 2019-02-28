@@ -6,11 +6,8 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.QueryService;
-import org.snomed.snowstorm.core.data.services.QueryService.ConceptQueryBuilder;
-import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,11 +18,9 @@ import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
-import static java.lang.Long.parseLong;
-
 @Service
 public class MRCMService {
-
+	
 	@Autowired
 	private QueryService queryService;
 
@@ -48,33 +43,40 @@ public class MRCMService {
 
 	public Collection<ConceptMini> retrieveDomainAttributes(String branchPath, Set<Long> parentIds, List<String> languageCodes) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		Set<Long> allAncestors = queryService.findAncestorIdsAsUnion(branchCriteria, false, parentIds);
-		allAncestors.addAll(parentIds);
-
-		Set<Domain> matchedDomains = getClosestMrcm(branchPath).getDomainMap().values().stream().filter(d -> {
-			Long domainConceptId = d.getConceptId();
-			InclusionType inclusionType = d.getInclusionType();
-			if ((inclusionType == InclusionType.SELF || inclusionType == InclusionType.SELF_OR_DESCENDANT)
-					&& parentIds.contains(domainConceptId)) {
-				return true;
-			}
-			if ((inclusionType == InclusionType.DESCENDANT || inclusionType == InclusionType.SELF_OR_DESCENDANT)
-					&& allAncestors.contains(domainConceptId)) {
-				return true;
-			}
-			return false;
-		}).collect(Collectors.toSet());
-
-		Set<Attribute> matchedAttributes = matchedDomains.stream().map(Domain::getAttributes).flatMap(Collection::stream).collect(Collectors.toSet());
-
-		Set<Long> allMatchedAttributeIds = matchedAttributes.stream().map(Attribute::getConceptId).collect(Collectors.toSet());
-		Set<Long> descendantTypeAttributes = matchedAttributes.stream().filter(attribute -> attribute.getInclusionType() == InclusionType.DESCENDANT).map(Attribute::getConceptId).collect(Collectors.toSet());
-		Set<Long> selfOrDescendantTypeAttributes = matchedAttributes.stream().filter(attribute -> attribute.getInclusionType() == InclusionType.SELF_OR_DESCENDANT).map(Attribute::getConceptId).collect(Collectors.toSet());
-
-		List<Long> descendantAttributes = queryService.findDescendantIdsAsUnion(branchCriteria, false, Sets.union(descendantTypeAttributes, selfOrDescendantTypeAttributes));
-
-		allMatchedAttributeIds.removeAll(descendantAttributes);
-		allMatchedAttributeIds.addAll(descendantAttributes);
+		Set<Long> allMatchedAttributeIds; 
+		
+		//If no parents are specified, we can always at least return ISA as a valid option
+		if (parentIds == null || parentIds.isEmpty()) {
+			allMatchedAttributeIds = Collections.singleton(Concepts.IS_A_LONG);
+		} else {
+			Set<Long> allAncestors = queryService.findAncestorIdsAsUnion(branchCriteria, false, parentIds);
+			allAncestors.addAll(parentIds);
+	
+			Set<Domain> matchedDomains = getClosestMrcm(branchPath).getDomainMap().values().stream().filter(d -> {
+				Long domainConceptId = d.getConceptId();
+				InclusionType inclusionType = d.getInclusionType();
+				if ((inclusionType == InclusionType.SELF || inclusionType == InclusionType.SELF_OR_DESCENDANT)
+						&& parentIds.contains(domainConceptId)) {
+					return true;
+				}
+				if ((inclusionType == InclusionType.DESCENDANT || inclusionType == InclusionType.SELF_OR_DESCENDANT)
+						&& allAncestors.contains(domainConceptId)) {
+					return true;
+				}
+				return false;
+			}).collect(Collectors.toSet());
+	
+			Set<Attribute> matchedAttributes = matchedDomains.stream().map(Domain::getAttributes).flatMap(Collection::stream).collect(Collectors.toSet());
+	
+			allMatchedAttributeIds = matchedAttributes.stream().map(Attribute::getConceptId).collect(Collectors.toSet());
+			Set<Long> descendantTypeAttributes = matchedAttributes.stream().filter(attribute -> attribute.getInclusionType() == InclusionType.DESCENDANT).map(Attribute::getConceptId).collect(Collectors.toSet());
+			Set<Long> selfOrDescendantTypeAttributes = matchedAttributes.stream().filter(attribute -> attribute.getInclusionType() == InclusionType.SELF_OR_DESCENDANT).map(Attribute::getConceptId).collect(Collectors.toSet());
+	
+			List<Long> descendantAttributes = queryService.findDescendantIdsAsUnion(branchCriteria, false, Sets.union(descendantTypeAttributes, selfOrDescendantTypeAttributes));
+	
+			allMatchedAttributeIds.removeAll(descendantAttributes);
+			allMatchedAttributeIds.addAll(descendantAttributes);
+		}
 
 		return conceptService.findConceptMinis(branchCriteria, allMatchedAttributeIds, languageCodes).getResultsMap().values();
 	}
