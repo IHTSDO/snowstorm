@@ -488,6 +488,11 @@ public class ECLQueryServiceTest extends AbstractTest {
 				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE),
 				strings(selectConceptIds("<" + DISORDER + "." + FINDING_SITE)));
 
+		// Dot notation against empty set of concepts
+		assertEquals(
+				Sets.newHashSet(),
+				strings(selectConceptIds("<" + RIGHT_VENTRICULAR_STRUCTURE + "." + LATERALITY)));
+
 		// Select the Finding sites of descendants of Clinical finding
 		assertEquals(
 				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE, SKIN_STRUCTURE),

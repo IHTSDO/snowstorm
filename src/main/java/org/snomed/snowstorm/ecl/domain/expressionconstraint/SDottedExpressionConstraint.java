@@ -34,7 +34,7 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 			List<Long> attributeTypeIds = attributeTypeIdsOptional.map(Slice::getContent).orElse(null);
 			// XXX Note that this content is not paginated
 			List<Long> idList = new ArrayList<>(queryService.findRelationshipDestinationIds(conceptIds.get().getContent(), attributeTypeIds, branchCriteria, stated));
-			conceptIds = Optional.of(new PageImpl<>(idList, PageRequest.of(0, idList.size()), idList.size()));
+			conceptIds = Optional.of(new PageImpl<>(idList));
 		}
 
 		// Manually apply pagination
