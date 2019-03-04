@@ -18,6 +18,7 @@ import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
@@ -55,6 +56,10 @@ public class ConceptController {
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
+
+	@Value("${elasticsearch.max_window_size}")
+	private int elasticsearchMaxWindowSize;
+
 
 	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
 	@ResponseBody
@@ -307,8 +312,8 @@ public class ConceptController {
 	}
 
 	private void validatePageSize(@RequestParam(required = false, defaultValue = "50") int limit) {
-		if (limit > 10_000) {
-			throw new IllegalArgumentException("Maximum page size is 10000.");
+		if (limit > elasticsearchMaxWindowSize) {
+			throw new IllegalArgumentException("Maximum page size is " + elasticsearchMaxWindowSize + ".");
 		}
 	}
 
