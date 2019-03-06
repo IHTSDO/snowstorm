@@ -5,7 +5,6 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.search.sort.SortBuilders;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -26,7 +25,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
@@ -57,6 +55,8 @@ public class ECLQueryServiceTest extends AbstractTest {
 	protected static final String STENOSIS = "415582006";
 	protected static final String HYPERTROPHY = "56246009";
 	protected static final String HEMORRHAGE = "50960005";
+	protected static final String LEFT_FOOT = "22335008";
+	protected static final String RIGHT_FOOT = "7769000";
 
 	// Finding
 	protected static final String DISORDER = "64572001";
@@ -69,6 +69,10 @@ public class ECLQueryServiceTest extends AbstractTest {
 	protected static final String PROCEDURE = "71388002";
 	protected static final String OPERATION_ON_HEART = "64915003";
 	protected static final String CHEST_IMAGING = "413815006";
+	
+	protected static final String AMPUTATION_FOOT_LEFT = "723311002";
+	protected static final String AMPUTATION_FOOT_RIGHT = "723312009";
+	protected static final String AMPUTATION_FOOT_BILATERAL = "180030006";
 
 	protected static final String NON_EXISTENT_CONCEPT = "12345001";
 
@@ -123,6 +127,9 @@ public class ECLQueryServiceTest extends AbstractTest {
 				.addRelationship(new Relationship(ISA, BODY_STRUCTURE))
 				.addRelationship(new Relationship(LATERALITY, RIGHT))
 		);
+		allConcepts.add(new Concept(LEFT_FOOT).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
+		allConcepts.add(new Concept(RIGHT_FOOT).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
+		
 		allConcepts.add(new Concept(STENOSIS).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
 		allConcepts.add(new Concept(HYPERTROPHY).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
 		allConcepts.add(new Concept(HEMORRHAGE).addRelationship(new Relationship(ISA, BODY_STRUCTURE)));
@@ -169,6 +176,19 @@ public class ECLQueryServiceTest extends AbstractTest {
 		allConcepts.add(new Concept(CHEST_IMAGING)
 				.addRelationship(new Relationship(ISA, PROCEDURE))
 				.addRelationship(new Relationship(PROCEDURE_SITE_DIRECT, THORACIC_STRUCTURE))
+		);
+		allConcepts.add(new Concept(AMPUTATION_FOOT_LEFT)
+				.addRelationship(new Relationship(ISA, PROCEDURE))
+				.addRelationship(new Relationship(PROCEDURE_SITE, LEFT_FOOT).setGroupId(1))
+		);
+		allConcepts.add(new Concept(AMPUTATION_FOOT_RIGHT)
+				.addRelationship(new Relationship(ISA, PROCEDURE))
+				.addRelationship(new Relationship(PROCEDURE_SITE, RIGHT_FOOT).setGroupId(1))
+		);
+		allConcepts.add(new Concept(AMPUTATION_FOOT_BILATERAL)
+				.addRelationship(new Relationship(ISA, PROCEDURE))
+				.addRelationship(new Relationship(PROCEDURE_SITE, LEFT_FOOT).setGroupId(1))
+				.addRelationship(new Relationship(PROCEDURE_SITE, RIGHT_FOOT).setGroupId(2))
 		);
 
 
@@ -312,7 +332,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 		// Attribute constraint
 		assertEquals(
-				Sets.newHashSet(OPERATION_ON_HEART, CHEST_IMAGING),
+				Sets.newHashSet(OPERATION_ON_HEART, CHEST_IMAGING, AMPUTATION_FOOT_LEFT, AMPUTATION_FOOT_RIGHT, AMPUTATION_FOOT_BILATERAL),
 				strings(selectConceptIds("<<" + PROCEDURE + ":<<" + PROCEDURE_SITE + "=*")));
 
 		assertEquals(
@@ -480,6 +500,16 @@ public class ECLQueryServiceTest extends AbstractTest {
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),// No bleeding because |Associated morphology| must be grouped
 				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * } OR { 116676008 |Associated morphology| = * }")));
 	}
+	
+	@Test
+	public void attributeGroupDisjunction2() {
+		//Searching for Right OR Left foot site amputations should return ALL foot amputations: left, right and bilateral
+		assertEquals(
+			"Match procedure with left OR right foot (grouped)",
+			Sets.newHashSet(AMPUTATION_FOOT_LEFT, AMPUTATION_FOOT_RIGHT, AMPUTATION_FOOT_BILATERAL),
+			strings(selectConceptIds("< 71388002 |Procedure|: { 363704007 |Procedure site| = 22335008 |Left Foot| } OR { 363704007 |Procedure site| = 7769000 |Right Foot| }")));
+
+	}
 
 	@Test
 	public void reverseFlagAttributes() {
@@ -614,7 +644,11 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 		// All leaf concepts
 		assertEquals(
-				"[297968009, 50960005, 24028007, 39057004, 64915003, 413815006, 272741003, 999204306007, 204306007, 116680003, 363698007, 116676008, 56246009, 53085002, 39937001, 405813007, 80891009, 415582006, 51185008]",
+				"[723312009, 297968009, 50960005, 24028007, 22335008, 39057004, 180030006, " +
+				"64915003, 413815006, 272741003, " + 
+				"999204306007, 7769000, 723311002, 204306007, 116680003, " +
+				"363698007, 116676008, 56246009, 53085002, " +
+				"39937001, 405813007, 80891009, 415582006, 51185008]",
 				strings(selectConceptIds("* MINUS >*")).toString());
 	}
 

@@ -2,7 +2,6 @@ package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.ecl.ConceptSelectorHelper;

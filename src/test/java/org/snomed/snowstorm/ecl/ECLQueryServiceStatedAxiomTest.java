@@ -64,6 +64,8 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 		allConcepts.add(new Concept(RIGHT_VENTRICULAR_STRUCTURE).addAxiom(
 				new Relationship(ISA, BODY_STRUCTURE),
 				new Relationship(LATERALITY, RIGHT)));
+		allConcepts.add(new Concept(LEFT_FOOT).addAxiom(new Relationship(ISA, BODY_STRUCTURE)));
+		allConcepts.add(new Concept(RIGHT_FOOT).addAxiom(new Relationship(ISA, BODY_STRUCTURE)));
 
 		allConcepts.add(new Concept(STENOSIS).addAxiom(new Relationship(ISA, BODY_STRUCTURE)));
 		allConcepts.add(new Concept(HYPERTROPHY).addAxiom(new Relationship(ISA, BODY_STRUCTURE)));
@@ -95,6 +97,7 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 				new Relationship(ASSOCIATED_MORPHOLOGY, HYPERTROPHY).setGroupId(1)));// <-- was group 2
 
 		allConcepts.add(new Concept(PROCEDURE).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)));
+		
 		allConcepts.add(new Concept(OPERATION_ON_HEART).addAxiom(
 				new Relationship(ISA, PROCEDURE),
 				new Relationship(PROCEDURE_SITE, HEART_STRUCTURE)));
@@ -102,7 +105,19 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 		allConcepts.add(new Concept(CHEST_IMAGING).addAxiom(
 				new Relationship(ISA, PROCEDURE),
 				new Relationship(PROCEDURE_SITE_DIRECT, THORACIC_STRUCTURE)));
-
+		
+		allConcepts.add(new Concept(AMPUTATION_FOOT_LEFT).addAxiom(
+				new Relationship(ISA, PROCEDURE),
+				new Relationship(PROCEDURE_SITE, LEFT_FOOT).setGroupId(1)));
+		
+		allConcepts.add(new Concept(AMPUTATION_FOOT_RIGHT).addAxiom(
+				new Relationship(ISA, PROCEDURE),
+				new Relationship(PROCEDURE_SITE, RIGHT_FOOT).setGroupId(1)));
+	
+		allConcepts.add(new Concept(AMPUTATION_FOOT_BILATERAL).addAxiom(
+				new Relationship(ISA, PROCEDURE),
+				new Relationship(PROCEDURE_SITE, LEFT_FOOT).setGroupId(1),
+				new Relationship(PROCEDURE_SITE, RIGHT_FOOT).setGroupId(2)));
 
 		conceptService.batchCreate(allConcepts, MAIN);
 		referenceSetMemberService.createMembers(MAIN, new HashSet<>(axiomMembers));
@@ -187,15 +202,17 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 				Sets.newHashSet(),
 				strings(selectConceptIds("<404684003 |Clinical finding|: [3..*]{ 363698007 |Finding site| = * }")));
 	}
-
+	
 	@Test
 	public void attributeGroupDisjunction() {
-		// With axioms the associated morphology is automatically grouped
-		// so this assertion checks that finding site has to be in the same group so as to exclude the Bleeding concept.
+		//This test has been overridden from the base class because the serialisation of axioms into the axiom reference
+		//set causes attributes to be grouped where this is required by the MRCM.
+		//As such, Bleeding and Bleeding skin - which are created with ungrouped attributes above, will
+		//match this ECL as those attributes become grouped when expressed in axioms.
 		assertEquals(
 				"Match clinical finding with at least one grouped finding site attributes.",
-				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),// No bleeding because |Associated morphology| must be grouped
-				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * } OR { 116676008 |Associated morphology| = *, 363698007 |Finding site| = *}")));
+				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING, BLEEDING, BLEEDING_SKIN),
+				strings(selectConceptIds("<404684003 |Clinical finding|: { 363698007 |Finding site| = * } OR { 116676008 |Associated morphology| = * }")));
 	}
 
 	@Test

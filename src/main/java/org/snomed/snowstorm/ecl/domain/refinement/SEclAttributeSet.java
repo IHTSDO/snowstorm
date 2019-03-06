@@ -58,7 +58,7 @@ public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 			Set<Integer> survivorGroups = new HashSet<>();
 			for (SubAttributeSet aDisjunctionAttributeSet : disjunctionAttributeSet) {
 				((SSubAttributeSet) aDisjunctionAttributeSet).checkConceptConstraints(matchContext);
-				survivorGroups.addAll(Sets.intersection(matchingGroups, matchContext.getMatchingGroupsAndClear()));
+				survivorGroups.addAll(Sets.union(matchingGroups, matchContext.getMatchingGroupsAndClear()));
 			}
 			matchingGroups = survivorGroups;
 		}
