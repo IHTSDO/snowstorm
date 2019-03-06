@@ -46,7 +46,7 @@ public class SEclRefinement extends EclRefinement implements SRefinement {
 					oneMatches = true;
 				}
 			}
-			conceptMatches = conceptMatches && oneMatches;
+			conceptMatches = conceptMatches || oneMatches;
 		}
 		return conceptMatches;
 	}
