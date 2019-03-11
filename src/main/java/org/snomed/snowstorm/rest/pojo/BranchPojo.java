@@ -28,6 +28,18 @@ public class BranchPojo {
 		return branch.getHead();
 	}
 
+	public long getBaseTimestamp() {
+		return branch.getBaseTimestamp();
+	}
+
+	public long getHeadTimestamp() {
+		return branch.getHeadTimestamp();
+	}
+
+	public long getCreationTimestamp() {
+		return branch.getCreationTimestamp();
+	}
+
 	public Date getCreation() {
 		return branch.getCreation();
 	}
