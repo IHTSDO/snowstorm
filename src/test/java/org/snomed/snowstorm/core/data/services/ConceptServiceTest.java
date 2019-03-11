@@ -398,6 +398,9 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals("10000100", relationships.get(1).getDestinationId());
 		Axiom gciAxiom = savedConcept.getGciAxioms().iterator().next();
 		assertEquals(Concepts.PRIMITIVE, gciAxiom.getDefinitionStatusId());
+		assertEquals("Concept and class axiom should have the same definition status",
+				axiom.getDefinitionStatusId(), savedConcept.getDefinitionStatusId());
+		assertEquals(Concepts.CORE_MODULE, savedConcept.getModuleId());
 
 		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(path, true, Concepts.OWL_AXIOM_REFERENCE_SET, savedConcept.getConceptId(), null, null, PageRequest.of(0, 10));
 		assertEquals(2, members.getTotalElements());
@@ -419,12 +422,13 @@ public class ConceptServiceTest extends AbstractTest {
 				axiomMemberInternalId, axiom.getReferenceSetMember().getInternalId());
 
 		axiom.setDefinitionStatusId(Concepts.PRIMITIVE);
-
 		updatedConcept = conceptService.update(concept, path);
 		axiom = updatedConcept.getClassAxioms().iterator().next();
 		assertEquals("Member id should not be changed after changing the OWL expression.", memberId, axiom.getReferenceSetMember().getMemberId());
 		assertEquals("SubClassOf(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))",
 				axiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
+		assertEquals("Concept and class axiom should have the same definition status",
+				axiom.getDefinitionStatusId(), updatedConcept.getDefinitionStatusId());
 
 		concept.getClassAxioms().clear();
 		concept.getGciAxioms().clear();

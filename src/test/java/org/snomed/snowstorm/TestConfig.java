@@ -15,7 +15,6 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.rest.ElasticsearchRestClient;
 import pl.allegro.tech.embeddedelasticsearch.EmbeddedElastic;
-import pl.allegro.tech.embeddedelasticsearch.EmbeddedElasticsearchStartupException;
 import pl.allegro.tech.embeddedelasticsearch.PopularProperties;
 
 import javax.annotation.PreDestroy;
