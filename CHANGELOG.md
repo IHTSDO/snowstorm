@@ -4,6 +4,55 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## 2.2.0 Release - 2019-03-15
+Maintenance release with fixes and enhancements.
+
+Thanks to everyone who raised an issue or provided a pull request for this maintenance release.
+
+_NOTICE - The next major release will be 3.x which will introduce support 
+for SNOMED CT Editions with a completely axiom based stated form._
+
+### Breaking
+- Removal of partial support for concept search using ESCG in favour of ECL.
+
+### Features
+- Issue #14 Language/Extension support in FHIR API (PR from @goranoe).
+  - Added module to CodeSystem lookup table to support this.
+- Issue #18 Command line --exit flag shuts down Snowstorm after loading data.
+- Added Elasticsearch basic authentication configuration options.
+- Support for latest RF2 OWL reference set file naming.
+- Added low level single concept endpoint.
+- Added concept search definition status filter.
+
+### Improvements
+- Issue #28 Better non-english character support in ECL parsing (by @danka74).
+- Docker configuration improvements and documentation (PRs from @Zwordi and @kevinbayes).
+- Many documentation updates.
+- New documentation on Snowstorm FHIR support.
+- New documentation on updating extensions.
+- Semantic index updates are not logged if they take less than a second.
+- Added "Snowstorm startup complete" log message.
+- Refactoring recommendations from lgtm.com.
+- Allow branch specific MRCM XML configuration.
+- Removed unused feature which allowed mirrored authoring via traceability feed.
+- New ascii banner on startup.
+- Concept search uses stated form unless inferred ecl given (better during authoring and has no effect on released content).
+- Fail faster when concept page is above 10K (ES does not support this with default config).
+
+## Fixes
+- Issue #29 Escape concept term quotes in search results.
+- Fix concept parents listing.
+- Fix ECL dot notation against empty set of concepts.
+- Fix ECL conjunction with reverse flag.
+- MRCM API domain attributes returns 'is a' attribute if no parents specified.
+- MRCM API allows subtypes of MRCM attributes.
+- Fix reloading MRCM rules API mapping.
+- Catch classification save error when branch locked.
+- Fix missing destination expansion in relationship endpoint
+- Prevent crosstalk in Elasticsearch integration tests.
+
+
+
 ## 2.1.0 Release - 2018-10-22
 
 Snowstorm is now production ready as a read-only terminology server.
