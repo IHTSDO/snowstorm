@@ -22,7 +22,7 @@ public class MergeReview {
 		this.targetPath = targetPath;
 		this.sourceToTargetReviewId = sourceToTargetReviewId;
 		this.targetToSourceReviewId = targetToSourceReviewId;
-		manuallyMergedConcepts =     new HashMap<>();
+		manuallyMergedConcepts = new HashMap<>();
 	}
 
 	public void putManuallyMergedConcept(Concept manuallyMergedConcept) {
