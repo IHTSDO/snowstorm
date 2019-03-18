@@ -92,23 +92,35 @@ public class MRCMService {
 				.termPrefix(termPrefix)
 				.languageCodes(languageCodes);
 
+		StringBuilder ecl = new StringBuilder();
 		for (Range range : attribute.getRangeSet()) {
 			Long conceptId = range.getConceptId();
 			InclusionType inclusionType = range.getInclusionType();
 			switch (inclusionType) {
 				case SELF:
-					queryBuilder.self(conceptId);
+					ifNotEmptyAppendOr(ecl);
+					ecl.append(conceptId.toString());
 					break;
 				case DESCENDANT:
-					queryBuilder.descendant(conceptId);
+					ifNotEmptyAppendOr(ecl);
+					ecl.append("<");
+					ecl.append(conceptId.toString());
 					break;
 				case SELF_OR_DESCENDANT:
-					queryBuilder.selfOrDescendant(conceptId);
+					ifNotEmptyAppendOr(ecl);
+					ecl.append("<<");
+					ecl.append(conceptId.toString());
 					break;
 			}
 		}
 
 		return queryService.search(queryBuilder, branchPath, PageRequest.of(0, 50)).getContent();
+	}
+
+	public void ifNotEmptyAppendOr(StringBuilder ecl) {
+		if (ecl.length() != 0) {
+			ecl.append(" OR ");
+		}
 	}
 
 	private Attribute findSelfOrFirstAncestorAttribute(String branchPath, BranchCriteria branchCriteria, String attributeIdStr) {
