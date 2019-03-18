@@ -62,7 +62,7 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		assertEquals(1, members.getTotalElements());
 		String axiomId = axiom.getAxiomId();
 		ReferenceSetMember referenceSetMember = members.getContent().stream().filter(member -> member.getMemberId().equals(axiomId)).collect(Collectors.toList()).get(0);
-		assertEquals("EquivalentClasses(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))) )",
+		assertEquals("EquivalentClasses(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))",
 				referenceSetMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
 	}
 
@@ -89,13 +89,13 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		assertEquals(1, members.getTotalElements());
 		String axiomId = axiom.getAxiomId();
 		ReferenceSetMember referenceSetMember = members.getContent().stream().filter(member -> member.getMemberId().equals(axiomId)).collect(Collectors.toList()).get(0);
-		assertEquals("EquivalentClasses(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))) )",
+		assertEquals("EquivalentClasses(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))",
 				referenceSetMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
 		//No update method yet but will delete existing and create new one
 		referenceSetMemberService.deleteMember(taskBranch, referenceSetMember.getMemberId());
 		//create a SubClass axiom
 		ReferenceSetMember updatedRefsetMember = referenceSetMember;
-		updatedRefsetMember.setAdditionalField("owlExpression","SubClassOf(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))) )");
+		updatedRefsetMember.setAdditionalField("owlExpression","SubClassOf(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))");
 		updatedRefsetMember.setMemberId(UUID.randomUUID().toString());
 		referenceSetMemberService.createMember(taskBranch, updatedRefsetMember);
 
@@ -148,13 +148,13 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		assertEquals(1, members.getTotalElements());
 		String axiomId = axiom.getAxiomId();
 		ReferenceSetMember referenceSetMember = members.getContent().stream().filter(member -> member.getMemberId().equals(axiomId)).collect(Collectors.toList()).get(0);
-		assertEquals("EquivalentClasses(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))) )",
+		assertEquals("EquivalentClasses(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))",
 				referenceSetMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
 		//No update method yet but will delete existing and create new one
 		referenceSetMemberService.deleteMember(taskBranch, referenceSetMember.getMemberId());
 		//create a SubClass axiom
 		ReferenceSetMember updatedRefsetMember = referenceSetMember;
-		updatedRefsetMember.setAdditionalField("owlExpression","SubClassOf(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))) )");
+		updatedRefsetMember.setAdditionalField("owlExpression","SubClassOf(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))");
 		updatedRefsetMember.setMemberId(UUID.randomUUID().toString());
 		referenceSetMemberService.createMember(taskBranch, updatedRefsetMember);
 
