@@ -41,6 +41,9 @@ public class TraceabilityLogService implements CommitListener {
 	@Value("${jms.queue.prefix}")
 	private String jmsQueuePrefix;
 
+	@Value("${authoring.traceability.inferred-max}")
+	private int inferredMax;
+
 	@Autowired
 	private BranchService branchService;
 
@@ -48,7 +51,6 @@ public class TraceabilityLogService implements CommitListener {
 
 	private Consumer<Activity> activityConsumer;
 
-	private static final int RECORD_MAX_INFERRED_CHANGES = 300;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -141,13 +143,13 @@ public class TraceabilityLogService implements CommitListener {
 			}
 		}
 
-		if (activityMap.size() > RECORD_MAX_INFERRED_CHANGES) {
+		if (activityMap.size() > inferredMax) {
 			// Limit the number of inferred changes recorded
 			List<String> conceptChangesToRemove = new ArrayList<>();
 			int inferredChangesAccepted = 0;
 			for (Activity.ConceptActivity conceptActivity : activityMap.values()) {
 				if (!conceptActivity.isStatedChange()) {
-					if (inferredChangesAccepted < RECORD_MAX_INFERRED_CHANGES) {
+					if (inferredChangesAccepted < inferredMax) {
 						inferredChangesAccepted++;
 					} else {
 						conceptChangesToRemove.add(conceptActivity.getConcept().getConceptId());
