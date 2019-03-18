@@ -20,6 +20,9 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
+
+
 class MRCMLoader {
 
 	private final String mrcmXmlPath;
@@ -27,14 +30,14 @@ class MRCMLoader {
 	private static Logger logger = LoggerFactory.getLogger(MRCMLoader.class);
 	private static final String MRCM_FILE_NAME = "mrcm.xmi";
 
-	public MRCMLoader(String mrcmXmlPath) {
+	MRCMLoader(String mrcmXmlPath) {
 		this.mrcmXmlPath = mrcmXmlPath;
 	}
 
 	Map<String, MRCM> loadFromFiles() throws ServiceException {
 		// Create MRCM config directory if it does not exist
 		File mrcmDir = new File(mrcmXmlPath);
-		File mrcmMainDir = new File(mrcmDir, "MAIN");
+		File mrcmMainDir = new File(mrcmDir, MAIN);
 		if (!mrcmMainDir.exists()){
 			if (!mrcmMainDir.mkdirs()) {
 				throw new ServiceException("Failed to create MRCM configuration directory " + mrcmMainDir.getAbsolutePath());
@@ -42,7 +45,7 @@ class MRCMLoader {
 		}
 
 		// Create MAIN MRCM file from the default if it does not yet exist
-		File mrcmMainFile = new File(mrcmMainDir, "mrcm.xmi");
+		File mrcmMainFile = new File(mrcmMainDir, MRCM_FILE_NAME);
 		if (!mrcmMainFile.isFile()) {
 			try {
 			if (!mrcmMainFile.createNewFile()) {
@@ -72,7 +75,7 @@ class MRCMLoader {
 				}
 			});
 		} catch (IOException e) {
-			e.printStackTrace();
+			throw new ServiceException("Failed to load MRCM from XML file.");
 		}
 
 		return branchMrcmMap;

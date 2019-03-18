@@ -39,4 +39,12 @@ public class Range {
 	public int hashCode() {
 		return conceptId.hashCode();
 	}
+
+	@Override
+	public String toString() {
+		return "Range{" +
+				"conceptId=" + conceptId +
+				", inclusionType=" + inclusionType +
+				'}';
+	}
 }

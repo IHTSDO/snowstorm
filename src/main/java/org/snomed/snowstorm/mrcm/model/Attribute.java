@@ -52,4 +52,13 @@ public class Attribute {
 	public int hashCode() {
 		return conceptId.hashCode();
 	}
+
+	@Override
+	public String toString() {
+		return "Attribute{" +
+				"conceptId=" + conceptId +
+				", inclusionType=" + inclusionType +
+				", rangeSet=" + rangeSet +
+				'}';
+	}
 }
