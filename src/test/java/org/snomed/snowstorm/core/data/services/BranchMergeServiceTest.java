@@ -47,7 +47,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 	@Before
 	public void setup() {
-		Map metadata = new HashMap();
+		Map<String, String> metadata = new HashMap<>();
 		metadata.put(BranchMetadataKeys.ASSERTION_GROUP_NAMES, "common-authoring");
 		branchService.create("MAIN", metadata);
 		branchService.create("MAIN/A");
