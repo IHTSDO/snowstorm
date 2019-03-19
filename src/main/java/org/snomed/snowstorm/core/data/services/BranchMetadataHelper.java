@@ -31,7 +31,7 @@ public class BranchMetadataHelper {
 		lockContext.put("description", description);
 		lockMeta.put("context", lockContext);
 		try {
-			return objectMapper.writeValueAsString(lockMeta);
+			return OBJECT_PREFIX + objectMapper.writeValueAsString(lockMeta);
 		} catch (JsonProcessingException e) {
 			throw new RuntimeServiceException("Failed to serialise branch lock metadata", e);
 		}
