@@ -26,7 +26,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 @Service
 public class ConceptDefinitionStatusUpdateService extends ComponentService implements CommitListener {
 
-	public static final String DEFINED_CLASS_AXIOM_PREFIX = "EquivalentClasses(:";
+	private static final String DEFINED_CLASS_AXIOM_PREFIX = "EquivalentClasses(:";
 
 	@Autowired
 	private ConceptService conceptService;
@@ -55,10 +55,10 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
 		if (commit.getCommitType() == CONTENT) {
-			logger.info(" Start updating concept definition status on branch " + commit.getBranch().getPath());
+			logger.debug("Start updating concept definition status on branch " + commit.getBranch().getPath());
 			try {
 				performUpdate(commit);
-				logger.info("End updating concept definition status on branch " + commit.getBranch().getPath());
+				logger.debug("End updating concept definition status on branch " + commit.getBranch().getPath());
 			} catch ( IOException e) {
 				throw new IllegalStateException("Failed to update concept definition status due to " + e);
 			}
@@ -70,8 +70,9 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 		if (!conceptIds.isEmpty()) {
 			Set<Long> definedConcepts = getConceptsWithDefinedStatus(commit, conceptIds);
 			Collection<Concept> conceptsToUpdate = getConceptsToUpdate(definedConcepts, conceptIds, commit);
-			saveChanges(conceptsToUpdate, commit);
-			logger.info("Total {} concepts updated with new definition status.", conceptsToUpdate.size());
+			if (!conceptsToUpdate.isEmpty()) {
+				saveChanges(conceptsToUpdate, commit);
+			}
 		}
 	}
 
@@ -161,8 +162,10 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 		try (final CloseableIterator<Concept> existingConcepts = elasticsearchTemplate.stream(fullyDefinedQuery, Concept.class)) {
 			existingConcepts.forEachRemaining(existing -> result.add(update(existing, Concepts.FULLY_DEFINED)));
 		}
-		int counter = result.size();
-		logger.info("Total {} concepts to be updated from primitive to fully defined", counter);
+		int toDefinedCount = result.size();
+		if (toDefinedCount > 0) {
+			logger.info("Total {} concepts to be updated from primitive to fully defined", toDefinedCount);
+		}
 		Set<Long> primitiveConcepts = conceptIds.stream()
 				.filter(c -> !fullyDefined.contains(c))
 				.collect(Collectors.toSet());
@@ -178,7 +181,10 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 		try (final CloseableIterator<Concept> existingConcepts = elasticsearchTemplate.stream(primitiveQuery, Concept.class)) {
 			existingConcepts.forEachRemaining(existing -> result.add(update(existing, Concepts.PRIMITIVE)));
 		}
-		logger.info("Total {} concepts to be updated from fully defined to primitive", (result.size()- counter));
+		int toPrimitiveCount = result.size() - toDefinedCount;
+		if (toPrimitiveCount > 0) {
+			logger.info("Total {} concepts to be updated from fully defined to primitive", toPrimitiveCount);
+		}
 		return result;
 	}
 
