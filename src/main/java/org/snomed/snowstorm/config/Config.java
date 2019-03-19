@@ -85,6 +85,7 @@ public abstract class Config {
 
 	public static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList("en");
+	public static final String SYSTEM_USERNAME = "System";
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean restApiReadOnly;

@@ -8,10 +8,7 @@ import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptUpdateHelper;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -38,6 +35,9 @@ public class ImportService {
 
 	@Autowired
 	private BranchService branchService;
+
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
 
 	@Autowired
 	private ExecutorService executorService;
@@ -132,11 +132,11 @@ public class ImportService {
 	}
 
 	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath, Integer patchReleaseVersion) {
-		return new ImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchPath, patchReleaseVersion);
+		return new ImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, branchPath, patchReleaseVersion);
 	}
 
 	private HistoryAwareComponentFactory getFullImportComponentFactory(String branchPath) {
-		return new FullImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, codeSystemService, branchPath, null);
+		return new FullImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, codeSystemService, branchPath, null);
 	}
 
 	public void importArchiveAsync(String importId, InputStream releaseFileStream) {

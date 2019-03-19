@@ -74,6 +74,9 @@ public class ClassificationService {
 	private BranchService branchService;
 
 	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
+
+	@Autowired
 	private ClassificationRepository classificationRepository;
 
 	@Autowired
@@ -278,7 +281,8 @@ public class ClassificationService {
 			classificationRepository.save(classification);
 
 			try {
-				try (Commit commit = branchService.openCommit(path)) { // Commit in auto-close try block like this will roll back if an exception is thrown
+				// Commit in auto-close try block like this will roll back if an exception is thrown
+				try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Saving classification " + classification.getId()))) {
 
 					NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 							.withQuery(termQuery("classificationId", classificationId))
