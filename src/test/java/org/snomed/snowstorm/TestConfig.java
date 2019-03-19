@@ -54,8 +54,14 @@ public class TestConfig extends Config {
 		if (testElasticsearchSingleton == null) {
 			// Create and start a clean standalone Elasticsearch test instance
 			String clusterName = "snowstorm-integration-test-cluster";
+
 			try {
 				installationDirectory = new File(System.getProperty("java.io.tmpdir"), "embedded-elasticsearch-temp-dir");
+				File downloadDir = null;
+				if (System.getProperty("user.home") != null) {
+					downloadDir = new File(new File(System.getProperty("user.home"), "tmp"), "embedded-elasticsearch-download-cache");
+					downloadDir.mkdirs();
+				}
 				testElasticsearchSingleton = EmbeddedElastic.builder()
 						.withElasticVersion(ELASTIC_SEARCH_VERSION)
 						.withStartTimeout(30, TimeUnit.SECONDS)
@@ -63,6 +69,7 @@ public class TestConfig extends Config {
 						.withSetting(PopularProperties.HTTP_PORT, PORT)
 						// Manually delete installation directory to prevent verbose error logging
 						.withCleanInstallationDirectoryOnStop(false)
+						.withDownloadDirectory(downloadDir)
 						.withInstallationDirectory(installationDirectory)
 						.build();
 				testElasticsearchSingleton
