@@ -65,6 +65,9 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	private BranchService branchService;
 
 	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
+
+	@Autowired
 	private AxiomConversionService axiomConversionService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -89,7 +92,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 	public void rebuildStatedAndInferredSemanticIndex(String branch) throws ConversionException {
 		// TODO: Only use on MAIN
-		try (Commit commit = branchService.openCommit(branch)) {
+		try (Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata("Rebuilding semantic index."))) {
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
 			updateSemanticIndex(true, branchCriteria, Collections.emptySet(), commit, true);
 			updateSemanticIndex(false, branchCriteria, Collections.emptySet(), commit, true);

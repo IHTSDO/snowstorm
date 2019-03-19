@@ -9,6 +9,7 @@ import org.ihtsdo.otf.snomedboot.factory.ImpotentComponentFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.snomed.snowstorm.core.data.services.ConceptUpdateHelper;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -31,6 +32,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	private static final Pattern EFFECTIVE_DATE_PATTERN = Pattern.compile("\\d{8}");
 
 	private final BranchService branchService;
+	private final BranchMetadataHelper branchMetadataHelper;
 	private final VersionControlHelper versionControlHelper;
 	private final String path;
 	private Commit commit;
@@ -46,8 +48,11 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	boolean coreComponentsFlushed;
 
-	ImportComponentFactoryImpl(ConceptUpdateHelper conceptUpdateHelper, ReferenceSetMemberService memberService, BranchService branchService, String path, Integer patchReleaseVersion) {
+	ImportComponentFactoryImpl(ConceptUpdateHelper conceptUpdateHelper, ReferenceSetMemberService memberService, BranchService branchService,
+			BranchMetadataHelper branchMetadataHelper, String path, Integer patchReleaseVersion) {
+
 		this.branchService = branchService;
+		this.branchMetadataHelper = branchMetadataHelper;
 		this.path = path;
 		persistBuffers = new ArrayList<>();
 		maxEffectiveTimeCollector = new MaxEffectiveTimeCollector();
@@ -153,7 +158,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	@Override
 	public void loadingComponentsStarting() {
-		commit = branchService.openCommit(path);
+		commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Loading components from RF2 import."));
 		branchCriteriaBeforeOpenCommit = versionControlHelper.getBranchCriteriaBeforeOpenCommit(commit);
 	}
 

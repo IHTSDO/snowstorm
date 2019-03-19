@@ -27,6 +27,9 @@ public class ReleaseService {
 	private BranchService branchService;
 
 	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
+
+	@Autowired
 	private DomainEntityConfiguration domainEntityConfiguration;
 
 	@Autowired
@@ -39,7 +42,7 @@ public class ReleaseService {
 	private ConceptService componentService;
 
 	public void createVersion(Integer effectiveTime, String path) {
-		try (Commit commit = branchService.openCommit(path)) {
+		try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Versioning components using effectiveTime " + effectiveTime))) {
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 			Set<Class<? extends SnomedComponent>> componentTypes = domainEntityConfiguration.getComponentTypeRepositoryMap().keySet();

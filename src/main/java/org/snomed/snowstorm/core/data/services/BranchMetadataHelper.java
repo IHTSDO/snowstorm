@@ -2,13 +2,14 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.ihtsdo.sso.integration.SecurityUtil;
+import org.snomed.snowstorm.config.Config;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 @Service
 /*
@@ -20,6 +21,21 @@ public class BranchMetadataHelper {
 	private ObjectMapper objectMapper;
 
 	private static final String OBJECT_PREFIX = "{object}|";
+	private static final SimpleDateFormat LOCK_METADATA_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
+
+	public String getBranchLockMetadata(String description) {
+		Map<String, Object> lockMeta = new HashMap<>();
+		lockMeta.put("creationDate", LOCK_METADATA_DATE_FORMAT.format(new Date()));
+		Map<String, Object> lockContext = new HashMap<>();
+		lockContext.put("userId", Optional.ofNullable(SecurityUtil.getUsername()).orElse(Config.SYSTEM_USERNAME));
+		lockContext.put("description", description);
+		lockMeta.put("context", lockContext);
+		try {
+			return objectMapper.writeValueAsString(lockMeta);
+		} catch (JsonProcessingException e) {
+			throw new RuntimeServiceException("Failed to serialise branch lock metadata", e);
+		}
+	}
 
 	public Map<String, String> flattenObjectValues(Map<String, Object> metadataWithPossibleObjectValues) {
 		if (metadataWithPossibleObjectValues == null) return null;

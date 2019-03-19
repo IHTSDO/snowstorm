@@ -10,6 +10,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
@@ -78,7 +79,7 @@ public class TraceabilityLogService implements CommitListener {
 		}
 
 		if (userId == null) {
-			userId = "System";
+			userId = Config.SYSTEM_USERNAME;
 		}
 
 		Iterable<Concept> persistedConcepts = batchSavePersistedComponents.getPersistedConcepts();

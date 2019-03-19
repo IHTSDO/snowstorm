@@ -9,8 +9,10 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Entity;
+import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.BranchMergeJob;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.JobStatus;
@@ -26,6 +28,7 @@ import org.springframework.data.elasticsearch.repository.ElasticsearchCrudReposi
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,6 +42,9 @@ public class BranchMergeService {
 
 	@Autowired
 	private BranchService branchService;
+
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
 
 	@Autowired
 	private BranchReviewService reviewService;
@@ -124,7 +130,7 @@ public class BranchMergeService {
 			branchService.create(target);
 		}
 
-		try (Commit commit = branchService.openCommit(target)) {
+		try (Commit commit = branchService.openCommit(target, branchMetadataHelper.getBranchLockMetadata("Copying changes from " + source))) {
 			logger.info("Performing migration {} -> {}", source, target);
 			final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = domainEntityConfiguration.getComponentTypeRepositoryMap();
 			componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> copyChangesOnBranchToCommit(source, commit, entry.getKey(), entry.getValue(), "Migrating", false));
@@ -166,7 +172,7 @@ public class BranchMergeService {
 			logger.info("Performing rebase {} -> {}", source, target);
 			// This just locks the target branch.
 			// Content will be taken from the latest complete commit on the source branch.
-			try (Commit commit = branchService.openRebaseCommit(targetBranch.getPath())) {
+			try (Commit commit = branchService.openRebaseCommit(targetBranch.getPath(), branchMetadataHelper.getBranchLockMetadata("Rebasing changes from " + source))) {
 				if (manuallyMergedConcepts != null && !manuallyMergedConcepts.isEmpty()) {
 					conceptService.updateWithinCommit(manuallyMergedConcepts, commit);
 				}
@@ -175,7 +181,9 @@ public class BranchMergeService {
 		} else {
 			// Promotion
 			// Locks both branches until exiting this try block closes the commit
-			try (Commit commit = branchService.openPromotionCommit(targetBranch.getPath(), source)) {
+			try (Commit commit = branchService.openPromotionCommit(targetBranch.getPath(), source,
+					branchMetadataHelper.getBranchLockMetadata("Promoting changes to " + targetBranch.getPath()),
+					branchMetadataHelper.getBranchLockMetadata("Receiving promotion from " + source))) {
 
 				logger.info("Integrity check before promotion of {}", source);
 				IntegrityIssueReport issueReport = integrityService.findChangedComponentsWithBadIntegrity(sourceBranch);

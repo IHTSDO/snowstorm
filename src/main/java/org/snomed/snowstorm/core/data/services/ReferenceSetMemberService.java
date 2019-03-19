@@ -50,6 +50,9 @@ public class ReferenceSetMemberService extends ComponentService {
 	private BranchService branchService;
 
 	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
+
+	@Autowired
 	private ReferenceSetMemberRepository memberRepository;
 
 	@Autowired
@@ -117,7 +120,7 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	public Iterable<ReferenceSetMember> createMembers(String branch, Set<ReferenceSetMember> members) {
-		try (final Commit commit = branchService.openCommit(branch)) {
+		try (final Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata(String.format("Creating %s reference set members.", members.size())))) {
 			members.forEach(member -> {
 				member.setMemberId(UUID.randomUUID().toString());
 				member.markChanged();
@@ -139,7 +142,7 @@ public class ReferenceSetMemberService extends ComponentService {
 			throw new NotFoundException(String.format("Reference set member %s not found on branch %s", uuid, branch));
 		}
 
-		try (Commit commit = branchService.openCommit(branch)) {
+		try (Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata("Deleting reference set member " + uuid))) {
 			ReferenceSetMember member = matches.get(0);
 			member.markDeleted();
 			doSaveBatchComponents(Collections.singleton(member), commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
@@ -250,8 +253,9 @@ public class ReferenceSetMemberService extends ComponentService {
 		Set<ReferenceSetType> typesToRemove = new HashSet<>(existingTypes);
 		typesToRemove.removeAll(referenceSetTypes);
 		if (!typesToRemove.isEmpty()) {
-			logger.info("Removing reference set types: {}", typesToRemove);
-			try (Commit commit = branchService.openCommit(path)) {
+			String message = String.format("Removing reference set types: %s", typesToRemove.toString());
+			logger.info(message);
+			try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata(message))) {
 				typesToRemove.forEach(ReferenceSetType::markDeleted);
 				doSaveBatchComponents(typesToRemove, commit, ReferenceSetType.FIELD_ID, typeRepository);
 				commit.markSuccessful();
@@ -261,8 +265,9 @@ public class ReferenceSetMemberService extends ComponentService {
 		Set<ReferenceSetType> typesToAdd = new HashSet<>(referenceSetTypes);
 		typesToAdd.removeAll(existingTypes);
 		if (!typesToAdd.isEmpty()) {
-			logger.info("Setting up reference set types: {}", typesToAdd);
-			try (Commit commit = branchService.openCommit(path)) {
+			String message = String.format("Setting up reference set types: %s", typesToAdd.toString());
+			logger.info(message);
+			try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata(message))) {
 				doSaveBatchComponents(typesToAdd, commit, ReferenceSetType.FIELD_ID, typeRepository);
 				commit.markSuccessful();
 			}
