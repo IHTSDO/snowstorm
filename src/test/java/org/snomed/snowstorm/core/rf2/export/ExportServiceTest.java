@@ -62,7 +62,13 @@ public class ExportServiceTest extends AbstractTest {
 		Concept gbLangRefsetConcept = new Concept(Concepts.GB_EN_LANG_REFSET).addRelationship(new Relationship(Concepts.ISA, Concepts.LANG_REFSET));
 		concepts.add(gbLangRefsetConcept);
 
-		// Version first two concepts
+		Concept owlExpressionRefsetConcept = new Concept(Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET);
+		concepts.add(owlExpressionRefsetConcept);
+
+		Concept owlAxiomRefsetConcept = new Concept(Concepts.OWL_AXIOM_REFERENCE_SET).addRelationship(new Relationship(Concepts.ISA, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET));
+		concepts.add(owlAxiomRefsetConcept);
+
+		// Version first few concepts
 		String path = "MAIN";
 		conceptService.batchCreate(concepts, path);
 		releaseService.createVersion(20100131, path);
@@ -163,7 +169,7 @@ public class ExportServiceTest extends AbstractTest {
 
 			// OWL Axiom Refset
 			ZipEntry axioms = zipInputStream.getNextEntry();
-			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OWLAxiomDelta_INT_20180131.txt", axioms.getName());
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OWLExpression733073007Delta_INT_20180131.txt", axioms.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
 			assertEquals(ReferenceSetMemberExportWriter.HEADER + "\towlExpression", lines.get(0));

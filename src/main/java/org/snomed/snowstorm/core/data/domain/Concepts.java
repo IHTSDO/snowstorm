@@ -41,6 +41,7 @@ public class Concepts {
 	public static final String CASE_INSENSITIVE = "900000000000448009";
 	public static final String INITIAL_CHARACTER_CASE_INSENSITIVE = "900000000000020002";
 
+	public static final String OWL_EXPRESSION_TYPE_REFERENCE_SET = "762676003";
 	public static final String OWL_AXIOM_REFERENCE_SET = "733073007";
 	public static final String DEFINING_RELATIONSHIP = "900000000000006009";
 	public static final String STATED_RELATIONSHIP = "900000000000010007";
