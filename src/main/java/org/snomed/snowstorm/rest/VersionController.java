@@ -21,7 +21,7 @@ public class VersionController {
 	BuildProperties buildProperties;
 
 	@ApiOperation("Software build version and timestamp.")
-	@RequestMapping(value = "/version", method = RequestMethod.GET)
+	@RequestMapping(value = "/version", method = RequestMethod.GET, produces = "application/json")
 	@ResponseBody
 	public BuildVersion getBuildInformation() {
 		return new BuildVersion(buildProperties.getVersion(), buildProperties.getTime().toString());
