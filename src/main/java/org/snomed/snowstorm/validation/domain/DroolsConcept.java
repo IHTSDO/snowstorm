@@ -38,6 +38,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 			concept.getClassAxioms().forEach(axiom -> {
 				axiom.getRelationships().forEach(r -> {
 					r.setSourceId(conceptId);
+					r.setActive(axiom.isActive());
 					relationships.add(new DroolsRelationship(axiom.getAxiomId(), r));
 				});
 			});
@@ -46,6 +47,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 			concept.getGciAxioms().forEach(axiom -> {
 				axiom.getRelationships().forEach(r -> {
 					r.setSourceId(conceptId);
+					r.setActive(axiom.isActive());
 					relationships.add(new DroolsRelationship(axiom.getAxiomId(), r));
 				});
 			});
