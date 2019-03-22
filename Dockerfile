@@ -1,5 +1,5 @@
 FROM openjdk:8-jdk-alpine
-LABEL maintainer="IHTSDO <tooling@snomed.org>"
+LABEL maintainer="SNOMED International <tooling@snomed.org>"
 
 ARG SUID=1042
 ARG SGID=1042
