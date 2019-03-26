@@ -11,6 +11,7 @@ public class BranchTimepoint {
 
 	public static final String DATE_FORMAT_STRING = "yyyy-MM-ddTHH:mm:ss.SSSZ";
 	public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat(DATE_FORMAT_STRING.replace("T", "'T'").replace("Z", "'Z'"));
+	public static final Pattern EPOCH_FORMAT_MATCHER = Pattern.compile("\\d+");
 	public static final String BRANCH_CREATION_TIMEPOINT = "-";
 
 	private String branchPath;
@@ -26,6 +27,12 @@ public class BranchTimepoint {
 		if (!Strings.isNullOrEmpty(timepointString)) {
 			if (timepointString.equals(BRANCH_CREATION_TIMEPOINT)) {
 				branchCreationTimepoint = true;
+			} else if (EPOCH_FORMAT_MATCHER.matcher(timepointString).matches()) {
+				try {
+					timepoint = new Date(Long.parseLong(timepointString));
+				} catch (NumberFormatException e) {
+					throwMalformedException();
+				}
 			} else if (timepointString.length() == DATE_FORMAT_STRING.length()) {
 				try {
 					timepoint = DATE_FORMAT.parse(timepointString);
@@ -39,7 +46,7 @@ public class BranchTimepoint {
 	}
 
 	private void throwMalformedException() {
-		throw new IllegalArgumentException("Malformed branch timepoint, please use format " + DATE_FORMAT_STRING + " or " + BRANCH_CREATION_TIMEPOINT);
+		throw new IllegalArgumentException("Malformed branch timepoint, please use format '" + DATE_FORMAT_STRING + "', epoch milliseconds or '" + BRANCH_CREATION_TIMEPOINT + "'.");
 	}
 
 	public String getBranchPath() {
