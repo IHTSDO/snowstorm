@@ -5,10 +5,11 @@ import com.google.common.base.Strings;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.regex.Pattern;
 
 public class BranchTimepoint {
 
-	public static final String DATE_FORMAT_STRING = "yyyyMMddTHHmmssZ";
+	public static final String DATE_FORMAT_STRING = "yyyy-MM-ddTHH:mm:ss.SSSZ";
 	public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat(DATE_FORMAT_STRING.replace("T", "'T'").replace("Z", "'Z'"));
 	public static final String BRANCH_CREATION_TIMEPOINT = "-";
 
