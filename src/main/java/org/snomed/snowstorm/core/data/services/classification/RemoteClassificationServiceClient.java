@@ -24,7 +24,6 @@ import java.util.Collections;
 @Service
 class RemoteClassificationServiceClient {
 
-	private String serviceUrl;
 	private RestTemplate restTemplate;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -38,7 +37,6 @@ class RemoteClassificationServiceClient {
 			@Value("${classification-service.username}") String serviceUsername,
 			@Value("${classification-service.password}") String servicePassword) {
 
-		this.serviceUrl = serviceUrl;
 		restTemplate = new RestTemplateBuilder()
 				.rootUri(serviceUrl)
 				.basicAuthorization(serviceUsername, servicePassword)

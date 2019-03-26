@@ -265,7 +265,7 @@ public class ClassificationService {
 				classificationsInProgress.add(classification);
 			}
 		} catch (RestClientException | ExportException e) {
-			throw new ServiceException("Failed to batchCreate classification.", e);
+			throw new ServiceException("Failed to create classification.", e);
 		}
 
 		return classification;
