@@ -146,9 +146,9 @@ public class ConceptController {
 	}
 
 	@ApiOperation(value = "Load a concept in the browser format.",
-			notes = "During content authoring previous versions of the concept can be loaded from version control. " +
-					"To do this use the branch path format {branch@" + BranchTimepoint.DATE_FORMAT_STRING + "} " +
-					"or {branch@" + BRANCH_CREATION_TIMEPOINT + "} to load the version of the concept when the branch was created.")
+			notes = "During content authoring previous versions of the concept can be loaded from version control.\n" +
+					"To do this use the branch path format {branch@" + BranchTimepoint.DATE_FORMAT_STRING + "} or {branch@epoch_milliseconds}.\n" +
+					"The version of the concept when the branch was created can be loaded using {branch@" + BRANCH_CREATION_TIMEPOINT + "}.")
 	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
