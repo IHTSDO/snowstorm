@@ -48,8 +48,8 @@ public class ConceptSelectorHelper {
 		if (pageRequest != null && inclusionFilter == null) {
 			// Fetch a page of IDs
 			searchQueryBuilder
-					.withPageable(pageRequest)
-					.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID).order(SortOrder.DESC));// Sorting meaningless but supports deterministic pagination
+					.withPageable(pageRequest);
+			searchQueryBuilder.withSort(getDefaultSortForQueryConcept());
 
 			Page<QueryConcept> queryConcepts = queryService.queryForPage(searchQueryBuilder.build());
 			List<Long> ids = queryConcepts.getContent().stream().map(QueryConcept::getConceptIdL).collect(toList());
@@ -83,7 +83,7 @@ public class ConceptSelectorHelper {
 		}
 	}
 
-	public static FieldSortBuilder getOrder() {
+	public static FieldSortBuilder getDefaultSortForQueryConcept() {
 		return SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID).order(SortOrder.DESC);
 	}
 
