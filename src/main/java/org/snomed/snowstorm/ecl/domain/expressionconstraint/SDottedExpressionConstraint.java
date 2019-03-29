@@ -4,7 +4,7 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import org.snomed.langauges.ecl.domain.expressionconstraint.DottedExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.snowstorm.core.data.services.QueryService;
-import org.snomed.snowstorm.core.util.PageCollectionUtil;
+import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -40,7 +40,7 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 		// Manually apply pagination
 		if (pageRequest != null) {
 			List<Long> content = conceptIds.get().getContent();
-			List<Long> pageOfContent = PageCollectionUtil.subList(content, pageRequest.getPageNumber(), pageRequest.getPageSize());
+			List<Long> pageOfContent = PageHelper.subList(content, pageRequest.getPageNumber(), pageRequest.getPageSize());
 			conceptIds = Optional.of(new PageImpl<>(pageOfContent, pageRequest, content.size()));
 		}
 

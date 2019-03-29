@@ -49,7 +49,7 @@ public class ConceptController {
 
 	@Autowired
 	private ExpressionService expressionService;
-	
+
 	@Autowired
 	private SemanticIndexUpdateService queryConceptUpdateService;
 
@@ -68,6 +68,7 @@ public class ConceptController {
 			@RequestParam(required = false) Set<String> conceptIds,
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
+			@RequestParam(required = false) String searchAfter,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		boolean stated = true;
@@ -87,7 +88,7 @@ public class ConceptController {
 
 		validatePageSize(limit);
 
-		return new ItemsPage<>(queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), ControllerHelper.getPageRequest(offset, limit)));
+		return new ItemsPage<>(queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), ControllerHelper.getPageRequest(offset, searchAfter, limit)));
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
@@ -107,7 +108,7 @@ public class ConceptController {
 	public ItemsPage<ConceptMini> search(
 			@PathVariable String branch,
 			@RequestBody ConceptSearchRequest searchRequest,
-			@RequestHeader("Accept-Language") String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		return findConcepts(BranchPathUriUtil.decodePath(branch),
 				searchRequest.getActiveFilter(),
@@ -118,6 +119,7 @@ public class ConceptController {
 				searchRequest.getConceptIds(),
 				searchRequest.getOffset(),
 				searchRequest.getLimit(),
+				searchRequest.getSearchAfter(),
 				acceptLanguageHeader);
 	}
 
@@ -183,7 +185,7 @@ public class ConceptController {
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		String ecl = "<" + conceptId;
-		return findConcepts(branch, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, offset, limit, acceptLanguageHeader);
+		return findConcepts(branch, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, offset, limit, null, acceptLanguageHeader);
 	}
 
 	@ResponseBody
