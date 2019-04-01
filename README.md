@@ -10,6 +10,7 @@ Snowstorm is a SNOMED CT terminology server built on top of Elasticsearch, with 
 - Multi-lingual search and content retrieval
 - Fully ECL v1.3 compliant
 - Full history (depending on initial RF2 import decision)
+- Read-only FHIR API
 
 **Authoring** - although write and update features are available this aspect is currently not production ready, having not been fully tested, so should be considered proof of concept.
 
@@ -23,7 +24,7 @@ Documentation is sparse for now, but will be improved as the project moves out o
 - [Loading SNOMED](docs/loading-snomed.md)
 - [Using the API](docs/using-the-api.md)
 - [Using the FHIR API](docs/using-the-fhir-api.md)
-- [Updating SNOMED CT and using Extensions](docs/updating-snomed-and-extensions.md)
+- [Loading & updating SNOMED CT with local Extensions or Editions](docs/updating-snomed-and-extensions.md)
 - [Configuration Guide](docs/configuration-guide.md)
 - [Docker Quickstart](docs/using-docker.md)
 
