@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchService;
 import org.junit.Before;
 import org.junit.Test;
@@ -17,8 +18,10 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.test.context.junit4.SpringRunner;
 
+import java.io.IOException;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -41,6 +44,9 @@ public class ConceptControllerTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	private Date timepointWithOneRelationship;
 
@@ -141,10 +147,13 @@ public class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConceptEndpointFields() {
+	public void testConceptEndpointFields() throws IOException {
 		// Browser Concept
 		String responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/browser/MAIN/concepts/257751006", String.class);
 		checkFields(responseBody);
+		LinkedHashMap<String, Object> properties = objectMapper.readValue(responseBody, LinkedHashMap.class);
+		assertEquals("[conceptId, fsn, active, effectiveTime, released, releasedEffectiveTime, moduleId, definitionStatus, " +
+				"descriptions, classAxioms, gciAxioms, relationships]", properties.keySet().toString());
 
 		// Simple Concept
 		responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/MAIN/concepts/257751006", String.class);
