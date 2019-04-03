@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-// TODO: This should probably not be a DomainEntity because it should apply to all branches without needing rebase.
 @Document(indexName = "es-refset", type = "refset-type", shards = 8)
 public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 

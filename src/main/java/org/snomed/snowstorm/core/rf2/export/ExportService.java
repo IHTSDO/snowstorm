@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.data.repositories.ExportConfigurationRepository;
+import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
@@ -53,11 +54,17 @@ public class ExportService {
 	@Autowired
 	private BranchService branchService;
 
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
+
 	private Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET);
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	public String createJob(ExportConfiguration exportConfiguration) {
+		if (exportConfiguration.getType() == RF2Type.FULL) {
+			throw new IllegalArgumentException("FULL RF2 export is not implemented.");
+		}
 		branchService.findBranchOrThrow(exportConfiguration.getBranchPath());
 		exportConfiguration.setId(UUID.randomUUID().toString());
 		if (exportConfiguration.getFilenameEffectiveDate() == null) {
@@ -97,7 +104,7 @@ public class ExportService {
 
 	public File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification) throws ExportException {
 		if (exportType == RF2Type.FULL) {
-			throw new IllegalArgumentException("Full RF2 export is not implemented.");
+			throw new IllegalArgumentException("FULL RF2 export is not implemented.");
 		}
 
 		logger.info("Starting {} export.", exportType);
@@ -106,6 +113,7 @@ public class ExportService {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 
 		try {
+			branchService.lockBranch(branchPath, branchMetadataHelper.getBranchLockMetadata("Exporting RF2 " + exportType.getName()));
 			File exportFile = File.createTempFile("export-" + new Date().getTime(), ".zip");
 			try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
 				// Write Concepts
@@ -178,6 +186,8 @@ public class ExportService {
 			return exportFile;
 		} catch (IOException e) {
 			throw new ExportException("Failed to write RF2 zip file.", e);
+		} finally {
+			branchService.unlock(branchPath);
 		}
 	}
 

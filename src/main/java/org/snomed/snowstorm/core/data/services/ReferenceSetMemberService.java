@@ -33,6 +33,7 @@ import java.util.*;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 
 @Service
 public class ReferenceSetMemberService extends ComponentService {
@@ -245,7 +246,7 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	private void setupTypes(Set<ReferenceSetType> referenceSetTypes) {
-		String path = "MAIN";
+		String path = MAIN;
 		if (!branchService.exists(path)) {
 			branchService.create(path);
 		}
