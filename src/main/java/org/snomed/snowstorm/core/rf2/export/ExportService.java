@@ -53,7 +53,7 @@ public class ExportService {
 	@Autowired
 	private BranchService branchService;
 
-	private Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_AXIOM_REFERENCE_SET);
+	private Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET);
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 

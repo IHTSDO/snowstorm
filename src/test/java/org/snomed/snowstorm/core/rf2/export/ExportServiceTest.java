@@ -177,6 +177,63 @@ public class ExportServiceTest extends AbstractTest {
 		}
 	}
 
+	@Test
+	public void exportRF2ArchiveForClassification() throws Exception {
+		File exportFile = getTempFile("export", ".zip");
+		exportFile.deleteOnExit();
+
+		String descriptionLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent().get(0).getMemberId();
+		String textDefLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", textDefId, PageRequest.of(0, 10)).getContent().get(0).getMemberId();
+
+		// Run export
+		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
+			ExportConfiguration exportConfiguration = new ExportConfiguration("MAIN", RF2Type.DELTA);
+
+			// FOR Classification
+			exportConfiguration.setConceptsAndRelationshipsOnly(true);
+
+			exportConfiguration.setFilenameEffectiveDate("20180131");
+			exportService.createJob(exportConfiguration);
+			exportService.exportRF2Archive(exportConfiguration, outputStream);
+		}
+
+		// Test export
+		try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(exportFile))) {
+			// Concepts
+			ZipEntry concepts = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Delta_INT_20180131.txt", concepts.getName());
+			List<String> lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(ConceptExportWriter.HEADER, lines.get(0));
+			assertEquals("123001\t\t1\t900000000000207008\t900000000000074008", lines.get(1));
+
+			// Stated Relationships
+			ZipEntry statedRelationships = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_StatedRelationship_Delta_INT_20180131.txt", statedRelationships.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(RelationshipExportWriter.HEADER, lines.get(0));
+			assertEquals("125021\t\t1\t900000000000207008\t123001\t100001\t0\t116680003\t900000000000010007\t900000000000451002", lines.get(1));
+
+			// Inferred Relationships
+			ZipEntry relationships = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Relationship_Delta_INT_20180131.txt", relationships.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(3, lines.size());
+			assertEquals(RelationshipExportWriter.HEADER, lines.get(0));
+			assertTrue(lines.contains("125022\t\t1\t900000000000207008\t123001\t100002\t0\t116680003\t900000000000011006\t900000000000451002"));
+			assertTrue(lines.contains("125023\t\t1\t900000000000207008\t123001\t100003\t0\t116680003\t900000000000227009\t900000000000451002"));
+
+			// OWL Axiom Refset
+			ZipEntry axioms = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OWLExpression733073007Delta_INT_20180131.txt", axioms.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(ReferenceSetMemberExportWriter.HEADER + "\towlExpression", lines.get(0));
+			assertEquals(owlMember.getId() + "\t\t1\t900000000000207008\t733073007\t123005000\tTransitiveObjectProperty(:123005000)", lines.get(1));
+		}
+	}
+
 	private List<String> getLines(ZipInputStream zipInputStream) throws IOException {
 		File conceptFile = getTempFile("temp", ".txt");
 		StreamUtils.copy(zipInputStream, new FileOutputStream(conceptFile), false, true);
