@@ -6,6 +6,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -71,7 +72,7 @@ public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 	}
 
 	public List<String> getFieldNameList() {
-		return Lists.newArrayList(fieldNames.split(","));
+		return fieldNames.isEmpty() ? Collections.emptyList() : Lists.newArrayList(fieldNames.split(","));
 	}
 
 	public String getFieldTypes() {
