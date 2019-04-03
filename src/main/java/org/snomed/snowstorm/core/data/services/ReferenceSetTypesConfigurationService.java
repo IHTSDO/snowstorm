@@ -23,8 +23,16 @@ public class ReferenceSetTypesConfigurationService {
 			String[] split = configString.split("\\|");
 			String conceptId = split[0];
 			String exportDir = split[1];
-			String fieldTypes = split[2];
-			String fieldNames = split[3];
+			String fieldTypes;
+			String fieldNames;
+			if (configString.endsWith("||")) {
+				// Simple refset type
+				fieldTypes = "";
+				fieldNames = "";
+			} else {
+				fieldTypes = split[2];
+				fieldNames = split[3];
+			}
 			setTypes.add(new ReferenceSetType(name, conceptId, fieldNames, fieldTypes, exportDir));
 		}
 		return setTypes;

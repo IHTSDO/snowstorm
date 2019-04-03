@@ -10,3 +10,4 @@ application-*.properties
 /resources
 *.sh
 snomed-drools-rules
+/tmp

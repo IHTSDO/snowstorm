@@ -68,6 +68,9 @@ public class ExportServiceTest extends AbstractTest {
 		Concept owlAxiomRefsetConcept = new Concept(Concepts.OWL_AXIOM_REFERENCE_SET).addRelationship(new Relationship(Concepts.ISA, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET));
 		concepts.add(owlAxiomRefsetConcept);
 
+		Concept simpleRefsetConcept = new Concept(Concepts.REFSET_SIMPLE);
+		concepts.add(simpleRefsetConcept);
+
 		// Version first few concepts
 		String path = "MAIN";
 		conceptService.batchCreate(concepts, path);
@@ -97,6 +100,9 @@ public class ExportServiceTest extends AbstractTest {
 		owlMember = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, "123005000");
 		owlMember.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION, "TransitiveObjectProperty(:123005000)");
 		referenceSetMemberService.createMember(path, owlMember);
+
+		ReferenceSetMember simpleTypeRefsetMember = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_SIMPLE, Concepts.CLINICAL_FINDING);
+		referenceSetMemberService.createMember(path, simpleTypeRefsetMember);
 	}
 
 	@Test
