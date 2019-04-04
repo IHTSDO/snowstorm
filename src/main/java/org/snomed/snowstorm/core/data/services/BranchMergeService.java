@@ -268,10 +268,7 @@ public class BranchMergeService {
 	}
 
 	private BranchReview checkBranchReview(MergeRequest mergeRequest, String sourceBranchPath, String targetBranchPath) {
-		BranchReview branchReview = reviewService.getBranchReview(mergeRequest.getReviewId());
-		if (branchReview == null) {
-			throw new IllegalArgumentException("Branch review " + mergeRequest.getReviewId() + " does not exist.");
-		}
+		BranchReview branchReview = reviewService.getBranchReviewOrThrow(mergeRequest.getReviewId());
 		if (!branchReview.getSource().getPath().equals(sourceBranchPath)
 				|| !branchReview.getTarget().getPath().equals(targetBranchPath)) {
 			throw new IllegalArgumentException("The source and target branches of the specified branch review do not match the " +

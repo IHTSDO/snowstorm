@@ -260,6 +260,14 @@ public class BranchReviewService {
 
 		return branchReview;
 	}
+	public BranchReview getBranchReviewOrThrow(String reviewId) {
+		final BranchReview branchReview = getBranchReview(reviewId);
+		if (branchReview == null) {
+			throw new IllegalArgumentException("Branch review " + reviewId + " does not exist.");
+		}
+		return branchReview;
+
+	}
 
 	public boolean isBranchStateCurrent(BranchState branchState) {
 		final Branch branch = branchService.findBranchOrThrow(branchState.getPath());
@@ -267,7 +275,7 @@ public class BranchReviewService {
 	}
 
 	public BranchReviewConceptChanges getBranchReviewConceptChanges(String reviewId) {
-		final BranchReview review = getBranchReview(reviewId);
+		final BranchReview review = getBranchReviewOrThrow(reviewId);
 
 		if (review == null) {
 			return null;
