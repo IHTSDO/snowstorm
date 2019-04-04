@@ -101,7 +101,7 @@ public class BranchController {
 	@ResponseBody
 	@RequestMapping(value = "/reviews/{id}", method = RequestMethod.GET)
 	public BranchReview getBranchReview(@PathVariable String id) {
-		return reviewService.getBranchReviewOrThrow(id);
+		return ControllerHelper.throwIfNotFound("Branch review", reviewService.getBranchReview(id));
 	}
 
 	@ResponseBody
@@ -120,7 +120,7 @@ public class BranchController {
 	@ResponseBody
 	@RequestMapping(value = "/merge-reviews/{id}", method = RequestMethod.GET)
 	public MergeReview getMergeReview(@PathVariable String id) {
-		return reviewService.getMergeReviewOrThrow(id);
+		return ControllerHelper.throwIfNotFound("Merge review", reviewService.getMergeReview(id));
 	}
 
 	@ResponseBody
