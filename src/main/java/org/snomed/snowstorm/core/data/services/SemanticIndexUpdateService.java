@@ -13,6 +13,7 @@ import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.QueryConceptRepository;
 import org.snomed.snowstorm.core.data.services.pojo.SAxiomRepresentation;
@@ -49,7 +50,6 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	@Value("${commit-hook.semantic-indexing.enabled:true}")
 	private boolean semanticIndexingEnabled;
 
-	static final int BATCH_SAVE_SIZE = 10000;
 	private static final long IS_A_TYPE = parseLong(Concepts.ISA);
 
 	@Autowired
@@ -441,7 +441,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			queryConceptsToSave.stream().filter(c -> c.getParents().isEmpty() && !c.getConceptIdL().toString().equals(Concepts.SNOMEDCT_ROOT)).forEach(Entity::markDeleted);
 
 			// Save in batches
-			for (List<QueryConcept> queryConcepts : Iterables.partition(queryConceptsToSave, BATCH_SAVE_SIZE)) {
+			for (List<QueryConcept> queryConcepts : Iterables.partition(queryConceptsToSave, Config.BATCH_SAVE_SIZE)) {
 				doSaveBatch(queryConcepts, commit);
 			}
 		}
@@ -505,7 +505,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			stream.forEachRemaining(queryConcept -> {
 				queryConcept.markDeleted();
 				deletionBatch.add(queryConcept);
-				if (deletionBatch.size() == BATCH_SAVE_SIZE) {
+				if (deletionBatch.size() == Config.BATCH_SAVE_SIZE) {
 					deleteBatch(commit, deletionBatch);
 					deletionBatch.clear();
 				}

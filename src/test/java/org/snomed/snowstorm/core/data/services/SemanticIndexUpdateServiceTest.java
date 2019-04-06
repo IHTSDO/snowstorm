@@ -11,6 +11,7 @@ import org.junit.runner.RunWith;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
@@ -340,7 +341,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	public void testSavePartialBatch() throws ServiceException {
 		List<Concept> concepts = new ArrayList<>();
 		concepts.add(new Concept(SNOMEDCT_ROOT));
-		int conceptCount = SemanticIndexUpdateService.BATCH_SAVE_SIZE + 100;
+		int conceptCount = Config.BATCH_SAVE_SIZE + 100;
 		for (int i = 0; i < conceptCount; i++) {
 			concepts.add(new Concept("10000" + i).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		}
