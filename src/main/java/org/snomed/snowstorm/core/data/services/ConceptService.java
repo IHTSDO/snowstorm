@@ -420,7 +420,7 @@ public class ConceptService extends ComponentService {
 		return doSave(conceptVersion, languageCodes, branch);
 	}
 
-	PersistedComponents createUpdate(List<Concept> concepts, String path) throws ServiceException {
+	public PersistedComponents createUpdate(List<Concept> concepts, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		return doSave(concepts, branch);
 	}

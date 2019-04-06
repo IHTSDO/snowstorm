@@ -2,23 +2,33 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
+import org.assertj.core.util.Lists;
+import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.rf2.RF2Type;
+import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.UUID;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.File;
+import java.util.*;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 import static org.snomed.snowstorm.core.data.domain.Concepts.CORE_MODULE;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -38,6 +48,9 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private ConceptDefinitionStatusUpdateService definitionStatusUpdateService;
+
+	@Autowired
+	private ImportService importService;
 
 	@Before
 	public void setUp() {
@@ -169,6 +182,42 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		Concept afterReverting = conceptService.find("50960005", taskBranch);
 		assertEquals(1, afterReverting.getClassAxioms().size());
 		assertEquals(Concepts.FULLY_DEFINED, afterReverting.getDefinitionStatusId());
+	}
+
+	@Test
+	public void importStatedSnapshotThenCompleteOwl() throws IOException, ReleaseImportException, ServiceException {
+		File rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/RF2Release");
+		File completeOwlRf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/conversion-to-complete-owl");
+
+		// Import stated relationship snapshot
+		try (FileInputStream releaseFileStream = new FileInputStream(rf2Archive)) {
+			importService.importArchive(importService.createJob(RF2Type.SNAPSHOT, MAIN, false), releaseFileStream);
+		}
+		assertEquals("[131148009:FULLY_DEFINED, 413350009:FULLY_DEFINED]", getDefinedConcepts().toString());
+
+		// Mess up the concept definition statuses
+		Collection<Concept> concepts = conceptService.find(MAIN, Lists.newArrayList("131148009", "413350009"), DEFAULT_LANGUAGE_CODES);
+		concepts.forEach(concept -> concept.setDefinitionStatusId(Concepts.PRIMITIVE));
+		conceptService.createUpdate(new ArrayList<>(concepts), MAIN);
+		concepts = conceptService.find(MAIN, Lists.newArrayList("64572001", "125676002"), DEFAULT_LANGUAGE_CODES);
+		concepts.forEach(concept -> concept.setDefinitionStatusId(Concepts.FULLY_DEFINED));
+		conceptService.createUpdate(new ArrayList<>(concepts), MAIN);
+		assertEquals("Expecting only two primitive concepts to be fully defined.",
+				"[64572001:FULLY_DEFINED, 125676002:FULLY_DEFINED]", getDefinedConcepts().toString());
+
+		// Import complete OWL delta - let the definition status update hook fix the statuses
+		try (FileInputStream releaseFileStream = new FileInputStream(completeOwlRf2Archive)) {
+			importService.importArchive(importService.createJob(RF2Type.DELTA, MAIN, false), releaseFileStream);
+		}
+		assertEquals("Expecting statuses to be fixed to original set of FD concepts.",
+				"[131148009:FULLY_DEFINED, 413350009:FULLY_DEFINED]", getDefinedConcepts().toString());
+	}
+
+	public List<String> getDefinedConcepts() {
+		return conceptService.findAll(MAIN, LARGE_PAGE).stream()
+					.filter(concept -> concept.getDefinitionStatusId().equals(Concepts.FULLY_DEFINED))
+					.sorted(Comparator.comparing(Concept::getConceptIdAsLong))
+					.map(concept -> concept.getId() + ":" + concept.getDefinitionStatus()).collect(Collectors.toList());
 	}
 
 }
