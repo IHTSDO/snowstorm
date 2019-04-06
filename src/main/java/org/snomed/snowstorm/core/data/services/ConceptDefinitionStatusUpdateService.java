@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.config.Config.BATCH_SAVE_SIZE;
 
 @Service
 public class ConceptDefinitionStatusUpdateService extends ComponentService implements CommitListener {
@@ -45,8 +47,6 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 
 	private Logger logger = LoggerFactory.getLogger(ConceptDefinitionStatusUpdateService.class);
 
-	static final int BATCH_SAVE_SIZE = 10000;
-
 	@PostConstruct
 	public void init() {
 		branchService.addCommitListener(this);
@@ -59,31 +59,140 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 			try {
 				performUpdate(commit);
 				logger.debug("End updating concept definition status on branch " + commit.getBranch().getPath());
-			} catch ( IOException e) {
+			} catch (IOException e) {
 				throw new IllegalStateException("Failed to update concept definition status due to " + e);
 			}
 		}
 	}
 
-   private void performUpdate(Commit commit) throws IOException {
-		Set<Long> conceptIds = getConceptsWithAxiomsChanged(commit);
-		if (!conceptIds.isEmpty()) {
-			Set<Long> definedConcepts = getConceptsWithDefinedStatus(commit, conceptIds);
-			Collection<Concept> conceptsToUpdate = getConceptsToUpdate(definedConcepts, conceptIds, commit);
+	private void performUpdate(Commit commit) throws IOException {
+		Set<Long> conceptIdsWithAxiomChange = getConceptsWithAxiomsChanged(commit);
+		if (!conceptIdsWithAxiomChange.isEmpty()) {
+			Set<Long> conceptsWithDefinedAxiomStatus = getConceptsWithDefinedAxiomStatus(conceptIdsWithAxiomChange, commit);
+			Collection<Concept> conceptsToUpdate = findAndFixConceptsNeedingDefinitionUpdate(conceptIdsWithAxiomChange, conceptsWithDefinedAxiomStatus, commit);
 			if (!conceptsToUpdate.isEmpty()) {
 				saveChanges(conceptsToUpdate, commit);
 			}
 		}
 	}
 
+	private Set<Long> getConceptsWithDefinedAxiomStatus(Set<Long> conceptIdsWithAxiomChange, Commit commit) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+		Set<Long> result = new LongOpenHashSet();
+		try (final CloseableIterator<ReferenceSetMember> changedAxioms = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
+						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+						.must(prefixQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(
+								ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION), DEFINED_CLASS_AXIOM_PREFIX))
+						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdsWithAxiomChange))
+						.mustNot(termsQuery(ReferenceSetMember.Fields.MEMBER_ID, commit.getEntityVersionsDeleted()))
+				)
+				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+				.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {
 
-	private Concept update(Concept concept, String definitionStatus) {
+			while (changedAxioms.hasNext()) {
+				result.add(Long.parseLong(changedAxioms.next().getReferencedComponentId()));
+			}
+		}
+		return result;
+	}
+
+	private Set<Long> getConceptsWithAxiomsChanged(Commit commit) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
+		Set<Long> result = new LongOpenHashSet();
+		try (final CloseableIterator<ReferenceSetMember> axioms = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
+				)
+				.withPageable(ConceptService.LARGE_PAGE)
+				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+				.build(), ReferenceSetMember.class)) {
+			while (axioms.hasNext()) {
+				result.add(Long.parseLong(axioms.next().getReferencedComponentId()));
+			}
+		}
+		return result;
+	}
+
+	private Collection<Concept> findAndFixConceptsNeedingDefinitionUpdate(Set<Long> conceptIdsWithAxiomChange, Set<Long> conceptIdsWithDefinedAxiomStatus, Commit commit) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+
+		// Find primitive concepts which should be fully defined
+		NativeSearchQuery fullyDefinedQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsWithDefinedAxiomStatus))
+						.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, Concepts.PRIMITIVE))
+						.mustNot(existsQuery("end"))
+				)
+				.withPageable(ConceptService.LARGE_PAGE).build();
+		List<Concept> result = new ArrayList<>();
+		try (final CloseableIterator<Concept> existingConcepts = elasticsearchTemplate.stream(fullyDefinedQuery, Concept.class)) {
+			existingConcepts.forEachRemaining(existing -> result.add(
+					// Correct the definition status
+					setDefinitionStatus(existing, Concepts.FULLY_DEFINED)));
+		}
+		int toDefinedCount = result.size();
+		if (toDefinedCount > 0) {
+			logger.info("Updating {} concepts from primitive to fully defined due to axiom changes.", toDefinedCount);
+		}
+		Set<Long> primitiveConcepts = conceptIdsWithAxiomChange.stream()
+				.filter(c -> !conceptIdsWithDefinedAxiomStatus.contains(c))
+				.collect(Collectors.toSet());
+
+		// Find fully defined concepts which should be primitive
+		NativeSearchQuery primitiveQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termsQuery(Concept.Fields.CONCEPT_ID, primitiveConcepts))
+						.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, Concepts.FULLY_DEFINED))
+						.mustNot(existsQuery("end"))
+				)
+				.withPageable(ConceptService.LARGE_PAGE).build();
+		try (final CloseableIterator<Concept> existingConcepts = elasticsearchTemplate.stream(primitiveQuery, Concept.class)) {
+			existingConcepts.forEachRemaining(existing -> result.add(
+					// Correct the definition status
+					setDefinitionStatus(existing, Concepts.PRIMITIVE)));
+		}
+		int toPrimitiveCount = result.size() - toDefinedCount;
+		if (toPrimitiveCount > 0) {
+			logger.info("Updating {} concepts from fully defined to primitive due to axiom changes.", toPrimitiveCount);
+		}
+
+		return result;
+	}
+
+	private Concept setDefinitionStatus(Concept concept, String definitionStatus) {
 		concept.setDefinitionStatusId(definitionStatus);
 		concept.markChanged();
 		return concept;
 	}
 
-	private void updateConceptDefinitionStatusViaTemplate(Collection<Concept> concepts) throws IOException {
+	private void saveChanges(Collection<Concept> conceptsToSave, Commit commit) throws IllegalStateException, IOException {
+		if (!conceptsToSave.isEmpty()) {
+			// Save in batches
+			for (List<Concept> concepts : Iterables.partition(conceptsToSave, BATCH_SAVE_SIZE)) {
+
+				// Find concepts where new versions have already been created in the current commit.
+				// Update these documents to avoid having two versions of the same concepts in the commit.
+				Set<Concept> editedConcepts = concepts.stream()
+						.filter(concept -> concept.getStart().equals(commit.getTimepoint()))
+						.collect(Collectors.toSet());
+				updateConceptDefinitionStatusViaUpdateQuery(editedConcepts);
+
+				// Concepts which were not just saved/updated in the commit can go through the normal commit process.
+				Set<Concept> toSave = concepts.stream()
+						.filter(concept -> !editedConcepts.contains(concept))
+						.collect(Collectors.toSet());
+				doSaveBatchComponents(toSave, commit, Concept.Fields.CONCEPT_ID, conceptRepository);
+			}
+		}
+	}
+
+	private void updateConceptDefinitionStatusViaUpdateQuery(Collection<Concept> concepts) throws IOException {
 		List<UpdateQuery> updateQueries = new ArrayList<>();
 		for (Concept concept : concepts) {
 			UpdateRequest updateRequest = new UpdateRequest();
@@ -102,140 +211,5 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 			elasticsearchTemplate.bulkUpdate(updateQueries);
 			elasticsearchTemplate.refresh(Concept.class);
 		}
-	}
-
-
-	private Set<Long> getConceptsWithDefinedStatus(Commit commit, Set<Long> concepts) {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-		Set<Long> result = new HashSet<>();
-		try (final CloseableIterator<ReferenceSetMember> changedAxioms = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
-						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
-						.must(prefixQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(
-								ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION), DEFINED_CLASS_AXIOM_PREFIX))
-						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, concepts))
-						.mustNot(termsQuery(ReferenceSetMember.Fields.MEMBER_ID, commit.getEntityVersionsDeleted()))
-				)
-				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
-				.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {
-
-			while (changedAxioms.hasNext()) {
-				result.add(Long.parseLong(changedAxioms.next().getReferencedComponentId()));
-			}
-		}
-		return result;
-	}
-
-	private Set<Long> getConceptsWithAxiomsChanged(Commit commit) {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
-		Set<Long> result = new HashSet<>();
-		try (final CloseableIterator<ReferenceSetMember> axioms = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
-				)
-				.withPageable(ConceptService.LARGE_PAGE)
-				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
-				.build(), ReferenceSetMember.class)) {
-			while (axioms.hasNext()) {
-				result.add(Long.parseLong(axioms.next().getReferencedComponentId()));
-			}
-		}
-		return result;
-	}
-
-
-	private Collection<Concept> getConceptsToUpdate(Set<Long> fullyDefined, Set<Long> conceptIds, Commit commit) {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-		//search concepts need to be updated from primitive to fully defined
-		NativeSearchQuery fullyDefinedQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termsQuery(Concept.Fields.CONCEPT_ID, fullyDefined))
-						.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, Concepts.PRIMITIVE))
-						.mustNot(existsQuery("end"))
-				)
-				.withPageable(ConceptService.LARGE_PAGE).build();
-		List<Concept> result = new ArrayList<>();
-		try (final CloseableIterator<Concept> existingConcepts = elasticsearchTemplate.stream(fullyDefinedQuery, Concept.class)) {
-			existingConcepts.forEachRemaining(existing -> result.add(update(existing, Concepts.FULLY_DEFINED)));
-		}
-		int toDefinedCount = result.size();
-		if (toDefinedCount > 0) {
-			logger.info("Total {} concepts to be updated from primitive to fully defined", toDefinedCount);
-		}
-		Set<Long> primitiveConcepts = conceptIds.stream()
-				.filter(c -> !fullyDefined.contains(c))
-				.collect(Collectors.toSet());
-		//search concepts need to be updated from fully defined to primitive
-		NativeSearchQuery primitiveQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termsQuery(Concept.Fields.CONCEPT_ID, primitiveConcepts))
-						.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, Concepts.FULLY_DEFINED))
-						.mustNot(existsQuery("end"))
-				)
-				.withPageable(ConceptService.LARGE_PAGE).build();
-		try (final CloseableIterator<Concept> existingConcepts = elasticsearchTemplate.stream(primitiveQuery, Concept.class)) {
-			existingConcepts.forEachRemaining(existing -> result.add(update(existing, Concepts.PRIMITIVE)));
-		}
-		int toPrimitiveCount = result.size() - toDefinedCount;
-		if (toPrimitiveCount > 0) {
-			logger.info("Total {} concepts to be updated from fully defined to primitive", toPrimitiveCount);
-		}
-		return result;
-	}
-
-
-
-	Collection<Concept> getConcepts(Set<String> conceptIds, Commit commit) {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
-						.mustNot(existsQuery("end"))
-				)
-				.withPageable(ConceptService.LARGE_PAGE).build();
-		List<Concept> concepts = new ArrayList<>();
-		try (final CloseableIterator<Concept> existingConcepts = elasticsearchTemplate.stream(query, Concept.class)) {
-			existingConcepts.forEachRemaining(existing -> concepts.add(existing));
-		}
-		if (concepts.size() > conceptIds.size()) {
-			Map<String, List<Concept>> conceptMap = concepts.stream().collect(Collectors.groupingBy(Concept::getConceptId));
-			List<String> duplicateIds = new ArrayList<>();
-			for (String conceptId : conceptMap.keySet()) {
-				List<Concept> duplicates = conceptMap.get(conceptId);
-				if (duplicates.size() > 1) {
-					logger.error("Found more than one concept {} on branch {}", duplicates.get(0), commit.getBranch().getPath());
-					duplicates.forEach(c -> logger.info("id:{} path:{}, start:{}, end:{}", c.getInternalId(), c.getPath(), c.getStartDebugFormat(), c.getEndDebugFormat()));
-					duplicateIds.add(conceptId);
-				}
-			}
-			throw new IllegalStateException("More than one concept found for these id " + duplicateIds.toString() + " on branch " + commit.getBranch().getPath());
-		}
-		return concepts;
-	}
-
-	private void saveChanges(Collection<Concept> conceptsToSave, Commit commit) throws IllegalStateException, IOException {
-		if (!conceptsToSave.isEmpty()) {
-			// Save in batches
-			for (List<Concept> concepts : Iterables.partition(conceptsToSave, BATCH_SAVE_SIZE)) {
-				doSaveBatch(concepts, commit);
-			}
-		}
-	}
-
-	private void doSaveBatch(Collection<Concept> concepts, Commit commit) throws IOException {
-		Set<Concept> editedConcepts = concepts.stream()
-				.filter(concept -> concept.getStart().equals(commit.getTimepoint()))
-				.collect(Collectors.toSet());
-		updateConceptDefinitionStatusViaTemplate(editedConcepts);
-		Set<Concept> toSave = concepts.stream()
-				.filter(concept -> !editedConcepts.contains(concept))
-				.collect(Collectors.toSet());
-		doSaveBatchComponents(toSave, commit, Concept.Fields.CONCEPT_ID, conceptRepository);
 	}
 }
