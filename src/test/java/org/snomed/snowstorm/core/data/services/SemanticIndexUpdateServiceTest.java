@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -492,6 +493,11 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	private void assertTC(Concept concept, Concept... ancestors) {
 		Set<Long> expectedAncestors = Arrays.stream(ancestors).map(Concept::getConceptIdAsLong).collect(Collectors.toSet());
 		assertEquals(expectedAncestors, queryService.findAncestorIds(concept.getId(),"MAIN", true));
+	}
+
+	@After
+	public void teardown() {
+		conceptService.deleteAll();
 	}
 
 }
