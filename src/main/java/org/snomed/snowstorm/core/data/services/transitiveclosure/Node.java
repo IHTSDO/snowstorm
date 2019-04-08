@@ -29,7 +29,6 @@ public class Node {
 			String message = "Transitive closure stack depth has exceeded the soft limit for concept " + id + " on path " + path + ", ancestor ids: " + parentIds.toString();
 			LOGGER.error(message);
 			return parentIds;
-//			throw new RuntimeException(message);
 		}
 		parents.forEach(node -> {
 			parentIds.add(node.getId());

@@ -87,7 +87,6 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 						.must(prefixQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(
 								ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION), DEFINED_CLASS_AXIOM_PREFIX))
 						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdsWithAxiomChange))
-						.mustNot(termsQuery(ReferenceSetMember.Fields.MEMBER_ID, commit.getEntityVersionsDeleted()))
 				)
 				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 				.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {

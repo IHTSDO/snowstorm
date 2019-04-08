@@ -89,13 +89,13 @@ public class ConceptUpdateHelper extends ComponentService {
 		for (Concept concept : concepts) {
 			final Concept existingConcept = existingConceptsMap.get(concept.getConceptId());
 			final Map<String, Description> existingDescriptions = new HashMap<>();
+			final Set<ReferenceSetMember> newVersionOwlAxiomMembers = concept.getAllOwlAxiomMembers();
 
-			// Inactivate relationships of inactive concept
+			// Inactivate axioms and relationships of inactive concept
 			if (!concept.isActive()) {
 				concept.getRelationships().forEach(relationship -> relationship.setActive(false));
+				newVersionOwlAxiomMembers.forEach(axiom -> axiom.setActive(false));
 			}
-
-			Set<ReferenceSetMember> newVersionOwlAxiomMembers = concept.getAllOwlAxiomMembers();
 
 			// Mark changed concepts as changed
 			if (existingConcept != null) {
@@ -212,7 +212,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		doSaveBatchRelationships(relationshipsToPersist, commit);
 
 		memberService.doSaveBatchMembers(refsetMembersToPersist, commit);
-		doDeleteMembersWhereReferencedComponentDeleted(commit.getEntityVersionsDeleted(), commit);
+		doDeleteMembersWhereReferencedComponentDeleted(commit.getEntitiesDeleted(), commit);
 
 		// Store assigned identifiers for registration with CIS
 		identifierService.persistAssignedIdsForRegistration(reservedIds);

@@ -134,9 +134,8 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		referenceSetMemberService.deleteMember(MAIN, axiom.getAxiomId());
 
 		Concept updatedConcept = conceptService.find(concept.getConceptId(), MAIN);
-		assertEquals("900000000000074008", updatedConcept.getDefinitionStatusId());
+		assertEquals(Concepts.PRIMITIVE, updatedConcept.getDefinitionStatusId());
 	}
-
 
 	@Test
 	public void testRevertingClassAxiomRefsetUpdate() throws ServiceException {

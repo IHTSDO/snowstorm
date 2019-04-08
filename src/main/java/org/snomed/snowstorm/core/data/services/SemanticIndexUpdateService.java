@@ -114,7 +114,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		} else {
 			// Update query index using changes in the current commit
 			BranchCriteria changesBranchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
-			Set<String> deletedComponents = commit.getEntityVersionsDeleted();
+			Set<String> deletedComponents = commit.getEntitiesDeleted();
 			updateSemanticIndex(true, changesBranchCriteria, deletedComponents, commit, false);
 			updateSemanticIndex(false, changesBranchCriteria, deletedComponents, commit, false);
 		}
@@ -146,7 +146,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		BranchCriteria branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteriaBeforeOpenCommit(commit);
 		timer.checkpoint("get branch criteria");
 		if (rebuild) {
-			logger.info("Performing {} of {} semantic index", "rebuild", formName);
+			logger.info("Performing rebuild of {} semantic index", formName);
 		} else {
 			// Step: Collect source and destinations of changed is-a relationships
 			try (final CloseableIterator<Relationship> changedIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
@@ -207,7 +207,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 				}
 			}
 
-			logger.info("Performing {} of {} semantic index", "incremental update", formName);
+			logger.info("Performing incremental update of {} semantic index", formName);
 
 			// Identify parts of the graph that nodes are moving from or to
 

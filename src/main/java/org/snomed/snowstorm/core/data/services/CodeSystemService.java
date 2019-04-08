@@ -18,6 +18,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
+import java.util.ConcurrentModificationException;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -162,34 +163,38 @@ public class CodeSystemService {
 		versionRepository.deleteAll();
 	}
 
-	public void migrateDependantCodeSystemVersion(CodeSystem codeSystem, String dependantCodeSystem, Integer newDependantVersion, boolean copyMetadata) {
-		CodeSystemVersion newDependantCodeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(dependantCodeSystem, newDependantVersion);
-		if (newDependantCodeSystemVersion == null) {
-			throw new IllegalStateException("No matching Code System version found for " + dependantCodeSystem + " at " + newDependantVersion);
+	public void migrateDependantCodeSystemVersion(CodeSystem codeSystem, String dependantCodeSystem, Integer newDependantVersion, boolean copyMetadata) throws ServiceException {
+		try {
+			CodeSystemVersion newDependantCodeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(dependantCodeSystem, newDependantVersion);
+			if (newDependantCodeSystemVersion == null) {
+				throw new IllegalStateException("No matching Code System version found for " + dependantCodeSystem + " at " + newDependantVersion);
+			}
+			if (newDependantCodeSystemVersion.getShortName().equals(codeSystem.getShortName())) {
+				throw new IllegalArgumentException("Code System can not depend on itself.");
+			}
+
+			logger.info("Migrating code system {} to depend on {} release {}", codeSystem.getShortName(), newDependantCodeSystemVersion.getShortName(),
+					newDependantCodeSystemVersion.getEffectiveDate());
+
+			String sourceBranchPath = codeSystem.getBranchPath();
+			String targetBranchPath = newDependantCodeSystemVersion.getParentBranchPath() + BranchPathUriUtil.SLASH
+					+ newDependantCodeSystemVersion.getVersion() + BranchPathUriUtil.SLASH + codeSystem.getShortName();
+
+			mergeService.copyBranchToNewParent(sourceBranchPath, targetBranchPath);
+
+			// Update code system branch path
+			codeSystem.setBranchPath(targetBranchPath);
+			repository.save(codeSystem);
+
+			if (copyMetadata) {
+				Branch sourceBranch = branchService.findBranchOrThrow(sourceBranchPath);
+				Branch targetBranch = branchService.findBranchOrThrow(targetBranchPath);
+				branchService.updateMetadata(targetBranch.getPath(), sourceBranch.getMetadata());
+			}
+
+			logger.info("Migrated code system {} to {}. Run an integrity check next then fix content.", codeSystem.getShortName(), targetBranchPath);
+		} catch (ConcurrentModificationException e) {
+			throw new ServiceException("Code system migration failed.", e);
 		}
-		if (newDependantCodeSystemVersion.getShortName().equals(codeSystem.getShortName())) {
-			throw new IllegalArgumentException("Code System can not depend on itself.");
-		}
-
-		logger.info("Migrating code system {} to depend on {} release {}", codeSystem.getShortName(), newDependantCodeSystemVersion.getShortName(),
-				newDependantCodeSystemVersion.getEffectiveDate());
-
-		String sourceBranchPath = codeSystem.getBranchPath();
-		String targetBranchPath = newDependantCodeSystemVersion.getParentBranchPath() + BranchPathUriUtil.SLASH
-				+ newDependantCodeSystemVersion.getVersion() + BranchPathUriUtil.SLASH + codeSystem.getShortName();
-
-		mergeService.copyBranchToNewParent(sourceBranchPath, targetBranchPath);
-
-		// Update code system branch path
-		codeSystem.setBranchPath(targetBranchPath);
-		repository.save(codeSystem);
-
-		if (copyMetadata) {
-			Branch sourceBranch = branchService.findBranchOrThrow(sourceBranchPath);
-			Branch targetBranch = branchService.findBranchOrThrow(targetBranchPath);
-			branchService.updateMetadata(targetBranch.getPath(), sourceBranch.getMetadata());
-		}
-
-		logger.info("Migrated code system {} to {}. Run an integrity check next then fix content.", codeSystem.getShortName(), targetBranchPath);
 	}
 }
