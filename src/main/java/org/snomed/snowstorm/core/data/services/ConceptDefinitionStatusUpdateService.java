@@ -5,6 +5,7 @@ import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -45,6 +46,9 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 	@Autowired
 	private ConceptRepository conceptRepository;
 
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
+
 	private Logger logger = LoggerFactory.getLogger(ConceptDefinitionStatusUpdateService.class);
 
 	@PostConstruct
@@ -55,39 +59,74 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
 		if (commit.getCommitType() == CONTENT) {
-			logger.debug("Start updating concept definition status on branch " + commit.getBranch().getPath());
+			logger.debug("Start updating concept definition status on branch {}.", commit.getBranch().getPath());
 			try {
-				performUpdate(commit);
-				logger.debug("End updating concept definition status on branch " + commit.getBranch().getPath());
+				performUpdate(false, commit);
+				logger.debug("End updating concept definition status on branch {}.", commit.getBranch().getPath());
 			} catch (IOException e) {
-				throw new IllegalStateException("Failed to update concept definition status due to " + e);
+				throw new IllegalStateException("Failed to update concept definition status." + e, e);
 			}
 		}
 	}
 
-	private void performUpdate(Commit commit) throws IOException {
-		Set<Long> conceptIdsWithAxiomChange = getConceptsWithAxiomsChanged(commit);
-		if (!conceptIdsWithAxiomChange.isEmpty()) {
-			Set<Long> conceptsWithDefinedAxiomStatus = getConceptsWithDefinedAxiomStatus(conceptIdsWithAxiomChange, commit);
-			Collection<Concept> conceptsToUpdate = findAndFixConceptsNeedingDefinitionUpdate(conceptIdsWithAxiomChange, conceptsWithDefinedAxiomStatus, commit);
+	public void updateAllDefinitionStatuses(String path) throws ServiceException {
+		logger.info("Updating all concept definition statuses on branch {}.", path);
+		try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Updating all concept definition statuses."))) {
+			performUpdate(true, commit);
+			commit.markSuccessful();
+		} catch (IOException e) {
+			throw new ServiceException("Failed to update all concept definition statuses.", e);
+		}
+		logger.info("Completed updating all concept definition statuses on branch {}.", path);
+	}
+
+	private void performUpdate(boolean allConcepts, Commit commit) throws IOException {
+		Set<Long> conceptIdsToUpdate = allConcepts ? getAllConceptsWithActiveAxioms(commit) : getConceptsWithAxiomsChanged(commit);
+		if (!conceptIdsToUpdate.isEmpty()) {
+			logger.info("Checking {} concepts.", conceptIdsToUpdate.size());
+			Set<Long> conceptsWithDefinedAxiomStatus = getConceptsWithDefinedAxiomStatus(allConcepts, conceptIdsToUpdate, commit);
+			logger.info("{} concepts found with defined axioms.", conceptsWithDefinedAxiomStatus.size());
+			Collection<Concept> conceptsToUpdate = findAndFixConceptsNeedingDefinitionUpdate(conceptIdsToUpdate, conceptsWithDefinedAxiomStatus, commit);
+			logger.info("{} concepts need updating.", conceptsToUpdate.size());
 			if (!conceptsToUpdate.isEmpty()) {
 				saveChanges(conceptsToUpdate, commit);
 			}
 		}
 	}
 
-	private Set<Long> getConceptsWithDefinedAxiomStatus(Set<Long> conceptIdsWithAxiomChange, Commit commit) {
+	private Set<Long> getAllConceptsWithActiveAxioms(Commit commit) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 		Set<Long> result = new LongOpenHashSet();
+		BoolQueryBuilder must = boolQuery()
+				.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+				.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
+				.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true));
+		try (final CloseableIterator<ReferenceSetMember> allActiveAxioms = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(must)
+				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+				.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {
+
+			while (allActiveAxioms.hasNext()) {
+				result.add(Long.parseLong(allActiveAxioms.next().getReferencedComponentId()));
+			}
+		}
+		return result;
+	}
+
+	private Set<Long> getConceptsWithDefinedAxiomStatus(boolean allConcepts, Set<Long> conceptIdsWithAxiomChange, Commit commit) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+		Set<Long> result = new LongOpenHashSet();
+		BoolQueryBuilder must = boolQuery()
+				.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+				.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
+				.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+				.must(prefixQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(
+						ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION), DEFINED_CLASS_AXIOM_PREFIX));
+		if (!allConcepts) {
+			must.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdsWithAxiomChange));
+		}
 		try (final CloseableIterator<ReferenceSetMember> changedAxioms = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
-						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
-						.must(prefixQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(
-								ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION), DEFINED_CLASS_AXIOM_PREFIX))
-						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdsWithAxiomChange))
-				)
+				.withQuery(must)
 				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 				.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {
 
