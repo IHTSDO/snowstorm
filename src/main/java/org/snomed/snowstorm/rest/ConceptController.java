@@ -6,7 +6,6 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ConceptView;
@@ -50,9 +49,6 @@ public class ConceptController {
 	@Autowired
 	private ExpressionService expressionService;
 	
-	@Autowired
-	private SemanticIndexUpdateService queryConceptUpdateService;
-
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
@@ -290,11 +286,6 @@ public class ConceptController {
 		String branchPath = BranchPathUriUtil.decodePath(branch);
 		Set<Long> ancestorIds = queryService.findAncestorIds(conceptId, branchPath, form == Relationship.CharacteristicType.stated);
 		return conceptService.findConceptMinis(branchPath, ancestorIds, ControllerHelper.getLanguageCodes(acceptLanguageHeader)).getResultsMap().values();
-	}
-
-	@RequestMapping(value = "/rebuild/{branch}", method = RequestMethod.POST)
-	public void rebuildBranchTransitiveClosure(@PathVariable String branch) throws ConversionException {
-		queryConceptUpdateService.rebuildStatedAndInferredSemanticIndex(BranchPathUriUtil.decodePath(branch));
 	}
 
 	@ResponseBody

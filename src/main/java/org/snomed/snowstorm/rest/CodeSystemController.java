@@ -14,7 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@Api(tags = "Admin", description = "Code Systems")
+@Api(tags = "Code Systems", description = "-")
 @RequestMapping(value = "/codesystems", produces = "application/json")
 public class CodeSystemController {
 
