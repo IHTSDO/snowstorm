@@ -120,8 +120,7 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 				.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 				.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
 				.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
-				.must(prefixQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(
-						ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION), DEFINED_CLASS_AXIOM_PREFIX));
+				.must(matchPhrasePrefixQuery(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_FIELD_PATH, DEFINED_CLASS_AXIOM_PREFIX));
 		if (!allConcepts) {
 			must.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdsWithAxiomChange));
 		}
