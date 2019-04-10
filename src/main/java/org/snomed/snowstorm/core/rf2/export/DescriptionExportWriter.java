@@ -15,7 +15,7 @@ class DescriptionExportWriter extends ExportWriter<Description> {
 
 	void writeHeader() throws IOException {
 		bufferedWriter.write(HEADER);
-		bufferedWriter.newLine();
+		writeNewLine();
 	}
 
 	void flush() {
@@ -38,7 +38,7 @@ class DescriptionExportWriter extends ExportWriter<Description> {
 				bufferedWriter.write(description.getTerm());
 				bufferedWriter.write(TAB);
 				bufferedWriter.write(description.getCaseSignificanceId());
-				bufferedWriter.newLine();
+				writeNewLine();
 			}
 			componentBuffer.clear();
 		} catch (IOException e) {
