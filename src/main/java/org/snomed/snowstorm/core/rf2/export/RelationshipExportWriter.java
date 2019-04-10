@@ -16,7 +16,7 @@ class RelationshipExportWriter extends ExportWriter<Relationship> {
 	@Override
 	void writeHeader() throws IOException {
 		bufferedWriter.write(HEADER);
-		bufferedWriter.newLine();
+		writeNewLine();
 	}
 
 	@Override
@@ -42,7 +42,7 @@ class RelationshipExportWriter extends ExportWriter<Relationship> {
 				bufferedWriter.write(relationship.getCharacteristicTypeId());
 				bufferedWriter.write(TAB);
 				bufferedWriter.write(relationship.getModifierId());
-				bufferedWriter.newLine();
+				writeNewLine();
 			}
 			componentBuffer.clear();
 		} catch (IOException e) {

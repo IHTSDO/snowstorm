@@ -29,6 +29,10 @@ public abstract class ExportWriter<T> implements AutoCloseable {
 		}
 	}
 
+	public void writeNewLine() throws IOException {
+		bufferedWriter.write("\r\n");
+	}
+
 	abstract void flush();
 
 	@Override
