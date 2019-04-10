@@ -20,7 +20,12 @@ class ReferenceSetMemberExportWriter extends ExportWriter<ReferenceSetMember> {
 
 	@Override
 	void writeHeader() throws IOException {
-		bufferedWriter.write(HEADER + Strings.collectionToDelimitedString(extraFieldNames, TAB, TAB, ""));
+		String extraFields = Strings.collectionToDelimitedString(extraFieldNames, TAB);
+		bufferedWriter.write(HEADER);
+		if (!extraFields.isEmpty()) {
+			bufferedWriter.write(TAB);
+			bufferedWriter.write(extraFields);
+		}
 		writeNewLine();
 	}
 

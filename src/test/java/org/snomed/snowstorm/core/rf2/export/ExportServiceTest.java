@@ -14,7 +14,6 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.util.StreamUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -29,10 +28,13 @@ import java.util.zip.ZipInputStream;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
 public class ExportServiceTest extends AbstractTest {
+
+	private static final String DESCRIPTION_TYPE_REFERENCE_SET = "900000000000538005";
 
 	@Autowired
 	private ExportService exportService;
@@ -71,6 +73,9 @@ public class ExportServiceTest extends AbstractTest {
 		Concept simpleRefsetConcept = new Concept(Concepts.REFSET_SIMPLE);
 		concepts.add(simpleRefsetConcept);
 
+		Concept descriptionFormatRefsetConcept = new Concept(DESCRIPTION_TYPE_REFERENCE_SET);
+		concepts.add(descriptionFormatRefsetConcept);
+
 		// Version first few concepts
 		String path = "MAIN";
 		conceptService.batchCreate(concepts, path);
@@ -103,6 +108,11 @@ public class ExportServiceTest extends AbstractTest {
 
 		ReferenceSetMember simpleTypeRefsetMember = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_SIMPLE, Concepts.CLINICAL_FINDING);
 		referenceSetMemberService.createMember(path, simpleTypeRefsetMember);
+
+		ReferenceSetMember descriptionTypeRefsetMember = new ReferenceSetMember(Concepts.CORE_MODULE, DESCRIPTION_TYPE_REFERENCE_SET, Concepts.FSN);
+		descriptionTypeRefsetMember.setAdditionalField("descriptionFormat", "900000000000540000");
+		descriptionTypeRefsetMember.setAdditionalField("descriptionLength", "255");
+		referenceSetMemberService.createMember(path, descriptionTypeRefsetMember);
 	}
 
 	@Test
@@ -110,8 +120,9 @@ public class ExportServiceTest extends AbstractTest {
 		File exportFile = getTempFile("export", ".zip");
 		exportFile.deleteOnExit();
 
-		String descriptionLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent().get(0).getMemberId();
-		String textDefLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", textDefId, PageRequest.of(0, 10)).getContent().get(0).getMemberId();
+		String descriptionTypeRefsetMemberId = referenceSetMemberService.findMembers("MAIN", Concepts.FSN, PAGE_OF_ONE).getContent().get(0).getMemberId();
+		String descriptionLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", descriptionId, PAGE_OF_ONE).getContent().get(0).getMemberId();
+		String textDefLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", textDefId, PAGE_OF_ONE).getContent().get(0).getMemberId();
 
 		// Run export
 		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
@@ -164,6 +175,14 @@ public class ExportServiceTest extends AbstractTest {
 			assertTrue(lines.contains("125022\t\t1\t900000000000207008\t123001\t100002\t0\t116680003\t900000000000011006\t900000000000451002"));
 			assertTrue(lines.contains("125023\t\t1\t900000000000207008\t123001\t100003\t0\t116680003\t900000000000227009\t900000000000451002"));
 
+			// Description Type Refset
+			ZipEntry descriptionTypes = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Refset/Metadata/der2_ciRefset_DescriptionTypeDelta_INT_20180131.txt", descriptionTypes.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(ReferenceSetMemberExportWriter.HEADER + "\tdescriptionFormat\tdescriptionLength", lines.get(0));
+			assertEquals(descriptionTypeRefsetMemberId + "\t\t1\t900000000000207008\t900000000000538005\t900000000000003001\t900000000000540000\t255", lines.get(1));
+
 			// Language Refset
 			ZipEntry langRefset = zipInputStream.getNextEntry();
 			assertEquals("SnomedCT_Export/RF2Release/Refset/Language/der2_cRefset_Language900000000000508004Delta_INT_20180131.txt", langRefset.getName());
@@ -187,9 +206,6 @@ public class ExportServiceTest extends AbstractTest {
 	public void exportRF2ArchiveForClassification() throws Exception {
 		File exportFile = getTempFile("export", ".zip");
 		exportFile.deleteOnExit();
-
-		String descriptionLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent().get(0).getMemberId();
-		String textDefLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", textDefId, PageRequest.of(0, 10)).getContent().get(0).getMemberId();
 
 		// Run export
 		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
