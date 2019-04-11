@@ -11,3 +11,4 @@ application-*.properties
 *.sh
 snomed-drools-rules
 /tmp
+/local
