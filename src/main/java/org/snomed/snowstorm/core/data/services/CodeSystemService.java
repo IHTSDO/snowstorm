@@ -104,7 +104,7 @@ public class CodeSystemService {
 		CodeSystemVersion codeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(codeSystem.getShortName(), effectiveDate);
 		if (codeSystemVersion != null) {
 			logger.warn("Aborting Code System Version creation. This version already exists.");
-			return version;
+			throw new IllegalStateException("Aborting Code System Version creation. This version already exists.");
 		}
 
 		logger.info("Creating Code System version - Code System: {}, Version: {}, Release Branch: {}", codeSystem.getShortName(), version, releaseBranchPath);
