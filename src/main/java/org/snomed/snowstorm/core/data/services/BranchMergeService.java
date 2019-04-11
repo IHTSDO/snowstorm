@@ -9,10 +9,8 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Entity;
-import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.BranchMergeJob;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.JobStatus;
@@ -28,7 +26,6 @@ import org.springframework.data.elasticsearch.repository.ElasticsearchCrudReposi
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -229,7 +226,9 @@ public class BranchMergeService {
 		if (!toEnd.isEmpty()) {
 			// End entities on target
 			toEnd.forEach(entity -> entity.setEnd(commit.getTimepoint()));
-			entityRepository.saveAll(toEnd);
+			for (List<T> saveSegment : Iterables.partition(toEnd, conceptService.getSaveBatchSize())) {
+				entityRepository.saveAll(saveSegment);
+			}
 
 			commit.getEntityVersionsReplaced().getOrDefault(entityClassName, Collections.emptySet()).removeAll(toEnd.stream().map(Entity::getInternalId).collect(Collectors.toList()));
 
@@ -258,7 +257,9 @@ public class BranchMergeService {
 			if (endEntitiesOnSource) {
 				// End entities on source
 				toPromote.forEach(entity -> entity.setEnd(commit.getTimepoint()));
-				entityRepository.saveAll(toPromote);
+				for (List<T> saveSegment : Iterables.partition(toPromote, conceptService.getSaveBatchSize())) {
+					entityRepository.saveAll(saveSegment);
+				}
 			}
 
 			// Save entities on target
