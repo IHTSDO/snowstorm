@@ -113,6 +113,9 @@ public class MRCMService {
 					break;
 			}
 		}
+		if (ecl.length() != 0) {
+			queryBuilder.ecl(ecl.toString());
+		}
 
 		return queryService.search(queryBuilder, branchPath, PageRequest.of(0, 50)).getContent();
 	}

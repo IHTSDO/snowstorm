@@ -34,16 +34,9 @@ public class MRCMServiceTest extends AbstractTest {
 	@Autowired
 	private ConceptService conceptService;
 	
-	//private final Logger logger = LoggerFactory.getLogger(getClass());
-	//private ObjectMapper objectMapper;
-	
 	@Before
 	public void setup() throws ServiceException {
 		branchService.create("MAIN");
-		/*objectMapper = new ObjectMapper();
-		DeserializationConfig deserializationConfig = objectMapper.getDeserializationConfig().without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
-		objectMapper.setConfig(deserializationConfig);*/
-		
 		conceptService.create(new Concept(Concepts.ISA, "10000111"), "MAIN");
 	}
 	
