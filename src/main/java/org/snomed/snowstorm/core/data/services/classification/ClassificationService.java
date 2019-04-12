@@ -224,7 +224,9 @@ public class ClassificationService {
 				.withQuery(termQuery(Classification.Fields.PATH, path))
 				.withSort(SortBuilders.fieldSort(Classification.Fields.CREATION_DATE).order(SortOrder.ASC))
 				.withPageable(PAGE_FIRST_1K);
-		return elasticsearchOperations.queryForPage(queryBuilder.build(), Classification.class);
+		Page<Classification> classifications = elasticsearchOperations.queryForPage(queryBuilder.build(), Classification.class);
+		updateStatusIfStale(classifications.getContent(), path);
+		return classifications;
 	}
 
 	public Classification findClassification(String path, String classificationId) {
@@ -234,7 +236,20 @@ public class ClassificationService {
 		if (classification == null || !path.equals(classification.getPath())) {
 			throw new NotFoundException("Classification not found on branch.");
 		}
-		return path.equals(classification.getPath()) ? classification : null;
+		updateStatusIfStale(Collections.singleton(classification), path);
+		return classification;
+	}
+
+	// Set status to stale if the branch has moved on
+	private void updateStatusIfStale(Iterable<Classification> classifications, String path) {
+		if (classifications != null) {
+			Branch branch = branchService.findBranchOrThrow(path);
+			classifications.forEach(classification -> {
+				if (classification.getStatus() == COMPLETED && !branch.getHead().equals(classification.getLastCommitDate())) {
+					classification.setStatus(STALE);
+				}
+			});
+		}
 	}
 
 	public Classification createClassification(String path, String reasonerId) throws ServiceException {
@@ -342,8 +357,8 @@ public class ClassificationService {
 		}
 
 		// Check not stale
-		Branch branch = branchService.findLatest(path);
-		if (!classification.getLastCommitDate().equals(branch.getHead())) {
+		updateStatusIfStale(Collections.singleton(classification), path);
+		if (classification.getStatus() == STALE) {
 			throw new IllegalStateException("Classification is stale.");
 		}
 
