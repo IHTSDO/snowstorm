@@ -152,6 +152,60 @@ public class BranchReviewServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testCreateMergeReviewConceptDeletedOnParent() throws InterruptedException, ServiceException {
+		// Update concept 10000100 description on A
+		Concept concept = conceptService.find("10000100", "MAIN/A");
+		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		conceptService.update(concept, "MAIN/A");
+
+		// Delete concept 10000100 on MAIN
+		conceptService.deleteConceptAndComponents("10000100", "MAIN", false);
+
+		MergeReview review = reviewService.createMergeReview("MAIN", "MAIN/A");
+
+		long maxWait = 10;
+		long cumulativeWait = 0;
+		while (review.getStatus() == ReviewStatus.PENDING && cumulativeWait < maxWait) {
+			Thread.sleep(1_000);
+			cumulativeWait++;
+		}
+
+		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		assertEquals(1, mergeReviewConflictingConcepts.size());
+		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getTargetConcept().getId()).collect(Collectors.toSet());
+		assertTrue(conceptIds.contains("10000100"));
+	}
+
+	@Test
+	public void testCreateMergeReviewConceptDeletedOnChild() throws InterruptedException, ServiceException {
+		// Update concept 10000100 description on A
+		Concept concept = conceptService.find("10000100", "MAIN");
+		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		conceptService.update(concept, "MAIN");
+
+		// Delete concept 10000100 on MAIN
+		conceptService.deleteConceptAndComponents("10000100", "MAIN/A", false);
+
+		MergeReview review = reviewService.createMergeReview("MAIN", "MAIN/A");
+
+		long maxWait = 10;
+		long cumulativeWait = 0;
+		while (review.getStatus() == ReviewStatus.PENDING && cumulativeWait < maxWait) {
+			Thread.sleep(1_000);
+			cumulativeWait++;
+		}
+
+		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		assertEquals(1, mergeReviewConflictingConcepts.size());
+		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getSourceConcept().getId()).collect(Collectors.toSet());
+		assertTrue(conceptIds.contains("10000100"));
+	}
+
+	@Test
 	public void testCreateConceptChangeReportOnBranchSinceTimepoint() throws Exception {
 		try {
 			// Assert report contains one new concept on MAIN since start of setup

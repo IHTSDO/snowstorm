@@ -26,6 +26,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -122,14 +124,21 @@ public class BranchReviewService {
 
 		final Map<Long, MergeReviewConceptVersions> conflicts = new HashMap<>();
 		if (!conceptsChangedInBoth.isEmpty()) {
-			final Collection<Concept> conceptOnSource = conceptService.find(mergeReview.getSourcePath(), conceptsChangedInBoth, languageCodes);
-			final Collection<Concept> conceptOnTarget = conceptService.find(mergeReview.getTargetPath(), conceptsChangedInBoth, languageCodes);
 
-			conceptOnSource.stream().forEach(concept -> conflicts.put(concept.getConceptIdAsLong(), new MergeReviewConceptVersions(concept)));
-			conceptOnTarget.stream().forEach(targetConcept -> {
-				final MergeReviewConceptVersions conceptVersions = conflicts.get(targetConcept.getConceptIdAsLong());
-				conceptVersions.setTargetConcept(targetConcept);
-				conceptVersions.setAutoMergedConcept(autoMergeConcept(conceptVersions.getSourceConcept(), targetConcept));
+			final Map<Long, Concept> conceptOnSource = conceptService.find(mergeReview.getSourcePath(), conceptsChangedInBoth, languageCodes)
+					.stream().collect(Collectors.toMap(Concept::getConceptIdAsLong, Function.identity()));
+
+			final Map<Long, Concept> conceptOnTarget = conceptService.find(mergeReview.getTargetPath(), conceptsChangedInBoth, languageCodes)
+					.stream().collect(Collectors.toMap(Concept::getConceptIdAsLong, Function.identity()));
+
+			conceptsChangedInBoth.forEach(conceptId -> {
+				Concept sourceVersion = conceptOnSource.get(conceptId);
+				Concept targetVersion = conceptOnTarget.get(conceptId);
+				MergeReviewConceptVersions mergeVersion = new MergeReviewConceptVersions(sourceVersion, targetVersion);
+				if (sourceVersion != null && targetVersion != null) {
+					mergeVersion.setAutoMergedConcept(autoMergeConcept(sourceVersion, targetVersion));
+				}
+				conflicts.put(conceptId, mergeVersion);
 			});
 		}
 		return conflicts.values();
@@ -164,7 +173,11 @@ public class BranchReviewService {
 	private Set<Long> getConflictingConceptIds(MergeReview mergeReview) {
 		final BranchReview sourceToTargetReview = reviewStore.getIfPresent(mergeReview.getSourceToTargetReviewId());
 		final BranchReview targetToSourceReview = reviewStore.getIfPresent(mergeReview.getTargetToSourceReviewId());
-		return Sets.intersection(sourceToTargetReview.getChanges().getChangedConcepts(), targetToSourceReview.getChanges().getChangedConcepts());
+		BranchReviewConceptChanges sourceToTargetReviewChanges = sourceToTargetReview.getChanges();
+		BranchReviewConceptChanges targetToSourceReviewChanges = targetToSourceReview.getChanges();
+		return Sets.intersection(
+				Sets.union(sourceToTargetReviewChanges.getChangedConcepts(), sourceToTargetReviewChanges.getDeletedConcepts()),
+				Sets.union(targetToSourceReviewChanges.getChangedConcepts(), targetToSourceReviewChanges.getDeletedConcepts()));
 	}
 
 	private Concept autoMergeConcept(Concept sourceConcept, Concept targetConcept) {
