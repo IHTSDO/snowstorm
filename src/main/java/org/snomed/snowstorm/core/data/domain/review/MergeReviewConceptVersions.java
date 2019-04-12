@@ -9,8 +9,9 @@ public class MergeReviewConceptVersions {
 	private Concept autoMergedConcept;
 	private Concept manuallyMergedConcept;
 
-	public MergeReviewConceptVersions(Concept sourceConcept) {
+	public MergeReviewConceptVersions(Concept sourceConcept, Concept targetConcept) {
 		this.sourceConcept = sourceConcept;
+		this.targetConcept = targetConcept;
 	}
 
 	public Concept getSourceConcept() {
