@@ -334,10 +334,19 @@ public class ClassificationService {
 	}
 
 	public Classification classificationSaveStatusCheck(String path, String classificationId) {
+
+		// Check completed
 		Classification classification = findClassification(path, classificationId);
 		if (classification.getStatus() != COMPLETED) {
 			throw new IllegalStateException("Classification status must be " + COMPLETED.toString() + " in order to save results.");
 		}
+
+		// Check not stale
+		Branch branch = branchService.findLatest(path);
+		if (!classification.getLastCommitDate().equals(branch.getHead())) {
+			throw new IllegalStateException("Classification is stale.");
+		}
+
 		return classification;
 	}
 
