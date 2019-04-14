@@ -361,19 +361,6 @@ public class ConceptService extends ComponentService {
 		return conceptMiniMap.computeIfAbsent(id, i -> new ConceptMini(id, languageCodes));
 	}
 
-	public void deleteConceptAndComponents(String conceptId, String path, boolean force) {
-		try (final Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Deleting concept " + conceptId))) {
-			final Concept concept = find(conceptId, DEFAULT_LANGUAGE_CODES, path);
-			if (concept == null) {
-				throw new IllegalArgumentException("Concept " + conceptId + " not found.");
-			}
-			if (concept.isReleased() && !force) {
-				throw new IllegalStateException("Released concept will not be deleted.");
-			}
-			conceptUpdateHelper.doDeleteConcept(path, commit, concept);
-		}
-	}
-
 	public Concept create(Concept conceptVersion, String path) throws ServiceException {
 		return create(conceptVersion, DEFAULT_LANGUAGE_CODES, path);
 	}
@@ -470,6 +457,10 @@ public class ConceptService extends ComponentService {
 	}
 
 	public PersistedComponents updateWithinCommit(Collection<Concept> concepts, Commit commit) throws ServiceException {
+		if (concepts.isEmpty()) {
+			return new PersistedComponents();
+		}
+
 		PersistedComponents persistedComponents = conceptUpdateHelper.saveNewOrUpdatedConcepts(concepts, commit, getExistingConceptsForSave(concepts, commit));
 
 		// Log traceability activity
@@ -479,6 +470,30 @@ public class ConceptService extends ComponentService {
 		}
 
 		return persistedComponents;
+	}
+
+	public void deleteConceptAndComponents(String conceptId, String path, boolean force) {
+		try (final Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Deleting concept " + conceptId))) {
+			deleteConceptsAndComponentsWithinCommit(Collections.singleton(conceptId), commit, force);
+		}
+	}
+
+	public void deleteConceptsAndComponentsWithinCommit(Collection<String> conceptIds, Commit commit, boolean force) {
+		if (conceptIds.isEmpty()) {
+			return;
+		}
+
+		String path = commit.getBranch().getPath();
+		for (String conceptId : conceptIds) {
+			final Concept concept = find(conceptId, DEFAULT_LANGUAGE_CODES, path);
+			if (concept == null) {
+				throw new IllegalArgumentException("Concept " + conceptId + " not found.");
+			}
+			if (concept.isReleased() && !force) {
+				throw new IllegalStateException("Released concept will not be deleted.");
+			}
+			conceptUpdateHelper.doDeleteConcept(path, commit, concept);
+		}
 	}
 
 	private void joinComponentsToConcepts(PersistedComponents persistedComponents, Map<String, ConceptMini> conceptMiniMap, List<String> languageCodes) {
@@ -574,5 +589,4 @@ public class ConceptService extends ComponentService {
 
 		return ids;
 	}
-
 }

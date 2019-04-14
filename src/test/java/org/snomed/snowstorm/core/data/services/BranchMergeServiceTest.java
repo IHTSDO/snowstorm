@@ -12,6 +12,9 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.review.MergeReview;
+import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
+import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,8 +24,8 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
+import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODES;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -30,6 +33,9 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchMergeService branchMergeService;
+
+	@Autowired
+	private BranchReviewService reviewService;
 
 	@Autowired
 	private BranchService branchService;
@@ -47,6 +53,8 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 	@Before
 	public void setup() {
+		conceptService.deleteAll();
+
 		Map<String, String> metadata = new HashMap<>();
 		metadata.put(BranchMetadataKeys.ASSERTION_GROUP_NAMES, "common-authoring");
 		branchService.create("MAIN", metadata);
@@ -61,6 +69,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 	@After
 	public void tearDown() {
+		conceptService.deleteAll();
 		traceabilityLogService.setEnabled(false);
 	}
 
@@ -471,6 +480,166 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertEquals("Branch MAIN is already locked", failedJobs.get(0).getMessage());
 	}
 
+	@Test
+	public void testCreateMergeReviewConceptDeletedOnChildAcceptDeleted() throws InterruptedException, ServiceException {
+		createConcept("10000100", "MAIN");
+		branchService.create("MAIN/A1");
+
+		// Update concept 10000100 description on A
+		Concept concept = conceptService.find("10000100", "MAIN");
+		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		conceptService.update(concept, "MAIN");
+
+		// Delete concept 10000100 on MAIN/A
+		conceptService.deleteConceptAndComponents("10000100", "MAIN/A1", false);
+
+		String source = "MAIN";
+		String target = "MAIN/A1";
+		MergeReview review = getMergeReviewInCurrentState(source, target);
+
+		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		assertEquals(1, mergeReviewConflictingConcepts.size());
+
+		// Check concept is only there on the source side.
+		MergeReviewConceptVersions mergeReviewConceptVersions = mergeReviewConflictingConcepts.iterator().next();
+		assertNotNull(mergeReviewConceptVersions.getSourceConcept());
+		assertEquals("10000100", mergeReviewConceptVersions.getSourceConcept().getConceptId());
+		assertNull(mergeReviewConceptVersions.getTargetConcept());
+		assertNull(mergeReviewConceptVersions.getAutoMergedConcept());
+
+		// Accept the deleted version
+		review.putManuallyMergedConceptDeletion(10000100L);
+
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A1", review.getManuallyMergedConcepts().values());
+
+		assertNull("Concept should be deleted after the merge.", conceptService.find("10000100", "MAIN/A1"));
+	}
+
+	@Test
+	public void testCreateMergeReviewConceptDeletedOnParentAcceptDeleted() throws InterruptedException, ServiceException {
+		createConcept("10000100", "MAIN");
+		branchService.create("MAIN/A1");
+
+		// Update concept 10000100 description on A
+		Concept concept = conceptService.find("10000100", "MAIN/A1");
+		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		conceptService.update(concept, "MAIN/A1");
+
+		// Delete concept 10000100 on MAIN
+		conceptService.deleteConceptAndComponents("10000100", "MAIN", false);
+
+		String source = "MAIN";
+		String target = "MAIN/A1";
+		MergeReview review = getMergeReviewInCurrentState(source, target);
+
+		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		assertEquals(1, mergeReviewConflictingConcepts.size());
+
+		// Check concept is only there on the source side.
+		MergeReviewConceptVersions mergeReviewConceptVersions = mergeReviewConflictingConcepts.iterator().next();
+		assertNull(mergeReviewConceptVersions.getSourceConcept());
+		assertNotNull(mergeReviewConceptVersions.getTargetConcept());
+		assertEquals("10000100", mergeReviewConceptVersions.getTargetConcept().getConceptId());
+		assertNull(mergeReviewConceptVersions.getAutoMergedConcept());
+
+		// Accept the deleted version
+		review.putManuallyMergedConceptDeletion(10000100L);
+
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A1", review.getManuallyMergedConcepts().values());
+
+		assertNull("Concept should be deleted after the merge.", conceptService.find("10000100", "MAIN/A1"));
+	}
+
+	@Test
+	public void testCreateMergeReviewConceptDeletedOnChildAcceptUpdated() throws InterruptedException, ServiceException {
+		createConcept("10000100", "MAIN");
+		branchService.create("MAIN/A1");
+
+		// Update concept 10000100 description on A
+		Concept concept = conceptService.find("10000100", "MAIN");
+		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		conceptService.update(concept, "MAIN");
+
+		// Delete concept 10000100 on MAIN/A
+		conceptService.deleteConceptAndComponents("10000100", "MAIN/A1", false);
+
+		String source = "MAIN";
+		String target = "MAIN/A1";
+		MergeReview review = getMergeReviewInCurrentState(source, target);
+
+		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		assertEquals(1, mergeReviewConflictingConcepts.size());
+
+		// Check concept is only there on the source side.
+		MergeReviewConceptVersions mergeReviewConceptVersions = mergeReviewConflictingConcepts.iterator().next();
+		assertNotNull(mergeReviewConceptVersions.getSourceConcept());
+		assertEquals("10000100", mergeReviewConceptVersions.getSourceConcept().getConceptId());
+		assertNull(mergeReviewConceptVersions.getTargetConcept());
+		assertNull(mergeReviewConceptVersions.getAutoMergedConcept());
+
+		// Accept the updated
+		review.putManuallyMergedConcept(mergeReviewConceptVersions.getSourceConcept());
+
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A1", review.getManuallyMergedConcepts().values());
+
+		assertNotNull("Concept should be restored after the merge.", conceptService.find("10000100", "MAIN/A1"));
+	}
+
+	@Test
+	public void testCreateMergeReviewConceptDeletedOnParentAcceptUpdated() throws InterruptedException, ServiceException {
+		createConcept("10000100", "MAIN");
+		branchService.create("MAIN/A1");
+
+		// Update concept 10000100 description on A
+		Concept concept = conceptService.find("10000100", "MAIN/A1");
+		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		conceptService.update(concept, "MAIN/A1");
+
+		// Delete concept 10000100 on MAIN
+		conceptService.deleteConceptAndComponents("10000100", "MAIN", false);
+
+		String source = "MAIN";
+		String target = "MAIN/A1";
+		MergeReview review = getMergeReviewInCurrentState(source, target);
+
+		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		assertEquals(1, mergeReviewConflictingConcepts.size());
+
+		// Check concept is only there on the source side.
+		MergeReviewConceptVersions mergeReviewConceptVersions = mergeReviewConflictingConcepts.iterator().next();
+		assertNull(mergeReviewConceptVersions.getSourceConcept());
+		assertNotNull(mergeReviewConceptVersions.getTargetConcept());
+		assertEquals("10000100", mergeReviewConceptVersions.getTargetConcept().getConceptId());
+		assertNull(mergeReviewConceptVersions.getAutoMergedConcept());
+
+		// Accept the updated version
+		review.putManuallyMergedConcept(mergeReviewConceptVersions.getTargetConcept());
+
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A1", review.getManuallyMergedConcepts().values());
+
+		assertNotNull("Concept should be restored after the merge.", conceptService.find("10000100", "MAIN/A1"));
+	}
+
+	private MergeReview getMergeReviewInCurrentState(String source, String target) throws InterruptedException {
+		MergeReview review = reviewService.createMergeReview(source, target);
+
+		long maxWait = 10;
+		long cumulativeWait = 0;
+		while (review.getStatus() == ReviewStatus.PENDING && cumulativeWait < maxWait) {
+			Thread.sleep(1_000);
+			cumulativeWait++;
+		}
+		return review;
+	}
+
 	/**
 	 * Set up a content conflict situation.
 	 * Three versions of the same concept should be given.
@@ -526,4 +695,18 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(expectedBranchState, branchService.findLatest(path).getState());
 	}
 
+	private void createConcept(String conceptId, String path) throws ServiceException {
+		conceptService.create(
+				new Concept(conceptId)
+						.addDescription(
+								new Description("Heart")
+										.setCaseSignificance("CASE_INSENSITIVE")
+										.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
+												Concepts.descriptionAcceptabilityNames.get(Concepts.ACCEPTABLE)))
+						)
+						.addRelationship(
+								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)
+						),
+				path);
+	}
 }
