@@ -29,6 +29,12 @@ public class MergeReview {
 		manuallyMergedConcepts.put(manuallyMergedConcept.getConceptIdAsLong(), manuallyMergedConcept);
 	}
 
+	public void putManuallyMergedConceptDeletion(Long conceptId) {
+		Concept concept = new Concept(conceptId.toString());
+		concept.markDeleted();
+		manuallyMergedConcepts.put(conceptId, concept);
+	}
+
 	public ReviewStatus getStatus() {
 		return status;
 	}

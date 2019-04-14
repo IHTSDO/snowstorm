@@ -25,6 +25,7 @@ import javax.validation.constraints.NotNull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @Api(tags = "Branching", description = "-")
@@ -133,12 +134,18 @@ public class BranchController {
 	}
 
 	@RequestMapping(value = "/merge-reviews/{id}/{conceptId}", method = RequestMethod.POST)
-	public void getMergeReviewConflictingConcepts(@PathVariable String id, @PathVariable String conceptId, @RequestBody Concept manuallyMergedConcept) {
+	public void saveMergeReviewConflictingConcept(@PathVariable String id, @PathVariable String conceptId, @RequestBody Concept manuallyMergedConcept) {
 		final MergeReview mergeReview = reviewService.getMergeReviewOrThrow(id);
 		if (!conceptId.equals(manuallyMergedConcept.getConceptId())) {
 			throw new IllegalArgumentException("conceptId in request path does not match the conceptId in the request body.");
 		}
 		mergeReview.putManuallyMergedConcept(manuallyMergedConcept);
+	}
+
+	@RequestMapping(value = "/merge-reviews/{id}/{conceptId}", method = RequestMethod.DELETE)
+	public void deleteMergeReviewConflictingConcept(@PathVariable String id, @PathVariable Long conceptId) {
+		final MergeReview mergeReview = reviewService.getMergeReviewOrThrow(id);
+		mergeReview.putManuallyMergedConceptDeletion(conceptId);
 	}
 
 	@RequestMapping(value = "/merge-reviews/{id}/apply", method = RequestMethod.POST)

@@ -11,10 +11,7 @@ import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Entity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.BranchMergeJob;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.JobStatus;
-import org.snomed.snowstorm.core.data.domain.SnomedComponent;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.review.BranchReview;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
@@ -33,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.core.util.PredicateUtil.not;
 
 @Service
 public class BranchMergeService {
@@ -171,7 +169,17 @@ public class BranchMergeService {
 			// Content will be taken from the latest complete commit on the source branch.
 			try (Commit commit = branchService.openRebaseCommit(targetBranch.getPath(), branchMetadataHelper.getBranchLockMetadata("Rebasing changes from " + source))) {
 				if (manuallyMergedConcepts != null && !manuallyMergedConcepts.isEmpty()) {
-					conceptService.updateWithinCommit(manuallyMergedConcepts, commit);
+
+					Set<String> conceptsToDelete = manuallyMergedConcepts.stream()
+							.filter(Concept::isDeleted).map(Concept::getConceptId).collect(Collectors.toSet());
+					if (!conceptsToDelete.isEmpty()) {
+						Set<String> conceptsToDeleteWhichExistOnBranch = conceptService.findConceptMinis(commit.getBranch().getPath(), conceptsToDelete, null)
+								.getResultsMap().values().stream().map(ConceptMini::getConceptId).collect(Collectors.toSet());
+						conceptService.deleteConceptsAndComponentsWithinCommit(conceptsToDeleteWhichExistOnBranch, commit, false);
+					}
+
+					conceptService.updateWithinCommit(manuallyMergedConcepts.stream()
+							.filter(not(Concept::isDeleted)).collect(Collectors.toSet()), commit);
 				}
 				commit.markSuccessful();
 			}
