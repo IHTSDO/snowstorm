@@ -51,11 +51,6 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 
 	private Logger logger = LoggerFactory.getLogger(ConceptDefinitionStatusUpdateService.class);
 
-	@PostConstruct
-	public void init() {
-		branchService.addCommitListener(this);
-	}
-
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
 		if (commit.getCommitType() == CONTENT) {

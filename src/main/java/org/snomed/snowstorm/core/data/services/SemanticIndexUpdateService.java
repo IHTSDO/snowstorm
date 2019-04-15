@@ -72,11 +72,6 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	@PostConstruct
-	public void init() {
-		branchService.addCommitListener(this);
-	}
-
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
 		if (semanticIndexingEnabled) {
