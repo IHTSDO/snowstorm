@@ -3,6 +3,7 @@ package org.snomed.snowstorm.validation;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.drools.domain.Concept;
 import org.ihtsdo.drools.domain.Constants;
@@ -81,11 +82,14 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(org.snomed.snowstorm.core.data.domain.Description.class))
 						.must(termQuery("active", active))
-						.must(termQuery("term", exactTerm))
+						.must(matchPhraseQuery("term", exactTerm))
 				)
 				.build();
 		List<org.snomed.snowstorm.core.data.domain.Description> matches = elasticsearchTemplate.queryForList(query, org.snomed.snowstorm.core.data.domain.Description.class);
-		return matches.stream().map(DroolsDescription::new).collect(Collectors.toSet());
+		Set<Description> descriptions = matches.stream()
+				.filter(description -> description.getTerm().equals(exactTerm))
+				.map(DroolsDescription::new).collect(Collectors.toSet());
+		return descriptions;
 	}
 
 	@Override
