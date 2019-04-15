@@ -20,7 +20,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -58,11 +57,6 @@ public class TraceabilityLogService implements CommitListener {
 	public TraceabilityLogService() {
 		objectMapper = new ObjectMapper();
 		activityConsumer = activity -> jmsTemplate.convertAndSend(jmsQueuePrefix + ".traceability", activity);
-	}
-
-	@PostConstruct
-	public void init() {
-		branchService.addCommitListener(this);
 	}
 
 	@Override

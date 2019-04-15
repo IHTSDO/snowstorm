@@ -30,6 +30,7 @@ import org.snomed.snowstorm.core.data.services.identifier.LocalIdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.SnowstormCISClient;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
@@ -60,6 +61,7 @@ import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.ApiSelectorBuilder;
 import springfox.documentation.spring.web.plugins.Docket;
 
+import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -97,7 +99,27 @@ public abstract class Config {
 	@Value("${elasticsearch.password}")
 	private String elasticsearchPassword;
 
+	@Autowired
+	private BranchService branchService;
+
+	@Autowired
+	private ConceptDefinitionStatusUpdateService conceptDefinitionStatusUpdateService;
+
+	@Autowired
+	private SemanticIndexUpdateService semanticIndexUpdateService;
+
+	@Autowired
+	private TraceabilityLogService traceabilityLogService;
+
 	private Logger logger = LoggerFactory.getLogger(getClass());
+
+	@PostConstruct
+	public void configureCommitListeners() {
+		// Commit listeners will be called in this order
+		branchService.addCommitListener(conceptDefinitionStatusUpdateService);
+		branchService.addCommitListener(semanticIndexUpdateService);
+		branchService.addCommitListener(traceabilityLogService);
+	}
 
 	@Bean
 	public ExecutorService taskExecutor() {

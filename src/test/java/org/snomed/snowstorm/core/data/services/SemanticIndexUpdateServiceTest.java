@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.junit.After;
@@ -62,6 +63,15 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	@Before
 	public void setup() {
 		branchService.create("MAIN");
+	}
+
+	@Test
+	public void testCommitListenerOrderingConfig() {
+		List<CommitListener> commitListeners = branchService.getCommitListeners();
+		assertEquals(3, commitListeners.size());
+		assertEquals(ConceptDefinitionStatusUpdateService.class, commitListeners.get(0).getClass());
+		assertEquals(SemanticIndexUpdateService.class, commitListeners.get(1).getClass());
+		assertEquals(TraceabilityLogService.class, commitListeners.get(2).getClass());
 	}
 
 	@Test
