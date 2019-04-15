@@ -2,7 +2,7 @@ package org.snomed.snowstorm.core.data.domain.classification;
 
 public enum ClassificationStatus {
 
-	SCHEDULED, RUNNING, FAILED, COMPLETED(true), STALE, SAVING_IN_PROGRESS(true), SAVED(true), SAVE_FAILED(true);
+	SCHEDULED, RUNNING, FAILED, COMPLETED(true), STALE(true), SAVING_IN_PROGRESS(true), SAVED(true), SAVE_FAILED(true);
 
 	boolean resultsAvailable;
 
