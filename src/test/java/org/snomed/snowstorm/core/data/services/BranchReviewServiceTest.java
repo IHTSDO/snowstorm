@@ -63,6 +63,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 		createConcept("10000600", "MAIN");
 		createConcept("700000000", "MAIN");
 		createConcept("800000000", "MAIN");
+		createConcept("900000000", "MAIN");
 
 		// Rebase A
 		mergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
@@ -124,6 +125,14 @@ public class BranchReviewServiceTest extends AbstractTest {
 		conceptService.update(concept, "MAIN/B");
 		concept = conceptService.find("800000000", "MAIN/A");
 		concept.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(Concepts.ISA, "10000200"))));
+		conceptService.update(concept, "MAIN/A");
+
+		// Add concept 900000000 axiom on B and inferred relationship on A - this should be ignored
+		concept = conceptService.find("900000000", "MAIN/B");
+		concept.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(Concepts.ISA, "10000200"))));
+		conceptService.update(concept, "MAIN/B");
+		concept = conceptService.find("900000000", "MAIN/A");
+		concept.addRelationship(new Relationship(Concepts.ISA, "10000200").setCharacteristicTypeId(Concepts.INFERRED_RELATIONSHIP));
 		conceptService.update(concept, "MAIN/A");
 
 

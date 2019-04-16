@@ -9,6 +9,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -449,7 +450,8 @@ public class BranchReviewService {
 	private NativeSearchQueryBuilder componentsReplacedCriteria(Set<String> versionsReplaced, String... limitFieldsFetched) {
 		NativeSearchQueryBuilder builder = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(termsQuery("_id", versionsReplaced)))
+						.must(termsQuery("_id", versionsReplaced))
+						.mustNot(getNonStatedRelationshipClause()))
 				.withPageable(ComponentService.LARGE_PAGE);
 		if (limitFieldsFetched.length > 0) {
 			builder.withFields(limitFieldsFetched);
@@ -459,7 +461,13 @@ public class BranchReviewService {
 
 	private NativeSearchQueryBuilder newSearchQuery(BoolQueryBuilder branchUpdatesCriteria) {
 		return new NativeSearchQueryBuilder()
-					.withQuery(boolQuery().must(branchUpdatesCriteria))
-					.withPageable(ComponentService.LARGE_PAGE);
+				.withQuery(boolQuery()
+						.must(branchUpdatesCriteria)
+						.mustNot(getNonStatedRelationshipClause()))
+				.withPageable(ComponentService.LARGE_PAGE);
+	}
+
+	private TermsQueryBuilder getNonStatedRelationshipClause() {
+		return termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP, Concepts.ADDITIONAL_RELATIONSHIP);
 	}
 }
