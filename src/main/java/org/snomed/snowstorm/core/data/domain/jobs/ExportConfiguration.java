@@ -22,7 +22,10 @@ public final class ExportConfiguration {
 	private boolean conceptsAndRelationshipsOnly;
 
 	private String id;
+
 	private Date startDate;
+
+	private String transientEffectiveTime;
 
 	public ExportConfiguration() {
 	}
@@ -78,5 +81,13 @@ public final class ExportConfiguration {
 
 	public Date getStartDate() {
 		return startDate;
+	}
+
+	public void setTransientEffectiveTime(String transientEffectiveTime) {
+		this.transientEffectiveTime = transientEffectiveTime;
+	}
+
+	public String getTransientEffectiveTime() {
+		return this.transientEffectiveTime;
 	}
 }

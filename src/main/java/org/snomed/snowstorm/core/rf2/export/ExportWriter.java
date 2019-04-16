@@ -13,6 +13,7 @@ public abstract class ExportWriter<T> implements AutoCloseable {
 	final BufferedWriter bufferedWriter;
 	final List<T> componentBuffer;
 	private int contentLinesWritten;
+	private String transientEffectiveTime = "";
 
 	ExportWriter(BufferedWriter bufferedWriter) {
 		this.bufferedWriter = bufferedWriter;
@@ -43,5 +44,15 @@ public abstract class ExportWriter<T> implements AutoCloseable {
 
 	public int getContentLinesWritten() {
 		return contentLinesWritten;
+	}
+
+	public void setTransientEffectiveTime(String transientEffectiveTime) {
+		if (transientEffectiveTime != null) {
+			this.transientEffectiveTime = transientEffectiveTime;
+		}
+	}
+
+	public String getTransientEffectiveTime() {
+		return transientEffectiveTime;
 	}
 }

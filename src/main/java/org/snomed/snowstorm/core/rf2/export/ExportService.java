@@ -92,7 +92,7 @@ public class ExportService {
 		}
 
 		File exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
-				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly());
+				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(), exportConfiguration.getTransientEffectiveTime());
 		try (FileInputStream inputStream = new FileInputStream(exportFile)) {
 			Streams.copy(inputStream, outputStream, false);
 		} catch (IOException e) {
@@ -103,6 +103,10 @@ public class ExportService {
 	}
 
 	public File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification) throws ExportException {
+		return exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, forClassification, null);
+	}
+
+	private File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification, String transientEffectiveTime) throws ExportException {
 		if (exportType == RF2Type.FULL) {
 			throw new IllegalArgumentException("FULL RF2 export is not implemented.");
 		}
@@ -117,7 +121,7 @@ public class ExportService {
 			File exportFile = File.createTempFile("export-" + new Date().getTime(), ".zip");
 			try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
 				// Write Concepts
-				int conceptLines = exportComponents(Concept.class, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria.getEntityBranchCriteria(Concept.class)), null);
+				int conceptLines = exportComponents(Concept.class, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria.getEntityBranchCriteria(Concept.class)), transientEffectiveTime,null);
 				logger.info("{} concept states exported", conceptLines);
 
 				if (!forClassification) {
@@ -125,13 +129,13 @@ public class ExportService {
 					BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
 					BoolQueryBuilder descriptionContentQuery = getContentQuery(exportType, descriptionBranchCriteria);
 					descriptionContentQuery.mustNot(termQuery(Description.Fields.TYPE_ID, Concepts.TEXT_DEFINITION));
-					int descriptionLines = exportComponents(Description.class, "Terminology/", "sct2_Description_", filenameEffectiveDate, exportType, zipOutputStream, descriptionContentQuery, null);
+					int descriptionLines = exportComponents(Description.class, "Terminology/", "sct2_Description_", filenameEffectiveDate, exportType, zipOutputStream, descriptionContentQuery, transientEffectiveTime,null);
 					logger.info("{} description states exported", descriptionLines);
 
 					// Write Text Definitions
 					BoolQueryBuilder textDefinitionContentQuery = getContentQuery(exportType, descriptionBranchCriteria);
 					textDefinitionContentQuery.must(termQuery(Description.Fields.TYPE_ID, Concepts.TEXT_DEFINITION));
-					int textDefinitionLines = exportComponents(Description.class, "Terminology/", "sct2_TextDefinition_", filenameEffectiveDate, exportType, zipOutputStream, textDefinitionContentQuery, null);
+					int textDefinitionLines = exportComponents(Description.class, "Terminology/", "sct2_TextDefinition_", filenameEffectiveDate, exportType, zipOutputStream, textDefinitionContentQuery, transientEffectiveTime,null);
 					logger.info("{} text defintion states exported", textDefinitionLines);
 				}
 
@@ -139,14 +143,14 @@ public class ExportService {
 				BoolQueryBuilder relationshipBranchCritera = branchCriteria.getEntityBranchCriteria(Relationship.class);
 				BoolQueryBuilder relationshipQuery = getContentQuery(exportType, relationshipBranchCritera);
 				relationshipQuery.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
-				int statedRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_StatedRelationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, null);
+				int statedRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_StatedRelationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, transientEffectiveTime,null);
 				logger.info("{} stated relationship states exported", statedRelationshipLines);
 
 				// Write Inferred Relationships
 				relationshipQuery = getContentQuery(exportType, relationshipBranchCritera);
 				// Not 'stated' will include inferred and additional
 				relationshipQuery.mustNot(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
-				int inferredRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_Relationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, null);
+				int inferredRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_Relationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, transientEffectiveTime,null);
 				logger.info("{} inferred and additional relationship states exported", inferredRelationshipLines);
 
 				// Write Reference Sets
@@ -177,6 +181,7 @@ public class ExportService {
 									exportType,
 									zipOutputStream,
 									memberQuery,
+									transientEffectiveTime,
 									referenceSetType.getFieldNameList());
 						}
 					}
@@ -207,7 +212,7 @@ public class ExportService {
 	}
 
 	private <T> int exportComponents(Class<T> componentClass, String entryDirectory, String entryFilenamePrefix, String filenameEffectiveDate,
-									 RF2Type exportType, ZipOutputStream zipOutputStream, BoolQueryBuilder contentQuery, List<String> extraFieldNames) {
+									 RF2Type exportType, ZipOutputStream zipOutputStream, BoolQueryBuilder contentQuery, String transientEffectiveTime, List<String> extraFieldNames) {
 
 		String componentFilePath = "SnomedCT_Export/RF2Release/" + entryDirectory + entryFilenamePrefix + String.format("%s_INT_%s.txt", exportType.getName(), filenameEffectiveDate);
 		logger.info("Exporting file {}", componentFilePath);
@@ -218,6 +223,7 @@ public class ExportService {
 			// Stream components into zip
 			try (ExportWriter<T> writer = getExportWriter(componentClass, zipOutputStream, extraFieldNames);
 					CloseableIterator<T> componentStream = elasticsearchTemplate.stream(getNativeSearchQuery(contentQuery), componentClass)) {
+				writer.setTransientEffectiveTime(transientEffectiveTime);
 				writer.writeHeader();
 				componentStream.forEachRemaining(writer::write);
 				return writer.getContentLinesWritten();

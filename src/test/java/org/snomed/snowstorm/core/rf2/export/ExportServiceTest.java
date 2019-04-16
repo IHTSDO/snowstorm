@@ -256,6 +256,44 @@ public class ExportServiceTest extends AbstractTest {
 		}
 	}
 
+	@Test
+	public void exportRF2ArchiveWithTransientEffectiveTime() throws Exception {
+		File exportFile = getTempFile("export", ".zip");
+		exportFile.deleteOnExit();
+
+		// Run export
+		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
+			ExportConfiguration exportConfiguration = new ExportConfiguration("MAIN", RF2Type.DELTA);
+
+			exportConfiguration.setConceptsAndRelationshipsOnly(false);
+
+			exportConfiguration.setFilenameEffectiveDate("20190416");
+			exportConfiguration.setTransientEffectiveTime("20190731");
+			exportService.createJob(exportConfiguration);
+			exportService.exportRF2Archive(exportConfiguration, outputStream);
+		}
+
+		// Test export
+		try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(exportFile))) {
+			// Concepts
+			ZipEntry concepts = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Delta_INT_20190416.txt", concepts.getName());
+			List<String> lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(ConceptExportWriter.HEADER, lines.get(0));
+			assertEquals("123001\t20190731\t1\t900000000000207008\t900000000000074008", lines.get(1));
+
+			// Descriptions
+			ZipEntry descriptions = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Description_Delta_INT_20190416.txt", descriptions.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(DescriptionExportWriter.HEADER, lines.get(0));
+			assertEquals("124011\t20190731\t1\t900000000000207008\t123001\ten\t" + Concepts.FSN + "\tBleeding (finding)\t900000000000448009", lines.get(1));
+		}
+
+	}
+
 	private List<String> getLines(ZipInputStream zipInputStream) throws IOException {
 		File conceptFile = getTempFile("temp", ".txt");
 		StreamUtils.copy(zipInputStream, new FileOutputStream(conceptFile), false, true);
