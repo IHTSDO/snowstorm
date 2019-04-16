@@ -25,7 +25,6 @@ import javax.validation.constraints.NotNull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @RestController
 @Api(tags = "Branching", description = "-")
@@ -155,7 +154,7 @@ public class BranchController {
 
 	@RequestMapping(value = "/merges", method = RequestMethod.POST)
 	@ApiOperation(value = "Perform a branch rebase or promotion.",
-			notes = "The integrity-check endpoint should be used before performing a promotion to avoid a promotion errors.")
+			notes = "The integrity-check endpoint should be used before performing a promotion to avoid promotion errors.")
 	public ResponseEntity<Void> mergeBranch(@RequestBody MergeRequest mergeRequest) {
 		BranchMergeJob mergeJob = branchMergeService.mergeBranchAsync(mergeRequest);
 		return ControllerHelper.getCreatedResponse(mergeJob.getId());
@@ -171,7 +170,7 @@ public class BranchController {
 	@ApiOperation(value = "Perform integrity check against changed components on this branch.",
 			notes = "Returns a report containing an entry for each type of issue found together with a map of components. " +
 					"In the component map each key represents an existing component and the corresponding map value is the id of a component which is missing or inactive.")
-	public IntegrityIssueReport integrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) {
+	public IntegrityIssueReport integrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) throws ServiceException {
 		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branchPath));
 		return integrityService.findChangedComponentsWithBadIntegrity(branch);
 	}
@@ -181,7 +180,7 @@ public class BranchController {
 	@ApiOperation(value = "Perform integrity check against all components on this branch.",
 			notes = "Returns a report containing an entry for each type of issue found together with a map of components. " +
 					"In the component map each key represents an existing component and the corresponding map value is the id of a component which is missing or inactive.")
-	public IntegrityIssueReport fullIntegrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) {
+	public IntegrityIssueReport fullIntegrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) throws ServiceException {
 		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branchPath));
 		return integrityService.findAllComponentsWithBadIntegrity(branch, true);
 	}

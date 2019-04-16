@@ -62,6 +62,10 @@ public class AxiomConversionService {
 		}
 	}
 
+	public Set<Long> getReferencedConcepts(String owlExpression) throws ConversionException {
+		return axiomRelationshipConversionService.getIdsOfConceptsNamedInAxiom(owlExpression);
+	}
+
 	private ReferenceSetMember createMember(Concept concept, Axiom axiom, String owlExpression) {
 		return new ReferenceSetMember(axiom.getAxiomId() != null ? axiom.getAxiomId() : UUID.randomUUID().toString(), null, axiom.isActive(), axiom.getModuleId(), Concepts.OWL_AXIOM_REFERENCE_SET, concept.getConceptId())
 				.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION, owlExpression);
@@ -104,5 +108,4 @@ public class AxiomConversionService {
 		}
 		return axiomRepresentation;
 	}
-
 }

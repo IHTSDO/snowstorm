@@ -68,7 +68,7 @@ public class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testImportFull() throws ReleaseImportException, FileNotFoundException {
+	public void testImportFull() throws ReleaseImportException, FileNotFoundException, ServiceException {
 		final String branchPath = "MAIN";
 		Assert.assertEquals(1, branchService.findAll().size());
 
@@ -376,7 +376,7 @@ public class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testImportSnapshotOnlyModelModule() throws ReleaseImportException, FileNotFoundException {
+	public void testImportSnapshotOnlyModelModule() throws ReleaseImportException, FileNotFoundException, ServiceException {
 		final String branchPath = "MAIN";
 
 		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
