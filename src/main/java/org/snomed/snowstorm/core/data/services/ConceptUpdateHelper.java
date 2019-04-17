@@ -296,7 +296,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			existingIndicatorMember.markChanged();
 			refsetMembersToPersist.add(existingIndicatorMember);
 		}
-		if (newIndicator != null && (existingIndicator == null || !newIndicator.equals(existingIndicator))) {
+		if (newIndicator != null && !newIndicator.equals(existingIndicator)) {
 			// Create new indicator
 			String newIndicatorId = Concepts.inactivationIndicatorNames.inverse().get(newIndicator);
 			if (newIndicatorId == null) {

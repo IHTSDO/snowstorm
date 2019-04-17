@@ -137,7 +137,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		return inactivationIndicatorName;
 	}
 
-	public Concept setInactivationIndicatorName(String inactivationIndicatorName) {
+	public Concept setInactivationIndicator(String inactivationIndicatorName) {
 		this.inactivationIndicatorName = inactivationIndicatorName;
 		return this;
 	}

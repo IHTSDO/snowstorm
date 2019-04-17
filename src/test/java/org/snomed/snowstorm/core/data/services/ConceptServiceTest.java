@@ -448,7 +448,7 @@ public class ConceptServiceTest extends AbstractTest {
 		savedConcept.setActive(false);
 
 		// Set inactivation indicator using strings
-		savedConcept.setInactivationIndicatorName(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
+		savedConcept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
 		assertNull(savedConcept.getInactivationIndicatorMember());
 
 		// Set association target using strings
@@ -458,11 +458,13 @@ public class ConceptServiceTest extends AbstractTest {
 		assertNull(savedConcept.getAssociationTargetMembers());
 
 		Concept inactiveConcept = conceptService.update(savedConcept, path);
+		Concept foundInactiveConcept = conceptService.find(savedConcept.getConceptId(), path);
 
 		assertFalse(inactiveConcept.isActive());
 
 		// Check inactivation indicator string
 		assertEquals("DUPLICATE", inactiveConcept.getInactivationIndicator());
+		assertEquals("DUPLICATE", foundInactiveConcept.getInactivationIndicator());
 
 		// Check inactivation indicator reference set member was created
 		ReferenceSetMember inactivationIndicatorMember = inactiveConcept.getInactivationIndicatorMember();

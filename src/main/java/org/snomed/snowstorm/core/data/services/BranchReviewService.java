@@ -194,7 +194,7 @@ public class BranchReviewService {
 		mergedConcept.setEffectiveTimeI(winningConcept.getEffectiveTimeI());
 		mergedConcept.setModuleId(winningConcept.getModuleId());
 
-		mergedConcept.setInactivationIndicatorName(winningConcept.getInactivationIndicator());
+		mergedConcept.setInactivationIndicator(winningConcept.getInactivationIndicator());
 		mergedConcept.setAssociationTargets(winningConcept.getAssociationTargets());
 
 		// Merge Descriptions

@@ -56,7 +56,7 @@ public class AtomicCommitTest extends AbstractTest {
 			conceptService.batchCreate(Lists.newArrayList(
 					new Concept("1").addDescription(new Description("one")),
 					new Concept("2").addDescription(new Description("two")),
-					new Concept("3").addDescription(new Description("three")).setInactivationIndicatorName("DOES_NOT_EXIST")
+					new Concept("3").addDescription(new Description("three")).setInactivationIndicator("DOES_NOT_EXIST")
 			), branch);
 		} catch (IllegalArgumentException e) {
 			// java.lang.IllegalArgumentException: Concept inactivation indicator not recognised 'DOES_NOT_EXIST'.

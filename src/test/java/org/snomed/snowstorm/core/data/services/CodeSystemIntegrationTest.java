@@ -93,7 +93,7 @@ public class CodeSystemIntegrationTest extends AbstractTest {
 		Concept incisionOfMiddleEarConcept = conceptService.find(incisionOfMiddleEarId, "MAIN");
 		incisionOfMiddleEarConcept.setActive(false);
 		// Mark as outdated
-		incisionOfMiddleEarConcept.setInactivationIndicatorName(Concepts.inactivationIndicatorNames.get(Concepts.OUTDATED));
+		incisionOfMiddleEarConcept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.OUTDATED));
 		// Mark as possibly equivalent to "Incision of ear (procedure)"
 		HashMap<String, Set<String>> associationTargets = new HashMap<>();
 		associationTargets.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION), Collections.singleton(incisionOfEar.getConceptId()));
