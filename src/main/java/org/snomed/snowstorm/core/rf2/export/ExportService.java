@@ -121,7 +121,7 @@ public class ExportService {
 			File exportFile = File.createTempFile("export-" + new Date().getTime(), ".zip");
 			try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
 				// Write Concepts
-				int conceptLines = exportComponents(Concept.class, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria.getEntityBranchCriteria(Concept.class)), transientEffectiveTime,null);
+				int conceptLines = exportComponents(Concept.class, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream, getContentQuery(exportType, branchCriteria.getEntityBranchCriteria(Concept.class)), transientEffectiveTime, null);
 				logger.info("{} concept states exported", conceptLines);
 
 				if (!forClassification) {
@@ -135,7 +135,7 @@ public class ExportService {
 					// Write Text Definitions
 					BoolQueryBuilder textDefinitionContentQuery = getContentQuery(exportType, descriptionBranchCriteria);
 					textDefinitionContentQuery.must(termQuery(Description.Fields.TYPE_ID, Concepts.TEXT_DEFINITION));
-					int textDefinitionLines = exportComponents(Description.class, "Terminology/", "sct2_TextDefinition_", filenameEffectiveDate, exportType, zipOutputStream, textDefinitionContentQuery, transientEffectiveTime,null);
+					int textDefinitionLines = exportComponents(Description.class, "Terminology/", "sct2_TextDefinition_", filenameEffectiveDate, exportType, zipOutputStream, textDefinitionContentQuery, transientEffectiveTime, null);
 					logger.info("{} text defintion states exported", textDefinitionLines);
 				}
 
@@ -143,14 +143,14 @@ public class ExportService {
 				BoolQueryBuilder relationshipBranchCritera = branchCriteria.getEntityBranchCriteria(Relationship.class);
 				BoolQueryBuilder relationshipQuery = getContentQuery(exportType, relationshipBranchCritera);
 				relationshipQuery.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
-				int statedRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_StatedRelationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, transientEffectiveTime,null);
+				int statedRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_StatedRelationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, transientEffectiveTime, null);
 				logger.info("{} stated relationship states exported", statedRelationshipLines);
 
 				// Write Inferred Relationships
 				relationshipQuery = getContentQuery(exportType, relationshipBranchCritera);
 				// Not 'stated' will include inferred and additional
 				relationshipQuery.mustNot(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
-				int inferredRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_Relationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, transientEffectiveTime,null);
+				int inferredRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_Relationship_", filenameEffectiveDate, exportType, zipOutputStream, relationshipQuery, transientEffectiveTime, null);
 				logger.info("{} inferred and additional relationship states exported", inferredRelationshipLines);
 
 				// Write Reference Sets
