@@ -181,6 +181,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public Description clearLanguageRefsetMembers() {
 		langRefsetMembers.clear();
+		acceptabilityMap.clear();
 		return this;
 	}
 
