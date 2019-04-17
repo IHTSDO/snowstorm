@@ -146,7 +146,9 @@ public class ConceptUpdateHelper extends ComponentService {
 						description.setDescriptionId(reservedIds.getNextId(ComponentType.Description).toString());
 					}
 				}
-				if (!description.isActive()) {
+				if (description.isActive()) {
+					description.setInactivationIndicator(null);
+				} else {
 					description.clearLanguageRefsetMembers();
 				}
 
@@ -293,7 +295,7 @@ public class ConceptUpdateHelper extends ComponentService {
 
 		String newIndicator = newComponent.getInactivationIndicator();
 		String existingIndicator = existingComponent == null ? null : existingComponent.getInactivationIndicator();
-		if (existingIndicator != null && (newIndicator == null || !newIndicator.equals(existingIndicator))) {
+		if (existingIndicator != null && !existingIndicator.equals(newIndicator)) {
 			// Make existing indicator inactive
 			ReferenceSetMember existingIndicatorMember = existingComponent.getInactivationIndicatorMember();
 			existingIndicatorMember.setActive(false);
