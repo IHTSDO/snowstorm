@@ -116,7 +116,6 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 
 	@Override
 	protected Object[] getReleaseHashObjects() {
-		// TODO: This should probably include all additional fields
 		Object[] hashObjects = new Object[2 + (additionalFields.size() * 2)];
 		hashObjects[0] = active;
 		hashObjects[1] = moduleId;

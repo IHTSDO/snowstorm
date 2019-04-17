@@ -615,9 +615,11 @@ public class ConceptServiceTest extends AbstractTest {
 		final Concept savedConcept1 = conceptService.find("50960005", "MAIN");
 		final Description description1 = savedConcept1.getDescriptions().iterator().next();
 		final Map<String, ReferenceSetMember> members1 = description1.getLangRefsetMembers();
-		ReferenceSetMember referenceSetMember = members1.get("900000000000509007");
-		assertEquals(Concepts.PREFERRED, referenceSetMember.getAdditionalField("acceptabilityId"));
-		assertTrue(referenceSetMember.isReleased());
+		assertEquals(Concepts.PREFERRED, members1.get("900000000000509007").getAdditionalField("acceptabilityId"));
+		assertTrue(members1.get("900000000000509007").isReleased());
+		assertTrue(members1.get("900000000000509007").isActive());
+		assertNotNull(members1.get("900000000000509007").getEffectiveTime());
+
 		assertEquals(1, description1.getAcceptabilityMap().size());
 
 		// Remove acceptability in next request
@@ -631,6 +633,7 @@ public class ConceptServiceTest extends AbstractTest {
 		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembers();
 		assertEquals(1, members2.size());
 		assertFalse(members2.get("900000000000509007").isActive());
+		assertNull(members2.get("900000000000509007").getEffectiveTime());
 
 		// Check that acceptability map is empty
 		assertEquals(0, description2.getAcceptabilityMap().size());

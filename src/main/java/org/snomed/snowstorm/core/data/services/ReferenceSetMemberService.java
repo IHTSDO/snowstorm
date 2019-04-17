@@ -162,6 +162,8 @@ public class ReferenceSetMemberService extends ComponentService {
 				.filter(member -> !member.isActive() && !member.isReleased())
 				.forEach(ReferenceSetMember::markDeleted);
 
+		members.forEach(ReferenceSetMember::updateEffectiveTime);
+
 		// Set conceptId on those members which are considered part of the concept or its components
 		List<ReferenceSetMember> descriptionMembers = new ArrayList<>();
 		LongSet descriptionIds = new LongArraySet();
@@ -201,7 +203,7 @@ public class ReferenceSetMemberService extends ComponentService {
 			}
 
 			descriptionMembers.parallelStream().forEach(member -> {
-				Description description = (Description) descriptionMap.get(parseLong(member.getReferencedComponentId()));
+				Description description = descriptionMap.get(parseLong(member.getReferencedComponentId()));
 				if (description == null) {
 					logger.warn("Refset member refers to description which does not exist, this will not be persisted {} -> {}", member.getId(), member.getReferencedComponentId());
 					members.remove(member);
