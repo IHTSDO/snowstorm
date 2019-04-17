@@ -9,6 +9,7 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Entity;
+import org.elasticsearch.common.collect.MapBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -90,6 +91,10 @@ public class BranchMergeService {
 				mergeBranchSync(source, target, null);
 				mergeJob.setStatus(JobStatus.COMPLETED);
 				mergeJob.setEndDate(new Date());
+			} catch (IntegrityException e) {
+				mergeJob.setStatus(JobStatus.CONFLICTS);
+				mergeJob.setMessage(e.getMessage());
+				mergeJob.setApiError(ApiErrorFactory.createErrorForMergeConflicts(e.getMessage(), e.getIntegrityIssueReport()));
 			} catch (Exception e) {
 				mergeJob.setStatus(JobStatus.FAILED);
 				mergeJob.setMessage(e.getMessage());
@@ -194,7 +199,7 @@ public class BranchMergeService {
 				IntegrityIssueReport issueReport = integrityService.findChangedComponentsWithBadIntegrity(sourceBranch);
 				if (!issueReport.isEmpty()) {
 					logger.error("Aborting promotion of {}. Integrity issues found: {}", source, issueReport);
-					throw new ServiceException("Aborting promotion of " + source + ". Integrity issues found.");
+					throw new IntegrityException("Aborting promotion of " + source + ". Integrity issues found.", issueReport);
 					// Throwing an exception before marking the commit as successful automatically rolls back the commit
 				}
 

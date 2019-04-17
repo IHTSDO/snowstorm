@@ -1,5 +1,8 @@
 package org.snomed.snowstorm.core.data.domain;
 
+import org.snomed.snowstorm.core.data.services.ApiError;
+import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
+
 import java.util.Date;
 import java.util.UUID;
 
@@ -13,6 +16,7 @@ public class BranchMergeJob {
 	private JobStatus status;
 	private Date endDate;
 	private String message;
+	private ApiError apiError;
 
 	public BranchMergeJob(String source, String target, JobStatus status) {
 		id = UUID.randomUUID().toString();
@@ -68,5 +72,13 @@ public class BranchMergeJob {
 
 	public String getMessage() {
 		return message;
+	}
+
+	public void setApiError(ApiError apiError) {
+		this.apiError = apiError;
+	}
+
+	public ApiError getApiError() {
+		return apiError;
 	}
 }
