@@ -91,10 +91,11 @@ public class ConceptUpdateHelper extends ComponentService {
 			final Map<String, Description> existingDescriptions = new HashMap<>();
 			final Set<ReferenceSetMember> newVersionOwlAxiomMembers = concept.getAllOwlAxiomMembers();
 
-			if (!concept.isActive()) {
+			if (concept.isActive()) {
 				// Clear inactivation refsets
 				concept.setInactivationIndicator(null);
 				concept.setAssociationTargets(null);
+			} else {
 				// Make relationships and axioms inactive
 				concept.getRelationships().forEach(relationship -> relationship.setActive(false));
 				newVersionOwlAxiomMembers.forEach(axiom -> axiom.setActive(false));
