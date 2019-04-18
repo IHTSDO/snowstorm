@@ -17,7 +17,11 @@ public class MapUtil {
 				return false;
 			}
 			for (String key : map.keySet()) {
-				if (!map.get(key).containsAll(otherMap.get(key))) {
+				Set<String> otherMapSet = otherMap.get(key);
+				if (otherMapSet == null) {
+					return false;
+				}
+				if (!map.get(key).containsAll(otherMapSet)) {
 					return false;
 				}
 			}
