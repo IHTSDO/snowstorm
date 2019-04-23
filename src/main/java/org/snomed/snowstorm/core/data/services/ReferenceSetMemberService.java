@@ -103,8 +103,13 @@ public class ReferenceSetMemberService extends ComponentService {
 			query.must(termQuery(ReferenceSetMember.Fields.ACTIVE, active));
 		}
 		if (!Strings.isNullOrEmpty(referenceSet)) {
-			Page<Long> conceptIds = getEclQueryService().selectConceptIds(referenceSet, branchCriteria, branch, true, LARGE_PAGE);
-			query.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, conceptIds.getContent()));
+			List<Long> conceptIds;
+			if (referenceSet.matches("\\d+")) {
+				conceptIds = Collections.singletonList(parseLong(referenceSet));
+			} else {
+				conceptIds = getEclQueryService().selectConceptIds(referenceSet, branchCriteria, branch, true, LARGE_PAGE).getContent();
+			}
+			query.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, conceptIds));
 		}
 		if (!Strings.isNullOrEmpty(referencedComponentId)) {
 			query.must(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, referencedComponentId));
