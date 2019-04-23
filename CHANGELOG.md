@@ -3,13 +3,35 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## 2.2.3 Fix Release - 2019-04-23
+
+### Fixes
+- Fix concept descendants endpoint for stated and inferred.
+
+
+
+## 2.2.2 Fix Release - 2019-04-01
+
+### Improvements
+- Clarify documentation for extension loading
+### Fixes
+- UK Edition import fixes
+
+
+
+## 2.2.1 Fix Release - 2019-03-29
+
+### Fixes
+- FHIR API fix, remove Accept-Language for now, incompatible annotation
+
+
 
 ## 2.2.0 Release - 2019-03-15
 Maintenance release with fixes and enhancements.
 
 Thanks to everyone who raised an issue or provided a pull request for this maintenance release.
 
-_NOTICE - The next major release will be 3.x which will introduce support 
+_NOTICE - The next major release will be 3.x which will introduce support
 for SNOMED CT Editions with a completely axiom based stated form._
 
 ### Breaking
@@ -39,7 +61,7 @@ for SNOMED CT Editions with a completely axiom based stated form._
 - Concept search uses stated form unless inferred ecl given (better during authoring and has no effect on released content).
 - Fail faster when concept page is above 10K (ES does not support this with default config).
 
-## Fixes
+### Fixes
 - Issue #29 Escape concept term quotes in search results.
 - Fix concept parents listing.
 - Fix ECL dot notation against empty set of concepts.
@@ -74,7 +96,7 @@ Snowstorm is now production ready as a read-only terminology server.
 - Make concept lookup performance logging quieter.
 - New flag to create code system version automatically during import.
 
-## Fixes
+### Fixes
 - Inactive relationships excluded from integrity check.
 - Correct path of Relationship API.
 - Correct full integrity check branch mapping.
