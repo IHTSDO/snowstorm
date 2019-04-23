@@ -20,7 +20,9 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetTypeRepository;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -62,6 +64,9 @@ public class ReferenceSetMemberService extends ComponentService {
 	@Autowired
 	private ReferenceSetTypesConfigurationService referenceSetTypesConfigurationService;
 
+	@Autowired
+	private ApplicationContext applicationContext;
+
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Page<ReferenceSetMember> findMembers(String branch,
@@ -71,9 +76,20 @@ public class ReferenceSetMemberService extends ComponentService {
 		return findMembers(branch, null, null, referencedComponentId, null, null, pageRequest);
 	}
 
+	/**
+	 * Find members of reference sets.
+	 * @param branch                The branch to search on.
+	 * @param active	            Filter by the active field.
+	 * @param referenceSet         	reference set filter, can be a concept id or an ECL expression.
+	 * @param referencedComponentId Filter by the referencedComponentId field.
+	 * @param targetComponentId     Filter by the targetComponentId field. Not all reference set types have this field.
+	 * @param mapTarget	            Filter by the targetComponentId field. Not all reference set types have this field.
+	 * @param pageRequest           Pagination.
+	 * @return	A page of matched reference set members.
+	 */
 	public Page<ReferenceSetMember> findMembers(String branch,
 			Boolean active,
-			String referenceSetId,
+			String referenceSet,
 			String referencedComponentId,
 			String targetComponentId,
 			String mapTarget,
@@ -84,13 +100,14 @@ public class ReferenceSetMemberService extends ComponentService {
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
 
 		if (active != null) {
-			query.must(termQuery("active", active));
+			query.must(termQuery(ReferenceSetMember.Fields.ACTIVE, active));
 		}
-		if (!Strings.isNullOrEmpty(referenceSetId)) {
-			query.must(termQuery("refsetId", referenceSetId));
+		if (!Strings.isNullOrEmpty(referenceSet)) {
+			Page<Long> conceptIds = getEclQueryService().selectConceptIds(referenceSet, branchCriteria, branch, true, LARGE_PAGE);
+			query.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, conceptIds.getContent()));
 		}
 		if (!Strings.isNullOrEmpty(referencedComponentId)) {
-			query.must(termQuery("referencedComponentId", referencedComponentId));
+			query.must(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, referencedComponentId));
 		}
 		if (!Strings.isNullOrEmpty(targetComponentId)) {
 			query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping("targetComponentId"), targetComponentId));
@@ -101,6 +118,10 @@ public class ReferenceSetMemberService extends ComponentService {
 
 		return elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
 				.withQuery(query).withPageable(pageRequest).build(), ReferenceSetMember.class);
+	}
+
+	private ECLQueryService getEclQueryService() {
+		return applicationContext.getBeansOfType(ECLQueryService.class).values().iterator().next();
 	}
 
 	public ReferenceSetMember findMember(String branch, String uuid) {

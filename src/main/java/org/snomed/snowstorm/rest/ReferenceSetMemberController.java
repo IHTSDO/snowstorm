@@ -3,12 +3,13 @@ package org.snomed.snowstorm.rest;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
-import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -32,6 +33,9 @@ public class ReferenceSetMemberController {
 	@Autowired
 	private ConceptService conceptService;
 
+	@ApiOperation(value = "Search for reference set members.",
+			notes = "The referenceSet parameter is used to search for members of that reference set. " +
+					"This parameter can be a concept identifier or an ECL expression, for example '<900000000000522004'.")
 	@RequestMapping(value = "/{branch}/members", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)

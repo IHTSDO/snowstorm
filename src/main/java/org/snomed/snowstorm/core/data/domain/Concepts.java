@@ -74,6 +74,7 @@ public class Concepts {
 	public static final String REFSET_SIMPLE = "446609009";
 
 	// Historical reference sets
+	public static final String REFSET_HISTORICAL_ASSOCIATION = "900000000000522004";
 	public static final String REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION = "900000000000523009";
 	public static final String REFSET_MOVED_TO_ASSOCIATION = "900000000000524003";
 	public static final String REFSET_MOVED_FROM_ASSOCIATION = "900000000000525002";
