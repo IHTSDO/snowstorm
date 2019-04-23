@@ -175,7 +175,8 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return findConcepts(branch, stated, null, null, null, "<" + conceptId, null, offset, limit, acceptLanguageHeader);
+		String ecl = "<" + conceptId;
+		return findConcepts(branch, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, offset, limit, acceptLanguageHeader);
 	}
 
 	@ResponseBody
