@@ -64,7 +64,7 @@ public class TestConfig extends Config {
 				}
 				testElasticsearchSingleton = EmbeddedElastic.builder()
 						.withElasticVersion(ELASTIC_SEARCH_VERSION)
-						.withStartTimeout(30, TimeUnit.SECONDS)
+						.withStartTimeout(2, TimeUnit.MINUTES)
 						.withSetting(PopularProperties.CLUSTER_NAME, clusterName)
 						.withSetting(PopularProperties.HTTP_PORT, PORT)
 						// Manually delete installation directory to prevent verbose error logging
