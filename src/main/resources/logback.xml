@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+	<include resource="org/springframework/boot/logging/logback/base.xml"/>
+
+	<!-- File appender for authoring traceability -->
+	<appender name="traceability-appender"
+			  class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<encoder>
+			<pattern>${FILE_LOG_PATTERN}</pattern>
+		</encoder>
+		<file>authoring-traceability.log</file>
+		<rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+			<fileNamePattern>authoring-traceability.log.%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
+			<maxFileSize>${LOG_FILE_MAX_SIZE:-10MB}</maxFileSize>
+			<maxHistory>${LOG_FILE_MAX_HISTORY:-0}</maxHistory>
+		</rollingPolicy>
+	</appender>
+	<logger name="org.snomed.snowstorm.core.data.services.TraceabilityLogService" level="INFO">
+		<appender-ref ref="traceability-appender" />
+	</logger>
+
+</configuration>
