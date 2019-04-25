@@ -10,7 +10,7 @@ import java.util.Objects;
 /**
  * Represents an edition or extension of SNOMED-CT
  */
-@Document(indexName = "es-codesystem", type = "codesystem", shards = 8)
+@Document(indexName = "es-codesystem", type = "codesystem")
 public class CodeSystem {
 
 	public interface Fields {

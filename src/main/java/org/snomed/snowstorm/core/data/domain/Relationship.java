@@ -15,7 +15,7 @@ import javax.validation.constraints.Size;
 import static org.snomed.snowstorm.core.data.domain.Concepts.relationshipCharacteristicTypeNames;
 import static org.snomed.snowstorm.core.data.domain.Concepts.relationshipModifierNames;
 
-@Document(indexName = "es-rel", type = "relationship", shards = 8)
+@Document(indexName = "es-rel", type = "relationship")
 public class Relationship extends SnomedComponent<Relationship> {
 
 	public enum CharacteristicType {

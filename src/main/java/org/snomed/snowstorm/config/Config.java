@@ -18,6 +18,7 @@ import org.elasticsearch.client.RestClientBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
+import org.snomed.snowstorm.config.elasticsearch.IndexConfig;
 import org.snomed.snowstorm.config.elasticsearch.SnowstormElasticsearchMappingContext;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.config.ConceptStoreMixIn;
@@ -99,6 +100,15 @@ public abstract class Config {
 	@Value("${elasticsearch.password}")
 	private String elasticsearchPassword;
 
+	@Value("${elasticsearch.index.prefix}")
+	private String indexNamePrefix;
+
+	@Value("${elasticsearch.index.shards}")
+	private short indexShards;
+
+	@Value("${elasticsearch.index.replicas}")
+	private short indexReplicas;
+
 	@Autowired
 	private BranchService branchService;
 
@@ -110,6 +120,9 @@ public abstract class Config {
 
 	@Autowired
 	private TraceabilityLogService traceabilityLogService;
+
+	@Autowired
+	private ElasticsearchTemplate elasticsearchTemplate;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -156,10 +169,6 @@ public abstract class Config {
 		return new ElasticsearchProperties();
 	}
 
-
-	@Value("${elasticsearch.index.prefix}")
-	private String indexNamePrefix;
-
 	@Bean
 	public ElasticsearchTemplate elasticsearchTemplate() {
 		final ObjectMapper elasticSearchMapper = Jackson2ObjectMapperBuilder
@@ -185,7 +194,7 @@ public abstract class Config {
 			}
 		};
 
-		SimpleElasticsearchMappingContext mappingContext = new SnowstormElasticsearchMappingContext(indexNamePrefix);
+		SimpleElasticsearchMappingContext mappingContext = new SnowstormElasticsearchMappingContext(new IndexConfig(indexNamePrefix, indexShards, indexReplicas));
 		FastResultsMapper fastResultsMapper = new FastResultsMapper(mappingContext, entityMapper);
 
 		return new ElasticsearchTemplate(
@@ -203,7 +212,6 @@ public abstract class Config {
 	protected void initialiseIndices(boolean deleteExisting) {
 		// Initialse Elasticsearch indices
 		Class<?>[] allDomainEntityTypes = domainEntityConfiguration().getAllDomainEntityTypes().toArray(new Class<?>[]{});
-		ElasticsearchTemplate elasticsearchTemplate = elasticsearchTemplate();
 		ComponentService.initialiseIndexAndMappingForPersistentClasses(
 				deleteExisting,
 				elasticsearchTemplate,

@@ -12,7 +12,7 @@ import java.util.*;
 /**
  * Represents an active concept with fields to assist logical searching.
  */
-@Document(indexName = "es-query", type = "query-concept", shards = 8)
+@Document(indexName = "es-query", type = "query-concept")
 public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	public static final String ATTR_TYPE_WILDCARD = "all";

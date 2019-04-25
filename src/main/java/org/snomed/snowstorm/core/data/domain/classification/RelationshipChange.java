@@ -2,14 +2,13 @@ package org.snomed.snowstorm.core.data.domain.classification;
 
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-@Document(indexName = "es-class-rel", type = "rel", shards = 8)
+@Document(indexName = "es-class-rel", type = "rel")
 public class RelationshipChange {
 
 	public interface Fields {
