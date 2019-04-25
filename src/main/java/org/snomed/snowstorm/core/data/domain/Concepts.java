@@ -170,5 +170,6 @@ public class Concepts {
 
 	// Notable concepts
 	public static final String CLINICAL_FINDING = "404684003";
+	public static final String SUBSTANCE = "105590001";
 
 }

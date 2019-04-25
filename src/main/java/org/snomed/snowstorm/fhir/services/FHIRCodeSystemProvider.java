@@ -81,12 +81,10 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		if (codeSystemVersion == null) {
 			throw new NotFoundException(String.format("No version found for Code system %s with default module %s.", shortName, defaultModule));
 		}
-		String branchPath = codeSystemVersion.getBranchPath();
-
-		//List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
-		List<String> languageCodes = ControllerHelper.getLanguageCodes(ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER);
 		
-				Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), languageCodes, branchPath));
+		List<String> languageCodes = ControllerHelper.getLanguageCodes(ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER);
+		String branchPath = codeSystemVersion.getBranchPath();
+		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), languageCodes, branchPath));
 		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + code.getValue()), branchPath, LARGE_PAGE);
 		return mapper.mapToFHIR(concept, childIds.getContent());
 	}

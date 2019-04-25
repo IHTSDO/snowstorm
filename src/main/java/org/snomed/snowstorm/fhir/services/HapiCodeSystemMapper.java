@@ -7,7 +7,6 @@ import org.hl7.fhir.dstu3.model.*;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 
-
 public class HapiCodeSystemMapper implements FHIRConstants {
 	
 	public Parameters mapToFHIR(Concept c, Collection<Long> childIds) {
