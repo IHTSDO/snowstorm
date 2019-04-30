@@ -32,3 +32,19 @@ For example by starting Snowstorm with an extra JVM parameter:
 --server.port=8095
 --snowstorm.rest-api.readonly=true
 ```
+
+#### Note - when running in an AWS environment
+
+Snowstorm uses Spring Cloud libraries which will detect when the application is run in AWS. The libraries expect there to be credentials in the environment which can be used to load resources from S3. If there are no credentials available startup will fail with the following error reported `com.amazonaws.SdkClientException: Unable to load AWS credentials from any provider in the chain`.
+
+This AWS auto configuration behaviour can be disabled using this property in your application.properties file:
+
+```bash
+spring.autoconfigure.exclude=org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration
+```
+
+Or by setting the same property using a command line argument when starting Snowstorm:
+
+```
+--spring.autoconfigure.exclude=org.springframework.cloud.aws.autoconfigure.context.ContextStac
+```
