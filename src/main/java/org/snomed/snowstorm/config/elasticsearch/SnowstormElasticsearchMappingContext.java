@@ -25,7 +25,6 @@ public class SnowstormElasticsearchMappingContext extends SimpleElasticsearchMap
 		if (this.context != null) {
 			persistentEntity.setApplicationContext(this.context);
 		}
-		LOGGER.info("Creating index {} with {} shards and {} replicas.", persistentEntity.getIndexName(), persistentEntity.getShards(), persistentEntity.getReplicas());
 		return persistentEntity;
 	}
 
