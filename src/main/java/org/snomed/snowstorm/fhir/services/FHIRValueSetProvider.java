@@ -29,7 +29,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	@Autowired
 	private HapiValueSetMapper mapper;
 	
-	private FHIRHelper helper = new FHIRHelper();
+	//private FHIRHelper helper = new FHIRHelper();
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -37,13 +37,15 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	public ValueSet expand(
 			HttpServletRequest request,
 			HttpServletResponse response,
-			@OperationParam(name="url") String url) throws FHIROperationException {
+			@OperationParam(name="url") String url,
+			@OperationParam(name="filter") String filter) throws FHIROperationException {
 
 		// TODO: Surely we should be doing the same code system and version mapping here as we are in the $lookup operation?
 		String branch = "MAIN";
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		String ecl = url.substring(url.indexOf("fhir_vs=ecl/") + 12);
-		queryBuilder.ecl(ecl);
+		queryBuilder.ecl(ecl)
+					.termPrefix(filter);
 		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), PageRequest.of(0, 1000));
 		logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branch, ecl);
 		return mapper.mapToFHIR(conceptMiniPage.getContent(), url); 

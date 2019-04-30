@@ -45,10 +45,10 @@ public class HapiCodeSystemMapper implements FHIRConstants {
 	}
 
 	private void addProperties(Parameters parameters, Concept c) {
-		parameters.addParameter(createProperty(EFFECTIVE_TIME, c.getEffectiveTime(), false));
-		parameters.addParameter(createProperty(MODULE_ID, c.getModuleId(), true));
 		Boolean sufficientlyDefined = c.getDefinitionStatusId().equals(Concepts.SUFFICIENTLY_DEFINED);
-		parameters.addParameter(createProperty(SUFFICIENTLY_DEFINED, sufficientlyDefined, false));
+		parameters.addParameter(createProperty(EFFECTIVE_TIME, c.getEffectiveTime(), false))
+			.addParameter(createProperty(MODULE_ID, c.getModuleId(), true))
+			.addParameter(createProperty(SUFFICIENTLY_DEFINED, sufficientlyDefined, false));
 	}
 
 	private void addParents(Parameters p, Concept c) {
