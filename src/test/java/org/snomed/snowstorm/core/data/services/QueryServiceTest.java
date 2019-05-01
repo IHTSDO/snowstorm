@@ -52,27 +52,27 @@ public class QueryServiceTest extends AbstractTest {
 		Concept reallyCheesyPizza_5 = new Concept("100003").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza");
 		conceptService.batchCreate(Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5), path);
 
-		List<ConceptMini> matches = service.search(service.createQueryBuilder(true).termPrefix("Piz"), path, PAGE_REQUEST).getContent();
+		List<ConceptMini> matches = service.search(service.createQueryBuilder(true).termMatch("Piz"), path, PAGE_REQUEST).getContent();
 		assertEquals(4, matches.size());
 		assertEquals("Pizza", matches.get(0).getFsn());
 		assertEquals("Cheese Pizza", matches.get(1).getFsn());
 		assertEquals("So Cheesy Pizza", matches.get(2).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(3).getFsn());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(SNOMEDCT_ROOT)).termPrefix("Piz"), path, PAGE_REQUEST).getContent();
+		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(SNOMEDCT_ROOT)).termMatch("Piz"), path, PAGE_REQUEST).getContent();
 		assertEquals(4, matches.size());
 		assertEquals("Pizza", matches.get(0).getFsn());
 		assertEquals("Cheese Pizza", matches.get(1).getFsn());
 		assertEquals("So Cheesy Pizza", matches.get(2).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(3).getFsn());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termPrefix("Piz"), path, PAGE_REQUEST).getContent();
+		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termMatch("Piz"), path, PAGE_REQUEST).getContent();
 		assertEquals(3, matches.size());
 		assertEquals("Cheese Pizza", matches.get(0).getFsn());
 		assertEquals("So Cheesy Pizza", matches.get(1).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(2).getFsn());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termPrefix("Cheesy"), path, PAGE_REQUEST).getContent();
+		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termMatch("Cheesy"), path, PAGE_REQUEST).getContent();
 		assertEquals(2, matches.size());
 		assertEquals("So Cheesy Pizza", matches.get(0).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(1).getFsn());

@@ -89,7 +89,7 @@ public class MRCMService {
 		}
 		
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false)
-				.termPrefix(termPrefix)
+				.termMatch(termPrefix)
 				.languageCodes(languageCodes);
 
 		StringBuilder ecl = new StringBuilder();

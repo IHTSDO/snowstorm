@@ -15,6 +15,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import ca.uhn.fhir.model.primitive.BooleanDt;
+import ca.uhn.fhir.model.primitive.DateDt;
 import ca.uhn.fhir.rest.annotation.Operation;
 import ca.uhn.fhir.rest.annotation.OperationParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
@@ -39,15 +41,15 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			HttpServletResponse response,
 			@OperationParam(name="url") String url,
 			@OperationParam(name="filter") String filter,
-			@OperationParam(name="activeOnly") Boolean active) throws FHIROperationException {
+			@OperationParam(name="activeOnly") String active) throws FHIROperationException {
 
 		// TODO: Surely we should be doing the same code system and version mapping here as we are in the $lookup operation?
 		String branch = "MAIN";
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		String ecl = url.substring(url.indexOf("fhir_vs=ecl/") + 12);
 		queryBuilder.ecl(ecl)
-					.termPrefix(filter)
-					.activeFilter(active);
+					.termMatch(filter)
+					.activeFilter(Boolean.parseBoolean(active));
 		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), PageRequest.of(0, 1000));
 		logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branch, ecl);
 		return mapper.mapToFHIR(conceptMiniPage.getContent(), url); 

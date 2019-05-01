@@ -492,7 +492,7 @@ public class QueryService {
 		private final boolean stated;
 		private Boolean activeFilter;
 		private String definitionStatusFilter;
-		private String termPrefix;
+		private String termMatch;
 		private List<String> languageCodes;
 		private String ecl;
 
@@ -531,11 +531,11 @@ public class QueryService {
 		/**
 		 * Term prefix has a minimum length of 3 characters.
 		 */
-		public ConceptQueryBuilder termPrefix(String termPrefix) {
-			if (termPrefix != null && termPrefix.isEmpty()) {
-				termPrefix = null;
+		public ConceptQueryBuilder termMatch(String termMatch) {
+			if (termMatch != null && termMatch.isEmpty()) {
+				termMatch = null;
 			}
-			this.termPrefix = termPrefix;
+			this.termMatch = termMatch;
 			return this;
 		}
 
@@ -575,7 +575,7 @@ public class QueryService {
 		}
 
 		private String getTermPrefix() {
-			return termPrefix;
+			return termMatch;
 		}
 
 		private List<String> getLanguageCodes() {

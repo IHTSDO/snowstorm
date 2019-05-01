@@ -78,7 +78,7 @@ public class ConceptController {
 				.activeFilter(activeFilter)
 				.definitionStatusFilter(definitionStatusFilter)
 				.ecl(ecl)
-				.termPrefix(term)
+				.termMatch(term)
 				.languageCodes(ControllerHelper.getLanguageCodes(acceptLanguageHeader))
 				.conceptIds(conceptIds);
 
