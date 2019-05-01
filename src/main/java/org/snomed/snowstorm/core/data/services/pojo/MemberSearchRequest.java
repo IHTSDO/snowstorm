@@ -7,6 +7,7 @@ public class MemberSearchRequest {
 	private String referencedComponentId;
 	private String targetComponentId;
 	private String mapTarget;
+	private String owlExpressionConceptId;
 
 	/**
 	 * @param active  Filter by the active field.
@@ -66,5 +67,17 @@ public class MemberSearchRequest {
 
 	public String getMapTarget() {
 		return mapTarget;
+	}
+
+	/**
+	 * @param owlExpressionConceptId  Filter by a concept id within the owlExpression. Not all reference set types have this field.
+	 */
+	public MemberSearchRequest owlExpressionConceptId(String owlExpressionConceptId) {
+		this.owlExpressionConceptId = owlExpressionConceptId;
+		return this;
+	}
+
+	public String getOwlExpressionConceptId() {
+		return owlExpressionConceptId;
 	}
 }

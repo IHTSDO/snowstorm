@@ -114,6 +114,10 @@ public class ReferenceSetMemberService extends ComponentService {
 		if (!Strings.isNullOrEmpty(mapTarget)) {
 			query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping("mapTarget"), mapTarget));
 		}
+		String owlExpressionConceptId = searchRequest.getOwlExpressionConceptId();
+		if (!Strings.isNullOrEmpty(owlExpressionConceptId)) {
+			query.must(regexpQuery(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_KEYWORD_FIELD_PATH, String.format(".*:%s[^0-9].*", owlExpressionConceptId)));
+		}
 
 		return elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
 				.withQuery(query).withPageable(pageRequest).build(), ReferenceSetMember.class);

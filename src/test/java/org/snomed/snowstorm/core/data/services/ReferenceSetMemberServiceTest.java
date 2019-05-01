@@ -67,6 +67,30 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 		assertEquals(0, memberService.findMembers(MAIN, Concepts.CLINICAL_FINDING, PAGE).getTotalElements());
 	}
 
+	@Test
+	public void findMemberByOwlExpressionConceptId() {
+		memberService.createMember(MAIN,
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, "90253000")
+						.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION,
+								"SubClassOf(" +
+										":90253000 " +
+										"ObjectIntersectionOf(" +
+											":20484008 " +
+											"ObjectSomeValuesFrom(" +
+												":609096000 " +
+												"ObjectIntersectionOf(ObjectSomeValuesFrom(:116676008 :68245003) ObjectSomeValuesFrom(:363698007 :280369009)))))"));
+
+		assertEquals("Number not in axiom.", 0, findOwlMembers("999").getTotalElements());
+		assertEquals("Number in left hand part of axiom.", 1, findOwlMembers("90253000").getTotalElements());
+		assertEquals("Number in right hand part of axiom.", 1, findOwlMembers("116676008").getTotalElements());
+		assertEquals("Partial number should not match.", 0, findOwlMembers("11667600").getTotalElements());
+		assertEquals("Partial number should not match.", 0, findOwlMembers("9096000").getTotalElements());
+	}
+
+	public Page<ReferenceSetMember> findOwlMembers(String owlExpressionConceptId) {
+		return memberService.findMembers(MAIN, new MemberSearchRequest().owlExpressionConceptId(owlExpressionConceptId), PAGE);
+	}
+
 	@After
 	public void tearDown() {
 		conceptService.deleteAll();

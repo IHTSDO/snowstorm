@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -33,18 +34,19 @@ public class ReferenceSetMemberController {
 	@Autowired
 	private ConceptService conceptService;
 
-	@ApiOperation(value = "Search for reference set members.",
-			notes = "The referenceSet parameter is used to search for members of that reference set. " +
-					"This parameter can be a concept identifier or an ECL expression, for example '<900000000000522004'.")
+	@ApiOperation("Search for reference set members.")
 	@RequestMapping(value = "/{branch}/members", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
+			@ApiParam("A reference set identifier or ECL expression can be used to limit the reference sets searched. Example: <900000000000522004")
 			@RequestParam(required = false) String referenceSet,
 			@RequestParam(required = false) String referencedComponentId,
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(required = false) String targetComponent,
 			@RequestParam(required = false) String mapTarget,
+			@ApiParam("Search by concept identifiers within an owlExpression.")
+			@RequestParam(name = "owlExpression.conceptId", required = false) String owlExpressionConceptId,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -57,6 +59,7 @@ public class ReferenceSetMemberController {
 					.referencedComponentId(referencedComponentId)
 					.targetComponentId(targetComponent)
 					.mapTarget(mapTarget)
+					.owlExpressionConceptId(owlExpressionConceptId)
 				,
 				ControllerHelper.getPageRequest(offset, limit)
 		);

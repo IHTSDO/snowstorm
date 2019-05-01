@@ -41,6 +41,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> {
 	public interface OwlExpressionFields {
 		String OWL_EXPRESSION = "owlExpression";
 		String OWL_EXPRESSION_FIELD_PATH = Fields.ADDITIONAL_FIELDS_PREFIX + OWL_EXPRESSION;
+		String OWL_EXPRESSION_KEYWORD_FIELD_PATH = Fields.getAdditionalFieldKeywordTypeMapping(OWL_EXPRESSION);
 	}
 
 	public interface MRCMAttributeDomainFields {
