@@ -8,6 +8,7 @@ public class MemberSearchRequest {
 	private String targetComponentId;
 	private String mapTarget;
 	private String owlExpressionConceptId;
+	private Boolean owlExpressionGCI;
 
 	/**
 	 * @param active  Filter by the active field.
@@ -79,5 +80,17 @@ public class MemberSearchRequest {
 
 	public String getOwlExpressionConceptId() {
 		return owlExpressionConceptId;
+	}
+
+	/**
+	 * @param owlExpressionGCI  Find OWL Axioms which are General Concept Inclusions. Can be true/false or null.
+	 */
+	public MemberSearchRequest owlExpressionGCI(Boolean owlExpressionGCI) {
+		this.owlExpressionGCI = owlExpressionGCI;
+		return this;
+	}
+
+	public Boolean getOwlExpressionGCI() {
+		return owlExpressionGCI;
 	}
 }

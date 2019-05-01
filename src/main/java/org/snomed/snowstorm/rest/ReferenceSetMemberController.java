@@ -47,6 +47,8 @@ public class ReferenceSetMemberController {
 			@RequestParam(required = false) String mapTarget,
 			@ApiParam("Search by concept identifiers within an owlExpression.")
 			@RequestParam(name = "owlExpression.conceptId", required = false) String owlExpressionConceptId,
+			@ApiParam("Return axiom members with a GCI owlExpression.")
+			@RequestParam(name = "owlExpression.gci", required = false) Boolean owlExpressionGCI,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -60,6 +62,7 @@ public class ReferenceSetMemberController {
 					.targetComponentId(targetComponent)
 					.mapTarget(mapTarget)
 					.owlExpressionConceptId(owlExpressionConceptId)
+					.owlExpressionGCI(owlExpressionGCI)
 				,
 				ControllerHelper.getPageRequest(offset, limit)
 		);

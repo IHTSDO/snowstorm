@@ -13,6 +13,7 @@ import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.index.query.RegexpQueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -117,6 +118,15 @@ public class ReferenceSetMemberService extends ComponentService {
 		String owlExpressionConceptId = searchRequest.getOwlExpressionConceptId();
 		if (!Strings.isNullOrEmpty(owlExpressionConceptId)) {
 			query.must(regexpQuery(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_KEYWORD_FIELD_PATH, String.format(".*:%s[^0-9].*", owlExpressionConceptId)));
+		}
+		Boolean owlExpressionGCI = searchRequest.getOwlExpressionGCI();
+		if (owlExpressionGCI != null) {
+			RegexpQueryBuilder gciClause = regexpQuery(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_KEYWORD_FIELD_PATH, "SubClassOf\\(Object.*");
+			if (owlExpressionGCI) {
+				query.must(gciClause);
+			} else {
+				query.mustNot(gciClause);
+			}
 		}
 
 		return elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()

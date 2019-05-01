@@ -74,10 +74,8 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 						.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION,
 								"SubClassOf(" +
 										":90253000 " +
-										"ObjectIntersectionOf(" +
-											":20484008 " +
-											"ObjectSomeValuesFrom(" +
-												":609096000 " +
+										"ObjectIntersectionOf(:20484008 " +
+											"ObjectSomeValuesFrom(:609096000 " +
 												"ObjectIntersectionOf(ObjectSomeValuesFrom(:116676008 :68245003) ObjectSomeValuesFrom(:363698007 :280369009)))))"));
 
 		assertEquals("Number not in axiom.", 0, findOwlMembers("999").getTotalElements());
@@ -87,8 +85,51 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 		assertEquals("Partial number should not match.", 0, findOwlMembers("9096000").getTotalElements());
 	}
 
+	@Test
+	public void findMemberByOwlExpressionGCI() {
+		memberService.createMember(MAIN,
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, "90253000")
+						.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION,
+								// Normal class axiom
+								"SubClassOf(" +
+										// Named concept on left hand side
+										":90253000 " +
+										// Expression on the right hand side
+										"ObjectIntersectionOf(:20484008 " +
+											"ObjectSomeValuesFrom(:609096000 " +
+												"ObjectIntersectionOf(ObjectSomeValuesFrom(:116676008 :68245003) ObjectSomeValuesFrom(:363698007 :280369009)))))"));
+
+		memberService.createMember(MAIN,
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, "703264005")
+						.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION,
+								// GCI axiom
+								"SubClassOf(" +
+										// Expression on the left hand side
+										"ObjectIntersectionOf(:64859006 " +
+											"ObjectSomeValuesFrom(:609096000 " +
+												"ObjectSomeValuesFrom(:363698007 :272673000)) ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:42752001 :64572001))) " +
+										// Named concept on right hand side
+										":703264005)"));
+
+		assertEquals("Match normal class axiom.", 1, findOwlMembers("116676008", null).getTotalElements());
+		assertEquals("Should not match normal class axiom.", 0, findOwlMembers("116676008", true).getTotalElements());
+		assertEquals("Match normal class axiom.", 1, findOwlMembers("116676008", false).getTotalElements());
+
+		assertEquals("Match GCI axiom.", 1, findOwlMembers("703264005", null).getTotalElements());
+		assertEquals("Match GCI axiom.", 1, findOwlMembers("703264005", true).getTotalElements());
+		assertEquals("Should not match GCI axiom.", 0, findOwlMembers("703264005", false).getTotalElements());
+	}
+
 	public Page<ReferenceSetMember> findOwlMembers(String owlExpressionConceptId) {
-		return memberService.findMembers(MAIN, new MemberSearchRequest().owlExpressionConceptId(owlExpressionConceptId), PAGE);
+		return findOwlMembers(owlExpressionConceptId, null);
+	}
+	public Page<ReferenceSetMember> findOwlMembers(String owlExpressionConceptId, Boolean owlExpressionGCI) {
+		return memberService.findMembers(
+				MAIN,
+				new MemberSearchRequest()
+						.owlExpressionConceptId(owlExpressionConceptId)
+						.owlExpressionGCI(owlExpressionGCI),
+				PAGE);
 	}
 
 	@After
