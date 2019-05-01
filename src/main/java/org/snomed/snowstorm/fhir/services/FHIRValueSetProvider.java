@@ -15,8 +15,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
-import ca.uhn.fhir.model.primitive.BooleanDt;
-import ca.uhn.fhir.model.primitive.DateDt;
 import ca.uhn.fhir.rest.annotation.Operation;
 import ca.uhn.fhir.rest.annotation.OperationParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
@@ -31,6 +29,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	@Autowired
 	private HapiValueSetMapper mapper;
 	
+	private static int DEFAULT_PAGESIZE = 1000;
+	
 	//private FHIRHelper helper = new FHIRHelper();
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -41,7 +41,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			HttpServletResponse response,
 			@OperationParam(name="url") String url,
 			@OperationParam(name="filter") String filter,
-			@OperationParam(name="activeOnly") String active) throws FHIROperationException {
+			@OperationParam(name="activeOnly") String activeStr,
+			@OperationParam(name="offset") String offsetStr,
+			@OperationParam(name="count") String countStr) throws FHIROperationException {
 
 		// TODO: Surely we should be doing the same code system and version mapping here as we are in the $lookup operation?
 		String branch = "MAIN";
@@ -49,10 +51,16 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		String ecl = url.substring(url.indexOf("fhir_vs=ecl/") + 12);
 		queryBuilder.ecl(ecl)
 					.termMatch(filter)
-					.activeFilter(Boolean.parseBoolean(active));
-		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), PageRequest.of(0, 1000));
+					.activeFilter(Boolean.parseBoolean(activeStr));
+
+		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
+		int pageSize = (countStr == null || countStr.isEmpty()) ? DEFAULT_PAGESIZE : Integer.parseInt(countStr);
+		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), PageRequest.of(offset, pageSize));
 		logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branch, ecl);
-		return mapper.mapToFHIR(conceptMiniPage.getContent(), url); 
+		ValueSet valueSet = mapper.mapToFHIR(conceptMiniPage.getContent(), url); 
+		valueSet.getExpansion().setTotal((int)conceptMiniPage.getTotalElements());
+		valueSet.getExpansion().setOffset(offset);
+		return valueSet;
 	}
 	
 	@Override

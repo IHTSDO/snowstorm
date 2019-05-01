@@ -15,7 +15,7 @@ public class CodeSystemProviderTest extends AbstractFHIRTest {
 
 	@Test
 	public void testSingleConceptRecovery() {
-		Parameters concept = this.restTemplate.getForObject("http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + conceptId + "&_format=json", Parameters.class);
+		Parameters concept = this.restTemplate.getForObject("http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleSCTID + "&_format=json", Parameters.class);
 		/*for (ParametersParameterComponent parameter : concept.getParameter()) {
 			logger.info(toString(parameter, ""));
 		}*/

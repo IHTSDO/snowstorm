@@ -1,7 +1,10 @@
 package org.snomed.snowstorm.fhir.services;
 
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
+import org.hl7.fhir.dstu3.model.OperationOutcome;
 import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
 import org.hl7.fhir.dstu3.model.Parameters.ParametersParameterComponent;
 
@@ -41,57 +44,60 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 	@Autowired
 	protected CodeSystemService codeSystemService;
 
-	protected final String conceptId = "257751006";
+	protected static final String sampleSCTID = "257751006";
 	protected final String MAIN = "MAIN";
 	protected IParser fhirJsonParser;
 	HttpEntity<String> defaultRequestEntity;
+	boolean setupComplete = false;
 	ObjectMapper mapper = new ObjectMapper();
 
 	protected final Logger logger = LoggerFactory.getLogger(getClass());
 	
 	@Before
-	public void setup() throws ServiceException, InterruptedException {
+	synchronized public void setup() throws ServiceException, InterruptedException {
+		
+		if (setupComplete) {
+			return;
+		}
 		
 		fhirJsonParser = FhirContext.forDstu3().newJsonParser();
 		
 		branchService.create(MAIN);
-		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), MAIN);
-		
 		HttpHeaders headers = new HttpHeaders();
 		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
 		defaultRequestEntity = new HttpEntity<>(headers);
 
-		// Create dummy concept with descriptions containing quotes
-		Concept concept = conceptService.create(
-				new Concept(conceptId)
-						.addDescription(new Description("Baked potato (Substance)")
-								.setTypeId(Concepts.FSN)
-								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
-						.addDescription(new Description("Baked potato")
-								.setTypeId(Concepts.SYNONYM)
-								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
-						.addAxiom(new Relationship(Concepts.ISA, Concepts.SUBSTANCE)),
-				MAIN);
-
-
-		// Create a project branch and add a relationship to the dummy concept
-		concept.getRelationships().add(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT));
-		//Also add an inferred relationship to ensure semantic index updated to allow ECL request to work
-		Relationship infParentRel = new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT);
-		infParentRel.setCharacteristicType("INFERRED_RELATIONSHIP");
-		concept.addRelationship(infParentRel);
-		concept = conceptService.update(concept, MAIN);
-
-		// Add another relationship and description making two relationships and three descriptions
-		concept.getRelationships().add(new Relationship(Concepts.ISA, Concepts.SUBSTANCE));
-		concept.getDescriptions().add(new Description("Test"));
-		conceptService.update(concept, MAIN);
+		List<Concept> concepts = new ArrayList<>();
+		concepts.add(new Concept(Concepts.SNOMEDCT_ROOT));
+		for (int x=1; x<=10; x++) {
+			createDummyData(concepts);
+		}
+		conceptService.batchCreate(concepts, MAIN);
 		
 		// Version content to fill effectiveTime fields
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", MAIN);
 		codeSystemService.createCodeSystem(codeSystem);
 		codeSystemService.createVersion(codeSystem, 20190731, "");
 		logger.info("Baked Potato test data setup complete");
+		setupComplete = true;
+	}
+
+	private void createDummyData(List<Concept> concepts) throws ServiceException {
+		// Create dummy concept with descriptions and relationships
+		Relationship infParentRel = new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT);
+		infParentRel.setCharacteristicType("INFERRED_RELATIONSHIP");
+		int x = concepts.size();
+		Concept concept = new Concept("25775" + x + "006")
+						.addRelationship(infParentRel)
+						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT))
+						.addDescription(new Description("Baked potato " + x + " (Substance)")
+								.setTypeId(Concepts.FSN)
+								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+						.addDescription(new Description("Baked potato " + x)
+								.setTypeId(Concepts.SYNONYM)
+								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+						.addAxiom(new Relationship(Concepts.ISA, Concepts.SUBSTANCE));
+		concepts.add(concept);
 	}
 
 	protected String toString(ParametersParameterComponent p, String indent) {
@@ -109,16 +115,19 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		return sb.toString();
 	}
 	
-	protected void checkForError(ResponseEntity<String> response) throws FHIROperationException {
+	protected void checkForError(String json) throws FHIROperationException {
 		try {
-			if (response.getBody().contains("\"Status\":5") ||
-				response.getBody().contains("\"Status\":4") ||
-				response.getBody().contains("\"Status\":3")) {
-				ErrorResponse error = mapper.readValue(response.getBody(), ErrorResponse.class);
+			if (json.contains("\"Status\":5") ||
+					json.contains("\"Status\":4") ||
+					json.contains("\"Status\":3")) {
+				ErrorResponse error = mapper.readValue(json, ErrorResponse.class);
 				throw new FHIROperationException(IssueType.EXCEPTION, error.getMessage());
+			} else if (json.contains("\"resourceType\":\"OperationOutcome\"")) {
+				OperationOutcome outcome = fhirJsonParser.parseResource(OperationOutcome.class, json);
+				throw new FHIROperationException(IssueType.EXCEPTION, outcome.toString());
 			}
 		} catch (Exception e) {
-			throw new FHIROperationException(IssueType.EXCEPTION, response.getBody());
+			throw new FHIROperationException(IssueType.EXCEPTION, json);
 		}
 	}
 
