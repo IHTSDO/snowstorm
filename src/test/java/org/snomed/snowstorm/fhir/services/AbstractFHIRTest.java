@@ -6,7 +6,8 @@ import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
 import org.hl7.fhir.dstu3.model.Parameters.ParametersParameterComponent;
 
 import io.kaicode.elasticvc.api.BranchService;
-import org.junit.BeforeClass;
+
+import org.junit.Before;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
@@ -48,7 +49,7 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 
 	protected final Logger logger = LoggerFactory.getLogger(getClass());
 	
-	@BeforeClass
+	@Before
 	public void setup() throws ServiceException, InterruptedException {
 		
 		fhirJsonParser = FhirContext.forDstu3().newJsonParser();
