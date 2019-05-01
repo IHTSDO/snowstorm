@@ -38,14 +38,16 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="url") String url,
-			@OperationParam(name="filter") String filter) throws FHIROperationException {
+			@OperationParam(name="filter") String filter,
+			@OperationParam(name="activeOnly") Boolean active) throws FHIROperationException {
 
 		// TODO: Surely we should be doing the same code system and version mapping here as we are in the $lookup operation?
 		String branch = "MAIN";
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		String ecl = url.substring(url.indexOf("fhir_vs=ecl/") + 12);
 		queryBuilder.ecl(ecl)
-					.termPrefix(filter);
+					.termPrefix(filter)
+					.activeFilter(active);
 		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), PageRequest.of(0, 1000));
 		logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branch, ecl);
 		return mapper.mapToFHIR(conceptMiniPage.getContent(), url); 
