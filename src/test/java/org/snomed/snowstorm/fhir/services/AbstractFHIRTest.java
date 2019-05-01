@@ -2,10 +2,11 @@ package org.snomed.snowstorm.fhir.services;
 
 import java.util.Collections;
 
+import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
 import org.hl7.fhir.dstu3.model.Parameters.ParametersParameterComponent;
 
 import io.kaicode.elasticvc.api.BranchService;
-import org.junit.Before;
+import org.junit.BeforeClass;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
@@ -15,13 +16,12 @@ import org.snomed.snowstorm.core.data.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
-import org.springframework.http.MediaType;
-import org.springframework.http.converter.AbstractHttpMessageConverter;
-import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.*;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import ca.uhn.fhir.parser.JsonParser;
 
 public abstract class AbstractFHIRTest extends AbstractTest {
 
@@ -43,10 +43,12 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 	protected final String conceptId = "257751006";
 	protected final String MAIN = "MAIN";
 	protected IParser fhirJsonParser;
-	
+	HttpEntity<String> defaultRequestEntity;
+	ObjectMapper mapper = new ObjectMapper();
+
 	protected final Logger logger = LoggerFactory.getLogger(getClass());
 	
-	@Before
+	@BeforeClass
 	public void setup() throws ServiceException, InterruptedException {
 		
 		fhirJsonParser = FhirContext.forDstu3().newJsonParser();
@@ -54,21 +56,9 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		branchService.create(MAIN);
 		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), MAIN);
 		
-		//List<HttpMessageConverter<?>> messageConverters = new ArrayList<HttpMessageConverter<?>>();
-		for (HttpMessageConverter<?> converter : restTemplate.getRestTemplate().getMessageConverters()) {
-			//converter.setSupportedMediaTypes(Collections.singletonList(MediaType.ALL));
-			logger.info("Found converter: " + converter.getClass().getCanonicalName());
-			if (converter instanceof AbstractHttpMessageConverter) {
-				((AbstractHttpMessageConverter<?>)converter).setSupportedMediaTypes(Collections.singletonList(MediaType.ALL));
-			} 
-		}
-		
-		//Add the Jackson Message converter
-		//MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter();
-		//Attempt to convert all types of response
-		//converter.setSupportedMediaTypes(Collections.singletonList(MediaType.ALL));
-		//messageConverters.add(converter);  
-		//restTemplate.getRestTemplate().setMessageConverters(messageConverters);  
+		HttpHeaders headers = new HttpHeaders();
+		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+		defaultRequestEntity = new HttpEntity<>(headers);
 
 		// Create dummy concept with descriptions containing quotes
 		Concept concept = conceptService.create(
@@ -116,6 +106,19 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 			sb.append("\n" + toString(part, indent + "  "));
 		}
 		return sb.toString();
+	}
+	
+	protected void checkForError(ResponseEntity<String> response) throws FHIROperationException {
+		try {
+			if (response.getBody().contains("\"Status\":5") ||
+				response.getBody().contains("\"Status\":4") ||
+				response.getBody().contains("\"Status\":3")) {
+				ErrorResponse error = mapper.readValue(response.getBody(), ErrorResponse.class);
+				throw new FHIROperationException(IssueType.EXCEPTION, error.getMessage());
+			}
+		} catch (Exception e) {
+			throw new FHIROperationException(IssueType.EXCEPTION, response.getBody());
+		}
 	}
 
 }

@@ -1,14 +1,13 @@
 package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.dstu3.model.*;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.TestConfig;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.junit4.SpringRunner;
-
-import ca.uhn.fhir.context.FhirContext;
 
 import static org.junit.Assert.assertEquals;
 
@@ -17,13 +16,15 @@ import static org.junit.Assert.assertEquals;
 public class ValueSetProviderTest extends AbstractFHIRTest {
 	
 	@Test
-	public void testECLRecovery_DescOrSelf() {
+	public void testECLRecovery_DescOrSelf() throws FHIROperationException {
 		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<" + conceptId + "&_format=json";
-		String json = this.restTemplate.getForObject(url, String.class);
+		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
+		checkForError(response);
+		String json = response.getBody();
 		ValueSet v = fhirJsonParser.parseResource(ValueSet.class, json);
 		assertEquals(1,v.getExpansion().getContains().size());
 	}
-	
+
 	@Test
 	public void testECLRecovery_Self() {
 		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/" + conceptId + "&_format=json";
@@ -40,4 +41,5 @@ public class ValueSetProviderTest extends AbstractFHIRTest {
 		ValueSet v = fhirJsonParser.parseResource(ValueSet.class, json);
 		assertEquals(0,v.getExpansion().getContains().size());
 	}
+	
 }
