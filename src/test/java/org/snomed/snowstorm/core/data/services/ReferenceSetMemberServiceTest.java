@@ -11,6 +11,7 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -58,8 +59,8 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 		Page<ReferenceSetMember> members = memberService.findMembers(MAIN, Concepts.CLINICAL_FINDING, PAGE);
 		assertEquals(1, members.getTotalElements());
 
-		assertEquals(0, memberService.findMembers(MAIN, true, Concepts.REFSET_HISTORICAL_ASSOCIATION, null, null, null, PAGE).getTotalElements());
-		assertEquals(1, memberService.findMembers(MAIN, true, "<<" + Concepts.REFSET_HISTORICAL_ASSOCIATION, null, null, null, PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(MAIN, new MemberSearchRequest().active(true).referenceSet(Concepts.REFSET_HISTORICAL_ASSOCIATION), PAGE).getTotalElements());
+		assertEquals(1, memberService.findMembers(MAIN, new MemberSearchRequest().active(true).referenceSet("<<" + Concepts.REFSET_HISTORICAL_ASSOCIATION), PAGE).getTotalElements());
 
 		memberService.deleteMember(MAIN, members.getContent().get(0).getMemberId());
 

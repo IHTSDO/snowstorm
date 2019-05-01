@@ -4,12 +4,12 @@ import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -51,11 +51,13 @@ public class ReferenceSetMemberController {
 
 		Page<ReferenceSetMember> members = memberService.findMembers(
 				BranchPathUriUtil.decodePath(branch),
-				active,
-				referenceSet,
-				referencedComponentId,
-				targetComponent,
-				mapTarget,
+				new MemberSearchRequest()
+					.active(active)
+					.referenceSet(referenceSet)
+					.referencedComponentId(referencedComponentId)
+					.targetComponentId(targetComponent)
+					.mapTarget(mapTarget)
+				,
 				ControllerHelper.getPageRequest(offset, limit)
 		);
 		joinReferencedComponents(members.getContent(), ControllerHelper.getLanguageCodes(acceptLanguageHeader), branch);

@@ -20,6 +20,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetTypeRepository;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -73,35 +74,25 @@ public class ReferenceSetMemberService extends ComponentService {
 			String referencedComponentId,
 			PageRequest pageRequest) {
 
-		return findMembers(branch, null, null, referencedComponentId, null, null, pageRequest);
+		return findMembers(branch, new MemberSearchRequest().referencedComponentId(referencedComponentId), pageRequest);
 	}
 
 	/**
 	 * Find members of reference sets.
 	 * @param branch                The branch to search on.
-	 * @param active	            Filter by the active field.
-	 * @param referenceSet         	reference set filter, can be a concept id or an ECL expression.
-	 * @param referencedComponentId Filter by the referencedComponentId field.
-	 * @param targetComponentId     Filter by the targetComponentId field. Not all reference set types have this field.
-	 * @param mapTarget	            Filter by the targetComponentId field. Not all reference set types have this field.
 	 * @param pageRequest           Pagination.
 	 * @return	A page of matched reference set members.
 	 */
-	public Page<ReferenceSetMember> findMembers(String branch,
-			Boolean active,
-			String referenceSet,
-			String referencedComponentId,
-			String targetComponentId,
-			String mapTarget,
-			PageRequest pageRequest) {
+	public Page<ReferenceSetMember> findMembers(String branch, MemberSearchRequest searchRequest, PageRequest pageRequest) {
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
 
-		if (active != null) {
-			query.must(termQuery(ReferenceSetMember.Fields.ACTIVE, active));
+		if (searchRequest.getActive() != null) {
+			query.must(termQuery(ReferenceSetMember.Fields.ACTIVE, searchRequest.getActive()));
 		}
+		String referenceSet = searchRequest.getReferenceSet();
 		if (!Strings.isNullOrEmpty(referenceSet)) {
 			List<Long> conceptIds;
 			if (referenceSet.matches("\\d+")) {
@@ -111,12 +102,15 @@ public class ReferenceSetMemberService extends ComponentService {
 			}
 			query.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, conceptIds));
 		}
+		String referencedComponentId = searchRequest.getReferencedComponentId();
 		if (!Strings.isNullOrEmpty(referencedComponentId)) {
 			query.must(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, referencedComponentId));
 		}
+		String targetComponentId = searchRequest.getTargetComponentId();
 		if (!Strings.isNullOrEmpty(targetComponentId)) {
 			query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping("targetComponentId"), targetComponentId));
 		}
+		String mapTarget = searchRequest.getMapTarget();
 		if (!Strings.isNullOrEmpty(mapTarget)) {
 			query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping("mapTarget"), mapTarget));
 		}

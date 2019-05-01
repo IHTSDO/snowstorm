@@ -16,7 +16,6 @@ import org.springframework.data.elasticsearch.core.query.*;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
-import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;

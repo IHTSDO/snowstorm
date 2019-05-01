@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -402,7 +403,8 @@ public class ConceptServiceTest extends AbstractTest {
 				axiom.getDefinitionStatusId(), savedConcept.getDefinitionStatusId());
 		assertEquals(Concepts.CORE_MODULE, savedConcept.getModuleId());
 
-		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(path, true, Concepts.OWL_AXIOM_REFERENCE_SET, savedConcept.getConceptId(), null, null, PageRequest.of(0, 10));
+		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(path,
+				new MemberSearchRequest().active(true).referenceSet(Concepts.OWL_AXIOM_REFERENCE_SET).referencedComponentId(savedConcept.getConceptId()), PageRequest.of(0, 10));
 		assertEquals(2, members.getTotalElements());
 		String axiomId = axiom.getAxiomId();
 		ReferenceSetMember referenceSetMember = members.getContent().stream().filter(member -> member.getMemberId().equals(axiomId)).collect(Collectors.toList()).get(0);
@@ -433,7 +435,8 @@ public class ConceptServiceTest extends AbstractTest {
 		concept.getClassAxioms().clear();
 		concept.getGciAxioms().clear();
 		conceptService.update(concept, path);
-		assertEquals(0, referenceSetMemberService.findMembers(path, true, Concepts.OWL_AXIOM_REFERENCE_SET, savedConcept.getConceptId(), null, null, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(0, referenceSetMemberService.findMembers(path,
+				new MemberSearchRequest().active(true).referenceSet(Concepts.OWL_AXIOM_REFERENCE_SET).referencedComponentId(savedConcept.getConceptId()), PageRequest.of(0, 10)).getTotalElements());
 	}
 
 	@Test

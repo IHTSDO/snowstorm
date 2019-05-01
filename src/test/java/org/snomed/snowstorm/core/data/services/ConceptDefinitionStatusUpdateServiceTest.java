@@ -12,6 +12,7 @@ import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,7 +72,8 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		assertEquals(Concepts.FULLY_DEFINED, axiom.getDefinitionStatusId());
 		assertEquals("Concept and class axiom should have the same definition status", axiom.getDefinitionStatusId(), savedConcept.getDefinitionStatusId());
 
-		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(MAIN, true, Concepts.OWL_AXIOM_REFERENCE_SET, savedConcept.getConceptId(), null, null, PageRequest.of(0, 10));
+		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(MAIN,
+				new MemberSearchRequest().active(true).referenceSet(Concepts.OWL_AXIOM_REFERENCE_SET).referencedComponentId(savedConcept.getConceptId()), PageRequest.of(0, 10));
 		assertEquals(1, members.getTotalElements());
 		String axiomId = axiom.getAxiomId();
 		ReferenceSetMember referenceSetMember = members.getContent().stream().filter(member -> member.getMemberId().equals(axiomId)).collect(Collectors.toList()).get(0);
@@ -98,7 +100,8 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		assertEquals(Concepts.FULLY_DEFINED, existing.getDefinitionStatusId());
 
 		Axiom axiom = existing.getClassAxioms().iterator().next();
-		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(taskBranch, true, Concepts.OWL_AXIOM_REFERENCE_SET, existing.getConceptId(), null, null, PageRequest.of(0, 10));
+		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(taskBranch,
+				new MemberSearchRequest().active(true).referenceSet(Concepts.OWL_AXIOM_REFERENCE_SET).referencedComponentId(existing.getConceptId()), PageRequest.of(0, 10));
 		assertEquals(1, members.getTotalElements());
 		String axiomId = axiom.getAxiomId();
 		ReferenceSetMember referenceSetMember = members.getContent().stream().filter(member -> member.getMemberId().equals(axiomId)).collect(Collectors.toList()).get(0);
@@ -156,7 +159,8 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		assertEquals(Concepts.FULLY_DEFINED, existing.getDefinitionStatusId());
 
 		Axiom axiom = existing.getClassAxioms().iterator().next();
-		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(taskBranch, true, Concepts.OWL_AXIOM_REFERENCE_SET, existing.getConceptId(), null, null, PageRequest.of(0, 10));
+		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(taskBranch,
+				new MemberSearchRequest().active(true).referenceSet(Concepts.OWL_AXIOM_REFERENCE_SET).referencedComponentId(existing.getConceptId()), PageRequest.of(0, 10));
 		assertEquals(1, members.getTotalElements());
 		String axiomId = axiom.getAxiomId();
 		ReferenceSetMember referenceSetMember = members.getContent().stream().filter(member -> member.getMemberId().equals(axiomId)).collect(Collectors.toList()).get(0);

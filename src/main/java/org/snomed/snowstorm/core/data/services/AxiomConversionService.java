@@ -4,6 +4,7 @@ import org.snomed.otf.owltoolkit.conversion.AxiomRelationshipConversionService;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.otf.owltoolkit.domain.AxiomRepresentation;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.SAxiomRepresentation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -72,7 +73,7 @@ public class AxiomConversionService {
 	}
 
 	private AxiomRelationshipConversionService setupConversionService(String branchPath) {
-		Page<ReferenceSetMember> mrcmAttributeDomainMembers = memberService.findMembers(branchPath, true, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL, null, null, null, LARGE_PAGE);
+		Page<ReferenceSetMember> mrcmAttributeDomainMembers = memberService.findMembers(branchPath, new MemberSearchRequest().active(true).referenceSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL), LARGE_PAGE);
 		Set<Long> neverGroupedAttributes = mrcmAttributeDomainMembers.getContent().stream()
 				.filter(member -> "0".equals(member.getAdditionalField(ReferenceSetMember.MRCMAttributeDomainFields.GROUPED)))
 				.map(ReferenceSetMember::getReferencedComponentId)
