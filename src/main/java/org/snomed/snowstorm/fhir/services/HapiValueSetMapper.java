@@ -2,8 +2,8 @@ package org.snomed.snowstorm.fhir.services;
 
 import java.util.List;
 
-import org.hl7.fhir.dstu3.model.*;
-import org.hl7.fhir.dstu3.model.ValueSet.ValueSetExpansionComponent;
+import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionComponent;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 

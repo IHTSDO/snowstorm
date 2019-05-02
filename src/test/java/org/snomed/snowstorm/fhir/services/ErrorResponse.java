@@ -2,17 +2,17 @@ package org.snomed.snowstorm.fhir.services;
 
 public class ErrorResponse {
 
-	private Integer timestamp;
+	private Long timestamp;
 	private Integer status;
 	private String error;
 	private String message;
 	private String path;
 
-	public Integer getTimestamp() {
+	public Long getTimestamp() {
 	return timestamp;
 	}
 
-	public void setTimestamp(Integer timestamp) {
+	public void setTimestamp(Long timestamp) {
 	this.timestamp = timestamp;
 	}
 

@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.fhir.services;
 
-import org.hl7.fhir.dstu3.model.*;
+import org.hl7.fhir.r4.model.*;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.TestConfig;

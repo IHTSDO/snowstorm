@@ -4,8 +4,8 @@ import ca.uhn.fhir.rest.annotation.Operation;
 import ca.uhn.fhir.rest.annotation.OperationParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 
-import org.hl7.fhir.dstu3.model.*;
-import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
+import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;

@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.fhir.config;
 
-import org.hl7.fhir.dstu3.model.StringType;
+import org.hl7.fhir.r4.model.StringType;
 
 public interface FHIRConstants {
 

@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.fhir.services;
 
-import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
+import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 
 public class FHIROperationException extends Exception {
 

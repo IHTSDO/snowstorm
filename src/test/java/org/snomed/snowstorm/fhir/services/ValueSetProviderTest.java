@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.fhir.services;
 
-import org.hl7.fhir.dstu3.model.*;
+import org.hl7.fhir.r4.model.*;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.TestConfig;
@@ -59,8 +59,8 @@ public class ValueSetProviderTest extends AbstractFHIRTest {
 	
 	private ValueSet get(String url) throws FHIROperationException {
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
-		checkForError(response.getBody());
 		String json = response.getBody();
+		checkForError(json);
 		return fhirJsonParser.parseResource(ValueSet.class, json);
 	}
 	

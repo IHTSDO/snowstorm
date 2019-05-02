@@ -32,7 +32,7 @@ public class HapiRestfulServlet extends RestfulServer {
 
 		setDefaultResponseEncoding(EncodingEnum.JSON);
 
-		final FhirContext ctxt = FhirContext.forDstu3();
+		final FhirContext ctxt = FhirContext.forR4();
 		final LenientErrorHandler delegateHandler = new LenientErrorHandler();
 		ctxt.setParserErrorHandler(new StrictErrorHandler() {
 			@Override

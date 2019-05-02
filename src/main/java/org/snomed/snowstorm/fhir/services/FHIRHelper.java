@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.fhir.services;
 
-import org.hl7.fhir.dstu3.model.StringType;
+import org.hl7.fhir.r4.model.StringType;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 

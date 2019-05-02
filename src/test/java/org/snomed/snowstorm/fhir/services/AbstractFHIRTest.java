@@ -1,12 +1,13 @@
 package org.snomed.snowstorm.fhir.services;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import org.hl7.fhir.dstu3.model.OperationOutcome;
-import org.hl7.fhir.dstu3.model.OperationOutcome.IssueType;
-import org.hl7.fhir.dstu3.model.Parameters.ParametersParameterComponent;
+import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
+import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
 
 import io.kaicode.elasticvc.api.BranchService;
 
@@ -22,6 +23,8 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.http.*;
 
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import ca.uhn.fhir.context.FhirContext;
@@ -60,7 +63,7 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 			return;
 		}
 		
-		fhirJsonParser = FhirContext.forDstu3().newJsonParser();
+		fhirJsonParser = FhirContext.forR4().newJsonParser();
 		
 		branchService.create(MAIN);
 		HttpHeaders headers = new HttpHeaders();
@@ -117,16 +120,16 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 	
 	protected void checkForError(String json) throws FHIROperationException {
 		try {
-			if (json.contains("\"Status\":5") ||
-					json.contains("\"Status\":4") ||
-					json.contains("\"Status\":3")) {
+			if (json.contains("\"status\":5") ||
+					json.contains("\"status\":4") ||
+					json.contains("\"status\":3")) {
 				ErrorResponse error = mapper.readValue(json, ErrorResponse.class);
 				throw new FHIROperationException(IssueType.EXCEPTION, error.getMessage());
 			} else if (json.contains("\"resourceType\":\"OperationOutcome\"")) {
 				OperationOutcome outcome = fhirJsonParser.parseResource(OperationOutcome.class, json);
 				throw new FHIROperationException(IssueType.EXCEPTION, outcome.toString());
 			}
-		} catch (Exception e) {
+		} catch (IOException e) {
 			throw new FHIROperationException(IssueType.EXCEPTION, json);
 		}
 	}
