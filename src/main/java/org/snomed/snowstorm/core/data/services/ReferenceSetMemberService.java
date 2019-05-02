@@ -7,6 +7,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
@@ -23,6 +24,7 @@ import org.snomed.snowstorm.core.data.repositories.ReferenceSetTypeRepository;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.ecl.ECLQueryService;
+import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.Page;
@@ -167,6 +169,10 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	public void deleteMember(String branch, String uuid) {
+		deleteMember(branch, uuid, false);
+	}
+
+	public void deleteMember(String branch, String uuid, boolean force) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		List<ReferenceSetMember> matches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
 				boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
@@ -179,6 +185,9 @@ public class ReferenceSetMemberService extends ComponentService {
 
 		try (Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata("Deleting reference set member " + uuid))) {
 			ReferenceSetMember member = matches.get(0);
+			if (member.isReleased() && !force) {
+				throw new IllegalStateException(String.format("Reference set member %s has been released and can't be deleted on branch %s", uuid, branch));
+			}
 			member.markDeleted();
 			doSaveBatchComponents(Collections.singleton(member), commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
 			commit.markSuccessful();
@@ -317,4 +326,24 @@ public class ReferenceSetMemberService extends ComponentService {
 		return elasticsearchTemplate.queryForList(query, ReferenceSetType.class);
 	}
 
+	public ReferenceSetMember updateMember(String branch, ReferenceSetMember member) {
+
+		ReferenceSetMember existingMember = findMember(branch, member.getMemberId());
+		if (existingMember == null) {
+			throw new NotFoundException("No existing reference set member found with uuid " + member.getMemberId());
+		}
+		member.copyReleaseDetails(existingMember);
+		if (!member.isReleased() && !member.isActive()) {
+			throw new IllegalStateException("Unpublished reference set member " + member.getMemberId() + " can not be made inactive, it must be deleted.");
+		}
+
+		if (existingMember.isComponentChanged(member)) {
+			try (Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata("Updating reference set member " + member.getMemberId()))) {
+				member.markChanged();
+				doSaveBatchMembers(Arrays.asList(member), commit);
+				commit.markSuccessful();
+			}
+		}
+		return member;
+	}
 }

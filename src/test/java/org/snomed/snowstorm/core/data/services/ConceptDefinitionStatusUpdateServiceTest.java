@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Commit;
 import org.assertj.core.util.Lists;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.Assert;
@@ -52,6 +53,9 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private ImportService importService;
+
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
 
 	@Before
 	public void setUp() {
@@ -107,13 +111,11 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		ReferenceSetMember referenceSetMember = members.getContent().stream().filter(member -> member.getMemberId().equals(axiomId)).collect(Collectors.toList()).get(0);
 		assertEquals("EquivalentClasses(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))",
 				referenceSetMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
-		//No update method yet but will delete existing and create new one
-		referenceSetMemberService.deleteMember(taskBranch, referenceSetMember.getMemberId());
-		//create a SubClass axiom
+		//update to a SubClass axiom
 		ReferenceSetMember updatedRefsetMember = referenceSetMember;
 		updatedRefsetMember.setAdditionalField("owlExpression","SubClassOf(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))");
-		updatedRefsetMember.setMemberId(UUID.randomUUID().toString());
-		referenceSetMemberService.createMember(taskBranch, updatedRefsetMember);
+		updatedRefsetMember.setMemberId(referenceSetMember.getMemberId());
+		referenceSetMemberService.updateMember(taskBranch, updatedRefsetMember);
 
 		Concept updatedConcept = conceptService.find(concept.getConceptId(), taskBranch);
 		assertEquals("900000000000074008", updatedConcept.getDefinitionStatusId());
@@ -166,13 +168,11 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		ReferenceSetMember referenceSetMember = members.getContent().stream().filter(member -> member.getMemberId().equals(axiomId)).collect(Collectors.toList()).get(0);
 		assertEquals("EquivalentClasses(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))",
 				referenceSetMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
-		//No update method yet but will delete existing and create new one
-		referenceSetMemberService.deleteMember(taskBranch, referenceSetMember.getMemberId());
-		//create a SubClass axiom
+		//update to a SubClass axiom
 		ReferenceSetMember updatedRefsetMember = referenceSetMember;
 		updatedRefsetMember.setAdditionalField("owlExpression","SubClassOf(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))");
-		updatedRefsetMember.setMemberId(UUID.randomUUID().toString());
-		referenceSetMemberService.createMember(taskBranch, updatedRefsetMember);
+		updatedRefsetMember.setMemberId(referenceSetMember.getMemberId());
+		referenceSetMemberService.updateMember(taskBranch, updatedRefsetMember);
 
 		Concept updatedConcept = conceptService.find(concept.getConceptId(), taskBranch);
 		assertEquals("900000000000074008", updatedConcept.getDefinitionStatusId());
@@ -214,6 +214,46 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		}
 		assertEquals("Expecting statuses to be fixed to original set of FD concepts.",
 				"[131148009:FULLY_DEFINED, 413350009:FULLY_DEFINED]", getDefinedConcepts().toString());
+	}
+
+	@Test
+	public void updatePublishedClassAxiom() throws ServiceException {
+		//create a published concept with class axiom
+		final Concept concept = new Concept("50960005", 20020131, true, Concepts.CORE_MODULE, "900000000000074008");
+		concept.addAxiom(new Axiom(null, Concepts.FULLY_DEFINED, Sets.newHashSet(new Relationship(Concepts.ISA, "10000100"), new Relationship("10000200", "10000300"))).setModuleId(CORE_MODULE));
+		conceptService.create(concept, MAIN);
+
+		Concept savedConcept = conceptService.find(concept.getConceptId(), MAIN);
+		assertEquals(Concepts.FULLY_DEFINED, savedConcept.getDefinitionStatusId());
+		savedConcept.release(20020131);
+		try (Commit commit = branchService.openCommit(MAIN, branchMetadataHelper.getBranchLockMetadata("Release concept " + savedConcept.getConceptId()))) {
+			savedConcept.markChanged();
+			conceptService.doSaveBatchComponents(Arrays.asList(savedConcept), Concept.class, commit);
+			commit.markSuccessful();
+		}
+
+		Concept publishedConcept = conceptService.find(concept.getConceptId(), MAIN);
+		assertEquals("50960005", publishedConcept.getConceptId());
+		assertTrue(publishedConcept.isReleased());
+		assertEquals("20020131", publishedConcept.getEffectiveTime());
+		assertNotNull(publishedConcept.getReleaseHash());
+
+		assertEquals(1, publishedConcept.getClassAxioms().size());
+		Axiom axiom = publishedConcept.getClassAxioms().iterator().next();
+		assertEquals("900000000000073002", axiom.getDefinitionStatusId());
+
+		ReferenceSetMember axiomRefsetMember = referenceSetMemberService.findMember(MAIN, axiom.getAxiomId());
+		assertNotNull(axiomRefsetMember);
+		String expression = axiomRefsetMember.getAdditionalField("owlExpression");
+		assertTrue(expression.startsWith("EquivalentClasses("));
+		String updatedExpression = expression.replace("EquivalentClasses(", "SubClassOf(");
+		axiomRefsetMember.setAdditionalField("owlExpression", updatedExpression);
+		referenceSetMemberService.updateMember(MAIN, axiomRefsetMember);
+
+		Concept updatedConcept = conceptService.find(publishedConcept.getConceptId(), MAIN);
+		assertEquals("900000000000074008", updatedConcept.getDefinitionStatusId());
+		assertTrue(updatedConcept.isReleased());
+		assertNull(updatedConcept.getEffectiveTime());
 	}
 
 	public List<String> getDefinedConcepts() {

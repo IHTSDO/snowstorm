@@ -207,6 +207,7 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 			// Save in batches
 			for (List<Concept> concepts : Iterables.partition(conceptsToSave, BATCH_SAVE_SIZE)) {
 
+				concepts.stream().forEach(Concept :: updateEffectiveTime);
 				// Find concepts where new versions have already been created in the current commit.
 				// Update these documents to avoid having two versions of the same concepts in the commit.
 				Set<Concept> editedConcepts = concepts.stream()

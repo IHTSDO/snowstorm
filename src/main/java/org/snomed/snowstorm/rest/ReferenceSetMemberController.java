@@ -7,6 +7,7 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMemberView;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -95,12 +97,37 @@ public class ReferenceSetMemberController {
 		return member;
 	}
 
+	@RequestMapping(value= "/{branch}/members", method = RequestMethod.POST)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public ReferenceSetMemberView createMember(@PathVariable String branch, @RequestBody @Valid ReferenceSetMemberView member) {
+		ControllerHelper.requiredParam(member.getReferencedComponentId(), "referencedComponentId");
+		ControllerHelper.requiredParam(member.getRefsetId(), "refsetId");
+		return memberService.createMember(BranchPathUriUtil.decodePath(branch), (ReferenceSetMember) member);
+	}
+
+	@RequestMapping(value= "/{branch}/members/{uuid}", method = RequestMethod.PUT)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public ReferenceSetMemberView updateMember(@PathVariable String branch,
+												 @PathVariable String uuid,
+												 @RequestBody ReferenceSetMemberView member) {
+
+		ControllerHelper.requiredParam(member.getRefsetId(), "refsetId");
+		ControllerHelper.requiredParam(member.getReferencedComponentId(), "referencedComponentId");
+		ReferenceSetMember toUpdate = (ReferenceSetMember) member;
+		toUpdate.setMemberId(uuid);
+		return memberService.updateMember(BranchPathUriUtil.decodePath(branch), toUpdate);
+	}
+
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.DELETE)
 	@JsonView(value = View.Component.class)
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteMember(@PathVariable String branch,
-							 @PathVariable String uuid) {
-		memberService.deleteMember(BranchPathUriUtil.decodePath(branch), uuid);
+							 @PathVariable String uuid,
+							 @RequestParam(defaultValue = "false") boolean force) {
+
+		memberService.deleteMember(BranchPathUriUtil.decodePath(branch), uuid, force);
 	}
 
 }

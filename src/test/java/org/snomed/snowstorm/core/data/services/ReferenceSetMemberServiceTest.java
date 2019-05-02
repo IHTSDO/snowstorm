@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Commit;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -18,7 +19,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import static org.junit.Assert.assertEquals;
+import java.util.Arrays;
+
+import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -32,6 +35,9 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
+
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
 
 	private static final String MAIN = "MAIN";
 	private static final PageRequest PAGE = PageRequest.of(0, 10);
@@ -123,6 +129,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	public Page<ReferenceSetMember> findOwlMembers(String owlExpressionConceptId) {
 		return findOwlMembers(owlExpressionConceptId, null);
 	}
+
 	public Page<ReferenceSetMember> findOwlMembers(String owlExpressionConceptId, Boolean owlExpressionGCI) {
 		return memberService.findMembers(
 				MAIN,
@@ -130,6 +137,99 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 						.owlExpressionConceptId(owlExpressionConceptId)
 						.owlExpressionGCI(owlExpressionGCI),
 				PAGE);
+	}
+
+	public void createFindUpdateMember() {
+		assertEquals(0, memberService.findMembers(MAIN, Concepts.CLINICAL_FINDING, PAGE).getTotalElements());
+
+		ReferenceSetMember axiom = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, Concepts.CLINICAL_FINDING);
+		axiom.setAdditionalField("owlExpression", "SubClassOf(:404684003 :138875005)");
+		axiom = memberService.createMember(MAIN, axiom);
+
+		ReferenceSetMember found = memberService.findMember(MAIN, axiom.getMemberId());
+		assertEquals(axiom.getMemberId(), found.getMemberId());
+		assertEquals(axiom.getRefsetId(), found.getRefsetId());
+		assertEquals(axiom.getAdditionalField("owlExpression"), found.getAdditionalField("owlExpression"));
+
+		ReferenceSetMember updatedMember = new ReferenceSetMember(axiom.getModuleId(), axiom.getRefsetId(), axiom.getReferencedComponentId());
+		updatedMember.setAdditionalField("owlExpression", "EquivalentClasses(:404684003 :138875005)");
+		updatedMember.setMemberId(axiom.getMemberId());
+		updatedMember = memberService.updateMember(MAIN, updatedMember);
+
+		ReferenceSetMember result = memberService.findMember(MAIN, updatedMember.getMemberId());
+		assertEquals("EquivalentClasses(:404684003 :138875005)", result.getAdditionalField("owlExpression"));
+		assertEquals(updatedMember.getRefsetId(), result.getRefsetId());
+		assertEquals(updatedMember.getMemberId(), result.getMemberId());
+	}
+
+	@Test
+	public void updatePublishedMember() {
+		ReferenceSetMember simpleRefset = savePublishedSimpleMember(MAIN);
+		ReferenceSetMember saved = memberService.findMember(MAIN, simpleRefset.getMemberId());
+		assertEquals("800aa109-431f-4407-a431-6fe65e9db161", saved.getMemberId());
+		assertTrue(saved.isReleased());
+		assertTrue(saved.isActive());
+		assertNotNull(saved.getReleaseHash());
+		assertEquals("20170731", saved.getEffectiveTime());
+
+		simpleRefset.setActive(false);
+		memberService.updateMember(MAIN, simpleRefset);
+		ReferenceSetMember updated = memberService.findMember(MAIN, simpleRefset.getMemberId());
+		assertTrue(updated.isReleased());
+		assertFalse(updated.isActive());
+		assertNotNull(updated.getReleaseHash());
+		assertNull(updated.getEffectiveTime());
+
+	}
+
+	private ReferenceSetMember savePublishedSimpleMember(String branch) {
+		ReferenceSetMember simpleRefset = new ReferenceSetMember("800aa109-431f-4407-a431-6fe65e9db161", 20170731, true,
+				"900000000000207008", "723264001", "731819006");
+		simpleRefset.release(20170731);
+		try (Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata("Releasing reference set member " + simpleRefset.getMemberId()))) {
+			simpleRefset.markChanged();
+			memberService.doSaveBatchMembers(Arrays.asList(simpleRefset), commit);
+			commit.markSuccessful();
+		}
+		return simpleRefset;
+	}
+
+	@Test
+	public void revertUpdatingPublishedMember() {
+
+		updatePublishedMember();
+		ReferenceSetMember simpleRefset = memberService.findMember(MAIN,"800aa109-431f-4407-a431-6fe65e9db161");
+		assertEquals(false, simpleRefset.isActive());
+		//reverting
+		simpleRefset.setActive(true);
+		ReferenceSetMember result = memberService.updateMember(MAIN, simpleRefset);
+		assertEquals("800aa109-431f-4407-a431-6fe65e9db161", result.getMemberId());
+		assertTrue(result.isReleased());
+		assertTrue(result.isActive());
+		assertNotNull(result.getReleaseHash());
+		assertEquals("20170731", result.getEffectiveTime());
+
+	}
+
+	@Test
+	public void forceDeletePublishedMember() {
+		ReferenceSetMember simpleMember = savePublishedSimpleMember(MAIN);
+		memberService.deleteMember(MAIN, simpleMember.getMemberId(), true);
+		assertNull(memberService.findMember(MAIN, simpleMember.getMemberId()));
+	}
+
+	@Test(expected = IllegalStateException.class)
+	public void deletePublishedMemberWithoutForce() {
+		ReferenceSetMember simpleMember = savePublishedSimpleMember(MAIN);
+		memberService.deleteMember(MAIN, simpleMember.getMemberId(), false);
+	}
+
+	@Test(expected = IllegalStateException.class)
+	public void updateUnpublishedInactiveMember() {
+		ReferenceSetMember simple = new ReferenceSetMember("900000000000207008", "723264001", "731819006");
+		memberService.createMember(MAIN, simple);
+		simple.setActive(false);
+		memberService.updateMember(MAIN, simple);
 	}
 
 	@After
