@@ -31,6 +31,10 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 			return ADDITIONAL_FIELDS_PREFIX + fieldname + ".keyword";
 		}
 	}
+	
+	public interface AssociationFields {
+		String TARGET_ID = "targetComponentId";
+	}
 
 	public interface LanguageFields {
 		String ACCEPTABILITY_ID = "acceptabilityId";

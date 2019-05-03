@@ -1,9 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
@@ -23,8 +21,6 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.http.*;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import ca.uhn.fhir.context.FhirContext;
@@ -58,7 +54,6 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 	
 	@Before
 	synchronized public void setup() throws ServiceException, InterruptedException {
-		
 		if (setupComplete) {
 			return;
 		}
@@ -127,7 +122,8 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 				throw new FHIROperationException(IssueType.EXCEPTION, error.getMessage());
 			} else if (json.contains("\"resourceType\":\"OperationOutcome\"")) {
 				OperationOutcome outcome = fhirJsonParser.parseResource(OperationOutcome.class, json);
-				throw new FHIROperationException(IssueType.EXCEPTION, outcome.toString());
+				//TODO Find or write pretty print to give structured output of OperationOutcome
+				throw new FHIROperationException(IssueType.EXCEPTION, json);
 			}
 		} catch (IOException e) {
 			throw new FHIROperationException(IssueType.EXCEPTION, json);

@@ -13,7 +13,6 @@ public interface FHIRConstants {
 	StringType EFFECTIVE_TIME = new StringType("effectiveTime");
 
 	String FHIR = "FHIR";
-	String FHIR_DTSU3_ROOT = "fhir/dtsu3/";
 
 	String LANG_EN = "en";
 	String LANGUAGE = "language";
@@ -25,8 +24,12 @@ public interface FHIRConstants {
 	String SNOMED_EDITION = "SNOMED CT International Edition";
 	String SNOMED_INTERNATIONAL = "SNOMED International";
 	String SNOMED_URI = "http://snomed.info/sct";
+	String SNOMED_CONCEPTMAP = SNOMED_URI + "?fhir_cm=";
+	
+	enum Validation { EQUALS, STARTS_WITH }
 	
 	StringType SUFFICIENTLY_DEFINED = new StringType("sufficientlyDefined");
+	String MAIN = "MAIN";
 	String URL = "url";
 	String USE = "use";
 	String VALUE = "value";

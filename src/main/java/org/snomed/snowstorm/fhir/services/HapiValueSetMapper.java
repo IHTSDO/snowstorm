@@ -15,7 +15,7 @@ public class HapiValueSetMapper implements FHIRConstants {
 		addExpansion(v, concepts);
 		return v;
 	}
-
+	
 	private ValueSet getStandardValueSet(String url) {
 		ValueSet v = new ValueSet();
 		v.setUrl(url);

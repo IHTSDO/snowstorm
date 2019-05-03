@@ -7,7 +7,7 @@ import org.hl7.fhir.r4.model.*;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 
-public class HapiCodeSystemMapper implements FHIRConstants {
+public class HapiParametersMapper implements FHIRConstants {
 	
 	public Parameters mapToFHIR(Concept c, Collection<Long> childIds) {
 		Parameters parameters = getStandardParameters();
@@ -18,6 +18,21 @@ public class HapiCodeSystemMapper implements FHIRConstants {
 		addParents(parameters,c);
 		addChildren(parameters, childIds);
 		return parameters;
+	}
+	
+	public Parameters mapToFHIR(List<ReferenceSetMember> members, UriType targetSystem) {
+		Parameters p = getStandardParameters();
+		boolean success = members.size() > 0;
+		p.addParameter("result", success);
+		if (success) {
+			Parameters.ParametersParameterComponent matches = p.addParameter().setName("match");
+			for (ReferenceSetMember member : members) {
+				String mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_ID);
+				Coding coding = new Coding().setCode(mapTarget).setSystemElement(targetSystem);
+				matches.addPart().setName("concept").setValue(coding);
+			}
+		}
+		return p;
 	}
 
 	private Parameters getStandardParameters() {

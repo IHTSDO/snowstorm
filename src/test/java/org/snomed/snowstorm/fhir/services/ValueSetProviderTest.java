@@ -59,6 +59,7 @@ public class ValueSetProviderTest extends AbstractFHIRTest {
 	
 	private ValueSet get(String url) throws FHIROperationException {
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
+		//TODO pull back HTTP code 
 		String json = response.getBody();
 		checkForError(json);
 		return fhirJsonParser.parseResource(ValueSet.class, json);

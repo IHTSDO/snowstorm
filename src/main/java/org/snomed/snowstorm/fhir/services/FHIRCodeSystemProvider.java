@@ -38,7 +38,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	private QueryService queryService;
 
 	@Autowired
-	private HapiCodeSystemMapper mapper;
+	private HapiParametersMapper mapper;
 	
 	private FHIRHelper helper = new FHIRHelper();
 
