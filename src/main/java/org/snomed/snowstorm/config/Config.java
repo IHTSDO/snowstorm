@@ -21,6 +21,11 @@ import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.snowstorm.config.elasticsearch.IndexConfig;
 import org.snomed.snowstorm.config.elasticsearch.SnowstormElasticsearchMappingContext;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.classification.Classification;
+import org.snomed.snowstorm.core.data.domain.classification.EquivalentConcepts;
+import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
+import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
+import org.snomed.snowstorm.core.data.domain.jobs.IdentifiersForRegistration;
 import org.snomed.snowstorm.core.data.repositories.config.ConceptStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.DescriptionStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.RelationshipStoreMixIn;
@@ -218,7 +223,15 @@ public abstract class Config {
 				allDomainEntityTypes
 		);
 		if (deleteExisting) {
-			Set<Class> objectsNotVersionControlled = Sets.newHashSet(CodeSystem.class, CodeSystemVersion.class);
+			Set<Class> objectsNotVersionControlled = Sets.newHashSet(
+					CodeSystem.class,
+					CodeSystemVersion.class,
+					Classification.class,
+					RelationshipChange.class,
+					EquivalentConcepts.class,
+					IdentifiersForRegistration.class,
+					ExportConfiguration.class
+			);
 			for (Class aClass : objectsNotVersionControlled) {
 				ElasticsearchPersistentEntity persistentEntity = elasticsearchTemplate.getPersistentEntityFor(aClass);
 				logger.info("Deleting index {}", persistentEntity.getIndexName());
