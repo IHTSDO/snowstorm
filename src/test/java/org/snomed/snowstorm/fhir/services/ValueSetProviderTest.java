@@ -22,6 +22,15 @@ public class ValueSetProviderTest extends AbstractFHIRTest {
 		ValueSet v = get(url);
 		assertEquals(11,v.getExpansion().getContains().size());
 	}
+	
+	@Test
+	public void testECLRecovery_DescOrSelf_Edition() throws FHIROperationException {
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + "&_format=json";
+		ValueSet v = get(url);
+		//We'll get the 11 concepts defined on main (Root + 10 potatoes) 
+		//plus the additional two defined for the new Edition
+		assertEquals(13,v.getExpansion().getContains().size());
+	}
 
 	@Test
 	public void testECLRecovery_Self() throws FHIROperationException {

@@ -16,6 +16,7 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
@@ -42,8 +43,13 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 	
 	@Autowired
 	protected CodeSystemService codeSystemService;
+	
+	@Autowired
+	protected CodeSystemConfigurationService codeSystemConfigurationService;
 
 	protected static final String sampleSCTID = "257751006";
+	protected static final String sampleModuleId = "1234";
+	protected static final String sampleVersion = "20190731";
 	protected final String MAIN = "MAIN";
 	protected IParser fhirJsonParser;
 	HttpEntity<String> defaultRequestEntity;
@@ -68,7 +74,7 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		List<Concept> concepts = new ArrayList<>();
 		concepts.add(new Concept(Concepts.SNOMEDCT_ROOT));
 		for (int x=1; x<=10; x++) {
-			createDummyData(concepts);
+			createDummyData(x, concepts);
 		}
 		conceptService.batchCreate(concepts, MAIN);
 		
@@ -76,22 +82,42 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", MAIN);
 		codeSystemService.createCodeSystem(codeSystem);
 		codeSystemService.createVersion(codeSystem, 20190731, "");
+		
+		//Now create a new branch to hold a new edition
+		String releaseBranch = MAIN + "/" + sampleVersion;
+		String branchWK = releaseBranch + "/SNOMEDCT-WK";
+		branchService.create(releaseBranch);
+		branchService.create(branchWK);
+
+		//And tell the configuration about that new module
+		CodeSystemConfiguration config = new CodeSystemConfiguration("SNOMEDCT-WK", "SNOMEDCT-WK" ,sampleModuleId);
+		codeSystemConfigurationService.getConfigurations().add(config);
+
+		concepts.clear();
+		//concepts.add(new Concept(Concepts.SNOMEDCT_ROOT));
+		for (int x=11; x<=12; x++) {
+			createDummyData(x, concepts);
+		}
+		conceptService.batchCreate(concepts, branchWK);
+		CodeSystem codeSystemWK = new CodeSystem("SNOMEDCT-WK", branchWK);
+		codeSystemService.createCodeSystem(codeSystemWK);
+		codeSystemService.createVersion(codeSystemWK, 20190731, "");
+		
 		logger.info("Baked Potato test data setup complete");
 		setupComplete = true;
 	}
 
-	private void createDummyData(List<Concept> concepts) throws ServiceException {
+	private void createDummyData(int sequence, List<Concept> concepts) throws ServiceException {
 		// Create dummy concept with descriptions and relationships
 		Relationship infParentRel = new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT);
 		infParentRel.setCharacteristicType("INFERRED_RELATIONSHIP");
-		int x = concepts.size();
-		Concept concept = new Concept("25775" + x + "006")
+		Concept concept = new Concept("25775" + sequence + "006")
 						.addRelationship(infParentRel)
 						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT))
-						.addDescription(new Description("Baked potato " + x + " (Substance)")
+						.addDescription(new Description("Baked potato " + sequence + " (Substance)")
 								.setTypeId(Concepts.FSN)
 								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
-						.addDescription(new Description("Baked potato " + x)
+						.addDescription(new Description("Baked potato " + sequence)
 								.setTypeId(Concepts.SYNONYM)
 								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
 						.addAxiom(new Relationship(Concepts.ISA, Concepts.SUBSTANCE));

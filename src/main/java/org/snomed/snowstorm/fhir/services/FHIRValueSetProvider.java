@@ -4,6 +4,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,9 +30,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	@Autowired
 	private HapiValueSetMapper mapper;
 	
-	private static int DEFAULT_PAGESIZE = 1000;
+	@Autowired
+	private FHIRHelper fhirHelper;
 	
-	//private FHIRHelper helper = new FHIRHelper();
+	private static int DEFAULT_PAGESIZE = 1000;
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -41,22 +43,34 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			HttpServletResponse response,
 			@OperationParam(name="url") String url,
 			@OperationParam(name="filter") String filter,
-			@OperationParam(name="activeOnly") String activeStr,
+			@OperationParam(name="activeOnly") BooleanType activeType,
 			@OperationParam(name="offset") String offsetStr,
 			@OperationParam(name="count") String countStr) throws FHIROperationException {
 
-		// TODO: Surely we should be doing the same code system and version mapping here as we are in the $lookup operation?
-		String branch = "MAIN";
+		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
+		int cutPoint = url.indexOf("?");
+		if (cutPoint == -1) {
+			throw new FHIROperationException(IssueType.VALUE, "url is expected to contain one or more parameters eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ");
+		}
+		StringType codeSystemStr = new StringType(url.substring(0, cutPoint));
+		CodeSystemVersion codeSystemVersion = fhirHelper.getCodeSystemVersion(codeSystemStr);
+		String branchPath = codeSystemVersion.getBranchPath();
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
-		String ecl = url.substring(url.indexOf("fhir_vs=ecl/") + 12);
+		
+		cutPoint = url.indexOf("fhir_vs=ecl/");
+		if (cutPoint == -1) {
+			throw new FHIROperationException(IssueType.VALUE, "url is expected to include parameter with value: 'fhir_vs=ecl/'");
+		}
+		String ecl = url.substring(cutPoint + 12);
+		Boolean active = activeType == null ? null : activeType.booleanValue();
 		queryBuilder.ecl(ecl)
 					.termMatch(filter)
-					.activeFilter(Boolean.parseBoolean(activeStr));
+					.activeFilter(active);
 
 		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
 		int pageSize = (countStr == null || countStr.isEmpty()) ? DEFAULT_PAGESIZE : Integer.parseInt(countStr);
-		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), PageRequest.of(offset, pageSize));
-		logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branch, ecl);
+		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
+		logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
 		ValueSet valueSet = mapper.mapToFHIR(conceptMiniPage.getContent(), url); 
 		valueSet.getExpansion().setTotal((int)conceptMiniPage.getTotalElements());
 		valueSet.getExpansion().setOffset(offset);

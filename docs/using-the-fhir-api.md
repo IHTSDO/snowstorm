@@ -23,8 +23,11 @@ http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code
 #### Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)| in Swedish Extension
 http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&version=http://snomed.info/sct/45991000052106&code=427623005&_format=json
 
-#### Expansion of intensional value set
+#### Expansion of an intensionally defined value set
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&_format=json
+
+#### Expansion of an intensional value set against the Swedish Edition
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct/45991000052106?fhir_vs=ecl/<<27624003&_format=json
 
 #### Paging through 10 at a time, request the 2nd page
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&count=10&offset=1&_format=json
