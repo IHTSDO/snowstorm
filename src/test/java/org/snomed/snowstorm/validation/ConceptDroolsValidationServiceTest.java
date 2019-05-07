@@ -51,15 +51,10 @@ public class ConceptDroolsValidationServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void isActive() throws Exception {
+	public void isActive() {
 		Assert.assertTrue(validationService.isActive("100001"));
 		Assert.assertFalse(validationService.isActive("100002"));
-		try {
-			Assert.assertFalse(validationService.isActive("100003"));
-			Assert.fail("Should have thrown exception.");
-		} catch (RuleExecutorException e) {
-			// good
-		}
+		Assert.assertFalse(validationService.isActive("100003"));
 	}
 
 }

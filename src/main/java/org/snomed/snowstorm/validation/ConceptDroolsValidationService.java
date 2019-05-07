@@ -2,7 +2,6 @@ package org.snomed.snowstorm.validation;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
 import org.ihtsdo.drools.domain.Relationship;
-import org.ihtsdo.drools.exception.RuleExecutorException;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
@@ -43,14 +42,12 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery("conceptId", conceptId)))
+						.must(termQuery(Concept.Fields.CONCEPT_ID, conceptId))
+						.must(termQuery(Concept.Fields.ACTIVE, true)))
 				.withPageable(Config.PAGE_OF_ONE)
 				.build();
 		List<Concept> matches = elasticsearchTemplate.queryForList(query, Concept.class);
-		if (matches.isEmpty()) {
-			throw new RuleExecutorException(String.format("Concept '%s' not found on branch '%s'", conceptId, branchPath));
-		}
-		return matches.get(0).isActive();
+		return !matches.isEmpty();
 	}
 
 	@Override
@@ -128,9 +125,13 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 	}
 
 	private Set<String> getConceptIdsByEcl(boolean stated, String ecl) {
-		Page<ConceptMini> directDescendantsOfRoot = queryService.search(
-				queryService.createQueryBuilder(stated).ecl(ecl),
-				branchPath, PageRequest.of(0, 1000));
-		return directDescendantsOfRoot.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toSet());
+		try {
+			Page<ConceptMini> directDescendantsOfRoot = queryService.search(
+					queryService.createQueryBuilder(stated).ecl(ecl),
+					branchPath, PageRequest.of(0, 1000));
+			return directDescendantsOfRoot.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toSet());
+		} catch (IllegalArgumentException e) {
+			return Collections.emptySet();
+		}
 	}
 }
