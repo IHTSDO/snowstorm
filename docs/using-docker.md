@@ -4,7 +4,7 @@ Please be aware this is in development and, currently, the easiest way to use sn
 
 However, this is another option because it will install and run the correct Elasticsearch version without the need to install and configure other software as well as running Snowstorm.
 
-The docker-compose.yml in the repo option will run everything necessary to use Snowstorm without the need to build anything. However, **you will need to load SNOMED CT** so make sure you read the [SNOMED loading instructions here](docs/loading-snomed.md).
+The docker-compose.yml in the repo option will run everything necessary to use Snowstorm without the need to build anything. However, **you will need to load SNOMED CT** so make sure you read the [SNOMED loading instructions here](loading-snomed.md).
 
 You can change the location that the Elasticserach indices are created on the host machine by changing the following line in [docker-compose.yml](docker-compose.yml) from ~/elastic to a local folder of your choice:
 
