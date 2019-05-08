@@ -4,14 +4,13 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.index.query.QueryBuilder;
-import org.ihtsdo.drools.domain.Concept;
 import org.ihtsdo.drools.domain.Constants;
-import org.ihtsdo.drools.domain.Description;
 import org.ihtsdo.drools.helper.DescriptionHelper;
 import org.ihtsdo.drools.service.TestResourceProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -79,12 +78,12 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	private Set<org.ihtsdo.drools.domain.Description> findDescriptionByExactTerm(String exactTerm, boolean active) {
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(org.snomed.snowstorm.core.data.domain.Description.class))
+						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery("active", active))
 						.must(matchPhraseQuery("term", exactTerm))
 				)
 				.build();
-		List<org.snomed.snowstorm.core.data.domain.Description> matches = elasticsearchTemplate.queryForList(query, org.snomed.snowstorm.core.data.domain.Description.class);
+		List<Description> matches = elasticsearchTemplate.queryForList(query, Description.class);
 		return matches.stream()
 				.filter(description -> description.getTerm().equals(exactTerm))
 				.map(DroolsDescription::new).collect(Collectors.toSet());
@@ -92,7 +91,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 
 	@Override
 	public Set<org.ihtsdo.drools.domain.Description> findMatchingDescriptionInHierarchy(org.ihtsdo.drools.domain.Concept concept, org.ihtsdo.drools.domain.Description description) {
-		Set<Description> matchingDescriptions = findActiveDescriptionByExactTerm(description.getTerm())
+		Set<org.ihtsdo.drools.domain.Description> matchingDescriptions = findActiveDescriptionByExactTerm(description.getTerm())
 				.stream().filter(d -> d.getLanguageCode().equals(description.getLanguageCode())).collect(Collectors.toSet());
 
 		if (!matchingDescriptions.isEmpty()) {
@@ -131,7 +130,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	}
 
 	@Override
-	public Set<String> findParentsNotContainingSemanticTag(Concept concept, String termSemanticTag, String... languageRefsetIds) {
+	public Set<String> findParentsNotContainingSemanticTag(org.ihtsdo.drools.domain.Concept concept, String termSemanticTag, String... languageRefsetIds) {
 		Set<String> statedParents = new HashSet<>();
 		for (org.ihtsdo.drools.domain.Relationship relationship : concept.getRelationships()) {
 			if (Constants.IS_A.equals(relationship.getTypeId())
