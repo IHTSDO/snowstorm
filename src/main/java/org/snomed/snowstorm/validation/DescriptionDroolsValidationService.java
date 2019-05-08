@@ -3,17 +3,16 @@ package org.snomed.snowstorm.validation;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.ihtsdo.drools.domain.Concept;
 import org.ihtsdo.drools.domain.Constants;
 import org.ihtsdo.drools.domain.Description;
-import org.ihtsdo.drools.domain.Relationship;
 import org.ihtsdo.drools.helper.DescriptionHelper;
 import org.ihtsdo.drools.service.TestResourceProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.validation.domain.DroolsDescription;
@@ -86,10 +85,9 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 				)
 				.build();
 		List<org.snomed.snowstorm.core.data.domain.Description> matches = elasticsearchTemplate.queryForList(query, org.snomed.snowstorm.core.data.domain.Description.class);
-		Set<Description> descriptions = matches.stream()
+		return matches.stream()
 				.filter(description -> description.getTerm().equals(exactTerm))
 				.map(DroolsDescription::new).collect(Collectors.toSet());
-		return descriptions;
 	}
 
 	@Override
@@ -135,7 +133,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	@Override
 	public Set<String> findParentsNotContainingSemanticTag(Concept concept, String termSemanticTag, String... languageRefsetIds) {
 		Set<String> statedParents = new HashSet<>();
-		for (Relationship relationship : concept.getRelationships()) {
+		for (org.ihtsdo.drools.domain.Relationship relationship : concept.getRelationships()) {
 			if (Constants.IS_A.equals(relationship.getTypeId())
 					&& relationship.isActive()
 					&& Constants.STATED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId())) {
