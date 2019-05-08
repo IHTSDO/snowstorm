@@ -134,9 +134,15 @@ public class ManualLoadTest {
 		for (String operation : times.keySet()) {
 			List<Float> operationTimes = times.get(operation);
 			if (!operationTimes.isEmpty()) {
-				int sum = operationTimes.stream().mapToInt(Float::intValue).sum();
-				int max = operationTimes.stream().mapToInt(Float::intValue).max().getAsInt();
-				float seconds = Math.round((float) (sum * 100) / (float) operationTimes.size()) / 100f;
+				float sum = 0;
+				float max = 0;
+				for (Float operationTime : operationTimes) {
+					sum += operationTime;
+					if (operationTime > max) {
+						max = operationTime;
+					}
+				}
+				float seconds = Math.round((sum * 100) / (float) operationTimes.size()) / 100f;
 				System.out.println(String.format("%s average = %s seconds, max = %s (%s times)", operation, seconds, max, operationTimes.size()));
 			}
 		}
