@@ -47,9 +47,8 @@ public class TimerUtil {
 
 	public void checkpoint(String name) {
 		final long now = new Date().getTime();
-		float millisTaken = now - lastCheck;
+		float secondsTaken = getDuration(lastCheck, now);
 		lastCheck = now;
-		float secondsTaken = millisTaken / 1000f;
 		if (secondsTaken >= durationLoggingThreshold) {
 			log("Timer {}: {} took {} seconds", timerName, name, secondsTaken);
 		}
@@ -57,11 +56,15 @@ public class TimerUtil {
 
 	public void finish() {
 		final long now = new Date().getTime();
-		float millisTaken = now - start;
-		float secondsTaken = millisTaken / 1000f;
+		float secondsTaken = getDuration(start, now);
 		if (secondsTaken >= durationLoggingThreshold) {
 			log("Timer {}: total took {} seconds", timerName, secondsTaken);
 		}
+	}
+
+	public static float getDuration(long startMilliseconds, long endMilliseconds) {
+		float millisTaken = endMilliseconds - startMilliseconds;
+		return millisTaken / 1000f;
 	}
 
 	private void log(String s, Object... o) {

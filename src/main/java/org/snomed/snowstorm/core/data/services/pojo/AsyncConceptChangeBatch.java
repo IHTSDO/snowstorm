@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
+import org.snomed.snowstorm.core.util.TimerUtil;
+
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -12,7 +14,7 @@ public class AsyncConceptChangeBatch {
 	private String message;
 	private Date startTime;
 	private Date endTime;
-	private Long secondsDuration;
+	private Float secondsDuration;
 
 	public AsyncConceptChangeBatch() {
 		id = UUID.randomUUID().toString();
@@ -32,7 +34,7 @@ public class AsyncConceptChangeBatch {
 		this.status = status;
 		if (status == Status.COMPLETED || status == Status.FAILED) {
 			endTime = new Date();
-			secondsDuration = startTime.getTime() - endTime.getTime();
+			secondsDuration = TimerUtil.getDuration(startTime.getTime(), endTime.getTime());
 		}
 	}
 
@@ -60,7 +62,7 @@ public class AsyncConceptChangeBatch {
 		return endTime;
 	}
 
-	public Long getSecondsDuration() {
+	public Float getSecondsDuration() {
 		return secondsDuration;
 	}
 
