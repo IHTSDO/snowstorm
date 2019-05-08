@@ -50,6 +50,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 				BranchPathUriUtil.decodePath(MAIN),
 				new MemberSearchRequest()
 					.referenceSet(refset)
+					.active(true)
 					.referencedComponentId(code.getCode()),
 				ControllerHelper.getPageRequest(0, DEFAULT_PAGESIZE));
 		return mapper.mapToFHIR(members.getContent(), target);
