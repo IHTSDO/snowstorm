@@ -10,6 +10,9 @@ public class DroolsRelationship implements org.ihtsdo.drools.domain.Relationship
 	public DroolsRelationship(String axiomId, Relationship relationship) {
 		this.axiomId = axiomId;
 		this.relationship = relationship;
+		if (relationship.getDestinationId() == null && relationship.getTarget() != null) {
+			relationship.setDestinationId(relationship.getTarget().getConceptId());
+		}
 	}
 
 	@Override

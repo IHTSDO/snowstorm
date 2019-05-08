@@ -79,6 +79,9 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 	@Override
 	public Set<String> findTopLevelHierarchiesOfConcept(org.ihtsdo.drools.domain.Concept concept) {
 		Set<String> statedParents = getStatedParents(concept);
+		if (statedParents.isEmpty()) {
+			return Collections.emptySet();
+		}
 
 		StringBuilder ecl = new StringBuilder("<!" + Concepts.SNOMEDCT_ROOT + " AND ");
 		Iterator<String> iterator = statedParents.iterator();
