@@ -19,6 +19,7 @@ import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.util.StreamUtils;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.Charset;
@@ -26,6 +27,7 @@ import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -42,9 +44,9 @@ import java.util.stream.Collectors;
  * - Randomly pick a hierarchy to work in
  * - Run '<{hierarchy id}' ECL search
  * - Pick a random concept from the first page of results
- * - Validate the concept
  * - Clear the component ids (clone)
  * - Prefix the FSN with 'Cloned '
+ * - Validate the concept
  * - Save the cloned concept
  * - Repeat all
  *
@@ -59,7 +61,7 @@ public class ManualLoadTest {
 	private static final String COOKIE = "dev-ims-ihtsdo=YOUR_COOKIE_HERE";
 	private static final int CONCURRENT_USERS = 1;
 	private static final int CONCEPTS_TO_CREATE_PER_USER = 1;
-	private static final int USER_START_STAGGER = 1;
+	private static final float USER_START_STAGGER = 1f;
 	private static final List<String> HIERARCHIES_TO_AUTHOR_IN = Lists.newArrayList(
 			Concepts.CLINICAL_FINDING,
 			"123037004",// 123037004 |Body structure (body structure)|
@@ -73,7 +75,7 @@ public class ManualLoadTest {
 	private RestTemplate restTemplate;
 	private String loadTestBranch;
 	private ObjectMapper objectMapper;
-	private Map<String, List<Float>> times = new HashMap<>();
+	private Map<String, List<Float>> times = new LinkedHashMap<>();
 
 	public static void main(String[] args) throws InterruptedException {
 		new ManualLoadTest().run(CONCURRENT_USERS, CONCEPTS_TO_CREATE_PER_USER);
@@ -87,7 +89,9 @@ public class ManualLoadTest {
 					ClientHttpResponse httpResponse = execution.execute(request, body);
 					if (!(httpResponse.getRawStatusCode() + "").startsWith("2")) {
 						LOGGER.info("Request failed. Request '{}'", new String(body));
-						LOGGER.info("Request failed. Response {} '{}'", httpResponse.getRawStatusCode(), StreamUtils.copyToString(httpResponse.getBody(), Charset.defaultCharset()));
+						String responseBody = StreamUtils.copyToString(httpResponse.getBody(), Charset.defaultCharset());
+						LOGGER.info("Request failed. Response {} '{}'", httpResponse.getRawStatusCode(), responseBody);
+						return new ClientHttpResponseWithCachedBody(httpResponse, responseBody);
 					}
 					return httpResponse;
 				})
@@ -111,7 +115,9 @@ public class ManualLoadTest {
 			System.out.println("Create user " + (i + 1));
 			futures.add(executorService.submit(new User("user-" + (i + 1), conceptsToClonePerUser)));
 			// Wait before starting another
-			Thread.sleep(USER_START_STAGGER * 1000);
+			int millis = (int) USER_START_STAGGER * 1000;
+			System.out.println("Sleep " + millis);
+			Thread.sleep(millis);
 		}
 		futures.forEach(future -> {
 			try {
@@ -123,8 +129,8 @@ public class ManualLoadTest {
 
 		System.out.println();
 		System.out.println("Report ---");
-		System.out.println(String.format("%s concurrent users (staggered by %s seconds) creating a task, searching and cloning a concept %s times",
-				concurrentUsers, USER_START_STAGGER, conceptsToClonePerUser));
+		System.out.println(String.format("%s concurrent users, %s runs each",
+				concurrentUsers, conceptsToClonePerUser));
 		for (String operation : times.keySet()) {
 			List<Float> operationTimes = times.get(operation);
 			if (!operationTimes.isEmpty()) {
@@ -169,11 +175,12 @@ public class ManualLoadTest {
 					Concept concept = getConcept(conceptMini.getConceptId());
 
 					// Clone concept
-					clearConceptIds(concept);
 					concept.getDescriptions().stream().filter(d -> d.isActive() && d.getTypeId().equals(Concepts.FSN)).forEach(fsn -> fsn.setTerm("Cloned " + fsn.getTerm()));
 
 					// Validate concept
+					setTempComponentIds(concept);
 					validateConcept(taskBranch, concept);
+					clearConceptIds(concept);
 
 					// Save clone
 					createConcept(taskBranch, concept);
@@ -187,20 +194,37 @@ public class ManualLoadTest {
 		}
 	}
 
+	private void setTempComponentIds(Concept concept) {
+		setConceptIds(concept, () -> UUID.randomUUID().toString());
+	}
+
 	private void clearConceptIds(Concept concept) {
-		concept.setConceptId(null);
+		setConceptIds(concept, () -> null);
+	}
+
+	private void setConceptIds(Concept concept, Supplier<String> idSupplier) {
+		concept.setReleased(false);
+		concept.setConceptId(idSupplier.get());
 		// Remove inactive
 		concept.getDescriptions().removeAll(concept.getDescriptions().stream().filter(d -> !d.isActive()).collect(Collectors.toList()));
-		concept.getDescriptions().forEach(description -> description.setDescriptionId(null));
+		concept.getDescriptions().forEach(description -> {
+			description.setConceptId(null);
+			description.setReleased(false);
+			description.setDescriptionId(idSupplier.get());
+		});
 
 		// Remove inactive
 		concept.getRelationships().removeAll(concept.getRelationships().stream().filter(r -> !r.isActive()).collect(Collectors.toList()));
-		concept.getRelationships().forEach(relationship -> relationship.setRelationshipId(null));
 		// Remove not stated
 		concept.getRelationships().removeAll(concept.getRelationships().stream().filter(r -> !r.getCharacteristicTypeId().equals(Concepts.STATED_RELATIONSHIP)).collect(Collectors.toList()));
+		concept.getRelationships().forEach(relationship -> {
+			relationship.setSourceId(null);
+			relationship.setReleased(false);
+			relationship.setRelationshipId(idSupplier.get());
+		});
 
-		concept.getClassAxioms().forEach(axiom -> axiom.setAxiomId(null));
-		concept.getGciAxioms().forEach(axiom -> axiom.setAxiomId(null));
+		concept.getClassAxioms().forEach(axiom -> axiom.setAxiomId(idSupplier.get()));
+		concept.getGciAxioms().forEach(axiom -> axiom.setAxiomId(idSupplier.get()));
 	}
 
 	private String createBranch(String parent, String branchName) {
@@ -228,9 +252,22 @@ public class ManualLoadTest {
 		LOGGER.info("Validated concept {} on {} in {} seconds", concept.getFsn(), taskBranch, recordDuration("validate-concept", startMilis));
 	}
 
-	private Concept createConcept(String taskBranch, Concept concept) throws JsonProcessingException {
+	private Concept createConcept(String taskBranch, Concept concept) throws JsonProcessingException, InterruptedException {
 		long startMilis = new Date().getTime();
-		Concept newConcept = restTemplate.postForObject("/browser/" + taskBranch + "/concepts", conceptToString(concept), Concept.class);
+		Concept newConcept = null;
+		try {
+			newConcept = restTemplate.postForObject("/browser/" + taskBranch + "/concepts", conceptToString(concept), Concept.class);
+		} catch (HttpClientErrorException e) {
+			String responseBodyAsString = e.getResponseBodyAsString();
+			if (e.getRawStatusCode() == 400 && responseBodyAsString.contains("insufficient number of component ids available")) {
+				int seconds = 5;
+				LOGGER.info("SO6 is not reserving ids fast enough. Sleeping for {} seconds before trying once more.", seconds);
+				Thread.sleep(seconds * 1_000);
+				newConcept = restTemplate.postForObject("/browser/" + taskBranch + "/concepts", conceptToString(concept), Concept.class);
+			} else {
+				throw e;
+			}
+		}
 		LOGGER.info("Created concept {} on {} in {} seconds", newConcept.getConceptId(), taskBranch, recordDuration("create-concept", startMilis));
 		return newConcept;
 	}
