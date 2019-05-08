@@ -4,6 +4,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
@@ -13,6 +14,9 @@ import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
+
+import com.google.common.collect.BiMap;
+import com.google.common.collect.ImmutableBiMap;
 
 import ca.uhn.fhir.rest.annotation.Operation;
 import ca.uhn.fhir.rest.annotation.OperationParam;
@@ -30,6 +34,9 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 	
 	private static int DEFAULT_PAGESIZE = 1000;
 	
+	private BiMap<String, String> knownUriMap;
+	String[] validMapTargets;
+	
 	@Operation(name="$translate", idempotent=true)
 	public Parameters expand(
 			HttpServletRequest request,
@@ -43,19 +50,42 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		validate("System", system.asStringValue(), Validation.EQUALS, SNOMED_URI, true);
 		validate("Source", source.asStringValue(), Validation.STARTS_WITH, SNOMED_URI, true);
 		validate("Url", url, Validation.STARTS_WITH, SNOMED_CONCEPTMAP, true);
-		validate("Target", target.asStringValue(), Validation.EQUALS, SNOMED_URI + "?fhir_vs", true);
-		String refset = url.substring(SNOMED_CONCEPTMAP.length());
+		validate("Target", target.asStringValue(), Validation.EQUALS, getValidMapTargets(), true);
+		String refsetId = url.substring(SNOMED_CONCEPTMAP.length());
+		
+		//If a refset is specified does that match the target system?
+		if (!refsetId.isEmpty()) {
+			String expectedTargetSystem = knownUriMap.inverse().get(refsetId);
+			if (expectedTargetSystem != null && !target.equals(expectedTargetSystem)) {
+				throw new FHIROperationException (IssueType.CONFLICT, "Refset " + refsetId + " relates to target system '" + expectedTargetSystem + "' rather than '" + target + "'");
+			}
+		}
 		
 		Page<ReferenceSetMember> members = memberService.findMembers(
 				BranchPathUriUtil.decodePath(MAIN),
 				new MemberSearchRequest()
-					.referenceSet(refset)
+					.referenceSet(refsetId)
 					.active(true)
 					.referencedComponentId(code.getCode()),
 				ControllerHelper.getPageRequest(0, DEFAULT_PAGESIZE));
-		return mapper.mapToFHIR(members.getContent(), target);
+		return mapper.mapToFHIR(members.getContent(), target, knownUriMap);
 	}
 	
+	private String[] getValidMapTargets() {
+		if (validMapTargets == null) {
+			validMapTargets = new String[2];
+			validMapTargets[0] = SNOMED_URI + "?fhir_vs";
+			validMapTargets[1] = "ICD-10";
+			
+			//This hardcoding will be replaced by machine readable Refset metadata
+			knownUriMap = new ImmutableBiMap.Builder<String, String>()
+			.put("ICD-10", "447562003")
+			.put("CTV-3","900000000000497000")
+			.build();
+		}
+		return validMapTargets;
+	}
+
 	private void validate(String fieldName, String actual, Validation mode, String expected, boolean mandatory) throws FHIROperationException {
 		if (!mandatory && actual == null) {
 			return;
@@ -69,6 +99,24 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 					throw new FHIROperationException (null, fieldName + " must start with '" + expected + "'.  Received '" + actual + "'.");
 				}
 				break;
+		}
+	}
+	
+	private void validate(String fieldName, String actual, Validation mode, String[] permittedValues, boolean mandatory) throws FHIROperationException {
+		if (!mandatory && actual == null) {
+			return;
+		}
+		boolean matchFound = false;
+		for (String permitted : permittedValues) {
+			switch (mode) {
+				case EQUALS : if (actual.equals(permitted)) matchFound = true;
+					break;
+				case STARTS_WITH : if (actual.startsWith(permitted)) matchFound = true;
+					break;
+			}
+		}
+		if (!matchFound) {
+			throw new FHIROperationException (null, fieldName + " expected to contain one of " + String.join(", ", permittedValues));
 		}
 	}
 

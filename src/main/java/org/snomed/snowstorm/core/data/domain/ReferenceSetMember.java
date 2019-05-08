@@ -33,7 +33,8 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	}
 	
 	public interface AssociationFields {
-		String TARGET_ID = "targetComponentId";
+		String TARGET_COMP_ID = "targetComponentId";
+		String MAP_TARGET = "mapTarget";
 	}
 
 	public interface LanguageFields {

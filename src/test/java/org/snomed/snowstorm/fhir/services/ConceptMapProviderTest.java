@@ -30,7 +30,7 @@ public class ConceptMapProviderTest extends AbstractFHIRTest {
 		}
 		
 		ReferenceSetMember member = new ReferenceSetMember(null, "900000000000527005", sampleSCTID);
-		member.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_ID, "88189002");
+		member.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "88189002");
 		memberService.createMember(MAIN, member);
 	}
 	

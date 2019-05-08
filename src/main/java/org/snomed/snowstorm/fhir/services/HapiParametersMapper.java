@@ -7,6 +7,8 @@ import org.hl7.fhir.r4.model.*;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 
+import com.google.common.collect.BiMap;
+
 public class HapiParametersMapper implements FHIRConstants {
 	
 	public Parameters mapToFHIR(Concept c, Collection<Long> childIds) {
@@ -20,16 +22,35 @@ public class HapiParametersMapper implements FHIRConstants {
 		return parameters;
 	}
 	
-	public Parameters mapToFHIR(List<ReferenceSetMember> members, UriType targetSystem) {
+	public Parameters mapToFHIR(List<ReferenceSetMember> members, UriType requestedTargetSystem, BiMap<String, String> knownUriMap) {
+		UriType targetSystem;
 		Parameters p = getStandardParameters();
 		boolean success = members.size() > 0;
 		p.addParameter("result", success);
 		if (success) {
 			Parameters.ParametersParameterComponent matches = p.addParameter().setName("match");
 			for (ReferenceSetMember member : members) {
-				String mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_ID);
-				Coding coding = new Coding().setCode(mapTarget).setSystemElement(targetSystem);
-				matches.addPart().setName("concept").setValue(coding);
+				
+				//Do we know about this reference set?
+				String refsetId = member.getRefsetId();
+				String actualTargetSystem = knownUriMap.inverse().get(refsetId);
+				
+				//If not, then give an indication of the refset being returned
+				if (actualTargetSystem == null) {
+					targetSystem = new UriType(SNOMED_URI + "?fhir_vs=ecl/^" + refsetId);
+				} else {
+					targetSystem = new UriType(actualTargetSystem);
+				}
+				
+				String mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID);
+				if (mapTarget == null) {
+					mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET);
+				}
+				
+				if (mapTarget != null) {
+					Coding coding = new Coding().setCode(mapTarget).setSystemElement(targetSystem);
+					matches.addPart().setName("concept").setValue(coding);
+				}
 			}
 		}
 		return p;
