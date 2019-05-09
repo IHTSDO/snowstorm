@@ -67,6 +67,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 				"/rebuild/(.*)",
 				"/browser/(.*)/concepts.*",
 				"/browser/(.*)/descriptions.*",
+				"/browser/(.*)/members.*",
 				"/(.*)/concepts",
 				"/(.*)/concepts/.*",
 				"/(.*)/relationships.*",

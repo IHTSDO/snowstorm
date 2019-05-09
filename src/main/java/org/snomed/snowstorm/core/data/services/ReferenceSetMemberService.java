@@ -7,7 +7,6 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
-import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
@@ -15,6 +14,9 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.RegexpQueryBuilder;
+import org.elasticsearch.search.aggregations.Aggregation;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.metrics.cardinality.ParsedCardinality;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,15 +25,18 @@ import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetTypeRepository;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.ecl.ECLQueryService;
-import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.SearchQuery;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
@@ -39,6 +44,7 @@ import java.util.*;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 
 @Service
@@ -261,6 +267,7 @@ public class ReferenceSetMemberService extends ComponentService {
 
 	Set<Long> findConceptsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
 		// Build query
+
 		BoolQueryBuilder boolQuery = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 				.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 				.must(regexpQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ".*0."));// Matches the concept partition identifier
@@ -345,5 +352,42 @@ public class ReferenceSetMemberService extends ComponentService {
 			}
 		}
 		return member;
+	}
+
+	public PageWithBucketAggregations<ReferenceSetMember> findReferenceSetMembersWithAggregations(String path, PageRequest pageRequest, Boolean activeMember) {
+
+		BranchCriteria branchCriteria  = versionControlHelper.getBranchCriteria(path);
+		int totalUnique = (int) getUniqueRefSetIdTotal(branchCriteria);
+		BoolQueryBuilder boolQueryBuilder = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
+		if (activeMember != null) {
+			boolQueryBuilder.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, activeMember.booleanValue()));
+		}
+
+		SearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQueryBuilder)
+				.withPageable(pageRequest)
+				.addAggregation(AggregationBuilders.terms("referenceSetIds").field(ReferenceSetMember.Fields.REFSET_ID).size(totalUnique))
+				.build();
+
+		AggregatedPage<ReferenceSetMember> pageResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(searchQuery, ReferenceSetMember.class);
+
+		List<Aggregation> aggregations = new ArrayList<>();
+		if (pageResults.hasAggregations()) {
+			aggregations.addAll(pageResults.getAggregations().asList());
+		}
+		return PageWithBucketAggregationsFactory.createPage(pageResults, aggregations);
+	}
+
+	private long getUniqueRefSetIdTotal(BranchCriteria branchCriteria) {
+		BoolQueryBuilder boolQueryBuilder = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
+		String aggName = "totalId";
+		NativeSearchQuery cardinalityQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQueryBuilder)
+				.addAggregation(AggregationBuilders.cardinality(aggName).field(ReferenceSetMember.Fields.REFSET_ID))
+				.withPageable(PAGE_OF_ONE)
+				.build();
+		AggregatedPage<ReferenceSetMember> cardinalityPageResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(cardinalityQuery, ReferenceSetMember.class);
+		ParsedCardinality cardinality = cardinalityPageResults.getAggregations().get(aggName);
+		return cardinality.getValue();
 	}
 }

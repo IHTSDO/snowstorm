@@ -12,17 +12,16 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -36,8 +35,36 @@ public class ReferenceSetMemberController {
 	@Autowired
 	private ConceptService conceptService;
 
+	@ApiOperation("Search for reference set ids")
+	@RequestMapping(value = "browser/{branch}/members", method = RequestMethod.GET)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public PageWithBucketAggregations<ReferenceSetMember> findBrowserReferenceSetMembersWithAggregations(
+			@PathVariable String branch,
+			@RequestParam(required = false) Boolean activeMember,
+			@RequestParam(defaultValue = "0") int offset,
+			@RequestParam(defaultValue = "10") int limit,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		String path = BranchPathUriUtil.decodePath(branch);
+		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
+		PageWithBucketAggregations<ReferenceSetMember> page = memberService.findReferenceSetMembersWithAggregations(path, pageRequest, activeMember);
+
+		 Map<String, Map<String, Long>> buckets = page.getBuckets();
+		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		 Set<String> conceptIds = new HashSet<>();
+		 for (String key : buckets.keySet()) {
+		 	conceptIds.addAll(buckets.get(key).keySet());
+		 }
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(path, conceptIds, languageCodes).getResultsMap();
+
+		PageWithBucketAggregations<ReferenceSetMember> pageWithBucketAggregations = new PageWithBucketAggregations<>(page.getContent(), page.getPageable(), page.getTotalElements(), page.getBuckets());
+		pageWithBucketAggregations.setBucketConcepts(conceptMinis);
+		return pageWithBucketAggregations;
+	}
+
 	@ApiOperation("Search for reference set members.")
-	@RequestMapping(value = "/{branch}/members", method = RequestMethod.GET)
+	@RequestMapping(value = "{branch}/members", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
@@ -84,7 +111,7 @@ public class ReferenceSetMemberController {
 	}
 
 
-	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.GET)
+	@RequestMapping(value = "{branch}/members/{uuid}", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMember fetchMember(@PathVariable String branch,
@@ -97,7 +124,7 @@ public class ReferenceSetMemberController {
 		return member;
 	}
 
-	@RequestMapping(value= "/{branch}/members", method = RequestMethod.POST)
+	@RequestMapping(value = "{branch}/members", method = RequestMethod.POST)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMemberView createMember(@PathVariable String branch, @RequestBody @Valid ReferenceSetMemberView member) {
@@ -106,7 +133,8 @@ public class ReferenceSetMemberController {
 		return memberService.createMember(BranchPathUriUtil.decodePath(branch), (ReferenceSetMember) member);
 	}
 
-	@RequestMapping(value= "/{branch}/members/{uuid}", method = RequestMethod.PUT)
+	@ApiOperation("Update a reference set member")
+	@RequestMapping(value = "{branch}/members/{uuid}", method = RequestMethod.PUT)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMemberView updateMember(@PathVariable String branch,
@@ -120,7 +148,7 @@ public class ReferenceSetMemberController {
 		return memberService.updateMember(BranchPathUriUtil.decodePath(branch), toUpdate);
 	}
 
-	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.DELETE)
+	@RequestMapping(value = "{branch}/members/{uuid}", method = RequestMethod.DELETE)
 	@JsonView(value = View.Component.class)
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteMember(@PathVariable String branch,
@@ -129,5 +157,4 @@ public class ReferenceSetMemberController {
 
 		memberService.deleteMember(BranchPathUriUtil.decodePath(branch), uuid, force);
 	}
-
 }

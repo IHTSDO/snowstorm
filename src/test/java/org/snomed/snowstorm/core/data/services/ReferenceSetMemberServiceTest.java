@@ -13,6 +13,7 @@ import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -139,6 +140,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 				PAGE);
 	}
 
+	@Test
 	public void createFindUpdateMember() {
 		assertEquals(0, memberService.findMembers(MAIN, Concepts.CLINICAL_FINDING, PAGE).getTotalElements());
 
@@ -231,6 +233,73 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 		simple.setActive(false);
 		memberService.updateMember(MAIN, simple);
 	}
+
+	@Test
+	public void testAggregationsWithActiveAndInactiveMembers() {
+		//create an inactive simple reference set member
+		ReferenceSetMember saved = savePublishedSimpleMember(MAIN);
+		saved.setActive(false);
+		memberService.updateMember(MAIN, saved);
+
+		// create an active simple reference set member
+		ReferenceSetMember simple = new ReferenceSetMember("900000000000207008", "723264001", "731819006");
+		memberService.createMember(MAIN, simple);
+
+		//create an association reference set member
+		memberService.createMember(
+				MAIN, new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION, Concepts.CLINICAL_FINDING));
+
+		PageWithBucketAggregations<ReferenceSetMember> allResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), null);
+		assertNotNull(allResults);
+		String key = allResults.getBuckets().keySet().iterator().next();
+
+		assertEquals(2, allResults.getBuckets().get(key).values().size());
+		assertEquals(1, allResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
+		assertEquals(2, allResults.getBuckets().get(key).get("723264001").intValue());
+
+		PageWithBucketAggregations<ReferenceSetMember> activeResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), true);
+		assertNotNull(activeResults);
+		assertEquals(2, activeResults.getBuckets().get(key).values().size());
+		assertEquals(1, activeResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
+		assertEquals(1, activeResults.getBuckets().get(key).get("723264001").intValue());
+
+
+		PageWithBucketAggregations<ReferenceSetMember> inActiveResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), false);
+		assertNotNull(inActiveResults);
+		assertEquals(1, inActiveResults.getBuckets().get(key).size());
+		assertEquals(1, inActiveResults.getBuckets().get(key).get("723264001").intValue());
+	}
+
+	@Test
+	public void testAggregationsWithTwoReferenceSets() {
+		//create an inactive simple reference set member
+		ReferenceSetMember saved = savePublishedSimpleMember(MAIN);
+		saved.setActive(false);
+		memberService.updateMember(MAIN, saved);
+
+		//create an association reference set member
+		memberService.createMember(
+				MAIN, new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION, Concepts.CLINICAL_FINDING));
+
+		PageWithBucketAggregations<ReferenceSetMember> allResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), null);
+		assertNotNull(allResults);
+		String key = allResults.getBuckets().keySet().iterator().next();
+
+		assertEquals(2, allResults.getBuckets().get(key).values().size());
+		assertEquals(1, allResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
+		assertEquals(1, allResults.getBuckets().get(key).get("723264001").intValue());
+
+		PageWithBucketAggregations<ReferenceSetMember> activeResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), true);
+		assertNotNull(activeResults);
+		assertEquals(1, activeResults.getBuckets().get(key).values().size());
+		assertEquals(1, activeResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
+
+		PageWithBucketAggregations<ReferenceSetMember> inActiveResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), false);
+		assertNotNull(inActiveResults);
+		assertEquals(1, inActiveResults.getBuckets().get(key).size());
+		assertEquals(1, inActiveResults.getBuckets().get(key).get("723264001").intValue());
+	}
+
 
 	@After
 	public void tearDown() {
