@@ -25,5 +25,9 @@ public class ExpressionAttribute {
 	public ConceptMicro getValue() {
 		return value;
 	}
+	
+	public String toString (boolean includeTerms) {
+		return type.toString(includeTerms) + " = " + value.toString(includeTerms);
+	}
 
 }

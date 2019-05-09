@@ -58,4 +58,12 @@ public class ConceptMicro {
 	public int hashCode() {
 		return Objects.hash(id);
 	}
+	
+	public String toString(boolean includeTerm) {
+		if (includeTerm) {
+			return getId() + "|" + getTerm() + "|";
+		} else {
+			return getId();
+		}
+	}
 }

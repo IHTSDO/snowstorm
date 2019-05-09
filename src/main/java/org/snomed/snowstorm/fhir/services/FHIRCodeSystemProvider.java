@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
+import java.util.Set;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 
@@ -47,7 +48,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="version") StringType codeSystemUri,
 			@OperationParam(name="coding") Coding coding,
 //			@OperationParam(name="date") DateTimeType date,   // Not supported
-			@OperationParam(name="property") List<CodeType> properties
+			@OperationParam(name="property") List<CodeType> propertiesType
 			/*@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader*/) throws FHIROperationException {
 
 		if (system == null || system.isEmpty() || !system.equals(SNOMED_URI)) {
@@ -59,7 +60,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		String branchPath = codeSystemVersion.getBranchPath();
 		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), languageCodes, branchPath));
 		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + code.getValue()), branchPath, LARGE_PAGE);
-		return mapper.mapToFHIR(concept, childIds.getContent());
+		Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
+		return mapper.mapToFHIR(concept, childIds.getContent(), properties);
 	}
 	
 	@Override

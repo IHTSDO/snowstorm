@@ -1,5 +1,11 @@
 package org.snomed.snowstorm.fhir.config;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.StringType;
 
 public interface FHIRConstants {
@@ -28,7 +34,6 @@ public interface FHIRConstants {
 	
 	enum Validation { EQUALS, STARTS_WITH }
 	
-	StringType SUFFICIENTLY_DEFINED = new StringType("sufficientlyDefined");
 	String MAIN = "MAIN";
 	String URL = "url";
 	String USE = "use";
@@ -36,5 +41,54 @@ public interface FHIRConstants {
 	String VALUE_BOOLEAN = "valueBoolean";
 	String VALUE_STRING = "valueString";
 	String VERSION = "version";
+	
+	public enum FhirSctProperty {
+		INACTVE ("inactive"),
+		SUFFICIENTLY_DEFINED("sufficientlyDefined"),
+		MODULE_ID("moduleId"),
+		NORMAL_FORM("normalForm"),
+		NORMAL_FORM_TERSE("normalFormTerse");
+
+		private final String name;
+
+		private FhirSctProperty(String s) {
+			name = s;
+		}
+
+		public boolean equalsName(String otherName) {
+			return name.equals(otherName);
+		}
+		
+
+		public String toString() {
+			return this.name;
+		}
+		
+		public StringType toStringType() {
+			return new StringType(this.name);
+		}
+		
+		public static FhirSctProperty parse(CodeType code) {
+			for (FhirSctProperty property : FhirSctProperty.values()) {
+				if (property.equalsName(code.getValue())) {
+					return property;
+				}
+			}
+			return null;
+		}
+		
+		public static Set<FhirSctProperty> parse (List<CodeType> codeTypes) {
+			Set<FhirSctProperty> results = new HashSet<>();
+			if (codeTypes != null) {
+				for (CodeType code : codeTypes) {
+					FhirSctProperty property = parse (code);
+					if (property != null) {
+						results.add(property);
+					}
+				}
+			}
+			return results;
+		}
+	}
 
 }

@@ -4,8 +4,9 @@ import org.snomed.snowstorm.core.data.domain.ConceptMicro;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
-public class Expression  {
+public class Expression {
 
 	private List<ConceptMicro> focusConcepts;
 	private List<ExpressionAttribute> attributes;
@@ -55,5 +56,41 @@ public class Expression  {
 			focusConcepts.add(new ConceptMicro(c));
 		}
 	}
+	
+	public String toString() {
+		return toString(true);
+	}
+
+	public String toString(boolean includeTerms) {
+		StringBuffer sb = new StringBuffer();
+		
+		//First focus concepts
+		sb.append(focusConcepts.stream()
+				.map(fc -> fc.toString(includeTerms))
+				.collect(Collectors.joining(" + ")));
+		
+		//Is there anything more?  Colon if so
+		if (attributes.size() > 0 || groupMap.size() > 0) {
+			sb.append(" : ");
+		}
+		
+		//Next ungrouped attributes
+		sb.append(attributes.stream()
+				.map(a-> a.toString(includeTerms))
+				.collect(Collectors.joining(", ")));
+		
+		if (attributes.size() > 0) {
+			sb.append(", ");
+		}
+		
+		//And finally the groups
+		sb.append(groupMap.values().stream()
+				.map(g-> g.toString(includeTerms))
+				.collect(Collectors.joining(", ")));
+		
+		return sb.toString();
+	}
+	
+
 	
 }

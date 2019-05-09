@@ -20,10 +20,13 @@ http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code
 #### Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)|
 http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=427623005&_format=json
 
+#### Code System Lookup of medicinal product including normalForm and sufficientlyDefined properties.  Properties are listed here: [https://www.hl7.org/fhir/snomedct.html#props]
+http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=322236009&property=normalForm&property=sufficientlyDefined&_format=json
+
 #### Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)| in Swedish Extension
 http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&version=http://snomed.info/sct/45991000052106&code=427623005&_format=json
 
-#### Expansion of an intensionally defined value set
+#### Expansion of an intensionally defined value set.  Other ways of requesting implicit value sets are listed here: [https://www.hl7.org/fhir/snomedct.html#implicit]
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&_format=json
 
 #### Expansion of an intensional value set against the Swedish Edition

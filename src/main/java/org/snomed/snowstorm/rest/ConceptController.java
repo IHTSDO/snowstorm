@@ -11,6 +11,7 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ConceptView;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
+import org.snomed.snowstorm.core.data.domain.expression.ExpressionTransfer;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
@@ -298,6 +299,20 @@ public class ConceptController {
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		return expressionService.getConceptAuthoringForm(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch));
+	}
+	
+	@ResponseBody
+	@RequestMapping(value = "/{branch}/concepts/{conceptId}/expression", method = RequestMethod.GET)
+	public ExpressionTransfer geExpression(
+			@PathVariable String branch,
+			@PathVariable String conceptId,
+			@RequestParam(defaultValue="false") boolean statedView,
+			@RequestParam(defaultValue="false") boolean includeTerms,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		Expression expression =  expressionService.getExpression(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch), statedView);
+		return ExpressionTransfer.transfer(expression, includeTerms);
 	}
 
 	private void validatePageSize(@RequestParam(required = false, defaultValue = "50") int limit) {

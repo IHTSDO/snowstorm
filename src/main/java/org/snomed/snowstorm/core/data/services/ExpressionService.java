@@ -1,19 +1,11 @@
 package org.snomed.snowstorm.core.data.services;
 
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.expression.Expression;
-import org.snomed.snowstorm.core.data.domain.expression.ExpressionAttribute;
-import org.snomed.snowstorm.core.data.domain.expression.ExpressionGroup;
+import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.expression.*;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class ExpressionService {
 	
@@ -38,6 +30,22 @@ public class ExpressionService {
 		return expression;
 	}
 	
+	public Expression getExpression(Concept concept, boolean statedView) {
+		//First add the existing attributes
+		Expression expression = new Expression();
+		String charType = statedView ? Concepts.STATED_RELATIONSHIP : Concepts.INFERRED_RELATIONSHIP;
+		concept.getRelationships().stream()
+				.filter(relationship -> relationship.isActive()) 
+				.filter(relationship -> charType.equals(relationship.getCharacteristicTypeId()))
+				.forEach(relationship -> addRelationshipToExpression(relationship, expression));
+		return expression;
+	}
+	
+	public Expression getExpression(String conceptId, List<String> languageCodes, String branchPath, boolean statedView) {
+		Concept concept = conceptService.find(conceptId, languageCodes, branchPath);
+		return getExpression(concept, statedView);
+	}
+	
 	private Collection<ConceptMini> getAncestors(String conceptId, List<String> languageCodes, String branchPath) {
 		Set<Long> ancestorIds = queryService.findAncestorIds(conceptId, branchPath, false);
 		ResultMapPage<String, ConceptMini> pages = conceptService.findConceptMinis(branchPath, ancestorIds, languageCodes);
@@ -56,6 +64,14 @@ public class ExpressionService {
 			} else {
 				expression.addAttribute(attribute);
 			}
+		}
+	}
+	
+	private void addRelationshipToExpression(Relationship rel, Expression expression) {
+		if (Concepts.ISA.equals(rel.getTypeId())) {
+			expression.addConcept(new ConceptMicro(rel.getTarget()));
+		} else {
+			addAttributeToExpression(rel, expression);
 		}
 	}
 	

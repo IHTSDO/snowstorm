@@ -2,21 +2,32 @@ package org.snomed.snowstorm.fhir.services;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CodeType;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.UriType;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.expression.Expression;
+import org.snomed.snowstorm.core.data.services.ExpressionService;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import com.google.common.collect.BiMap;
 
 public class HapiParametersMapper implements FHIRConstants {
 	
-	public Parameters mapToFHIR(Concept c, Collection<Long> childIds) {
+	@Autowired
+	private ExpressionService expressionService;
+	
+	public Parameters mapToFHIR(Concept c, Collection<Long> childIds, Set<FhirSctProperty> properties) {
 		Parameters parameters = getStandardParameters();
 		Parameters.ParametersParameterComponent preferredTerm = new Parameters.ParametersParameterComponent(DISPLAY);
 		parameters.addParameter(preferredTerm);
 		addDesignations(parameters, c, preferredTerm);
-		addProperties(parameters, c);
+		addProperties(parameters, c, properties);
 		addParents(parameters,c);
 		addChildren(parameters, childIds);
 		return parameters;
@@ -80,11 +91,28 @@ public class HapiParametersMapper implements FHIRConstants {
 		}
 	}
 
-	private void addProperties(Parameters parameters, Concept c) {
+	private void addProperties(Parameters parameters, Concept c, Set<FhirSctProperty> properties) {
 		Boolean sufficientlyDefined = c.getDefinitionStatusId().equals(Concepts.SUFFICIENTLY_DEFINED);
 		parameters.addParameter(createProperty(EFFECTIVE_TIME, c.getEffectiveTime(), false))
-			.addParameter(createProperty(MODULE_ID, c.getModuleId(), true))
-			.addParameter(createProperty(SUFFICIENTLY_DEFINED, sufficientlyDefined, false));
+			.addParameter(createProperty(MODULE_ID, c.getModuleId(), true));
+	
+		if (properties.contains(FhirSctProperty.INACTVE)) {
+			parameters.addParameter(createProperty(FhirSctProperty.INACTVE.toStringType(), !c.isActive(), false));
+		}
+		
+		if (properties.contains(FhirSctProperty.SUFFICIENTLY_DEFINED)) {
+			parameters.addParameter(createProperty(FhirSctProperty.SUFFICIENTLY_DEFINED.toStringType(), sufficientlyDefined, false));
+		}
+		
+		if (properties.contains(FhirSctProperty.NORMAL_FORM_TERSE)) {
+			Expression expression = expressionService.getExpression(c, false);
+			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM_TERSE.toStringType(), expression.toString(false), false));
+		}
+		
+		if (properties.contains(FhirSctProperty.NORMAL_FORM)) {
+			Expression expression = expressionService.getExpression(c, false);
+			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM.toStringType(), expression.toString(true), false));
+		}
 	}
 
 	private void addParents(Parameters p, Concept c) {

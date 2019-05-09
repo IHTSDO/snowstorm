@@ -3,9 +3,13 @@ package org.snomed.snowstorm.fhir.services;
 import java.io.IOException;
 import java.util.*;
 
+import org.hl7.fhir.r4.model.CodeType;
+import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
+import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.Type;
 
 import io.kaicode.elasticvc.api.BranchService;
 
@@ -126,9 +130,9 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 
 	protected String toString(ParametersParameterComponent p, String indent) {
 		StringBuffer sb = new StringBuffer();
-		sb.append(p.getName());
+		sb.append(p.getName() + " (" + p.fhirType() + ")");
 		if (p.getValue() != null) {
-			sb.append(": " + p.getValue());
+			sb.append(": " + toString(p.getValue()));
 		}
 		if (p.getResource() != null) {
 			sb.append(": " + p.getResource());
@@ -139,20 +143,37 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		return sb.toString();
 	}
 	
-	protected void checkForError(String json) throws FHIROperationException {
+	protected String toString(Type value) {
+		if (value instanceof Coding) {
+			Coding codingValue = (Coding)value;
+			return "[ " + codingValue.getSystem() + " : " + codingValue.getCode() + "|" + codingValue.getDisplay()  + "| ]";
+		} else if (value instanceof CodeType) {
+			CodeType codeValue = (CodeType)value;
+			return  codeValue.getCode();
+		} else if (value instanceof StringType) {
+			return value.castToString(value).asStringValue();
+		} else {
+			return value.toString();
+		}
+	}
+
+	protected void checkForError(ResponseEntity<String> response) throws FHIROperationException {
+		String body = response.getBody();
 		try {
-			if (json.contains("\"status\":5") ||
-					json.contains("\"status\":4") ||
-					json.contains("\"status\":3")) {
-				ErrorResponse error = mapper.readValue(json, ErrorResponse.class);
-				throw new FHIROperationException(IssueType.EXCEPTION, error.getMessage());
-			} else if (json.contains("\"resourceType\":\"OperationOutcome\"")) {
-				OperationOutcome outcome = fhirJsonParser.parseResource(OperationOutcome.class, json);
-				//TODO Find or write pretty print to give structured output of OperationOutcome
-				throw new FHIROperationException(IssueType.EXCEPTION, json);
+			if (!HttpStatus.OK.equals(response.getStatusCode())) {
+				if (body.contains("\"status\":5") ||
+						body.contains("\"status\":4") ||
+						body.contains("\"status\":3")) {
+					ErrorResponse error = mapper.readValue(body, ErrorResponse.class);
+					throw new FHIROperationException(IssueType.EXCEPTION, error.getMessage());
+				} else if (body.contains("\"resourceType\":\"OperationOutcome\"")) {
+					OperationOutcome outcome = fhirJsonParser.parseResource(OperationOutcome.class, body);
+					//TODO Find or write pretty print to give structured output of OperationOutcome
+					throw new FHIROperationException(IssueType.EXCEPTION, body);
+				}
 			}
 		} catch (IOException e) {
-			throw new FHIROperationException(IssueType.EXCEPTION, json);
+			throw new FHIROperationException(IssueType.EXCEPTION, body);
 		}
 	}
 
