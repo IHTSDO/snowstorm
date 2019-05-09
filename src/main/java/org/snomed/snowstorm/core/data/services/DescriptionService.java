@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
 import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
 
 @Service
@@ -128,7 +129,7 @@ public class DescriptionService extends ComponentService {
 						.must(termsQuery(Description.Fields.TYPE_ID, Concepts.FSN))
 						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
 				)
-				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG));
+				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG).size(AGGREGATION_SEARCH_SIZE));
 
 		if (!semanticTagFiltering) {
 			fsnQueryBuilder

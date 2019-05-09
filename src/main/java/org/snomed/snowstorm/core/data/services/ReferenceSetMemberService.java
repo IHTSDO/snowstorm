@@ -16,7 +16,6 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.RegexpQueryBuilder;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.metrics.cardinality.ParsedCardinality;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +43,7 @@ import java.util.*;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
-import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
+import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 
 @Service
@@ -357,7 +356,6 @@ public class ReferenceSetMemberService extends ComponentService {
 	public PageWithBucketAggregations<ReferenceSetMember> findReferenceSetMembersWithAggregations(String path, PageRequest pageRequest, Boolean activeMember) {
 
 		BranchCriteria branchCriteria  = versionControlHelper.getBranchCriteria(path);
-		int totalUnique = (int) getUniqueRefSetIdTotal(branchCriteria);
 		BoolQueryBuilder boolQueryBuilder = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
 		if (activeMember != null) {
 			boolQueryBuilder.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, activeMember.booleanValue()));
@@ -366,7 +364,7 @@ public class ReferenceSetMemberService extends ComponentService {
 		SearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQueryBuilder)
 				.withPageable(pageRequest)
-				.addAggregation(AggregationBuilders.terms("referenceSetIds").field(ReferenceSetMember.Fields.REFSET_ID).size(totalUnique))
+				.addAggregation(AggregationBuilders.terms("referenceSetIds").field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE))
 				.build();
 
 		AggregatedPage<ReferenceSetMember> pageResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(searchQuery, ReferenceSetMember.class);
@@ -378,16 +376,4 @@ public class ReferenceSetMemberService extends ComponentService {
 		return PageWithBucketAggregationsFactory.createPage(pageResults, aggregations);
 	}
 
-	private long getUniqueRefSetIdTotal(BranchCriteria branchCriteria) {
-		BoolQueryBuilder boolQueryBuilder = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
-		String aggName = "totalId";
-		NativeSearchQuery cardinalityQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQueryBuilder)
-				.addAggregation(AggregationBuilders.cardinality(aggName).field(ReferenceSetMember.Fields.REFSET_ID))
-				.withPageable(PAGE_OF_ONE)
-				.build();
-		AggregatedPage<ReferenceSetMember> cardinalityPageResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(cardinalityQuery, ReferenceSetMember.class);
-		ParsedCardinality cardinality = cardinalityPageResults.getAggregations().get(aggName);
-		return cardinality.getValue();
-	}
 }

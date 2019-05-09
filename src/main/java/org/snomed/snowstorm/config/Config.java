@@ -95,6 +95,7 @@ public abstract class Config {
 	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList("en");
 	public static final String SYSTEM_USERNAME = "System";
 	public static final int BATCH_SAVE_SIZE = 10000;
+	public static final int AGGREGATION_SEARCH_SIZE = 200;
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean restApiReadOnly;
