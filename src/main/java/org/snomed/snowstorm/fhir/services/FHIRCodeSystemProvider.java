@@ -7,7 +7,6 @@ import ca.uhn.fhir.rest.server.IResourceProvider;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -45,7 +44,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			HttpServletResponse response,
 			@OperationParam(name="code") CodeType code,
 			@OperationParam(name="system") UriType system,
-			@OperationParam(name="version") StringType codeSystemUri,
+			@OperationParam(name="version") StringType codeSystemVersionUri,
 			@OperationParam(name="coding") Coding coding,
 //			@OperationParam(name="date") DateTimeType date,   // Not supported
 			@OperationParam(name="property") List<CodeType> propertiesType
@@ -56,9 +55,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			throw new FHIROperationException(IssueType.VALUE, "'system' parameter must be present, and currently only '" + SNOMED_URI + "' is supported." + detail);
 		}
 
-		CodeSystemVersion codeSystemVersion = fhirHelper.getCodeSystemVersion(codeSystemUri);
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER);
-		String branchPath = codeSystemVersion.getBranchPath();
+		String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
 		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), languageCodes, branchPath));
 		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + code.getValue()), branchPath, LARGE_PAGE);
 		Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);

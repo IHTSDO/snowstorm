@@ -52,9 +52,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (cutPoint == -1) {
 			throw new FHIROperationException(IssueType.VALUE, "url is expected to contain one or more parameters eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ");
 		}
-		StringType codeSystemStr = new StringType(url.substring(0, cutPoint));
-		CodeSystemVersion codeSystemVersion = fhirHelper.getCodeSystemVersion(codeSystemStr);
-		String branchPath = codeSystemVersion.getBranchPath();
+		StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
+		String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		
 		String ecl = determineEcl(url);

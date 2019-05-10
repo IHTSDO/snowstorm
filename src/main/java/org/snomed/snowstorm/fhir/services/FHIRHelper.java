@@ -49,12 +49,12 @@ class FHIRHelper {
 				: versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1, versionStr.indexOf("/" + FHIRConstants.VERSION + "/"));
 	}
 
-	public CodeSystemVersion getCodeSystemVersion(StringType codeSystemUri) {
-		
-		String defaultModule = getSnomedEditionModule(codeSystemUri);
+	public String getBranchPathForCodeSystemVersion(StringType codeSystemVersionUri) {
+		String branchPath = null;
+		String defaultModule = getSnomedEditionModule(codeSystemVersionUri);
 		Integer editionVersionString = null;
-		if (codeSystemUri != null) {
-			editionVersionString = getSnomedVersion(codeSystemUri.toString());
+		if (codeSystemVersionUri != null) {
+			editionVersionString = getSnomedVersion(codeSystemVersionUri.toString());
 		}
 
 		org.snomed.snowstorm.core.data.domain.CodeSystem codeSystem = codeSystemService.findByDefaultModule(defaultModule);
@@ -67,13 +67,15 @@ class FHIRHelper {
 		if (editionVersionString != null) {
 			// Lookup specific version
 			codeSystemVersion = codeSystemService.findVersion(shortName, editionVersionString);
+			branchPath = codeSystemVersion.getBranchPath();
 		} else {
 			// Lookup latest
-			codeSystemVersion = codeSystemService.findLatestVersion(shortName);
+			//codeSystemVersion = codeSystemService.findLatestVersion(shortName);
+			branchPath = codeSystem.getBranchPath();
 		}
-		if (codeSystemVersion == null) {
-			throw new NotFoundException(String.format("No version found for Code system %s with default module %s.", shortName, defaultModule));
+		if (branchPath == null) {
+			throw new NotFoundException(String.format("No branch found for Code system %s with default module %s.", shortName, defaultModule));
 		}
-		return codeSystemVersion;
+		return branchPath;
 	}
 }
