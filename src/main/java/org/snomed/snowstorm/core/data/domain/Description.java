@@ -21,6 +21,8 @@ import java.util.regex.Pattern;
 @Document(indexName = "es-description", type = "description")
 public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
+	private static final Pattern TAG_PATTERN = Pattern.compile(".+ \\((.+)\\)");
+
 	public interface Fields extends SnomedComponent.Fields {
 		String DESCRIPTION_ID = "descriptionId";
 		String TERM = "term";
@@ -321,8 +323,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public String getTag() {
 		if (Concepts.FSN.equals(typeId)) {
-			Pattern pattern = Pattern.compile(".+ \\((.+)\\)");
-			Matcher matcher = pattern.matcher(term);
+			Matcher matcher = TAG_PATTERN.matcher(term);
 			if (matcher.matches()) {
 				return matcher.group(1);
 			}
