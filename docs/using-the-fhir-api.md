@@ -1,18 +1,18 @@
 # Working with the FHIR API
 
-**Please be aware that the Snowstorm FHIR interface is in development, with more focus on the full implementation in early 2019.**
-
 ## Design Overview
 
 Snowstorms's FHIR capabilities are managed using the HAPI Server package, which brings a number of benefits such as automatic creation of the Capabilities resource. It also means that future releases of the FHIR Specification will not require code changes by SNOMED International as we'll be able migrate to the next version of HAPI.
 
-## Testing
-Unfortunately HAPI does not appear to allow us to supply a Swagger interface for testing, and if you find a way to make it work do please let us know!
+# Testing
+Unfortunately HAPI does not easily support a Swagger interface for testing, and if you find a way to make it work do please let us know!
 
 In a default installation, the FHIR endpoints can be found at: http://localhost:8080/fhir  although there is no operation there, so you could try one of these calls:
 
-#### Server Capabilities
+### Server Capabilities
 http://localhost:8080/fhir/metadata?_format=json
+
+### Code System Lookups
 
 #### Code System Lookup of Clinical Finding
 http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=404684003&_format=json
@@ -26,8 +26,19 @@ http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code
 #### Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)| in Swedish Extension
 http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&version=http://snomed.info/sct/45991000052106&code=427623005&_format=json
 
-#### Expansion of an intensionally defined value set.  Other ways of requesting implicit value sets are listed here: [https://www.hl7.org/fhir/snomedct.html#implicit]
+##ValueSet Expansion
+### Implicit ValueSets (ie intensionally defined). See  [https://www.hl7.org/fhir/snomedct.html#implicit]
+#### Expansion of an intensionally defined value set using ECL
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&_format=json
+
+#### Expansion of an intensionally defined value set using ISA
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=isa/27624003&_format=json
+
+#### Expansion of an intensionally defined value set using refset (ICD-10 complex map)
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=refset/447562003&_format=json
+
+#### Expansion of an intensionally defined value set using nothing!  Returns all concepts.
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs&_format=json
 
 #### Expansion of an intensional value set against the Swedish Edition
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct/45991000052106?fhir_vs=ecl/<<27624003&_format=json
@@ -41,6 +52,7 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=e
 #### Refset - list all SNOMED concepts mapped to ICD-O  (ECL here is ^446608001 |ICD-O simple map reference set (foundation metadata concept)|)
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/%5E446608001&count=20&_format=json
 
+##Concept Maps
 #### Historical Association find the "SAME AS" target for inactivated concept 
 localhost:8080/fhir/ConceptMap/$translate?code=134811001&system=http://snomed.info/sct&source=http://snomed.info/sct?fhir_vs&target=http://snomed.info/sct?fhir_vs&url=http://snomed.info/sct?fhir_cm=900000000000527005&_format=json
 

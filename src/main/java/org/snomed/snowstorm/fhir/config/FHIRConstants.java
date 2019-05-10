@@ -42,6 +42,10 @@ public interface FHIRConstants {
 	String VALUE_STRING = "valueString";
 	String VERSION = "version";
 	
+	String IMPLICIT_ISA = "?fhir_vs=isa/";
+	String IMPLICIT_REFSET = "?fhir_vs=refset/";
+	String IMPLICIT_ECL= "?fhir_vs=ecl/";
+	
 	public enum FhirSctProperty {
 		INACTVE ("inactive"),
 		SUFFICIENTLY_DEFINED("sufficientlyDefined"),

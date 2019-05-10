@@ -66,6 +66,31 @@ public class ValueSetProviderTest extends AbstractFHIRTest {
 		assertEquals(10,v.getExpansion().getTotal());
 	}
 	
+	@Test
+	public void testImplcitValueSets() throws FHIROperationException {
+		
+		// ?fhir_vs -> all concepts
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs&_format=json";
+		ValueSet v = get(url);
+		assertEquals(11,v.getExpansion().getTotal());
+		
+		// ?fhir_vs=refset -> all concepts (all concepts exist in lang refsets!)
+		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=refset&_format=json";
+		v = get(url);
+		assertEquals(11,v.getExpansion().getTotal());
+		
+		// ?fhir_vs=isa/<root concept> -> all concepts under root
+		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT + "&_format=json";
+		v = get(url);
+		assertEquals(10,v.getExpansion().getTotal());
+		
+		// ?fhir_vs=refset/<refsetId> -> all concepts in that refset
+		// Note that refset must be loaded on the branch for this to return
+		/*url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=refset/" + Concepts.REFSET_SAME_AS_ASSOCIATION + "&_format=json";
+		v = get(url);
+		assertEquals(1,v.getExpansion().getTotal());*/
+	}
+	
 	private ValueSet get(String url) throws FHIROperationException {
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
 		checkForError(response);

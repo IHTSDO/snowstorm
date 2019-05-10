@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +46,9 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 	
 	@Autowired
 	protected CodeSystemService codeSystemService;
+	
+	@Autowired
+	protected ReferenceSetMemberService memberService;
 	
 	@Autowired
 	protected CodeSystemConfigurationService codeSystemConfigurationService;
@@ -108,6 +110,11 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		codeSystemService.createVersion(codeSystemWK, 20190731, "");
 		
 		logger.info("Baked Potato test data setup complete");
+		
+		ReferenceSetMember member = new ReferenceSetMember(null, Concepts.REFSET_SAME_AS_ASSOCIATION, sampleSCTID);
+		member.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, "88189002");
+		memberService.createMember(MAIN, member);
+		
 		setupComplete = true;
 	}
 

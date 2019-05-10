@@ -41,7 +41,7 @@ public class ExpressionService {
 		return expression;
 	}
 	
-	public Expression getExpression(String conceptId, List<String> languageCodes, String branchPath, boolean statedView) {
+	public Expression getConceptNormalForm(String conceptId, List<String> languageCodes, String branchPath, boolean statedView) {
 		Concept concept = conceptService.find(conceptId, languageCodes, branchPath);
 		return getExpression(concept, statedView);
 	}

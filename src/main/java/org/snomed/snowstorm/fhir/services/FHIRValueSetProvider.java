@@ -57,11 +57,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		String branchPath = codeSystemVersion.getBranchPath();
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		
-		cutPoint = url.indexOf("fhir_vs=ecl/");
-		if (cutPoint == -1) {
-			throw new FHIROperationException(IssueType.VALUE, "url is expected to include parameter with value: 'fhir_vs=ecl/'");
-		}
-		String ecl = url.substring(cutPoint + 12);
+		String ecl = determineEcl(url);
 		Boolean active = activeType == null ? null : activeType.booleanValue();
 		queryBuilder.ecl(ecl)
 					.termMatch(filter)
@@ -77,6 +73,31 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		return valueSet;
 	}
 	
+	/**
+	 * See https://www.hl7.org/fhir/snomedct.html#implicit 
+	 * @param url
+	 * @return
+	 * @throws FHIROperationException 
+	 */
+	private String determineEcl(String url) throws FHIROperationException {
+		String ecl;
+		if (url.endsWith("?fhir_vs") || url.endsWith("?fhir_vs=refset")) {
+			//Return all of SNOMED CT in this situation
+			ecl = "*";
+		} else if (url.contains(IMPLICIT_ISA)) {
+			String sctId = url.substring(url.indexOf(IMPLICIT_ISA) + IMPLICIT_ISA.length());
+			ecl = "<" + sctId;
+		} else if (url.contains(IMPLICIT_REFSET)) {
+			String sctId = url.substring(url.indexOf(IMPLICIT_REFSET) + IMPLICIT_REFSET.length());
+			ecl = "^" + sctId;
+		} else if (url.contains(IMPLICIT_ECL)) {
+			ecl = url.substring(url.indexOf(IMPLICIT_ECL) + IMPLICIT_ECL.length());
+		} else {
+			throw new FHIROperationException(IssueType.VALUE, "url is expected to include parameter with value: 'fhir_vs=ecl/'");
+		}
+		return ecl;
+	}
+
 	@Override
 	public Class<? extends IBaseResource> getResourceType() {
 		return ValueSet.class;

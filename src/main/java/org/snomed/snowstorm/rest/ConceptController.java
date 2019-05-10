@@ -302,8 +302,8 @@ public class ConceptController {
 	}
 	
 	@ResponseBody
-	@RequestMapping(value = "/{branch}/concepts/{conceptId}/expression", method = RequestMethod.GET)
-	public ExpressionTransfer geExpression(
+	@RequestMapping(value = "/{branch}/concepts/{conceptId}/normal-form", method = RequestMethod.GET)
+	public ExpressionTransfer getConceptNormalForm(
 			@PathVariable String branch,
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue="false") boolean statedView,
@@ -311,7 +311,7 @@ public class ConceptController {
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
-		Expression expression =  expressionService.getExpression(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch), statedView);
+		Expression expression =  expressionService.getConceptNormalForm(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch), statedView);
 		return ExpressionTransfer.transfer(expression, includeTerms);
 	}
 
