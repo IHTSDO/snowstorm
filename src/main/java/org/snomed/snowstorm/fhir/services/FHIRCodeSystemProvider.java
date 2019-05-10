@@ -52,7 +52,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			/*@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader*/) throws FHIROperationException {
 
 		if (system == null || system.isEmpty() || !system.equals(SNOMED_URI)) {
-			throw new FHIROperationException(IssueType.VALUE, "System must be present, and currently only " + SNOMED_URI + " is supported.");
+			String detail = "  Instead received: " + system==null?"null": ("'" + system.asStringValue() + "'");
+			throw new FHIROperationException(IssueType.VALUE, "'system' parameter must be present, and currently only '" + SNOMED_URI + "' is supported." + detail);
 		}
 
 		CodeSystemVersion codeSystemVersion = fhirHelper.getCodeSystemVersion(codeSystemUri);
