@@ -1,11 +1,16 @@
 package org.snomed.snowstorm.fhir.services;
 
+import java.util.List;
+
+import javax.servlet.http.HttpServletRequest;
+
 import org.hl7.fhir.r4.model.StringType;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
+import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -77,5 +82,13 @@ class FHIRHelper {
 			throw new NotFoundException(String.format("No branch found for Code system %s with default module %s.", shortName, defaultModule));
 		}
 		return branchPath;
+	}
+
+	public List<String> getLanguageCodes(HttpServletRequest request) {
+		String header = request.getHeader("Accept-Language");
+		if (header == null || header.isEmpty()) {
+			header = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER;
+		}
+		return ControllerHelper.getLanguageCodes(header);
 	}
 }

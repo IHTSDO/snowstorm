@@ -24,7 +24,8 @@ http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code
 http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=322236009&property=normalForm&property=sufficientlyDefined&_format=json
 
 #### Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)| in Swedish Extension
-http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&version=http://snomed.info/sct/45991000052106&code=427623005&_format=json
+####  Curl example allows use of language headers to specify Swedish language. NB Ensure use of single quotes in URL to avoid $expand being treated as a variable by Unix shell
+curl -i -H 'Accept-Language: sv' 'http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&version=http://snomed.info/sct/45991000052106&code=427623005&_format=json'
 
 ## ValueSet Expansion
 ### Implicit ValueSets (ie intensionally defined). See  [https://www.hl7.org/fhir/snomedct.html#implicit]
@@ -40,8 +41,8 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=r
 #### Expansion of an intensionally defined value set using nothing!  Returns all concepts.
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs&_format=json
 
-#### Expansion of an intensional value set against the Swedish Edition
-http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct/45991000052106?fhir_vs=ecl/<<27624003&_format=json
+#### Expansion of an intensional value set against the Swedish Edition. 
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct/45991000052106?fhir_vs=ecl/%3C%3C27624003&_format=json
 
 #### Paging through 10 at a time, request the 2nd page
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&count=10&offset=1&_format=json

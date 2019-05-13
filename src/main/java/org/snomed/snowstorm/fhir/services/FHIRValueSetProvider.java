@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
+import java.util.List;
+
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -48,18 +50,20 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="count") String countStr) throws FHIROperationException {
 
 		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
-		int cutPoint = url.indexOf("?");
+		int cutPoint = url == null ? -1 : url.indexOf("?");
 		if (cutPoint == -1) {
-			throw new FHIROperationException(IssueType.VALUE, "url is expected to contain one or more parameters eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ");
+			throw new FHIROperationException(IssueType.VALUE, "'url' parameter is expected to be present, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ");
 		}
 		StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
 		String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		
 		String ecl = determineEcl(url);
+		List<String> languageCodes = fhirHelper.getLanguageCodes(request);
 		Boolean active = activeType == null ? null : activeType.booleanValue();
 		queryBuilder.ecl(ecl)
 					.termMatch(filter)
+					.languageCodes(languageCodes)
 					.activeFilter(active);
 
 		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
