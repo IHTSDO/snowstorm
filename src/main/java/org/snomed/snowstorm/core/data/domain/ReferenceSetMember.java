@@ -11,7 +11,7 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.*;
 
-@Document(indexName = "es-member", type = "member")
+@Document(indexName = "member")
 public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> implements ReferenceSetMemberView {
 	public interface Fields extends SnomedComponent.Fields {
 		String MEMBER_ID = "memberId";

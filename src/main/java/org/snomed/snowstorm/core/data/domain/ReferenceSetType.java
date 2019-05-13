@@ -10,7 +10,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-@Document(indexName = "es-refset", type = "refset-type")
+@Document(indexName = "refset")
 public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 
 	public interface Fields extends SnomedComponent.Fields {

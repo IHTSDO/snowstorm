@@ -18,7 +18,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@Document(indexName = "es-description", type = "description")
+@Document(indexName = "description")
 public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
 	private static final Pattern TAG_PATTERN = Pattern.compile(".+ \\((.+)\\)");

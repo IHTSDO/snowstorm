@@ -6,7 +6,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.Date;
 
-@Document(indexName = "es-codesystem-version", type = "codesystem-v")
+@Document(indexName = "codesystem-version")
 public class CodeSystemVersion {
 
 	@Field(type = FieldType.keyword)

@@ -7,7 +7,13 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import java.util.Collection;
 import java.util.UUID;
 
-@Document(indexName = "es-identifiers", type = "identifiers")
+/**
+ * During authoring SCTID identifiers are assigned to new content.
+ * These identifiers are stored using documents of this type until
+ * they are registered with the Component Identifier Service.
+ * Once the identifiers are registered these documents are deleted.
+ */
+@Document(indexName = "identifiers-for-registration")
 public class IdentifiersForRegistration {
 
 	private String id;

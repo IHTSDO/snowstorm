@@ -7,7 +7,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import javax.validation.constraints.NotNull;
 import java.util.Date;
 
-@Document(indexName = "es-export", type = "export")
+@Document(indexName = "export-config")
 public final class ExportConfiguration {
 
 	@NotNull
