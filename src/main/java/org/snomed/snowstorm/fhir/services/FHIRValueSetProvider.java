@@ -89,7 +89,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			ecl = "*";
 		} else if (url.contains(IMPLICIT_ISA)) {
 			String sctId = url.substring(url.indexOf(IMPLICIT_ISA) + IMPLICIT_ISA.length());
-			ecl = "<" + sctId;
+			ecl = "<<" + sctId;
 		} else if (url.contains(IMPLICIT_REFSET)) {
 			String sctId = url.substring(url.indexOf(IMPLICIT_REFSET) + IMPLICIT_REFSET.length());
 			ecl = "^" + sctId;
