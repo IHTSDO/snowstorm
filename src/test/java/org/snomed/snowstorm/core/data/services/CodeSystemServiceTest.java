@@ -7,6 +7,7 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -40,6 +41,18 @@ public class CodeSystemServiceTest extends AbstractTest {
 		assertEquals(2, codeSystemService.findAll().size());
 
 		assertEquals(codeSystemBe, codeSystemService.find("SNOMEDCT-BE"));
+	}
+	
+	@Test
+	public void recoverLatestVersion() {
+		CodeSystem cs = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystemService.createCodeSystem(cs);
+		codeSystemService.createVersion(cs, 20190731, "");
+		
+		//Now version it again with a later date, and recover the most recent one
+		codeSystemService.createVersion(cs, 20200131, "");
+		CodeSystemVersion csv = codeSystemService.findLatestVersion("SNOMEDCT");
+		assertEquals(new Integer(20200131), csv.getEffectiveDate());
 	}
 
 }

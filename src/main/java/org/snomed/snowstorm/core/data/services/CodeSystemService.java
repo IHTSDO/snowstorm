@@ -149,13 +149,26 @@ public class CodeSystemService {
 	public CodeSystemVersion findVersion(String shortName, int effectiveTime) {
 		return versionRepository.findOneByShortNameAndEffectiveDate(shortName, effectiveTime);
 	}
-
+	
 	public List<CodeSystemVersion> findAllVersions(String shortName) {
-		return versionRepository.findByShortNameOrderByEffectiveDate(shortName);
+		return findAllVersions(shortName, true);
+	}
+
+	public List<CodeSystemVersion> findAllVersions(String shortName, boolean ascOrder) {
+		if (ascOrder) {
+			return versionRepository.findByShortNameOrderByEffectiveDate(shortName);
+		} else {
+			return versionRepository.findByShortNameOrderByEffectiveDateDesc(shortName);
+		}
 	}
 
 	public CodeSystemVersion findLatestVersion(String shortName) {
-		return versionRepository.findOneByShortNameOrderByEffectiveDateDesc(shortName);
+		//return versionRepository.findTopByShortNameOrderByEffectiveDateDesc(shortName);
+		List<CodeSystemVersion> versions = findAllVersions(shortName, false);
+		if (versions != null && versions.size() > 0) {
+			return versions.get(0);
+		}
+		return null;
 	}
 
 	public void deleteAll() {
