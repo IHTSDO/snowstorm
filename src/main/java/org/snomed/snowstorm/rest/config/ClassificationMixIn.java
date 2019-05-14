@@ -16,4 +16,7 @@ public abstract class ClassificationMixIn {
 	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = Entity.DATE_FORMAT_STRING)
 	abstract Date getLastCommitDate();
 
+	@JsonFormat(shape = JsonFormat.Shape.STRING, pattern = Entity.DATE_FORMAT_STRING)
+	abstract Date getSaveDate();
+
 }
