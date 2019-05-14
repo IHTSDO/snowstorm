@@ -257,7 +257,7 @@ public class QueryService {
 
 	private SearchAfterPage<Long> doEclSearchAndDefinitionFilter(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, BranchCriteria branchCriteria) {
 		String ecl = conceptQuery.getEcl();
-		logger.info("ECL Search {}", ecl);
+		logger.debug("ECL Search {}", ecl);
 
 		String definitionStatusFilter = conceptQuery.definitionStatusFilter;
 		if (definitionStatusFilter != null && !definitionStatusFilter.isEmpty()) {
@@ -272,7 +272,7 @@ public class QueryService {
 
 	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, List<Long> conceptIdFilter) {
 		String ecl = conceptQuery.getEcl();
-		logger.info("ECL Search {}", ecl);
+		logger.debug("ECL Search {}", ecl);
 		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter).getContent();
 	}
 

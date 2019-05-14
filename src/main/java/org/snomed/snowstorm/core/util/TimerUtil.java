@@ -5,6 +5,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Date;
+import java.util.concurrent.Callable;
+import java.util.function.Supplier;
 
 public class TimerUtil {
 
@@ -46,11 +48,15 @@ public class TimerUtil {
 	}
 
 	public void checkpoint(String name) {
+		checkpoint(() -> name);
+	}
+
+	public void checkpoint(Supplier nameSupplier) {
 		final long now = new Date().getTime();
 		float secondsTaken = getDuration(lastCheck, now);
 		lastCheck = now;
 		if (secondsTaken >= durationLoggingThreshold) {
-			log("Timer {}: {} took {} seconds", timerName, name, secondsTaken);
+			log("Timer {}: {} took {} seconds", timerName, nameSupplier.get(), secondsTaken);
 		}
 	}
 
