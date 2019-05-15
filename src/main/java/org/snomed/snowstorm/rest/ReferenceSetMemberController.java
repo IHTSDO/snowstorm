@@ -68,7 +68,7 @@ public class ReferenceSetMemberController {
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
-			@ApiParam("A reference set identifier or ECL expression can be used to limit the reference sets searched. Example: <900000000000522004")
+			@ApiParam("A reference set identifier or ECL expression can be used to limit the reference sets searched. Example: <723564002")
 			@RequestParam(required = false) String referenceSet,
 			@RequestParam(required = false) String referencedComponentId,
 			@RequestParam(required = false) Boolean active,
