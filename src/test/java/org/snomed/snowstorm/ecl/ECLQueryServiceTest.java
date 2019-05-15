@@ -200,6 +200,9 @@ public class ECLQueryServiceTest extends AbstractTest {
 				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, CLINICAL_FINDING),
 				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, BODY_STRUCTURE)));
 
+		memberService.createMembers(MAIN, Sets.newHashSet(
+				new ReferenceSetMember(Concepts.CORE_MODULE, REFSET_SIMPLE, BODY_STRUCTURE)));
+
 		branchCriteria = versionControlHelper.getBranchCriteria(MAIN);
 
 		List<QueryConcept> queryConcepts = elasticsearchTemplate.queryForList(
@@ -302,6 +305,11 @@ public class ECLQueryServiceTest extends AbstractTest {
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, BODY_STRUCTURE),
 				strings(selectConceptIds("^" + REFSET_MRCM_ATTRIBUTE_DOMAIN))
+		);
+
+		assertEquals(
+				Sets.newHashSet(BODY_STRUCTURE),
+				strings(selectConceptIds("^" + REFSET_SIMPLE))
 		);
 
 		// Member of any reference set
