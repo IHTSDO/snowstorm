@@ -43,8 +43,8 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=r
 #### Expansion of an intensionally defined value set using nothing!  Returns all concepts.
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs&_format=json
 
-#### Expansion of an intensional value set against the Swedish Edition. 
-http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct/45991000052106?fhir_vs=ecl/%3C%3C27624003&_format=json
+#### Expansion of an intensional value set against the Swedish Edition, including synonyms
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct/45991000052106?fhir_vs=ecl/%3C%3C27624003&includeDesignations=true&count=10&designation=sv&designation=en&_format=json
 
 #### Paging through 10 at a time, request the 2nd page
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&count=10&offset=1&_format=json
