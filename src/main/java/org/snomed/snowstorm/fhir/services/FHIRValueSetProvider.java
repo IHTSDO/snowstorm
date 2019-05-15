@@ -1,6 +1,9 @@
 package org.snomed.snowstorm.fhir.services;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -11,6 +14,7 @@ import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +34,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private QueryService queryService;
 	
 	@Autowired
+	private ConceptService conceptService;
+	
+	@Autowired
 	private HapiValueSetMapper mapper;
 	
 	@Autowired
@@ -46,6 +53,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="url") String url,
 			@OperationParam(name="filter") String filter,
 			@OperationParam(name="activeOnly") BooleanType activeType,
+			@OperationParam(name="includeDesignations") BooleanType includeDesignationsType,
+			@OperationParam(name="designation") List<String> designations,
 			@OperationParam(name="offset") String offsetStr,
 			@OperationParam(name="count") String countStr) throws FHIROperationException {
 
@@ -59,8 +68,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		
 		String ecl = determineEcl(url);
-		List<String> languageCodes = fhirHelper.getLanguageCodes(request);
+		List<String> languageCodes = fhirHelper.getLanguageCodes(designations, request);
 		Boolean active = activeType == null ? null : activeType.booleanValue();
+		Boolean includeDesignations = includeDesignationsType == null ? false : includeDesignationsType.booleanValue();
 		queryBuilder.ecl(ecl)
 					.termMatch(filter)
 					.languageCodes(languageCodes)
@@ -70,12 +80,32 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		int pageSize = (countStr == null || countStr.isEmpty()) ? DEFAULT_PAGESIZE : Integer.parseInt(countStr);
 		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
 		logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
-		ValueSet valueSet = mapper.mapToFHIR(conceptMiniPage.getContent(), url); 
+		
+		//Do we need further detail on each concept?
+		Map<String, Concept> conceptDetails = null;
+		if (includeDesignations) {
+			conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, languageCodes);
+		}
+		
+		ValueSet valueSet = mapper.mapToFHIR(conceptMiniPage.getContent(), url, conceptDetails, languageCodes); 
 		valueSet.getExpansion().setTotal((int)conceptMiniPage.getTotalElements());
 		valueSet.getExpansion().setOffset(offset);
 		return valueSet;
 	}
 	
+	private Map<String, Concept> getConceptDetailsMap(String branchPath, Page<ConceptMini> page, List<String> languageCodes) {
+		Map<String, Concept> conceptDetails = null;
+		if (page.hasContent()) {
+			conceptDetails = new HashMap<>();
+			List<String> ids = page.getContent().stream()
+					.map(c -> c.getConceptId())
+					.collect(Collectors.toList());
+			conceptDetails = conceptService.find(branchPath, ids, languageCodes).stream()
+				.collect(Collectors.toMap(Concept::getConceptId, c-> c));
+		}
+		return conceptDetails;
+	}
+
 	/**
 	 * See https://www.hl7.org/fhir/snomedct.html#implicit 
 	 * @param url

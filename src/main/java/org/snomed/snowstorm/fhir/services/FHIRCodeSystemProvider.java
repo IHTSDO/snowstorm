@@ -53,7 +53,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			throw new FHIROperationException(IssueType.VALUE, "'system' parameter must be present, and currently only '" + SNOMED_URI + "' is supported." + detail);
 		}
 
-		List<String> languageCodes = fhirHelper.getLanguageCodes(request);
+		List<String> languageCodes = fhirHelper.getLanguageCodes(null, request);
 		String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
 		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), languageCodes, branchPath));
 		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + code.getValue()), branchPath, LARGE_PAGE);

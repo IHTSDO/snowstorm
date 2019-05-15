@@ -1,10 +1,12 @@
 package org.snomed.snowstorm.fhir.services;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
 
 import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
@@ -84,11 +86,23 @@ class FHIRHelper {
 		return branchPath;
 	}
 
-	public List<String> getLanguageCodes(HttpServletRequest request) {
-		String header = request.getHeader("Accept-Language");
-		if (header == null || header.isEmpty()) {
-			header = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER;
+	public List<String> getLanguageCodes(List<String> designations, HttpServletRequest request) throws FHIROperationException {
+		//Use designations by default, or fall back to language headers
+		if (designations != null) {
+			List<String> languageCodes = new ArrayList<>();
+			for (String designation : designations) {
+				if (designation.length() > 5) {
+					throw new FHIROperationException(IssueType.VALUE, "'designation' parameters are currently limited to language codes.  Received '" + designation + "'");
+				}
+				languageCodes.add(designation);
+			}
+			return languageCodes;
+		} else {
+			String header = request.getHeader("Accept-Language");
+			if (header == null || header.isEmpty()) {
+				header = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER;
+			}
+			return ControllerHelper.getLanguageCodes(header);
 		}
-		return ControllerHelper.getLanguageCodes(header);
 	}
 }
