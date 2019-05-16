@@ -55,6 +55,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="activeOnly") BooleanType activeType,
 			@OperationParam(name="includeDesignations") BooleanType includeDesignationsType,
 			@OperationParam(name="designation") List<String> designations,
+			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="offset") String offsetStr,
 			@OperationParam(name="count") String countStr) throws FHIROperationException {
 
@@ -71,6 +72,15 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		List<String> languageCodes = fhirHelper.getLanguageCodes(designations, request);
 		Boolean active = activeType == null ? null : activeType.booleanValue();
 		Boolean includeDesignations = includeDesignationsType == null ? false : includeDesignationsType.booleanValue();
+		//If someone specified designations, then include them in any event
+		if (designations != null) {
+			includeDesignations = true;
+		}
+		//Also if displayLanguage has been used, ensure that's part of our requested Language Codes
+		if (displayLanguage != null && !languageCodes.contains(displayLanguage)) {
+			languageCodes.add(displayLanguage);
+		}
+		
 		queryBuilder.ecl(ecl)
 					.termMatch(filter)
 					.languageCodes(languageCodes)
@@ -83,11 +93,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		
 		//Do we need further detail on each concept?
 		Map<String, Concept> conceptDetails = null;
-		if (includeDesignations) {
+		if (includeDesignations || displayLanguage != null || designations != null) {
 			conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, languageCodes);
 		}
 		
-		ValueSet valueSet = mapper.mapToFHIR(conceptMiniPage.getContent(), url, conceptDetails, languageCodes); 
+		ValueSet valueSet = mapper.mapToFHIR(conceptMiniPage.getContent(), url, conceptDetails, languageCodes, displayLanguage, includeDesignations); 
 		valueSet.getExpansion().setTotal((int)conceptMiniPage.getTotalElements());
 		valueSet.getExpansion().setOffset(offset);
 		return valueSet;

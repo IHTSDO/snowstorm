@@ -431,6 +431,20 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public boolean hasAcceptability(String acceptability, String refsetId) {
 		ReferenceSetMember entry = langRefsetMembers.get(refsetId);
-		return (entry != null && entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability));
+		return (entry != null 
+				&& entry.isActive() 
+				&& entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability));
+	}
+	
+	/**
+	 * @return true if the description has that acceptability in ANY langrefset
+	 */
+	public boolean hasAcceptability(String acceptability) {
+		for (ReferenceSetMember entry : langRefsetMembers.values()) {
+			if (entry.isActive() && entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability)) {
+				return true;
+			}
+		}
+		return false;
 	}
 }

@@ -13,9 +13,9 @@ import org.snomed.snowstorm.fhir.config.FHIRConstants;
 
 public class HapiValueSetMapper implements FHIRConstants {
 	
-	public ValueSet mapToFHIR(List<ConceptMini> concepts, String url, Map<String, Concept> conceptDetails, List<String> languageCodes) {
+	public ValueSet mapToFHIR(List<ConceptMini> concepts, String url, Map<String, Concept> conceptDetails, List<String> languageCodes, String displayLanguage, Boolean includeDesignations) {
 		ValueSet v = getStandardValueSet(url);
-		addExpansion(v, concepts, conceptDetails, languageCodes);
+		addExpansion(v, concepts, conceptDetails, languageCodes, displayLanguage, includeDesignations);
 		return v;
 	}
 	
@@ -25,7 +25,7 @@ public class HapiValueSetMapper implements FHIRConstants {
 		return v;
 	}
 
-	private void addExpansion(ValueSet v, List<ConceptMini> concepts, Map<String, Concept> conceptDetails, List<String> languageCodes) {
+	private void addExpansion(ValueSet v, List<ConceptMini> concepts, Map<String, Concept> conceptDetails, List<String> languageCodes, String displayLanguage, Boolean includeDesignations) {
 		ValueSetExpansionComponent expansion = new ValueSetExpansionComponent();
 		for (ConceptMini concept : concepts) {
 			ValueSetExpansionContainsComponent component = expansion.addContains()
@@ -36,8 +36,15 @@ public class HapiValueSetMapper implements FHIRConstants {
 			if (conceptDetails != null && conceptDetails.containsKey(concept.getConceptId())) {
 				Concept c = conceptDetails.get(concept.getConceptId());
 				for (Description d : c.getDescriptions(true, null, null, null)) {
-					if (languageCodes.contains(d.getLanguageCode())) {
+					if (includeDesignations && languageCodes.contains(d.getLanguageCode())) {
 						component.addDesignation(asDesignation(d));
+					}
+					//Was request for a specific display language?
+					//Use the preferred term in that language if so.
+					if (d.getLanguageCode().equalsIgnoreCase(displayLanguage) &&
+							d.hasAcceptability(Concepts.PREFERRED) &&
+							d.getTypeId().equals(Concepts.SYNONYM)) {
+						component.setDisplay(d.getTerm());
 					}
 				}
 			}
