@@ -14,12 +14,15 @@ import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
+import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.data.elasticsearch.core.SearchAfterPage;
 import org.springframework.data.elasticsearch.core.aggregation.impl.AggregatedPageImpl;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
@@ -39,7 +42,7 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.getDefaultSortForQueryConcept;
 
 @Service
-public class QueryService {
+public class QueryService implements ApplicationContextAware {
 
 	static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 
@@ -50,9 +53,6 @@ public class QueryService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
 	private ECLQueryService eclQueryService;
 
 	@Autowired
@@ -60,6 +60,8 @@ public class QueryService {
 
 	@Autowired
 	private RelationshipService relationshipService;
+
+	private ConceptService conceptService;
 
 	private static final Function<Long, Object[]> CONCEPT_ID_SEARCH_AFTER_EXTRACTOR =
 			conceptId -> conceptId == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{conceptId});
@@ -483,6 +485,11 @@ public class QueryService {
 				}
 			});
 		}
+	}
+
+	@Override
+	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+		conceptService = applicationContext.getBean(ConceptService.class);
 	}
 
 	public final class ConceptQueryBuilder {
