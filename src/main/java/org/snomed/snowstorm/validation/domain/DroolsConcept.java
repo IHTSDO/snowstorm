@@ -30,7 +30,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 		if (concept.getRelationships() != null) {
 			concept.getRelationships().forEach(r -> {
 				r.setSourceId(conceptId);
-				relationships.add(new DroolsRelationship(null, r));
+				relationships.add(new DroolsRelationship(null, false, r));
 			});
 		}
 
@@ -39,7 +39,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 				axiom.getRelationships().forEach(r -> {
 					r.setSourceId(conceptId);
 					r.setActive(axiom.isActive());
-					relationships.add(new DroolsRelationship(axiom.getAxiomId(), r));
+					relationships.add(new DroolsRelationship(axiom.getAxiomId(), false, r));
 				});
 			});
 		}
@@ -48,7 +48,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 				axiom.getRelationships().forEach(r -> {
 					r.setSourceId(conceptId);
 					r.setActive(axiom.isActive());
-					relationships.add(new DroolsRelationship(axiom.getAxiomId(), r));
+					relationships.add(new DroolsRelationship(axiom.getAxiomId(), true, r));
 				});
 			});
 		}

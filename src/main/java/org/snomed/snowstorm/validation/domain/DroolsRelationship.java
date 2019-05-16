@@ -5,10 +5,12 @@ import org.snomed.snowstorm.core.data.domain.Relationship;
 public class DroolsRelationship implements org.ihtsdo.drools.domain.Relationship {
 
 	private final String axiomId;
+	private boolean axiomGci;
 	private Relationship relationship;
 
-	public DroolsRelationship(String axiomId, Relationship relationship) {
+	public DroolsRelationship(String axiomId, boolean axiomGci, Relationship relationship) {
 		this.axiomId = axiomId;
+		this.axiomGci = axiomGci;
 		this.relationship = relationship;
 		if (relationship.getDestinationId() == null && relationship.getTarget() != null) {
 			relationship.setDestinationId(relationship.getTarget().getConceptId());
@@ -18,6 +20,11 @@ public class DroolsRelationship implements org.ihtsdo.drools.domain.Relationship
 	@Override
 	public String getAxiomId() {
 		return axiomId;
+	}
+
+	@Override
+	public boolean isAxiomGCI() {
+		return axiomGci;
 	}
 
 	@Override
