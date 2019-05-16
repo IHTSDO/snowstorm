@@ -36,7 +36,7 @@ public class ReferenceSetMemberController {
 	private ConceptService conceptService;
 
 	@ApiOperation("Search for reference set ids")
-	@RequestMapping(value = "browser/{branch}/members", method = RequestMethod.GET)
+	@RequestMapping(value = "/browser/{branch}/members", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public PageWithBucketAggregations<ReferenceSetMember> findBrowserReferenceSetMembersWithAggregations(
@@ -64,7 +64,7 @@ public class ReferenceSetMemberController {
 	}
 
 	@ApiOperation("Search for reference set members.")
-	@RequestMapping(value = "{branch}/members", method = RequestMethod.GET)
+	@RequestMapping(value = "/{branch}/members", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
@@ -111,7 +111,7 @@ public class ReferenceSetMemberController {
 	}
 
 
-	@RequestMapping(value = "{branch}/members/{uuid}", method = RequestMethod.GET)
+	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMember fetchMember(@PathVariable String branch,
@@ -124,7 +124,7 @@ public class ReferenceSetMemberController {
 		return member;
 	}
 
-	@RequestMapping(value = "{branch}/members", method = RequestMethod.POST)
+	@RequestMapping(value = "/{branch}/members", method = RequestMethod.POST)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMemberView createMember(@PathVariable String branch, @RequestBody @Valid ReferenceSetMemberView member) {
@@ -134,7 +134,7 @@ public class ReferenceSetMemberController {
 	}
 
 	@ApiOperation("Update a reference set member")
-	@RequestMapping(value = "{branch}/members/{uuid}", method = RequestMethod.PUT)
+	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.PUT)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMemberView updateMember(@PathVariable String branch,
@@ -148,7 +148,7 @@ public class ReferenceSetMemberController {
 		return memberService.updateMember(BranchPathUriUtil.decodePath(branch), toUpdate);
 	}
 
-	@RequestMapping(value = "{branch}/members/{uuid}", method = RequestMethod.DELETE)
+	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.DELETE)
 	@JsonView(value = View.Component.class)
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteMember(@PathVariable String branch,
