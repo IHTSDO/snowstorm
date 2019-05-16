@@ -7,8 +7,10 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
+import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -342,14 +344,17 @@ public class BranchReviewService {
 		final Set<Long> conceptsWithEndedVersions = new LongOpenHashSet();
 		final Set<Long> conceptsWithNewVersions = new LongOpenHashSet();
 		final Set<Long> conceptsWithComponentChange = new LongOpenHashSet();
+		final Map<String, String> referenceComponentIdToConceptMap = new HashMap<>();
+		Branch branch = branchService.findBranchOrThrow(path);
 		if (!sourceIsParent) {
 			logger.debug("Collecting versions replaced for change report: branch {} time range {} to {}", path, start, end);
 			// Technique: Iterate child's 'versionsReplaced' set
-			Branch branch = branchService.findBranchOrThrow(path);
 			try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(branch.getVersionsReplaced(Concept.class), Concept.Fields.CONCEPT_ID).build(), Concept.class)) {
 				stream.forEachRemaining(concept -> conceptsWithEndedVersions.add(parseLong(concept.getConceptId())));
 			}
-			try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(branch.getVersionsReplaced(Description.class), Description.Fields.CONCEPT_ID).build(), Description.class)) {
+			NativeSearchQueryBuilder fsnQuery = componentsReplacedCriteria(branch.getVersionsReplaced(Description.class), Description.Fields.CONCEPT_ID)
+					.withFilter(boolQuery().must(existsQuery(Description.Fields.TAG)));
+			try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(fsnQuery.build(), Description.class)) {
 				stream.forEachRemaining(description -> conceptsWithComponentChange.add(parseLong(description.getConceptId())));
 			}
 			try (final CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(branch.getVersionsReplaced(Relationship.class), Relationship.Fields.SOURCE_ID).build(), Relationship.class)) {
@@ -357,10 +362,11 @@ public class BranchReviewService {
 			}
 
 			// Refsets with the internal "conceptId" field are related to a concept in terms of authoring
-			NativeSearchQueryBuilder refsetQuery = componentsReplacedCriteria(branch.getVersionsReplaced(ReferenceSetMember.class), ReferenceSetMember.Fields.CONCEPT_ID)
+			NativeSearchQueryBuilder refsetQuery = componentsReplacedCriteria(branch.getVersionsReplaced(ReferenceSetMember.class),
+					ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
 					.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)));
 			try (final CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(refsetQuery.build(), ReferenceSetMember.class)) {
-				stream.forEachRemaining(member -> conceptsWithComponentChange.add(parseLong(member.getConceptId())));
+				stream.forEachRemaining(member -> referenceComponentIdToConceptMap.put(member.getReferencedComponentId(), member.getConceptId()));
 			}
 		}
 
@@ -398,10 +404,10 @@ public class BranchReviewService {
 		}
 		timerUtil.checkpoint("conceptsEnded " + conceptsEnded.get());
 
-
 		logger.debug("Collecting description changes for change report: branch {} time range {} to {}", path, start, end);
 		AtomicLong descriptions = new AtomicLong();
 		NativeSearchQuery descQuery = newSearchQuery(branchUpdatesCriteria)
+				.withFilter(boolQuery().must(existsQuery(Description.Fields.TAG)))
 				.withFields(Description.Fields.CONCEPT_ID)// This triggers the fast results mapper
 				.build();
 		try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(descQuery, Description.class)) {
@@ -428,10 +434,30 @@ public class BranchReviewService {
 		logger.debug("Collecting refset member changes for change report: branch {} time range {} to {}", path, start, end);
 		NativeSearchQuery memberQuery = newSearchQuery(branchUpdatesCriteria)
 				.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)))
-				.withFields(ReferenceSetMember.Fields.CONCEPT_ID)// This triggers the fast results mapper
+				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
 				.build();
 		try (final CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(memberQuery, ReferenceSetMember.class)) {
-			stream.forEachRemaining(member -> conceptsWithComponentChange.add(parseLong(member.getConceptId())));
+			stream.forEachRemaining(member -> referenceComponentIdToConceptMap.put(member.getReferencedComponentId(), member.getConceptId()));
+		}
+
+		// Filter out changes for Synonyms
+		List<String> descriptionIds = new ArrayList<>();
+		NativeSearchQueryBuilder synonymQuery = new NativeSearchQueryBuilder()
+				.withQuery(versionControlHelper.getBranchCriteria(branch).getEntityBranchCriteria(Description.class))
+				.withFilter(boolQuery()
+						.mustNot(existsQuery(Description.Fields.TAG))
+						.must(termsQuery(Description.Fields.DESCRIPTION_ID, referenceComponentIdToConceptMap.keySet())));
+		try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(synonymQuery.build(), Description.class)) {
+			stream.forEachRemaining(description -> descriptionIds.add(description.getDescriptionId()));
+		}
+
+		Set<String> changedComponents = referenceComponentIdToConceptMap.keySet()
+				.stream()
+				.filter(r -> !descriptionIds.contains(r))
+				.collect(Collectors.toSet());
+
+		for (String componentId : changedComponents) {
+			conceptsWithComponentChange.add(parseLong(referenceComponentIdToConceptMap.get(componentId)));
 		}
 
 		final Sets.SetView<Long> conceptsDeleted = Sets.difference(conceptsWithEndedVersions, conceptsWithNewVersions);

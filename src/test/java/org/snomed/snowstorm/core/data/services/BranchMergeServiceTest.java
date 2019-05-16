@@ -487,7 +487,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		// Update concept 10000100 description on A
 		Concept concept = conceptService.find("10000100", "MAIN");
-		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN");
 
 		// Delete concept 10000100 on MAIN/A
@@ -524,7 +524,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		// Update concept 10000100 description on A
 		Concept concept = conceptService.find("10000100", "MAIN/A1");
-		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN/A1");
 
 		// Delete concept 10000100 on MAIN
@@ -561,7 +561,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		// Update concept 10000100 description on A
 		Concept concept = conceptService.find("10000100", "MAIN");
-		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN");
 
 		// Delete concept 10000100 on MAIN/A
@@ -598,7 +598,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		// Update concept 10000100 description on A
 		Concept concept = conceptService.find("10000100", "MAIN/A1");
-		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN/A1");
 
 		// Delete concept 10000100 on MAIN
@@ -704,9 +704,34 @@ public class BranchMergeServiceTest extends AbstractTest {
 										.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
 												Concepts.descriptionAcceptabilityNames.get(Concepts.ACCEPTABLE)))
 						)
+						.addDescription(
+								new Description("Heart structure (body structure)")
+										.setTypeId(Concepts.FSN)
+										.setCaseSignificance("CASE_INSENSITIVE")
+										.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
+												Concepts.descriptionAcceptabilityNames.get(Concepts.ACCEPTABLE))))
 						.addRelationship(
 								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)
 						),
 				path);
 	}
+
+	private Description getDescription(Concept concept, boolean fetchFSN) {
+		if (concept == null || concept.getDescriptions() == null || concept.getDescriptions().isEmpty()) {
+			return null;
+		}
+		if (fetchFSN) {
+			List<Description> descriptions = concept.getDescriptions().stream().filter(d -> Concepts.FSN.equals(d.getTypeId())).collect(Collectors.toList());
+			if (descriptions.iterator().hasNext()) {
+				return descriptions.iterator().next();
+			}
+		} else {
+			List<Description> descriptions = concept.getDescriptions().stream().filter(d -> !Concepts.FSN.equals(d.getTypeId())).collect(Collectors.toList());
+			if (descriptions.iterator().hasNext()) {
+				return descriptions.iterator().next();
+			}
+		}
+		return null;
+	}
+
 }

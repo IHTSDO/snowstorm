@@ -74,29 +74,29 @@ public class BranchReviewServiceTest extends AbstractTest {
 
 		// Update concept 10000100 description only on B
 		Concept concept = conceptService.find("10000100", "MAIN/B");
-		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN/B");
 
 		// Update concept 10000200 description on B and A
 		concept = conceptService.find("10000200", "MAIN/B");
-		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN/B");
 		concept = conceptService.find("10000200", "MAIN/A");
-		concept.getDescriptions().iterator().next().setCaseSignificance("ENTIRE_TERM_CASE_SENSITIVE");
+		getDescription(concept, true).setCaseSignificance("ENTIRE_TERM_CASE_SENSITIVE");
 		conceptService.update(concept, "MAIN/A");
 
 
 		// Update concept 10000300 lang refset only on B
 		concept = conceptService.find("10000300", "MAIN/B");
-		concept.getDescriptions().iterator().next().getAcceptabilityMapAndClearMembers().put(Concepts.US_EN_LANG_REFSET, Concepts.descriptionAcceptabilityNames.get(Concepts.PREFERRED));
+		getDescription(concept, true).getAcceptabilityMapAndClearMembers().put(Concepts.US_EN_LANG_REFSET, Concepts.descriptionAcceptabilityNames.get(Concepts.PREFERRED));
 		conceptService.update(concept, "MAIN/B");
 
 		// Update concept 10000400 lang refset on B and A
 		concept = conceptService.find("10000400", "MAIN/B");
-		concept.getDescriptions().iterator().next().getAcceptabilityMapAndClearMembers().put(Concepts.US_EN_LANG_REFSET, Concepts.descriptionAcceptabilityNames.get(Concepts.PREFERRED));
+		getDescription(concept, true).getAcceptabilityMapAndClearMembers().put(Concepts.US_EN_LANG_REFSET, Concepts.descriptionAcceptabilityNames.get(Concepts.PREFERRED));
 		conceptService.update(concept, "MAIN/B");
 		concept = conceptService.find("10000400", "MAIN/A");
-		concept.getDescriptions().iterator().next().getAcceptabilityMapAndClearMembers().put(Concepts.US_EN_LANG_REFSET, Concepts.descriptionAcceptabilityNames.get(Concepts.PREFERRED));
+		getDescription(concept, true).getAcceptabilityMapAndClearMembers().put(Concepts.US_EN_LANG_REFSET, Concepts.descriptionAcceptabilityNames.get(Concepts.PREFERRED));
 		conceptService.update(concept, "MAIN/A");
 
 
@@ -161,10 +161,10 @@ public class BranchReviewServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testCreateMergeReviewConceptDeletedOnParent() throws InterruptedException, ServiceException {
-		// Update concept 10000100 description on A
+	public void testCreateMergeReviewWithConceptDeletedOnParentAndFsnUpdatedOnChild() throws InterruptedException, ServiceException {
+		// Update concept 10000100 FSN on A
 		Concept concept = conceptService.find("10000100", "MAIN/A");
-		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN/A");
 
 		// Delete concept 10000100 on MAIN
@@ -188,10 +188,35 @@ public class BranchReviewServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testCreateMergeReviewWithConceptDeletedOnParentAndSynonymUpdatedOnChild() throws InterruptedException, ServiceException {
+		// Update concept 10000100 FSN on A
+		Concept concept = conceptService.find("10000100", "MAIN/A");
+		getDescription(concept, false).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		conceptService.update(concept, "MAIN/A");
+
+		// Delete concept 10000100 on MAIN
+		conceptService.deleteConceptAndComponents("10000100", "MAIN", false);
+
+		MergeReview review = reviewService.createMergeReview("MAIN", "MAIN/A");
+
+		long maxWait = 10;
+		long cumulativeWait = 0;
+		while (review.getStatus() == ReviewStatus.PENDING && cumulativeWait < maxWait) {
+			Thread.sleep(1_000);
+			cumulativeWait++;
+		}
+
+		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		assertEquals(0, mergeReviewConflictingConcepts.size());
+	}
+
+	@Test
 	public void testCreateMergeReviewConceptDeletedOnChild() throws InterruptedException, ServiceException {
 		// Update concept 10000100 description on A
 		Concept concept = conceptService.find("10000100", "MAIN");
-		concept.getDescriptions().iterator().next().setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN");
 
 		// Delete concept 10000100 on MAIN
@@ -273,7 +298,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 				EMPTY_ARRAY, EMPTY_ARRAY, EMPTY_ARRAY);
 
 		final Concept concept = conceptService.find("10000100", path);
-		concept.getDescriptions().iterator().next().setCaseSignificanceId(Concepts.ENTIRE_TERM_CASE_SENSITIVE);
+		getDescription(concept, true).setCaseSignificanceId(Concepts.ENTIRE_TERM_CASE_SENSITIVE);
 		conceptService.update(concept, path);
 
 		// Concept updated from description change
@@ -294,7 +319,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 				EMPTY_ARRAY, EMPTY_ARRAY, EMPTY_ARRAY);
 
 		final Concept concept = conceptService.find("10000100", path);
-		final Description description = concept.getDescriptions().iterator().next();
+		final Description description = getDescription(concept, true);
 		description.setCaseSignificanceId(Concepts.ENTIRE_TERM_CASE_SENSITIVE);
 		conceptService.update(concept, path);
 
@@ -314,7 +339,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 				EMPTY_ARRAY, EMPTY_ARRAY, EMPTY_ARRAY);
 
 		final Concept concept = conceptService.find("10000100", path);
-		final Description description = concept.getDescriptions().iterator().next();
+		final Description description = getDescription(concept, true);
 		description.clearLanguageRefsetMembers();
 		description.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
 				Concepts.descriptionAcceptabilityNames.get(Concepts.PREFERRED)));
@@ -336,7 +361,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 				EMPTY_ARRAY, EMPTY_ARRAY, EMPTY_ARRAY);
 
 		final Concept concept = conceptService.find("10000100", path);
-		final Description description = concept.getDescriptions().iterator().next();
+		final Description description = getDescription(concept, true);
 		description.clearLanguageRefsetMembers();
 		description.setAcceptabilityMap(new HashMap<>());
 		conceptService.update(concept, path);
@@ -357,7 +382,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 				EMPTY_ARRAY, EMPTY_ARRAY, EMPTY_ARRAY);
 
 		final Concept concept = conceptService.find("10000100", path);
-		final Description next = concept.getDescriptions().iterator().next();
+		final Description next = getDescription(concept, true);
 		next.clearLanguageRefsetMembers();
 		next.setAcceptabilityMap(new HashMap<>());
 		conceptService.update(concept, path);
@@ -386,10 +411,34 @@ public class BranchReviewServiceTest extends AbstractTest {
 										.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
 												Concepts.descriptionAcceptabilityNames.get(Concepts.ACCEPTABLE)))
 						)
+						.addDescription(
+								new Description("Heart structure (body structure)")
+										.setTypeId(Concepts.FSN)
+										.setCaseSignificance("CASE_INSENSITIVE")
+										.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
+												Concepts.descriptionAcceptabilityNames.get(Concepts.ACCEPTABLE))))
 						.addRelationship(
 								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)
 						),
 				path);
+	}
+
+	private Description getDescription(Concept concept, boolean fetchFSN) {
+		if (concept == null || concept.getDescriptions() == null || concept.getDescriptions().isEmpty()) {
+			return null;
+		}
+		if (fetchFSN) {
+			List<Description> descriptions = concept.getDescriptions().stream().filter(d -> Concepts.FSN.equals(d.getTypeId())).collect(Collectors.toList());
+			if (descriptions.iterator().hasNext()) {
+				return descriptions.iterator().next();
+			}
+		} else {
+			List<Description> descriptions = concept.getDescriptions().stream().filter(d -> !Concepts.FSN.equals(d.getTypeId())).collect(Collectors.toList());
+			if (descriptions.iterator().hasNext()) {
+				return descriptions.iterator().next();
+			}
+		}
+		return null;
 	}
 
 }
