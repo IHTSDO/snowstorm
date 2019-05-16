@@ -21,6 +21,10 @@ public class FullImportComponentFactoryImpl extends ImportComponentFactoryImpl i
 		this.basePath = path;
 		this.stopImportAfterEffectiveTime = stopImportAfterEffectiveTime;
 		this.codeSystemService = codeSystemService;
+
+		// There is no need to skip these stated relationships when importing the full
+		// because they will first be imported as stated then changed to inferred at a later effectiveTime.
+		super.statedRelationshipsToSkip = null;
 	}
 
 	@Override

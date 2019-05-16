@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.rf2.rf2import;
 
+import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -22,6 +23,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
@@ -46,6 +48,8 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	private List<PersistBuffer> coreComponentPersistBuffers;
 	private MaxEffectiveTimeCollector maxEffectiveTimeCollector;
 
+	// A small number of stated relationships also appear in the inferred file. These should not be persisted when importing a snapshot.
+	Set<Long> statedRelationshipsToSkip = Sets.newHashSet(3187444026L, 3192499027L, 3574321020L);
 	boolean coreComponentsFlushed;
 
 	ImportComponentFactoryImpl(ConceptUpdateHelper conceptUpdateHelper, ReferenceSetMemberService memberService, BranchService branchService,
@@ -198,6 +202,14 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		if (effectiveTime != null) {
 			relationship.release(effectiveTimeI);
 		}
+
+		if (statedRelationshipsToSkip != null
+				&& relationship.getCharacteristicTypeId().equals(Concepts.STATED_RELATIONSHIP)
+				&& statedRelationshipsToSkip.contains(parseLong(relationship.getId()))) {
+			// Do not persist relationship
+			return;
+		}
+
 		relationshipPersistBuffer.save(relationship);
 	}
 
