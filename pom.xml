@@ -2,12 +2,12 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>org.snomed</groupId>
-	<artifactId>snowstorm</artifactId>
-	<version>3.0.3-SNAPSHOT</version>
-
 	<name>Snowstorm</name>
 	<description>SNOMED CT Terminology Server Using Elasticsearch</description>
+
+	<groupId>org.snomed</groupId>
+	<artifactId>snowstorm</artifactId>
+	<version>3.0.3</version>
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>
@@ -24,14 +24,14 @@
 		<packageName>${project.artifactId}</packageName>
 
 		<!--
-		ElasticVC 2.2.1
+		ElasticVC 2.3.0
 		- uses Snomed International's Fork of Spring Data Elasticsearch
 		- uses Elasticsearch Client version 6.0.1
 
 		Current recommended Elasticsearch Server version is 6.5.4
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_VERSION and getting-started guide updated.
 		-->
-		<elasticvc.version>2.2.2-SNAPSHOT</elasticvc.version>
+		<elasticvc.version>2.3.0</elasticvc.version>
 		<elasticsearch.version>6.0.1</elasticsearch.version>
 		<hapi.version>3.7.0</hapi.version>
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
@@ -63,7 +63,7 @@
 		<dependency>
 			<groupId>org.snomed.otf</groupId>
 			<artifactId>snomed-owl-toolkit</artifactId>
-			<version>2.3.3-SNAPSHOT</version>
+			<version>2.4.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.snomed.languages</groupId>
@@ -128,7 +128,7 @@
 		<dependency>
 			<groupId>org.ihtsdo.drools</groupId>
 			<artifactId>snomed-drools-engine</artifactId>
-			<version>2.0.2-SNAPSHOT</version>
+			<version>2.1.0</version>
 		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.dataformat</groupId>

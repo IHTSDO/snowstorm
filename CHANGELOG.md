@@ -3,6 +3,29 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+
+## 3.0.3 Release - 2019-05-17
+
+This major version has support for Complete OWL SNOMED releases with no need for any active stated relationships.
+It also supports authoring using OWL axioms.
+
+Thanks again to everyone who got involved in the questions, issues and fixes during this release!
+
+### Breaking
+- Elasticsearch reindex is required.
+  - Indices have been renamed to a simpler, more readable format. For example `es-rel` has been renamed to `relationship`.
+  - Default number of shards per index has been changed to 1 (configurable in application.properties).
+
+The full change log is being compiled...
+
+### Features
+
+### Improvements
+
+### Fixes
+ 
+
+
 ## 2.2.3 Fix Release - 2019-04-23
 
 ### Fixes
