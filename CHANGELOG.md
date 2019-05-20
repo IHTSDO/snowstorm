@@ -15,15 +15,95 @@ Thanks again to everyone who got involved in the questions, issues and fixes dur
 - Elasticsearch reindex is required.
   - Indices have been renamed to a simpler, more readable format. For example `es-rel` has been renamed to `relationship`.
   - Default number of shards per index has been changed to 1 (configurable in application.properties).
-
-The full change log is being compiled...
+- Renamed concept additionalAxioms field to classAxioms.
+- Rename classification branch metadata keys inline with RVF.
 
 ### Features
+- OWL Axiom Support:
+  - Import complete OWL versions of SNOMED CT.
+  - Stated hierarchy navigation using axioms.
+  - Stated ECL using axioms.
+  - Authoring using only axioms without any active stated relationships.
+  - Concept definition status set automatically using axiom definition status.
+- Search:
+  - Description search semantic tag counts and filtering.
+  - New refset member search with aggregations (totals per reference set).
+  - Search for refset members by a concept id within an OWL axiom expression.
+  - Search for refset members containing OWL axiom class axioms or GCI axioms.
+- FHIR:
+  - Support for multiple languages
+    - Accept-Language request header respected.
+    - Valueset expand operation 'displayLanguage' and 'designations' parameters supported.
+  - Add support for expand operation 'filter' parameter.
+  - Add support for offset, count and total in ValueSet expand operation.
+  - Add support for CodeSystem lookup properties.
+  - Add support for all implicitly defined FHIR valuesets.
+  - Add support for maps (ICD-10, CTV-3) including historical associations.
+- Productionisation:
+  - New multithreaded load test harness (ManualLoadTest.java) can be used to simulate many authoring users in order to evaluate different deployment configurations.
+  - Concept searchAfter parameter allows scrolling through more than 10K results.
+- Extensions:
+  - Basic extension upgrade support (via POST /codesystems/{shortName}/migrate).
+- Other:
+  - Added reference set member create and update functionality to REST API.
+  - Ability to load concepts from version control history within the same branch.
 
 ### Improvements
+- Elasticsearch:
+  - Recommended Elasticsearch version updated to 6.5.4.
+  - Number of index shards and replicas is now configurable. Defaults to 1 shard and 0 replicas.
+- FHIR:
+  - Upgrade FHIR API from DSTU3 to R4.
+  - Allow valueset expansion against other imported editions.
+  - Allow FHIR requests to access MAIN (or equivalent) as well as versioned branches.
+  - Automatically populate server capabilities version from maven pom.
+  - Update documentation:  paging and filtering, valueset defined via refset.
+- Authoring:
+  - Automatically remove inactivation members when concept made active.
+  - Automatically remove lang refset members which description made inactive.
+  - Ensure refset member effectiveTime is updated during changes.
+  - Exclude synonyms when finding conflicts during branch merge.
+  - OWL Axioms included in integrity check functionality.
+  - Branch lock metadata added to describe currently running commit.
+  - New SNOMED Drools Engine validation engine with axiom support.
+  - Many Drools validation fixes.
+  - Ability to reload validation assertions and resources.
+  - Updated baked in MRCM XML.
+- Classification:
+  - Classification save stale results check.
+  - Allow saving classification results with greater than 10K changes.
+  - Classification results can change existing relationships.
+- Branch merging:
+  - Details of integrity issues found during a promotion included in API response.
+  - Exclude non-stated relationships.
+  - Concepts can be manually deleted during branch merge review.
+- RF2 Export:
+  - New reference set types for RF2 export including: Description Type, Module Dependency and Simple Type. Note that Snowstorm does not yet calculate the Module Dependency members.
+  - Carriage return line endings in RF2 export in line with RF2 specification.
+  - Combine OWL Axiom and OWL Ontology refsets in RF2 export.
+  - Add transientEffectiveTime option in RF2 export.
+- Improved Docker instructions.
+- ECL slow query logging.
+- Branch metadata can contain objects.
+- Binary for Elasticsearch unit tests cached in user home directory.
+- Base, head and creation date stamps and epoch milliseconds on branch response.
+- Authoring traceability logging of inferred changes capped to 100 (configurable).
+- Moved semantic index rebuild endpoint to admin area in Swagger.
+- Refset member search allows ECL in referenceSet parameter.
+- Authoring traceability appended to separate log file.
 
 ### Fixes
- 
+- FHIR:
+  - Fix finding latest code system version.
+- Remove extra tab in header of some refset export files.
+- Fix for attribute group disjunction in ECL.
+- Clean up concept Elasticsearch auto-mapping, remove unpopulated fields.
+- Automatically create snomed-drools-rules directory if missing.
+- Additional axioms and GCI axioms included in branch merge.
+- Identify branch merge conflict when concept deleted on either side of the merge.
+- Prevent importing three bad relationships from international snapshot as stated and inferred.
+- Version endpoint format corrected to JSON.
+
 
 
 ## 2.2.3 Fix Release - 2019-04-23
