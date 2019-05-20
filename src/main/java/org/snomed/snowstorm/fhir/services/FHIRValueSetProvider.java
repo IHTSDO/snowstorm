@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,9 +18,12 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
@@ -35,6 +40,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	
 	@Autowired
 	private ConceptService conceptService;
+	
+	@Autowired
+	private ReferenceSetMemberService refsetService;
 	
 	@Autowired
 	private HapiValueSetMapper mapper;
@@ -66,34 +74,43 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		}
 		StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
 		String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
-		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
-		
-		String ecl = determineEcl(url);
-		List<String> languageCodes = fhirHelper.getLanguageCodes(designations, request);
+		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
+		int pageSize = (countStr == null || countStr.isEmpty()) ? DEFAULT_PAGESIZE : Integer.parseInt(countStr);
 		Boolean active = activeType == null ? null : activeType.booleanValue();
-		Boolean includeDesignations = includeDesignationsType == null ? false : includeDesignationsType.booleanValue();
-		//If someone specified designations, then include them in any event
-		if (designations != null) {
-			includeDesignations = true;
-		}
+		List<String> languageCodes = fhirHelper.getLanguageCodes(designations, request);
+		
 		//Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		if (displayLanguage != null && !languageCodes.contains(displayLanguage)) {
 			languageCodes.add(displayLanguage);
 		}
 		
-		queryBuilder.ecl(ecl)
-					.termMatch(filter)
-					.languageCodes(languageCodes)
-					.activeFilter(active);
-
-		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
-		int pageSize = (countStr == null || countStr.isEmpty()) ? DEFAULT_PAGESIZE : Integer.parseInt(countStr);
-		Page<ConceptMini> conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
-		logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
+		//If someone specified designations, then include them in any event
+		Boolean includeDesignations = includeDesignationsType == null ? false : includeDesignationsType.booleanValue();
+		if (designations != null) {
+			includeDesignations = true;
+		}
+		
+		Page<ConceptMini> conceptMiniPage;
+		boolean missingFsns = false;
+		//Are we looking for all known refsets?  Special case.
+		if (url.endsWith("?fhir_vs=refset")) {
+			conceptMiniPage = findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
+			missingFsns = true;
+		} else {
+			String ecl = determineEcl(url);
+			QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
+			queryBuilder.ecl(ecl)
+						.termMatch(filter)
+						.languageCodes(languageCodes)
+						.activeFilter(active);
+	
+			conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
+			logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
+		}
 		
 		//Do we need further detail on each concept?
 		Map<String, Concept> conceptDetails = null;
-		if (includeDesignations || displayLanguage != null || designations != null) {
+		if (includeDesignations || missingFsns || displayLanguage != null || designations != null) {
 			conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, languageCodes);
 		}
 		
@@ -103,6 +120,17 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		return valueSet;
 	}
 	
+	private Page<ConceptMini> findAllRefsets(String branchPath, PageRequest pageRequest) {
+		PageWithBucketAggregations<ReferenceSetMember> bucketPage = refsetService.findReferenceSetMembersWithAggregations(branchPath, pageRequest, true);
+		List<ConceptMini> refsets = new ArrayList<>();
+		if (bucketPage.getBuckets() != null && bucketPage.getBuckets().containsKey("referenceSetIds")) {
+			refsets = bucketPage.getBuckets().get("referenceSetIds").keySet().stream()
+					.map(s -> new ConceptMini(s, null))
+					.collect(Collectors.toList());
+		}
+		return new PageImpl<ConceptMini>(refsets, pageRequest, refsets.size());
+	}
+
 	private Map<String, Concept> getConceptDetailsMap(String branchPath, Page<ConceptMini> page, List<String> languageCodes) {
 		Map<String, Concept> conceptDetails = null;
 		if (page.hasContent()) {
@@ -124,7 +152,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	 */
 	private String determineEcl(String url) throws FHIROperationException {
 		String ecl;
-		if (url.endsWith("?fhir_vs") || url.endsWith("?fhir_vs=refset")) {
+		if (url.endsWith("?fhir_vs")) {
 			//Return all of SNOMED CT in this situation
 			ecl = "*";
 		} else if (url.contains(IMPLICIT_ISA)) {
