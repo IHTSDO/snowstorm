@@ -24,14 +24,14 @@
 		<packageName>${project.artifactId}</packageName>
 
 		<!--
-		ElasticVC 2.3.0
+		ElasticVC 2.3.1-SNAPSHOT
 		- uses Snomed International's Fork of Spring Data Elasticsearch
 		- uses Elasticsearch Client version 6.0.1
 
 		Current recommended Elasticsearch Server version is 6.5.4
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_VERSION and getting-started guide updated.
 		-->
-		<elasticvc.version>2.3.0</elasticvc.version>
+		<elasticvc.version>2.3.1-SNAPSHOT</elasticvc.version>
 		<elasticsearch.version>6.0.1</elasticsearch.version>
 		<hapi.version>3.7.0</hapi.version>
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
