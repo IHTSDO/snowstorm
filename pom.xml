@@ -63,7 +63,7 @@
 		<dependency>
 			<groupId>org.snomed.otf</groupId>
 			<artifactId>snomed-owl-toolkit</artifactId>
-			<version>2.4.0</version>
+			<version>2.4.1-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>org.snomed.languages</groupId>
