@@ -54,7 +54,7 @@ public class IntegrityIssueReport {
 	public String toString() {
 		return "IntegrityIssueReport{" +
 				"axiomsWithMissingOrInactiveReferencedConcept=" + axiomsWithMissingOrInactiveReferencedConcept +
-				"relationshipsWithMissingOrInactiveSource=" + relationshipsWithMissingOrInactiveSource +
+				", relationshipsWithMissingOrInactiveSource=" + relationshipsWithMissingOrInactiveSource +
 				", relationshipsWithMissingOrInactiveType=" + relationshipsWithMissingOrInactiveType +
 				", relationshipsWithMissingOrInactiveDestination=" + relationshipsWithMissingOrInactiveDestination +
 				'}';

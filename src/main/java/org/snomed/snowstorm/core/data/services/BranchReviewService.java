@@ -7,10 +7,8 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
-import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.TermsQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -353,7 +351,7 @@ public class BranchReviewService {
 				stream.forEachRemaining(concept -> conceptsWithEndedVersions.add(parseLong(concept.getConceptId())));
 			}
 			NativeSearchQueryBuilder fsnQuery = componentsReplacedCriteria(branch.getVersionsReplaced(Description.class), Description.Fields.CONCEPT_ID)
-					.withFilter(boolQuery().must(existsQuery(Description.Fields.TAG)));
+					.withFilter(termQuery(Description.Fields.TYPE_ID, Concepts.FSN));
 			try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(fsnQuery.build(), Description.class)) {
 				stream.forEachRemaining(description -> conceptsWithComponentChange.add(parseLong(description.getConceptId())));
 			}

@@ -451,6 +451,45 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testAutomaticMergeOfInferredChange() throws ServiceException {
+		// Create concepts to be used in relationships
+		String conceptId = "131148009";
+		conceptService.createUpdate(Lists.newArrayList(
+				new Concept(Concepts.SNOMEDCT_ROOT),
+				new Concept(Concepts.ISA).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT).setInferred(true)),
+				new Concept(Concepts.CLINICAL_FINDING).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT).setInferred(true)),
+				new Concept(conceptId).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT).setInferred(true)),
+				new Concept("313413008").addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT).setInferred(true))
+		), "MAIN");
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
+		queryService.findAncestorIds(conceptId, "MAIN/A/A1", false);
+
+		// Update relationship module on MAIN/A
+		Concept concept = conceptService.find(conceptId, "MAIN/A");
+		concept.getRelationships().iterator().next().setModuleId("123000");
+		conceptService.update(concept, "MAIN/A");
+
+		// Update relationship module on MAIN/A/A1
+		assertEquals(1, countRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred));
+		concept = conceptService.find(conceptId, "MAIN/A/A1");
+		concept.getRelationships().iterator().next().setModuleId("456000");
+		conceptService.update(concept, "MAIN/A/A1");
+		assertEquals(1, countRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred));
+
+		// Rebase the diverged branch. Inferred form should be merged automatically without conflicts.
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
+		Page<Relationship> relationships = getRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred);
+		for (Relationship relationship : relationships.getContent()) {
+			System.out.println(relationship);
+		}
+		assertEquals(1, countRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred));
+
+		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptySet());
+		assertEquals(1, countRelationships("MAIN/A", conceptId, Relationship.CharacteristicType.inferred));
+	}
+
+	@Test
 	public void testConflictConceptMergeChangesFromRight() throws ServiceException {
 		final String conceptId = "10000100";
 		final Description description = new Description("One");

@@ -3,13 +3,14 @@ package org.snomed.snowstorm.core.data.services;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Entity;
-import org.elasticsearch.common.collect.MapBuilder;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -30,6 +31,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.core.util.PredicateUtil.not;
 
@@ -188,6 +190,18 @@ public class BranchMergeService {
 					conceptService.updateWithinCommit(manuallyMergedConcepts.stream()
 							.filter(not(Concept::isDeleted)).collect(Collectors.toSet()), commit);
 				}
+
+				// Find and resolve duplicate component versions.
+				// All components which would not trigger a merge-review should be included here.
+				// - inferred relationships
+				// - TODO synonym descriptions
+				// - TODO non-concept refset members
+				// (Semantic index entries on this branch will be cleared and rebuilt so no need to include those).
+				BranchCriteria changesOnBranchIncludingOpenCommit = versionControlHelper.getChangesOnBranchIncludingOpenCommit(commit);
+				BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+				removeRebaseDuplicateVersions(Relationship.class, boolQuery().must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP)),
+						changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
+
 				commit.markSuccessful();
 			}
 		} else {
@@ -212,6 +226,56 @@ public class BranchMergeService {
 				commit.markSuccessful();
 			}
 		}
+	}
+
+	private <T extends SnomedComponent> void removeRebaseDuplicateVersions(Class<T> componentClass, BoolQueryBuilder clause,
+			BranchCriteria changesOnBranchCriteria, BranchCriteria branchCriteriaIncludingOpenCommit, Commit commit) throws ServiceException {
+
+		String idField;
+		try {
+			idField = componentClass.newInstance().getIdField();
+		} catch (InstantiationException | IllegalAccessException e) {
+			throw new ServiceException("Failed to resolve id field of snomed component.", e);
+		}
+
+		// Gather components changed on branch
+		String path = commit.getBranch().getPath();
+		Set<String> componentsChangedOnBranch = new HashSet<>();
+		NativeSearchQueryBuilder changesQueryBuilder = new NativeSearchQueryBuilder().withQuery(
+				changesOnBranchCriteria.getEntityBranchCriteria(componentClass)
+				.must(clause))
+				.withFields(idField)
+				.withPageable(LARGE_PAGE);
+		try (CloseableIterator<T> stream = elasticsearchTemplate.stream(changesQueryBuilder.build(), componentClass)) {
+			stream.forEachRemaining(component -> {
+				componentsChangedOnBranch.add(component.getId());
+			});
+		}
+
+		if (componentsChangedOnBranch.isEmpty()) {
+			return;
+		}
+
+		// Find duplicate versions brought in by rebase
+		Set<String> duplicateComponents = new HashSet<>();
+		NativeSearchQueryBuilder parentQueryBuilder = new NativeSearchQueryBuilder().withQuery(
+				branchCriteriaIncludingOpenCommit.getEntityBranchCriteria(componentClass)
+						.must(clause)
+						// Version must come from an ancestor branch
+						.mustNot(termQuery("path", path)))
+				.withFields(idField)
+				.withPageable(LARGE_PAGE);
+		try (CloseableIterator<T> stream = elasticsearchTemplate.stream(parentQueryBuilder.build(), componentClass)) {
+			stream.forEachRemaining(component -> {
+				if (componentsChangedOnBranch.contains(component.getId())) {
+					duplicateComponents.add(component.getId());
+				}
+			});
+		}
+
+		// Favor the version of the component which has already been promoted by ending the version on this branch.
+		ElasticsearchCrudRepository repository = domainEntityConfiguration.getComponentTypeRepositoryMap().get(componentClass);
+		versionControlHelper.endOldVersionsOnThisBranch(commit, idField, clause, componentClass, duplicateComponents, repository);
 	}
 
 	private <T extends SnomedComponent> void promoteEntities(String source, Commit commit, Class<T> entityClass,

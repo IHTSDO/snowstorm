@@ -57,6 +57,11 @@ public class DescriptionService extends ComponentService {
 				.must(termsQuery("descriptionId", descriptionId));
 		List<Description> descriptions = elasticsearchTemplate.queryForList(
 				new NativeSearchQueryBuilder().withQuery(query).build(), Description.class);
+		if (descriptions.size() > 1) {
+			String message = String.format("More than one description found for id %s on branch %s.", descriptionId, path);
+			logger.error(message + " {}", descriptions);
+			throw new IllegalStateException(message);
+		}
 		if (!descriptions.isEmpty()) {
 			return descriptions.get(0);
 		}
