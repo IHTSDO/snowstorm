@@ -177,8 +177,9 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return languageCode;
 	}
 
-	public void setLang(String languageCode) {
+	public Description setLang(String languageCode) {
 		this.languageCode = languageCode;
+		return this;
 	}
 
 	public Description clearLanguageRefsetMembers() {

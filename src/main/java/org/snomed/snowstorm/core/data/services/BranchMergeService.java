@@ -183,6 +183,8 @@ public class BranchMergeService {
 						conceptService.deleteConceptsAndComponentsWithinCommit(conceptsToDeleteWhichExistOnBranch, commit, false);
 					}
 
+					// Save merged version of manually merged concepts
+					// This has the effect of ending both visible versions of these components which prevents us seeing duplicates on the branch
 					conceptService.updateWithinCommit(manuallyMergedConcepts.stream()
 							.filter(not(Concept::isDeleted)).collect(Collectors.toSet()), commit);
 				}

@@ -18,12 +18,14 @@ import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.junit.Assert.*;
 import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODES;
 
@@ -42,6 +44,12 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private DescriptionService descriptionService;
+
+	@Autowired
+	private RelationshipService relationshipService;
 
 	@Autowired
 	private QueryService queryService;
@@ -344,24 +352,102 @@ public class BranchMergeServiceTest extends AbstractTest {
 */
 
 	@Test
-	public void testConflictConceptMergeChangesFromLeft() throws ServiceException {
+	public void testConflictConceptMergeChangesFromLeftIncludingStatedModeling() throws ServiceException {
+		// Create concepts to be used in relationships
+		conceptService.createUpdate(Lists.newArrayList(
+				new Concept(Concepts.SNOMEDCT_ROOT),
+				new Concept(Concepts.ISA).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept(Concepts.CLINICAL_FINDING).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept("131148009").addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept("313413008").addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT))
+		), "MAIN");
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.emptySet());
+
+		// Setup merge scenario
 		final String conceptId = "10000100";
 		final Description description = new Description("One");
 
+		Concept leftConcept = new Concept(conceptId, "100009002")
+				.addDescription(description)
+				.addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING))
+				.addRelationship(new Relationship(Concepts.ISA, "131148009"));
 		setupConflictSituation(
-				new Concept(conceptId, "100009001").addDescription(description),
-				new Concept(conceptId, "100009002").addDescription(description),
-				new Concept(conceptId, "100009003").addDescription(description));
+				new Concept(conceptId, "100009001")
+						.addDescription(description)
+						.addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING)),
+				leftConcept,
+				new Concept(conceptId, "100009003")
+						.addDescription(description)
+						.addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING))
+						.addRelationship(new Relationship(Concepts.ISA, "313413008"))
+		);
 
 		// Rebase the diverged branch supplying the manually merged concept
-		final Concept conceptFromLeft = new Concept(conceptId, "100009002").addDescription(description);
-		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromLeft));
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(leftConcept));
 
 		assertEquals("100009002", conceptService.find(conceptId, "MAIN/A/A2").getModuleId());
 
 		// Promote the branch (no conflicts at this point)
 		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
 		assertEquals("100009002", conceptService.find(conceptId, "MAIN/A").getModuleId());
+		Set<Long> ancestorIds = queryService.findAncestorIds(conceptId, "MAIN/A", true);
+		assertEquals(toLongSet(Concepts.SNOMEDCT_ROOT, Concepts.CLINICAL_FINDING, "131148009"), ancestorIds);
+	}
+
+	@Test
+	public void testAutomaticMergeOfInferredAdditions() throws ServiceException {
+		// Create concepts to be used in relationships
+		String conceptId = "131148009";
+		conceptService.createUpdate(Lists.newArrayList(
+				new Concept(Concepts.SNOMEDCT_ROOT),
+				new Concept(Concepts.ISA).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT).setInferred(true)),
+				new Concept(Concepts.CLINICAL_FINDING).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT).setInferred(true)),
+				new Concept(conceptId).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT).setInferred(true)),
+				new Concept("313413008").addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT).setInferred(true))
+		), "MAIN");
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
+		assertEquals(1, countRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred));
+		assertEquals(toLongSet(Concepts.SNOMEDCT_ROOT),
+				queryService.findAncestorIds(conceptId, "MAIN/A/A1", false));
+
+		// Update inferred form on MAIN/A
+		conceptService.update(new Concept(conceptId).addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING).setInferred(true)), "MAIN/A");
+		assertEquals(1, countRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred));
+		assertEquals(toLongSet(Concepts.SNOMEDCT_ROOT),
+				queryService.findAncestorIds(conceptId, "MAIN/A/A1", false));
+
+		// Update inferred form on MAIN/A/A1
+		conceptService.update(new Concept(conceptId).addRelationship(new Relationship(Concepts.ISA, "313413008").setInferred(true)), "MAIN/A/A1");
+		assertEquals(1, countRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred));
+		assertEquals(toLongSet(Concepts.SNOMEDCT_ROOT, "313413008"),
+				queryService.findAncestorIds(conceptId, "MAIN/A/A1", false));
+
+
+		// Rebase the diverged branch. Inferred form should be merged automatically without conflicts.
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
+
+		assertEquals(2, countRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred));
+		assertEquals(toLongSet(Concepts.SNOMEDCT_ROOT, Concepts.CLINICAL_FINDING, "313413008"),
+				queryService.findAncestorIds(conceptId, "MAIN/A/A1", false));
+
+		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptySet());
+		assertEquals(toLongSet(Concepts.SNOMEDCT_ROOT, Concepts.CLINICAL_FINDING, "313413008"),
+				queryService.findAncestorIds(conceptId, "MAIN/A", false));
+	}
+
+	public long countRelationships(String branchPath, String conceptId1, Relationship.CharacteristicType inferred) {
+		return getRelationships(branchPath, conceptId1, inferred).getTotalElements();
+	}
+
+	public Page<Relationship> getRelationships(String branchPath, String conceptId1, Relationship.CharacteristicType inferred) {
+		return relationshipService.findRelationships(branchPath, null, true, null, null, conceptId1, null, null, inferred, null, LARGE_PAGE);
+	}
+
+	public Set<Long> toLongSet(String... ids) {
+		return Arrays.stream(ids).map(Long::parseLong).collect(Collectors.toSet());
 	}
 
 	@Test
@@ -377,6 +463,29 @@ public class BranchMergeServiceTest extends AbstractTest {
 		// Rebase the diverged branch supplying the manually merged concept
 		final Concept conceptFromRight = new Concept(conceptId, "100009003").addDescription(description);
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromRight));
+
+		final String conceptFromMergedA2 = conceptService.find(conceptId, "MAIN/A/A2").getModuleId();
+		Assert.assertEquals("100009003", conceptFromMergedA2);
+
+		// Promote the branch (no conflicts at this point)
+		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
+		assertEquals("100009003", conceptService.find(conceptId, "MAIN/A").getModuleId());
+	}
+
+	@Test
+	public void testConflictConceptMergeChangesFromRightSameChangeOnBothSides() throws ServiceException {
+		final String conceptId = "10000100";
+
+		setupConflictSituation(
+				new Concept(conceptId, "100009001").addDescription(new Description("123123", "One")),
+				new Concept(conceptId, "100009002").addDescription(new Description("123123", "One").setLang("dk")),
+				new Concept(conceptId, "100009003").addDescription(new Description("123123", "One").setLang("dk")));
+
+		// Rebase the diverged branch supplying the manually merged concept
+		final Concept conceptFromRight = new Concept(conceptId, "100009003").addDescription(new Description("123123", "One").setLang("dk"));
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromRight));
+		Description description = descriptionService.findDescription("MAIN/A/A2", "123123");
+		assertEquals("dk", description.getLanguageCode());
 
 		final String conceptFromMergedA2 = conceptService.find(conceptId, "MAIN/A/A2").getModuleId();
 		Assert.assertEquals("100009003", conceptFromMergedA2);

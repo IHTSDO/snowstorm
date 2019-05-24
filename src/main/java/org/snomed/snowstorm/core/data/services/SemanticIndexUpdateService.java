@@ -403,6 +403,11 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						.must(termsQuery(QueryConcept.Fields.STATED, stated))
 				)
 				.withFilter(boolQuery()
+						// Exclude those QueryConcepts which were removed in this commit
+						.mustNot(boolQuery()
+								.must(termQuery("path", branchPath))
+								.must(termQuery("end", commit.getTimepoint()))
+						)
 						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID_FORM, conceptIdFormsToMatch)))
 				.withPageable(ConceptService.LARGE_PAGE).build(), QueryConcept.class)) {
 			existingQueryConcepts.forEachRemaining(queryConcept -> {
