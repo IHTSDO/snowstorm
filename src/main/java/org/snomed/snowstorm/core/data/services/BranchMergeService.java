@@ -11,6 +11,7 @@ import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Entity;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -194,13 +195,16 @@ public class BranchMergeService {
 				// Find and resolve duplicate component versions.
 				// All components which would not trigger a merge-review should be included here.
 				// - inferred relationships
-				// - TODO synonym descriptions
+				// - synonym descriptions
 				// - TODO non-concept refset members
 				// (Semantic index entries on this branch will be cleared and rebuilt so no need to include those).
 				BranchCriteria changesOnBranchIncludingOpenCommit = versionControlHelper.getChangesOnBranchIncludingOpenCommit(commit);
 				BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+				// Merge inferred relationships
 				removeRebaseDuplicateVersions(Relationship.class, boolQuery().must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP)),
 						changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
+				// Merge descriptions (all types to be safe)
+				removeRebaseDuplicateVersions(Description.class, boolQuery(), changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
 
 				commit.markSuccessful();
 			}
@@ -228,7 +232,7 @@ public class BranchMergeService {
 		}
 	}
 
-	private <T extends SnomedComponent> void removeRebaseDuplicateVersions(Class<T> componentClass, BoolQueryBuilder clause,
+	private <T extends SnomedComponent> void removeRebaseDuplicateVersions(Class<T> componentClass, QueryBuilder clause,
 			BranchCriteria changesOnBranchCriteria, BranchCriteria branchCriteriaIncludingOpenCommit, Commit commit) throws ServiceException {
 
 		String idField;

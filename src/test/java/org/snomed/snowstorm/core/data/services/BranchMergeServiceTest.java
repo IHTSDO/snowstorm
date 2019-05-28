@@ -2,8 +2,11 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -19,6 +22,8 @@ import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -26,6 +31,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 import static org.junit.Assert.*;
 import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODES;
 
@@ -56,6 +63,12 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 	@Autowired
 	private TraceabilityLogService traceabilityLogService;
+
+	@Autowired
+	private ElasticsearchTemplate elasticsearchTemplate;
+
+	@Autowired
+	private VersionControlHelper versionControlHelper;
 
 	private List<Activity> activities;
 
@@ -438,6 +451,18 @@ public class BranchMergeServiceTest extends AbstractTest {
 				queryService.findAncestorIds(conceptId, "MAIN/A", false));
 	}
 
+	public int countDescriptions(String branchPath, String conceptId) {
+		return getDescriptions(branchPath, conceptId).size();
+	}
+
+	public List<Description> getDescriptions(String branchPath, String conceptId) {
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class))
+				.must(termsQuery("conceptId", conceptId));
+		return elasticsearchTemplate.queryForList(
+				new NativeSearchQueryBuilder().withQuery(query).build(), Description.class);
+	}
+
 	public long countRelationships(String branchPath, String conceptId1, Relationship.CharacteristicType inferred) {
 		return getRelationships(branchPath, conceptId1, inferred).getTotalElements();
 	}
@@ -487,6 +512,40 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptySet());
 		assertEquals(1, countRelationships("MAIN/A", conceptId, Relationship.CharacteristicType.inferred));
+	}
+
+	@Test
+	public void testAutomaticMergeOfSynonymChange() throws ServiceException {
+		// Create concepts to be used in relationships
+		String conceptId = "131148009";
+		conceptService.createUpdate(Lists.newArrayList(
+				new Concept(conceptId).addDescription(new Description("Some synonym").setTypeId(Concepts.SYNONYM).setCaseSignificanceId(Concepts.CASE_INSENSITIVE))
+		), "MAIN");
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
+
+		// Update description case on MAIN/A
+		Concept concept = conceptService.find(conceptId, "MAIN/A");
+		concept.getDescriptions().iterator().next().setCaseSignificanceId(Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE);
+		conceptService.update(concept, "MAIN/A");
+
+		// Update description case on MAIN/A/A1
+		assertEquals(1, countDescriptions("MAIN/A/A1", conceptId));
+		concept = conceptService.find(conceptId, "MAIN/A/A1");
+		concept.getDescriptions().iterator().next().setCaseSignificanceId(Concepts.ENTIRE_TERM_CASE_SENSITIVE);
+		conceptService.update(concept, "MAIN/A/A1");
+		assertEquals(1, countDescriptions("MAIN/A/A1", conceptId));
+
+		// Rebase the diverged branch. Descriptions should be merged automatically without conflicts.
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
+		List<Description> descriptions = getDescriptions("MAIN/A/A1", conceptId);
+		for (Description description : descriptions) {
+			System.out.println(description);
+		}
+		assertEquals(1, countDescriptions("MAIN/A/A1", conceptId));
+
+		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptySet());
+		assertEquals(1, countDescriptions("MAIN/A", conceptId));
 	}
 
 	@Test

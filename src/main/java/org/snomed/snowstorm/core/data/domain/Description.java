@@ -371,8 +371,9 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return caseSignificanceId;
 	}
 
-	public void setCaseSignificanceId(String caseSignificanceId) {
+	public Description setCaseSignificanceId(String caseSignificanceId) {
 		this.caseSignificanceId = caseSignificanceId;
+		return this;
 	}
 
 	public ReferenceSetMember getInactivationIndicatorMember() {
