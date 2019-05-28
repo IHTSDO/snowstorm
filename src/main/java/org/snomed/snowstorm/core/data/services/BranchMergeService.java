@@ -196,7 +196,7 @@ public class BranchMergeService {
 				// All components which would not trigger a merge-review should be included here.
 				// - inferred relationships
 				// - synonym descriptions
-				// - TODO non-concept refset members
+				// - non-concept refset members
 				// (Semantic index entries on this branch will be cleared and rebuilt so no need to include those).
 				BranchCriteria changesOnBranchIncludingOpenCommit = versionControlHelper.getChangesOnBranchIncludingOpenCommit(commit);
 				BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
@@ -205,6 +205,8 @@ public class BranchMergeService {
 						changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
 				// Merge descriptions (all types to be safe)
 				removeRebaseDuplicateVersions(Description.class, boolQuery(), changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
+				// Merge non-concept reference set members
+				removeRebaseDuplicateVersions(ReferenceSetMember.class, boolQuery().mustNot(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)), changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
 
 				commit.markSuccessful();
 			}

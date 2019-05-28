@@ -13,10 +13,11 @@ import java.util.*;
 
 @Document(indexName = "member")
 public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> implements ReferenceSetMemberView {
+
 	public interface Fields extends SnomedComponent.Fields {
 		String MEMBER_ID = "memberId";
 		String REFSET_ID = "refsetId";
-		String CONCEPT_ID = "conceptId";
+		String CONCEPT_ID = "conceptId";// Non-standard field. See variable for comments.
 		String REFERENCED_COMPONENT_ID = "referencedComponentId";
 		String ADDITIONAL_FIELDS = "additionalFields";
 		String ADDITIONAL_FIELDS_PREFIX = ADDITIONAL_FIELDS + ".";
@@ -74,7 +75,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	@Size(min = 5, max = 18)
 	private String referencedComponentId;
 
-	// Used when the referencedComponentId is a description (or later possibly a relationship, depending how we implement concrete domains)
+	// Used when the member can be considered to be part of a concept referencedComponentId is a concept or description
 	@Field(type = FieldType.keyword, store = true)
 	private String conceptId;
 

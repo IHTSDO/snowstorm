@@ -59,6 +59,9 @@ public class BranchMergeServiceTest extends AbstractTest {
 	private RelationshipService relationshipService;
 
 	@Autowired
+	private ReferenceSetMemberService memberService;
+
+	@Autowired
 	private QueryService queryService;
 
 	@Autowired
@@ -516,7 +519,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 	@Test
 	public void testAutomaticMergeOfSynonymChange() throws ServiceException {
-		// Create concepts to be used in relationships
+		// Create concept
 		String conceptId = "131148009";
 		conceptService.createUpdate(Lists.newArrayList(
 				new Concept(conceptId).addDescription(new Description("Some synonym").setTypeId(Concepts.SYNONYM).setCaseSignificanceId(Concepts.CASE_INSENSITIVE))
@@ -547,6 +550,48 @@ public class BranchMergeServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptySet());
 		assertEquals(1, countDescriptions("MAIN/A", conceptId));
 	}
+
+	@Test
+	public void testAutomaticMergeOfRefsetMemberChange() throws ServiceException {
+		String referencedComponent = Concepts.CLINICAL_FINDING;
+		ReferenceSetMember member = memberService.createMember("MAIN",
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL, referencedComponent));
+
+		String memberId = member.getMemberId();
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
+
+		// Update member module on MAIN/A
+		setMemeberModule(memberId, "MAIN/A", Concepts.MODEL_MODULE);
+
+		// Update member module on MAIN/A/A1
+		assertEquals(1, countMembers(referencedComponent, "MAIN/A/A1"));
+		setMemeberModule(memberId, "MAIN/A/A1", "1231230010");
+		assertEquals(1, countMembers(referencedComponent, "MAIN/A/A1"));
+
+		// Rebase the diverged branch. Members should be merged automatically without conflicts.
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
+		List<ReferenceSetMember> members = memberService.findMembers("MAIN/A/A1", referencedComponent, LARGE_PAGE).getContent();
+		for (ReferenceSetMember m : members) {
+			System.out.println(m);
+		}
+		assertEquals(1, countMembers(referencedComponent, "MAIN/A/A1"));
+
+		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptySet());
+		assertEquals(1, countMembers(referencedComponent, "MAIN/A"));
+	}
+
+	public void setMemeberModule(String memberId, String branch, String module) {
+		ReferenceSetMember member;
+		member = memberService.findMember(branch, memberId);
+		member.setModuleId(module);
+		memberService.updateMember(branch, member);
+	}
+
+	public long countMembers(String referencedComponent, String branch) {
+		return memberService.findMembers(branch, referencedComponent, LARGE_PAGE).getTotalElements();
+	}
+
 
 	@Test
 	public void testConflictConceptMergeChangesFromRight() throws ServiceException {
