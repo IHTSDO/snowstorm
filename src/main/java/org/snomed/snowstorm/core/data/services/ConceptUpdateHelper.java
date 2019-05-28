@@ -171,7 +171,6 @@ public class ConceptUpdateHelper extends ComponentService {
 						final ReferenceSetMember member = new ReferenceSetMember(existingMember.getMemberId(), null, true,
 								existingMember.getModuleId(), languageRefsetId, description.getId());
 						member.setAdditionalField("acceptabilityId", acceptabilityId);
-						member.setConceptId(concept.getConceptId());
 
 						if (member.isComponentChanged(existingMember) || savingMergedConcepts) {
 							member.setChanged(true);
@@ -183,7 +182,6 @@ public class ConceptUpdateHelper extends ComponentService {
 					} else {
 						final ReferenceSetMember member = new ReferenceSetMember(description.getModuleId(), languageRefsetId, description.getId());
 						member.setAdditionalField("acceptabilityId", acceptabilityId);
-						member.setConceptId(concept.getConceptId());
 						member.setChanged(true);
 						refsetMembersToPersist.add(member);
 					}

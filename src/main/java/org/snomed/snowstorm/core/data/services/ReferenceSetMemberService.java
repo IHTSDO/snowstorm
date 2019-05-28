@@ -223,6 +223,7 @@ public class ReferenceSetMemberService extends ComponentService {
 							&& (member.getAdditionalFields().keySet().equals(LANG_REFSET_MEMBER_FIELD_SET))
 							|| Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET.equals(member.getRefsetId())) {
 						// Lang refset or description inactivation indicator
+						// Save member so we can load it to lookup the conceptId
 						descriptionMembers.add(member);
 						descriptionIds.add(parseLong(member.getReferencedComponentId()));
 
@@ -235,9 +236,10 @@ public class ReferenceSetMemberService extends ComponentService {
 				});
 
 		if (descriptionIds.size() != 0) {
+			// Lookup the conceptId of members which are considered part of the description
 			final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 
-			Long2ObjectMap<Description> descriptionMap = new Long2ObjectOpenHashMap<>();
+			Long2ObjectMap<Description> descriptionsFromStore = new Long2ObjectOpenHashMap<>();
 			for (List<Long> descriptionIdsSegment : Iterables.partition(descriptionIds, CLAUSE_LIMIT)) {
 				queryBuilder
 						.withQuery(boolQuery()
@@ -246,12 +248,12 @@ public class ReferenceSetMemberService extends ComponentService {
 						.withPageable(LARGE_PAGE);
 				try (final CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(queryBuilder.build(), Description.class)) {
 					descriptions.forEachRemaining(description ->
-							descriptionMap.put(parseLong(description.getDescriptionId()), description));
+							descriptionsFromStore.put(parseLong(description.getDescriptionId()), description));
 				}
 			}
 
 			descriptionMembers.parallelStream().forEach(member -> {
-				Description description = descriptionMap.get(parseLong(member.getReferencedComponentId()));
+				Description description = descriptionsFromStore.get(parseLong(member.getReferencedComponentId()));
 				if (description == null) {
 					logger.warn("Refset member refers to description which does not exist, this will not be persisted {} -> {}", member.getId(), member.getReferencedComponentId());
 					members.remove(member);
