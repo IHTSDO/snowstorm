@@ -679,7 +679,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 		// Create concept
 		final Concept concept = new Concept(conceptId, null, true, originalModuleId, "900000000000074008")
-				.addDescription(new Description("10000123", null, true, originalModuleId, conceptId, "en",
+				.addDescription(new Description("10000013", null, true, originalModuleId, conceptId, "en",
 						Concepts.FSN, "Pizza", Concepts.CASE_INSENSITIVE).addLanguageRefsetMember(Concepts.GB_EN_LANG_REFSET, Concepts.PREFERRED));
 		conceptService.create(concept, path);
 
