@@ -269,13 +269,12 @@ public class BranchMergeService {
 						.must(clause)
 						// Version must come from an ancestor branch
 						.mustNot(termQuery("path", path)))
+				.withFilter(termsQuery(idField, componentsChangedOnBranch))
 				.withFields(idField)
 				.withPageable(LARGE_PAGE);
 		try (CloseableIterator<T> stream = elasticsearchTemplate.stream(parentQueryBuilder.build(), componentClass)) {
 			stream.forEachRemaining(component -> {
-				if (componentsChangedOnBranch.contains(component.getId())) {
-					duplicateComponents.add(component.getId());
-				}
+				duplicateComponents.add(component.getId());
 			});
 		}
 
