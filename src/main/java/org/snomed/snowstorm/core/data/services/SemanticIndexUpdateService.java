@@ -494,39 +494,13 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 	private void removeQConceptChangesOnBranch(Commit commit) {
 		// End versions on branch
-		Branch branch = commit.getBranch();
-		BranchCriteria branchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch.getPath());
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-				.withPageable(LARGE_PAGE);
-		try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(queryBuilder.build(), QueryConcept.class)) {
-			List<QueryConcept> deletionBatch = new ArrayList<>();
-			stream.forEachRemaining(queryConcept -> {
-				queryConcept.markDeleted();
-				deletionBatch.add(queryConcept);
-				if (deletionBatch.size() == Config.BATCH_SAVE_SIZE) {
-					deleteBatch(commit, deletionBatch);
-					deletionBatch.clear();
-				}
-			});
-			if (!deletionBatch.isEmpty()) {
-				deleteBatch(commit, deletionBatch);
-			}
-		}
+		versionControlHelper.endAllVersionsOnThisBranch(QueryConcept.class, null, commit, queryConceptRepository);
 
 		// Restore versions from parent branches which were ended on this branch
-		// This query is necessary because we don't know which of the ended versions are of type QueryConcept
-		Collection<String> parentPaths = getParentPaths(branch.getPath());
-		NativeSearchQueryBuilder endedVersionsQuery = new NativeSearchQueryBuilder()
-				.withQuery(termsQuery("path", parentPaths))
-				.withFilter(termsQuery("_id", branch.getVersionsReplaced(QueryConcept.class)))
-				.withPageable(LARGE_PAGE);
-		try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(endedVersionsQuery.build(), QueryConcept.class)) {
-			Set<String> queryConceptVersionsEnded = new HashSet<>();
-			stream.forEachRemaining(c -> queryConceptVersionsEnded.add(c.getInternalId()));
-			branch.getVersionsReplaced(QueryConcept.class).removeAll(queryConceptVersionsEnded);
-			logger.info("Restored visibility of {} query concepts from parents", queryConceptVersionsEnded.size());
-		}
+		Set<String> versionsReplaced = commit.getBranch().getVersionsReplaced(QueryConcept.class);
+		int parentVersionsRestored = versionsReplaced.size();
+		versionsReplaced.clear();
+		logger.info("Restored visibility of {} query concepts from parents", parentVersionsRestored);
 	}
 
 	Collection<String> getParentPaths(String path) {
@@ -535,11 +509,6 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			parents.add(path);
 		}
 		return parents;
-	}
-
-	private void deleteBatch(Commit commit, List<QueryConcept> deletionBatch) {
-		logger.info("Ending {} query concepts", deletionBatch.size());
-		doSaveBatchComponents(deletionBatch, commit, "conceptIdForm", queryConceptRepository);
 	}
 
 	private void doSaveBatch(Collection<QueryConcept> queryConcepts, Commit commit) {

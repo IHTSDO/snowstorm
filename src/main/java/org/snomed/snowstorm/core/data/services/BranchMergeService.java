@@ -279,9 +279,12 @@ public class BranchMergeService {
 			});
 		}
 
-		// Favor the version of the component which has already been promoted by ending the version on this branch.
-		ElasticsearchCrudRepository repository = domainEntityConfiguration.getComponentTypeRepositoryMap().get(componentClass);
-		versionControlHelper.endOldVersionsOnThisBranch(commit, idField, clause, componentClass, duplicateComponents, repository);
+		if (!duplicateComponents.isEmpty()) {
+			// Favor the version of the component which has already been promoted by ending the version on this branch.
+			ElasticsearchCrudRepository repository = domainEntityConfiguration.getComponentTypeRepositoryMap().get(componentClass);
+			logger.info("Taking parent version of {} {}s on {}", duplicateComponents.size(), componentClass.getSimpleName(), path);
+			versionControlHelper.endOldVersionsOnThisBranch(componentClass, duplicateComponents, idField, clause, commit, repository);
+		}
 	}
 
 	private <T extends SnomedComponent> void promoteEntities(String source, Commit commit, Class<T> entityClass,

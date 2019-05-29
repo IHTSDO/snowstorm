@@ -7,6 +7,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
@@ -504,14 +505,41 @@ public class BranchMergeServiceTest extends AbstractTest {
 		concept.getRelationships().iterator().next().setModuleId("456000");
 		conceptService.update(concept, "MAIN/A/A1");
 		assertEquals(1, countRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred));
+		assertEquals(1, queryService.eclSearch(conceptId, false, "MAIN/A/A1", LARGE_PAGE).getTotalElements());
 
 		// Rebase the diverged branch. Inferred form should be merged automatically without conflicts.
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
-		Page<Relationship> relationships = getRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred);
-		for (Relationship relationship : relationships.getContent()) {
-			System.out.println(relationship);
-		}
 		assertEquals(1, countRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred));
+
+		List<Relationship> rels = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(termsQuery(Relationship.Fields.SOURCE_ID, conceptId))
+						.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP)))
+				.withPageable(LARGE_PAGE)
+				.withSort(SortBuilders.fieldSort("start")).build(), Relationship.class);
+		for (Relationship rel : rels) {
+			System.out.println(rel);
+		}
+
+		List<QueryConcept> queryConceptsAcrossBranches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
+						.must(termsQuery(QueryConcept.Fields.STATED, false)))
+				.withPageable(LARGE_PAGE)
+				.withSort(SortBuilders.fieldSort("start")).build(), QueryConcept.class);
+		for (QueryConcept queryConceptsAcrossBranch : queryConceptsAcrossBranches) {
+			System.out.println(queryConceptsAcrossBranch);
+		}
+
+		List<Branch> branches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+				.withSort(SortBuilders.fieldSort("start"))
+				.withPageable(LARGE_PAGE)
+				.build(), Branch.class);
+		for (Branch branch : branches) {
+			System.out.println(branch);
+		}
+
+		assertEquals(1, queryService.eclSearch(conceptId, false, "MAIN/A/A1", LARGE_PAGE).getTotalElements());
 
 		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptySet());
 		assertEquals(1, countRelationships("MAIN/A", conceptId, Relationship.CharacteristicType.inferred));
