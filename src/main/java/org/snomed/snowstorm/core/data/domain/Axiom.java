@@ -20,6 +20,7 @@ public class Axiom implements IdAndEffectiveTimeComponent {
 
 	public Axiom() {
 		active = true;
+		definitionStatusId = Concepts.PRIMITIVE;
 	}
 
 	public Axiom(ReferenceSetMember referenceSetMember, String definitionStatusId, Set<Relationship> relationships) {
