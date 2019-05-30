@@ -1,10 +1,6 @@
 package org.snomed.snowstorm.fhir.services;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
@@ -17,23 +13,31 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
+import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
-import ca.uhn.fhir.rest.annotation.Operation;
-import ca.uhn.fhir.rest.annotation.OperationParam;
+import com.google.common.collect.Lists;
+
+import ca.uhn.fhir.model.primitive.IdDt;
+import ca.uhn.fhir.rest.annotation.*;
+import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 
 @Component
 public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
+	
+	@Autowired
+	private FHIRValuesetRepository valuesetRepository;
 	
 	@Autowired
 	private QueryService queryService;
@@ -53,6 +57,36 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private static int DEFAULT_PAGESIZE = 1000;
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+	
+	@Read()
+	public ValueSet getResourceById(@IdParam IdDt theId) {
+		Optional<ValueSet> vs = valuesetRepository.findById(theId.getIdPart());
+		if (vs.isPresent()) {
+			return vs.get();
+		}
+		throw new NotFoundException(theId.getIdPart());
+	}
+	
+	@Create()
+	public MethodOutcome createValueset(@ResourceParam ValueSet vs) {
+		ValueSet savedVs = valuesetRepository.save(vs);
+		MethodOutcome outcome = new MethodOutcome();
+		outcome.setId(new IdType("ValueSet", savedVs.getId(), "1"));
+		return outcome;
+	}
+	
+	@Update
+	public MethodOutcome updateValueset(@IdParam IdType theId, @ResourceParam ValueSet vs) {
+		return createValueset(vs);
+	}
+	
+	@Search
+	public List<ValueSet> findValuesets(
+			HttpServletRequest theRequest, 
+			HttpServletResponse theResponse) {
+		Iterable<ValueSet> iterable = valuesetRepository.findAll();
+		return Lists.newArrayList(iterable);
+	}
 
 	@Operation(name="$expand", idempotent=true)
 	public ValueSet expand(

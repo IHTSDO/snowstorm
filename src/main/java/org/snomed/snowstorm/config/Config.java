@@ -85,7 +85,8 @@ import static springfox.documentation.builders.PathSelectors.regex;
 @EnableElasticsearchRepositories(
 		basePackages = {
 				"org.snomed.snowstorm.core.data.repositories",
-				"io.kaicode.elasticvc.repositories"
+				"io.kaicode.elasticvc.repositories",
+				"org.snomed.snowstorm.fhir.repositories"
 		})
 @EnableConfigurationProperties
 @EnableAsync
