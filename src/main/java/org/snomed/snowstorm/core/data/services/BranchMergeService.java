@@ -269,19 +269,21 @@ public class BranchMergeService {
 						.must(clause)
 						// Version must come from an ancestor branch
 						.mustNot(termQuery("path", path)))
+				.withFilter(termsQuery(idField, componentsChangedOnBranch))
 				.withFields(idField)
 				.withPageable(LARGE_PAGE);
 		try (CloseableIterator<T> stream = elasticsearchTemplate.stream(parentQueryBuilder.build(), componentClass)) {
 			stream.forEachRemaining(component -> {
-				if (componentsChangedOnBranch.contains(component.getId())) {
-					duplicateComponents.add(component.getId());
-				}
+				duplicateComponents.add(component.getId());
 			});
 		}
 
-		// Favor the version of the component which has already been promoted by ending the version on this branch.
-		ElasticsearchCrudRepository repository = domainEntityConfiguration.getComponentTypeRepositoryMap().get(componentClass);
-		versionControlHelper.endOldVersionsOnThisBranch(commit, idField, clause, componentClass, duplicateComponents, repository);
+		if (!duplicateComponents.isEmpty()) {
+			// Favor the version of the component which has already been promoted by ending the version on this branch.
+			ElasticsearchCrudRepository repository = domainEntityConfiguration.getComponentTypeRepositoryMap().get(componentClass);
+			logger.info("Taking parent version of {} {}s on {}", duplicateComponents.size(), componentClass.getSimpleName(), path);
+			versionControlHelper.endOldVersionsOnThisBranch(componentClass, duplicateComponents, idField, clause, commit, repository);
+		}
 	}
 
 	private <T extends SnomedComponent> void promoteEntities(String source, Commit commit, Class<T> entityClass,

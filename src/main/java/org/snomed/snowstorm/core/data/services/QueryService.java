@@ -68,6 +68,10 @@ public class QueryService implements ApplicationContextAware {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
+	public Page<ConceptMini> eclSearch(String ecl, boolean stated, String branchPath, PageRequest pageRequest) {
+		return search(createQueryBuilder(stated).ecl(ecl), branchPath, pageRequest);
+	}
+
 	public Page<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
@@ -356,7 +360,7 @@ public class QueryService implements ApplicationContextAware {
 		}
 		return allAncestors;
 	}
-	
+
 	public List<Long> findDescendantIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIds) {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
