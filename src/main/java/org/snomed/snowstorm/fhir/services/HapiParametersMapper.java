@@ -38,13 +38,20 @@ public class HapiParametersMapper implements FHIRConstants {
 		Parameters p = getStandardParameters();
 		boolean success = members.size() > 0;
 		p.addParameter("result", success);
+		boolean reverseLookup = requestedTargetSystem.asStringValue().equals(SNOMED_URI);
+		
 		if (success) {
 			Parameters.ParametersParameterComponent matches = p.addParameter().setName("match");
 			for (ReferenceSetMember member : members) {
 				
 				//Do we know about this reference set?
 				String refsetId = member.getRefsetId();
-				String actualTargetSystem = knownUriMap.inverse().get(refsetId);
+				String actualTargetSystem = null;
+				
+				//Don't do lookup if we're already doing a reverse lookup
+				if (!reverseLookup) {
+					actualTargetSystem = knownUriMap.inverse().get(refsetId);
+				}
 				
 				//If not, then give an indication of the refset being returned
 				if (actualTargetSystem == null) {
@@ -52,15 +59,19 @@ public class HapiParametersMapper implements FHIRConstants {
 				} else {
 					targetSystem = new UriType(actualTargetSystem);
 				}
-				
-				String mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID);
-				if (mapTarget == null) {
-					mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET);
-				}
-				
-				if (mapTarget != null) {
-					Coding coding = new Coding().setCode(mapTarget).setSystemElement(targetSystem);
+				if (reverseLookup) {
+					Coding coding = new Coding().setCode(member.getReferencedComponentId()).setSystemElement(targetSystem);
 					matches.addPart().setName("concept").setValue(coding);
+				} else {
+					String mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID);
+					if (mapTarget == null) {
+						mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET);
+					}
+					
+					if (mapTarget != null) {
+						Coding coding = new Coding().setCode(mapTarget).setSystemElement(targetSystem);
+						matches.addPart().setName("mapTarget").setValue(coding);
+					}
 				}
 			}
 		}
