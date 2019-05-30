@@ -125,7 +125,16 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertBranchStateAndConceptVisibility("MAIN/C", Branch.BranchState.UP_TO_DATE, conceptId, false);
 
 		// Rebase to A2
+		assertEquals("Before rebase versions.", 1, branchService.findAllVersions("MAIN/A/A2", LARGE_PAGE).getTotalElements());
+		Date beforeRebaseTimepoint = new Date();
+		Branch branchA2BeforeRebase = branchService.findAtTimepointOrThrow("MAIN/A/A2", beforeRebaseTimepoint);
+
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", null);
+
+		assertEquals("Before rebase, another version of the branch created.", 2, branchService.findAllVersions("MAIN/A/A2", LARGE_PAGE).getTotalElements());
+		assertEquals("The base timepoint of the original version of the branch should not have changed.",
+				branchA2BeforeRebase.getBase(), branchService.findAtTimepointOrThrow("MAIN/A/A2", beforeRebaseTimepoint).getBase());
+
 		assertEquals("System performed merge of MAIN/A to MAIN/A/A2", getLatestTraceabilityCommitComment());
 		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
 		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.FORWARD, conceptId, true);
