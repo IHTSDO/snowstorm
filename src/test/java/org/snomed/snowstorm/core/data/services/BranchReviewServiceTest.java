@@ -174,6 +174,69 @@ public class BranchReviewServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testConflictsFoundOnMidLevelBranches() throws InterruptedException, ServiceException {
+		// The story:
+		// Make change on third level branch MAIN/A/A1
+		// Promote to second level MAIN/A
+		// Make change to same concept on unrelated third level branch MAIN/B/B1
+		// Promote to second level and then MAIN
+		// Rebase second level branch - should see conflicts
+
+		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), "MAIN");
+
+		// Rebase A
+		mergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+
+		// Create MAIN/A/A1
+		branchService.create("MAIN/A/A1");
+
+		// Create MAIN/B
+		branchService.create("MAIN/B");
+
+		// Create MAIN/B/B1
+		branchService.create("MAIN/B/B1");
+
+		// Change on A1 (axiom change)
+		String workingBranch = "MAIN/A/A1";
+		Concept concept = conceptService.find("10000100", workingBranch);
+		concept.getClassAxioms().iterator().next().setDefinitionStatusId(Concepts.FULLY_DEFINED);
+		conceptService.update(concept, workingBranch);
+
+		// Promote A1 to A
+		mergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptySet());
+
+		// Change on B1 (FSN lang refset)
+		workingBranch = "MAIN/B/B1";
+		concept = conceptService.find("10000100", workingBranch);
+		getDescription(concept, true).getLangRefsetMembers()
+				.get(Concepts.US_EN_LANG_REFSET).setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, Concepts.PREFERRED);
+		conceptService.update(concept, workingBranch);
+
+		// Promote B1 to B and to MAIN
+		mergeService.mergeBranchSync("MAIN/B/B1", "MAIN/B", Collections.emptySet());
+		mergeService.mergeBranchSync("MAIN/B", "MAIN", Collections.emptySet());
+
+		MergeReview review = reviewService.createMergeReview("MAIN", "MAIN/A");
+
+		long maxWait = 10;
+		long cumulativeWait = 0;
+		while (review.getStatus() == ReviewStatus.PENDING && cumulativeWait < maxWait) {
+			Thread.sleep(1_000);
+			cumulativeWait++;
+		}
+
+		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+		BranchReview sourceToTargetReview = reviewService.getBranchReview(review.getSourceToTargetReviewId());
+		assertReportEquals(sourceToTargetReview.getChanges(), new Long[]{10000100L});
+		BranchReview targetToSourceReview = reviewService.getBranchReview(review.getTargetToSourceReviewId());
+		assertReportEquals(targetToSourceReview.getChanges(), new Long[]{10000100L});
+
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getSourceConcept().getId()).collect(Collectors.toCollection(TreeSet::new));
+		assertEquals("[10000100]", conceptIds.toString());
+	}
+
+	@Test
 	public void testCreateMergeReviewWithConceptDeletedOnParentAndFsnUpdatedOnChild() throws InterruptedException, ServiceException {
 		// Update concept 10000100 FSN on A
 		Concept concept = conceptService.find("10000100", "MAIN/A");
