@@ -12,22 +12,15 @@ import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.data.services.QueryService;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
+import org.snomed.snowstorm.fhir.domain.FHIRValueSet;
 import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.*;
 import org.springframework.stereotype.Component;
 
-import com.google.common.collect.Lists;
-
-import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.server.IResourceProvider;
@@ -59,17 +52,17 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
 	@Read()
-	public ValueSet getResourceById(@IdParam IdDt theId) {
-		Optional<ValueSet> vs = valuesetRepository.findById(theId.getIdPart());
-		if (vs.isPresent()) {
-			return vs.get();
+	public ValueSet getResourceById(@IdParam IdType theId) {
+		Optional<FHIRValueSet> fvs = valuesetRepository.findById(theId.getIdPart());
+		if (fvs.isPresent()) {
+			return fvs.get().toValueSet();
 		}
 		throw new NotFoundException(theId.getIdPart());
 	}
 	
 	@Create()
 	public MethodOutcome createValueset(@ResourceParam ValueSet vs) {
-		ValueSet savedVs = valuesetRepository.save(vs);
+		FHIRValueSet savedVs = valuesetRepository.save(FHIRValueSet.fromValueSet(vs));
 		MethodOutcome outcome = new MethodOutcome();
 		outcome.setId(new IdType("ValueSet", savedVs.getId(), "1"));
 		return outcome;
@@ -84,8 +77,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	public List<ValueSet> findValuesets(
 			HttpServletRequest theRequest, 
 			HttpServletResponse theResponse) {
-		Iterable<ValueSet> iterable = valuesetRepository.findAll();
-		return Lists.newArrayList(iterable);
+		return FHIRValueSet.toValueSet(valuesetRepository.findAll());
 	}
 
 	@Operation(name="$expand", idempotent=true)
