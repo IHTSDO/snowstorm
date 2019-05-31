@@ -17,18 +17,13 @@ import static org.junit.Assert.assertTrue;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
 public class ConceptMapProviderTest extends AbstractFHIRTest {
 	
-//	@Test TODO: Please FIXME PGW
+	@Test
 	public void testHistoricAssociation() throws FHIROperationException {
-		String url = "http://localhost:" + port + "/fhir//ConceptMap/$translate?code=" + sampleSCTID + "&system=http://snomed.info/sct&source=http://snomed.info/sct?fhir_vs&target=http://snomed.info/sct?fhir_vs&url=http://snomed.info/sct?fhir_cm=" + Concepts.REFSET_SAME_AS_ASSOCIATION;
+		String url = "http://localhost:" + port + "/fhir/ConceptMap/$translate?code=" + sampleSCTID + "&system=http://snomed.info/sct&source=http://snomed.info/sct?fhir_vs&target=http://snomed.info/sct?fhir_vs&url=http://snomed.info/sct?fhir_cm=" + Concepts.REFSET_SAME_AS_ASSOCIATION;
 		Parameters parameters = get(url);
 		assertNotNull(parameters);
 		Type t = parameters.getParameter("result");
 		assertTrue(t.castToBoolean(t).booleanValue());
-	}
-
-	@Test
-	// Delete me
-	public void blank() {
 	}
 
 	private Parameters get(String url) throws FHIROperationException {

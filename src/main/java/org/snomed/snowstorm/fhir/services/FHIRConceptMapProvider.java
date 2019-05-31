@@ -60,8 +60,8 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			source = new UriType(ICD10_URI);
 		}
 		
-		if (source.asStringValue().equals(target.asStringValue())) {
-			throw new FHIROperationException (null, "Source and target cannot be the same");
+		if (!source.asStringValue().startsWith(SNOMED_URI) && source.asStringValue().equals(target.asStringValue())) {
+			throw new FHIROperationException (null, "Source and target cannot be the same: '" + source.asStringValue() + "'");
 		}
 		
 		String refsetId = "";
@@ -83,7 +83,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 				.active(true);
 		
 		//Are we going from SNOMED to other, or other to SNOMED?
-		if (target.asStringValue().startsWith(SNOMED_URI)) {
+		if (target.asStringValue().startsWith(SNOMED_URI) && !source.asStringValue().startsWith(SNOMED_URI)) {
 			memberSearchRequest.mapTarget(code.getCode());
 		} else {
 			memberSearchRequest.referencedComponentId(code.getCode());
