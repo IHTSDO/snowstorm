@@ -6,16 +6,20 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.data.services.mapper.ConceptToConceptIdMapper;
+import org.snomed.snowstorm.core.data.services.mapper.DescriptionToConceptIdMapper;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.core.data.services.pojo.SimpleAggregation;
@@ -118,7 +122,7 @@ public class DescriptionService extends ComponentService {
 
 		// Fetch concept semantic tag aggregation
 		// Not all descriptions are FSNs so use: description -> concept -> active FSN
-		Set<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria, conceptActive);
+		Collection<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria, conceptActive);
 		timer.checkpoint("Fetch all related concept ids for semantic tag aggregation");
 
 		BoolQueryBuilder fsnClauses = boolQuery();
@@ -330,28 +334,32 @@ public class DescriptionService extends ComponentService {
 		}
 	}
 
-	private Set<Long> findDescriptionConceptIds(BoolQueryBuilder descriptionCriteria, Boolean conceptActive) {
-		Set<Long> conceptIds = new HashSet<>();
-		try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(
+	private Collection<Long> findDescriptionConceptIds(BoolQueryBuilder descriptionCriteria, Boolean conceptActive) {
+		List<Long> conceptIds = new LongArrayList();
+		try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(
 				new NativeSearchQueryBuilder()
 						.withQuery(descriptionCriteria)
-						.withFields(Description.Fields.CONCEPT_ID)
+						.withSort(SortBuilders.fieldSort("_doc"))
+						.withStoredFields(Description.Fields.CONCEPT_ID)
 						.withPageable(LARGE_PAGE)
-						.build(), Description.class)) {
-			descriptionStream.forEachRemaining(description -> conceptIds.add(parseLong(description.getConceptId())));
+						.build(), Description.class, new DescriptionToConceptIdMapper(conceptIds))) {
+			stream.forEachRemaining(hit -> {});
 		}
 
 		if (!conceptIds.isEmpty() && conceptActive != null) {
 			// Apply concept active filter
-			Set<Long> conceptsWithActiveStatus = new HashSet<>();
-			try (CloseableIterator<Concept> conceptStream = elasticsearchTemplate.stream(
-					new NativeSearchQueryBuilder()
-							.withQuery(boolQuery()
-									.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
-									.must(termQuery(Concept.Fields.ACTIVE, conceptActive.booleanValue())))
-							.withFields(Concept.Fields.CONCEPT_ID)
-							.build(), Concept.class)) {
-				conceptStream.forEachRemaining(concept -> conceptsWithActiveStatus.add(parseLong(concept.getConceptId())));
+			List<Long> conceptsWithActiveStatus = new LongArrayList();
+			for (List<Long> conceptIdPartition : Iterables.partition(conceptIds, CLAUSE_LIMIT)) {
+				try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(
+						new NativeSearchQueryBuilder()
+								.withQuery(termQuery(Concept.Fields.ACTIVE, conceptActive.booleanValue()))
+								.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdPartition))
+								.withSort(SortBuilders.fieldSort("_doc"))
+								.withStoredFields(Concept.Fields.CONCEPT_ID)
+								.withPageable(LARGE_PAGE)
+								.build(), Concept.class, new ConceptToConceptIdMapper(conceptsWithActiveStatus))) {
+					stream.forEachRemaining(hit -> {});
+				}
 			}
 			return conceptsWithActiveStatus;
 		}
