@@ -11,7 +11,6 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ConceptView;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
-import org.snomed.snowstorm.core.data.domain.expression.ExpressionTransfer;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
@@ -303,7 +302,7 @@ public class ConceptController {
 	
 	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/normal-form", method = RequestMethod.GET)
-	public ExpressionTransfer getConceptNormalForm(
+	public ExpressionStringPojo getConceptNormalForm(
 			@PathVariable String branch,
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue="false") boolean statedView,
@@ -312,7 +311,7 @@ public class ConceptController {
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		Expression expression =  expressionService.getConceptNormalForm(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch), statedView);
-		return ExpressionTransfer.transfer(expression, includeTerms);
+		return new ExpressionStringPojo(expression.toString(includeTerms));
 	}
 
 	private void validatePageSize(@RequestParam(required = false, defaultValue = "50") int limit) {
