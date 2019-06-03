@@ -19,7 +19,7 @@ public class ConceptMapProviderTest extends AbstractFHIRTest {
 	
 	@Test
 	public void testHistoricAssociation() throws FHIROperationException {
-		String url = "http://localhost:" + port + "/fhir//ConceptMap/$translate?code=" + sampleSCTID + "&system=http://snomed.info/sct&source=http://snomed.info/sct?fhir_vs&target=http://snomed.info/sct?fhir_vs&url=http://snomed.info/sct?fhir_cm=" + Concepts.REFSET_SAME_AS_ASSOCIATION;
+		String url = "http://localhost:" + port + "/fhir/ConceptMap/$translate?code=" + sampleSCTID + "&system=http://snomed.info/sct&source=http://snomed.info/sct?fhir_vs&target=http://snomed.info/sct?fhir_vs&url=http://snomed.info/sct?fhir_cm=" + Concepts.REFSET_SAME_AS_ASSOCIATION;
 		Parameters parameters = get(url);
 		assertNotNull(parameters);
 		Type t = parameters.getParameter("result");

@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
@@ -9,7 +10,8 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.TermsQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -176,9 +178,7 @@ public class BranchReviewService {
 		final BranchReview targetToSourceReview = reviewStore.getIfPresent(mergeReview.getTargetToSourceReviewId());
 		BranchReviewConceptChanges sourceToTargetReviewChanges = sourceToTargetReview.getChanges();
 		BranchReviewConceptChanges targetToSourceReviewChanges = targetToSourceReview.getChanges();
-		return Sets.intersection(
-				Sets.union(sourceToTargetReviewChanges.getChangedConcepts(), sourceToTargetReviewChanges.getDeletedConcepts()),
-				Sets.union(targetToSourceReviewChanges.getChangedConcepts(), targetToSourceReviewChanges.getDeletedConcepts()));
+		return Sets.intersection(sourceToTargetReviewChanges.getChangedConcepts(), targetToSourceReviewChanges.getChangedConcepts());
 	}
 
 	private Concept autoMergeConcept(Concept sourceConcept, Concept targetConcept) {
@@ -338,29 +338,63 @@ public class BranchReviewService {
 
 		logger.info("Creating change report: branch {} time range {} to {}", path, start, end);
 
+		List<Branch> startTimeSlice;
+		List<Branch> endTimeSlice;
+		if (sourceIsParent) {
+			// The source branch is the parent, so we are counting content which could be rebased down.
+			// This content can come from any ancestor branch.
+			startTimeSlice = versionControlHelper.getTimeSlice(path, start);
+			endTimeSlice = versionControlHelper.getTimeSlice(path, end);
+		} else {
+			// The source branch is the child, so we are counting content which could be promoted up.
+			// This content will exist on this path only.
+			startTimeSlice = Lists.newArrayList(branchService.findAtTimepointOrThrow(path, start));
+			endTimeSlice = Lists.newArrayList(branchService.findAtTimepointOrThrow(path, end));
+		}
+
+		if (startTimeSlice.equals(endTimeSlice)) {
+			return new BranchReviewConceptChanges(null, Collections.emptySet());
+		}
+
 		// Find components of each type that are on the target branch and have been ended on the source branch
-		final Set<Long> conceptsWithEndedVersions = new LongOpenHashSet();
-		final Set<Long> conceptsWithNewVersions = new LongOpenHashSet();
-		final Set<Long> conceptsWithComponentChange = new LongOpenHashSet();
+		final Set<Long> changedConcepts = new LongOpenHashSet();
 		final Map<String, String> referenceComponentIdToConceptMap = new HashMap<>();
 		Branch branch = branchService.findBranchOrThrow(path);
-		if (!sourceIsParent) {
-			logger.debug("Collecting versions replaced for change report: branch {} time range {} to {}", path, start, end);
-			// Technique: Iterate child's 'versionsReplaced' set
-			try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(branch.getVersionsReplaced(Concept.class), Concept.Fields.CONCEPT_ID).build(), Concept.class)) {
-				stream.forEachRemaining(concept -> conceptsWithEndedVersions.add(parseLong(concept.getConceptId())));
+		logger.debug("Collecting versions replaced for change report: branch {} time range {} to {}", path, start, end);
+
+		Map<String, Set<String>> changedVersionsReplaced = new HashMap<>();
+
+		// Technique: Search for replaced versions
+		// Work out changes in versions replaced between time slices
+		Map<String, Set<String>> startVersionsReplaced = versionControlHelper.getAllVersionsReplaced(startTimeSlice);
+		Map<String, Set<String>> endVersionsReplaced = versionControlHelper.getAllVersionsReplaced(endTimeSlice);
+		for (String type : Sets.union(startVersionsReplaced.keySet(), endVersionsReplaced.keySet())) {
+			changedVersionsReplaced.put(type, Sets.difference(
+					endVersionsReplaced.computeIfAbsent(type, t -> Collections.emptySet()),
+					startVersionsReplaced.computeIfAbsent(type, t1 -> Collections.emptySet())));
+		}
+		if (!changedVersionsReplaced.getOrDefault(Concept.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
+			try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(
+					componentsReplacedCriteria(changedVersionsReplaced.get(Concept.class.getSimpleName()), Concept.Fields.CONCEPT_ID).build(), Concept.class)) {
+				stream.forEachRemaining(concept -> changedConcepts.add(parseLong(concept.getConceptId())));
 			}
-			NativeSearchQueryBuilder fsnQuery = componentsReplacedCriteria(branch.getVersionsReplaced(Description.class), Description.Fields.CONCEPT_ID)
+		}
+		if (!changedVersionsReplaced.getOrDefault(Description.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
+			NativeSearchQueryBuilder fsnQuery = componentsReplacedCriteria(changedVersionsReplaced.get(Description.class.getSimpleName()), Description.Fields.CONCEPT_ID)
 					.withFilter(termQuery(Description.Fields.TYPE_ID, Concepts.FSN));
 			try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(fsnQuery.build(), Description.class)) {
-				stream.forEachRemaining(description -> conceptsWithComponentChange.add(parseLong(description.getConceptId())));
+				stream.forEachRemaining(description -> changedConcepts.add(parseLong(description.getConceptId())));
 			}
-			try (final CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(componentsReplacedCriteria(branch.getVersionsReplaced(Relationship.class), Relationship.Fields.SOURCE_ID).build(), Relationship.class)) {
-				stream.forEachRemaining(relationship -> conceptsWithComponentChange.add(parseLong(relationship.getSourceId())));
+		}
+		if (!changedVersionsReplaced.getOrDefault(Relationship.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
+			try (final CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(
+					componentsReplacedCriteria(changedVersionsReplaced.get(Relationship.class.getSimpleName()), Relationship.Fields.SOURCE_ID).build(), Relationship.class)) {
+				stream.forEachRemaining(relationship -> changedConcepts.add(parseLong(relationship.getSourceId())));
 			}
-
+		}
+		if (!changedVersionsReplaced.getOrDefault(ReferenceSetMember.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
 			// Refsets with the internal "conceptId" field are related to a concept in terms of authoring
-			NativeSearchQueryBuilder refsetQuery = componentsReplacedCriteria(branch.getVersionsReplaced(ReferenceSetMember.class),
+			NativeSearchQueryBuilder refsetQuery = componentsReplacedCriteria(changedVersionsReplaced.get(ReferenceSetMember.class.getSimpleName()),
 					ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
 					.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)));
 			try (final CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(refsetQuery.build(), ReferenceSetMember.class)) {
@@ -368,49 +402,39 @@ public class BranchReviewService {
 			}
 		}
 
-		// Find new versions of each component type and collect the conceptId they relate to
+		// Technique: Search for ended versions
+		BoolQueryBuilder updatesDuringRange;
+		if (sourceIsParent) {
+			updatesDuringRange = versionControlHelper.getUpdatesOnBranchOrAncestorsDuringRangeQuery(path, start, end);
+		} else {
+			updatesDuringRange = versionControlHelper.getUpdatesOnBranchDuringRangeCriteria(path, start, end);
+		}
+
+		// Find new or ended versions of each component type and collect the conceptId they relate to
 		logger.debug("Collecting concept changes for change report: branch {} time range {} to {}", path, start, end);
-		final BoolQueryBuilder branchUpdatesCriteria = versionControlHelper.getUpdatesOnBranchDuringRangeCriteria(path, start, end);
 
 		TimerUtil timerUtil = new TimerUtil("Collecting changes");
 		NativeSearchQuery conceptsWithNewVersionsQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery().must(branchUpdatesCriteria).mustNot(existsQuery("end")))
+				.withQuery(updatesDuringRange)
 				.withPageable(ComponentService.LARGE_PAGE)
-				.withFields(Concept.Fields.CONCEPT_ID)// This triggers the fast results mapper
+				.withSort(SortBuilders.fieldSort("start"))
+				.withFields(Concept.Fields.CONCEPT_ID)
 				.build();
-		AtomicLong concepts = new AtomicLong();
 		try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(conceptsWithNewVersionsQuery, Concept.class)) {
 			stream.forEachRemaining(concept -> {
-				final long conceptId = parseLong(concept.getConceptId());
-				conceptsWithNewVersions.add(conceptId);
-				concepts.incrementAndGet();
+				changedConcepts.add(parseLong(concept.getConceptId()));
 			});
 		}
-		timerUtil.checkpoint("concepts " + concepts.get());
-
-		NativeSearchQuery conceptsWithEndedVersionsQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery().must(branchUpdatesCriteria).must(existsQuery("end")))
-				.withPageable(ComponentService.LARGE_PAGE)
-				.withFields(Concept.Fields.CONCEPT_ID)// This triggers the fast results mapper
-				.build();
-		AtomicLong conceptsEnded = new AtomicLong();
-		try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(conceptsWithEndedVersionsQuery, Concept.class)) {
-			stream.forEachRemaining(concept -> {
-				final long conceptId = parseLong(concept.getConceptId());
-				conceptsWithEndedVersions.add(conceptId);
-			});
-		}
-		timerUtil.checkpoint("conceptsEnded " + conceptsEnded.get());
 
 		logger.debug("Collecting description changes for change report: branch {} time range {} to {}", path, start, end);
 		AtomicLong descriptions = new AtomicLong();
-		NativeSearchQuery descQuery = newSearchQuery(branchUpdatesCriteria)
-				.withFilter(boolQuery().must(existsQuery(Description.Fields.TAG)))
-				.withFields(Description.Fields.CONCEPT_ID)// This triggers the fast results mapper
+		NativeSearchQuery descQuery = newSearchQuery(updatesDuringRange)
+				.withFilter(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
+				.withFields(Description.Fields.CONCEPT_ID)
 				.build();
 		try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(descQuery, Description.class)) {
 			stream.forEachRemaining(description -> {
-				conceptsWithComponentChange.add(parseLong(description.getConceptId()));
+				changedConcepts.add(parseLong(description.getConceptId()));
 				descriptions.incrementAndGet();
 			});
 		}
@@ -418,19 +442,20 @@ public class BranchReviewService {
 
 		logger.debug("Collecting relationship changes for change report: branch {} time range {} to {}", path, start, end);
 		AtomicLong relationships = new AtomicLong();
-		NativeSearchQuery relQuery = newSearchQuery(branchUpdatesCriteria)
-				.withFields(Relationship.Fields.SOURCE_ID)// This triggers the fast results mapper
+		NativeSearchQuery relQuery = newSearchQuery(updatesDuringRange)
+//				.withFields(Relationship.Fields.SOURCE_ID)
 				.build();
 		try (final CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(relQuery, Relationship.class)) {
 			stream.forEachRemaining(relationship -> {
-				conceptsWithComponentChange.add(parseLong(relationship.getSourceId()));
+				changedConcepts.add(parseLong(relationship.getSourceId()));
+				System.out.println("Relationship " + relationship.getSourceId() + " " + relationship.getCharacteristicType());
 				relationships.incrementAndGet();
 			});
 		}
 		timerUtil.checkpoint("relationships " + relationships.get());
 
 		logger.debug("Collecting refset member changes for change report: branch {} time range {} to {}", path, start, end);
-		NativeSearchQuery memberQuery = newSearchQuery(branchUpdatesCriteria)
+		NativeSearchQuery memberQuery = newSearchQuery(updatesDuringRange)
 				.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)))
 				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
 				.build();
@@ -439,32 +464,28 @@ public class BranchReviewService {
 		}
 
 		// Filter out changes for Synonyms
-		List<String> descriptionIds = new ArrayList<>();
+		List<String> synonymAndTextDefIds = new ArrayList<>();
 		NativeSearchQueryBuilder synonymQuery = new NativeSearchQueryBuilder()
 				.withQuery(versionControlHelper.getBranchCriteria(branch).getEntityBranchCriteria(Description.class))
 				.withFilter(boolQuery()
-						.mustNot(existsQuery(Description.Fields.TAG))
+						.mustNot(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
 						.must(termsQuery(Description.Fields.DESCRIPTION_ID, referenceComponentIdToConceptMap.keySet())));
 		try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(synonymQuery.build(), Description.class)) {
-			stream.forEachRemaining(description -> descriptionIds.add(description.getDescriptionId()));
+			stream.forEachRemaining(description -> synonymAndTextDefIds.add(description.getDescriptionId()));
 		}
 
 		Set<String> changedComponents = referenceComponentIdToConceptMap.keySet()
 				.stream()
-				.filter(r -> !descriptionIds.contains(r))
+				.filter(r -> !synonymAndTextDefIds.contains(r))
 				.collect(Collectors.toSet());
 
 		for (String componentId : changedComponents) {
-			conceptsWithComponentChange.add(parseLong(referenceComponentIdToConceptMap.get(componentId)));
+			changedConcepts.add(parseLong(referenceComponentIdToConceptMap.get(componentId)));
 		}
-
-		final Sets.SetView<Long> conceptsDeleted = Sets.difference(conceptsWithEndedVersions, conceptsWithNewVersions);
-		final Sets.SetView<Long> conceptsCreated = Sets.difference(conceptsWithNewVersions, conceptsWithEndedVersions);
-		final Sets.SetView<Long> conceptsModified = Sets.difference(Sets.difference(conceptsWithComponentChange, conceptsCreated), conceptsDeleted);
 
 		logger.info("Change report complete for branch {} time range {} to {}", path, start, end);
 
-		return new BranchReviewConceptChanges(null, conceptsCreated, conceptsModified, conceptsDeleted);
+		return new BranchReviewConceptChanges(null, changedConcepts);
 	}
 
 	private String getReviewIndexKey(String sourcePath, Long sourceHeadTimestamp, String targetPath, Long headTimestamp) {
@@ -491,7 +512,7 @@ public class BranchReviewService {
 				.withPageable(ComponentService.LARGE_PAGE);
 	}
 
-	private TermsQueryBuilder getNonStatedRelationshipClause() {
+	private QueryBuilder getNonStatedRelationshipClause() {
 		return termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP, Concepts.ADDITIONAL_RELATIONSHIP);
 	}
 }

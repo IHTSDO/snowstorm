@@ -22,11 +22,11 @@ public class HapiParametersMapper implements FHIRConstants {
 	@Autowired
 	private ExpressionService expressionService;
 	
-	public Parameters mapToFHIR(Concept c, Collection<Long> childIds, Set<FhirSctProperty> properties) {
+	public Parameters mapToFHIR(Concept c, Collection<Long> childIds, Set<FhirSctProperty> properties, String displayLanguage) {
 		Parameters parameters = getStandardParameters();
 		Parameters.ParametersParameterComponent preferredTerm = new Parameters.ParametersParameterComponent(DISPLAY);
 		parameters.addParameter(preferredTerm);
-		addDesignations(parameters, c, preferredTerm);
+		addDesignations(parameters, c, preferredTerm, displayLanguage);
 		addProperties(parameters, c, properties);
 		addParents(parameters,c);
 		addChildren(parameters, childIds);
@@ -38,13 +38,20 @@ public class HapiParametersMapper implements FHIRConstants {
 		Parameters p = getStandardParameters();
 		boolean success = members.size() > 0;
 		p.addParameter("result", success);
+		boolean reverseLookup = requestedTargetSystem.asStringValue().equals(SNOMED_URI);
+		
 		if (success) {
 			Parameters.ParametersParameterComponent matches = p.addParameter().setName("match");
 			for (ReferenceSetMember member : members) {
 				
 				//Do we know about this reference set?
 				String refsetId = member.getRefsetId();
-				String actualTargetSystem = knownUriMap.inverse().get(refsetId);
+				String actualTargetSystem = null;
+				
+				//Don't do lookup if we're already doing a reverse lookup
+				if (!reverseLookup) {
+					actualTargetSystem = knownUriMap.inverse().get(refsetId);
+				}
 				
 				//If not, then give an indication of the refset being returned
 				if (actualTargetSystem == null) {
@@ -52,15 +59,19 @@ public class HapiParametersMapper implements FHIRConstants {
 				} else {
 					targetSystem = new UriType(actualTargetSystem);
 				}
-				
-				String mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID);
-				if (mapTarget == null) {
-					mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET);
-				}
-				
-				if (mapTarget != null) {
-					Coding coding = new Coding().setCode(mapTarget).setSystemElement(targetSystem);
+				if (reverseLookup) {
+					Coding coding = new Coding().setCode(member.getReferencedComponentId()).setSystemElement(targetSystem);
 					matches.addPart().setName("concept").setValue(coding);
+				} else {
+					String mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID);
+					if (mapTarget == null) {
+						mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET);
+					}
+					
+					if (mapTarget != null) {
+						Coding coding = new Coding().setCode(mapTarget).setSystemElement(targetSystem);
+						matches.addPart().setName("mapTarget").setValue(coding);
+					}
 				}
 			}
 		}
@@ -76,17 +87,25 @@ public class HapiParametersMapper implements FHIRConstants {
 		return parameters;
 	}
 
-	private void addDesignations(Parameters parameters, Concept c, Parameters.ParametersParameterComponent preferredTerm) {
+	private void addDesignations(Parameters parameters, Concept c, Parameters.ParametersParameterComponent preferredTerm, String displayLanguage) {
 		for (Description d : c.getDescriptions(true, null, null, null)) {
 			Parameters.ParametersParameterComponent designation = parameters.addParameter().setName(DESIGNATION);
 			designation.addPart().setName(LANGUAGE).setValue(new CodeType(d.getLang()));
 			designation.addPart().setName(USE).setValue(new Coding(SNOMED_URI, d.getTypeId(), FHIRHelper.translateDescType(d.getTypeId())));
 			designation.addPart().setName(VALUE).setValue(new StringType(d.getTerm()));
 
-			//Is this the US Preferred term?
-			//TODO Obtain the desired lang/dialect from request headers and lookup refsetid to use
-			if (d.hasAcceptability(Concepts.PREFERRED, Concepts.US_EN_LANG_REFSET)) {
-				preferredTerm.setValue(new StringType(d.getTerm()));
+			//Are we working with a display language or the default?
+			if (displayLanguage == null) {
+				if (d.hasAcceptability(Concepts.PREFERRED, Concepts.US_EN_LANG_REFSET) && 
+						d.getTypeId().equals(Concepts.FSN)) {
+					preferredTerm.setValue(new StringType(d.getTerm()));
+				}
+			} else {
+				if (d.getLang().equals(displayLanguage) && 
+						d.hasAcceptability(Concepts.PREFERRED) &&
+						d.getTypeId().equals(Concepts.SYNONYM)) {
+					preferredTerm.setValue(new StringType(d.getTerm()));
+				}
 			}
 		}
 	}

@@ -36,6 +36,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 	
 	private BiMap<String, String> knownUriMap;
 	String[] validMapTargets;
+	String[] validMapSources;
 	
 	@Operation(name="$translate", idempotent=true)
 	public Parameters expand(
@@ -47,11 +48,27 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="source") UriType source,
 			@OperationParam(name="target") UriType target) throws FHIROperationException {
 
-		validate("System", system.asStringValue(), Validation.EQUALS, SNOMED_URI, true);
-		validate("Source", source.asStringValue(), Validation.STARTS_WITH, SNOMED_URI, true);
-		validate("Url", url, Validation.STARTS_WITH, SNOMED_CONCEPTMAP, true);
+		validate("System", system.asStringValue(), Validation.EQUALS, getValidMapSources(), true);
+		validate("Source", source.asStringValue(), Validation.STARTS_WITH, getValidMapSources(), true);
 		validate("Target", target.asStringValue(), Validation.EQUALS, getValidMapTargets(), true);
-		String refsetId = url.substring(SNOMED_CONCEPTMAP.length());
+		
+		//Allow "ICD-10", but swap with the real URI
+		if (target.asStringValue().equals(ICD10)) {
+			target = new UriType(ICD10_URI);
+		}
+		if (source.asStringValue().equals(ICD10) ) {
+			source = new UriType(ICD10_URI);
+		}
+		
+		if (!source.asStringValue().startsWith(SNOMED_URI) && source.asStringValue().equals(target.asStringValue())) {
+			throw new FHIROperationException (null, "Source and target cannot be the same: '" + source.asStringValue() + "'");
+		}
+		
+		String refsetId = "";
+		if (url != null) {
+			validate("Url", url, Validation.STARTS_WITH, SNOMED_CONCEPTMAP, true);
+			refsetId = url.substring(SNOMED_CONCEPTMAP.length());
+		}
 		
 		//If a refset is specified does that match the target system?
 		if (!refsetId.isEmpty()) {
@@ -61,29 +78,50 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			}
 		}
 		
+		MemberSearchRequest memberSearchRequest = new MemberSearchRequest()
+				.referenceSet(refsetId)
+				.active(true);
+		
+		//Are we going from SNOMED to other, or other to SNOMED?
+		if (target.asStringValue().startsWith(SNOMED_URI) && !source.asStringValue().startsWith(SNOMED_URI)) {
+			memberSearchRequest.mapTarget(code.getCode());
+		} else {
+			memberSearchRequest.referencedComponentId(code.getCode());
+		}
+
 		Page<ReferenceSetMember> members = memberService.findMembers(
 				BranchPathUriUtil.decodePath(MAIN),
-				new MemberSearchRequest()
-					.referenceSet(refsetId)
-					.active(true)
-					.referencedComponentId(code.getCode()),
+				memberSearchRequest,
 				ControllerHelper.getPageRequest(0, DEFAULT_PAGESIZE));
 		return mapper.mapToFHIR(members.getContent(), target, knownUriMap);
+
 	}
 	
 	private String[] getValidMapTargets() {
 		if (validMapTargets == null) {
-			validMapTargets = new String[2];
+			validMapTargets = new String[4];
 			validMapTargets[0] = SNOMED_URI + "?fhir_vs";
 			validMapTargets[1] = "ICD-10";
+			validMapTargets[2] = ICD10_URI;
+			validMapTargets[3] = SNOMED_URI;
 			
 			//This hardcoding will be replaced by machine readable Refset metadata
 			knownUriMap = new ImmutableBiMap.Builder<String, String>()
-			.put("ICD-10", "447562003")
+			.put(ICD10_URI, "447562003")
 			.put("CTV-3","900000000000497000")
 			.build();
 		}
 		return validMapTargets;
+	}
+	
+	private String[] getValidMapSources() {
+		if (validMapSources == null) {
+			validMapSources = new String[3];
+			validMapSources[0] = SNOMED_URI;
+			validMapSources[1] = ICD10;
+			validMapSources[2] = ICD10_URI;
+		}
+		return validMapSources;
 	}
 
 	private void validate(String fieldName, String actual, Validation mode, String expected, boolean mandatory) throws FHIROperationException {
