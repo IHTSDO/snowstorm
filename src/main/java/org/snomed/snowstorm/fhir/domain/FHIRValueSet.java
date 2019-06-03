@@ -22,13 +22,16 @@ public class FHIRValueSet {
 		FHIRValueSet fvs = new FHIRValueSet();
 		fvs.url = vs.getUrl();
 		fvs.id = vs.getId();
+		if (fvs.id != null && fvs.id.startsWith("ValueSet/")) {
+			fvs.id = fvs.id.substring(9);
+		}
 		return fvs;
 	}
 	
 	public ValueSet toValueSet() {
 		ValueSet vs = new ValueSet();
-		vs.setUrl(vs.getUrl());
-		vs.setId(new IdType(vs.getId()));
+		vs.setUrl(url);
+		vs.setId(new IdType(id));
 		return vs;
 	}
 

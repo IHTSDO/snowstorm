@@ -57,7 +57,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (fvs.isPresent()) {
 			return fvs.get().toValueSet();
 		}
-		throw new NotFoundException(theId.getIdPart());
+		return null;
 	}
 	
 	@Create()
@@ -69,8 +69,18 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 	
 	@Update
-	public MethodOutcome updateValueset(@IdParam IdType theId, @ResourceParam ValueSet vs) {
-		return createValueset(vs);
+	public MethodOutcome updateValueset(@IdParam IdType theId, @ResourceParam ValueSet vs) throws FHIROperationException {
+		try {
+			return createValueset(vs);
+		} catch (Exception e) {
+			throw new FHIROperationException(IssueType.EXCEPTION, "Failed to update valueset '" + vs.getId() + "' due to " + e.getMessage());
+		}
+	}
+	
+	@Delete
+	public void deleteValueset(@IdParam IdType theId) {
+		String id = theId.getId();
+		valuesetRepository.deleteById(id);
 	}
 	
 	@Search
