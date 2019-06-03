@@ -46,6 +46,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="system") UriType system,
 			@OperationParam(name="version") StringType codeSystemVersionUri,
 			@OperationParam(name="coding") Coding coding,
+			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="property") List<CodeType> propertiesType ) throws FHIROperationException {
 
 		if (system == null || system.isEmpty() || !system.equals(SNOMED_URI)) {
@@ -54,11 +55,16 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		}
 
 		List<String> languageCodes = fhirHelper.getLanguageCodes(null, request);
+		//Also if displayLanguage has been used, ensure that's part of our requested Language Codes
+		if (displayLanguage != null && !languageCodes.contains(displayLanguage)) {
+			languageCodes.add(displayLanguage);
+		}
+		
 		String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
 		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), languageCodes, branchPath));
 		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + code.getValue()), branchPath, LARGE_PAGE);
 		Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
-		return mapper.mapToFHIR(concept, childIds.getContent(), properties);
+		return mapper.mapToFHIR(concept, childIds.getContent(), properties, displayLanguage);
 	}
 	
 	@Override
