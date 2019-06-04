@@ -26,6 +26,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 
@@ -41,9 +42,17 @@ public class ValueSetProviderTestSCRUD {
 	
 	protected IParser fhirJsonParser;
 	
+	String baseUrl;
+	HttpHeaders headers;
+	
 	@Before
 	synchronized public void setup() throws ServiceException, InterruptedException {
 		fhirJsonParser = FhirContext.forR4().newJsonParser();
+		baseUrl = "http://localhost:" + port + "/fhir/ValueSet";
+		headers = new HttpHeaders();
+		headers.setContentType(new MediaType("application", "fhir+json", StandardCharsets.UTF_8));
+		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+	
 	}
 	
 	@Test
@@ -51,36 +60,23 @@ public class ValueSetProviderTestSCRUD {
 		String testURL = "http://some.test";
 		ValueSet testVS = new ValueSet();
 		testVS.setUrl(testURL);
-		String baseUrl = "http://localhost:" + port + "/fhir/ValueSet";
 		String vsJson = fhirJsonParser.encodeResourceToString(testVS);
 		
-		HttpHeaders headers = new HttpHeaders();
-		headers.setContentType(new MediaType("application", "fhir+json", StandardCharsets.UTF_8));
-		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-		HttpEntity<String> request = new HttpEntity<>(vsJson, headers);
-		
-		ResponseEntity<MethodOutcome> response = restTemplate.postForEntity(baseUrl, request, MethodOutcome.class);
-		assertEquals(HttpStatus.CREATED, response.getStatusCode());
-		MethodOutcome outcome = response.getBody();
-		assertNull(outcome);
-		String location = response.getHeaders().getFirst("Location");
-		String id = getId(location);
+		String id = storeVs(vsJson);
 		
 		//Now recover that ValueSet we just saved
 		String url = baseUrl + "/" + id;
-		request = new HttpEntity<>(vsJson, headers);
 		ResponseEntity<String> response2 = restTemplate.getForEntity(url, String.class);
 		ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response2.getBody());
 		
 		//Also check that attempting to recover a nonsense id gives us an HTTP 404 Not Found
-		request = new HttpEntity<>(vsJson, headers);
 		response2 = restTemplate.getForEntity(baseUrl + "/foo", String.class);
 		assertEquals(HttpStatus.NOT_FOUND, response2.getStatusCode());
 		
 		//Next update the VS
 		savedVS.setUrl("http://some.other.test");
 		vsJson = fhirJsonParser.encodeResourceToString(savedVS);
-		request = new HttpEntity<>(vsJson, headers);
+		HttpEntity<String> request = new HttpEntity<>(vsJson, headers);
 		response2 = restTemplate.exchange(url, HttpMethod.PUT, request, String.class);
 		assertEquals(HttpStatus.OK, response2.getStatusCode());
 		//ValueSet updated = fhirJsonParser.parseResource(ValueSet.class, response.getBody());
@@ -104,10 +100,36 @@ public class ValueSetProviderTestSCRUD {
 	
 	}
 
+	private String storeVs(String vsJson) {
+		HttpEntity<String> request = new HttpEntity<>(vsJson, headers);
+		ResponseEntity<MethodOutcome> response = restTemplate.postForEntity(baseUrl, request, MethodOutcome.class);
+		assertEquals(HttpStatus.CREATED, response.getStatusCode());
+		MethodOutcome outcome = response.getBody();
+		assertNull(outcome);
+		String location = response.getHeaders().getFirst("Location");
+		return getId(location);
+	}
+
 	private String getId(String location) {
 		int cutFrom = location.indexOf("fhir/ValueSet/") + 14;
 		int cutTo = location.indexOf('/', cutFrom);
 		return location.substring(cutFrom, cutTo);
+	}
+	
+	@Test
+	public void testValueSetExample() {
+		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
+		InputStream is = classloader.getResourceAsStream("dummy-fhir-content/exampleVS.json");
+		assertNotNull(is);
+		ValueSet exampleVS = fhirJsonParser.parseResource(ValueSet.class, is);
+		String vsJson = fhirJsonParser.encodeResourceToString(exampleVS);
+		String savedId = storeVs(vsJson);
+		assertNotNull(savedId);
+		
+		//Now recover that ValueSet we just saved
+		String url = baseUrl + "/" + savedId;
+		ResponseEntity<String> response2 = restTemplate.getForEntity(url, String.class);
+		ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response2.getBody());
 	}
 	
 }

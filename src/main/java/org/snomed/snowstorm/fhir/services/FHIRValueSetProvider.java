@@ -2,6 +2,7 @@ package org.snomed.snowstorm.fhir.services;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -15,7 +16,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
-import org.snomed.snowstorm.fhir.domain.FHIRValueSet;
+import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
 import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
@@ -53,16 +54,16 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	
 	@Read()
 	public ValueSet getResourceById(@IdParam IdType theId) {
-		Optional<FHIRValueSet> fvs = valuesetRepository.findById(theId.getIdPart());
-		if (fvs.isPresent()) {
-			return fvs.get().toValueSet();
+		Optional<ValueSetWrapper> vs = valuesetRepository.findById(theId.getIdPart());
+		if (vs.isPresent()) {
+			return vs.get().getValueset();
 		}
 		return null;
 	}
 	
 	@Create()
 	public MethodOutcome createValueset(@ResourceParam ValueSet vs) {
-		FHIRValueSet savedVs = valuesetRepository.save(FHIRValueSet.fromValueSet(vs));
+		ValueSetWrapper savedVs = valuesetRepository.save(new ValueSetWrapper(vs));
 		MethodOutcome outcome = new MethodOutcome();
 		outcome.setId(new IdType("ValueSet", savedVs.getId(), "1"));
 		return outcome;
@@ -87,7 +88,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	public List<ValueSet> findValuesets(
 			HttpServletRequest theRequest, 
 			HttpServletResponse theResponse) {
-		return FHIRValueSet.toValueSet(valuesetRepository.findAll());
+		return StreamSupport.stream(valuesetRepository.findAll().spliterator(), false)
+				.map(vs -> vs.getValueset())
+				.collect(Collectors.toList());
 	}
 
 	@Operation(name="$expand", idempotent=true)

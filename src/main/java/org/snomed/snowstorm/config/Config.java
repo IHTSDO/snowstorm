@@ -3,6 +3,8 @@ package org.snomed.snowstorm.config;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
+
+import ca.uhn.fhir.parser.IParser;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -15,6 +17,7 @@ import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
+import org.hl7.fhir.r4.model.ValueSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
@@ -36,6 +39,8 @@ import org.snomed.snowstorm.core.data.services.identifier.LocalIdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.SnowstormCISClient;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
+import org.snomed.snowstorm.fhir.domain.ValueSetDeserializer;
+import org.snomed.snowstorm.fhir.domain.ValueSetSerializer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -130,6 +135,8 @@ public abstract class Config {
 
 	@Autowired
 	private ElasticsearchTemplate elasticsearchTemplate;
+	
+	protected IParser fhirJsonParser;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -187,6 +194,8 @@ public abstract class Config {
 				.mixIn(Concept.class, ConceptStoreMixIn.class)
 				.mixIn(Description.class, DescriptionStoreMixIn.class)
 				.mixIn(Relationship.class, RelationshipStoreMixIn.class)
+				.serializerByType(ValueSet.class, new ValueSetSerializer())
+				.deserializerByType(ValueSet.class, new ValueSetDeserializer())
 				.build();
 
 		EntityMapper entityMapper = new EntityMapper() {
@@ -210,7 +219,7 @@ public abstract class Config {
 				fastResultsMapper
 		);
 	}
-
+	
 	@Bean
 	public DomainEntityConfiguration domainEntityConfiguration() {
 		return new DomainEntityConfiguration();
