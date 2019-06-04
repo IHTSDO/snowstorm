@@ -53,6 +53,7 @@ import javax.annotation.PreDestroy;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -455,20 +456,14 @@ public class ClassificationService {
 			return new PageImpl<>(Collections.emptyList());
 		}
 
-		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
-		for (EquivalentConcepts equivalentConcepts : relationshipChanges.getContent()) {
-			for (String conceptId : equivalentConcepts.getConceptIds()) {
-				conceptMiniMap.put(conceptId, new ConceptMini(conceptId, languageCodes));
-			}
-		}
-		descriptionService.joinActiveDescriptions(path, conceptMiniMap);
-
+		Set<String> conceptIds = relationshipChanges.getContent().stream().map(EquivalentConcepts::getConceptIds).flatMap(Collection::stream).collect(Collectors.toSet());
+		Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(path, conceptIds, languageCodes).getResultsMap();
 		List<EquivalentConceptsResponse> responseContent = new ArrayList<>();
 		for (EquivalentConcepts equivalentConcepts : relationshipChanges.getContent()) {
-			HashSet<EquivalentConceptsResponse.ConceptIdAndLabel> labels = new HashSet<>();
-			responseContent.add(new EquivalentConceptsResponse(labels));
+			HashSet<ConceptMini> concepts = new HashSet<>();
+			responseContent.add(new EquivalentConceptsResponse(concepts));
 			for (String conceptId : equivalentConcepts.getConceptIds()) {
-				labels.add(new EquivalentConceptsResponse.ConceptIdAndLabel(conceptId, conceptMiniMap.get(conceptId).getFsn()));
+				concepts.add(conceptMiniMap.get(conceptId));
 			}
 		}
 
