@@ -8,6 +8,8 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.springframework.data.domain.Page;
@@ -26,6 +28,7 @@ import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class ConceptSelectorHelper {
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public static BoolQueryBuilder getBranchAndStatedQuery(QueryBuilder branchCriteria, boolean stated) {
 		return boolQuery()
@@ -34,6 +37,10 @@ public class ConceptSelectorHelper {
 	}
 
 	public static Page<Long> fetchIds(BoolQueryBuilder query, Collection<Long> filterByConceptIds, Function<QueryConcept, Boolean> inclusionFilter, PageRequest pageRequest, QueryService queryService) {
+		return fetchIds(query, filterByConceptIds, inclusionFilter, pageRequest, queryService, "N");
+	}
+
+	public static Page<Long> fetchIds(BoolQueryBuilder query, Collection<Long> filterByConceptIds, Function<QueryConcept, Boolean> inclusionFilter, PageRequest pageRequest, QueryService queryService, String batchMode) {
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(query)
 				.withFields(getRequiredFields(inclusionFilter));// This will cause the FastResultsMapper to be used
@@ -51,7 +58,8 @@ public class ConceptSelectorHelper {
 					.withPageable(pageRequest);
 			searchQueryBuilder.withSort(getDefaultSortForQueryConcept());
 
-			Page<QueryConcept> queryConcepts = queryService.queryForPage(searchQueryBuilder.build());
+			Page<QueryConcept> queryConcepts = (batchMode.equalsIgnoreCase("Y"))? queryService.queryForPageBatchMode(searchQueryBuilder.build()) : queryService.queryForPage(searchQueryBuilder.build());
+
 			List<Long> ids = queryConcepts.getContent().stream().map(QueryConcept::getConceptIdL).collect(toList());
 			return new PageImpl<>(ids, pageRequest, queryConcepts.getTotalElements());
 		} else {

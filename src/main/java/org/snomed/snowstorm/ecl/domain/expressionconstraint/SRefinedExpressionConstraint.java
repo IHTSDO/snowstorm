@@ -27,6 +27,11 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 	}
 
 	@Override
+	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService, String batchMode) {
+		return SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService, batchMode);
+	}
+
+	@Override
 	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
 		return SExpressionConstraintHelper.select(this, refinementBuilder);
 	}

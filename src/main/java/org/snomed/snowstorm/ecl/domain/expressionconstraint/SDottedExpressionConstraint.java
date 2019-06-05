@@ -22,7 +22,7 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 	}
 
 	@Override
-	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
+	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService, String batchMode) {
 		Optional<Page<Long>> conceptIds = SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, null, queryService);
 
 		if (!conceptIds.isPresent()) {
@@ -45,6 +45,11 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 		}
 
 		return conceptIds;
+	}
+
+	@Override
+	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
+		return select(path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService, "N");
 	}
 
 	@Override

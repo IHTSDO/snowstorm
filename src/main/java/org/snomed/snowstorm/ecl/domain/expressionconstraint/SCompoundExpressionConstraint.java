@@ -27,6 +27,11 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 		return SExpressionConstraintHelper.select(this, refinementBuilder);
 	}
 
+	@Override
+	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService, String batchMode) {
+		return SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService, batchMode);
+	}
+
 	public void addCriteria(RefinementBuilder refinementBuilder) {
 		if (conjunctionExpressionConstraints != null) {
 			for (SubExpressionConstraint conjunctionExpressionConstraint : conjunctionExpressionConstraints) {

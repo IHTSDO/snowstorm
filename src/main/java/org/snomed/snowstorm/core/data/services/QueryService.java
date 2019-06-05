@@ -14,6 +14,7 @@ import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
+import org.snomed.snowstorm.rest.ControllerHelper;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -68,9 +69,11 @@ public class QueryService implements ApplicationContextAware {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public Page<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
+	public Page<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, String batchMode) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
+		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest, batchMode);
+
+		logger.info("Processing with Batch mode {} ", batchMode);
 
 		if (conceptIdPageOptional.isPresent()) {
 			SearchAfterPage<Long> conceptIdPage = conceptIdPageOptional.get();
@@ -84,9 +87,13 @@ public class QueryService implements ApplicationContextAware {
 		}
 	}
 
+	public Page<ConceptMini> search(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
+		return search(conceptQuery, branchPath, pageRequest, "N");
+	}
+
 	public SearchAfterPage<Long> searchForIds(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
+		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest, "N");
 		return conceptIdPageOptional.orElseGet(() -> {
 			// No ids - return page of all concept ids
 			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
@@ -98,7 +105,7 @@ public class QueryService implements ApplicationContextAware {
 		});
 	}
 
-	private Optional<SearchAfterPage<Long>> doSearchForIds(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, PageRequest pageRequest) {
+	private Optional<SearchAfterPage<Long>> doSearchForIds(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, PageRequest pageRequest, String batchMode) {
 
 		// Validate Lexical criteria
 		String term = conceptQuery.getTermPrefix();
@@ -131,7 +138,7 @@ public class QueryService implements ApplicationContextAware {
 
 			if (conceptQuery.getEcl() != null) {
 				// ECL search
-				conceptIdPage = doEclSearchAndDefinitionFilter(conceptQuery, branchPath, pageRequest, branchCriteria);
+				conceptIdPage = doEclSearchAndDefinitionFilter(conceptQuery, branchPath, pageRequest, branchCriteria, batchMode);
 			} else {
 				// Primitive logical search
 				conceptIdPage = getSimpleLogicalSearchPage(conceptQuery, branchCriteria, pageRequest);
@@ -151,7 +158,7 @@ public class QueryService implements ApplicationContextAware {
 			// ECL, QueryConcept and Concept searches are filtered by the conceptIds gathered from the lexical search
 			List<Long> allFilteredLogicalMatches;
 			if (conceptQuery.getEcl() != null) {
-				allFilteredLogicalMatches = doEclSearch(conceptQuery, branchPath, branchCriteria, allLexicalMatchesWithOrdering);
+				allFilteredLogicalMatches = doEclSearch(conceptQuery, branchPath, branchCriteria, allLexicalMatchesWithOrdering, batchMode);
 			} else {
 				logger.info("Primitive Logical Search ");
 				allFilteredLogicalMatches = new LongArrayList();
@@ -257,24 +264,24 @@ public class QueryService implements ApplicationContextAware {
 		return allLexicalMatchesWithOrdering.stream().distinct().collect(Collectors.toList());
 	}
 
-	private SearchAfterPage<Long> doEclSearchAndDefinitionFilter(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, BranchCriteria branchCriteria) {
+	private SearchAfterPage<Long> doEclSearchAndDefinitionFilter(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, BranchCriteria branchCriteria, String batchMode) {
 		String ecl = conceptQuery.getEcl();
-		logger.debug("ECL Search {}", ecl);
+		logger.info("ECL Search {} with Batch mode {}", ecl, batchMode);
 
 		String definitionStatusFilter = conceptQuery.definitionStatusFilter;
 		if (definitionStatusFilter != null && !definitionStatusFilter.isEmpty()) {
-			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), null, null);
+			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), null, null, batchMode);
 			List<Long> filteredConceptIds = filterByDefinitionStatus(allConceptIds.getContent(), conceptQuery.definitionStatusFilter, branchCriteria);
 			return PageHelper.fullListToPage(filteredConceptIds, pageRequest, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		} else {
-			return PageHelper.toSearchAfterPage(eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), pageRequest),
+			return PageHelper.toSearchAfterPage(eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), pageRequest, batchMode),
 					CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		}
 	}
 
-	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, List<Long> conceptIdFilter) {
+	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, List<Long> conceptIdFilter, String batchMode) {
 		String ecl = conceptQuery.getEcl();
-		logger.debug("ECL Search {}", ecl);
+		logger.info("ECL Search {} with Batch mode {}", ecl, batchMode);
 		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter).getContent();
 	}
 
@@ -296,7 +303,20 @@ public class QueryService implements ApplicationContextAware {
 	}
 
 	public Page<QueryConcept> queryForPage(NativeSearchQuery searchQuery) {
+		logger.info("Query Service ============== REAL TIME MODE ================= ");
 		return elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class);
+	}
+
+	public Page<QueryConcept> queryForPageBatchMode(NativeSearchQuery searchQuery) {
+		logger.info("Query Service ====================== BATCH MODE ======================== ");
+		CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(searchQuery, QueryConcept.class);
+
+		List<QueryConcept> allConcepts = new ArrayList<>();
+		while (stream.hasNext()) {
+			allConcepts.add(stream.next());
+		}
+		Page<QueryConcept> queryConcepts = new PageImpl<>(allConcepts, ControllerHelper.getPageRequest(Long.valueOf(searchQuery.getPageable().getOffset()).intValue(), searchQuery.getPageable().getPageSize()), allConcepts.size());
+		return queryConcepts;
 	}
 
 	public CloseableIterator<QueryConcept> streamQueryResults(NativeSearchQuery searchQuery) {

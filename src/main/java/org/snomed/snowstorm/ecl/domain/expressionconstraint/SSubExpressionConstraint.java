@@ -34,6 +34,14 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		return SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
 	}
 
+	@Override
+	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService, String batchMode) {
+		if (isUnconstrained()) {
+			return Optional.empty();
+		}
+		return SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService, batchMode);
+	}
+
 	private boolean isUnconstrained() {
 		return wildcard && (operator == null || operator == Operator.descendantorselfof || operator == Operator.ancestororselfof);
 	}

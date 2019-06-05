@@ -66,6 +66,7 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestParam(required = false) String searchAfter,
+			@RequestParam(required = false, defaultValue = "N") String batchMode,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		boolean stated = true;
@@ -85,7 +86,7 @@ public class ConceptController {
 
 		validatePageSize(limit);
 
-		return new ItemsPage<>(queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), ControllerHelper.getPageRequest(offset, searchAfter, limit)));
+		return new ItemsPage<>(queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), ControllerHelper.getPageRequest(offset, searchAfter, limit), batchMode));
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
@@ -117,6 +118,7 @@ public class ConceptController {
 				searchRequest.getOffset(),
 				searchRequest.getLimit(),
 				searchRequest.getSearchAfter(),
+				"N",
 				acceptLanguageHeader);
 	}
 
@@ -179,10 +181,11 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "false") boolean stated,
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
+			@RequestParam(required = false, defaultValue = "N") String batchMode,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		String ecl = "<" + conceptId;
-		return findConcepts(branch, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, offset, limit, null, acceptLanguageHeader);
+		return findConcepts(branch, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, offset, limit, null, batchMode, acceptLanguageHeader);
 	}
 
 	@ResponseBody
