@@ -166,6 +166,37 @@ public class ConceptControllerTest extends AbstractTest {
 		checkFields(responseBody);
 	}
 
+
+	@Test
+	public void testAllConceptEndpointsWithBatchMode() {
+		// Batch Concept
+		String responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/MAIN/concepts?batchMode=Y", String.class);
+		System.out.println(responseBody);
+
+		// Assert that quotes are escaped
+		assertThat(responseBody).contains("\"Wallace \\\"69\\\" side-to-end anastomosis - action (qualifier value)\"");
+		assertThat(responseBody).contains("\"Wallace \\\"69\\\" side-to-end anastomosis - action\"");
+	}
+
+	@Test
+	public void testAllConceptEndpointsWithBatchModeSetWithLimit() {
+		// Batch Concept
+		String responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/MAIN/concepts?batchMode=Y&limit=1000", String.class);
+		System.out.println(responseBody);
+
+		// Assert that quotes are escaped
+		assertThat(responseBody).contains("\"Wallace \\\"69\\\" side-to-end anastomosis - action (qualifier value)\"");
+		assertThat(responseBody).contains("\"Wallace \\\"69\\\" side-to-end anastomosis - action\"");
+	}
+
+	@Test
+	public void testAllConceptEndpointsWithBatchModeSetWithLimitAndECL() {
+		// Batch Concept
+		String ID = "*";
+		String responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/MAIN/concepts?batchMode=Y&limit=1000&ecl=" + ID , String.class);
+		System.out.println(responseBody);
+	}
+
 	private void checkFields(String responseBody) {
 		System.out.println(responseBody);
 		assertThat(responseBody).doesNotContain("\"internalId\"");
