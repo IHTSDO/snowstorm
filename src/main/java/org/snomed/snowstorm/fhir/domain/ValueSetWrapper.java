@@ -6,6 +6,7 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 
 import org.hl7.fhir.r4.model.*;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 
@@ -14,7 +15,7 @@ public class ValueSetWrapper {
 	
 	private static IParser fhirJsonParser;
 	
-	@JsonProperty("id")
+	@Id
 	private String id;
 	
 	private ValueSet valueset;
@@ -22,8 +23,9 @@ public class ValueSetWrapper {
 	public ValueSetWrapper () {
 	}
 	
-	public ValueSetWrapper (ValueSet vs) {
+	public ValueSetWrapper (IdType id, ValueSet vs) {
 		this.valueset = vs;
+		this.id = id.getIdPart();
 	}
 
 	public String getId() {
@@ -32,6 +34,9 @@ public class ValueSetWrapper {
 
 	public void setId(String id) {
 		this.id = id;
+		if (valueset != null) {
+			this.valueset.setId(id);
+		}
 	}
 
 	public ValueSet getValueset() {

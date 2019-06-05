@@ -15,7 +15,7 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
-public class ValueSetProviderTest extends AbstractFHIRTest {
+public class ValueSetProviderTestECL extends AbstractFHIRTest {
 	
 	@Test
 	public void testECLRecovery_DescOrSelf() throws FHIROperationException {

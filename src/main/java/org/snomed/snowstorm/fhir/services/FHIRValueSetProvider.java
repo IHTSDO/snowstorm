@@ -62,19 +62,33 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 	
 	@Create()
-	public MethodOutcome createValueset(@ResourceParam ValueSet vs) {
-		ValueSetWrapper savedVs = valuesetRepository.save(new ValueSetWrapper(vs));
+	public MethodOutcome createValueset(@IdParam IdType id, @ResourceParam ValueSet vs) throws FHIROperationException {
 		MethodOutcome outcome = new MethodOutcome();
-		outcome.setId(new IdType("ValueSet", savedVs.getId(), "1"));
+		validateId(id, vs);
+		ValueSetWrapper savedVs = valuesetRepository.save(new ValueSetWrapper(id, vs));
+		int version = 1;
+		if (id.hasVersionIdPart()) {
+			version += id.getVersionIdPartAsLong();
+		}
+		outcome.setId(new IdType("ValueSet", savedVs.getId(), Long.toString(version)));
 		return outcome;
 	}
 	
+	private void validateId(IdType id, ValueSet vs) throws FHIROperationException {
+		if (vs == null || id == null) {
+			throw new FHIROperationException(IssueType.EXCEPTION, "Both ID and ValueSet object must be supplied");
+		}
+		if (vs.getId() == null || !id.asStringValue().equals(vs.getId())) {
+			throw new FHIROperationException(IssueType.EXCEPTION, "ID in request must match that in ValueSet object");
+		}
+	}
+
 	@Update
 	public MethodOutcome updateValueset(@IdParam IdType theId, @ResourceParam ValueSet vs) throws FHIROperationException {
 		try {
-			return createValueset(vs);
+			return createValueset(theId, vs);
 		} catch (Exception e) {
-			throw new FHIROperationException(IssueType.EXCEPTION, "Failed to update valueset '" + vs.getId() + "' due to " + e.getMessage());
+			throw new FHIROperationException(IssueType.EXCEPTION, "Failed to update/create valueset '" + vs.getId(),e);
 		}
 	}
 	
