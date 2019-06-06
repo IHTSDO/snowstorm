@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Component;
 
+import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.server.IResourceProvider;
@@ -53,8 +54,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
 	@Read()
-	public ValueSet getResourceById(@IdParam IdType theId) {
-		Optional<ValueSetWrapper> vs = valuesetRepository.findById(theId.getIdPart());
+	public ValueSet getValueSet(@IdParam IdType id) {
+		Optional<ValueSetWrapper> vs = valuesetRepository.findById(id.getIdPart());
 		if (vs.isPresent()) {
 			return vs.get().getValueset();
 		}
@@ -73,29 +74,19 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		outcome.setId(new IdType("ValueSet", savedVs.getId(), Long.toString(version)));
 		return outcome;
 	}
-	
-	private void validateId(IdType id, ValueSet vs) throws FHIROperationException {
-		if (vs == null || id == null) {
-			throw new FHIROperationException(IssueType.EXCEPTION, "Both ID and ValueSet object must be supplied");
-		}
-		if (vs.getId() == null || !id.asStringValue().equals(vs.getId())) {
-			throw new FHIROperationException(IssueType.EXCEPTION, "ID in request must match that in ValueSet object");
-		}
-	}
 
 	@Update
-	public MethodOutcome updateValueset(@IdParam IdType theId, @ResourceParam ValueSet vs) throws FHIROperationException {
+	public MethodOutcome updateValueset(@IdParam IdType id, @ResourceParam ValueSet vs) throws FHIROperationException {
 		try {
-			return createValueset(theId, vs);
+			return createValueset(id, vs);
 		} catch (Exception e) {
 			throw new FHIROperationException(IssueType.EXCEPTION, "Failed to update/create valueset '" + vs.getId(),e);
 		}
 	}
 	
 	@Delete
-	public void deleteValueset(@IdParam IdType theId) {
-		String id = theId.getId();
-		valuesetRepository.deleteById(id);
+	public void deleteValueset(@IdParam IdType id) {
+		valuesetRepository.deleteById(id.getId());
 	}
 	
 	@Search
@@ -106,9 +97,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				.map(vs -> vs.getValueset())
 				.collect(Collectors.toList());
 	}
-
+	
 	@Operation(name="$expand", idempotent=true)
 	public ValueSet expand(
+			@IdParam IdType id,
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="url") String url,
@@ -119,11 +111,21 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="offset") String offsetStr,
 			@OperationParam(name="count") String countStr) throws FHIROperationException {
-
+		//Are we expanding a specific named Valueset?
+		ValueSet vs = null;
+		if (id != null) {
+			logger.info("Expanding '{}'",id.getIdPart());
+			vs = getValueSet(id);
+			//Are we expanding based on the URL of the named ValueSet?  Can't do both!
+			if (url != null && vs.getUrl() != null) {
+				throw new FHIROperationException(IssueType.VALUE, "Cannot expand both '" + vs.getUrl() + "' in " + id.getIdPart() + "' and '" + url + "' in request.");
+			}
+			url = vs.getUrl();
+		}
 		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
 		int cutPoint = url == null ? -1 : url.indexOf("?");
 		if (cutPoint == -1) {
-			throw new FHIROperationException(IssueType.VALUE, "'url' parameter is expected to be present, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ");
+			throw new FHIROperationException(IssueType.VALUE, "'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ");
 		}
 		StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
 		String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
@@ -167,10 +169,19 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, languageCodes);
 		}
 		
-		ValueSet valueSet = mapper.mapToFHIR(conceptMiniPage.getContent(), url, conceptDetails, languageCodes, displayLanguage, includeDesignations); 
+		ValueSet valueSet = mapper.mapToFHIR(vs, conceptMiniPage.getContent(), url, conceptDetails, languageCodes, displayLanguage, includeDesignations); 
 		valueSet.getExpansion().setTotal((int)conceptMiniPage.getTotalElements());
 		valueSet.getExpansion().setOffset(offset);
 		return valueSet;
+	}
+	
+	private void validateId(IdType id, ValueSet vs) throws FHIROperationException {
+		if (vs == null || id == null) {
+			throw new FHIROperationException(IssueType.EXCEPTION, "Both ID and ValueSet object must be supplied");
+		}
+		if (vs.getId() == null || !id.asStringValue().equals(vs.getId())) {
+			throw new FHIROperationException(IssueType.EXCEPTION, "ID in request must match that in ValueSet object");
+		}
 	}
 	
 	private Page<ConceptMini> findAllRefsets(String branchPath, PageRequest pageRequest) {

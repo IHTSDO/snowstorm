@@ -13,10 +13,12 @@ import org.snomed.snowstorm.fhir.config.FHIRConstants;
 
 public class HapiValueSetMapper implements FHIRConstants {
 	
-	public ValueSet mapToFHIR(List<ConceptMini> concepts, String url, Map<String, Concept> conceptDetails, List<String> languageCodes, String displayLanguage, Boolean includeDesignations) {
-		ValueSet v = getStandardValueSet(url);
-		addExpansion(v, concepts, conceptDetails, languageCodes, displayLanguage, includeDesignations);
-		return v;
+	public ValueSet mapToFHIR(ValueSet vs, List<ConceptMini> concepts, String url, Map<String, Concept> conceptDetails, List<String> languageCodes, String displayLanguage, Boolean includeDesignations) {
+		if (vs == null) {
+			vs = getStandardValueSet(url);
+		}
+		addExpansion(vs, concepts, conceptDetails, languageCodes, displayLanguage, includeDesignations);
+		return vs;
 	}
 	
 	private ValueSet getStandardValueSet(String url) {
@@ -25,7 +27,7 @@ public class HapiValueSetMapper implements FHIRConstants {
 		return v;
 	}
 
-	private void addExpansion(ValueSet v, List<ConceptMini> concepts, Map<String, Concept> conceptDetails, List<String> languageCodes, String displayLanguage, Boolean includeDesignations) {
+	private void addExpansion(ValueSet vs, List<ConceptMini> concepts, Map<String, Concept> conceptDetails, List<String> languageCodes, String displayLanguage, Boolean includeDesignations) {
 		ValueSetExpansionComponent expansion = new ValueSetExpansionComponent();
 		for (ConceptMini concept : concepts) {
 			ValueSetExpansionContainsComponent component = expansion.addContains()
@@ -54,7 +56,7 @@ public class HapiValueSetMapper implements FHIRConstants {
 				}
 			}
 		}
-		v.setExpansion(expansion);
+		vs.setExpansion(expansion);
 	}
 
 
