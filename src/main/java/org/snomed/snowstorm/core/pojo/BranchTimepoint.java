@@ -13,9 +13,11 @@ public class BranchTimepoint {
 	public static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat(DATE_FORMAT_STRING.replace("T", "'T'").replace("Z", "'Z'"));
 	public static final Pattern EPOCH_FORMAT_MATCHER = Pattern.compile("\\d+");
 	public static final String BRANCH_CREATION_TIMEPOINT = "-";
+	public static final String BRANCH_BASE_TIMEPOINT = "^";
 
 	private String branchPath;
 	private boolean branchCreationTimepoint;
+	private boolean branchBaseTimepoint;
 	private Date timepoint;
 
 	public BranchTimepoint(String branchPath) {
@@ -27,6 +29,8 @@ public class BranchTimepoint {
 		if (!Strings.isNullOrEmpty(timepointString)) {
 			if (timepointString.equals(BRANCH_CREATION_TIMEPOINT)) {
 				branchCreationTimepoint = true;
+			} else if (timepointString.equals(BRANCH_BASE_TIMEPOINT)) {
+				branchBaseTimepoint = true;
 			} else if (EPOCH_FORMAT_MATCHER.matcher(timepointString).matches()) {
 				try {
 					timepoint = new Date(Long.parseLong(timepointString));
@@ -55,6 +59,10 @@ public class BranchTimepoint {
 
 	public boolean isBranchCreationTimepoint() {
 		return branchCreationTimepoint;
+	}
+
+	public boolean isBranchBaseTimepoint() {
+		return branchBaseTimepoint;
 	}
 
 	public Date getTimepoint() {

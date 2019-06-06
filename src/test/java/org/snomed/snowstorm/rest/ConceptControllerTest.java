@@ -8,6 +8,7 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.BranchMergeService;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
@@ -19,6 +20,7 @@ import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -38,6 +40,9 @@ public class ConceptControllerTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
+
+	@Autowired
+	private BranchMergeService branchMergeService;
 
 	@Autowired
 	private ConceptService conceptService;
@@ -82,7 +87,14 @@ public class ConceptControllerTest extends AbstractTest {
 
 		Thread.sleep(1_000);
 
-		// Add another relationship and description making two relationships and three descriptions
+		// Add a synonym on MAIN and rebase
+		concept = conceptService.find(conceptId, "MAIN");
+		concept.getDescriptions().add(new Description("New syn on MAIN"));
+		conceptService.update(concept, "MAIN");
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/projectA", Collections.emptySet());
+
+		// Add another relationship and description making two relationships and four descriptions
+		concept = conceptService.find(conceptId, "MAIN/projectA");
 		concept.getRelationships().add(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING));
 		concept.getDescriptions().add(new Description("Test"));
 		conceptService.update(concept, "MAIN/projectA");
@@ -108,11 +120,17 @@ public class ConceptControllerTest extends AbstractTest {
 		assertEquals(1, intermediateConceptVersion.getRelationships().size());
 		assertEquals(2, intermediateConceptVersion.getDescriptions().size());
 
+		// Load base version of the concept
+		timepoint = "@^";
+		Concept baseConceptVersion = this.restTemplate.getForObject("http://localhost:" + port + "/browser/MAIN/projectA" + timepoint + "/concepts/257751006", Concept.class);
+		assertEquals(1, baseConceptVersion.getRelationships().size());
+		assertEquals(3, baseConceptVersion.getDescriptions().size());
+
 		// Load current version of dummy concept
 		timepoint = "";
 		Concept currentConceptVersion = this.restTemplate.getForObject("http://localhost:" + port + "/browser/MAIN/projectA" + timepoint + "/concepts/257751006", Concept.class);
 		assertEquals(2, currentConceptVersion.getRelationships().size());
-		assertEquals(3, currentConceptVersion.getDescriptions().size());
+		assertEquals(4, currentConceptVersion.getDescriptions().size());
 	}
 
 	@Test
