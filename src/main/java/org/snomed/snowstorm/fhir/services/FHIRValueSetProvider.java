@@ -99,8 +99,12 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 	
 	@Operation(name="$expand", idempotent=true)
+	public ValueSet expandInstance(@IdParam IdType id) throws FHIROperationException {
+		throw new FHIROperationException(IssueType.EXCEPTION, "Correct call made!");
+	}
+	
+	@Operation(name="$expand", idempotent=true)
 	public ValueSet expand(
-			@IdParam IdType id,
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="url") String url,
@@ -113,6 +117,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="count") String countStr) throws FHIROperationException {
 		//Are we expanding a specific named Valueset?
 		ValueSet vs = null;
+		IdType id = null;
 		if (id != null) {
 			logger.info("Expanding '{}'",id.getIdPart());
 			vs = getValueSet(id);
