@@ -67,6 +67,7 @@ public class TestConfig extends Config {
 						.withStartTimeout(2, TimeUnit.MINUTES)
 						.withSetting(PopularProperties.CLUSTER_NAME, clusterName)
 						.withSetting(PopularProperties.HTTP_PORT, PORT)
+						.withSetting("cluster.routing.allocation.disk.threshold_enabled", false)
 						// Manually delete installation directory to prevent verbose error logging
 						.withCleanInstallationDirectoryOnStop(false)
 						.withDownloadDirectory(downloadDir)
