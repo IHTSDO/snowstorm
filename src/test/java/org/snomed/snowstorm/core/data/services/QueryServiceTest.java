@@ -9,6 +9,7 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -81,6 +82,18 @@ public class QueryServiceTest extends AbstractTest {
 		assertEquals(2, matches.size());
 		assertEquals("So Cheesy Pizza", matches.get(0).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(1).getFsn());
+	}
+
+	@Test
+	public void testDefinitionStatusFilter() {
+		QueryService.ConceptQueryBuilder query = service.createQueryBuilder(true)
+				.ecl(pizza_2.getConceptId())
+				.definitionStatusFilter(Concepts.SUFFICIENTLY_DEFINED);
+		assertEquals(0, service.search(query, PATH, PAGE_REQUEST).getTotalElements());
+		QueryService.ConceptQueryBuilder query2 = service.createQueryBuilder(true)
+				.ecl(pizza_2.getConceptId())
+				.definitionStatusFilter(Concepts.PRIMITIVE);
+		assertEquals(1, service.search(query2, PATH, PAGE_REQUEST).getTotalElements());
 	}
 
 	@Test

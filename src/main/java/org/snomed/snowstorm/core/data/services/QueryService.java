@@ -39,6 +39,7 @@ import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
+import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.getDefaultSortForConcept;
 import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.getDefaultSortForQueryConcept;
 
 @Service
@@ -224,7 +225,7 @@ public class QueryService implements ApplicationContextAware {
 				)
 				.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
 				.withFields(Concept.Fields.CONCEPT_ID)
-				.withSort(getDefaultSortForQueryConcept())
+				.withSort(getDefaultSortForConcept())
 				.withPageable(LARGE_PAGE);
 
 		try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(conceptDefinitionQuery.build(), Concept.class)) {

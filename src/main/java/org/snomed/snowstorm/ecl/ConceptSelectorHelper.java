@@ -8,6 +8,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
+import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.springframework.data.domain.Page;
@@ -85,6 +86,10 @@ public class ConceptSelectorHelper {
 
 	public static FieldSortBuilder getDefaultSortForQueryConcept() {
 		return SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID).order(SortOrder.DESC);
+	}
+
+	public static FieldSortBuilder getDefaultSortForConcept() {
+		return SortBuilders.fieldSort(Concept.Fields.CONCEPT_ID).order(SortOrder.DESC);
 	}
 
 	private static String[] getRequiredFields(Function<QueryConcept, Boolean> inclusionFilter) {
