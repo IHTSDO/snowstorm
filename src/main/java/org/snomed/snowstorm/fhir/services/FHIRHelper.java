@@ -7,6 +7,8 @@ import javax.servlet.http.HttpServletRequest;
 
 import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
@@ -21,6 +23,8 @@ class FHIRHelper {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+	
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	Integer getSnomedVersion(String versionStr) {
 		String versionUri = "/" + FHIRConstants.VERSION + "/";
@@ -66,7 +70,10 @@ class FHIRHelper {
 
 		org.snomed.snowstorm.core.data.domain.CodeSystem codeSystem = codeSystemService.findByDefaultModule(defaultModule);
 		if (codeSystem == null) {
-			throw new NotFoundException(String.format("No code system with default module %s.", defaultModule));
+			String msg = String.format("No code system with default module %s.", defaultModule);
+			//throw new NotFoundException());
+			logger.error(msg + " Using MAIN.");
+			return "MAIN";
 		}
 
 		CodeSystemVersion codeSystemVersion;

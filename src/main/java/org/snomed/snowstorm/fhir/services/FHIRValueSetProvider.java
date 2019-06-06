@@ -22,7 +22,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Component;
 
-import ca.uhn.fhir.model.primitive.IdDt;
 import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.server.IResourceProvider;
@@ -86,7 +85,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	
 	@Delete
 	public void deleteValueset(@IdParam IdType id) {
-		valuesetRepository.deleteById(id.getId());
+		valuesetRepository.deleteById(id.getIdPart());
 	}
 	
 	@Search
@@ -99,12 +98,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 	
 	@Operation(name="$expand", idempotent=true)
-	public ValueSet expandInstance(@IdParam IdType id) throws FHIROperationException {
-		throw new FHIROperationException(IssueType.EXCEPTION, "Correct call made!");
-	}
-	
-	@Operation(name="$expand", idempotent=true)
-	public ValueSet expand(
+	public ValueSet expandInstance(@IdParam IdType id,
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="url") String url,
@@ -115,9 +109,39 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="offset") String offsetStr,
 			@OperationParam(name="count") String countStr) throws FHIROperationException {
+		return expand (id, request, response, url, filter, activeType, includeDesignationsType,
+				designations, displayLanguage, offsetStr, countStr);
+	}
+	
+	@Operation(name="$expand", idempotent=true)
+	public ValueSet expandType(
+			HttpServletRequest request,
+			HttpServletResponse response,
+			@OperationParam(name="url") String url,
+			@OperationParam(name="filter") String filter,
+			@OperationParam(name="activeOnly") BooleanType activeType,
+			@OperationParam(name="includeDesignations") BooleanType includeDesignationsType,
+			@OperationParam(name="designation") List<String> designations,
+			@OperationParam(name="displayLanguage") String displayLanguage,
+			@OperationParam(name="offset") String offsetStr,
+			@OperationParam(name="count") String countStr) throws FHIROperationException {
+		return expand (null, request, response, url, filter, activeType, includeDesignationsType,
+				designations, displayLanguage, offsetStr, countStr);
+	}
+	
+	private ValueSet expand (@IdParam IdType id,
+			HttpServletRequest request,
+			HttpServletResponse response,
+			String url,
+			String filter,
+			BooleanType activeType,
+			BooleanType includeDesignationsType,
+			List<String> designations,
+			String displayLanguage,
+			String offsetStr,
+			String countStr) throws FHIROperationException {
 		//Are we expanding a specific named Valueset?
 		ValueSet vs = null;
-		IdType id = null;
 		if (id != null) {
 			logger.info("Expanding '{}'",id.getIdPart());
 			vs = getValueSet(id);
