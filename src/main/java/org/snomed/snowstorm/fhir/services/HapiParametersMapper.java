@@ -55,7 +55,8 @@ public class HapiParametersMapper implements FHIRConstants {
 				
 				//If not, then give an indication of the refset being returned
 				if (actualTargetSystem == null) {
-					targetSystem = new UriType(SNOMED_URI + "?fhir_vs=ecl/^" + refsetId);
+					//targetSystem = new UriType(SNOMED_URI + "?fhir_vs=ecl/^" + refsetId);
+					targetSystem = new UriType(SNOMED_URI);
 				} else {
 					targetSystem = new UriType(actualTargetSystem);
 				}

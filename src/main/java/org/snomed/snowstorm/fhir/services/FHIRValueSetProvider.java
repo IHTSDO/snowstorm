@@ -9,6 +9,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
+import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceComponent;
 import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
 import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionComponent;
 import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionContainsComponent;
@@ -224,8 +225,17 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			for (ConceptSetComponent concept : vs.getCompose().getInclude()) {
 				expansion.addContains()
 				.setCode(concept.getId())
-				//.setDisplay(concept.get)
+				.setDisplay(concept.primitiveValue())
 				.setSystem(concept.getSystem());
+				//Add any child concepts
+				if (concept.hasConcept()) {
+					for (ConceptReferenceComponent subConcept : concept.getConcept()){
+						expansion.addContains()
+						.setCode(subConcept.getId())
+						.setDisplay(subConcept.primitiveValue())
+						.setSystem(concept.getSystem()); //Will be same as parent
+					}
+				}
 			}
 		}
 		//Remove the compose element, we've expanded instead.
