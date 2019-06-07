@@ -9,6 +9,9 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
+import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
+import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionComponent;
+import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionContainsComponent;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -150,18 +153,15 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				throw new FHIROperationException(IssueType.VALUE, "Cannot expand both '" + vs.getUrl() + "' in " + id.getIdPart() + "' and '" + url + "' in request.");
 			}
 			url = vs.getUrl();
+			moveAndFilterContentForExpansion(vs, filter);
 		}
-		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
-		int cutPoint = url == null ? -1 : url.indexOf("?");
-		if (cutPoint == -1) {
-			throw new FHIROperationException(IssueType.VALUE, "'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ");
-		}
-		StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
-		String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
+		
+		List<String> languageCodes = fhirHelper.getLanguageCodes(designations, request);
 		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
 		int pageSize = (countStr == null || countStr.isEmpty()) ? DEFAULT_PAGESIZE : Integer.parseInt(countStr);
 		Boolean active = activeType == null ? null : activeType.booleanValue();
-		List<String> languageCodes = fhirHelper.getLanguageCodes(designations, request);
+		Map<String, Concept> conceptDetails = null;
+		Page<ConceptMini> conceptMiniPage = new PageImpl<ConceptMini>(new ArrayList<ConceptMini>());
 		
 		//Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		if (displayLanguage != null && !languageCodes.contains(displayLanguage)) {
@@ -174,28 +174,40 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			includeDesignations = true;
 		}
 		
-		Page<ConceptMini> conceptMiniPage;
-		boolean missingFsns = false;
-		//Are we looking for all known refsets?  Special case.
-		if (url.endsWith("?fhir_vs=refset")) {
-			conceptMiniPage = findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
-			missingFsns = true;
+		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
+		int cutPoint = url == null ? -1 : url.indexOf("?");
+		if (cutPoint == NOT_SET) {
+			String msg = "'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ";
+			//We don't need ECL if we're expanding a named valueset
+			if (vs != null) {
+				logger.warn(msg + " when expanding " + vs.getId());
+			} else {
+				throw new FHIROperationException(IssueType.VALUE, msg);
+			}
 		} else {
-			String ecl = determineEcl(url);
-			QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
-			queryBuilder.ecl(ecl)
-						.termMatch(filter)
-						.languageCodes(languageCodes)
-						.activeFilter(active);
-	
-			conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
-			logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
-		}
+			StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
+			String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
+			boolean missingFsns = false;
+			//Are we looking for all known refsets?  Special case.
+			if (url.endsWith("?fhir_vs=refset")) {
+				conceptMiniPage = findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
+				missingFsns = true;
+			} else {
+				String ecl = determineEcl(url);
+				QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
+				queryBuilder.ecl(ecl)
+							.termMatch(filter)
+							.languageCodes(languageCodes)
+							.activeFilter(active);
 		
-		//Do we need further detail on each concept?
-		Map<String, Concept> conceptDetails = null;
-		if (includeDesignations || missingFsns || displayLanguage != null || designations != null) {
-			conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, languageCodes);
+				conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
+				logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
+			}
+			
+			//Do we need further detail on each concept?
+			if (includeDesignations || missingFsns || displayLanguage != null || designations != null) {
+				conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, languageCodes);
+			}
 		}
 		
 		ValueSet valueSet = mapper.mapToFHIR(vs, conceptMiniPage.getContent(), url, conceptDetails, languageCodes, displayLanguage, includeDesignations); 
@@ -204,6 +216,31 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		return valueSet;
 	}
 	
+	//During an expansion, any concept declared in the compose element should move to expansion and 
+	//be filtered if required.
+	private void moveAndFilterContentForExpansion(ValueSet vs, String filter) {
+		ValueSetExpansionComponent expansion = vs.getExpansion();  //Will autocreate
+		if (vs.hasCompose() && vs.getCompose().getInclude() != null) {
+			for (ConceptSetComponent concept : vs.getCompose().getInclude()) {
+				expansion.addContains()
+				.setCode(concept.getId())
+				//.setDisplay(concept.get)
+				.setSystem(concept.getSystem());
+			}
+		}
+		//Remove the compose element, we've expanded instead.
+		vs.setCompose(null);
+		
+		//Now that we've amalgamated compose and any existing expansion, filter if required
+		if (filter != null && !filter.isEmpty()) {
+			List<ValueSetExpansionContainsComponent> contains = vs.getExpansion().getContains()
+					.stream()
+					.filter(c -> c.getDisplay().toLowerCase().contains(filter.toLowerCase()))
+					.collect(Collectors.toList());
+			vs.getExpansion().setContains(contains);
+		}
+	}
+
 	private void validateId(IdType id, ValueSet vs) throws FHIROperationException {
 		if (vs == null || id == null) {
 			throw new FHIROperationException(IssueType.EXCEPTION, "Both ID and ValueSet object must be supplied");

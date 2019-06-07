@@ -14,6 +14,8 @@ public interface FHIRConstants {
 	String DESIGNATION = "designation";
 	StringType DISPLAY = new StringType("display");
 	StringType EFFECTIVE_TIME = new StringType("effectiveTime");
+	
+	static final int NOT_SET = -1;
 
 	String FHIR = "FHIR";
 

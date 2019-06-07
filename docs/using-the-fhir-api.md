@@ -39,6 +39,9 @@ curl -i --request PUT "http://localhost:8080/fhir/ValueSet/address-use" \
 --header "Content-Type: application/fhir+json" \
 -d @exampleVs.json
 
+#### Expand a valueset which has an ECL expression in its url element
+http://localhost:8080/fhir/ValueSet/chronic-disease/$expand?includeDesignations=true&_format=json
+
 #### Recover a valueset eg address-use
 http://localhost:8080/fhir/ValueSet/address-use?_format=json
 
