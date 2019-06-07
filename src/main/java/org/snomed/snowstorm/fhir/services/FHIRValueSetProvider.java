@@ -149,6 +149,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (id != null) {
 			logger.info("Expanding '{}'",id.getIdPart());
 			vs = getValueSet(id);
+			if (vs == null) {
+				return null; //Will be translated into a 404
+			}
 			//Are we expanding based on the URL of the named ValueSet?  Can't do both!
 			if (url != null && vs.getUrl() != null) {
 				throw new FHIROperationException(IssueType.VALUE, "Cannot expand both '" + vs.getUrl() + "' in " + id.getIdPart() + "' and '" + url + "' in request.");
@@ -228,6 +231,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				.setDisplay(concept.primitiveValue())
 				.setSystem(concept.getSystem());
 				//Add any child concepts
+				//TODO re-write this as a recursive function - if use case exists?
 				if (concept.hasConcept()) {
 					for (ConceptReferenceComponent subConcept : concept.getConcept()){
 						expansion.addContains()
