@@ -277,6 +277,38 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testUpdateAncestorWhereDescendantHasMultipleParents() throws ServiceException {
+		Concept root = new Concept(SNOMEDCT_ROOT);
+
+		Concept a = new Concept("100001001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept aa = new Concept("100001002").addRelationship(new Relationship(ISA, a.getId()));
+		Concept aaa = new Concept("100001003").addRelationship(new Relationship(ISA, aa.getId()));
+
+		Concept ab = new Concept("100002001").addRelationship(new Relationship(ISA, a.getId()));
+
+		Concept ac = new Concept("100003001").addRelationship(new Relationship(ISA, a.getId()));
+		Concept acc = new Concept("100003002").addRelationship(new Relationship(ISA, ac.getId()));
+		// This concept has 2 parents in different parts of the 'a' hierarchy
+		Concept accc = new Concept("100003003")
+				.addRelationship(new Relationship(ISA, acc.getId()))
+				.addRelationship(new Relationship(ISA, aaa.getId()));
+
+		String branch = "MAIN";
+		conceptService.batchCreate(Lists.newArrayList(root, a, aa, aaa, ab, ac, acc, accc), branch);
+
+		assertTC(accc, a, aa, aaa, ac, acc, acc, root);
+		assertTC(ac, a, root);
+
+		ac.getRelationships().clear();
+		ac.addRelationship(new Relationship(ISA, ab.getId()));
+		conceptService.update(ac, branch);
+
+		assertTC(ac, ab, a, root);
+		// After 'ac' is updated descendant 'accc' should gain ancestor 'ab' but should not loose existing ancestors from alternative routes e.g. 'aa'.
+		assertTC(accc, a, aa, aaa, ac, acc, acc, ab, root);
+	}
+
+	@Test
 	public void testSecondIsARemoval() throws ServiceException {
 		Concept root = new Concept(SNOMEDCT_ROOT);
 

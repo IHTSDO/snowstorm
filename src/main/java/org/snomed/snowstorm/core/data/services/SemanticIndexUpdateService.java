@@ -34,6 +34,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -131,10 +132,10 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 
 		TimerUtil timer = new TimerUtil("TC index " + formName, Level.INFO, 1);
-		Set<Long> updateSource = new HashSet<>();
-		Set<Long> updateDestination = new HashSet<>();
-		Set<Long> existingAncestors = new HashSet<>();
-		Set<Long> existingDescendants = new HashSet<>();
+		Set<Long> updateSource = new LongOpenHashSet();
+		Set<Long> updateDestination = new LongOpenHashSet();
+		Set<Long> existingAncestors = new LongOpenHashSet();
+		Set<Long> existingDescendants = new LongOpenHashSet();
 
 		String branchPath = commit.getBranch().getPath();
 		BranchCriteria branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteriaBeforeOpenCommit(commit);
@@ -240,51 +241,66 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 
 		// Step: Build existing graph
-		// Strategy: Find relationships of existing TC and descendant nodes and build existing graph(s)
 		final GraphBuilder graphBuilder = new GraphBuilder();
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteriaForAlreadyCommittedContent.getEntityBranchCriteria(Relationship.class))
-						.must(termQuery("active", true))
-						.must(termQuery("typeId", Concepts.ISA))
-						.must(termsQuery("characteristicTypeId", characteristicTypeIds))
-				)
-				.withFields(Relationship.Fields.SOURCE_ID, Relationship.Fields.DESTINATION_ID)
-				.withPageable(ConceptService.LARGE_PAGE);
-		Set<Long> nodesToLoad = new HashSet<>();
 		if (!rebuild) {
+			// Iterative update.
+			// Strategy: Load selection of existing nodes and use parents to build graph.
+			Set<Long> nodesToLoad = new LongOpenHashSet();
 			nodesToLoad.addAll(existingAncestors);
 			nodesToLoad.addAll(existingDescendants);
 			nodesToLoad.addAll(updateSource);
 			nodesToLoad.addAll(updateDestination);
-			queryBuilder.withFilter(boolQuery().must(termsQuery("sourceId", nodesToLoad)));
-		}
-		try (final CloseableIterator<Relationship> existingIsARelationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
-			existingIsARelationships.forEachRemaining(relationship ->
-					graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId())));
-		}
-		timer.checkpoint("Build existing nodes from Relationships.");
-		if (stated) {
-			NativeSearchQueryBuilder axiomQueryBuilder = new NativeSearchQueryBuilder()
+
+			// Build graph, collecting any alternative ancestors which have been missed.
+			Set<Long> alternativeAncestors = new LongOpenHashSet();
+			buildGraphFromExistingNodes(nodesToLoad, stated, graphBuilder, branchCriteriaForAlreadyCommittedContent,
+					queryConcept -> alternativeAncestors.addAll(Sets.difference(queryConcept.getAncestors(), nodesToLoad)));
+
+			if (!alternativeAncestors.isEmpty()) {
+				// Add alternative ancestors to graph. No need to collect any more this time.
+				buildGraphFromExistingNodes(alternativeAncestors, stated, graphBuilder, branchCriteriaForAlreadyCommittedContent,
+						queryConcept -> {});
+			}
+			timer.checkpoint(String.format("Build existing graph from nodes. %s alternative ancestors found.", alternativeAncestors.size()));
+		} else {
+			// Rebuild from scratch.
+			// Strategy: Find relationships of existing TC and descendant nodes and build existing graph(s)
+
+			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
-							.must(branchCriteriaForAlreadyCommittedContent.getEntityBranchCriteria(ReferenceSetMember.class))
-							.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
-							.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+							.must(branchCriteriaForAlreadyCommittedContent.getEntityBranchCriteria(Relationship.class))
+							.must(termQuery("active", true))
+							.must(termQuery("typeId", Concepts.ISA))
+							.must(termsQuery("characteristicTypeId", characteristicTypeIds))
 					)
-					.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_FIELD_PATH)
+					.withFields(Relationship.Fields.SOURCE_ID, Relationship.Fields.DESTINATION_ID)
 					.withPageable(ConceptService.LARGE_PAGE);
-			if (!rebuild) {
-				axiomQueryBuilder.withFilter(boolQuery().must(termsQuery(ReferenceSetMember.Fields.CONCEPT_ID, nodesToLoad)));
+
+			try (final CloseableIterator<Relationship> existingIsARelationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
+				existingIsARelationships.forEachRemaining(relationship ->
+						graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId())));
 			}
-			try (final CloseableIterator<ReferenceSetMember> axiomStream = elasticsearchTemplate.stream(axiomQueryBuilder.build(), ReferenceSetMember.class)) {
-				axiomStreamToRelationshipStream(
-						axiomStream,
-						relationship -> relationship.getTypeId().equals(Concepts.ISA),
-						(component, relationship) -> graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()))
-				);
+			timer.checkpoint("Build existing graph from Relationships.");
+			if (stated) {
+				NativeSearchQueryBuilder axiomQueryBuilder = new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								.must(branchCriteriaForAlreadyCommittedContent.getEntityBranchCriteria(ReferenceSetMember.class))
+								.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
+								.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+						)
+						.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_FIELD_PATH)
+						.withPageable(ConceptService.LARGE_PAGE);
+				try (final CloseableIterator<ReferenceSetMember> axiomStream = elasticsearchTemplate.stream(axiomQueryBuilder.build(), ReferenceSetMember.class)) {
+					axiomStreamToRelationshipStream(
+							axiomStream,
+							relationship -> relationship.getTypeId().equals(Concepts.ISA),
+							(component, relationship) -> graphBuilder.addParent(parseLong(relationship.getSourceId()), parseLong(relationship.getDestinationId()))
+					);
+				}
+				timer.checkpoint("Build existing graph from Axioms.");
 			}
-			timer.checkpoint("Build existing nodes from Axioms.");
 		}
+
 		logger.info("{} existing nodes loaded.", graphBuilder.getNodeCount());
 
 
@@ -448,6 +464,31 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		logger.debug("{} concepts updated within the {} semantic index.", queryConceptsToSave.size(), formName);
 
 		timer.finish();
+	}
+
+	private void buildGraphFromExistingNodes(Set<Long> nodesToLoad, boolean stated, GraphBuilder graphBuilder, BranchCriteria branchCriteriaForAlreadyCommittedContent,
+			Consumer<QueryConcept> alternativeAncestorCollector) {
+
+		NativeSearchQueryBuilder queryConceptQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteriaForAlreadyCommittedContent.getEntityBranchCriteria(QueryConcept.class))
+						.must(termQuery(QueryConcept.Fields.STATED, stated))
+				)
+				.withFields(QueryConcept.Fields.CONCEPT_ID, QueryConcept.Fields.PARENTS, QueryConcept.Fields.ANCESTORS)
+				.withFilter(termsQuery(QueryConcept.Fields.CONCEPT_ID, nodesToLoad))
+				.withPageable(LARGE_PAGE);
+
+		try (CloseableIterator<QueryConcept> queryConcepts = elasticsearchTemplate.stream(queryConceptQuery.build(), QueryConcept.class)) {
+			queryConcepts.forEachRemaining(queryConcept -> {
+				for (Long parent : queryConcept.getParents()) {
+					graphBuilder.addParent(queryConcept.getConceptIdL(), parent);
+				}
+
+				// Collect ancestors of this concept which are not already marked for loading because of multiple parents.
+				// These must also be loaded to prevent the alternative ancestors being lost.
+				alternativeAncestorCollector.accept(queryConcept);
+			});
+		}
 	}
 
 	private void axiomStreamToRelationshipStream(CloseableIterator<ReferenceSetMember> changedAxioms, Predicate<Relationship> relationshipPredicate,
