@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.mapper.ConceptToConceptIdMapper;
+import org.snomed.snowstorm.core.data.services.mapper.DescriptionToConceptIdGroupingMapper;
 import org.snomed.snowstorm.core.data.services.mapper.DescriptionToConceptIdMapper;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
@@ -29,6 +30,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchResultMapper;
 import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -103,12 +105,12 @@ public class DescriptionService extends ComponentService {
 	}
 
 	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
-		return findDescriptionsWithAggregations(path, term, true, null, null, Collections.singleton("en"), pageRequest);
+		return findDescriptionsWithAggregations(path, term, true, null, null, false, Collections.singleton("en"), pageRequest);
 	}
 
 	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term,
 			Boolean active, Boolean conceptActive, String semanticTag,
-			Collection<String> languageCodes, PageRequest pageRequest) {
+			boolean groupByConcept, Collection<String> languageCodes, PageRequest pageRequest) {
 
 		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
@@ -125,7 +127,13 @@ public class DescriptionService extends ComponentService {
 
 		// Fetch concept semantic tag aggregation
 		// Not all descriptions are FSNs so use: description -> concept -> active FSN
-		Collection<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria, conceptActive);
+		Collection<Long> descriptionIdsGroupedByConcept = new LongArrayList();
+		Collection<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria, conceptActive, groupByConcept, descriptionIdsGroupedByConcept);
+		BoolQueryBuilder descriptionFilter = boolQuery();
+		descriptionFilter.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds));
+		if (groupByConcept) {
+			descriptionFilter.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsGroupedByConcept));
+		}
 		timer.checkpoint("Fetch all related concept ids for semantic tag aggregation");
 
 		BoolQueryBuilder fsnClauses = boolQuery();
@@ -180,7 +188,7 @@ public class DescriptionService extends ComponentService {
 		// Perform description search with description property aggregations
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(descriptionCriteria)
-				.withFilter(boolQuery().must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds)))
+				.withFilter(descriptionFilter)
 				.addAggregation(AggregationBuilders.terms("module").field(Description.Fields.MODULE_ID))
 				.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
 				.withPageable(pageRequest);
@@ -337,15 +345,28 @@ public class DescriptionService extends ComponentService {
 		}
 	}
 
-	private Collection<Long> findDescriptionConceptIds(BoolQueryBuilder descriptionCriteria, Boolean conceptActive) {
-		List<Long> conceptIds = new LongArrayList();
+	private Collection<Long> findDescriptionConceptIds(BoolQueryBuilder descriptionCriteria, Boolean conceptActive,
+			boolean groupByConcept, Collection<Long> descriptionIdsGroupedByConcept) {
+
+		Collection<Long> conceptIds;
+		SearchResultMapper mapper;
+		if (groupByConcept) {
+			// Set used here because unique concepts needed
+			Set<Long> conceptIdsSet = new LongOpenHashSet();
+			conceptIds = conceptIdsSet;
+			mapper = new DescriptionToConceptIdGroupingMapper(conceptIdsSet, descriptionIdsGroupedByConcept);
+		} else {
+			// List used here because it's faster
+			conceptIds = new LongArrayList();
+			mapper = new DescriptionToConceptIdMapper(conceptIds);
+		}
 		try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(
 				new NativeSearchQueryBuilder()
 						.withQuery(descriptionCriteria)
 						.withSort(SortBuilders.fieldSort("_doc"))
-						.withStoredFields(Description.Fields.CONCEPT_ID)
+						.withStoredFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
 						.withPageable(LARGE_PAGE)
-						.build(), Description.class, new DescriptionToConceptIdMapper(conceptIds))) {
+						.build(), Description.class, mapper)) {
 			stream.forEachRemaining(hit -> {});
 		}
 

@@ -40,6 +40,7 @@ public class DescriptionController {
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(required = false) Boolean conceptActive,
 			@RequestParam(required = false) String semanticTag,
+			@RequestParam(defaultValue = "false") boolean groupByConcept,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -54,6 +55,8 @@ public class DescriptionController {
 				branch, term,
 				// Filters
 				active, conceptActive, semanticTag,
+				// Grouping
+				groupByConcept,
 				// Language and page
 				languageCodes, pageRequest);
 
