@@ -37,6 +37,7 @@ public class DescriptionController {
 	public Page<BrowserDescriptionSearchResult> findBrowserDescriptions(
 			@PathVariable String branch,
 			@RequestParam(required = false) String term,
+			@RequestParam(required = false) Boolean active,
 			@RequestParam(required = false) Boolean conceptActive,
 			@RequestParam(required = false) String semanticTag,
 			@RequestParam(defaultValue = "0") int offset,
@@ -52,7 +53,7 @@ public class DescriptionController {
 				// Query
 				branch, term,
 				// Filters
-				conceptActive, semanticTag,
+				active, conceptActive, semanticTag,
 				// Language and page
 				languageCodes, pageRequest);
 

@@ -103,11 +103,11 @@ public class DescriptionService extends ComponentService {
 	}
 
 	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
-		return findDescriptionsWithAggregations(path, term, null, null, Collections.singleton("en"), pageRequest);
+		return findDescriptionsWithAggregations(path, term, true, null, null, Collections.singleton("en"), pageRequest);
 	}
 
 	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term,
-			Boolean conceptActive, String semanticTag,
+			Boolean active, Boolean conceptActive, String semanticTag,
 			Collection<String> languageCodes, PageRequest pageRequest) {
 
 		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
@@ -119,6 +119,9 @@ public class DescriptionService extends ComponentService {
 		BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
 		descriptionCriteria.must(descriptionBranchCriteria);
 		addTermClauses(term, languageCodes, descriptionCriteria);
+		if (active != null) {
+			descriptionCriteria.must(termQuery(Description.Fields.ACTIVE, active));
+		}
 
 		// Fetch concept semantic tag aggregation
 		// Not all descriptions are FSNs so use: description -> concept -> active FSN

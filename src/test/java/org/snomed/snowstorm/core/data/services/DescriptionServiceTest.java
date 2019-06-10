@@ -125,14 +125,14 @@ public class DescriptionServiceTest extends AbstractTest {
 		));
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes("en");
-		Map<String, Map<String, Long>> allAggregations = descriptionService.findDescriptionsWithAggregations(path, null, null, null, languageCodes, PageRequest.of(0, 10)).getBuckets();
+		Map<String, Map<String, Long>> allAggregations = descriptionService.findDescriptionsWithAggregations(path, null, true, null, null, languageCodes, PageRequest.of(0, 10)).getBuckets();
 		assertEquals("{900000000000207008=4}", getAggregationString("module", allAggregations));
 		assertEquals("{english=4}", getAggregationString("language", allAggregations));
 		assertEquals("{pizza=3, food=1}", getAggregationString("semanticTags", allAggregations));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", allAggregations));
 
 		String semanticTag = "pizza";
-		Map<String, Map<String, Long>> pizzaFilteredAggregations = descriptionService.findDescriptionsWithAggregations(path, null, null, semanticTag, languageCodes, PageRequest.of(0, 10)).getBuckets();
+		Map<String, Map<String, Long>> pizzaFilteredAggregations = descriptionService.findDescriptionsWithAggregations(path, null, true, null, semanticTag, languageCodes, PageRequest.of(0, 10)).getBuckets();
 		assertEquals("{900000000000207008=4}", getAggregationString("module", pizzaFilteredAggregations));
 		assertEquals("{english=4}", getAggregationString("language", pizzaFilteredAggregations));
 		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaFilteredAggregations));
