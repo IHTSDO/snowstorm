@@ -138,6 +138,19 @@ public class TraceabilityLogService implements CommitListener {
 			}
 		}
 
+		if (!activityMap.isEmpty()) {
+			boolean anyStatedChanges = false;
+			for (Activity.ConceptActivity conceptActivity : activityMap.values()) {
+				if (conceptActivity.isStatedChange()) {
+					anyStatedChanges = true;
+				}
+			}
+			if (!anyStatedChanges) {
+				commitComment = "Classified ontology.";
+				activity.setCommitComment(commitComment);
+			}
+		}
+
 		if (activityMap.size() > inferredMax) {
 			// Limit the number of inferred changes recorded
 			List<String> conceptChangesToRemove = new ArrayList<>();

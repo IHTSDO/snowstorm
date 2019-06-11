@@ -51,6 +51,10 @@ public class Activity {
 		return changes;
 	}
 
+	public void setCommitComment(String commitComment) {
+		this.commitComment = commitComment;
+	}
+
 	public static final class ConceptActivity {
 
 		private Concept concept;
