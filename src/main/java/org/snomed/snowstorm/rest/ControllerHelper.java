@@ -96,4 +96,10 @@ public class ControllerHelper {
 		}
 		return languageCodes;
 	}
+
+	static void validatePageSize(long offset, int limit) {
+		if ((offset + limit) > 10_000) {
+			throw new IllegalArgumentException("Maximum offset + page size is 10,000.");
+		}
+	}
 }

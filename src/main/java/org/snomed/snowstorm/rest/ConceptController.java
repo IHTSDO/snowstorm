@@ -89,7 +89,7 @@ public class ConceptController {
 				.languageCodes(ControllerHelper.getLanguageCodes(acceptLanguageHeader))
 				.conceptIds(conceptIds);
 
-		validatePageSize(offset, limit);
+		ControllerHelper.validatePageSize(offset, limit);
 
 		return new ItemsPage<>(queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), ControllerHelper.getPageRequest(offset, searchAfter, limit)));
 	}
@@ -137,7 +137,7 @@ public class ConceptController {
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		PageRequest pageRequest = PageRequest.of(number, size);
-		validatePageSize(pageRequest.getOffset(), pageRequest.getPageSize());
+		ControllerHelper.validatePageSize(pageRequest.getOffset(), pageRequest.getPageSize());
 		return conceptService.findAll(BranchPathUriUtil.decodePath(branch), ControllerHelper.getLanguageCodes(acceptLanguageHeader), pageRequest);
 	}
 
@@ -213,7 +213,7 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "1000") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		validatePageSize(offset, limit);
+		ControllerHelper.validatePageSize(offset, limit);
 
 		MapPage<Long, Set<Long>> conceptReferencesPage = semanticIndexService.findConceptReferences(branch, conceptId, stated, ControllerHelper.getPageRequest(offset, limit));
 		Map<Long, Set<Long>> conceptReferences = conceptReferencesPage.getMap();
@@ -356,12 +356,6 @@ public class ConceptController {
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		Expression expression =  expressionService.getConceptNormalForm(conceptId, languageCodes, BranchPathUriUtil.decodePath(branch), statedView);
 		return new ExpressionStringPojo(expression.toString(includeTerms));
-	}
-
-	private void validatePageSize(long offset, int limit) {
-		if ((offset + limit) > 10_000) {
-			throw new IllegalArgumentException("Maximum offset + page size is 10,000.");
-		}
 	}
 
 }

@@ -48,6 +48,9 @@ public class RelationshipChange {
 	@Field(type = FieldType.keyword)
 	private String modifierId;
 
+	@Field(type = FieldType.Boolean)
+	private boolean inferredNotStated;
+
 	@Transient
 	private ConceptMini source;
 
@@ -62,7 +65,7 @@ public class RelationshipChange {
 
 	public RelationshipChange(int sortNumber, String classificationId, String relationshipId, boolean active,
 							  String sourceId, String destinationId, int group,
-							  String typeId, String modifierId) {
+							  String typeId, String modifierId, boolean inferredNotStated) {
 		this.sortNumber = sortNumber;
 		this.classificationId = classificationId;
 		this.relationshipId = relationshipId;
@@ -72,6 +75,7 @@ public class RelationshipChange {
 		this.group = group;
 		this.typeId = typeId;
 		this.modifierId = modifierId;
+		this.inferredNotStated = inferredNotStated;
 	}
 
 	public String getSourceFsn() {
@@ -170,6 +174,14 @@ public class RelationshipChange {
 		this.modifierId = modifierId;
 	}
 
+	public boolean isInferredNotStated() {
+		return inferredNotStated;
+	}
+
+	public void setInferredNotStated(boolean inferredNotStated) {
+		this.inferredNotStated = inferredNotStated;
+	}
+
 	public void setSource(ConceptMini source) {
 		this.source = source;
 	}
@@ -211,6 +223,7 @@ public class RelationshipChange {
 				", relationshipGroup='" + group + '\'' +
 				", typeId='" + typeId + '\'' +
 				", modifierId='" + modifierId + '\'' +
+				", notStated='" + inferredNotStated + '\'' +
 				'}';
 	}
 }

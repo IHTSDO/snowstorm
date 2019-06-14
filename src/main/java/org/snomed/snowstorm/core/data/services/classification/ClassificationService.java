@@ -7,6 +7,7 @@ import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.common.Strings;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
@@ -15,9 +16,7 @@ import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
 import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus;
 import org.snomed.snowstorm.core.data.domain.classification.EquivalentConcepts;
@@ -58,8 +57,8 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static java.lang.Long.parseLong;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.*;
 
 @Service
@@ -317,7 +316,7 @@ public class ClassificationService {
 							// Group changes by concept
 							Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
 							for (RelationshipChange relationshipChange : changesBatch) {
-								conceptToChangeMap.computeIfAbsent(Long.parseLong(relationshipChange.getSourceId()), conceptId -> new ArrayList<>()).add(relationshipChange);
+								conceptToChangeMap.computeIfAbsent(parseLong(relationshipChange.getSourceId()), conceptId -> new ArrayList<>()).add(relationshipChange);
 							}
 
 							// Load concepts
@@ -492,7 +491,7 @@ public class ClassificationService {
 		}
 	}
 
-	private void saveRelationshipChanges(String classificationId, InputStream rf2Stream) throws IOException, ElasticsearchException {
+	void saveRelationshipChanges(String classificationId, InputStream rf2Stream) throws IOException, ElasticsearchException {
 		// Leave the stream open after use.
 		BufferedReader reader = new BufferedReader(new InputStreamReader(rf2Stream));
 
@@ -513,8 +512,52 @@ public class ClassificationService {
 					values[RelationshipFieldIndexes.destinationId],
 					Integer.parseInt(values[RelationshipFieldIndexes.relationshipGroup]),
 					values[RelationshipFieldIndexes.typeId],
-					values[RelationshipFieldIndexes.modifierId]));
+					values[RelationshipFieldIndexes.modifierId],
+					false));
 		}
+
+		// - Mark inferred not previously stated changes -
+		// Build query to find concepts in the stated semantic index which do not contain the inferred parents or attributes
+		Map<Long, List<RelationshipChange>> activeConceptChanges = new HashMap<>();
+		BoolQueryBuilder allConceptsQuery = boolQuery();
+		for (RelationshipChange relationshipChange : relationshipChanges) {
+			if (relationshipChange.isActive()) {
+				Long sourceId = parseLong(relationshipChange.getSourceId());
+				BoolQueryBuilder conceptQuery = boolQuery()
+						.must(termQuery(QueryConcept.Fields.STATED, true))
+						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, sourceId));
+				if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
+					conceptQuery.mustNot(termQuery(QueryConcept.Fields.PARENTS, relationshipChange.getDestinationId()));
+				} else {
+					conceptQuery.mustNot(termQuery(QueryConcept.Fields.ATTR + "." + relationshipChange.getTypeId(), relationshipChange.getDestinationId()));
+				}
+				allConceptsQuery.should(conceptQuery);
+				activeConceptChanges.computeIfAbsent(sourceId, id -> new ArrayList<>()).add(relationshipChange);
+			}
+		}
+		try (CloseableIterator<QueryConcept> semanticIndexConcepts = elasticsearchOperations.stream(new NativeSearchQueryBuilder().withQuery(allConceptsQuery).withPageable(LARGE_PAGE).build(),
+				QueryConcept.class)) {
+
+			semanticIndexConcepts.forEachRemaining(semanticIndexConcept -> {
+				// One or more inferred attributes or parents do not exist on this stated semanticIndexConcept
+				List<RelationshipChange> conceptChanges = activeConceptChanges.get(semanticIndexConcept.getConceptIdL());
+				if (conceptChanges != null) {
+					Map<String, Set<String>> conceptAttributes = semanticIndexConcept.getAttr();
+					for (RelationshipChange relationshipChange : conceptChanges) {
+						if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
+							if (!semanticIndexConcept.getParents().contains(parseLong(relationshipChange.getDestinationId()))) {
+								relationshipChange.setInferredNotStated(true);
+							}
+						} else {
+							if (!conceptAttributes.getOrDefault(relationshipChange.getTypeId(), Collections.emptySet()).contains(relationshipChange.getDestinationId())) {
+								relationshipChange.setInferredNotStated(true);
+							}
+						}
+					}
+				}
+			});
+		}
+
 		if (!relationshipChanges.isEmpty()) {
 			logger.info("Saving {} classification relationship changes", relationshipChanges.size());
 			List<List<RelationshipChange>> partition = Lists.partition(relationshipChanges, 10_000);
