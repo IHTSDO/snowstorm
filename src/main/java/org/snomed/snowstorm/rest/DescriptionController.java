@@ -9,7 +9,6 @@ import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
-import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.rest.pojo.BrowserDescriptionSearchResult;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +40,7 @@ public class DescriptionController {
 			@RequestParam(required = false) Boolean conceptActive,
 			@RequestParam(required = false) String semanticTag,
 			@RequestParam(defaultValue = "false") boolean groupByConcept,
+			@RequestParam(required = false) @ApiParam(allowableValues = "regex") String searchMode,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -57,6 +57,8 @@ public class DescriptionController {
 				active, conceptActive, semanticTag,
 				// Grouping
 				groupByConcept,
+				//search mode
+				searchMode,
 				// Language and page
 				languageCodes, pageRequest);
 

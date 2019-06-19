@@ -105,12 +105,12 @@ public class DescriptionService extends ComponentService {
 	}
 
 	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
-		return findDescriptionsWithAggregations(path, term, true, null, null, false, Collections.singleton("en"), pageRequest);
+		return findDescriptionsWithAggregations(path, term, true, null, null, false, null, Collections.singleton("en"), pageRequest);
 	}
 
 	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term,
 			Boolean active, Boolean conceptActive, String semanticTag,
-			boolean groupByConcept, Collection<String> languageCodes, PageRequest pageRequest) {
+			boolean groupByConcept, String searchMode, Collection<String> languageCodes, PageRequest pageRequest) {
 
 		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
@@ -120,7 +120,7 @@ public class DescriptionService extends ComponentService {
 		final BoolQueryBuilder descriptionCriteria = boolQuery();
 		BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
 		descriptionCriteria.must(descriptionBranchCriteria);
-		addTermClauses(term, languageCodes, descriptionCriteria);
+		addTermClauses(term, languageCodes, descriptionCriteria, searchMode);
 		if (active != null) {
 			descriptionCriteria.must(termQuery(Description.Fields.ACTIVE, active));
 		}
@@ -392,24 +392,37 @@ public class DescriptionService extends ComponentService {
 	}
 
 	static void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder) {
+		addTermClauses(term, languageCodes, boolBuilder, null);
+	}
+
+	static void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder, String searchMode) {
 		if (IdentifierService.isConceptId(term)) {
 			boolBuilder.must(termQuery(Description.Fields.CONCEPT_ID, term));
 		} else {
 			if (!Strings.isNullOrEmpty(term)) {
+				if ("regex".equals(searchMode)) {
+					//https://www.elastic.co/guide/en/elasticsearch/reference/master/query-dsl-query-string-query.html#_regular_expressions
+					if (term.startsWith("^")) {
+						term = term.substring(1);
+					}
+					if (term.endsWith("$")) {
+						term = term.substring(0, term.length()-1);
+					}
+					boolBuilder.must(boolQuery().should(queryStringQuery("/" + term + "/").field(Description.Fields.TERM)));
+				} else {
+					// Must match one of the following 'should' clauses:
+					boolBuilder.must(boolQuery()
 
-				// Must match one of the following 'should' clauses:
-				boolBuilder.must(boolQuery()
+									// All given words. Match Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query.html
+									.should(matchQuery(Description.Fields.TERM, term)
+											.operator(Operator.AND))
 
-								// All given words. Match Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query.html
-								.should(matchQuery(Description.Fields.TERM, term)
-										.operator(Operator.AND))
-
-								// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
-								.should(simpleQueryStringQuery((term.trim().replace(" ", "* ") + "*") .replace("**", "*"))
-										.field(Description.Fields.TERM).defaultOperator(Operator.AND))
-						// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
-				);
-
+									// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
+									.should(simpleQueryStringQuery((term.trim().replace(" ", "* ") + "*") .replace("**", "*"))
+											.field(Description.Fields.TERM).defaultOperator(Operator.AND))
+							// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
+					);
+				}
 				// Must match the requested language
 				boolBuilder.must(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes));
 			}

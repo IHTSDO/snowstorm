@@ -30,6 +30,8 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 @ContextConfiguration(classes = TestConfig.class)
 public class DescriptionServiceTest extends AbstractTest {
 
+	public static final String REGEX = "regex";
+
 	@Autowired
 	private BranchService branchService;
 
@@ -119,9 +121,32 @@ public class DescriptionServiceTest extends AbstractTest {
 		conceptService.batchCreate(concepts, path);
 
 		boolean groupByConcept = false;
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Cheese", null, null, null, groupByConcept, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Cheese", null, null, null, groupByConcept, null, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 		groupByConcept = true;
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "Cheese", null, null, null, groupByConcept, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "Cheese", null, null, null, groupByConcept, null, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+	}
+
+
+	@Test
+	public void testDescriptionSearchWithRegex() throws ServiceException {
+		String path = "MAIN";
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
+		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)").addDescription(new Description("Cheese"));
+		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
+		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
+		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		conceptService.batchCreate(concepts, path);
+
+		boolean groupByConcept = false;
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Cheese", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "^Cheese$", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(4, descriptionService.findDescriptionsWithAggregations(path, "chees.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		//term is indexed as type of text not keyword therefore  below regex will not match anything.
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations(path, "chees.*Piz.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+
+		groupByConcept = true;
+		assertEquals(3, descriptionService.findDescriptionsWithAggregations(path, "chees.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 	}
 
 	@Test
@@ -143,14 +168,14 @@ public class DescriptionServiceTest extends AbstractTest {
 		));
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes("en");
-		Map<String, Map<String, Long>> allAggregations = descriptionService.findDescriptionsWithAggregations(path, null, true, null, null, false, languageCodes, PageRequest.of(0, 10)).getBuckets();
+		Map<String, Map<String, Long>> allAggregations = descriptionService.findDescriptionsWithAggregations(path, null, true, null, null, false, null, languageCodes, PageRequest.of(0, 10)).getBuckets();
 		assertEquals("{900000000000207008=4}", getAggregationString("module", allAggregations));
 		assertEquals("{english=4}", getAggregationString("language", allAggregations));
 		assertEquals("{pizza=3, food=1}", getAggregationString("semanticTags", allAggregations));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", allAggregations));
 
 		String semanticTag = "pizza";
-		Map<String, Map<String, Long>> pizzaFilteredAggregations = descriptionService.findDescriptionsWithAggregations(path, null, true, null, semanticTag, false, languageCodes, PageRequest.of(0, 10)).getBuckets();
+		Map<String, Map<String, Long>> pizzaFilteredAggregations = descriptionService.findDescriptionsWithAggregations(path, null, true, null, semanticTag, false, null, languageCodes, PageRequest.of(0, 10)).getBuckets();
 		assertEquals("{900000000000207008=4}", getAggregationString("module", pizzaFilteredAggregations));
 		assertEquals("{english=4}", getAggregationString("language", pizzaFilteredAggregations));
 		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaFilteredAggregations));
