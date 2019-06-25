@@ -8,6 +8,7 @@ import org.snomed.otf.owltoolkit.domain.AxiomRepresentation;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.SAxiomRepresentation;
+import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -32,8 +33,6 @@ public class AxiomConversionService {
 	private ECLQueryService eclQueryService;
 
 	private final AxiomRelationshipConversionService axiomRelationshipConversionService;
-	private List<Long> objectAttributes;
-	private List<Long> dataAttributes;
 
 	public AxiomConversionService() {
 		axiomRelationshipConversionService = new AxiomRelationshipConversionService(Collections.emptySet());
@@ -41,7 +40,6 @@ public class AxiomConversionService {
 
 	public SAxiomRepresentation convertAxiomMemberToAxiomRepresentation(ReferenceSetMember axiomMember) throws ConversionException {
 		AxiomRepresentation axiomRepresentation = axiomRelationshipConversionService.convertAxiomToRelationships(
-				parseLong(axiomMember.getReferencedComponentId()),
 				axiomMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
 
 		if (axiomRepresentation == null) {// Will be null if the axiom is an Ontology Axiom for example a property chain or transitive axiom rather than an Additional Axiom or GCI.
@@ -84,6 +82,7 @@ public class AxiomConversionService {
 	}
 
 	private AxiomRelationshipConversionService setupConversionService(String branchPath) {
+		TimerUtil timer = new TimerUtil("Axiom conversion service setup");
 		Page<ReferenceSetMember> mrcmAttributeDomainMembers = memberService.findMembers(branchPath, new MemberSearchRequest().active(true).referenceSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL), LARGE_PAGE);
 		Set<Long> neverGroupedAttributes = mrcmAttributeDomainMembers.getContent().stream()
 				.filter(member -> "0".equals(member.getAdditionalField(ReferenceSetMember.MRCMAttributeDomainFields.GROUPED)))
@@ -91,9 +90,13 @@ public class AxiomConversionService {
 				.map(Long::parseLong)
 				.collect(Collectors.toSet());
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		objectAttributes = eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_OBJECT_ATTRIBUTE, branchCriteria, branchPath, true, LARGE_PAGE).getContent();
-		dataAttributes = eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, branchCriteria, branchPath, true, LARGE_PAGE).getContent();
-		return new AxiomRelationshipConversionService(neverGroupedAttributes, objectAttributes, dataAttributes);
+		List<Long> objectAttributes = eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_OBJECT_ATTRIBUTE, branchCriteria, branchPath, true, LARGE_PAGE).getContent();
+		List<Long> dataAttributes = eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, branchCriteria, branchPath, true, LARGE_PAGE).getContent();
+		timer.checkpoint(String.format("Gathering %s never grouped attributes, %s object attributes and %s data attributes.", neverGroupedAttributes.size(), objectAttributes.size(), dataAttributes.size()));
+		AxiomRelationshipConversionService conversionService = new AxiomRelationshipConversionService(neverGroupedAttributes, objectAttributes, dataAttributes);
+		timer.checkpoint("Creating AxiomRelationshipConversionService");
+		timer.finish();
+		return conversionService;
 	}
 
 	private Set<Relationship> mapToInternalRelationshipType(Long sourceId, Map<Integer, List<org.snomed.otf.owltoolkit.domain.Relationship>> relationships) {
