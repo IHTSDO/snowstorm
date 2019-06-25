@@ -13,10 +13,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
@@ -103,7 +100,10 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 
 	@Override
 	public Set<String> findStatedAncestorsOfConcepts(List<String> statedParentIds) {
-		StringBuilder eclBuilder = new StringBuilder("<<" + Concepts.SNOMEDCT_ROOT);
+		if (statedParentIds.isEmpty()) {
+			return Collections.emptySet();
+		}
+		StringBuilder eclBuilder = new StringBuilder("<" + Concepts.SNOMEDCT_ROOT + " AND ");
 		if (statedParentIds.size() > 1) {
 			eclBuilder.append("(");
 		}
@@ -111,7 +111,7 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 			if (i > 0) {
 				eclBuilder.append(" OR ");
 			}
-			eclBuilder.append(">>").append(statedParentIds.get(i));
+			eclBuilder.append(">").append(statedParentIds.get(i));
 		}
 		if (statedParentIds.size() > 1) {
 			eclBuilder.append(")");
