@@ -408,7 +408,7 @@ public class DescriptionService extends ComponentService {
 					if (term.endsWith("$")) {
 						term = term.substring(0, term.length()-1);
 					}
-					boolBuilder.must(boolQuery().should(queryStringQuery("/" + term + "/").field(Description.Fields.TERM)));
+					boolBuilder.must(queryStringQuery("/" + term + "/").field(Description.Fields.TERM_RAW));
 				} else {
 					// Must match one of the following 'should' clauses:
 					boolBuilder.must(boolQuery()

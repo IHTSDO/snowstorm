@@ -5,9 +5,7 @@ import com.fasterxml.jackson.annotation.JsonView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.rest.View;
-import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.annotations.Field;
-import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.*;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
@@ -26,6 +24,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	public interface Fields extends SnomedComponent.Fields {
 		String DESCRIPTION_ID = "descriptionId";
 		String TERM = "term";
+		String TERM_RAW = "term.raw";
 		String TERM_LEN = "termLen";
 		String TAG = "tag";
 		String CONCEPT_ID = "conceptId";
@@ -39,7 +38,10 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	private String descriptionId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.text)
+	@MultiField(
+			mainField = @Field(type = FieldType.text),
+			otherFields = @InnerField(suffix = "raw", type = FieldType.keyword)
+	)
 	@NotNull
 	private String term;
 

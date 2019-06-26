@@ -10,7 +10,6 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -139,14 +138,15 @@ public class DescriptionServiceTest extends AbstractTest {
 		conceptService.batchCreate(concepts, path);
 
 		boolean groupByConcept = false;
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Cheese", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "^Cheese$", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
-		assertEquals(4, descriptionService.findDescriptionsWithAggregations(path, "chees.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Cheese.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Che{2}se.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "^Cheese$", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Chees.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 		//term is indexed as type of text not keyword therefore  below regex will not match anything.
-		assertEquals(0, descriptionService.findDescriptionsWithAggregations(path, "chees.*Piz.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "Chees.*piz.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 
 		groupByConcept = true;
-		assertEquals(3, descriptionService.findDescriptionsWithAggregations(path, "chees.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "Chees.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 	}
 
 	@Test
