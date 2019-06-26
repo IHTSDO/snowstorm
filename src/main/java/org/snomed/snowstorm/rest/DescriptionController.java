@@ -40,7 +40,7 @@ public class DescriptionController {
 			@RequestParam(required = false) Boolean conceptActive,
 			@RequestParam(required = false) String semanticTag,
 			@RequestParam(defaultValue = "false") boolean groupByConcept,
-			@RequestParam(required = false) @ApiParam(allowableValues = "regex") String searchMode,
+			@RequestParam(defaultValue = "STANDARD") DescriptionService.SearchMode searchMode,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {

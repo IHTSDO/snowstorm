@@ -55,6 +55,10 @@ public class DescriptionService extends ComponentService {
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
 
+	public enum SearchMode {
+		STANDARD, REGEX
+	}
+
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Description findDescription(String path, String descriptionId) {
@@ -110,7 +114,7 @@ public class DescriptionService extends ComponentService {
 
 	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term,
 			Boolean active, Boolean conceptActive, String semanticTag,
-			boolean groupByConcept, String searchMode, Collection<String> languageCodes, PageRequest pageRequest) {
+			boolean groupByConcept, SearchMode searchMode, Collection<String> languageCodes, PageRequest pageRequest) {
 
 		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
@@ -395,12 +399,12 @@ public class DescriptionService extends ComponentService {
 		addTermClauses(term, languageCodes, boolBuilder, null);
 	}
 
-	static void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder, String searchMode) {
+	static void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder, SearchMode searchMode) {
 		if (IdentifierService.isConceptId(term)) {
 			boolBuilder.must(termQuery(Description.Fields.CONCEPT_ID, term));
 		} else {
 			if (!Strings.isNullOrEmpty(term)) {
-				if ("regex".equals(searchMode)) {
+				if (searchMode == SearchMode.REGEX) {
 					//https://www.elastic.co/guide/en/elasticsearch/reference/master/query-dsl-query-string-query.html#_regular_expressions
 					if (term.startsWith("^")) {
 						term = term.substring(1);

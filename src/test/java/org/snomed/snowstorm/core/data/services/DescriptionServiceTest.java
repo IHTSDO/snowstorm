@@ -24,12 +24,11 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
+import static org.snomed.snowstorm.core.data.services.DescriptionService.SearchMode.REGEX;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
 public class DescriptionServiceTest extends AbstractTest {
-
-	public static final String REGEX = "regex";
 
 	@Autowired
 	private BranchService branchService;
@@ -124,7 +123,6 @@ public class DescriptionServiceTest extends AbstractTest {
 		groupByConcept = true;
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "Cheese", null, null, null, groupByConcept, null, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 	}
-
 
 	@Test
 	public void testDescriptionSearchWithRegex() throws ServiceException {
