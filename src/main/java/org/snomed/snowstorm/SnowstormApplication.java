@@ -1,5 +1,6 @@
 package org.snomed.snowstorm;
 
+import com.github.xiaoymin.swaggerbootstrapui.annotations.EnableSwaggerBootstrapUI;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ import java.io.IOException;
 import java.util.List;
 
 @EnableSwagger2
+@EnableSwaggerBootstrapUI
 @EnableJms
 public class SnowstormApplication extends Config implements ApplicationRunner {
 

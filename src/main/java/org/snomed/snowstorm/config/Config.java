@@ -60,6 +60,7 @@ import org.springframework.jms.support.converter.MessageType;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
+import springfox.documentation.builders.ApiInfoBuilder;
 import springfox.documentation.builders.RequestHandlerSelectors;
 import springfox.documentation.service.ApiInfo;
 import springfox.documentation.service.Contact;
@@ -87,6 +88,7 @@ import static springfox.documentation.builders.PathSelectors.regex;
 				"org.snomed.snowstorm.core.data.repositories",
 				"io.kaicode.elasticvc.repositories"
 		})
+
 @EnableConfigurationProperties
 @EnableAsync
 public abstract class Config {
@@ -253,7 +255,7 @@ public abstract class Config {
 	public ImportService getImportService() {
 		return new ImportService();
 	}
-	
+
 	@Bean
 	public ExpressionService getExpressionService() {
 		return new ExpressionService();
@@ -273,8 +275,8 @@ public abstract class Config {
 			return new SnowstormCISClient(cisApiUrl, username, password, softwareName, timeoutSeconds);
 		}
 	}
-	
-	@Bean 
+
+	@Bean
 	public IdentifierCacheManager getIdentifierCacheManager(@Value("${cis.cache.concept-prefetch-count}") int conceptIdPrefetchCount) {
 		IdentifierCacheManager icm = new IdentifierCacheManager();
 		// Concept
@@ -316,7 +318,16 @@ public abstract class Config {
 	@Bean
 	public Docket api() {
 		Docket docket = new Docket(DocumentationType.SWAGGER_2);
-		docket.apiInfo(new ApiInfo("Snowstorm", "SNOMED CT Terminology Server REST API", "1.0", null, new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null), "Apache 2.0", "http://www.apache.org/licenses/LICENSE-2.0"));
+
+		docket.apiInfo(apiInfo(
+				"Snowstorm",
+				"SNOMED CT Terminology Server REST API",
+				"1.0",
+				null,
+				new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null),
+				"Apache 2.0",
+				"http://www.apache.org/licenses/LICENSE-2.0"));
+
 		ApiSelectorBuilder apiSelectorBuilder = docket.select();
 
 		if (restApiReadOnly) {
@@ -368,4 +379,18 @@ public abstract class Config {
 		return converter;
 	}
 
+	/** */
+	private ApiInfo apiInfo(String title, String description, String version, String termsOfServiceUrl, Contact contact, String license, String licenseUrl) {
+
+		return new ApiInfoBuilder()
+				.title(title)
+				.description(description)
+				.version(version)
+				.contact(contact)
+				.termsOfServiceUrl(termsOfServiceUrl)
+				.license(license)
+				.licenseUrl(licenseUrl)
+				.build();
+
+	}
 }

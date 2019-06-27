@@ -137,13 +137,20 @@
 		<dependency>
 			<groupId>io.springfox</groupId>
 			<artifactId>springfox-swagger2</artifactId>
-			<version>2.5.0</version>
+			<version>2.9.2</version>
 		</dependency>
+		<dependency>
+			<groupId>com.github.xiaoymin</groupId>
+			<artifactId>swagger-bootstrap-ui</artifactId>
+			<version>1.9.3</version>
+		</dependency>
+		<!--
 		<dependency>
 			<groupId>io.springfox</groupId>
 			<artifactId>springfox-swagger-ui</artifactId>
 			<version>2.5.0</version>
 		</dependency>
+		-->
 		<dependency>
 			<groupId>org.antlr</groupId>
 			<artifactId>antlr4-runtime</artifactId>
@@ -155,7 +162,7 @@
 			<version>1.1.0</version>
 		</dependency>
 		<dependency>
-		<groupId>ca.uhn.hapi.fhir</groupId>
+			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-structures-r4</artifactId>
 			<version>${hapi.version}</version>
 		</dependency>
@@ -201,6 +208,20 @@
 					</execution>
 				</executions>
 			</plugin>
+
+			<plugin>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>-Dfile.encoding=UTF-8</argLine>
+					<skipTests>true</skipTests>
+					<includes>
+						<include>**/*Test.java</include>
+					</includes>
+					<excludes>
+					</excludes>
+				</configuration>
+			</plugin>
+
 			<!-- Docker Image Build -->
 			<plugin>
 				<groupId>com.spotify</groupId>
