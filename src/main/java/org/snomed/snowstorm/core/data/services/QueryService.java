@@ -123,7 +123,7 @@ public class QueryService implements ApplicationContextAware {
 		if (hasLexicalCriteria && !hasLogicalConditions) {
 			// Lexical Only
 			logger.info("Lexical search {}", term);
-			NativeSearchQuery descriptionQuery = getLexicalQuery(term, languageCodes, branchCriteria, pageRequest);
+			NativeSearchQuery descriptionQuery = getLexicalQuery(term, conceptQuery.getTermActive(), languageCodes, branchCriteria, pageRequest);
 			descriptionQuery.addFields(Description.Fields.CONCEPT_ID);
 			final List<Long> pageOfIds = new LongArrayList();
 			Page<Description> descriptionPage = elasticsearchTemplate.queryForPage(descriptionQuery, Description.class);
@@ -149,7 +149,7 @@ public class QueryService implements ApplicationContextAware {
 			// We fetch all lexical results then use them to filter the logical matches and for ordering of the final results.
 			logger.info("Lexical search before logical {}", term);
 			TimerUtil timer = new TimerUtil("Lexical and Logical Search");
-			final List<Long> allLexicalMatchesWithOrdering = findLexicalMatchDescriptionConceptIds(branchCriteria, term, languageCodes);
+			final List<Long> allLexicalMatchesWithOrdering = findLexicalMatchDescriptionConceptIds(term, conceptQuery.getTermActive(), languageCodes, branchCriteria);
 			timer.checkpoint("lexical complete");
 
 			// Fetch Logical matches
@@ -250,10 +250,10 @@ public class QueryService implements ApplicationContextAware {
 		return PageHelper.toSearchAfterPage(new PageImpl<>(pageOfIds, pageRequest, pageOfConcepts.getTotalElements()), CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 	}
 
-	private List<Long> findLexicalMatchDescriptionConceptIds(BranchCriteria branchCriteria, String term, Collection<String> languageCodes) {
+	private List<Long> findLexicalMatchDescriptionConceptIds(String term, Boolean termActive, Collection<String> languageCodes, BranchCriteria branchCriteria) {
 		final List<Long> allLexicalMatchesWithOrdering = new LongArrayList();
 
-		NativeSearchQuery query = getLexicalQuery(term, languageCodes, branchCriteria, LARGE_PAGE);
+		NativeSearchQuery query = getLexicalQuery(term, termActive, languageCodes, branchCriteria, LARGE_PAGE);
 		query.addFields(Description.Fields.CONCEPT_ID);
 		try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(query, Description.class)) {
 			descriptionStream.forEachRemaining(description -> allLexicalMatchesWithOrdering.add(parseLong(description.getConceptId())));
@@ -283,10 +283,12 @@ public class QueryService implements ApplicationContextAware {
 		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter).getContent();
 	}
 
-	private NativeSearchQuery getLexicalQuery(String term, Collection<String> languageCodes, BranchCriteria branchCriteria, PageRequest pageable) {
+	private NativeSearchQuery getLexicalQuery(String term, Boolean termActive, Collection<String> languageCodes, BranchCriteria branchCriteria, PageRequest pageable) {
 		BoolQueryBuilder lexicalQuery = boolQuery()
-				.must(branchCriteria.getEntityBranchCriteria(Description.class))
-				.must(termQuery("active", true));
+				.must(branchCriteria.getEntityBranchCriteria(Description.class));
+		if (termActive != null) {
+			lexicalQuery.must(termQuery("active", termActive));
+		}
 		DescriptionService.addTermClauses(term, languageCodes, lexicalQuery);
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(lexicalQuery)
@@ -503,6 +505,7 @@ public class QueryService implements ApplicationContextAware {
 		private final BoolQueryBuilder logicalConditionBuilder;
 		private final boolean stated;
 		private Boolean activeFilter;
+		private Boolean termActive;
 		private String definitionStatusFilter;
 		private String termMatch;
 		private List<String> languageCodes;
@@ -568,6 +571,11 @@ public class QueryService implements ApplicationContextAware {
 			return this;
 		}
 
+		public ConceptQueryBuilder termActive(Boolean termActive) {
+			this.termActive = termActive;
+			return this;
+		}
+
 		public ConceptQueryBuilder definitionStatusFilter(String definitionStatusFilter) {
 			this.definitionStatusFilter = definitionStatusFilter;
 			return this;
@@ -604,6 +612,10 @@ public class QueryService implements ApplicationContextAware {
 
 		private Boolean getActiveFilter() {
 			return activeFilter;
+		}
+
+		public Boolean getTermActive() {
+			return termActive;
 		}
 
 		private String getDefinitionStatusFilter() {
