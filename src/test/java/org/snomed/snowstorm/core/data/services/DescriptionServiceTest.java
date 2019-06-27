@@ -140,7 +140,6 @@ public class DescriptionServiceTest extends AbstractTest {
 		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Che{2}se.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "^Cheese$", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Chees.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
-		//term is indexed as type of text not keyword therefore  below regex will not match anything.
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "Chees.*piz.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 
 		groupByConcept = true;
