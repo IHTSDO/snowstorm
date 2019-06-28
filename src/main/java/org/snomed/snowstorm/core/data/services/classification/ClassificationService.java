@@ -524,7 +524,6 @@ public class ClassificationService {
 			if (relationshipChange.isActive()) {
 				Long sourceId = parseLong(relationshipChange.getSourceId());
 				BoolQueryBuilder conceptQuery = boolQuery()
-						.must(termQuery(QueryConcept.Fields.STATED, true))
 						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, sourceId));
 				if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
 					conceptQuery.mustNot(termQuery(QueryConcept.Fields.PARENTS, relationshipChange.getDestinationId()));
@@ -535,7 +534,11 @@ public class ClassificationService {
 				activeConceptChanges.computeIfAbsent(sourceId, id -> new ArrayList<>()).add(relationshipChange);
 			}
 		}
-		try (CloseableIterator<QueryConcept> semanticIndexConcepts = elasticsearchOperations.stream(new NativeSearchQueryBuilder().withQuery(allConceptsQuery).withPageable(LARGE_PAGE).build(),
+		try (CloseableIterator<QueryConcept> semanticIndexConcepts = elasticsearchOperations.stream(
+				new NativeSearchQueryBuilder()
+						.withQuery(termQuery(QueryConcept.Fields.STATED, true))
+						.withFilter(allConceptsQuery)
+						.withPageable(LARGE_PAGE).build(),
 				QueryConcept.class)) {
 
 			semanticIndexConcepts.forEachRemaining(semanticIndexConcept -> {
