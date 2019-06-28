@@ -32,6 +32,7 @@ import java.util.stream.Stream;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationIndicatorNames;
 
 @Service
 public class ConceptUpdateHelper extends ComponentService {
@@ -98,6 +99,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			} else {
 				// Make relationships and axioms inactive
 				concept.getRelationships().forEach(relationship -> relationship.setActive(false));
+				concept.getDescriptions().forEach(description -> description.setInactivationIndicator(inactivationIndicatorNames.get(Concepts.CONCEPT_NON_CURRENT)));
 				newVersionOwlAxiomMembers.forEach(axiom -> axiom.setActive(false));
 			}
 
@@ -147,7 +149,9 @@ public class ConceptUpdateHelper extends ComponentService {
 					}
 				}
 				if (description.isActive()) {
-					description.setInactivationIndicator(null);
+					if (concept.isActive()) {
+						description.setInactivationIndicator(null);
+					}
 				} else {
 					description.clearLanguageRefsetMembers();
 				}
@@ -302,7 +306,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 		if (newIndicator != null && !newIndicator.equals(existingIndicator)) {
 			// Create new indicator
-			String newIndicatorId = Concepts.inactivationIndicatorNames.inverse().get(newIndicator);
+			String newIndicatorId = inactivationIndicatorNames.inverse().get(newIndicator);
 			if (newIndicatorId == null) {
 				throw new IllegalArgumentException(newComponent.getClass().getSimpleName() + " inactivation indicator not recognised '" + newIndicator + "'.");
 			}

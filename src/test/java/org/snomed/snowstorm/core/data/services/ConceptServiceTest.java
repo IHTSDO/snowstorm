@@ -493,8 +493,11 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals(concept.getId(), associationTargetMember.getReferencedComponentId());
 		assertEquals("87100004", associationTargetMember.getAdditionalField("targetComponentId"));
 
-		assertFalse(inactiveConcept.getRelationships().iterator().next().isActive());
-		assertTrue(inactiveConcept.getDescriptions().iterator().next().isActive());
+		Description description = inactiveConcept.getDescriptions().iterator().next();
+		assertTrue("Description is still active", description.isActive());
+		assertEquals("Description automatically has inactivation indicator", "CONCEPT_NON_CURRENT", description.getInactivationIndicator());
+
+		assertFalse("Relationship is inactive.", inactiveConcept.getRelationships().iterator().next().isActive());
 	}
 
 	@Test
