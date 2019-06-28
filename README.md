@@ -26,6 +26,7 @@ Documentation is sparse for now, but will be improved as the project moves out o
 - [Using the FHIR API](docs/using-the-fhir-api.md)
 - [Loading & updating SNOMED CT with local Extensions or Editions](docs/updating-snomed-and-extensions.md)
 - [Configuration Guide](docs/configuration-guide.md)
+- [Elasticsearch Index Mapping Changes](docs/index-mapping-changes.md)
 - [Docker Quickstart](docs/using-docker.md)
 
 ## Contributing
