@@ -73,6 +73,25 @@ public class ConceptController {
 			@RequestParam(required = false) String searchAfter,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
+		// Parameter validation
+		int logicalMethods = 0;
+		if (ecl != null) {
+			logicalMethods++;
+		}
+		if (statedEcl != null) {
+			logicalMethods++;
+		}
+		if (conceptIds != null) {
+			logicalMethods++;
+		}
+		if (logicalMethods > 1) {
+			throw new IllegalArgumentException("Parameters ecl, statedEcl and conceptIds can not be combined.");
+		}
+
+		if ((ecl != null || statedEcl != null) && activeFilter != null && !activeFilter) {
+			throw new IllegalArgumentException("ECL search can not be used on inactive concepts.");
+		}
+
 		boolean stated = true;
 		if (ecl != null && !ecl.isEmpty()) {
 			stated = false;

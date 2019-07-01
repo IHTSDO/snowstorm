@@ -17,7 +17,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import static java.lang.Long.parseLong;
 import static org.junit.Assert.assertEquals;
@@ -44,6 +46,7 @@ public class QueryServiceTest extends AbstractTest {
 	private Concept cheesePizza_3;
 	private Concept reallyCheesyPizza_4;
 	private Concept reallyCheesyPizza_5;
+	private Concept inactivePizza_6;
 
 	@Before
 	public void setup() throws ServiceException {
@@ -53,12 +56,13 @@ public class QueryServiceTest extends AbstractTest {
 		cheesePizza_3 = new Concept("100005").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza");
 		reallyCheesyPizza_4 = new Concept("100008").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza");
 		reallyCheesyPizza_5 = new Concept("100003").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza");
-		conceptService.batchCreate(Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5), PATH);
+		inactivePizza_6 = (Concept) new Concept("100006").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("Inactive Pizza").setActive(false);
+		conceptService.batchCreate(Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5, inactivePizza_6), PATH);
 	}
 
 	@Test
 	public void testSearchResultOrdering() {
-		List<ConceptMini> matches = service.search(service.createQueryBuilder(true).termMatch("Piz"), PATH, PAGE_REQUEST).getContent();
+		List<ConceptMini> matches = service.search(service.createQueryBuilder(true).activeFilter(true).termMatch("Piz"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(4, matches.size());
 		assertEquals("Pizza", matches.get(0).getFsn());
 		assertEquals("Cheese Pizza", matches.get(1).getFsn());
@@ -82,6 +86,18 @@ public class QueryServiceTest extends AbstractTest {
 		assertEquals(2, matches.size());
 		assertEquals("So Cheesy Pizza", matches.get(0).getFsn());
 		assertEquals("Really Cheesy Pizza", matches.get(1).getFsn());
+	}
+
+	@Test
+	public void testFindInactiveConcept() {
+		Set<String> inactiveConceptId = Collections.singleton(inactivePizza_6.getId());
+		List<ConceptMini> content = service.search(service.createQueryBuilder(true).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent();
+		assertEquals(1, content.size());
+		assertEquals("Inactive Pizza", content.get(0).getFsn());
+
+		assertEquals(1, service.search(service.createQueryBuilder(true).termMatch("Inacti").definitionStatusFilter(Concepts.PRIMITIVE).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
+		assertEquals(0, service.search(service.createQueryBuilder(true).termMatch("Not").definitionStatusFilter(Concepts.PRIMITIVE).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
+		assertEquals(0, service.search(service.createQueryBuilder(true).definitionStatusFilter(Concepts.FULLY_DEFINED).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
 	}
 
 	@Test

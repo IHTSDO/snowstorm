@@ -134,7 +134,17 @@ public class QueryService implements ApplicationContextAware {
 		} else if (hasLogicalConditions && !hasLexicalCriteria) {
 			// Logical Only
 
-			if (conceptQuery.getEcl() != null) {
+			if (conceptQuery.getConceptIds() != null) {
+				// Concept id search
+				BoolQueryBuilder conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
+				Page<Concept> pageOfConcepts = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+						.withQuery(conceptBoolQuery)
+						.withFields(Concept.Fields.CONCEPT_ID)
+						.withPageable(pageRequest)
+						.build(), Concept.class);
+				List<Long> pageOfIds = pageOfConcepts.getContent().stream().map(Concept::getConceptIdAsLong).collect(Collectors.toList());
+				conceptIdPage = PageHelper.toSearchAfterPage(new PageImpl<>(pageOfIds, pageRequest, pageOfConcepts.getTotalElements()), CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
+			} else if (conceptQuery.getEcl() != null) {
 				// ECL search
 				conceptIdPage = doEclSearchAndDefinitionFilter(conceptQuery, branchPath, pageRequest, branchCriteria);
 			} else {
@@ -155,7 +165,17 @@ public class QueryService implements ApplicationContextAware {
 			// Fetch Logical matches
 			// ECL, QueryConcept and Concept searches are filtered by the conceptIds gathered from the lexical search
 			List<Long> allFilteredLogicalMatches;
-			if (conceptQuery.getEcl() != null) {
+			if (conceptQuery.getConceptIds() != null) {
+				allFilteredLogicalMatches = new LongArrayList();
+				BoolQueryBuilder conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
+				try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+						.withQuery(conceptBoolQuery)
+						.withFields(Concept.Fields.CONCEPT_ID)
+						.withPageable(LARGE_PAGE)
+						.build(), Concept.class)) {
+					stream.forEachRemaining(c -> allFilteredLogicalMatches.add(c.getConceptIdAsLong()));
+				}
+			} else if (conceptQuery.getEcl() != null) {
 				allFilteredLogicalMatches = doEclSearch(conceptQuery, branchPath, branchCriteria, allLexicalMatchesWithOrdering);
 			} else {
 				logger.info("Primitive Logical Search ");
@@ -209,6 +229,19 @@ public class QueryService implements ApplicationContextAware {
 		} else {
 			return Optional.empty();
 		}
+	}
+
+	private BoolQueryBuilder getSearchByConceptIdQuery(ConceptQueryBuilder conceptQuery, BranchCriteria branchCriteria) {
+		BoolQueryBuilder conceptBoolQuery = boolQuery()
+				.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+				.filter(termsQuery(Concept.Fields.CONCEPT_ID, conceptQuery.getConceptIds()));
+		if (conceptQuery.getActiveFilter() != null) {
+			conceptBoolQuery.must(termQuery(Concept.Fields.ACTIVE, conceptQuery.getActiveFilter()));
+		}
+		if (conceptQuery.getDefinitionStatusFilter() != null) {
+			conceptBoolQuery.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, conceptQuery.getDefinitionStatusFilter()));
+		}
+		return conceptBoolQuery;
 	}
 
 	private List<Long> filterByDefinitionStatus(List<Long> conceptIds, @Nullable String definitionStatus, BranchCriteria branchCriteria) {
@@ -510,6 +543,7 @@ public class QueryService implements ApplicationContextAware {
 		private String termMatch;
 		private List<String> languageCodes;
 		private String ecl;
+		private Set<String> conceptIds;
 
 		private ConceptQueryBuilder(boolean stated) {
 			this.stated = stated;
@@ -561,7 +595,7 @@ public class QueryService implements ApplicationContextAware {
 
 		public ConceptQueryBuilder conceptIds(Set<String> conceptIds) {
 			if (conceptIds != null && !conceptIds.isEmpty()) {
-				logicalConditionBuilder.should(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds));
+				this.conceptIds = conceptIds;
 			}
 			return this;
 		}
@@ -583,7 +617,7 @@ public class QueryService implements ApplicationContextAware {
 
 		private boolean hasLogicalConditions() {
 			return hasRelationshipConditions() ||
-					activeFilter != null || definitionStatusFilter != null;
+					activeFilter != null || definitionStatusFilter != null || conceptIds != null;
 		}
 
 		private boolean hasRelationshipConditions() {
@@ -604,6 +638,10 @@ public class QueryService implements ApplicationContextAware {
 
 		private String getEcl() {
 			return ecl;
+		}
+
+		public Set<String> getConceptIds() {
+			return conceptIds;
 		}
 
 		private boolean isStated() {
