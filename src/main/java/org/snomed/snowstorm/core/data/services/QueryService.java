@@ -140,6 +140,7 @@ public class QueryService implements ApplicationContextAware {
 				Page<Concept> pageOfConcepts = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
 						.withQuery(conceptBoolQuery)
 						.withFields(Concept.Fields.CONCEPT_ID)
+						.withSort(getDefaultSortForConcept())
 						.withPageable(pageRequest)
 						.build(), Concept.class);
 				List<Long> pageOfIds = pageOfConcepts.getContent().stream().map(Concept::getConceptIdAsLong).collect(Collectors.toList());
