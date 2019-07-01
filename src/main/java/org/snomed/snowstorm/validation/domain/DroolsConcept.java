@@ -39,6 +39,7 @@ public class DroolsConcept implements org.ihtsdo.drools.domain.Concept {
 				axiom.getRelationships().forEach(r -> {
 					r.setSourceId(conceptId);
 					r.setActive(axiom.isActive());
+					r.setModuleId(axiom.getModuleId());
 					relationships.add(new DroolsRelationship(axiom.getAxiomId(), false, r));
 				});
 			});
