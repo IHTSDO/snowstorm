@@ -440,6 +440,38 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testGciWithOneRelationshipError() throws ServiceException {
+		try {
+			conceptService.create(new Concept()
+							.addAxiom(new Relationship(ISA, CLINICAL_FINDING))
+							.addGeneralConceptInclusionAxiom(new Relationship(ISA, "131148009"))
+					, "MAIN");
+			fail("IllegalArgumentException should have been thrown.");
+		} catch (ServiceException e) {
+			fail("IllegalArgumentException should have been thrown.");
+		} catch (IllegalArgumentException e) {
+			assertEquals("The relationships of a GCI axiom must include at least one parent and one attribute.", e.getMessage());
+		}
+
+		try {
+			conceptService.create(new Concept()
+							.addAxiom(new Relationship(ISA, CLINICAL_FINDING))
+							.addGeneralConceptInclusionAxiom(new Relationship(ISA, "131148009"), new Relationship(ISA, CLINICAL_FINDING))
+					, "MAIN");
+			fail("IllegalArgumentException should have been thrown.");
+		} catch (ServiceException e) {
+			fail("IllegalArgumentException should have been thrown.");
+		} catch (IllegalArgumentException e) {
+			assertEquals("The relationships of a GCI axiom must include at least one parent and one attribute.", e.getMessage());
+		}
+
+		conceptService.create(new Concept()
+						.addAxiom(new Relationship(ISA, CLINICAL_FINDING))
+						.addGeneralConceptInclusionAxiom(new Relationship(ISA, "131148009"), new Relationship(FINDING_SITE, HEART_STRUCTURE))
+				, "MAIN");
+	}
+
+	@Test
 	public void testConceptInactivation() throws ServiceException {
 		String path = "MAIN";
 		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);

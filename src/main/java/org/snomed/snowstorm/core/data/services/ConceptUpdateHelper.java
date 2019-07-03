@@ -236,6 +236,20 @@ public class ConceptUpdateHelper extends ComponentService {
 				ConstraintViolation<Concept> violation = violations.iterator().next();
 				throw new IllegalArgumentException(String.format("Invalid concept property %s %s", violation.getPropertyPath().toString(), violation.getMessage()));
 			}
+			for (Axiom gciAxiom : Optional.ofNullable(concept.getGciAxioms()).orElse(Collections.emptySet())) {
+				boolean parentFound = false;
+				boolean attributeFound = false;
+				for (Relationship relationship : gciAxiom.getRelationships()) {
+					if (Concepts.ISA.equals(relationship.getTypeId())) {
+						parentFound = true;
+					} else {
+						attributeFound = true;
+					}
+				}
+				if (!parentFound || !attributeFound) {
+					throw new IllegalArgumentException("The relationships of a GCI axiom must include at least one parent and one attribute.");
+				}
+			}
 		}
 	}
 

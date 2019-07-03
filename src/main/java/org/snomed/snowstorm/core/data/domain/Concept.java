@@ -220,6 +220,13 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		return this;
 	}
 
+	public Concept addGeneralConceptInclusionAxiom(Relationship... axiomFragments) {
+		Axiom axiom = new Axiom(moduleId, true, Concepts.PRIMITIVE, Sets.newHashSet(axiomFragments));
+		axiom.getRelationships().forEach(r -> r.setSourceId(this.conceptId));
+		generalConceptInclusionAxioms.add(axiom);
+		return this;
+	}
+
 	public Set<ReferenceSetMember> getAllOwlAxiomMembers() {
 		Set<ReferenceSetMember> members = classAxioms.stream().map(Axiom::getReferenceSetMember).collect(Collectors.toSet());
 		members.addAll(generalConceptInclusionAxioms.stream().map(Axiom::getReferenceSetMember).collect(Collectors.toSet()));
