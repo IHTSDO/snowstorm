@@ -35,6 +35,8 @@
 		<elasticsearch.version>6.0.1</elasticsearch.version>
 		<hapi.version>3.8.0</hapi.version>
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
+		<!-- Spring Boot 2.0.1 needs specific tomcat version (8.5.41) which has fix for CVE-2019-10072 -->
+		<tomcat.version>8.5.41</tomcat.version>
 		<snomed-boot.version>1.12.1</snomed-boot.version>
 		<slf4j.version>1.7.5</slf4j.version>
 		<docker.image.prefix>snomedinternational</docker.image.prefix>
