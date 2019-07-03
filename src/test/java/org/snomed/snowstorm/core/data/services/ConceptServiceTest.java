@@ -501,6 +501,22 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testCreateObjectAttribute() throws ServiceException {
+		conceptService.create(new Concept(CONCEPT_MODEL_OBJECT_ATTRIBUTE)
+						.addFSN("Concept model object attribute (attribute)")
+						.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(ISA, CONCEPT_MODEL_ATTRIBUTE))))
+				, "MAIN");
+
+		Concept newAttributeConcept = new Concept("813815325507419009")
+				.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE))))
+				.addFSN("New attribute (attribute)");
+		newAttributeConcept = conceptService.create(newAttributeConcept, "MAIN");
+		Axiom axiom = newAttributeConcept.getClassAxioms().iterator().next();
+		assertEquals("SubObjectPropertyOf(:813815325507419009 :762705008)", axiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
+		assertEquals(PRIMITIVE, axiom.getDefinitionStatusId());
+	}
+
+	@Test
 	public void testSaveConceptWithDescriptionAndAcceptabilityTogether() throws ServiceException {
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
