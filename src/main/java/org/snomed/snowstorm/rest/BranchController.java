@@ -57,6 +57,20 @@ public class BranchController {
 		}
 		return allBranches;
 	}
+	
+	@ApiOperation("Retrieve branch descendants")
+	@RequestMapping(value = "/branches/{path}/children", method = RequestMethod.GET)
+	@ResponseBody
+	public List<Branch> retrieveBranchDescendants(
+			@PathVariable String path,
+			@RequestParam(required = false, defaultValue = "false") boolean immediateChildren) {
+		List<Branch> descendants = branchService.findChildren(BranchPathUriUtil.decodePath(path), immediateChildren);
+		// Clear metadata
+		for (Branch branch : descendants) {
+			branch.setMetadata(null);
+		}
+		return descendants;
+	}
 
 	@RequestMapping(value = "/branches", method = RequestMethod.POST)
 	@ResponseBody
