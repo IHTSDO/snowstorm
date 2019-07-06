@@ -5,6 +5,7 @@ import org.snomed.snowstorm.core.data.domain.Axiom;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.pojo.TermLangPojo;
 
 import java.util.Map;
 import java.util.Set;
@@ -15,7 +16,10 @@ public abstract class ConceptStoreMixIn {
 	abstract String getId();
 
 	@JsonIgnore
-	abstract String getFsn();
+	abstract TermLangPojo getFsn();
+
+	@JsonIgnore
+	abstract TermLangPojo getPt();
 
 	@JsonIgnore
 	abstract int getGroupId();

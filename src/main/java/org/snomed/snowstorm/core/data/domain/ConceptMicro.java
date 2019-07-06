@@ -11,13 +11,13 @@ public class ConceptMicro {
 	
 	public ConceptMicro(ConceptMini mini) {
 		this.id = mini.getConceptId();
-		this.term = mini.getFsn();
+		this.term = mini.getFsnTerm();
 		this.primitive = mini.isPrimitive();
 	}
 	
 	public ConceptMicro(Concept c) {
 		this.id = c.getConceptId();
-		this.term = c.getFsn();
+		this.term = c.getFsn().getTerm();
 		this.primitive = c.isPrimitive();
 	}
 

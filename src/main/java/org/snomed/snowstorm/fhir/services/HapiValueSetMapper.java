@@ -31,7 +31,7 @@ public class HapiValueSetMapper implements FHIRConstants {
 		for (ConceptMini concept : concepts) {
 			ValueSetExpansionContainsComponent component = expansion.addContains()
 				.setCode(concept.getConceptId())
-				.setDisplay(concept.getFsn())
+				.setDisplay(concept.getFsnTerm())
 				.setSystem(SNOMED_URI);
 			
 			if (conceptDetails != null && conceptDetails.containsKey(concept.getConceptId())) {

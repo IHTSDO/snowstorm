@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.google.common.collect.Sets;
+import org.snomed.snowstorm.core.pojo.TermLangPojo;
+import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -14,6 +16,8 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static org.snomed.snowstorm.core.util.DescriptionHelper.EN_LANGUAGE_CODE;
 
 @Document(indexName = "concept")
 @JsonPropertyOrder({"conceptId", "fsn", "active", "effectiveTime", "released", "releasedEffectiveTime",  "inactivationIndicator", "associationTargets",
@@ -120,13 +124,14 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	@JsonView(value = View.Component.class)
 	@Override
-	public String getFsn() {
-		for (Description description : descriptions) {
-			if (description.isActive() && description.getTypeId().equals(Concepts.FSN)) {
-				return description.getTerm();
-			}
-		}
-		return null;
+	public TermLangPojo getFsn() {
+		return DescriptionHelper.getFsnDescriptionTermAndLang(descriptions, EN_LANGUAGE_CODE);
+	}
+
+	@JsonView(value = View.Component.class)
+	@Override
+	public TermLangPojo getPt() {
+		return DescriptionHelper.getFsnDescriptionTermAndLang(descriptions, EN_LANGUAGE_CODE);
 	}
 
 	@JsonView(value = View.Component.class)

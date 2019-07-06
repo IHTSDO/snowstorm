@@ -244,7 +244,7 @@ public class ConceptController {
 			allConceptIds.addAll(conceptReferences.get(typeId));
 		}
 		Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branch, allConceptIds, ControllerHelper.getLanguageCodes(acceptLanguageHeader)).getResultsMap();
-		Set<TypeReferences> typeSets = new TreeSet<>(Comparator.comparing((type) -> type.getReferenceType().getFsn()));
+		Set<TypeReferences> typeSets = new TreeSet<>(Comparator.comparing((type) -> type.getReferenceType().getFsnTerm()));
 		for (Long typeId : conceptReferences.keySet()) {
 			ArrayList<ConceptMini> referencingConcepts = new ArrayList<>();
 			typeSets.add(new TypeReferences(conceptMiniMap.get(typeId.toString()), referencingConcepts));

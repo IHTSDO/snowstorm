@@ -14,7 +14,6 @@ import org.springframework.http.converter.HttpMessageNotWritableException;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.HashSet;
@@ -44,7 +43,7 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 					for (ConceptMini concept : (Collection<ConceptMini>) items) {
 						writer.write(concept.getConceptId());
 						writer.write(TAB);
-						writer.write(concept.getFsn());
+						writer.write(concept.getFsnTerm());
 						writer.write(TAB);
 						writer.write(concept.getEffectiveTime());
 						writer.write(TAB);

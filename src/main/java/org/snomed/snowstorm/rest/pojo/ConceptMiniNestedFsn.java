@@ -24,7 +24,7 @@ public class ConceptMiniNestedFsn {
 
 	@JsonView(value = View.Component.class)
 	public FSNHolder getFsn() {
-		String term = concept.getFsn();
+		String term = concept.getFsnTerm();
 		if (term != null) {
 			return new FSNHolder(term);
 		}

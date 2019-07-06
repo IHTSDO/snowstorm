@@ -171,7 +171,7 @@ public class ConceptControllerTest extends AbstractTest {
 		checkFields(responseBody);
 		LinkedHashMap<String, Object> properties = objectMapper.readValue(responseBody, LinkedHashMap.class);
 		assertEquals("[conceptId, fsn, active, effectiveTime, released, releasedEffectiveTime, moduleId, definitionStatus, " +
-				"descriptions, classAxioms, gciAxioms, relationships]", properties.keySet().toString());
+				"descriptions, classAxioms, gciAxioms, relationships, pt]", properties.keySet().toString());
 
 		// Simple Concept
 		responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/MAIN/concepts/257751006", String.class);

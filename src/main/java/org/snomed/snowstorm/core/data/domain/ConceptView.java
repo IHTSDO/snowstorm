@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import org.snomed.snowstorm.core.pojo.TermLangPojo;
 
 import java.util.Set;
 
@@ -8,7 +9,9 @@ import java.util.Set;
 public interface ConceptView {
 	String getConceptId();
 
-	String getFsn();
+	TermLangPojo getFsn();
+
+	TermLangPojo getPt();
 
 	String getEffectiveTime();
 

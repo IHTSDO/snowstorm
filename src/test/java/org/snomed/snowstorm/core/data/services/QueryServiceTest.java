@@ -64,28 +64,28 @@ public class QueryServiceTest extends AbstractTest {
 	public void testSearchResultOrdering() {
 		List<ConceptMini> matches = service.search(service.createQueryBuilder(true).activeFilter(true).termMatch("Piz"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(4, matches.size());
-		assertEquals("Pizza", matches.get(0).getFsn());
-		assertEquals("Cheese Pizza", matches.get(1).getFsn());
-		assertEquals("So Cheesy Pizza", matches.get(2).getFsn());
-		assertEquals("Really Cheesy Pizza", matches.get(3).getFsn());
+		assertEquals("Pizza", matches.get(0).getFsnTerm());
+		assertEquals("Cheese Pizza", matches.get(1).getFsnTerm());
+		assertEquals("So Cheesy Pizza", matches.get(2).getFsnTerm());
+		assertEquals("Really Cheesy Pizza", matches.get(3).getFsnTerm());
 
 		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(SNOMEDCT_ROOT)).termMatch("Piz"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(4, matches.size());
-		assertEquals("Pizza", matches.get(0).getFsn());
-		assertEquals("Cheese Pizza", matches.get(1).getFsn());
-		assertEquals("So Cheesy Pizza", matches.get(2).getFsn());
-		assertEquals("Really Cheesy Pizza", matches.get(3).getFsn());
+		assertEquals("Pizza", matches.get(0).getFsnTerm());
+		assertEquals("Cheese Pizza", matches.get(1).getFsnTerm());
+		assertEquals("So Cheesy Pizza", matches.get(2).getFsnTerm());
+		assertEquals("Really Cheesy Pizza", matches.get(3).getFsnTerm());
 
 		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termMatch("Piz"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(3, matches.size());
-		assertEquals("Cheese Pizza", matches.get(0).getFsn());
-		assertEquals("So Cheesy Pizza", matches.get(1).getFsn());
-		assertEquals("Really Cheesy Pizza", matches.get(2).getFsn());
+		assertEquals("Cheese Pizza", matches.get(0).getFsnTerm());
+		assertEquals("So Cheesy Pizza", matches.get(1).getFsnTerm());
+		assertEquals("Really Cheesy Pizza", matches.get(2).getFsnTerm());
 
 		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termMatch("Cheesy"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(2, matches.size());
-		assertEquals("So Cheesy Pizza", matches.get(0).getFsn());
-		assertEquals("Really Cheesy Pizza", matches.get(1).getFsn());
+		assertEquals("So Cheesy Pizza", matches.get(0).getFsnTerm());
+		assertEquals("Really Cheesy Pizza", matches.get(1).getFsnTerm());
 	}
 
 	@Test
@@ -93,7 +93,7 @@ public class QueryServiceTest extends AbstractTest {
 		Set<String> inactiveConceptId = Collections.singleton(inactivePizza_6.getId());
 		List<ConceptMini> content = service.search(service.createQueryBuilder(true).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent();
 		assertEquals(1, content.size());
-		assertEquals("Inactive Pizza", content.get(0).getFsn());
+		assertEquals("Inactive Pizza", content.get(0).getFsnTerm());
 
 		assertEquals(1, service.search(service.createQueryBuilder(true).termMatch("Inacti").definitionStatusFilter(Concepts.PRIMITIVE).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
 		assertEquals(0, service.search(service.createQueryBuilder(true).termMatch("Not").definitionStatusFilter(Concepts.PRIMITIVE).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());

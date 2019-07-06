@@ -221,9 +221,9 @@ public class ConceptServiceTest extends AbstractTest {
 		Relationship createdRelationship = concept.getRelationships().iterator().next();
 		assertNotNull(createdRelationship);
 		assertNotNull(createdRelationship.type());
-		assertEquals("Creation response should contain FSN within relationship type", "Is a (attribute)", createdRelationship.type().getFsn());
+		assertEquals("Creation response should contain FSN within relationship type", "Is a (attribute)", createdRelationship.type().getFsnTerm());
 		assertEquals("Creation response should contain definition status within relationship type", "PRIMITIVE", createdRelationship.type().getDefinitionStatus());
-		assertEquals("Creation response should contain FSN within relationship target", "SNOMED CT Concept", createdRelationship.target().getFsn());
+		assertEquals("Creation response should contain FSN within relationship target", "SNOMED CT Concept", createdRelationship.target().getFsnTerm());
 		assertEquals("Creation response should contain definition status within relationship target", "PRIMITIVE", createdRelationship.target().getDefinitionStatus());
 
 		assertEquals(3, concept.getRelationships().size());
@@ -231,9 +231,9 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals(3, foundConcept.getRelationships().size());
 
 		Relationship foundRelationship = foundConcept.getRelationships().iterator().next();
-		assertEquals("Find response should contain FSN within relationship type", "Is a (attribute)", foundRelationship.type().getFsn());
+		assertEquals("Find response should contain FSN within relationship type", "Is a (attribute)", foundRelationship.type().getFsnTerm());
 		assertEquals("Find response should contain definition status within relationship type", "PRIMITIVE", foundRelationship.type().getDefinitionStatus());
-		assertEquals("Find response should contain FSN within relationship target", "SNOMED CT Concept", foundRelationship.target().getFsn());
+		assertEquals("Find response should contain FSN within relationship target", "SNOMED CT Concept", foundRelationship.target().getFsnTerm());
 		assertEquals("Find response should contain definition status within relationship target", "PRIMITIVE", foundRelationship.target().getDefinitionStatus());
 
 		concept.getRelationships().remove(new Relationship("100003"));
@@ -243,9 +243,9 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals(2, conceptService.find("100001", "MAIN").getRelationships().size());
 
 		Relationship updatedRelationship = foundConcept.getRelationships().iterator().next();
-		assertEquals("Update response should contain FSN within relationship type", "Is a (attribute)", updatedRelationship.type().getFsn());
+		assertEquals("Update response should contain FSN within relationship type", "Is a (attribute)", updatedRelationship.type().getFsnTerm());
 		assertEquals("Update response should contain definition status within relationship type", "PRIMITIVE", updatedRelationship.type().getDefinitionStatus());
-		assertEquals("Update response should contain FSN within relationship target", "SNOMED CT Concept", updatedRelationship.target().getFsn());
+		assertEquals("Update response should contain FSN within relationship target", "SNOMED CT Concept", updatedRelationship.target().getFsnTerm());
 		assertEquals("Update response should contain definition status within relationship target", "PRIMITIVE", updatedRelationship.target().getDefinitionStatus());
 	}
 

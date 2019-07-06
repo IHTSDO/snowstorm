@@ -79,15 +79,15 @@ public class RelationshipChange {
 	}
 
 	public String getSourceFsn() {
-		return source != null ? source.getFsn() : null;
+		return source != null ? source.getFsnTerm() : null;
 	}
 
 	public String getTypeFsn() {
-		return type != null ? type.getFsn() : null;
+		return type != null ? type.getFsnTerm() : null;
 	}
 
 	public String getDestinationFsn() {
-		return destination != null ? destination.getFsn() : null;
+		return destination != null ? destination.getFsnTerm() : null;
 	}
 
 	public String getCharacteristicTypeId() {

@@ -1,14 +1,15 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonRawValue;
 import com.fasterxml.jackson.annotation.JsonView;
+import org.snomed.snowstorm.core.pojo.TermLangPojo;
+import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.rest.View;
 
-import java.util.*;
-import java.util.function.Function;
-import java.util.function.Predicate;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ConceptMini {
@@ -22,7 +23,6 @@ public class ConceptMini {
 	private Boolean leafStated;
 	private String moduleId;
 	private Boolean active;
-	private boolean flattenFsn;
 
 	public ConceptMini() {
 		activeDescriptions = new HashSet<>();
@@ -69,65 +69,19 @@ public class ConceptMini {
 		return effectiveTime;
 	}
 
-	public String getFsn() {
-		Description description = getFsnDescription();
-		return description != null ? description.getTerm() : null;
+	@JsonView(value = View.Component.class)
+	public TermLangPojo getFsn() {
+		return DescriptionHelper.getFsnDescriptionTermAndLang(activeDescriptions, languageCodes);
 	}
 
-	private Description getFsnDescription() {
-		return getBestDescription(description -> Concepts.FSN.equals(description.getTypeId()));
-	}
-
-	public String getPt() {
-		Description description = getPtDescription();
-		return description != null ? description.getTerm() : null;
-	}
-
-	private Description getPtDescription() {
-		return getBestDescription(description -> Concepts.SYNONYM.equals(description.getTypeId()) && description.getAcceptabilityMap().values().contains(Concepts.PREFERRED_CONSTANT));
-	}
-
-	private Description getBestDescription(Predicate<Description> descriptionPredicate) {
-		Map<String, Description> descriptionsByLanguageCode = new HashMap<>();
-		for (Description activeDescription : activeDescriptions) {
-			if (descriptionPredicate.test(activeDescription)) {
-				descriptionsByLanguageCode.put(activeDescription.getLanguageCode(), activeDescription);
-			}
-		}
-		if (languageCodes != null) {
-			for (String languageCode : languageCodes) {
-				if (descriptionsByLanguageCode.containsKey(languageCode)) {
-					return descriptionsByLanguageCode.get(languageCode);
-				}
-			}
-		}
-		return null;
+	@JsonIgnore
+	public String getFsnTerm() {
+		return getFsn().getTerm();
 	}
 
 	@JsonView(value = View.Component.class)
-	@JsonRawValue
-	@JsonProperty("fsn")
-	public String getJsonFsn() {
-		return getJsonTerm(getFsnDescription());
-	}
-
-	@JsonView(value = View.Component.class)
-	@JsonRawValue
-	@JsonProperty("pt")
-	public String getJsonPt() {
-		return getJsonTerm(getPtDescription());
-	}
-
-	private String getJsonTerm(Description description) {
-		if (description == null) return null;
-		String term = description.getTerm();
-		if (term != null) {
-			// Manually escape quotes because returned as JSON Raw Value
-			term = term.replace("\"", "\\\"");
-		}
-		return flattenFsn ?
-				String.format("\"%s\"", term) :
-				String.format("{ \"term\": \"%s\", \"lang\": \"%s\", \"conceptId\": \"%s\" }", term, description.getLang(), conceptId);
+	public TermLangPojo getPt() {
+		return DescriptionHelper.getPtDescriptionTermAndLang(activeDescriptions, languageCodes);
 	}
 
 	public void setDefinitionStatusId(String definitionStatusId) {
@@ -199,12 +153,4 @@ public class ConceptMini {
 		this.active = active;
 	}
 
-	/**
-	 * Changes the way that the FSN is returned in the JSON representation.
-	 * By default the FSN is displayed as an object with a term and conceptId property.
-	 * Calling this method results in just the term being returned as the value of the fsn property.
-	 */
-	public void flattenFsn() {
-		this.flattenFsn = true;
-	}
 }

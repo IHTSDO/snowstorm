@@ -17,8 +17,7 @@ import org.snomed.snowstorm.core.data.repositories.config.RelationshipStoreMixIn
 
 import java.io.IOException;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class ConceptSerialisationTest {
 
@@ -70,6 +69,7 @@ public class ConceptSerialisationTest {
 		assertFalse(conceptJson.contains("allOwlAxiomMembers"));
 
 		assertTrue(conceptJson.contains("fsn"));
+		assertTrue(conceptJson.contains("pt"));
 		assertTrue(conceptJson.contains("descriptions"));
 		assertTrue(conceptJson.contains("relationships"));
 		assertTrue(conceptJson.contains("classAxioms"));
@@ -81,6 +81,8 @@ public class ConceptSerialisationTest {
 		final String conceptJson = storeObjectMapper.writeValueAsString(new Concept("123", null, true, "33", "900000000000074008"));
 		System.out.println(conceptJson);
 		assertFalse(conceptJson.contains("fsn"));
+		assertFalse(conceptJson.contains("\"fsn\""));
+		assertFalse(conceptJson.contains("\"pt\""));
 		assertFalse(conceptJson.contains("idField"));
 		assertFalse(conceptJson.contains("descriptions"));
 		assertFalse(conceptJson.contains("relationships"));
