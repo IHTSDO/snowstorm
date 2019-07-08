@@ -1,5 +1,8 @@
 package org.snomed.snowstorm.core.pojo;
 
+import com.fasterxml.jackson.annotation.JsonView;
+import org.snomed.snowstorm.rest.View;
+
 public class TermLangPojo {
 
 	private String term;
@@ -13,6 +16,7 @@ public class TermLangPojo {
 		this.lang = lang;
 	}
 
+	@JsonView(value = View.Component.class)
 	public String getTerm() {
 		return term;
 	}
@@ -21,6 +25,7 @@ public class TermLangPojo {
 		this.term = term;
 	}
 
+	@JsonView(value = View.Component.class)
 	public String getLang() {
 		return lang;
 	}
