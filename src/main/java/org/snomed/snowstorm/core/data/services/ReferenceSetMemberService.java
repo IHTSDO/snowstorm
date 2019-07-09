@@ -92,9 +92,13 @@ public class ReferenceSetMemberService extends ComponentService {
 	 * @return	A page of matched reference set members.
 	 */
 	public Page<ReferenceSetMember> findMembers(String branch, MemberSearchRequest searchRequest, PageRequest pageRequest) {
-
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BoolQueryBuilder query = buildMemberQuery(searchRequest, branch, branchCriteria);
+		return elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+				.withQuery(query).withPageable(pageRequest).build(), ReferenceSetMember.class);
+	}
 
+	private BoolQueryBuilder buildMemberQuery(MemberSearchRequest searchRequest, String branch, BranchCriteria branchCriteria) {
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
 
 		if (searchRequest.getActive() != null) {
@@ -135,9 +139,7 @@ public class ReferenceSetMemberService extends ComponentService {
 				query.mustNot(gciClause);
 			}
 		}
-
-		return elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
-				.withQuery(query).withPageable(pageRequest).build(), ReferenceSetMember.class);
+		return query;
 	}
 
 	private ECLQueryService getEclQueryService() {
@@ -355,16 +357,11 @@ public class ReferenceSetMemberService extends ComponentService {
 		return member;
 	}
 
-	public PageWithBucketAggregations<ReferenceSetMember> findReferenceSetMembersWithAggregations(String path, PageRequest pageRequest, Boolean active) {
-
-		BranchCriteria branchCriteria  = versionControlHelper.getBranchCriteria(path);
-		BoolQueryBuilder boolQueryBuilder = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
-		if (active != null) {
-			boolQueryBuilder.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, active.booleanValue()));
-		}
-
+	public PageWithBucketAggregations<ReferenceSetMember> findReferenceSetMembersWithAggregations(String branch, PageRequest pageRequest, MemberSearchRequest searchRequest) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BoolQueryBuilder query = buildMemberQuery(searchRequest, branch, branchCriteria);
 		SearchQuery searchQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQueryBuilder)
+				.withQuery(query)
 				.withPageable(pageRequest)
 				.addAggregation(AggregationBuilders.terms("referenceSetIds").field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE))
 				.build();

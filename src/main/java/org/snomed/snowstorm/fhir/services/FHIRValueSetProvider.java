@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
@@ -265,7 +266,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 	
 	private Page<ConceptMini> findAllRefsets(String branchPath, PageRequest pageRequest) {
-		PageWithBucketAggregations<ReferenceSetMember> bucketPage = refsetService.findReferenceSetMembersWithAggregations(branchPath, pageRequest, true);
+		PageWithBucketAggregations<ReferenceSetMember> bucketPage = refsetService.findReferenceSetMembersWithAggregations(branchPath, pageRequest, new MemberSearchRequest().active(true));
 		List<ConceptMini> refsets = new ArrayList<>();
 		if (bucketPage.getBuckets() != null && bucketPage.getBuckets().containsKey("referenceSetIds")) {
 			refsets = bucketPage.getBuckets().get("referenceSetIds").keySet().stream()

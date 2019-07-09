@@ -249,7 +249,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 		memberService.createMember(
 				MAIN, new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION, Concepts.CLINICAL_FINDING));
 
-		PageWithBucketAggregations<ReferenceSetMember> allResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), null);
+		PageWithBucketAggregations<ReferenceSetMember> allResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), new MemberSearchRequest());
 		assertNotNull(allResults);
 		String key = allResults.getBuckets().keySet().iterator().next();
 
@@ -257,14 +257,14 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 		assertEquals(1, allResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
 		assertEquals(2, allResults.getBuckets().get(key).get("723264001").intValue());
 
-		PageWithBucketAggregations<ReferenceSetMember> activeResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), true);
+		PageWithBucketAggregations<ReferenceSetMember> activeResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), new MemberSearchRequest().active(true));
 		assertNotNull(activeResults);
 		assertEquals(2, activeResults.getBuckets().get(key).values().size());
 		assertEquals(1, activeResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
 		assertEquals(1, activeResults.getBuckets().get(key).get("723264001").intValue());
 
 
-		PageWithBucketAggregations<ReferenceSetMember> inActiveResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), false);
+		PageWithBucketAggregations<ReferenceSetMember> inActiveResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), new MemberSearchRequest().active(false));
 		assertNotNull(inActiveResults);
 		assertEquals(1, inActiveResults.getBuckets().get(key).size());
 		assertEquals(1, inActiveResults.getBuckets().get(key).get("723264001").intValue());
@@ -281,23 +281,28 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 		memberService.createMember(
 				MAIN, new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION, Concepts.CLINICAL_FINDING));
 
-		PageWithBucketAggregations<ReferenceSetMember> allResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), null);
+		PageWithBucketAggregations<ReferenceSetMember> allResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), new MemberSearchRequest());
 		assertNotNull(allResults);
+		assertEquals(2, allResults.getBuckets().get("referenceSetIds").size());
 		String key = allResults.getBuckets().keySet().iterator().next();
 
 		assertEquals(2, allResults.getBuckets().get(key).values().size());
 		assertEquals(1, allResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
 		assertEquals(1, allResults.getBuckets().get(key).get("723264001").intValue());
 
-		PageWithBucketAggregations<ReferenceSetMember> activeResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), true);
+		PageWithBucketAggregations<ReferenceSetMember> activeResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), new MemberSearchRequest().active(true));
 		assertNotNull(activeResults);
 		assertEquals(1, activeResults.getBuckets().get(key).values().size());
 		assertEquals(1, activeResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
 
-		PageWithBucketAggregations<ReferenceSetMember> inActiveResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), false);
+		PageWithBucketAggregations<ReferenceSetMember> inActiveResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), new MemberSearchRequest().active(false));
 		assertNotNull(inActiveResults);
 		assertEquals(1, inActiveResults.getBuckets().get(key).size());
 		assertEquals(1, inActiveResults.getBuckets().get(key).get("723264001").intValue());
+
+		assertEquals(1, memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), new MemberSearchRequest().referenceSet(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION))
+				.getBuckets().get("referenceSetIds").size());
+
 	}
 
 
