@@ -58,7 +58,7 @@ public class CodeSystemIntegrationTest extends AbstractTest {
 	// We inactivate an international concept then see the extension break when it's upgraded.
 	public void createCodeSystemsWithContentTestingUpgrade() throws IOException, ReleaseImportException, ServiceException {
 		// Create international code system
-		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN", "International Edition", ""));
 
 		// Import dummy international content
 		File snomedBase = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
@@ -71,7 +71,7 @@ public class CodeSystemIntegrationTest extends AbstractTest {
 
 
 		// Create extension code system
-		CodeSystem extensionCodeSystem = new CodeSystem("SNOMEDCT-BE", "MAIN/2018-07-31/SNOMEDCT-BE");
+		CodeSystem extensionCodeSystem = new CodeSystem("SNOMEDCT-BE", "MAIN/2018-07-31/SNOMEDCT-BE", "Belgian Edition", "be");
 		codeSystemService.createCodeSystem(extensionCodeSystem);
 
 		// Import dummy extension content

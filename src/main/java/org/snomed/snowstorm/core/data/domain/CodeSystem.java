@@ -23,6 +23,12 @@ public class CodeSystem {
 	private String shortName;
 
 	@Field(type = FieldType.keyword)
+	private String name;
+
+	@Field(type = FieldType.keyword)
+	private String countryCode;
+
+	@Field(type = FieldType.keyword)
 	private String branchPath;
 
 	public CodeSystem() {
@@ -33,12 +39,35 @@ public class CodeSystem {
 		this.branchPath = branchPath;
 	}
 
+	public CodeSystem(String shortName, String branchPath, String name, String countryCode) {
+		this.shortName = shortName;
+		this.branchPath = branchPath;
+		this.name = name;
+		this.countryCode = countryCode;
+	}
+
 	public String getShortName() {
 		return shortName;
 	}
 
 	public void setShortName(String shortName) {
 		this.shortName = shortName;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getCountryCode() {
+		return countryCode;
+	}
+
+	public void setCountryCode(String countryCode) {
+		this.countryCode = countryCode;
 	}
 
 	public String getBranchPath() {
