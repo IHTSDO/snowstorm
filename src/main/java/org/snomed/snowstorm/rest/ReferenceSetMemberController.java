@@ -41,14 +41,14 @@ public class ReferenceSetMemberController {
 	@JsonView(value = View.Component.class)
 	public PageWithBucketAggregations<ReferenceSetMember> findBrowserReferenceSetMembersWithAggregations(
 			@PathVariable String branch,
-			@RequestParam(required = false) Boolean activeMember,
+			@RequestParam(required = false) Boolean active,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "10") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		String path = BranchPathUriUtil.decodePath(branch);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
-		PageWithBucketAggregations<ReferenceSetMember> page = memberService.findReferenceSetMembersWithAggregations(path, pageRequest, activeMember);
+		PageWithBucketAggregations<ReferenceSetMember> page = memberService.findReferenceSetMembersWithAggregations(path, pageRequest, active);
 
 		 Map<String, Map<String, Long>> buckets = page.getBuckets();
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);

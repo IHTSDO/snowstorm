@@ -355,12 +355,12 @@ public class ReferenceSetMemberService extends ComponentService {
 		return member;
 	}
 
-	public PageWithBucketAggregations<ReferenceSetMember> findReferenceSetMembersWithAggregations(String path, PageRequest pageRequest, Boolean activeMember) {
+	public PageWithBucketAggregations<ReferenceSetMember> findReferenceSetMembersWithAggregations(String path, PageRequest pageRequest, Boolean active) {
 
 		BranchCriteria branchCriteria  = versionControlHelper.getBranchCriteria(path);
 		BoolQueryBuilder boolQueryBuilder = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
-		if (activeMember != null) {
-			boolQueryBuilder.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, activeMember.booleanValue()));
+		if (active != null) {
+			boolQueryBuilder.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, active.booleanValue()));
 		}
 
 		SearchQuery searchQuery = new NativeSearchQueryBuilder()
