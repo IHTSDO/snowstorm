@@ -6,6 +6,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -35,6 +36,9 @@ public class CodeSystem {
 
 	@Transient
 	private List<String> languages;
+
+	@Transient
+	private Collection<ConceptMini> modules;
 
 	public CodeSystem() {
 	}
@@ -89,6 +93,14 @@ public class CodeSystem {
 
 	public void setLanguages(List<String> languages) {
 		this.languages = languages;
+	}
+
+	public Collection<ConceptMini> getModules() {
+		return modules;
+	}
+
+	public void setModules(Collection<ConceptMini> modules) {
+		this.modules = modules;
 	}
 
 	@Override
