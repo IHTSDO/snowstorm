@@ -1,27 +1,34 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.google.common.collect.Lists;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import org.elasticsearch.search.aggregations.Aggregation;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
-import java.util.ConcurrentModificationException;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
@@ -51,6 +58,9 @@ public class CodeSystemService {
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
+
+	@Autowired
+	private VersionControlHelper versionControlHelper;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -131,11 +141,34 @@ public class CodeSystemService {
 	}
 
 	public List<CodeSystem> findAll() {
-		return repository.findAll(PageRequest.of(0, 1000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent();
+		List<CodeSystem> codeSystems = repository.findAll(PageRequest.of(0, 1000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent();
+		joinContentInformation(codeSystems);
+		return codeSystems;
+	}
+
+	private void joinContentInformation(List<CodeSystem> codeSystems) {
+		for (CodeSystem codeSystem : codeSystems) {
+			String branchPath = codeSystem.getBranchPath();
+			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+			AggregatedPage<Description> descriptionPage = (AggregatedPage<Description>) elasticsearchOperations.queryForPage(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteria.getEntityBranchCriteria(Description.class))
+							.must(termQuery(Description.Fields.ACTIVE, true)))
+					.withPageable(PageRequest.of(0, 1))
+					.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
+					.build(), Description.class);
+			PageWithBucketAggregations<Description> page = PageWithBucketAggregationsFactory.createPage(descriptionPage, descriptionPage.getAggregations().asList());
+			Map<String, Long> languagesOfActiveDescriptions = page.getBuckets().get("language");
+			ArrayList<String> langs = Lists.newArrayList(languagesOfActiveDescriptions.keySet());
+			langs.sort(null);
+			codeSystem.setLanguages(langs);
+		}
 	}
 
 	public CodeSystem find(String codeSystemShortName) {
-		return repository.findById(codeSystemShortName).orElse(null);
+		Optional<CodeSystem> codeSystem = repository.findById(codeSystemShortName);
+		codeSystem.ifPresent(c -> joinContentInformation(Collections.singletonList(c)));
+		return codeSystem.orElse(null);
 	}
 
 	public CodeSystem findByDefaultModule(String moduleId) {

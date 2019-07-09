@@ -1,10 +1,12 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -30,6 +32,9 @@ public class CodeSystem {
 
 	@Field(type = FieldType.keyword)
 	private String branchPath;
+
+	@Transient
+	private List<String> languages;
 
 	public CodeSystem() {
 	}
@@ -76,6 +81,14 @@ public class CodeSystem {
 
 	public void setBranchPath(String branchPath) {
 		this.branchPath = branchPath;
+	}
+
+	public List<String> getLanguages() {
+		return languages;
+	}
+
+	public void setLanguages(List<String> languages) {
+		this.languages = languages;
 	}
 
 	@Override
