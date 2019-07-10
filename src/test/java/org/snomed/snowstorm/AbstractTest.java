@@ -9,6 +9,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 public abstract class AbstractTest {
 
+	public static final String MAIN = "MAIN";
+
 	@Autowired
 	private BranchService branchService;
 
@@ -20,7 +22,7 @@ public abstract class AbstractTest {
 
 	@Before
 	public void before() {
-		branchService.create("MAIN");
+		branchService.create(MAIN);
 	}
 
 	@After
