@@ -63,7 +63,6 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Before
 	public void setup() {
-		branchService.create("MAIN");
 		testUtil = new ServiceTestUtil(conceptService);
 		objectMapper = new ObjectMapper();
 		DeserializationConfig deserializationConfig = objectMapper.getDeserializationConfig().without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);

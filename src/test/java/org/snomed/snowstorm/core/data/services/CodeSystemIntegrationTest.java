@@ -48,11 +48,6 @@ public class CodeSystemIntegrationTest extends AbstractTest {
 	@Autowired
 	private ConceptService conceptService;
 
-	@Before
-	public void setup() {
-		branchService.create("MAIN");
-	}
-
 	@Test
 	// We set up content for the international edition and an extension.
 	// We inactivate an international concept then see the extension break when it's upgraded.

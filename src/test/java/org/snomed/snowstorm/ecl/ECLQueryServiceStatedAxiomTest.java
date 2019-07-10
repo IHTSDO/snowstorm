@@ -27,8 +27,6 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 
 	@Before
 	public void setup() throws ServiceException {
-		branchService.create(MAIN);
-
 		List<Concept> allConcepts = new ArrayList<>();
 
 		allConcepts.add(new Concept(SNOMEDCT_ROOT));

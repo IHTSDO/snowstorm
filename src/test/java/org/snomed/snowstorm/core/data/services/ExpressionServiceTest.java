@@ -49,7 +49,6 @@ public class ExpressionServiceTest extends AbstractTest {
 
 	@Before
 	public void setup() throws ServiceException {
-		branchService.create("MAIN");
 		branchService.create(EXPRESSION_TEST_BRANCH);
 		root = createConcept(SNOMEDCT_ROOT, (Concept)null, PRIMITIVE);
 		//ISA needs to exist to use in it's own definition!

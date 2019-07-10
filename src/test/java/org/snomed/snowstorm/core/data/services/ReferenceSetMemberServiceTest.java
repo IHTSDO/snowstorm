@@ -46,7 +46,6 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	@Before
 	public void setup() throws ServiceException {
 		conceptService.deleteAll();
-		branchService.create(MAIN);
 		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), MAIN);
 		conceptService.create(new Concept(Concepts.CLINICAL_FINDING)
 				.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);

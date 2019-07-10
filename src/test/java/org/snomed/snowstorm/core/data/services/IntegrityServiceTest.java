@@ -46,7 +46,6 @@ public class IntegrityServiceTest extends AbstractTest {
 		Test the method that checks all the components visible on the branch.
 	 */
 	public void testFindAllComponentsWithBadIntegrity() throws ServiceException {
-		branchService.create("MAIN");
 		branchService.create("MAIN/project");
 
 		branchService.create("MAIN/project/test1");
@@ -139,7 +138,6 @@ public class IntegrityServiceTest extends AbstractTest {
 		The purpose of this method is to check only what's changed for speed but to block promotion until changes are fixed.
 	 */
 	public void testFindChangedComponentsWithBadIntegrity() throws ServiceException {
-		branchService.create("MAIN");
 		branchService.create("MAIN/project");
 
 		branchService.create("MAIN/project/test1");

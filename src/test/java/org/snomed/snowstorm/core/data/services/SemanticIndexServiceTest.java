@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
-import io.kaicode.elasticvc.api.BranchService;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -20,7 +19,7 @@ import java.util.Set;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static java.lang.Long.parseLong;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 
@@ -32,16 +31,12 @@ public class SemanticIndexServiceTest extends AbstractTest {
 	private SemanticIndexService semanticIndexService;
 
 	@Autowired
-	private BranchService branchService;
-
-	@Autowired
 	private ConceptService conceptService;
 
 	public static final String PATH = "MAIN";
 
 	@Before
 	public void setup() throws ServiceException {
-		branchService.create("MAIN");
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept allOrPartOf = new Concept(Concepts.ALL_OR_PART_OF).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("All or part of (attribute)");
 		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Pizza");

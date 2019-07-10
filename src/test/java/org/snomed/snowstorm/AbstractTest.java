@@ -2,6 +2,7 @@ package org.snomed.snowstorm;
 
 import io.kaicode.elasticvc.api.BranchService;
 import org.junit.After;
+import org.junit.Before;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +17,11 @@ public abstract class AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Before
+	public void before() {
+		branchService.create("MAIN");
+	}
 
 	@After
 	public void defaultTearDown() {

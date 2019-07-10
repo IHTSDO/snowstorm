@@ -2,7 +2,6 @@ package org.snomed.snowstorm.ecl;
 
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
-import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.junit.Before;
@@ -83,9 +82,6 @@ public class ECLQueryServiceTest extends AbstractTest {
 	protected ECLQueryService eclQueryService;
 
 	@Autowired
-	protected BranchService branchService;
-
-	@Autowired
 	protected ConceptService conceptService;
 
 	@Autowired
@@ -102,8 +98,6 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 	@Before
 	public void setup() throws ServiceException {
-		branchService.create(MAIN);
-
 		List<Concept> allConcepts = new ArrayList<>();
 
 		allConcepts.add(new Concept(SNOMEDCT_ROOT));

@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.validation;
 
-import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.junit.Assert;
 import org.junit.Before;
@@ -23,9 +22,6 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 public class RelationshipDroolsValidationServiceTest extends AbstractTest {
 
 	@Autowired
-	private BranchService branchService;
-
-	@Autowired
 	private ConceptService conceptService;
 
 	@Autowired
@@ -39,7 +35,6 @@ public class RelationshipDroolsValidationServiceTest extends AbstractTest {
 	@Before
 	public void setup() throws ServiceException {
 		String branchPath = "MAIN";
-		branchService.create(branchPath);
 		conceptService.create(new Concept("100001").addRelationship(
 				new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
 				branchPath);

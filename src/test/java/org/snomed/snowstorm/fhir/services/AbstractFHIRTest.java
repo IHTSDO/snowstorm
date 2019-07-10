@@ -72,7 +72,6 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		
 		fhirJsonParser = FhirContext.forR4().newJsonParser();
 		
-		branchService.create(MAIN);
 		HttpHeaders headers = new HttpHeaders();
 		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
 		defaultRequestEntity = new HttpEntity<>(headers);

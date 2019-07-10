@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
-import io.kaicode.elasticvc.api.BranchService;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,9 +33,6 @@ public class QueryServiceTest extends AbstractTest {
 	private QueryService service;
 
 	@Autowired
-	private BranchService branchService;
-
-	@Autowired
 	private ConceptService conceptService;
 
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
@@ -50,7 +46,6 @@ public class QueryServiceTest extends AbstractTest {
 
 	@Before
 	public void setup() throws ServiceException {
-		branchService.create("MAIN");
 		root = new Concept(SNOMEDCT_ROOT);
 		pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Pizza");
 		cheesePizza_3 = new Concept("100005").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza");

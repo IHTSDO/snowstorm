@@ -38,7 +38,6 @@ public class AtomicCommitTest extends AbstractTest {
 
 	@Before
 	public void setup() {
-		branchService.create("MAIN");
 		branchService.create("MAIN/task");
 	}
 

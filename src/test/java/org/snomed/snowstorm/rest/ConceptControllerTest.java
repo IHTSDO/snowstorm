@@ -57,8 +57,6 @@ public class ConceptControllerTest extends AbstractTest {
 
 	@Before
 	public void setup() throws ServiceException, InterruptedException {
-		branchService.create("MAIN");
-
 		// Create dummy concept with descriptions containing quotes
 		String conceptId = "257751006";
 		Concept concept = conceptService.create(

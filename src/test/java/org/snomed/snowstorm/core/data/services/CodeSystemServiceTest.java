@@ -1,7 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import io.kaicode.elasticvc.api.BranchService;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
@@ -20,14 +18,6 @@ public class CodeSystemServiceTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
-
-	@Autowired
-	private BranchService branchService;
-
-	@Before
-	public void setup() {
-		branchService.create("MAIN");
-	}
 
 	@Test
 	public void createCodeSystems() {

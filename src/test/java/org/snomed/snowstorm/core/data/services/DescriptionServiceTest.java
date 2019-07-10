@@ -49,7 +49,6 @@ public class DescriptionServiceTest extends AbstractTest {
 
 	@Before
 	public void setup() {
-		branchService.create("MAIN");
 		testUtil = new ServiceTestUtil(conceptService);
 	}
 

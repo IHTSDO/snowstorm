@@ -49,7 +49,6 @@ public class ConceptServiceAttributeTest extends AbstractTest {
 
 	@Before
 	public void setup() throws IOException {
-		branchService.create(PATH);
 		File rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/RF2Release");
 		File completeOwlRf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/conversion-to-complete-owl");
 		importRF2(RF2Type.SNAPSHOT, rf2Archive, PATH);

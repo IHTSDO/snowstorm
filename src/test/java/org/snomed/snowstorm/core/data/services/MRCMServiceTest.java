@@ -1,9 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import static org.junit.Assert.assertEquals;
-
-import java.util.Collection;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -17,16 +13,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import com.fasterxml.jackson.databind.*;
+import java.util.Collection;
 
-import io.kaicode.elasticvc.api.BranchService;
+import static org.junit.Assert.assertEquals;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
 public class MRCMServiceTest extends AbstractTest {
-
-	@Autowired
-	private BranchService branchService;
 
 	@Autowired
 	private MRCMService mrcmService;
@@ -36,7 +29,6 @@ public class MRCMServiceTest extends AbstractTest {
 	
 	@Before
 	public void setup() throws ServiceException {
-		branchService.create("MAIN");
 		conceptService.create(new Concept(Concepts.ISA, "10000111"), "MAIN");
 	}
 	

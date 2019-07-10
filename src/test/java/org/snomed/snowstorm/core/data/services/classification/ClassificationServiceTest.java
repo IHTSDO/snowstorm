@@ -1,7 +1,5 @@
 package org.snomed.snowstorm.core.data.services.classification;
 
-import io.kaicode.elasticvc.api.BranchService;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
@@ -36,17 +34,7 @@ public class ClassificationServiceTest extends AbstractTest {
 	private RelationshipChangeRepository relationshipChangeRepository;
 
 	@Autowired
-	private BranchService branchService;
-
-	@Autowired
 	private ConceptService conceptService;
-
-	private String path = "MAIN";
-
-	@Before
-	public void setup() {
-		branchService.create(path);
-	}
 
 	@Test
 	public void testSaveRelationshipChanges() throws IOException, ServiceException {
@@ -56,7 +44,7 @@ public class ClassificationServiceTest extends AbstractTest {
 						.addAxiom(
 								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT),
 								new Relationship("363698007", "84301002")
-						), path);
+						), "MAIN");
 
 		// Save mock classification results with mix of previously stated and new triples
 		classificationService.saveRelationshipChanges("123", new ByteArrayInputStream(("" +

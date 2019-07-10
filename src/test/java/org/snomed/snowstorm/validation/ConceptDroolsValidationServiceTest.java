@@ -1,8 +1,6 @@
 package org.snomed.snowstorm.validation;
 
-import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import org.ihtsdo.drools.exception.RuleExecutorException;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -24,9 +22,6 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 public class ConceptDroolsValidationServiceTest extends AbstractTest {
 
 	@Autowired
-	private BranchService branchService;
-
-	@Autowired
 	private ConceptService conceptService;
 
 	@Autowired
@@ -43,7 +38,6 @@ public class ConceptDroolsValidationServiceTest extends AbstractTest {
 	@Before
 	public void setup() throws ServiceException {
 		String branch = "MAIN";
-		branchService.create(branch);
 		conceptService.create(new Concept("100001", null, true, "10000111", Concepts.PRIMITIVE), branch);
 		conceptService.create(new Concept("100002", null, false, "10000111", Concepts.PRIMITIVE), branch);
 

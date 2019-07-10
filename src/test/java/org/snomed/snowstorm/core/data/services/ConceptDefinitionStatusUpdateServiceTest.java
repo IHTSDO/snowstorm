@@ -57,11 +57,6 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 	@Autowired
 	private BranchMetadataHelper branchMetadataHelper;
 
-	@Before
-	public void setUp() {
-		branchService.create(MAIN);
-	}
-
 	@Test
 	public void testNewConceptAuthoring() throws ServiceException {
 		//create a new concept with class axiom

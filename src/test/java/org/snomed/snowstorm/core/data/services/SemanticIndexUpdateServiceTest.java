@@ -60,11 +60,6 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 
-	@Before
-	public void setup() {
-		branchService.create("MAIN");
-	}
-
 	@Test
 	public void testCommitListenerOrderingConfig() {
 		List<CommitListener> commitListeners = branchService.getCommitListeners();
