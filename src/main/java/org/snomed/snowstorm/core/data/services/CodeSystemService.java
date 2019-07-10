@@ -6,9 +6,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
-import org.elasticsearch.search.aggregations.bucket.range.InternalGeoDistance;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.slf4j.Logger;
@@ -28,9 +26,11 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -68,6 +68,9 @@ public class CodeSystemService {
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
+
+	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
+	private final ConcurrentHashMap<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -156,6 +159,22 @@ public class CodeSystemService {
 	private void joinContentInformation(List<CodeSystem> codeSystems) {
 		for (CodeSystem codeSystem : codeSystems) {
 			String branchPath = codeSystem.getBranchPath();
+
+			// Pull from cache
+			Branch latestBranch = branchService.findLatest(branchPath);
+			if (latestBranch == null) continue;
+			Pair<Date, CodeSystem> dateCodeSystemPair = contentInformationCache.get(branchPath);
+			if (dateCodeSystemPair != null) {
+				if (dateCodeSystemPair.getFirst().equals(latestBranch.getHead())) {
+					codeSystem.setLanguages(dateCodeSystemPair.getSecond().getLanguages());
+					codeSystem.setModules(dateCodeSystemPair.getSecond().getModules());
+					continue;
+				} else {
+					// Remove expired cache entry
+					contentInformationCache.remove(branchPath);
+				}
+			}
+
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 
 			List<String> acceptableLanguageCodes = new ArrayList<>(DEFAULT_LANGUAGE_CODES);
@@ -194,6 +213,9 @@ public class CodeSystemService {
 						.getBuckets().get("module");
 				codeSystem.setModules(conceptService.findConceptMinis(branchCriteria, modulesOfActiveMembers.keySet(), acceptableLanguageCodes).getResultsMap().values());
 			}
+
+			// Add to cache
+			contentInformationCache.put(branchPath, Pair.of(latestBranch.getHead(), codeSystem));
 		}
 	}
 
