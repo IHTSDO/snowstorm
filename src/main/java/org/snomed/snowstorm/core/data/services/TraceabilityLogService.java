@@ -208,7 +208,7 @@ public class TraceabilityLogService implements CommitListener {
 		this.activityConsumer = activityConsumer;
 	}
 
-	void setEnabled(boolean enabled) {
+	public void setEnabled(boolean enabled) {
 		this.enabled = enabled;
 	}
 
