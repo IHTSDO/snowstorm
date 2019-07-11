@@ -5,7 +5,7 @@ target
 *.iml
 /data
 /release
-application-*.properties
+/application-*.properties
 *.log
 /resources
 *.sh
