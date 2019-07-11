@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.Stack;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -92,8 +93,16 @@ public class TraceabilityLogServiceTest extends AbstractTest {
 	}
 
 	public Activity getActivity() throws InterruptedException {
-		Thread.sleep(2_000);
-		return activitiesLogged.isEmpty() ? null : activitiesLogged.pop();
+		int maxWait = 20;
+		int waited = 0;
+		while (activitiesLogged.isEmpty() && waited < maxWait) {
+			Thread.sleep(1_000);
+			waited++;
+		}
+		if (activitiesLogged.isEmpty()) {
+			fail("No message received.");
+		}
+		return activitiesLogged.pop();
 	}
 
 	@Test
