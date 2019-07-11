@@ -9,6 +9,9 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jms.annotation.JmsListener;
@@ -59,6 +62,33 @@ public class TraceabilityLogServiceTest extends AbstractTest {
 
 		Activity activity = getActivity();
 		assertEquals("Creating concept New concept", activity.getCommitComment());
+
+		// Add description
+		concept.addDescription(new Description("another"));
+		conceptService.update(concept, MAIN);
+		activity = getActivity();
+		assertEquals("Updating concept New concept", activity.getCommitComment());
+		assertEquals(1, activity.getChanges().size());
+
+		// Add axiom
+		concept.addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING));
+		conceptService.update(concept, MAIN);
+		activity = getActivity();
+		assertEquals("Updating concept New concept", activity.getCommitComment());
+		assertEquals(1, activity.getChanges().size());
+
+		// Add inferred relationship
+		concept.addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING).setInferred(true));
+		conceptService.update(concept, MAIN);
+		activity = getActivity();
+		assertEquals("Classified ontology.", activity.getCommitComment());
+		assertEquals(1, activity.getChanges().size());
+
+		// Update concept with no change
+		conceptService.update(concept, MAIN);
+		activity = getActivity();
+		assertEquals("No concept changes.", activity.getCommitComment());
+		assertEquals(0, activity.getChanges().size());
 	}
 
 	public Activity getActivity() throws InterruptedException {
@@ -70,13 +100,13 @@ public class TraceabilityLogServiceTest extends AbstractTest {
 	public void createCommitCommentRebase() {
 		Commit commit = new Commit(new Branch("MAIN/A"), Commit.CommitType.REBASE, null, null);
 		commit.setSourceBranchPath("MAIN");
-		assertEquals("kkewley performed merge of MAIN to MAIN/A", traceabilityLogService.createCommitComment("kkewley", commit, Collections.emptySet()));
+		assertEquals("kkewley performed merge of MAIN to MAIN/A", traceabilityLogService.createCommitComment("kkewley", commit, Collections.emptySet(), true, false));
 	}
 
 	@Test
 	public void createCommitCommentPromotion() {
 		Commit commit = new Commit(new Branch("MAIN"), Commit.CommitType.PROMOTION, null, null);
 		commit.setSourceBranchPath("MAIN/A");
-		assertEquals("kkewley performed merge of MAIN/A to MAIN", traceabilityLogService.createCommitComment("kkewley", commit, Collections.emptySet()));
+		assertEquals("kkewley performed merge of MAIN/A to MAIN", traceabilityLogService.createCommitComment("kkewley", commit, Collections.emptySet(), true, false));
 	}
 }

@@ -105,6 +105,7 @@ public class ConceptUpdateHelper extends ComponentService {
 
 			// Mark changed concepts as changed
 			if (existingConcept != null) {
+				concept.setCreating(false);// May have been set true earlier during first save
 				concept.setChanged(concept.isComponentChanged(existingConcept) || savingMergedConcepts);
 				concept.copyReleaseDetails(existingConcept);
 				concept.updateEffectiveTime();
@@ -421,6 +422,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			final C existingComponent = map.get(newComponent.getId());
 			newComponent.setChanged(newComponent.isComponentChanged(existingComponent) || rebase);
 			if (existingComponent != null) {
+				newComponent.setCreating(false);// May have been set true earlier
 				newComponent.copyReleaseDetails(existingComponent);
 				newComponent.updateEffectiveTime();
 			} else {

@@ -19,9 +19,8 @@ public class Activity {
 	public Activity() {
 	}
 
-	public Activity(String userId, String commitComment, String branchPath, Long commitTimestamp) {
+	public Activity(String userId, String branchPath, Long commitTimestamp) {
 		this.userId = userId;
-		this.commitComment = commitComment;
 		this.branchPath = branchPath;
 		this.commitTimestamp = commitTimestamp;
 		changes = new HashMap<>();
