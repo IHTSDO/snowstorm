@@ -40,6 +40,9 @@ public class CodeSystem {
 	@Transient
 	private Collection<ConceptMini> modules;
 
+	@Transient
+	private CodeSystemVersion latestVersion;
+
 	public CodeSystem() {
 	}
 
@@ -101,6 +104,14 @@ public class CodeSystem {
 
 	public void setModules(Collection<ConceptMini> modules) {
 		this.modules = modules;
+	}
+
+	public CodeSystemVersion getLatestVersion() {
+		return latestVersion;
+	}
+
+	public void setLatestVersion(CodeSystemVersion latestVersion) {
+		this.latestVersion = latestVersion;
 	}
 
 	@Override

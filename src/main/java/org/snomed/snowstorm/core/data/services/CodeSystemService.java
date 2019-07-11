@@ -160,14 +160,22 @@ public class CodeSystemService {
 		for (CodeSystem codeSystem : codeSystems) {
 			String branchPath = codeSystem.getBranchPath();
 
-			// Pull from cache
 			Branch latestBranch = branchService.findLatest(branchPath);
 			if (latestBranch == null) continue;
+
+			// Lookup latest version
+			List<CodeSystemVersion> versions = versionRepository.findByShortNameOrderByEffectiveDateDesc(codeSystem.getShortName());
+			if (!versions.isEmpty()) {
+				codeSystem.setLatestVersion(versions.get(0));
+			}
+
+			// Pull from cache
 			Pair<Date, CodeSystem> dateCodeSystemPair = contentInformationCache.get(branchPath);
 			if (dateCodeSystemPair != null) {
 				if (dateCodeSystemPair.getFirst().equals(latestBranch.getHead())) {
-					codeSystem.setLanguages(dateCodeSystemPair.getSecond().getLanguages());
-					codeSystem.setModules(dateCodeSystemPair.getSecond().getModules());
+					CodeSystem cachedCodeSystem = dateCodeSystemPair.getSecond();
+					codeSystem.setLanguages(cachedCodeSystem.getLanguages());
+					codeSystem.setModules(cachedCodeSystem.getModules());
 					continue;
 				} else {
 					// Remove expired cache entry
