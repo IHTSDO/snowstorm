@@ -19,6 +19,7 @@ import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
+import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -304,5 +305,13 @@ public class CodeSystemService {
 		} catch (ConcurrentModificationException e) {
 			throw new ServiceException("Code system migration failed.", e);
 		}
+	}
+
+	public CodeSystem update(CodeSystem codeSystem, CodeSystemUpdateRequest updateRequest) {
+		codeSystem.setName(updateRequest.getName());
+		codeSystem.setCountryCode(updateRequest.getCountryCode());
+		codeSystem.setBranchPath(updateRequest.getBranchPath());
+		repository.save(codeSystem);
+		return codeSystem;
 	}
 }

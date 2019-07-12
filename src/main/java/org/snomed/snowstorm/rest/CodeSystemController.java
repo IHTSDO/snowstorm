@@ -7,6 +7,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.rest.pojo.CodeSystemMigrationRequest;
+import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.snomed.snowstorm.rest.pojo.CreateCodeSystemVersionRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,15 @@ public class CodeSystemController {
 	@ResponseBody
 	public CodeSystem findCodeSystem(@PathVariable String shortName) {
 		return ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName));
+	}
+
+	@ApiOperation("Update a code system")
+	@RequestMapping(value = "/{shortName}", method = RequestMethod.PUT)
+	@ResponseBody
+	public CodeSystem updateCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpdateRequest updateRequest) {
+		CodeSystem codeSystem = findCodeSystem(shortName);
+		codeSystemService.update(codeSystem, updateRequest);
+		return findCodeSystem(shortName);
 	}
 
 	@ApiOperation("Retrieve all code system versions")
