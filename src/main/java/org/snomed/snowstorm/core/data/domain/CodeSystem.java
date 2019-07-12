@@ -7,7 +7,7 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.Collection;
-import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -35,7 +35,7 @@ public class CodeSystem {
 	private String branchPath;
 
 	@Transient
-	private List<String> languages;
+	private Map<String, String> languages;
 
 	@Transient
 	private Collection<ConceptMini> modules;
@@ -90,11 +90,11 @@ public class CodeSystem {
 		this.branchPath = branchPath;
 	}
 
-	public List<String> getLanguages() {
+	public Map<String, String> getLanguages() {
 		return languages;
 	}
 
-	public void setLanguages(List<String> languages) {
+	public void setLanguages(Map<String, String> languages) {
 		this.languages = languages;
 	}
 

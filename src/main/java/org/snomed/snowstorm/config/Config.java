@@ -29,6 +29,7 @@ import org.snomed.snowstorm.core.data.domain.classification.EquivalentConcepts;
 import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.data.domain.jobs.IdentifiersForRegistration;
+import org.snomed.snowstorm.core.data.repositories.config.CodeSystemMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.ConceptStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.DescriptionStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.RelationshipStoreMixIn;
@@ -191,6 +192,7 @@ public abstract class Config {
 				.failOnUnknownProperties(false)
 				.serializationInclusion(JsonInclude.Include.NON_NULL)
 				.mixIn(Branch.class, BranchStoreMixIn.class)
+				.mixIn(CodeSystem.class, CodeSystemMixIn.class)
 				.mixIn(Concept.class, ConceptStoreMixIn.class)
 				.mixIn(Description.class, DescriptionStoreMixIn.class)
 				.mixIn(Relationship.class, RelationshipStoreMixIn.class)

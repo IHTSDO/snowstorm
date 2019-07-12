@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -19,6 +18,7 @@ import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
+import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -202,10 +202,10 @@ public class CodeSystemService {
 						.stream().map(Terms.Bucket::getKeyAsString).collect(Collectors.toSet());
 				acceptableLanguageCodes.addAll(allLanguageCodes.stream().filter(code -> !acceptableLanguageCodes.contains(code)).collect(Collectors.toList()));
 
-				Map<String, Long> fullLanguageNamesOfActiveDescriptions = PageWithBucketAggregationsFactory.createPage(descriptionPage, descriptionPage.getAggregations().asList())
-						.getBuckets().get("language");
-				List<String> langs = Lists.newArrayList(fullLanguageNamesOfActiveDescriptions.keySet());
-				langs.sort(null);
+				Map<String, String> langs = new TreeMap<>();
+				for (String languageCode : allLanguageCodes) {
+					langs.put(languageCode, LangUtil.convertLanguageCodeToName(languageCode));
+				}
 				codeSystem.setLanguages(langs);
 			}
 

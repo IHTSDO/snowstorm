@@ -4,12 +4,12 @@ import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.converter.AggregationNameConverter;
 import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 public class PageWithBucketAggregationsFactory {
@@ -22,7 +22,7 @@ public class PageWithBucketAggregationsFactory {
 
 		@Override
 		public String convert(String aggregationName) {
-			return new Locale(aggregationName).getDisplayLanguage().toLowerCase();
+			return LangUtil.convertLanguageCodeToName(aggregationName).toLowerCase();
 		}
 	};
 
