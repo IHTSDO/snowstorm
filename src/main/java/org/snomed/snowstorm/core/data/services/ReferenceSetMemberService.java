@@ -51,6 +51,7 @@ public class ReferenceSetMemberService extends ComponentService {
 
 	private static final Set<String> LANG_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
 	private static final Set<String> OWL_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION);
+	public static final String AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET = "memberCountsByReferenceSet";
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -363,7 +364,7 @@ public class ReferenceSetMemberService extends ComponentService {
 		SearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(query)
 				.withPageable(pageRequest)
-				.addAggregation(AggregationBuilders.terms("memberCountsByReferenceSet").field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE))
+				.addAggregation(AggregationBuilders.terms(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET).field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE))
 				.build();
 
 		AggregatedPage<ReferenceSetMember> pageResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(searchQuery, ReferenceSetMember.class);

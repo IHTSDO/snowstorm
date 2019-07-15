@@ -32,6 +32,8 @@ import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 
+import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
+
 @Component
 public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	
@@ -268,8 +270,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private Page<ConceptMini> findAllRefsets(String branchPath, PageRequest pageRequest) {
 		PageWithBucketAggregations<ReferenceSetMember> bucketPage = refsetService.findReferenceSetMembersWithAggregations(branchPath, pageRequest, new MemberSearchRequest().active(true));
 		List<ConceptMini> refsets = new ArrayList<>();
-		if (bucketPage.getBuckets() != null && bucketPage.getBuckets().containsKey("referenceSetIds")) {
-			refsets = bucketPage.getBuckets().get("referenceSetIds").keySet().stream()
+		if (bucketPage.getBuckets() != null && bucketPage.getBuckets().containsKey(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET)) {
+			refsets = bucketPage.getBuckets().get(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET).keySet().stream()
 					.map(s -> new ConceptMini(s, null))
 					.collect(Collectors.toList());
 		}

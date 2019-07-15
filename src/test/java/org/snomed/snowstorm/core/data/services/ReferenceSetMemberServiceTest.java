@@ -23,6 +23,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.util.Arrays;
 
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -282,7 +283,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 
 		PageWithBucketAggregations<ReferenceSetMember> allResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), new MemberSearchRequest());
 		assertNotNull(allResults);
-		assertEquals(2, allResults.getBuckets().get("memberCountsByReferenceSet").size());
+		assertEquals(2, allResults.getBuckets().get(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET).size());
 		String key = allResults.getBuckets().keySet().iterator().next();
 
 		assertEquals(2, allResults.getBuckets().get(key).values().size());
@@ -300,7 +301,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 		assertEquals(1, inActiveResults.getBuckets().get(key).get("723264001").intValue());
 
 		assertEquals(1, memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), new MemberSearchRequest().referenceSet(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION))
-				.getBuckets().get("memberCountsByReferenceSet").size());
+				.getBuckets().get(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET).size());
 
 	}
 
