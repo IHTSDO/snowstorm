@@ -363,7 +363,7 @@ public class ReferenceSetMemberService extends ComponentService {
 		SearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(query)
 				.withPageable(pageRequest)
-				.addAggregation(AggregationBuilders.terms("referenceSetIds").field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE))
+				.addAggregation(AggregationBuilders.terms("memberCountsByReferenceSet").field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE))
 				.build();
 
 		AggregatedPage<ReferenceSetMember> pageResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(searchQuery, ReferenceSetMember.class);

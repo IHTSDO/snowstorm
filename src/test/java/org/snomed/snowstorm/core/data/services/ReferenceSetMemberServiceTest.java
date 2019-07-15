@@ -282,7 +282,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 
 		PageWithBucketAggregations<ReferenceSetMember> allResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), new MemberSearchRequest());
 		assertNotNull(allResults);
-		assertEquals(2, allResults.getBuckets().get("referenceSetIds").size());
+		assertEquals(2, allResults.getBuckets().get("memberCountsByReferenceSet").size());
 		String key = allResults.getBuckets().keySet().iterator().next();
 
 		assertEquals(2, allResults.getBuckets().get(key).values().size());
@@ -300,7 +300,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 		assertEquals(1, inActiveResults.getBuckets().get(key).get("723264001").intValue());
 
 		assertEquals(1, memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), new MemberSearchRequest().referenceSet(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION))
-				.getBuckets().get("referenceSetIds").size());
+				.getBuckets().get("memberCountsByReferenceSet").size());
 
 	}
 

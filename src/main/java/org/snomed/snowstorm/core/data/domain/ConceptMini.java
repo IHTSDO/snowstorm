@@ -1,15 +1,14 @@
 package org.snomed.snowstorm.core.data.domain;
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.rest.View;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class ConceptMini {
@@ -23,6 +22,7 @@ public class ConceptMini {
 	private Boolean leafStated;
 	private String moduleId;
 	private Boolean active;
+	private Map<String, Object> extraFields;
 
 	public ConceptMini() {
 		activeDescriptions = new HashSet<>();
@@ -102,6 +102,22 @@ public class ConceptMini {
 		definitionStatusId = Concepts.definitionStatusNames.inverse().get(definitionStatusName);
 	}
 
+	public void addExtraField(String name, Object value) {
+		if (extraFields == null) {
+			extraFields = new HashMap<>();
+		}
+		extraFields.put(name, value);
+	}
+
+	@JsonView(value = View.Component.class)
+	@JsonAnyGetter
+	public Map<String, Object> getExtraFields() {
+		return extraFields;
+	}
+
+	public void setExtraFields(Map<String, Object> extraFields) {
+		this.extraFields = extraFields;
+	}
 
 	public ConceptMini setLeaf(Relationship.CharacteristicType relationshipType, boolean bool) {
 		switch (relationshipType) {
