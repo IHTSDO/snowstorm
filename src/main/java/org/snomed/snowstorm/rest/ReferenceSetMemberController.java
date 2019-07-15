@@ -63,7 +63,7 @@ public class ReferenceSetMemberController {
 			@RequestParam(defaultValue = "10") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		String path = BranchPathUriUtil.decodePath(branch);
+		branch = BranchPathUriUtil.decodePath(branch);
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 
@@ -72,22 +72,23 @@ public class ReferenceSetMemberController {
 				.active(active)
 				.referenceSet(referenceSet)
 				.referencedComponentId(referencedComponentId);
-		PageWithBucketAggregations<ReferenceSetMember> page = memberService.findReferenceSetMembersWithAggregations(path, pageRequest, searchRequest);
+		PageWithBucketAggregations<ReferenceSetMember> page = memberService.findReferenceSetMembersWithAggregations(branch, pageRequest, searchRequest);
 
 		Set<String> referenceSetIds = page.getBuckets().get("memberCountsByReferenceSet").keySet();
 
 		// Find refset type
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		Map<String, String> refsetTypes = new HashMap<>();
+		String branchPath = branch;
 		referenceSetIds.forEach(referenceSetId -> {
-			Page<Long> parent = eclQueryService.selectConceptIds("<!" + Concepts.REFSET + " AND >>" + referenceSetId, branchCriteria, branch, true, LARGE_PAGE);
+			Page<Long> parent = eclQueryService.selectConceptIds("<!" + Concepts.REFSET + " AND >>" + referenceSetId, branchCriteria, branchPath, true, LARGE_PAGE);
 			if (!parent.getContent().isEmpty()) {
 				refsetTypes.put(referenceSetId, parent.getContent().get(0).toString());
 			}
 		});
 
 		// Load concept minis
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(path, Sets.union(referenceSetIds, new HashSet<>(refsetTypes.values())), languageCodes).getResultsMap();
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, Sets.union(referenceSetIds, new HashSet<>(refsetTypes.values())), languageCodes).getResultsMap();
 		Map<String, ConceptMini> referenceSets = new HashMap<>();
 		for (String referenceSetId : referenceSetIds) {
 			ConceptMini refsetMini = conceptMinis.get(referenceSetId);
