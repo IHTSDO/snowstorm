@@ -7,8 +7,8 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import org.apache.commons.lang3.SerializationUtils;
 import org.elasticsearch.common.util.set.Sets;
-import org.modelmapper.ModelMapper;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
@@ -49,9 +49,6 @@ public class ReferenceSetMemberController {
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
-
-	@Autowired
-	private ModelMapper modelMapper;
 
 	@ApiOperation("Search for reference set ids")
 	@RequestMapping(value = "/browser/{branch}/members", method = RequestMethod.GET)
@@ -100,8 +97,7 @@ public class ReferenceSetMemberController {
 					// If refset equals type then clone before adding field to prevent infinite recursion!
 					ConceptMini typeConcept = conceptMinis.get(type);
 					if (refsetMini == typeConcept) {
-						typeConcept = new ConceptMini();
-						modelMapper.map(refsetMini, typeConcept);
+						typeConcept = SerializationUtils.clone(typeConcept);
 					}
 					refsetMini.addExtraField("referenceSetType", typeConcept);
 				}
