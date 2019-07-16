@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.util;
 
+import org.apache.lucene.analysis.miscellaneous.ASCIIFoldingFilter;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
@@ -44,6 +45,26 @@ public class DescriptionHelper {
 			}
 		}
 		return null;
+	}
+
+	public static String foldTerm(String term, Set<Character> charactersNotFolded) {
+		if (charactersNotFolded == null || charactersNotFolded.isEmpty()) {
+			return term;
+		}
+		char[] chars = term.toLowerCase().toCharArray();
+		char[] charsFolded = new char[chars.length];
+
+		// Fold all characters
+		ASCIIFoldingFilter.foldToASCII(chars, 0, charsFolded, 0, chars.length);
+
+		// Restore characters which should not be folded
+		for (int i = 0; i < chars.length; i++) {
+			if (charactersNotFolded.contains(chars[i])) {
+				charsFolded[i] = chars[i];
+			}
+		}
+
+		return new String(charsFolded);
 	}
 
 }

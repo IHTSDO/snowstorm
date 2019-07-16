@@ -8,11 +8,15 @@ import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.repositories.*;
+import org.snomed.snowstorm.core.data.repositories.ConceptRepository;
+import org.snomed.snowstorm.core.data.repositories.DescriptionRepository;
+import org.snomed.snowstorm.core.data.repositories.RelationshipRepository;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierReservedBlock;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
+import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.core.util.MapUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -51,6 +55,9 @@ public class ConceptUpdateHelper extends ComponentService {
 
 	@Autowired
 	private AxiomConversionService axiomConversionService;
+
+	@Autowired
+	private SearchLanguagesConfiguration searchLanguagesConfiguration;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -377,6 +384,11 @@ public class ConceptUpdateHelper extends ComponentService {
 	 * Persists description updates within commit.
 	 */
 	public void doSaveBatchDescriptions(Collection<Description> descriptions, Commit commit) {
+		Map<String, Set<Character>> charactersNotFoldedSets = searchLanguagesConfiguration.getCharactersNotFoldedSets();
+		for (Description description : descriptions) {
+			description.setTermFolded(DescriptionHelper.foldTerm(description.getTerm(),
+					charactersNotFoldedSets.getOrDefault(description.getLanguageCode(), Collections.emptySet())));
+		}
 		doSaveBatchComponents(descriptions, commit, "descriptionId", descriptionRepository);
 	}
 

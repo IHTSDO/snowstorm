@@ -52,6 +52,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.PropertySource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.EntityMapper;
@@ -96,6 +97,7 @@ import static springfox.documentation.builders.PathSelectors.regex;
 				"org.snomed.snowstorm.fhir.repositories"
 		})
 @EnableConfigurationProperties
+@PropertySource(value = "classpath:application.properties", encoding = "UTF-8")
 @EnableAsync
 public abstract class Config {
 
@@ -319,6 +321,12 @@ public abstract class Config {
 	@ConfigurationProperties(prefix = "codesystem")
 	public CodeSystemConfigurationService getCodeSystemConfigurationService() {
 		return new CodeSystemConfigurationService();
+	}
+
+	@Bean
+	@ConfigurationProperties(prefix = "search.language")
+	public SearchLanguagesConfiguration searchLanguagesConfiguration() {
+		return new SearchLanguagesConfiguration();
 	}
 
 	@Bean

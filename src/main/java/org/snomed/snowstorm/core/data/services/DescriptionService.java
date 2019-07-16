@@ -412,18 +412,18 @@ public class DescriptionService extends ComponentService {
 					if (term.endsWith("$")) {
 						term = term.substring(0, term.length()-1);
 					}
-					boolBuilder.must(regexpQuery(Description.Fields.TERM_RAW, term));
+					boolBuilder.must(regexpQuery(Description.Fields.TERM, term));
 				} else {
 					// Must match one of the following 'should' clauses:
 					boolBuilder.must(boolQuery()
 
 									// All given words. Match Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query.html
-									.should(matchQuery(Description.Fields.TERM, term)
+									.should(matchQuery(Description.Fields.TERM_FOLDED, term)
 											.operator(Operator.AND))
 
 									// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
 									.should(simpleQueryStringQuery((term.trim().replace(" ", "* ") + "*") .replace("**", "*"))
-											.field(Description.Fields.TERM).defaultOperator(Operator.AND))
+											.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND))
 							// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
 					);
 				}
