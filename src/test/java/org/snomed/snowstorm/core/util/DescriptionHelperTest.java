@@ -14,9 +14,20 @@ public class DescriptionHelperTest {
 		HashSet<Character> charactersNotFolded = Sets.newHashSet('å', 'ä', 'ö', 'Å', 'Ä', 'Ö');
 
 		// Swedish character ä not folded
-		assertEquals("Hjärta", DescriptionHelper.foldTerm("Hjärta", charactersNotFolded));
+		assertEquals("hjärta", DescriptionHelper.foldTerm("Hjärta", charactersNotFolded));
 
 		// Swedish character é is folded
-		assertEquals("Lasegues test", DescriptionHelper.foldTerm("Laségues test", charactersNotFolded));
+		assertEquals("lasegues test", DescriptionHelper.foldTerm("Laségues test", charactersNotFolded));
+
+		// æ is folded to ae
+		assertEquals("spaelsau sheep breed (organism) spaelsau", DescriptionHelper.foldTerm("Spælsau sheep breed (organism) Spælsau", charactersNotFolded));
+	}
+
+	@Test
+	public void combinedCharactersNotFolded() {
+		HashSet<Character> charactersNotFolded = Sets.newHashSet('æ');
+
+		// æ is not folded
+		assertEquals("spælsau sheep breed (organism) spælsau", DescriptionHelper.foldTerm("Spælsau sheep breed (organism) Spælsau", charactersNotFolded));
 	}
 }

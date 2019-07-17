@@ -48,23 +48,30 @@ public class DescriptionHelper {
 	}
 
 	public static String foldTerm(String term, Set<Character> charactersNotFolded) {
-		if (charactersNotFolded == null || charactersNotFolded.isEmpty()) {
+		if (charactersNotFolded == null) {
 			return term;
 		}
 		char[] chars = term.toLowerCase().toCharArray();
-		char[] charsFolded = new char[chars.length];
+		char[] charsFolded = new char[chars.length * 2];
 
 		// Fold all characters
-		ASCIIFoldingFilter.foldToASCII(chars, 0, charsFolded, 0, chars.length);
-
-		// Restore characters which should not be folded
-		for (int i = 0; i < chars.length; i++) {
-			if (charactersNotFolded.contains(chars[i])) {
-				charsFolded[i] = chars[i];
+		int charsFoldedOffset = 0;
+		try {
+			for (int i = 0; i < chars.length; i++) {
+				if (charactersNotFolded.contains(chars[i])) {
+					charsFolded[charsFoldedOffset] = chars[i];
+				} else {
+					int length = ASCIIFoldingFilter.foldToASCII(chars, i, charsFolded, charsFoldedOffset, 1);
+					if (length != charsFoldedOffset + 1) {
+						charsFoldedOffset = length - 1;
+					}
+				}
+				charsFoldedOffset++;
 			}
+		} catch (ArrayIndexOutOfBoundsException e) {
+			throw e;
 		}
-
-		return new String(charsFolded);
+		return new String(charsFolded, 0, charsFoldedOffset);
 	}
 
 }
