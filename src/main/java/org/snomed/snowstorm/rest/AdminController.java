@@ -4,11 +4,11 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
-import org.snomed.snowstorm.core.data.services.ConceptDefinitionStatusUpdateService;
-import org.snomed.snowstorm.core.data.services.SemanticIndexUpdateService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+
+import java.io.IOException;
 
 @RestController
 @Api(tags = "Admin", description = "-")
@@ -20,6 +20,20 @@ public class AdminController {
 
 	@Autowired
 	private ConceptDefinitionStatusUpdateService definitionStatusUpdateService;
+
+	@Autowired
+	private AdminOperationsService adminOperationsService;
+
+	@ApiOperation(value = "Rebuild the description index.",
+			notes = "Use this if the search configuration for international character handling of a language has been " +
+					"set or updated after importing content of that language. " +
+					"The descriptions of the specified language will be reindexed on all branches using the new configuration. " +
+					"N.B. Snowstorm must be restarted to read the new configuration.")
+	@RequestMapping(value = "/admin/actions/rebuild-description-index-for-language", method = RequestMethod.POST)
+	public void rebuildDescriptionIndexForLanguage(@RequestParam String languageCode) throws IOException {
+		ControllerHelper.requiredParam(languageCode, "languageCode");
+		adminOperationsService.reindexDescriptionsForLanguage(languageCode);
+	}
 
 	@ApiOperation(value = "Rebuild the semantic index of the branch.",
 			notes = "You are unlikely to need this action. " +
