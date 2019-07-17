@@ -134,7 +134,6 @@ public class DescriptionService extends ComponentService {
 		Collection<Long> descriptionIdsGroupedByConcept = new LongArrayList();
 		Collection<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria, conceptActive, groupByConcept, descriptionIdsGroupedByConcept);
 		BoolQueryBuilder descriptionFilter = boolQuery();
-		descriptionFilter.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds));
 		if (groupByConcept) {
 			descriptionFilter.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsGroupedByConcept));
 		}
@@ -190,9 +189,10 @@ public class DescriptionService extends ComponentService {
 		timer.checkpoint("Concept refset membership aggregation");
 
 		// Perform description search with description property aggregations
+		descriptionFilter.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds));
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(descriptionCriteria)
-				.withFilter(descriptionFilter)
+				.withQuery(descriptionCriteria
+						.filter(descriptionFilter))
 				.addAggregation(AggregationBuilders.terms("module").field(Description.Fields.MODULE_ID))
 				.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
 				.withPageable(pageRequest);

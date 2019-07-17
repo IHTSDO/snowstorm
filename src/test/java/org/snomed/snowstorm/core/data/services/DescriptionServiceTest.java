@@ -10,6 +10,7 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
@@ -82,7 +83,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
 		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)");
 		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
-		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
+		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (so pizza)");
 		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		setModulesAndLanguage(concepts);
 		conceptService.batchCreate(concepts, path);
@@ -93,17 +94,32 @@ public class DescriptionServiceTest extends AbstractTest {
 				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE, "100005")
 		));
 
-		Map<String, Map<String, Long>> foodAggs = descriptionService.findDescriptionsWithAggregations(path, "food", PageRequest.of(0, 10)).getBuckets();
+		PageWithBucketAggregations<Description> page = descriptionService.findDescriptionsWithAggregations(path, "food", PageRequest.of(0, 10));
+		assertEquals(1, page.getTotalElements());
+		assertEquals(1, page.getContent().size());
+		Map<String, Map<String, Long>> foodAggs = page.getBuckets();
 		assertEquals("{900000000000207008=1}", getAggregationString("module", foodAggs));
 		assertEquals("{english=1}", getAggregationString("language", foodAggs));
 		assertEquals("{food=1}", getAggregationString("semanticTags", foodAggs));
 		assertEquals("{}", getAggregationString("membership", foodAggs));
 
-		Map<String, Map<String, Long>> pizzaAggs = descriptionService.findDescriptionsWithAggregations(path, "pizza", PageRequest.of(0, 10)).getBuckets();
+		page = descriptionService.findDescriptionsWithAggregations(path, "pizza", PageRequest.of(0, 10));
+		assertEquals(3, page.getTotalElements());
+		assertEquals(3, page.getContent().size());
+		Map<String, Map<String, Long>> pizzaAggs = page.getBuckets();
 		assertEquals("{900000000000207008=3}", getAggregationString("module", pizzaAggs));
 		assertEquals("{english=3}", getAggregationString("language", pizzaAggs));
-		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaAggs));
+		assertEquals("{pizza=2, so pizza=1}", getAggregationString("semanticTags", pizzaAggs));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", pizzaAggs));
+
+		page = descriptionService.findDescriptionsWithAggregations(path, "pizza", true, true, "so pizza", false, null, Sets.newHashSet("en"), PageRequest.of(0, 10));
+		assertEquals(1, page.getTotalElements());
+		assertEquals(1, page.getContent().size());
+		Map<String, Map<String, Long>> soPizzaAggs = page.getBuckets();
+		assertEquals("{900000000000207008=1}", getAggregationString("module", soPizzaAggs));
+		assertEquals("{english=1}", getAggregationString("language", soPizzaAggs));
+		assertEquals("{so pizza=1}", getAggregationString("semanticTags", soPizzaAggs));
+		assertEquals("{723592007=1}", getAggregationString("membership", soPizzaAggs));
 	}
 
 	@Test
