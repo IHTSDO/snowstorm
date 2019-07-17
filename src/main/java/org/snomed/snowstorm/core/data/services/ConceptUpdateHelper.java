@@ -68,13 +68,10 @@ public class ConceptUpdateHelper extends ComponentService {
 	@Autowired
 	private IdentifierService identifierService;
 
-	private final ValidatorFactory validatorFactory;
+	@Autowired
+	private ValidatorService validatorService;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
-
-	public ConceptUpdateHelper() {
-		validatorFactory = Validation.buildDefaultValidatorFactory();
-	}
 
 	PersistedComponents saveNewOrUpdatedConcepts(Collection<Concept> concepts, Commit commit, Map<String, Concept> existingConceptsMap) throws ServiceException {
 		final boolean savingMergedConcepts = commit.isRebase();
@@ -237,13 +234,8 @@ public class ConceptUpdateHelper extends ComponentService {
 	}
 
 	private void validateConcepts(Collection<Concept> concepts) {
-		Validator validator = validatorFactory.getValidator();
+		validatorService.validate(concepts);
 		for (Concept concept : concepts) {
-			Set<ConstraintViolation<Concept>> violations = validator.validate(concept);
-			if (!violations.isEmpty()) {
-				ConstraintViolation<Concept> violation = violations.iterator().next();
-				throw new IllegalArgumentException(String.format("Invalid concept property %s %s", violation.getPropertyPath().toString(), violation.getMessage()));
-			}
 			for (Axiom gciAxiom : Optional.ofNullable(concept.getGciAxioms()).orElse(Collections.emptySet())) {
 				boolean parentFound = false;
 				boolean attributeFound = false;

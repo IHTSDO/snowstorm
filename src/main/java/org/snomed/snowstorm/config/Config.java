@@ -3,8 +3,6 @@ package org.snomed.snowstorm.config;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
-
-import ca.uhn.fhir.parser.IParser;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -140,8 +138,6 @@ public abstract class Config {
 	@Autowired
 	private ElasticsearchTemplate elasticsearchTemplate;
 	
-	protected IParser fhirJsonParser;
-
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct

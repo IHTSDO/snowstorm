@@ -8,6 +8,7 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
@@ -70,6 +71,12 @@ public class CodeSystemService {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
+	@Autowired
+	private ValidatorService validatorService;
+
+	@Autowired
+	private ModelMapper modelMapper;
+
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
 	private final ConcurrentHashMap<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
 
@@ -87,6 +94,7 @@ public class CodeSystemService {
 	}
 
 	public synchronized void createCodeSystem(CodeSystem codeSystem) {
+		validatorService.validate(codeSystem);
 		if (repository.findById(codeSystem.getShortName()).isPresent()) {
 			throw new IllegalArgumentException("A code system already exists with this short name.");
 		}
@@ -245,7 +253,7 @@ public class CodeSystemService {
 	public CodeSystemVersion findVersion(String shortName, int effectiveTime) {
 		return versionRepository.findOneByShortNameAndEffectiveDate(shortName, effectiveTime);
 	}
-	
+
 	public List<CodeSystemVersion> findAllVersions(String shortName) {
 		return findAllVersions(shortName, true);
 	}
@@ -308,9 +316,7 @@ public class CodeSystemService {
 	}
 
 	public CodeSystem update(CodeSystem codeSystem, CodeSystemUpdateRequest updateRequest) {
-		codeSystem.setName(updateRequest.getName());
-		codeSystem.setCountryCode(updateRequest.getCountryCode());
-		codeSystem.setBranchPath(updateRequest.getBranchPath());
+		modelMapper.map(updateRequest, codeSystem);
 		repository.save(codeSystem);
 		return codeSystem;
 	}

@@ -4,6 +4,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.rest.pojo.CodeSystemMigrationRequest;
@@ -25,10 +26,8 @@ public class CodeSystemController {
 	@ApiOperation("Create a code system")
 	@RequestMapping(method = RequestMethod.POST)
 	@ResponseBody
-	public ResponseEntity<Void> createCodeSystem(@RequestBody CodeSystem codeSystem) {
-		ControllerHelper.requiredParam(codeSystem.getShortName(), "shortName");
-		ControllerHelper.requiredParam(codeSystem.getBranchPath(), "branchPath");
-		codeSystemService.createCodeSystem(codeSystem);
+	public ResponseEntity<Void> createCodeSystem(@RequestBody CodeSystemCreate codeSystem) {
+		codeSystemService.createCodeSystem((CodeSystem) codeSystem);
 		return ControllerHelper.getCreatedResponse(codeSystem.getShortName());
 	}
 

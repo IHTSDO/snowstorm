@@ -1,11 +1,14 @@
 package org.snomed.snowstorm.core.data.domain;
 
+import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Pattern;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -14,7 +17,7 @@ import java.util.Objects;
  * Represents an edition or extension of SNOMED-CT
  */
 @Document(indexName = "codesystem")
-public class CodeSystem {
+public class CodeSystem implements CodeSystemCreate {
 
 	public interface Fields {
 		String SHORT_NAME = "shortName";
@@ -23,6 +26,7 @@ public class CodeSystem {
 
 	@Id
 	@Field(type = FieldType.keyword)
+	@NotNull
 	private String shortName;
 
 	@Field(type = FieldType.keyword)
@@ -32,6 +36,8 @@ public class CodeSystem {
 	private String countryCode;
 
 	@Field(type = FieldType.keyword)
+	@NotNull
+	@Pattern(regexp = "MAIN.*")
 	private String branchPath;
 
 	@Transient
