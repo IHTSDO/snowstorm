@@ -29,7 +29,7 @@ public class AdminController {
 					"set or updated after importing content of that language. " +
 					"The descriptions of the specified language will be reindexed on all branches using the new configuration. " +
 					"N.B. Snowstorm must be restarted to read the new configuration.")
-	@RequestMapping(value = "/admin/actions/rebuild-description-index-for-language", method = RequestMethod.POST)
+	@RequestMapping(value = "/actions/rebuild-description-index-for-language", method = RequestMethod.POST)
 	public void rebuildDescriptionIndexForLanguage(@RequestParam String languageCode) throws IOException {
 		ControllerHelper.requiredParam(languageCode, "languageCode");
 		adminOperationsService.reindexDescriptionsForLanguage(languageCode);
