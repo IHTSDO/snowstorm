@@ -6,6 +6,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.modelmapper.ModelMapper;
@@ -206,12 +207,21 @@ public class CodeSystemService {
 					.build(), Description.class);
 			if (descriptionPage.hasContent()) {
 				// Collect other languages for concept mini lookup
-				Set<String> allLanguageCodes = ((ParsedStringTerms)descriptionPage.getAggregation("language")).getBuckets()
-						.stream().map(Terms.Bucket::getKeyAsString).collect(Collectors.toSet());
-				acceptableLanguageCodes.addAll(allLanguageCodes.stream().filter(code -> !acceptableLanguageCodes.contains(code)).collect(Collectors.toList()));
+				List<? extends Terms.Bucket> language = ((ParsedStringTerms) descriptionPage.getAggregation("language")).getBuckets();
+				List<String> languageCodesSorted = language.stream()
+						// sort by number of active descriptions in each language
+						.sorted(Comparator.comparing(MultiBucketsAggregation.Bucket::getDocCount).reversed())
+						.map(MultiBucketsAggregation.Bucket::getKeyAsString)
+						.collect(Collectors.toList());
 
-				Map<String, String> langs = new TreeMap<>();
-				for (String languageCode : allLanguageCodes) {
+				// Push english to the bottom to show any translated content first in browsers.
+				languageCodesSorted.remove("en");
+				languageCodesSorted.add("en");
+
+				acceptableLanguageCodes = languageCodesSorted;
+
+				Map<String, String> langs = new LinkedHashMap<>();
+				for (String languageCode : languageCodesSorted) {
 					langs.put(languageCode, LangUtil.convertLanguageCodeToName(languageCode));
 				}
 				codeSystem.setLanguages(langs);
