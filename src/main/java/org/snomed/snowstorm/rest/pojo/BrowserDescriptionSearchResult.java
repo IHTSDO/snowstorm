@@ -8,11 +8,15 @@ public class BrowserDescriptionSearchResult {
 
 	private String term;
 	private boolean active;
+	private String languageCode;
+	private String module;
 	private ConceptMini concept;
 
-	public BrowserDescriptionSearchResult(String term, boolean active, ConceptMini concept) {
+	public BrowserDescriptionSearchResult(String term, boolean active, String languageCode, String module, ConceptMini concept) {
 		this.term = term;
 		this.active = active;
+		this.languageCode = languageCode;
+		this.module = module;
 		this.concept = concept;
 	}
 
@@ -24,6 +28,16 @@ public class BrowserDescriptionSearchResult {
 	@JsonView(value = View.Component.class)
 	public boolean isActive() {
 		return active;
+	}
+
+	@JsonView(value = View.Component.class)
+	public String getLanguageCode() {
+		return languageCode;
+	}
+
+	@JsonView(value = View.Component.class)
+	public String getModule() {
+		return module;
 	}
 
 	@JsonView(value = View.Component.class)
