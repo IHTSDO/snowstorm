@@ -188,8 +188,8 @@ public class DescriptionServiceTest extends AbstractTest {
 
 		String semanticTag = "pizza";
 		Map<String, Map<String, Long>> pizzaFilteredAggregations = descriptionService.findDescriptionsWithAggregations(path, null, true, null, semanticTag, false, null, languageCodes, PageRequest.of(0, 10)).getBuckets();
-		assertEquals("{900000000000207008=4}", getAggregationString("module", pizzaFilteredAggregations));
-		assertEquals("{english=4}", getAggregationString("language", pizzaFilteredAggregations));
+		assertEquals("{900000000000207008=3}", getAggregationString("module", pizzaFilteredAggregations));
+		assertEquals("{english=3}", getAggregationString("language", pizzaFilteredAggregations));
 		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaFilteredAggregations));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", pizzaFilteredAggregations));
 	}
