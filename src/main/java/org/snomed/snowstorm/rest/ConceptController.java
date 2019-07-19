@@ -232,6 +232,7 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "1000") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
+		branch = BranchPathUriUtil.decodePath(branch);
 		ControllerHelper.validatePageSize(offset, limit);
 
 		MapPage<Long, Set<Long>> conceptReferencesPage = semanticIndexService.findConceptReferences(branch, conceptId, stated, ControllerHelper.getPageRequest(offset, limit));
