@@ -218,6 +218,13 @@ public class CodeSystemService {
 				languageCodesSorted.remove("en");
 				languageCodesSorted.add("en");
 
+				// Pull default language code to top if any specified
+				String defaultLanguageCode = codeSystem.getDefaultLanguageCode();
+				if (languageCodesSorted.contains(defaultLanguageCode)) {
+					languageCodesSorted.remove(defaultLanguageCode);
+					languageCodesSorted.add(0, defaultLanguageCode);
+				}
+
 				acceptableLanguageCodes = languageCodesSorted;
 
 				Map<String, String> langs = new LinkedHashMap<>();

@@ -9,5 +9,6 @@ public interface CodeSystemCreate {
 	String getShortName();
 	String getName();
 	String getCountryCode();
+	String getDefaultLanguageCode();
 	String getBranchPath();
 }

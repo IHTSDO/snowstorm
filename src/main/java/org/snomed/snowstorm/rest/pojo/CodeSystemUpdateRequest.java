@@ -4,6 +4,7 @@ public class CodeSystemUpdateRequest {
 
 	public String name;
 	public String countryCode;
+	public String defaultLanguageCode;
 	public String branchPath;
 
 	public String getName() {
@@ -12,6 +13,10 @@ public class CodeSystemUpdateRequest {
 
 	public String getCountryCode() {
 		return countryCode;
+	}
+
+	public String getDefaultLanguageCode() {
+		return defaultLanguageCode;
 	}
 
 	public String getBranchPath() {
