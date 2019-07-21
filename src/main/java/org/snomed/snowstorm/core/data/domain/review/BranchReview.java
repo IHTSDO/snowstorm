@@ -1,20 +1,41 @@
 package org.snomed.snowstorm.core.data.domain.review;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.elasticsearch.annotations.Document;
+import org.springframework.data.elasticsearch.annotations.Field;
+import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import javax.validation.constraints.NotNull;
 import java.util.Date;
+import java.util.Set;
 
+@Document(indexName = "branch-review")
 public class BranchReview {
 
-	private final boolean sourceIsParent;
+	@Id
+	@Field(type = FieldType.keyword)
+	@NotNull
 	private String id;
+
+	@Field(type = FieldType.Boolean)
+	private boolean sourceIsParent;
+
+	@Field(type = FieldType.Date)
 	private Date lastUpdated;
+
+	@Field(type = FieldType.keyword)
 	private ReviewStatus status;
+
+	@Field(type = FieldType.Nested)
 	private BranchState source;
+
+	@Field(type = FieldType.Nested)
 	private BranchState target;
 
-	@JsonIgnore
-	private BranchReviewConceptChanges changes;
+	private Set<Long> changedConcepts;
+
+	public BranchReview() {
+	}
 
 	public BranchReview(String id, Date lastUpdated, ReviewStatus status, BranchState source, BranchState target, boolean sourceIsParent) {
 		this.id = id;
@@ -53,11 +74,11 @@ public class BranchReview {
 		return sourceIsParent;
 	}
 
-	public void setChanges(BranchReviewConceptChanges changes) {
-		this.changes = changes;
+	public Set<Long> getChangedConcepts() {
+		return changedConcepts;
 	}
 
-	public BranchReviewConceptChanges getChanges() {
-		return changes;
+	public void setChangedConcepts(Set<Long> changedConcepts) {
+		this.changedConcepts = changedConcepts;
 	}
 }

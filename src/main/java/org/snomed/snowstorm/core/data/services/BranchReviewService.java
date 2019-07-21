@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
@@ -16,6 +16,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.review.*;
+import org.snomed.snowstorm.core.data.repositories.BranchReviewRepository;
+import org.snomed.snowstorm.core.data.repositories.ManuallyMergedConceptRepository;
+import org.snomed.snowstorm.core.data.repositories.MergeReviewRepository;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -24,12 +27,13 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
@@ -51,28 +55,21 @@ public class BranchReviewService {
 	private BranchMergeService branchMergeService;
 
 	@Autowired
+	private BranchReviewRepository branchReviewRepository;
+
+	@Autowired
+	private MergeReviewRepository mergeReviewRepository;
+
+	@Autowired
+	private ManuallyMergedConceptRepository manuallyMergedConceptRepository;
+
+	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
 
+	@Autowired
+	private ObjectMapper objectMapper;
+
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
-
-	private final Map<String, BranchReview> reviewIndex = new HashMap<>();
-
-	// TODO: Move to elasticsearch storage to allow access from any termserver instance in a cluster
-	private final Cache<String, BranchReview> reviewStore = CacheBuilder.newBuilder()
-			.expireAfterWrite(12, TimeUnit.HOURS)
-			.removalListener(removalNotification -> {
-				// When review expires remove from index map
-				BranchReview review = (BranchReview) removalNotification.getValue();
-				final BranchState source = review.getSource();
-				final BranchState target = review.getTarget();
-				final String reviewIndexKey = getReviewIndexKey(source.getPath(), source.getHeadTimestamp(), target.getPath(), target.getHeadTimestamp());
-				reviewIndex.remove(reviewIndexKey);
-			})
-			.build();
-
-	private final Cache<String, MergeReview> mergeReviewStore = CacheBuilder.newBuilder()
-			.expireAfterWrite(12, TimeUnit.HOURS)
-			.build();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -89,24 +86,31 @@ public class BranchReviewService {
 		mergeReview.setStatus(ReviewStatus.PENDING);
 		executorService.submit(() -> {
 			try {
-				getBranchReviewConceptChanges(sourceToTarget.getId());
-				getBranchReviewConceptChanges(targetToSource.getId());
+				lookupBranchReviewConceptChanges(sourceToTarget);
+				lookupBranchReviewConceptChanges(targetToSource);
 				mergeReview.setStatus(ReviewStatus.CURRENT);
+				mergeReviewRepository.save(mergeReview);
 			} catch (Exception e) {
 				mergeReview.setStatus(ReviewStatus.FAILED);
 				logger.error("Collecting branch review changes failed.", e);
+				mergeReviewRepository.save(mergeReview);
 			}
 		});
-		mergeReviewStore.put(mergeReview.getId(), mergeReview);
+		mergeReviewRepository.save(mergeReview);
 		return mergeReview;
 	}
 
 	public MergeReview getMergeReview(String id) {
-		final MergeReview mergeReview = mergeReviewStore.getIfPresent(id);
+		final MergeReview mergeReview = mergeReviewRepository.findById(id).orElse(null);
 		if (mergeReview != null && mergeReview.getStatus() == ReviewStatus.CURRENT) {
-			// Only check one merge review - they will both have the same status.
-			final ReviewStatus newStatus = reviewStore.getIfPresent(mergeReview.getSourceToTargetReviewId()).getStatus();
-			mergeReview.setStatus(newStatus);
+			// Only check one branch review - they will both have the same status.
+			BranchReview branchReview = branchReviewRepository.findById(mergeReview.getSourceToTargetReviewId()).orElse(null);
+			if (branchReview != null) {
+				mergeReview.setStatus(branchReview.getStatus());
+			} else {
+				mergeReview.setStatus(ReviewStatus.FAILED);
+				mergeReview.setMessage("Branch merge not found in store. (" + mergeReview.getSourceToTargetReviewId() + ")");
+			}
 		}
 		return mergeReview;
 	}
@@ -152,33 +156,53 @@ public class BranchReviewService {
 		assertMergeReviewCurrent(mergeReview);
 
 		// Check all conflicts manually merged
-		final Map<Long, Concept> manuallyMergedConcepts = mergeReview.getManuallyMergedConcepts();
+		List<ManuallyMergedConcept> manuallyMergedConcepts = manuallyMergedConceptRepository.findByMergeReviewId(mergeReviewId);
+		Set<Long> manuallyMergedConceptIds = manuallyMergedConcepts.stream().map(ManuallyMergedConcept::getConceptId).collect(Collectors.toSet());
 		final Set<Long> conflictingConceptIds = getConflictingConceptIds(mergeReview);
 		final Set<Long> conflictsRemaining = new HashSet<>(conflictingConceptIds);
-		conflictsRemaining.removeAll(manuallyMergedConcepts.keySet());
+		conflictsRemaining.removeAll(manuallyMergedConceptIds);
 		if (!conflictsRemaining.isEmpty()) {
 			throw new IllegalStateException("Not all conflicting concepts have been resolved. Unresolved: " + conflictsRemaining);
 		}
-		if (manuallyMergedConcepts.keySet().size() > conflictingConceptIds.size()) {
+		if (manuallyMergedConceptIds.size() > conflictingConceptIds.size()) {
 			throw new IllegalStateException("There are more manually merged concepts than conflicts. Can not proceed.");
 		}
 
 		// Perform rebase merge
-		branchMergeService.mergeBranchSync(mergeReview.getSourcePath(), mergeReview.getTargetPath(), manuallyMergedConcepts.values());
+		ObjectReader conceptReader = objectMapper.readerFor(Concept.class);
+		ManuallyMergedConcept manuallyMergedConcept = null;
+		List<Concept> concepts = new ArrayList<>();
+		try {
+			for (ManuallyMergedConcept mmc : manuallyMergedConcepts) {
+				manuallyMergedConcept = mmc;
+				Concept concept;
+				if (manuallyMergedConcept.isDeleted()) {
+					concept = new Concept(manuallyMergedConcept.getConceptId().toString());
+					concept.markDeleted();
+				} else {
+					concept = conceptReader.readValue(manuallyMergedConcept.getConceptJson());
+				}
+				concepts.add(concept);
+			}
+		} catch (IOException e) {
+			throw new ServiceException("Failed to deserialise manually merged concept from temp store. mergeReview:" + mergeReviewId + ", conceptId:" + manuallyMergedConcept.getConceptId(), e);
+		}
+		branchMergeService.mergeBranchSync(mergeReview.getSourcePath(), mergeReview.getTargetPath(), concepts);
 	}
 
 	private void assertMergeReviewCurrent(MergeReview mergeReview) {
 		if (mergeReview.getStatus() != ReviewStatus.CURRENT) {
-			throw new IllegalStateException("Merge review state is not current");
+			throw new IllegalStateException("Merge review state is not " + ReviewStatus.CURRENT);
 		}
 	}
 
 	private Set<Long> getConflictingConceptIds(MergeReview mergeReview) {
-		final BranchReview sourceToTargetReview = reviewStore.getIfPresent(mergeReview.getSourceToTargetReviewId());
-		final BranchReview targetToSourceReview = reviewStore.getIfPresent(mergeReview.getTargetToSourceReviewId());
-		BranchReviewConceptChanges sourceToTargetReviewChanges = sourceToTargetReview.getChanges();
-		BranchReviewConceptChanges targetToSourceReviewChanges = targetToSourceReview.getChanges();
-		return Sets.intersection(sourceToTargetReviewChanges.getChangedConcepts(), targetToSourceReviewChanges.getChangedConcepts());
+		Supplier<NotFoundException> notFoundExceptionSupplier = () -> new NotFoundException("BranchReview not found with id " + mergeReview.getSourceToTargetReviewId());
+		final BranchReview sourceToTargetReview = branchReviewRepository.findById(mergeReview.getSourceToTargetReviewId()).orElseThrow(notFoundExceptionSupplier);
+		final BranchReview targetToSourceReview = branchReviewRepository.findById(mergeReview.getTargetToSourceReviewId()).orElseThrow(notFoundExceptionSupplier);
+		Set<Long> sourceToTargetReviewChanges = sourceToTargetReview.getChangedConcepts();
+		Set<Long> targetToSourceReviewChanges = targetToSourceReview.getChangedConcepts();
+		return Sets.intersection(sourceToTargetReviewChanges, targetToSourceReviewChanges);
 	}
 
 	private Concept autoMergeConcept(Concept sourceConcept, Concept targetConcept) {
@@ -237,39 +261,32 @@ public class BranchReviewService {
 	}
 
 	public BranchReview getCreateReview(Branch sourceBranch, Branch targetBranch) {
-		final String reviewIndexKey = getReviewIndexKey(sourceBranch.getPath(), sourceBranch.getHeadTimestamp(),
-				targetBranch.getPath(), targetBranch.getHeadTimestamp());
-
-		final BranchReview existingReview = reviewIndex.get(reviewIndexKey);
+		BranchReview existingReview = branchReviewRepository.findBySourceAndTargetPathsAndStates(
+				sourceBranch.getPath(), sourceBranch.getBase().getTime(), sourceBranch.getHead().getTime(),
+				targetBranch.getPath(), targetBranch.getBase().getTime(), targetBranch.getHead().getTime());
 		if (existingReview != null) {
 			return existingReview;
 		}
 
-		return createReview(sourceBranch, targetBranch, reviewIndexKey);
-	}
-
-	private BranchReview createReview(Branch sourceBranch, Branch targetBranch, String reviewIndexKey) {
 		// Validate arguments
 		if (!branchService.branchesHaveParentChildRelationship(sourceBranch, targetBranch)) {
 			throw new IllegalArgumentException("The source or target branch must be the direct parent of the other.");
 		}
 
 		// Create review
-		final BranchReview branchReview = new BranchReview(UUID.randomUUID().toString(), new Date(), ReviewStatus.CURRENT,
+		final BranchReview branchReview = new BranchReview(UUID.randomUUID().toString(), new Date(), ReviewStatus.PENDING,
 				new BranchState(sourceBranch), new BranchState(targetBranch), sourceBranch.isParent(targetBranch));
 
-		reviewStore.put(branchReview.getId(), branchReview);
-		reviewIndex.put(reviewIndexKey, branchReview);
-		return branchReview;
+		return branchReviewRepository.save(branchReview);
 	}
 
 	public BranchReview getBranchReview(String reviewId) {
-		final BranchReview branchReview = reviewStore.getIfPresent(reviewId);
+		final BranchReview branchReview = branchReviewRepository.findById(reviewId).orElse(null);
 
 		if (branchReview != null) {
 			branchReview.setStatus(
 					isBranchStateCurrent(branchReview.getSource())
-							&& isBranchStateCurrent(branchReview.getTarget()) ? ReviewStatus.CURRENT : ReviewStatus.STALE);
+							&& isBranchStateCurrent(branchReview.getTarget()) ? branchReview.getStatus() : ReviewStatus.STALE);
 		}
 
 		return branchReview;
@@ -288,53 +305,38 @@ public class BranchReviewService {
 		return branch.getBase().getTime() == branchState.getBaseTimestamp() && branch.getHead().getTime() == branchState.getHeadTimestamp();
 	}
 
-	public BranchReviewConceptChanges getBranchReviewConceptChanges(String reviewId) {
-		final BranchReview review = getBranchReviewOrThrow(reviewId);
+	private void lookupBranchReviewConceptChanges(BranchReview branchReview) {
+		final Branch source = branchService.findBranchOrThrow(branchReview.getSource().getPath());
+		final Branch target = branchService.findBranchOrThrow(branchReview.getTarget().getPath());
 
-		if (review == null) {
-			return null;
-		}
+		// source = A------
+		// target =    \----A/B
+		// start = target base
 
-		if (review.getStatus() != ReviewStatus.CURRENT) {
-			throw new IllegalStateException("Branch review is not current.");
-		}
+		// target = A--------
+		// source =    \--^--A/B
+		// start = source lastPromotion or base
 
-		if (review.getChanges() == null) {
-			synchronized (review) {
-				// Still null after we acquire the lock?
-				if (review.getChanges() == null) {
-					final Branch source = branchService.findBranchOrThrow(review.getSource().getPath());
-					final Branch target = branchService.findBranchOrThrow(review.getTarget().getPath());
-
-					// source = A------
-					// target =    \----A/B
-					// start = target base
-
-					// target = A--------
-					// source =    \--^--A/B
-					// start = source lastPromotion or base
-
-					Date start;
-					if (review.isSourceIsParent()) {
-						start = target.getBase();
-					} else {
-						start = source.getLastPromotion();
-						if (start == null) {
-							start = source.getBase();
-						}
-					}
-
-					// Look for changes in the range starting a millisecond after
-					start.setTime(start.getTime() + 1);
-
-					review.setChanges(createConceptChangeReportOnBranchForTimeRange(source.getPath(), start, source.getHead(), review.isSourceIsParent()));
-				}
+		Date start;
+		if (branchReview.isSourceIsParent()) {
+			start = target.getBase();
+		} else {
+			start = source.getLastPromotion();
+			if (start == null) {
+				start = source.getBase();
 			}
 		}
-		return review.getChanges();
+
+		// Look for changes in the range starting a millisecond after
+		start.setTime(start.getTime() + 1);
+
+		Set<Long> changedConcepts = createConceptChangeReportOnBranchForTimeRange(source.getPath(), start, source.getHead(), branchReview.isSourceIsParent());
+		branchReview.setStatus(ReviewStatus.CURRENT);
+		branchReview.setChangedConcepts(changedConcepts);
+		branchReviewRepository.save(branchReview);
 	}
 
-	public BranchReviewConceptChanges createConceptChangeReportOnBranchForTimeRange(String path, Date start, Date end, boolean sourceIsParent) {
+	public Set<Long> createConceptChangeReportOnBranchForTimeRange(String path, Date start, Date end, boolean sourceIsParent) {
 
 		logger.info("Creating change report: branch {} time range {} to {}", path, start, end);
 
@@ -353,7 +355,7 @@ public class BranchReviewService {
 		}
 
 		if (startTimeSlice.equals(endTimeSlice)) {
-			return new BranchReviewConceptChanges(null, Collections.emptySet());
+			return Collections.emptySet();
 		}
 
 		// Find components of each type that are on the target branch and have been ended on the source branch
@@ -485,11 +487,7 @@ public class BranchReviewService {
 
 		logger.info("Change report complete for branch {} time range {} to {}", path, start, end);
 
-		return new BranchReviewConceptChanges(null, changedConcepts);
-	}
-
-	private String getReviewIndexKey(String sourcePath, Long sourceHeadTimestamp, String targetPath, Long headTimestamp) {
-		return sourcePath + "@" + sourceHeadTimestamp + "->" + targetPath + "@" + headTimestamp;
+		return changedConcepts;
 	}
 
 	private NativeSearchQueryBuilder componentsReplacedCriteria(Set<String> versionsReplaced, String... limitFieldsFetched) {
@@ -514,5 +512,35 @@ public class BranchReviewService {
 
 	private QueryBuilder getNonStatedRelationshipClause() {
 		return termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP, Concepts.ADDITIONAL_RELATIONSHIP);
+	}
+
+	/**
+	 * Persist manually merged concept in a temp store to be applied to the branch when the merge review is applied.
+	 * @param mergeReviewId
+	 * @param conceptId
+	 * @param manuallyMergedConcept
+	 * @throws ServiceException
+	 */
+	public void persistManuallyMergedConcept(String mergeReviewId, Long conceptId, Concept manuallyMergedConcept) throws ServiceException {
+		getMergeReviewOrThrow(mergeReviewId);
+		if (!conceptId.equals(manuallyMergedConcept.getConceptIdAsLong())) {
+			throw new IllegalArgumentException("conceptId in request path does not match the conceptId in the request body.");
+		}
+		try {
+			String conceptJson = objectMapper.writeValueAsString(manuallyMergedConcept);
+			manuallyMergedConceptRepository.save(new ManuallyMergedConcept(mergeReviewId, conceptId, conceptJson, false));
+		} catch (IOException e) {
+			throw new ServiceException("Failed to serialise manually merged concept.", e);
+		}
+	}
+
+	/**
+	 * Persist manually merged concept deletion in a temp store to be applied to the branch when the merge review is applied.
+	 * @param mergeReviewId
+	 * @param conceptId
+	 */
+	public void persistManualMergeConceptDeletion(String mergeReviewId, Long conceptId) {
+		getMergeReviewOrThrow(mergeReviewId);
+		manuallyMergedConceptRepository.save(new ManuallyMergedConcept(mergeReviewId, conceptId, null, true));
 	}
 }

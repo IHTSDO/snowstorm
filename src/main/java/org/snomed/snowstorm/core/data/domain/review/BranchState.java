@@ -8,6 +8,9 @@ public class BranchState {
 	private Long baseTimestamp;
 	private Long headTimestamp;
 
+	public BranchState() {
+	}
+
 	public BranchState(Branch branch) {
 		path = branch.getPath();
 		baseTimestamp = branch.getBase().getTime();

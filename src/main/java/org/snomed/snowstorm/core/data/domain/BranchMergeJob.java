@@ -2,21 +2,28 @@ package org.snomed.snowstorm.core.data.domain;
 
 import org.snomed.snowstorm.core.data.services.ApiError;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.elasticsearch.annotations.Document;
 
 import java.util.Date;
 import java.util.UUID;
 
+@Document(indexName = "branch-marge")
 public class BranchMergeJob {
 
-	private final String id;
-	private final String source;
-	private final String target;
-	private final Date scheduledDate;
+	@Id
+	private String id;
+	private String source;
+	private String target;
+	private Date scheduledDate;
 	private Date startDate;
 	private JobStatus status;
 	private Date endDate;
 	private String message;
 	private ApiError apiError;
+
+	public BranchMergeJob() {
+	}
 
 	public BranchMergeJob(String source, String target, JobStatus status) {
 		id = UUID.randomUUID().toString();

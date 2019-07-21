@@ -9,7 +9,10 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.domain.review.*;
+import org.snomed.snowstorm.core.data.domain.review.BranchReview;
+import org.snomed.snowstorm.core.data.domain.review.MergeReview;
+import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
+import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.test.context.ContextConfiguration;
@@ -18,8 +21,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODES;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -39,9 +41,6 @@ public class BranchReviewServiceTest extends AbstractTest {
 	private BranchMergeService mergeService;
 
 	@Autowired
-	private BranchMergeService branchMergeService;
-
-	@Autowired
 	private ElasticsearchTemplate elasticsearchTemplate;
 
 	private Date setupStartTime;
@@ -59,6 +58,13 @@ public class BranchReviewServiceTest extends AbstractTest {
 		createConcept("10000100", "MAIN");
 		branchService.create("MAIN/A");
 		setupEndTime = now();
+	}
+
+	@Test
+	public void testGetCreateReview() {
+		// Test that if a review exists the existing one can be found using the source and target branch state.
+		BranchReview review = reviewService.getCreateReview("MAIN", "MAIN/A");
+		assertNotNull(review);
 	}
 
 	@Test
@@ -164,9 +170,9 @@ public class BranchReviewServiceTest extends AbstractTest {
 
 		assertEquals(ReviewStatus.CURRENT, review.getStatus());
 		BranchReview sourceToTargetReview = reviewService.getBranchReview(review.getSourceToTargetReviewId());
-		assertReportEquals(sourceToTargetReview.getChanges(), new Long[]{10000600L, 900000000L, 10000200L, 700000000L, 10000300L, 10000400L, 800000000L, 10000500L, 10000100L});
+		assertReportEquals(sourceToTargetReview.getChangedConcepts(), new Long[]{10000100L, 10000200L, 10000300L, 10000400L, 10000500L, 10000600L, 700000000L, 800000000L, 900000000L});
 		BranchReview targetToSourceReview = reviewService.getBranchReview(review.getTargetToSourceReviewId());
-		assertReportEquals(targetToSourceReview.getChanges(), new Long[]{10000600L, 10000200L, 10000400L, 800000000L});
+		assertReportEquals(targetToSourceReview.getChangedConcepts(), new Long[]{10000200L, 10000400L, 10000600L, 800000000L});
 
 		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
 		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getSourceConcept().getId()).collect(Collectors.toCollection(TreeSet::new));
@@ -227,9 +233,9 @@ public class BranchReviewServiceTest extends AbstractTest {
 
 		assertEquals(ReviewStatus.CURRENT, review.getStatus());
 		BranchReview sourceToTargetReview = reviewService.getBranchReview(review.getSourceToTargetReviewId());
-		assertReportEquals(sourceToTargetReview.getChanges(), new Long[]{10000100L});
+		assertReportEquals(sourceToTargetReview.getChangedConcepts(), new Long[]{10000100L});
 		BranchReview targetToSourceReview = reviewService.getBranchReview(review.getTargetToSourceReviewId());
-		assertReportEquals(targetToSourceReview.getChanges(), new Long[]{10000100L});
+		assertReportEquals(targetToSourceReview.getChangedConcepts(), new Long[]{10000100L});
 
 		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
 		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getSourceConcept().getId()).collect(Collectors.toCollection(TreeSet::new));
@@ -440,12 +446,12 @@ public class BranchReviewServiceTest extends AbstractTest {
 		concept.getClassAxioms().iterator().next().setDefinitionStatusId(Concepts.FULLY_DEFINED);
 		conceptService.update(concept, "MAIN");
 
-		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+		mergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
 
 		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN/A", start, now(), true), new Long[] {10000100L});
 		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN/A/B", start, now(), true), EMPTY_ARRAY);
 
-		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/B", Collections.emptySet());
+		mergeService.mergeBranchSync("MAIN/A", "MAIN/A/B", Collections.emptySet());
 
 		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN/A", start, now(), true), new Long[] {10000100L});
 		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange("MAIN/A/B", start, now(), true), new Long[] {10000100L});
@@ -532,9 +538,11 @@ public class BranchReviewServiceTest extends AbstractTest {
 		return new Date();
 	}
 
-	private void assertReportEquals(BranchReviewConceptChanges report, Long[] expectedConceptsChanged) {
-		System.out.println("changed " + Arrays.toString(report.getChangedConcepts().toArray()));
-		Assert.assertArrayEquals("Concepts Changed", expectedConceptsChanged, report.getChangedConcepts().toArray());
+	private void assertReportEquals(Set<Long> changedConcepts, Long[] expectedConceptsChanged) {
+		List<Long> ids = new ArrayList<>(changedConcepts);
+		ids.sort(null);
+		System.out.println("changed " + Arrays.toString(ids.toArray()));
+		Assert.assertArrayEquals("Concepts Changed", expectedConceptsChanged, ids.toArray());
 	}
 
 	private void createConcept(String conceptId, String path) throws ServiceException {

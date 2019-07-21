@@ -1,7 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
@@ -10,13 +8,13 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Entity;
-import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.review.BranchReview;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
+import org.snomed.snowstorm.core.data.repositories.BranchMergeJobRepository;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +27,6 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
@@ -61,12 +58,10 @@ public class BranchMergeService {
 	private DomainEntityConfiguration domainEntityConfiguration;
 
 	@Autowired
-	private IntegrityService integrityService;
+	private BranchMergeJobRepository branchMergeJobRepository;
 
-	// TODO: Move to persistent storage to prepare for autoscaling
-	private final Cache<String, BranchMergeJob> branchMergeJobStore = CacheBuilder.newBuilder()
-			.expireAfterWrite(12, TimeUnit.HOURS)
-			.build();
+	@Autowired
+	private IntegrityService integrityService;
 
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
 	private static final String USE_BRANCH_REVIEW = "The target branch is diverged, please use the branch review endpoint instead.";
@@ -87,34 +82,34 @@ public class BranchMergeService {
 //		}
 
 		BranchMergeJob mergeJob = new BranchMergeJob(source, target, JobStatus.SCHEDULED);
+		branchMergeJobRepository.save(mergeJob);
+		mergeJob.setStartDate(new Date());
+		mergeJob.setStatus(JobStatus.IN_PROGRESS);
+		branchMergeJobRepository.save(mergeJob);
 		executorService.submit(() -> {
-			mergeJob.setStartDate(new Date());
-			mergeJob.setStatus(JobStatus.IN_PROGRESS);
 			try {
 				mergeBranchSync(source, target, null);
 				mergeJob.setStatus(JobStatus.COMPLETED);
 				mergeJob.setEndDate(new Date());
+				branchMergeJobRepository.save(mergeJob);
 			} catch (IntegrityException e) {
 				mergeJob.setStatus(JobStatus.CONFLICTS);
 				mergeJob.setMessage(e.getMessage());
 				mergeJob.setApiError(ApiErrorFactory.createErrorForMergeConflicts(e.getMessage(), e.getIntegrityIssueReport()));
+				branchMergeJobRepository.save(mergeJob);
 			} catch (Exception e) {
 				mergeJob.setStatus(JobStatus.FAILED);
 				mergeJob.setMessage(e.getMessage());
+				branchMergeJobRepository.save(mergeJob);
 				logger.error("Failed to merge branch",e);
 			}
 		});
-		branchMergeJobStore.put(mergeJob.getId(), mergeJob);
 
 		return mergeJob;
 	}
 
 	public BranchMergeJob getBranchMergeJobOrThrow(String id) {
-		BranchMergeJob mergeJob = branchMergeJobStore.getIfPresent(id);
-		if (mergeJob == null) {
-			throw new NotFoundException("Branch merge job not found.");
-		}
-		return mergeJob;
+		return branchMergeJobRepository.findById(id).orElseThrow(() -> new NotFoundException("Branch merge job not found."));
 	}
 
 	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts) throws ServiceException {
