@@ -154,7 +154,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			}
 			if (alreadyExistingComponentCount.get() > 0) {
 				// Remove ineffective components
-				logger.warn("{} {} components in the RF2 import with effectiveTime {} will not be imported because components already exist " +
+				logger.info("{} {} components in the RF2 import with effectiveTime {} will not be imported because components already exist " +
 						"with the same identifier at the same or later effectiveTime.", alreadyExistingComponentCount.get(), componentClass.getSimpleName(), effectiveTime);
 			}
 		}
