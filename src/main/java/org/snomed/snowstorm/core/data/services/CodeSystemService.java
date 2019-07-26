@@ -334,6 +334,7 @@ public class CodeSystemService {
 
 	public CodeSystem update(CodeSystem codeSystem, CodeSystemUpdateRequest updateRequest) {
 		modelMapper.map(updateRequest, codeSystem);
+		validatorService.validate(codeSystem);
 		repository.save(codeSystem);
 		return codeSystem;
 	}

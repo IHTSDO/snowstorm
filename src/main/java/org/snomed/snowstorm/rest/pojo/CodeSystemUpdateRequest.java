@@ -7,6 +7,14 @@ public class CodeSystemUpdateRequest {
 	public String defaultLanguageCode;
 	public String branchPath;
 
+	public CodeSystemUpdateRequest() {
+	}
+
+	public CodeSystemUpdateRequest setBranchPath(String branchPath) {
+		this.branchPath = branchPath;
+		return this;
+	}
+
 	public String getName() {
 		return name;
 	}
