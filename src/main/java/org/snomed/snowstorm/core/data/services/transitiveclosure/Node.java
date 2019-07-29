@@ -71,8 +71,9 @@ public class Node {
 		return false;
 	}
 
-	public void markUpdated() {
+	public Node markUpdated() {
 		this.updated = true;
+		return this;
 	}
 
 	public Set<Node> getParents() {

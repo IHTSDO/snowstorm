@@ -62,6 +62,12 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		updateConceptIdForm();
 	}
 
+	public void clearAttributes() {
+		if (groupedAttributesMap != null) {
+			groupedAttributesMap.clear();
+		}
+	}
+
 	public void addAttribute(int group, Long type, Long value) {
 		if (groupedAttributesMap == null) {
 			groupedAttributesMap = new HashMap<>();

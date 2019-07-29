@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.Set;
 
 public class GraphBuilder {
 
@@ -37,12 +38,7 @@ public class GraphBuilder {
 		return nodeLookup.size();
 	}
 
-	public Node removeParent(Long sourceId, Long destinationId) {
-		LOGGER.debug("{} X> {}", sourceId, destinationId);
-		final Node node = nodeLookup.get(sourceId);
-		if (node != null) {
-			node.removeParent(destinationId);
-		}
-		return node;
+	public void clearParentsAndMarkUpdated(Long sourceId) {
+		getCreateNode(sourceId).markUpdated().getParents().clear();
 	}
 }

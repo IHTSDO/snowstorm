@@ -33,6 +33,7 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 		allConcepts.add(new Concept(ISA).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept(MODEL_COMPONENT).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)));
 		allConcepts.add(new Concept(CONCEPT_MODEL_ATTRIBUTE).addAxiom(new Relationship(ISA, MODEL_COMPONENT)));
+		allConcepts.add(new Concept(CONCEPT_MODEL_OBJECT_ATTRIBUTE).addAxiom(new Relationship(ISA, CONCEPT_MODEL_ATTRIBUTE)));
 
 		// Add attributes using axioms
 		// NOTE there is no axiom linking the Concept Model Object Attribute to the concept hierarchy.
@@ -45,7 +46,6 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 				axiomMember(MODEL_MODULE, OWL_AXIOM_REFERENCE_SET, LATERALITY, String.format("SubObjectPropertyOf(:%s :%s)", LATERALITY, CONCEPT_MODEL_OBJECT_ATTRIBUTE))
 		);
 		// Also add attribute concepts, with no stated relationships.
-		allConcepts.add(new Concept(CONCEPT_MODEL_OBJECT_ATTRIBUTE));
 		allConcepts.add(new Concept(FINDING_SITE));
 		allConcepts.add(new Concept(ASSOCIATED_MORPHOLOGY));
 		allConcepts.add(new Concept(PROCEDURE_SITE));
@@ -223,7 +223,7 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 
 		// Member of any reference set
 		// All concepts with axioms are members
-		assertEquals(allConceptIds.stream().filter(id -> !id.equals(Concepts.SNOMEDCT_ROOT) && !id.equals(CONCEPT_MODEL_OBJECT_ATTRIBUTE)).collect(Collectors.toSet()), strings(selectConceptIds("^*")));
+		assertEquals(allConceptIds.stream().filter(id -> !id.equals(Concepts.SNOMEDCT_ROOT)).collect(Collectors.toSet()), strings(selectConceptIds("^*")));
 	}
 
 }

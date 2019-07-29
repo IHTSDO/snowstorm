@@ -7,7 +7,6 @@ import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
@@ -431,20 +430,20 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		concepts.add(new Concept(SNOMEDCT_ROOT));
 		concepts.add(new Concept("116680003")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
 		);
 		concepts.add(new Concept("39607008")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
 		);
 		concepts.add(new Concept("363698007")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
 		);
 
 		conceptService.batchCreate(concepts, path);
 		concepts.clear();
 
 		concepts.add(new Concept("34020007")
-				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
+				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT).setInferred(true))
 				.addRelationship(new Relationship("756906025", 20040731, false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
 				.addRelationship(new Relationship("3250849023", 20100131, false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
 				.addRelationship(new Relationship("3332956025", 20150731, false, "900000000000207008", "34020007", "39607008", 2, "363698007", "900000000000011006", "900000000000451002"))
@@ -465,20 +464,20 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		concepts.add(new Concept(SNOMEDCT_ROOT));
 		concepts.add(new Concept("116680003")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
 		);
 		concepts.add(new Concept("39607008")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
 		);
 		concepts.add(new Concept("363698007")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
 		);
 
 		conceptService.batchCreate(concepts, path);
 		concepts.clear();
 
 		concepts.add(new Concept("34020007")
-				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Relationship.CharacteristicType.inferred.getConceptId()))
+				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT).setInferred(true))
 				.addRelationship(new Relationship("3332956025", 20150731, false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
 				.addRelationship(new Relationship("5963641025", 20150731, true, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
 		);
@@ -512,6 +511,45 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(4, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007=*"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(5, queryService.search(queryService.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
+	}
+
+	@Test
+	public void testSameTripleMadeInactiveInDifferentModule() throws ServiceException {
+		// There are around 150 instances in the US Edition of 'is a' relationships being made inactive in the US module straight
+		// after the same triple is made active in the International Module (different relationship id).
+		// Snowstorm's incremental semantic index update does not track the relationship identifiers of triples and assumes they are not duplicated.
+		// This test checks that making the same triple inactive in a different module does not remove the triple from the semantic index.
+		// When a triple is made inactive in a module which differs from the source concept module we will have to check if the triple is still
+		// active in any other relationship before removing it from the index. This additional step will incur a small performance cost but the
+		// frequency of this type of change should be relatively low.
+
+		String path = "MAIN";
+		List<Concept> concepts = new ArrayList<>();
+
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		String internationalCoreModule = "900000000000207008";
+		String usModule = "731000124108";
+
+		// Create concept with US relationship
+		Concept concept = new Concept("272379006").setModuleId(internationalCoreModule)
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setModuleId(usModule).setInferred(true));
+		concepts.add(concept);
+		conceptService.batchCreate(concepts, path);
+		concepts.clear();
+
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
+
+		// Add Int relationship
+		concept.getRelationships().add(new Relationship(ISA, SNOMEDCT_ROOT).setModuleId(internationalCoreModule).setInferred(true));
+		conceptService.update(concept, path);
+
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
+
+		// Make US relationship inactive
+		concept.getRelationships().stream().filter(relationship -> relationship.getModuleId().equals(usModule)).forEach(relationship -> relationship.setActive(false));
+		conceptService.update(concept, path);
+
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
 	}
 
 	private void simulateRF2Import(String path, List<Concept> concepts) {

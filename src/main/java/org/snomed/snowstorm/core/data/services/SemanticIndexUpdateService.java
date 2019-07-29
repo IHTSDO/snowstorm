@@ -31,7 +31,6 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -102,129 +101,107 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			removeQConceptChangesOnBranch(commit);
 
 			BranchCriteria changesBranchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch);
-			Set<String> relationshipAndAxiomDeletionsToProcess = new HashSet<>(branch.getVersionsReplaced(ReferenceSetMember.class));
-			relationshipAndAxiomDeletionsToProcess.addAll(branch.getVersionsReplaced(Relationship.class));
+			Set<String> relationshipAndAxiomDeletionsToProcess = Sets.union(branch.getVersionsReplaced(ReferenceSetMember.class), branch.getVersionsReplaced(Relationship.class));
 			updateSemanticIndex(Form.STATED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, false);
 			updateSemanticIndex(Form.INFERRED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, false);
 		} else {
 			// Update query index using changes in the current commit
 			BranchCriteria changesBranchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
-			Set<String> deletedComponents = commit.getEntitiesDeleted();
-			updateSemanticIndex(Form.STATED, changesBranchCriteria, deletedComponents, commit, false);
-			updateSemanticIndex(Form.INFERRED, changesBranchCriteria, deletedComponents, commit, false);
+			Set<String> relationshipAndAxiomDeletionsToProcess = Sets.union(commit.getEntityVersionsReplaced().getOrDefault(ReferenceSetMember.class.getSimpleName(), Collections.emptySet()),
+					commit.getEntityVersionsReplaced().getOrDefault(Relationship.class.getSimpleName(), Collections.emptySet()));
+			updateSemanticIndex(Form.STATED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, false);
+			updateSemanticIndex(Form.INFERRED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, false);
 		}
 	}
 
-	private void updateSemanticIndex(Form form, BranchCriteria changesBranchCriteria, Set<String> relationshipAndAxiomDeletionsToProcess, Commit commit, boolean rebuild) throws IllegalStateException, ConversionException {
+	private void updateSemanticIndex(Form form, BranchCriteria changesBranchCriteria, Set<String> internalIdsOfDeletedComponents, Commit commit, boolean rebuild) throws IllegalStateException, ConversionException {
 		// Note: Searches within this method use a filter clause for collections of identifiers because these
 		//       can become larger than the maximum permitted query criteria.
 
 		TimerUtil timer = new TimerUtil("TC index " + form.getName(), Level.INFO, 1);
 		String branchPath = commit.getBranch().getPath();
 		BranchCriteria branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteriaBeforeOpenCommit(commit);
+		BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 		timer.checkpoint("get branch criteria");
 
 		// Identify concepts with modeling changes  and load relevant parts of the existing node graph
 		final GraphBuilder graphBuilder = new GraphBuilder();
-		Set<Long> updatedConceptIds = buildRelevantPartsOfExistingGraph(graphBuilder, rebuild, form, changesBranchCriteria, branchCriteriaForAlreadyCommittedContent, timer);
+		Set<Long> updatedConceptIds = buildRelevantPartsOfExistingGraph(graphBuilder, rebuild, form,
+				changesBranchCriteria, branchCriteriaForAlreadyCommittedContent, internalIdsOfDeletedComponents, timer);
 		if (updatedConceptIds.isEmpty()) {
 			// Nothing to do
 			return;
 		}
 
 		// Step - Update graph
-		// Strategy: Add/remove edges from new commit
-		// Also collect other attribute changes
-		AtomicLong relationshipsAdded = new AtomicLong();
-		AtomicLong relationshipsRemoved = new AtomicLong();
+		// Strategy: Clear the modelling of updated concepts then add/remove edges and attributes based on the new commit
 		boolean newGraph = graphBuilder.getNodeCount() == 0;
 		Set<Long> requiredActiveConcepts = new LongOpenHashSet();
 		Map<Long, AttributeChanges> conceptAttributeChanges = new Long2ObjectOpenHashMap<>();
 
+		// Clear parents of updated concepts
+		for (Long updatedConceptId : updatedConceptIds) {
+			graphBuilder.clearParentsAndMarkUpdated(updatedConceptId);
+		}
+
 		BiConsumer<SnomedComponent, Relationship> relationshipConsumer = (component, relationship) -> {
-			boolean ignore = false;
-			boolean justDeleted = false;
-
-			if (component.getEnd() != null) {
-				if (component instanceof ReferenceSetMember
-						// Assume Axiom fragments are removed as we don't have better information here. The fragments will be added again if still present in a new version.
-
-						|| relationshipAndAxiomDeletionsToProcess.contains(component.getId())) {
-					justDeleted = true;
-				} else {
-					// Replaced not deleted. A new version will be in the selection.
-					ignore = true;
-				}
-			}
-			if (!ignore) {
+			if (component.getEnd() == null && component.isActive()) {
 				long conceptId = parseLong(relationship.getSourceId());
 				int groupId = relationship.getGroupId();
 				long type = parseLong(relationship.getTypeId());
 				long value = parseLong(relationship.getDestinationId());
 				Integer effectiveTime = component.getEffectiveTimeI();
-				if (!justDeleted && component.isActive()) {
-					if (type == IS_A_TYPE) {
-						graphBuilder.addParent(conceptId, value)
-								.markUpdated();
-						relationshipsAdded.incrementAndGet();
+				if (type == IS_A_TYPE) {
+					graphBuilder.addParent(conceptId, value);
 
-						// Concept model object attribute is not linked to the concept hierarchy by any axiom
-						// however we want the link in the semantic index so let's add it here.
-						if (value == CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG) {
-							graphBuilder.addParent(CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG, CONCEPT_MODEL_ATTRIBUTE_LONG)
-									.markUpdated();
-						}
-					} else {
-						conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value);
+					// Concept model object attribute is not linked to the concept hierarchy by any axiom
+					// however we want the link in the semantic index so let's add it here.
+					// TODO: Remove this - there is an axiom for this link now.
+					if (value == CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG) {
+						graphBuilder.addParent(CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG, CONCEPT_MODEL_ATTRIBUTE_LONG);
 					}
-					requiredActiveConcepts.add(conceptId);
-					requiredActiveConcepts.add(type);
-					requiredActiveConcepts.add(value);
 				} else {
-					if (type == IS_A_TYPE) {
-						Node node = graphBuilder.removeParent(conceptId, value);
-						if (node != null) {
-							node.markUpdated();
-						}
-						relationshipsRemoved.incrementAndGet();
-					} else {
-						conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).removeAttribute(effectiveTime, groupId, type, value);
-					}
+					conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value);
 				}
+				requiredActiveConcepts.add(conceptId);
+				requiredActiveConcepts.add(type);
+				requiredActiveConcepts.add(value);
 			}
 		};
 
-		try (final CloseableIterator<Relationship> relationshipChanges = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (final CloseableIterator<Relationship> activeRelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
-						.must(changesBranchCriteria.getEntityBranchCriteria(Relationship.class))
-						.must(termsQuery("characteristicTypeId", form.getCharacteristicTypeIds()))
+						.must(branchCriteriaIncludingOpenCommit.getEntityBranchCriteria(Relationship.class))
+						.must(termQuery(Relationship.Fields.ACTIVE, true))
+						.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, form.getCharacteristicTypeIds()))
+						.filter(termsQuery(Relationship.Fields.SOURCE_ID, updatedConceptIds))
 				)
 				.withSort(SortBuilders.fieldSort(Relationship.Fields.EFFECTIVE_TIME))
 				.withSort(SortBuilders.fieldSort(Relationship.Fields.ACTIVE))
 				.withSort(SortBuilders.fieldSort("start"))
 				.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
-			relationshipChanges.forEachRemaining(relationship -> relationshipConsumer.accept(relationship, relationship));
+			activeRelationships.forEachRemaining(relationship -> relationshipConsumer.accept(relationship, relationship));
 		}
-		timer.checkpoint("Update graph using changed relationships.");
+		timer.checkpoint("Update graph using relationships of concepts with changed modelling.");
 
 		if (form.isStated()) {
-			try (final CloseableIterator<ReferenceSetMember> axiomChanges = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+			try (final CloseableIterator<ReferenceSetMember> activeAxioms = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
-							.must(changesBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+							.must(branchCriteriaIncludingOpenCommit.getEntityBranchCriteria(ReferenceSetMember.class))
 							.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
+							.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+							.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, updatedConceptIds))
 					)
 					.withSort(SortBuilders.fieldSort(Relationship.Fields.EFFECTIVE_TIME))
 					.withSort(SortBuilders.fieldSort(Relationship.Fields.ACTIVE))
 					.withSort(SortBuilders.fieldSort("start"))
 					.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {
-				axiomStreamToRelationshipStream(axiomChanges, relationship -> true, relationshipConsumer);
+				axiomStreamToRelationshipStream(activeAxioms, relationship -> true, relationshipConsumer);
 			}
-			timer.checkpoint("Update graph using changed axioms.");
+			timer.checkpoint("Update graph using axioms of concepts with changed modelling.");
 		}
 
-		logger.debug("{} {} relationships added, {} inactive/removed.", relationshipsAdded.get(), form.getName(), relationshipsRemoved.get());
-
-		Set<Long> inactiveOrMissingConceptIds = getInactiveOrMissingConceptIds(requiredActiveConcepts, versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit));
+		Set<Long> inactiveOrMissingConceptIds = getInactiveOrMissingConceptIds(requiredActiveConcepts, branchCriteriaIncludingOpenCommit);
 		if (!inactiveOrMissingConceptIds.isEmpty()) {
 			logger.warn("The following concepts have been referred to in relationships but are missing or inactive: " + inactiveOrMissingConceptIds);
 		}
@@ -240,7 +217,6 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// Collect ids of nodes and attribute updates and convert to conceptIdForm
 		Set<Long> conceptIdsToUpdate = new LongOpenHashSet(nodesToSave.keySet());
 		conceptIdsToUpdate.addAll(conceptAttributeChanges.keySet());
-		List<String> conceptIdFormsToMatch = conceptIdsToUpdate.stream().map(id -> QueryConcept.toConceptIdForm(id, form.isStated())).collect(Collectors.toList());
 
 		try (final CloseableIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
@@ -252,25 +228,33 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 										.must(termQuery("path", branchPath))
 										.must(termQuery("end", commit.getTimepoint()))
 								)
-								.must(termsQuery(QueryConcept.Fields.CONCEPT_ID_FORM, conceptIdFormsToMatch)))
+								.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsToUpdate)))
 				)
 				.withPageable(ConceptService.LARGE_PAGE).build(), QueryConcept.class)) {
 			existingQueryConcepts.forEachRemaining(queryConcept -> {
 				Long conceptId = queryConcept.getConceptIdL();
 				Node node = nodesToSave.get(conceptId);
+				boolean save = false;
 				if (node != null) {
 					// TC changes
 					queryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
 					queryConcept.setAncestors(node.getTransitiveClosure(branchPath));
+					save = true;
 				}
-				applyAttributeChanges(queryConcept, conceptId, conceptAttributeChanges);
-				queryConceptsToSave.add(queryConcept);
+				if (updatedConceptIds.contains(conceptId)) {
+					applyAttributeChanges(queryConcept, conceptId, conceptAttributeChanges);
+					save = true;
+				}
+				if (save) {
+					queryConceptsToSave.add(queryConcept);
+				}
 				nodesNotFound.remove(conceptId);
 			});
 		}
 
 		timer.checkpoint("Collect existingDescendants from QueryConcept.");
 
+		// The remaining nodes are new - create new QueryConcepts
 		nodesNotFound.forEach(nodeId -> {
 			Node node = nodesToSave.get(nodeId);
 			final Set<Long> transitiveClosure = node.getTransitiveClosure(branchPath);
@@ -296,9 +280,9 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	}
 
 	private Set<Long> buildRelevantPartsOfExistingGraph(GraphBuilder graphBuilder, boolean rebuild, Form form,
-			BranchCriteria changesBranchCriteria, BranchCriteria branchCriteriaForAlreadyCommittedContent, TimerUtil timer) throws ConversionException {
+			BranchCriteria changesBranchCriteria, BranchCriteria branchCriteriaForAlreadyCommittedContent,
+			Set<String> internalIdsOfDeletedComponents, TimerUtil timer) throws ConversionException {
 
-		Set<Long> updatedConcepts = new LongOpenHashSet();
 		Set<Long> updateSource = new LongOpenHashSet();
 		Set<Long> updateDestination = new LongOpenHashSet();
 		Set<Long> existingAncestors = new LongOpenHashSet();
@@ -309,10 +293,17 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		} else {
 			// Step: Collect source and destinations of changed is-a relationships
 			try (final CloseableIterator<Relationship> changedIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(changesBranchCriteria.getEntityBranchCriteria(Relationship.class))
-							.must(termQuery("typeId", Concepts.ISA))
-							.must(termsQuery("characteristicTypeId", form.getCharacteristicTypeIds()))
+					.withQuery(boolQuery().filter(
+							boolQuery()
+									.must(termQuery("typeId", Concepts.ISA))
+									.must(termsQuery("characteristicTypeId", form.getCharacteristicTypeIds()))
+									.must(boolQuery()
+											// Either on this branch
+											.should(changesBranchCriteria.getEntityBranchCriteria(Relationship.class))
+											// Or on parent branch and deleted/replaced on this branch
+											.should(termsQuery("internalId", internalIdsOfDeletedComponents))
+									)
+							)
 					)
 					.withFields(Relationship.Fields.SOURCE_ID, Relationship.Fields.DESTINATION_ID)
 					.withPageable(ConceptService.LARGE_PAGE).build(), Relationship.class)) {
@@ -326,20 +317,29 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			if (form.isStated()) {
 				// Step: Collect source and destinations of is-a fragments within changed axioms
 				try (final CloseableIterator<ReferenceSetMember> changedAxioms = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-						.withQuery(boolQuery()
-								.must(changesBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-								.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
+						.withQuery(boolQuery().filter(
+								boolQuery()
+										.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
+										.must(boolQuery()
+												// Either on this branch
+												.should(changesBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+												// Or on parent branch and deleted/replaced on this branch
+												.should(termsQuery("internalId", internalIdsOfDeletedComponents))
+										)
+								)
 						)
 						.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_FIELD_PATH)
 						.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {
 					axiomStreamToRelationshipStream(
 							changedAxioms,
 							// filter
-							relationship -> relationship.getTypeId().equals(Concepts.ISA),
+							relationship -> true,
 							// for each
 							(component, relationship) -> {
 								updateSource.add(parseLong(relationship.getSourceId()));
-								updateDestination.add(parseLong(relationship.getDestinationId()));
+								if (relationship.getTypeId().equals(Concepts.ISA)) {
+									updateDestination.add(parseLong(relationship.getDestinationId()));
+								}
 							});
 				}
 				if (updateDestination.contains(CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG)) {
@@ -347,24 +347,33 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 				}
 				timer.checkpoint("Collect changed axiom is-a fragments.");
 			}
-			updatedConcepts.addAll(updateSource);
 
 			// Collect source of any other changed relationships
 			try (CloseableIterator<Relationship> otherChangedRelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(changesBranchCriteria.getEntityBranchCriteria(Relationship.class))
-							.mustNot(termQuery("typeId", Concepts.ISA))
-							.must(termsQuery("characteristicTypeId", form.getCharacteristicTypeIds()))
-							.filter(boolQuery().mustNot(termsQuery(Relationship.Fields.SOURCE_ID, updatedConcepts))))
+					.withQuery(boolQuery().filter(
+							boolQuery()
+									// Not 'is a'
+									.mustNot(termQuery("typeId", Concepts.ISA))
+									.must(termsQuery("characteristicTypeId", form.getCharacteristicTypeIds()))
+									.must(boolQuery()
+											// Either on this branch
+											.should(changesBranchCriteria.getEntityBranchCriteria(Relationship.class))
+											// Or on parent branch and deleted/replaced on this branch
+											.should(termsQuery("internalId", internalIdsOfDeletedComponents))
+									)
+									// Skip concepts already in the list
+									.mustNot(termsQuery(Relationship.Fields.SOURCE_ID, updateSource))
+							)
+					)
 					.withFields(Relationship.Fields.SOURCE_ID)
 					.withPageable(ConceptService.LARGE_PAGE)
 					.build(), Relationship.class)) {
-				otherChangedRelationships.forEachRemaining(relationship -> updatedConcepts.add(parseLong(relationship.getSourceId())));
+				otherChangedRelationships.forEachRemaining(relationship -> updateSource.add(parseLong(relationship.getSourceId())));
 			}
 
-			if (updatedConcepts.isEmpty()) {
+			if (updateSource.isEmpty()) {
 				// Stop here - nothing to update
-				return updatedConcepts;
+				return updateSource;
 			}
 
 			logger.info("Performing incremental update of {} semantic index", form.getName());
@@ -442,7 +451,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 				existingIsARelationships.forEachRemaining(relationship -> {
 					long sourceId = parseLong(relationship.getSourceId());
 					graphBuilder.addParent(sourceId, parseLong(relationship.getDestinationId()));
-					updatedConcepts.add(sourceId);
+					updateSource.add(sourceId);
 				});
 			}
 			timer.checkpoint("Build existing graph from Relationships.");
@@ -462,7 +471,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 							(component, relationship) -> {
 								long sourceId = parseLong(relationship.getSourceId());
 								graphBuilder.addParent(sourceId, parseLong(relationship.getDestinationId()));
-								updatedConcepts.add(sourceId);
+								updateSource.add(sourceId);
 							}
 					);
 				}
@@ -471,7 +480,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 
 		logger.info("{} existing nodes loaded.", graphBuilder.getNodeCount());
-		return updatedConcepts;
+		return updateSource;
 	}
 
 	private void buildGraphFromExistingNodes(Set<Long> nodesToLoad, boolean stated, GraphBuilder graphBuilder, BranchCriteria branchCriteriaForAlreadyCommittedContent,
@@ -532,15 +541,11 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	}
 
 	private void applyAttributeChanges(QueryConcept queryConcept, Long conceptId, Map<Long, AttributeChanges> conceptAttributeChanges) {
+		queryConcept.clearAttributes();
 		AttributeChanges attributeChanges = conceptAttributeChanges.get(conceptId);
 		if (attributeChanges != null) {
-			attributeChanges.getEffectiveSortedChanges().forEach(attributeChange -> {
-				if (attributeChange.isAdd()) {
-					queryConcept.addAttribute(attributeChange.getGroup(), attributeChange.getType(), attributeChange.getValue());
-				} else {
-					queryConcept.removeAttribute(attributeChange.getGroup(), attributeChange.getType(), attributeChange.getValue());
-				}
-			});
+			attributeChanges.getEffectiveSortedChanges().forEach(attributeChange ->
+					queryConcept.addAttribute(attributeChange.getGroup(), attributeChange.getType(), attributeChange.getValue()));
 		}
 	}
 
@@ -603,8 +608,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	private static final class AttributeChanges {
 
 		private static final Comparator<AttributeChange> comparator = Comparator
-				.comparing(AttributeChange::getEffectiveTime)
-				.thenComparing(AttributeChange::isAdd);
+				.comparing(AttributeChange::getEffectiveTime);
 
 		private List<AttributeChange> changes;
 
@@ -613,11 +617,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 
 		private void addAttribute(Integer effectiveTime, int groupId, Long type, Long value) {
-			changes.add(new AttributeChange(effectiveTime, groupId, type, value, true));
-		}
-
-		private void removeAttribute(Integer effectiveTime, int groupId, long type, long value) {
-			changes.add(new AttributeChange(effectiveTime, groupId, type, value, false));
+			changes.add(new AttributeChange(effectiveTime, groupId, type, value));
 		}
 
 		private List<AttributeChange> getEffectiveSortedChanges() {
@@ -625,18 +625,22 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			return changes;
 		}
 
+		@Override
+		public String toString() {
+			return "AttributeChanges{" +
+					"changes=" + changes +
+					'}';
+		}
 	}
 
 	private static final class AttributeChange {
 
-		private final boolean add;
 		private final int effectiveTime;
 		private final int group;
 		private final long type;
 		private final long value;
 
-		private AttributeChange(Integer effectiveTime, int group, long type, long value, boolean add) {
-			this.add = add;
+		private AttributeChange(Integer effectiveTime, int group, long type, long value) {
 			if (effectiveTime == null) {
 				effectiveTime = 90000000;
 			}
@@ -644,10 +648,6 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			this.group = group;
 			this.type = type;
 			this.value = value;
-		}
-
-		private boolean isAdd() {
-			return add;
 		}
 
 		private int getEffectiveTime() {
@@ -664,6 +664,16 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 		private long getValue() {
 			return value;
+		}
+
+		@Override
+		public String toString() {
+			return "AttributeChange{" +
+					"effectiveTime=" + effectiveTime +
+					", group=" + group +
+					", type=" + type +
+					", value=" + value +
+					'}';
 		}
 	}
 }

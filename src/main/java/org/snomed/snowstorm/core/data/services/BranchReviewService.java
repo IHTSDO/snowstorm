@@ -445,12 +445,11 @@ public class BranchReviewService {
 		logger.debug("Collecting relationship changes for change report: branch {} time range {} to {}", path, start, end);
 		AtomicLong relationships = new AtomicLong();
 		NativeSearchQuery relQuery = newSearchQuery(updatesDuringRange)
-//				.withFields(Relationship.Fields.SOURCE_ID)
+				.withFields(Relationship.Fields.SOURCE_ID)
 				.build();
 		try (final CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(relQuery, Relationship.class)) {
 			stream.forEachRemaining(relationship -> {
 				changedConcepts.add(parseLong(relationship.getSourceId()));
-				System.out.println("Relationship " + relationship.getSourceId() + " " + relationship.getCharacteristicType());
 				relationships.incrementAndGet();
 			});
 		}
