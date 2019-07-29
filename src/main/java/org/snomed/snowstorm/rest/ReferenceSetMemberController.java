@@ -19,6 +19,7 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.RefSetMemberPageWithBucketAggregations;
+import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,12 +68,14 @@ public class ReferenceSetMemberController {
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 
+		TimerUtil timer = new TimerUtil("Member aggregation debug " + branch);
 		// Find Reference Sets with aggregation
 		MemberSearchRequest searchRequest = new MemberSearchRequest()
 				.active(active)
 				.referenceSet(referenceSet)
 				.referencedComponentId(referencedComponentId);
 		PageWithBucketAggregations<ReferenceSetMember> page = memberService.findReferenceSetMembersWithAggregations(branch, pageRequest, searchRequest);
+		timer.checkpoint("aggregation");
 
 		Set<String> referenceSetIds = page.getBuckets().get("memberCountsByReferenceSet").keySet();
 
@@ -86,6 +89,7 @@ public class ReferenceSetMemberController {
 				refsetTypes.put(referenceSetId, parent.getContent().get(0).toString());
 			}
 		});
+		timer.checkpoint("load types (" + referenceSetIds.size() + ")");
 
 		// Load concept minis
 		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, Sets.union(referenceSetIds, new HashSet<>(refsetTypes.values())), languageCodes).getResultsMap();
@@ -105,10 +109,12 @@ public class ReferenceSetMemberController {
 				referenceSets.put(referenceSetId, refsetMini);
 			}
 		}
+		timer.checkpoint("Load minis");
 
 		RefSetMemberPageWithBucketAggregations<ReferenceSetMember> pageWithBucketAggregations =
 				new RefSetMemberPageWithBucketAggregations<>(page.getContent(), page.getPageable(), page.getTotalElements(), page.getBuckets().get("memberCountsByReferenceSet"));
 		pageWithBucketAggregations.setReferenceSets(referenceSets);
+		timer.finish();
 		return pageWithBucketAggregations;
 	}
 
