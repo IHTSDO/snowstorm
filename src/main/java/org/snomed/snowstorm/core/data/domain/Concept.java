@@ -322,8 +322,9 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		return moduleId;
 	}
 
-	public void setModuleId(String moduleId) {
+	public Concept setModuleId(String moduleId) {
 		this.moduleId = moduleId;
+		return this;
 	}
 
 	@Override

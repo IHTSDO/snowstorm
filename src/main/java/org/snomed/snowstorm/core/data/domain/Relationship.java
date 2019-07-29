@@ -264,8 +264,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return moduleId;
 	}
 
-	public void setModuleId(String moduleId) {
+	public Relationship setModuleId(String moduleId) {
 		this.moduleId = moduleId;
+		return this;
 	}
 
 	public String getSourceId() {
