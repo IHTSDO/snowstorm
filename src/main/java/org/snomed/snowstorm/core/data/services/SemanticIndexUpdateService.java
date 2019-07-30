@@ -120,6 +120,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 		TimerUtil timer = new TimerUtil("TC index " + form.getName(), Level.INFO, 1);
 		String branchPath = commit.getBranch().getPath();
+		Date headTimepoint = commit.getBranch().getHead();
 		BranchCriteria branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteriaBeforeOpenCommit(commit);
 		BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 		timer.checkpoint("get branch criteria");
@@ -145,7 +146,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 
 		BiConsumer<SnomedComponent, Relationship> relationshipConsumer = (component, relationship) -> {
-			if (component.getEnd() == null && component.isActive()) {
+			if (activeNow(component, headTimepoint)) {
 				long conceptId = parseLong(relationship.getSourceId());
 				int groupId = relationship.getGroupId();
 				long type = parseLong(relationship.getTypeId());
@@ -277,6 +278,11 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		logger.debug("{} concepts updated within the {} semantic index.", queryConceptsToSave.size(), form.getName());
 
 		timer.finish();
+	}
+
+	private boolean activeNow(SnomedComponent component, Date headTimepoint) {
+		Date end = component.getEnd();
+		return component.isActive() && (end == null || headTimepoint.before(end));
 	}
 
 	private Set<Long> buildRelevantPartsOfExistingGraph(GraphBuilder graphBuilder, boolean rebuild, Form form,

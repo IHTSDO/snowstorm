@@ -32,8 +32,7 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.junit.Assert.assertEquals;
-import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
-import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -517,11 +516,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	public void testSameTripleMadeInactiveInDifferentModule() throws ServiceException {
 		// There are around 150 instances in the US Edition of 'is a' relationships being made inactive in the US module straight
 		// after the same triple is made active in the International Module (different relationship id).
-		// Snowstorm's incremental semantic index update does not track the relationship identifiers of triples and assumes they are not duplicated.
 		// This test checks that making the same triple inactive in a different module does not remove the triple from the semantic index.
-		// When a triple is made inactive in a module which differs from the source concept module we will have to check if the triple is still
-		// active in any other relationship before removing it from the index. This additional step will incur a small performance cost but the
-		// frequency of this type of change should be relatively low.
 
 		String path = "MAIN";
 		List<Concept> concepts = new ArrayList<>();
@@ -550,6 +545,47 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		conceptService.update(concept, path);
 
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
+	}
+
+	@Test
+	// This tests the semantic index recognises that relationships can be made inactive on a parent branch but still be active on the child.
+	// The concepts used in this unit test are completely meaningless, as usual.
+	public void testSameTripleMadeInactiveInChildBranchAfterParentChanged() throws ServiceException {
+		String path = "MAIN";
+		String extensionBranch = "MAIN/SNOMEDCT-US";
+		List<Concept> concepts = new ArrayList<>();
+
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		concepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+
+		// Create concept with relationship to root and clinical finding
+		String conceptId = "272379006";
+		Concept concept = new Concept(conceptId)
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, CLINICAL_FINDING));
+		concepts.add(concept);
+		conceptService.batchCreate(concepts, path);
+		concepts.clear();
+
+		// Create child branch
+		branchService.create(extensionBranch);
+		assertEquals("Concept exists on child branch",
+				1, queryService.search(queryService.createQueryBuilder(true).ecl("<" + CLINICAL_FINDING), extensionBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+
+		// On the parent branch inactivate the concept parents and add another
+		concept.getRelationships().forEach(relationship -> relationship.setActive(false));
+		concept.getRelationships().add(new Relationship(ISA, FINDING_SITE));
+		conceptService.update(concept, path);
+
+		// Child branch is still on the original version of the concept.
+		// Make the relationship to root inactive - should still have the parent to clinical finding after that
+		Concept extensionVersionConcept = conceptService.find(conceptId, extensionBranch);
+		extensionVersionConcept.getRelationships().stream()
+				.filter(relationship -> relationship.getDestinationId().equals(SNOMEDCT_ROOT)).forEach(relationship -> relationship.setActive(false));
+		conceptService.update(extensionVersionConcept, extensionBranch);
+
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(true).ecl("<" + CLINICAL_FINDING), extensionBranch, QueryService.PAGE_OF_ONE).getTotalElements());
 	}
 
 	private void simulateRF2Import(String path, List<Concept> concepts) {
