@@ -146,6 +146,13 @@ public abstract class Config {
 		branchService.addCommitListener(conceptDefinitionStatusUpdateService);
 		branchService.addCommitListener(semanticIndexUpdateService);
 		branchService.addCommitListener(traceabilityLogService);
+		branchService.addCommitListener(commit -> {
+			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint()));
+		});
+	}
+
+	private String secondsDuration(Date timepoint) {
+		return "" + (float) (new Date().getTime() - timepoint.getTime()) / 1000f;
 	}
 
 	@Bean
