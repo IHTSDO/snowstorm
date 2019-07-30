@@ -588,6 +588,50 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(true).ecl("<" + CLINICAL_FINDING), extensionBranch, QueryService.PAGE_OF_ONE).getTotalElements());
 	}
 
+	@Test
+	// This tests the semantic index recognises that relationships can be made inactive on a grandparent branch but still be active on the child.
+	// The concepts used in this unit test are completely meaningless, as usual.
+	public void testSameTripleMadeInactiveInChildBranchAfterGrandparentChanged() throws ServiceException {
+		String path = "MAIN";
+		String extensionBranch = "MAIN/SNOMEDCT-US";
+		String extensionProjectBranch = "MAIN/SNOMEDCT-US/PROJECTA";
+		List<Concept> concepts = new ArrayList<>();
+
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		concepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+
+		// Create concept with relationship to root and clinical finding
+		String conceptId = "272379006";
+		Concept concept = new Concept(conceptId)
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, CLINICAL_FINDING));
+		concepts.add(concept);
+		conceptService.batchCreate(concepts, path);
+		concepts.clear();
+
+		// Create child branch
+		branchService.create(extensionBranch);
+
+		// On the parent branch inactivate the concept
+		concept.setActive(false);
+		conceptService.update(concept, path);
+
+		// Create grandchild branch
+		branchService.create(extensionProjectBranch);
+		assertEquals("Concept exists on grandchild branch",
+				1, queryService.search(queryService.createQueryBuilder(true).ecl("<" + CLINICAL_FINDING), extensionProjectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+
+		// Grandchild branch is still on the original version of the concept.
+		// Make the relationship to root inactive - should still have the parent to clinical finding after that
+		Concept extensionVersionConcept = conceptService.find(conceptId, extensionProjectBranch);
+		extensionVersionConcept.getRelationships().stream()
+				.filter(relationship -> relationship.getDestinationId().equals(SNOMEDCT_ROOT)).forEach(relationship -> relationship.setActive(false));
+		conceptService.update(extensionVersionConcept, extensionProjectBranch);
+
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(true).ecl("<" + CLINICAL_FINDING), extensionProjectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+	}
+
 	private void simulateRF2Import(String path, List<Concept> concepts) {
 		try (Commit commit = branchService.openCommit(path)) {
 			concepts.forEach(Concept::markChanged);

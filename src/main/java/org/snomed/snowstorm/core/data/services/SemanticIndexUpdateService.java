@@ -88,8 +88,9 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// TODO: Only use on MAIN
 		try (Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata("Rebuilding semantic index."))) {
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
-			updateSemanticIndex(Form.STATED, branchCriteria, Collections.emptySet(), commit, true);
-			updateSemanticIndex(Form.INFERRED, branchCriteria, Collections.emptySet(), commit, true);
+			List<Branch> timeSlice = versionControlHelper.getTimeSlice(commit.getBranch().getPath(), commit.getTimepoint());
+			updateSemanticIndex(Form.STATED, branchCriteria, Collections.emptySet(), commit, timeSlice, true);
+			updateSemanticIndex(Form.INFERRED, branchCriteria, Collections.emptySet(), commit, timeSlice, true);
 			commit.markSuccessful();
 		}
 	}
@@ -101,26 +102,29 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			removeQConceptChangesOnBranch(commit);
 
 			BranchCriteria changesBranchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch);
+			List<Branch> timeSlice = versionControlHelper.getTimeSlice(branch.getPath(), commit.getTimepoint());
 			Set<String> relationshipAndAxiomDeletionsToProcess = Sets.union(branch.getVersionsReplaced(ReferenceSetMember.class), branch.getVersionsReplaced(Relationship.class));
-			updateSemanticIndex(Form.STATED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, false);
-			updateSemanticIndex(Form.INFERRED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, false);
+			updateSemanticIndex(Form.STATED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, timeSlice, false);
+			updateSemanticIndex(Form.INFERRED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, timeSlice, false);
 		} else {
 			// Update query index using changes in the current commit
 			BranchCriteria changesBranchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
+			List<Branch> timeSlice = versionControlHelper.getTimeSlice(commit.getBranch().getPath(), commit.getTimepoint());
 			Set<String> relationshipAndAxiomDeletionsToProcess = Sets.union(commit.getEntityVersionsReplaced().getOrDefault(ReferenceSetMember.class.getSimpleName(), Collections.emptySet()),
 					commit.getEntityVersionsReplaced().getOrDefault(Relationship.class.getSimpleName(), Collections.emptySet()));
-			updateSemanticIndex(Form.STATED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, false);
-			updateSemanticIndex(Form.INFERRED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, false);
+			updateSemanticIndex(Form.STATED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, timeSlice, false);
+			updateSemanticIndex(Form.INFERRED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, timeSlice, false);
 		}
 	}
 
-	private void updateSemanticIndex(Form form, BranchCriteria changesBranchCriteria, Set<String> internalIdsOfDeletedComponents, Commit commit, boolean rebuild) throws IllegalStateException, ConversionException {
+	private void updateSemanticIndex(Form form, BranchCriteria changesBranchCriteria, Set<String> internalIdsOfDeletedComponents, Commit commit,
+			List<Branch> timeSlice, boolean rebuild) throws IllegalStateException, ConversionException {
+
 		// Note: Searches within this method use a filter clause for collections of identifiers because these
 		//       can become larger than the maximum permitted query criteria.
 
 		TimerUtil timer = new TimerUtil("TC index " + form.getName(), Level.INFO, 1);
 		String branchPath = commit.getBranch().getPath();
-		Date headTimepoint = commit.getBranch().getHead();
 		BranchCriteria branchCriteriaForAlreadyCommittedContent = versionControlHelper.getBranchCriteriaBeforeOpenCommit(commit);
 		BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 		timer.checkpoint("get branch criteria");
@@ -146,7 +150,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 
 		BiConsumer<SnomedComponent, Relationship> relationshipConsumer = (component, relationship) -> {
-			if (activeNow(component, headTimepoint)) {
+			if (activeNow(component, timeSlice)) {
 				long conceptId = parseLong(relationship.getSourceId());
 				int groupId = relationship.getGroupId();
 				long type = parseLong(relationship.getTypeId());
@@ -280,9 +284,22 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		timer.finish();
 	}
 
-	private boolean activeNow(SnomedComponent component, Date headTimepoint) {
+	private boolean activeNow(SnomedComponent component, List<Branch> timeSlice) {
+		if (!component.isActive()) {
+			return false;
+		}
 		Date end = component.getEnd();
-		return component.isActive() && (end == null || headTimepoint.before(end));
+		if (end == null) {
+			return true;
+		}
+		String path = component.getPath();
+		for (Branch branchOnStack : timeSlice) {
+			if (path.equals(branchOnStack.getPath())) {
+				return branchOnStack.getHead().before(end);
+			}
+		}
+		logger.error("Component {} processed with a path {} which is not in the branch stack for {}", component.getId(), component.getPath(), timeSlice.get(0).getPath());
+		return false;
 	}
 
 	private Set<Long> buildRelevantPartsOfExistingGraph(GraphBuilder graphBuilder, boolean rebuild, Form form,
