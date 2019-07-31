@@ -376,4 +376,27 @@ public class ReferenceSetMemberService extends ComponentService {
 		return PageWithBucketAggregationsFactory.createPage(pageResults, aggregations);
 	}
 
+	public Map<String, String> findRefsetTypes(Set<String> referenceSetIds, BranchCriteria branchCriteria, String branch) {
+		List<Long> allRefsetTypes = getEclQueryService().selectConceptIds("<!" + Concepts.REFSET, branchCriteria, branch, false, LARGE_PAGE).getContent();
+
+		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
+						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, referenceSetIds))
+						.must(termQuery("stated", false))
+				)
+				.withPageable(LARGE_PAGE)
+				.build();
+		final List<QueryConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class).getContent();
+
+		Map<String, String> refsetTypes = new HashMap<>();
+		for (QueryConcept concept : concepts) {
+			for (Long ancestor : concept.getAncestors()) {
+				if (allRefsetTypes.contains(ancestor)) {
+					refsetTypes.put(concept.getConceptIdL().toString(), ancestor.toString());
+				}
+			}
+		}
+		return refsetTypes;
+	}
 }

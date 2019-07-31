@@ -10,7 +10,6 @@ import io.swagger.annotations.ApiParam;
 import org.apache.commons.lang3.SerializationUtils;
 import org.elasticsearch.common.util.set.Sets;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMemberView;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -31,8 +30,6 @@ import org.springframework.web.bind.annotation.*;
 import javax.validation.Valid;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 
 @RestController
 @Api(tags = "Refset Members", description = "-")
@@ -81,14 +78,7 @@ public class ReferenceSetMemberController {
 
 		// Find refset type
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
-		Map<String, String> refsetTypes = new HashMap<>();
-		String branchPath = branch;
-		referenceSetIds.forEach(referenceSetId -> {
-			Page<Long> parent = eclQueryService.selectConceptIds("<!" + Concepts.REFSET + " AND >>" + referenceSetId, branchCriteria, branchPath, true, LARGE_PAGE);
-			if (!parent.getContent().isEmpty()) {
-				refsetTypes.put(referenceSetId, parent.getContent().get(0).toString());
-			}
-		});
+		Map<String, String> refsetTypes = memberService.findRefsetTypes(referenceSetIds, branchCriteria, branch);
 		timer.checkpoint("load types (" + referenceSetIds.size() + ")");
 
 		// Load concept minis
