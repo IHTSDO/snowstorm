@@ -131,7 +131,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	@JsonView(value = View.Component.class)
 	@Override
 	public TermLangPojo getPt() {
-		return DescriptionHelper.getFsnDescriptionTermAndLang(descriptions, EN_LANGUAGE_CODE);
+		return DescriptionHelper.getPtDescriptionTermAndLang(descriptions, EN_LANGUAGE_CODE);
 	}
 
 	@JsonView(value = View.Component.class)
