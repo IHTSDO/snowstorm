@@ -391,9 +391,14 @@ public class ReferenceSetMemberService extends ComponentService {
 
 		Map<String, String> refsetTypes = new HashMap<>();
 		for (QueryConcept concept : concepts) {
-			for (Long ancestor : concept.getAncestors()) {
-				if (allRefsetTypes.contains(ancestor)) {
-					refsetTypes.put(concept.getConceptIdL().toString(), ancestor.toString());
+			String conceptId = concept.getConceptIdL().toString();
+			if (allRefsetTypes.contains(concept.getConceptIdL())) {
+				refsetTypes.put(conceptId, conceptId);
+			} else {
+				for (Long ancestor : concept.getAncestors()) {
+					if (allRefsetTypes.contains(ancestor)) {
+						refsetTypes.put(conceptId, ancestor.toString());
+					}
 				}
 			}
 		}
