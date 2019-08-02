@@ -250,6 +250,9 @@ public class ConceptService extends ComponentService {
 					.withPageable(pageRequest);
 			concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
 		}
+		for (Concept concept : concepts) {
+			concept.setRequestedLanguages(languageCodes);
+		}
 		timer.checkpoint("find concept");
 
 		Map<String, Concept> conceptIdMap = new HashMap<>();
