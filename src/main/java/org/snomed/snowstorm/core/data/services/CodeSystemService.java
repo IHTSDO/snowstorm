@@ -36,6 +36,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 
@@ -174,7 +175,7 @@ public class CodeSystemService {
 			if (latestBranch == null) continue;
 
 			// Lookup latest version
-			List<CodeSystemVersion> versions = versionRepository.findByShortNameOrderByEffectiveDateDesc(codeSystem.getShortName());
+			List<CodeSystemVersion> versions = versionRepository.findByShortNameOrderByEffectiveDateDesc(codeSystem.getShortName(), LARGE_PAGE).getContent();
 			if (!versions.isEmpty()) {
 				codeSystem.setLatestVersion(versions.get(0));
 			}
@@ -277,9 +278,9 @@ public class CodeSystemService {
 
 	public List<CodeSystemVersion> findAllVersions(String shortName, boolean ascOrder) {
 		if (ascOrder) {
-			return versionRepository.findByShortNameOrderByEffectiveDate(shortName);
+			return versionRepository.findByShortNameOrderByEffectiveDate(shortName, LARGE_PAGE).getContent();
 		} else {
-			return versionRepository.findByShortNameOrderByEffectiveDateDesc(shortName);
+			return versionRepository.findByShortNameOrderByEffectiveDateDesc(shortName, LARGE_PAGE).getContent();
 		}
 	}
 

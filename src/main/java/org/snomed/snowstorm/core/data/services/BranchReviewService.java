@@ -36,6 +36,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
@@ -156,7 +157,7 @@ public class BranchReviewService {
 		assertMergeReviewCurrent(mergeReview);
 
 		// Check all conflicts manually merged
-		List<ManuallyMergedConcept> manuallyMergedConcepts = manuallyMergedConceptRepository.findByMergeReviewId(mergeReviewId);
+		List<ManuallyMergedConcept> manuallyMergedConcepts = manuallyMergedConceptRepository.findByMergeReviewId(mergeReviewId, LARGE_PAGE).getContent();
 		Set<Long> manuallyMergedConceptIds = manuallyMergedConcepts.stream().map(ManuallyMergedConcept::getConceptId).collect(Collectors.toSet());
 		final Set<Long> conflictingConceptIds = getConflictingConceptIds(mergeReview);
 		final Set<Long> conflictsRemaining = new HashSet<>(conflictingConceptIds);
@@ -418,7 +419,7 @@ public class BranchReviewService {
 		TimerUtil timerUtil = new TimerUtil("Collecting changes");
 		NativeSearchQuery conceptsWithNewVersionsQuery = new NativeSearchQueryBuilder()
 				.withQuery(updatesDuringRange)
-				.withPageable(ComponentService.LARGE_PAGE)
+				.withPageable(LARGE_PAGE)
 				.withSort(SortBuilders.fieldSort("start"))
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.build();
@@ -494,7 +495,7 @@ public class BranchReviewService {
 				.withQuery(boolQuery()
 						.must(termsQuery("_id", versionsReplaced))
 						.mustNot(getNonStatedRelationshipClause()))
-				.withPageable(ComponentService.LARGE_PAGE);
+				.withPageable(LARGE_PAGE);
 		if (limitFieldsFetched.length > 0) {
 			builder.withFields(limitFieldsFetched);
 		}
@@ -506,7 +507,7 @@ public class BranchReviewService {
 				.withQuery(boolQuery()
 						.must(branchUpdatesCriteria)
 						.mustNot(getNonStatedRelationshipClause()))
-				.withPageable(ComponentService.LARGE_PAGE);
+				.withPageable(LARGE_PAGE);
 	}
 
 	private QueryBuilder getNonStatedRelationshipClause() {

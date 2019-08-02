@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.core.data.repositories;
 
 import org.snomed.snowstorm.core.data.domain.review.ManuallyMergedConcept;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 
 import java.util.List;
@@ -9,6 +11,6 @@ public interface ManuallyMergedConceptRepository extends ElasticsearchCrudReposi
 
 	ManuallyMergedConcept findOneByMergeReviewIdAndConceptId(String mergeReviewId, String conceptId);
 
-	List<ManuallyMergedConcept> findByMergeReviewId(String mergeReviewId);
+	Page<ManuallyMergedConcept> findByMergeReviewId(String mergeReviewId, Pageable pageRequest);
 
 }
