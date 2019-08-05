@@ -40,6 +40,7 @@ public class DescriptionController {
 			@RequestParam(required = false) String module,
 			@RequestParam(required = false) String semanticTag,
 			@RequestParam(required = false) Boolean conceptActive,
+			@RequestParam(required = false) String conceptRefset,
 			@RequestParam(defaultValue = "false") boolean groupByConcept,
 			@RequestParam(defaultValue = "STANDARD") DescriptionService.SearchMode searchMode,
 			@RequestParam(defaultValue = "0") int offset,
@@ -56,7 +57,7 @@ public class DescriptionController {
 				// Description clauses
 				term, active, module, semanticTag,
 				// Concept clauses
-				conceptActive,
+				conceptActive, conceptRefset,
 				// Grouping
 				groupByConcept,
 				//search mode

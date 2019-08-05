@@ -21,6 +21,7 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.mapper.ConceptToConceptIdMapper;
 import org.snomed.snowstorm.core.data.services.mapper.DescriptionToConceptIdGroupingMapper;
 import org.snomed.snowstorm.core.data.services.mapper.DescriptionToConceptIdMapper;
+import org.snomed.snowstorm.core.data.services.mapper.RefsetMemberToReferenceComponentIdMapper;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.core.data.services.pojo.SimpleAggregation;
@@ -109,18 +110,19 @@ public class DescriptionService extends ComponentService {
 	}
 
 	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
-		return findDescriptionsWithAggregations(path, term, true, null, null, null, false, null, Collections.singleton("en"), pageRequest);
+		return findDescriptionsWithAggregations(path, term, true, null, null, null, null, false, null, Collections.singleton("en"), pageRequest);
 	}
 
 	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path,
 			String term, Boolean active, String module, String semanticTag,
-			Boolean conceptActive, boolean groupByConcept, SearchMode searchMode, Collection<String> languageCodes, PageRequest pageRequest) {
+			Boolean conceptActive, String conceptRefset, boolean groupByConcept, SearchMode searchMode, Collection<String> languageCodes, PageRequest pageRequest) {
 
 		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		timer.checkpoint("Build branch criteria");
-		List<Aggregation> allAggregations = new ArrayList<>();
 
+
+		// Build up the description criteria
 		final BoolQueryBuilder descriptionCriteria = boolQuery();
 		BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
 		descriptionCriteria.must(descriptionBranchCriteria);
@@ -132,23 +134,29 @@ public class DescriptionService extends ComponentService {
 			descriptionCriteria.must(termQuery(Description.Fields.MODULE_ID, module));
 		}
 
-		// Fetch concept semantic tag aggregation
-		// Not all descriptions are FSNs so use: description -> concept -> active FSN
+
+		// Fetch all matching description and concept ids
 		Collection<Long> descriptionIdsGroupedByConcept = new LongArrayList();
-		// ids of concepts where the descriptions match the criteria and the concept has the requested active status
-		Collection<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria, conceptActive, groupByConcept, descriptionIdsGroupedByConcept, branchCriteria);
+		// ids of concepts where all descriptions and concept criteria are met
+		Collection<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria, conceptActive, conceptRefset, groupByConcept, descriptionIdsGroupedByConcept, branchCriteria);
+
+		// Apply group by concept clause
 		BoolQueryBuilder descriptionFilter = boolQuery();
 		if (groupByConcept) {
 			descriptionFilter.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsGroupedByConcept));
 		}
 		timer.checkpoint("Fetch all related concept ids for semantic tag aggregation");
 
+
+		// Start fetching aggregations..
+		List<Aggregation> allAggregations = new ArrayList<>();
+
+		// Fetch FSN aggregation
 		BoolQueryBuilder fsnClauses = boolQuery();
 		boolean semanticTagFiltering = !Strings.isNullOrEmpty(semanticTag);
 		if (semanticTagFiltering) {
 			fsnClauses.must(termQuery(Description.Fields.TAG, semanticTag));
 		}
-
 		NativeSearchQueryBuilder fsnQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(fsnClauses
 						.must(descriptionBranchCriteria)
@@ -157,7 +165,6 @@ public class DescriptionService extends ComponentService {
 						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
 				)
 				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG).size(AGGREGATION_SEARCH_SIZE));
-
 		if (!semanticTagFiltering) {
 			fsnQueryBuilder
 					.withPageable(PAGE_OF_ONE);
@@ -178,13 +185,12 @@ public class DescriptionService extends ComponentService {
 			allAggregations.add(new SimpleAggregation("semanticTags", semanticTag, conceptSemanticTagMatches.size()));
 		}
 
-
 		// Fetch concept refset membership aggregation
 		AggregatedPage<ReferenceSetMember> membershipResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, true))
-						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
+						.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
 				)
 				.withPageable(PAGE_OF_ONE)
 				.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID))
@@ -192,7 +198,7 @@ public class DescriptionService extends ComponentService {
 		allAggregations.add(membershipResults.getAggregation("membership"));
 		timer.checkpoint("Concept refset membership aggregation");
 
-		// Perform description search with description property aggregations
+		// Perform final paged description search with description property aggregations
 		descriptionFilter.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds));
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(descriptionCriteria
@@ -353,7 +359,7 @@ public class DescriptionService extends ComponentService {
 		}
 	}
 
-	private Collection<Long> findDescriptionConceptIds(BoolQueryBuilder descriptionCriteria, Boolean conceptActive,
+	private Collection<Long> findDescriptionConceptIds(BoolQueryBuilder descriptionCriteria, Boolean conceptActive, String conceptRefset,
 			boolean groupByConcept, Collection<Long> descriptionIdsGroupedByConcept, BranchCriteria branchCriteria) {
 
 		Collection<Long> conceptIds;
@@ -378,23 +384,48 @@ public class DescriptionService extends ComponentService {
 			stream.forEachRemaining(hit -> {});
 		}
 
-		if (!conceptIds.isEmpty() && conceptActive != null) {
+		if (!conceptIds.isEmpty()) {
+
 			// Apply concept active filter
-			List<Long> conceptsWithActiveStatus = new LongArrayList();
-			try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(
-					new NativeSearchQueryBuilder()
-							.withQuery(boolQuery()
-									.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-									.must(termQuery(Concept.Fields.ACTIVE, conceptActive.booleanValue()))
-									.filter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
-							)
-							.withSort(SortBuilders.fieldSort("_doc"))
-							.withStoredFields(Concept.Fields.CONCEPT_ID)
-							.withPageable(LARGE_PAGE)
-							.build(), Concept.class, new ConceptToConceptIdMapper(conceptsWithActiveStatus))) {
-				stream.forEachRemaining(hit -> {});
+			if (conceptActive != null) {
+				List<Long> conceptIdCopy = new LongArrayList(conceptIds);
+				conceptIds.clear();
+				try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(
+						new NativeSearchQueryBuilder()
+								.withQuery(boolQuery()
+										.must(termQuery(Concept.Fields.ACTIVE, conceptActive.booleanValue()))
+										.filter(branchCriteria.getEntityBranchCriteria(Concept.class))
+										.filter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdCopy))
+								)
+								.withSort(SortBuilders.fieldSort("_doc"))
+								.withStoredFields(Concept.Fields.CONCEPT_ID)
+								.withPageable(LARGE_PAGE)
+								.build(), Concept.class, new ConceptToConceptIdMapper(conceptIds))) {
+					stream.forEachRemaining(hit -> {
+					});
+				}
 			}
-			return conceptsWithActiveStatus;
+
+			// Apply refset filter
+			if (!Strings.isNullOrEmpty(conceptRefset)) {
+				List<Long> conceptIdCopy = new LongArrayList(conceptIds);
+				conceptIds.clear();
+				try (CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(
+						new NativeSearchQueryBuilder()
+								.withQuery(boolQuery()
+										.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, conceptRefset))
+										.filter(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+										.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdCopy))
+								)
+								.withSort(SortBuilders.fieldSort("_doc"))
+								.withStoredFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+								.withPageable(LARGE_PAGE)
+								.build(), ReferenceSetMember.class, new RefsetMemberToReferenceComponentIdMapper(conceptIds))) {
+					stream.forEachRemaining(hit -> {
+					});
+				}
+			}
+
 		}
 
 		return conceptIds;
@@ -404,7 +435,7 @@ public class DescriptionService extends ComponentService {
 		addTermClauses(term, languageCodes, boolBuilder, null);
 	}
 
-	static void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder, SearchMode searchMode) {
+	private static void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder, SearchMode searchMode) {
 		if (IdentifierService.isConceptId(term)) {
 			boolBuilder.must(termQuery(Description.Fields.CONCEPT_ID, term));
 		} else {
