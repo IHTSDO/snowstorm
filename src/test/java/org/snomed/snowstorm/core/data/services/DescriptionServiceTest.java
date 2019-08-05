@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 import static org.snomed.snowstorm.core.data.services.DescriptionService.SearchMode.REGEX;
@@ -192,6 +193,36 @@ public class DescriptionServiceTest extends AbstractTest {
 		assertEquals("{english=3}", getAggregationString("language", pizzaFilteredAggregations));
 		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaFilteredAggregations));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", pizzaFilteredAggregations));
+	}
+
+	@Test
+	public void testDescriptionSearchAggregationsActiveConcept() throws ServiceException {
+		List<String> languageCodes = ControllerHelper.getLanguageCodes("en");
+		String path = "MAIN";
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
+		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)");
+		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
+		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
+		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		setModulesAndLanguage(concepts);
+		conceptService.batchCreate(concepts, path);
+
+		// Make one pizza concept inactive
+		reallyCheesyPizza_5.setActive(false);
+		conceptService.update(reallyCheesyPizza_5, path);
+
+		Concept concept = conceptService.find(reallyCheesyPizza_5.getId(), path);
+		assertFalse(concept.isActive());
+
+		Boolean conceptActive = null;
+		assertEquals("Should find all three pizza concepts", 3, descriptionService.findDescriptionsWithAggregations(path, "pizza", true, conceptActive, null, false, null, languageCodes, PageRequest.of(0, 10)).getTotalElements());
+
+		conceptActive = true;
+		assertEquals("Should find the two active pizza concepts", 2, descriptionService.findDescriptionsWithAggregations(path, "pizza", true, conceptActive, null, false, null, languageCodes, PageRequest.of(0, 10)).getTotalElements());
+
+		conceptActive = false;
+		assertEquals("Should find the one inactive pizza concept", 1, descriptionService.findDescriptionsWithAggregations(path, "pizza", true, conceptActive, null, false, null, languageCodes, PageRequest.of(0, 10)).getTotalElements());
 	}
 
 	@Test

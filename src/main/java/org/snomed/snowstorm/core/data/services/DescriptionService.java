@@ -132,7 +132,8 @@ public class DescriptionService extends ComponentService {
 		// Fetch concept semantic tag aggregation
 		// Not all descriptions are FSNs so use: description -> concept -> active FSN
 		Collection<Long> descriptionIdsGroupedByConcept = new LongArrayList();
-		Collection<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria, conceptActive, groupByConcept, descriptionIdsGroupedByConcept);
+		// ids of concepts where the descriptions match the criteria and the concept has the requested active status
+		Collection<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria, conceptActive, groupByConcept, descriptionIdsGroupedByConcept, branchCriteria);
 		BoolQueryBuilder descriptionFilter = boolQuery();
 		if (groupByConcept) {
 			descriptionFilter.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsGroupedByConcept));
@@ -350,7 +351,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	private Collection<Long> findDescriptionConceptIds(BoolQueryBuilder descriptionCriteria, Boolean conceptActive,
-			boolean groupByConcept, Collection<Long> descriptionIdsGroupedByConcept) {
+			boolean groupByConcept, Collection<Long> descriptionIdsGroupedByConcept, BranchCriteria branchCriteria) {
 
 		Collection<Long> conceptIds;
 		SearchResultMapper mapper;
@@ -377,17 +378,18 @@ public class DescriptionService extends ComponentService {
 		if (!conceptIds.isEmpty() && conceptActive != null) {
 			// Apply concept active filter
 			List<Long> conceptsWithActiveStatus = new LongArrayList();
-			for (List<Long> conceptIdPartition : Iterables.partition(conceptIds, CLAUSE_LIMIT)) {
-				try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(
-						new NativeSearchQueryBuilder()
-								.withQuery(termQuery(Concept.Fields.ACTIVE, conceptActive.booleanValue()))
-								.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdPartition))
-								.withSort(SortBuilders.fieldSort("_doc"))
-								.withStoredFields(Concept.Fields.CONCEPT_ID)
-								.withPageable(LARGE_PAGE)
-								.build(), Concept.class, new ConceptToConceptIdMapper(conceptsWithActiveStatus))) {
-					stream.forEachRemaining(hit -> {});
-				}
+			try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(
+					new NativeSearchQueryBuilder()
+							.withQuery(boolQuery()
+									.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+									.must(termQuery(Concept.Fields.ACTIVE, conceptActive.booleanValue()))
+									.filter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
+							)
+							.withSort(SortBuilders.fieldSort("_doc"))
+							.withStoredFields(Concept.Fields.CONCEPT_ID)
+							.withPageable(LARGE_PAGE)
+							.build(), Concept.class, new ConceptToConceptIdMapper(conceptsWithActiveStatus))) {
+				stream.forEachRemaining(hit -> {});
 			}
 			return conceptsWithActiveStatus;
 		}
