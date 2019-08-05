@@ -113,7 +113,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		assertEquals("{pizza=2, so pizza=1}", getAggregationString("semanticTags", pizzaAggs));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", pizzaAggs));
 
-		page = descriptionService.findDescriptionsWithAggregations(path, "pizza", true, true, "so pizza", false, null, Sets.newHashSet("en"), PageRequest.of(0, 10));
+		page = descriptionService.findDescriptionsWithAggregations(path, "pizza", true, null, "so pizza", true, false, null, Sets.newHashSet("en"), PageRequest.of(0, 10));
 		assertEquals(1, page.getTotalElements());
 		assertEquals(1, page.getContent().size());
 		Map<String, Map<String, Long>> soPizzaAggs = page.getBuckets();
@@ -135,9 +135,9 @@ public class DescriptionServiceTest extends AbstractTest {
 		conceptService.batchCreate(concepts, path);
 
 		boolean groupByConcept = false;
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Cheese", null, null, null, groupByConcept, null, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Cheese", null, null, null, null, groupByConcept, null, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 		groupByConcept = true;
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "Cheese", null, null, null, groupByConcept, null, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "Cheese", null, null, null, null, groupByConcept, null, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 	}
 
 	@Test
@@ -152,14 +152,14 @@ public class DescriptionServiceTest extends AbstractTest {
 		conceptService.batchCreate(concepts, path);
 
 		boolean groupByConcept = false;
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Cheese.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Che{2}se.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "^Cheese$", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Chees.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "Chees.*piz.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Cheese.*", null, null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Che{2}se.*", null, null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "^Cheese$", null, null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, "Chees.*", null, null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "Chees.*piz.*", null, null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 
 		groupByConcept = true;
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "Chees.*", null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, "Chees.*", null, null, null, null, groupByConcept, REGEX, Collections.singleton("en"), PageRequest.of(0, 10)).getTotalElements());
 	}
 
 	@Test
@@ -181,14 +181,14 @@ public class DescriptionServiceTest extends AbstractTest {
 		));
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes("en");
-		Map<String, Map<String, Long>> allAggregations = descriptionService.findDescriptionsWithAggregations(path, null, true, null, null, false, null, languageCodes, PageRequest.of(0, 10)).getBuckets();
+		Map<String, Map<String, Long>> allAggregations = descriptionService.findDescriptionsWithAggregations(path, null, true, null, null, null, false, null, languageCodes, PageRequest.of(0, 10)).getBuckets();
 		assertEquals("{900000000000207008=4}", getAggregationString("module", allAggregations));
 		assertEquals("{english=4}", getAggregationString("language", allAggregations));
 		assertEquals("{pizza=3, food=1}", getAggregationString("semanticTags", allAggregations));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", allAggregations));
 
 		String semanticTag = "pizza";
-		Map<String, Map<String, Long>> pizzaFilteredAggregations = descriptionService.findDescriptionsWithAggregations(path, null, true, null, semanticTag, false, null, languageCodes, PageRequest.of(0, 10)).getBuckets();
+		Map<String, Map<String, Long>> pizzaFilteredAggregations = descriptionService.findDescriptionsWithAggregations(path, null, true, null, semanticTag, null, false, null, languageCodes, PageRequest.of(0, 10)).getBuckets();
 		assertEquals("{900000000000207008=3}", getAggregationString("module", pizzaFilteredAggregations));
 		assertEquals("{english=3}", getAggregationString("language", pizzaFilteredAggregations));
 		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaFilteredAggregations));
@@ -216,13 +216,13 @@ public class DescriptionServiceTest extends AbstractTest {
 		assertFalse(concept.isActive());
 
 		Boolean conceptActive = null;
-		assertEquals("Should find all three pizza concepts", 3, descriptionService.findDescriptionsWithAggregations(path, "pizza", true, conceptActive, null, false, null, languageCodes, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals("Should find all three pizza concepts", 3, descriptionService.findDescriptionsWithAggregations(path, "pizza", true, null, null, conceptActive, false, null, languageCodes, PageRequest.of(0, 10)).getTotalElements());
 
 		conceptActive = true;
-		assertEquals("Should find the two active pizza concepts", 2, descriptionService.findDescriptionsWithAggregations(path, "pizza", true, conceptActive, null, false, null, languageCodes, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals("Should find the two active pizza concepts", 2, descriptionService.findDescriptionsWithAggregations(path, "pizza", true, null, null, conceptActive, false, null, languageCodes, PageRequest.of(0, 10)).getTotalElements());
 
 		conceptActive = false;
-		assertEquals("Should find the one inactive pizza concept", 1, descriptionService.findDescriptionsWithAggregations(path, "pizza", true, conceptActive, null, false, null, languageCodes, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals("Should find the one inactive pizza concept", 1, descriptionService.findDescriptionsWithAggregations(path, "pizza", true, null, null, conceptActive, false, null, languageCodes, PageRequest.of(0, 10)).getTotalElements());
 	}
 
 	@Test

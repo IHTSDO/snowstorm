@@ -37,8 +37,9 @@ public class DescriptionController {
 			@PathVariable String branch,
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) Boolean active,
-			@RequestParam(required = false) Boolean conceptActive,
+			@RequestParam(required = false) String module,
 			@RequestParam(required = false) String semanticTag,
+			@RequestParam(required = false) Boolean conceptActive,
 			@RequestParam(defaultValue = "false") boolean groupByConcept,
 			@RequestParam(defaultValue = "STANDARD") DescriptionService.SearchMode searchMode,
 			@RequestParam(defaultValue = "0") int offset,
@@ -51,10 +52,11 @@ public class DescriptionController {
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 
 		PageWithBucketAggregations<Description> page = descriptionService.findDescriptionsWithAggregations(
-				// Query
-				branch, term,
-				// Filters
-				active, conceptActive, semanticTag,
+				branch,
+				// Description clauses
+				term, active, module, semanticTag,
+				// Concept clauses
+				conceptActive,
 				// Grouping
 				groupByConcept,
 				//search mode

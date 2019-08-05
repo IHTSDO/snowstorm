@@ -109,12 +109,12 @@ public class DescriptionService extends ComponentService {
 	}
 
 	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
-		return findDescriptionsWithAggregations(path, term, true, null, null, false, null, Collections.singleton("en"), pageRequest);
+		return findDescriptionsWithAggregations(path, term, true, null, null, null, false, null, Collections.singleton("en"), pageRequest);
 	}
 
-	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term,
-			Boolean active, Boolean conceptActive, String semanticTag,
-			boolean groupByConcept, SearchMode searchMode, Collection<String> languageCodes, PageRequest pageRequest) {
+	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path,
+			String term, Boolean active, String module, String semanticTag,
+			Boolean conceptActive, boolean groupByConcept, SearchMode searchMode, Collection<String> languageCodes, PageRequest pageRequest) {
 
 		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
@@ -127,6 +127,9 @@ public class DescriptionService extends ComponentService {
 		addTermClauses(term, languageCodes, descriptionCriteria, searchMode);
 		if (active != null) {
 			descriptionCriteria.must(termQuery(Description.Fields.ACTIVE, active));
+		}
+		if (!Strings.isNullOrEmpty(module)) {
+			descriptionCriteria.must(termQuery(Description.Fields.MODULE_ID, module));
 		}
 
 		// Fetch concept semantic tag aggregation
