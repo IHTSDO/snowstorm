@@ -8,6 +8,8 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODE;
+
 public class ServiceTestUtil {
 
 	public static final PageRequest PAGE_REQUEST = PageRequest.of(0, 100);
@@ -22,11 +24,13 @@ public class ServiceTestUtil {
 		return Arrays.stream(longString).map(Long::parseLong).collect(Collectors.toSet());
 	}
 
-	public Concept createConceptWithPathIdAndTerms(String path, String conceptId, String... terms) throws ServiceException {
+	public Concept createConceptWithPathIdAndTerm(String path, String conceptId, String term) throws ServiceException {
+		return createConceptWithPathIdAndTermWithLang(path, conceptId, term, DEFAULT_LANGUAGE_CODE);
+	}
+
+	public Concept createConceptWithPathIdAndTermWithLang(String path, String conceptId, String term, String languageCode) throws ServiceException {
 		final Concept concept = new Concept(conceptId);
-		for (String term : terms) {
-			concept.addDescription(new Description(term));
-		}
+		concept.addDescription(new Description(term).setLang(languageCode));
 		return conceptService.create(concept, path);
 	}
 }

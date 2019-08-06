@@ -62,6 +62,9 @@ public class QueryService implements ApplicationContextAware {
 	@Autowired
 	private RelationshipService relationshipService;
 
+	@Autowired
+	private DescriptionService descriptionService;
+
 	private ConceptService conceptService;
 
 	private static final Function<Long, Object[]> CONCEPT_ID_SEARCH_AFTER_EXTRACTOR =
@@ -323,7 +326,7 @@ public class QueryService implements ApplicationContextAware {
 		if (termActive != null) {
 			lexicalQuery.must(termQuery("active", termActive));
 		}
-		DescriptionService.addTermClauses(term, languageCodes, lexicalQuery);
+		descriptionService.addTermClauses(term, languageCodes, lexicalQuery);
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(lexicalQuery)
 				.withPageable(pageable);

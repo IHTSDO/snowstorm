@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.Sets.newHashSet;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
@@ -56,13 +57,13 @@ public class DescriptionServiceTest extends AbstractTest {
 
 	@Test
 	public void testDescriptionSearch() throws ServiceException {
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "100001", "Heart");
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "100002", "Lung");
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "100006", "Foot cramps");
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "100007", "Foot cramp");
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "100003", "Foot bone");
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "100004", "Foot");
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "100005", "Footwear");
+		testUtil.createConceptWithPathIdAndTerm("MAIN", "100001", "Heart");
+		testUtil.createConceptWithPathIdAndTerm("MAIN", "100002", "Lung");
+		testUtil.createConceptWithPathIdAndTerm("MAIN", "100006", "Foot cramps");
+		testUtil.createConceptWithPathIdAndTerm("MAIN", "100007", "Foot cramp");
+		testUtil.createConceptWithPathIdAndTerm("MAIN", "100003", "Foot bone");
+		testUtil.createConceptWithPathIdAndTerm("MAIN", "100004", "Foot");
+		testUtil.createConceptWithPathIdAndTerm("MAIN", "100005", "Footwear");
 
 		List<Description> content = descriptionService.findDescriptionsWithAggregations("MAIN", "Foo cr", ServiceTestUtil.PAGE_REQUEST).getContent();
 		List<String> actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
@@ -75,6 +76,28 @@ public class DescriptionServiceTest extends AbstractTest {
 		content = descriptionService.findDescriptionsWithAggregations("MAIN", "cramps", ServiceTestUtil.PAGE_REQUEST).getContent();
 		actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
 		assertEquals(Lists.newArrayList("Foot cramps"), actualTerms);
+	}
+
+	@Test
+	public void testDescriptionSearchCharacterFolding() throws ServiceException {
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100001", "Heart", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100002", "Lung", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100003", "Foot cramps", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100004", "Région de l'Afrique", "fr");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100005", "déficit de apolipoproteína", "es");
+
+		// In the French language 'é' is NOT configured as an extra character in the alphabet so is folded to it's simpler form 'e' in the index.
+		// Searching for either 'é' or 'e' should give the same match.
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "région", newHashSet("fr"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "region", newHashSet("fr"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+
+		// In the Spanish language 'é' IS configured as an extra character in the alphabet. It is kept as 'é' in the index.
+		// Searching for 'é' should match but 'e' should not because it's considered as a different letter altogether.
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "déficit", newHashSet("es"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "deficit", newHashSet("es"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		// Searching for both es and en language codes does not allow matching against the Spanish description with the é character
+		// because when the search term is folded for the English language matches are restricted to descriptions with en language code.
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "deficit", newHashSet("es", "en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 	}
 
 	@Test
@@ -255,7 +278,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	@Test
 	public void testVersionControlOnChildOfMainBranch() throws ServiceException {
 		branchService.create("MAIN/A");
-		Concept concept = testUtil.createConceptWithPathIdAndTerms("MAIN/A", "100001", "Heart");
+		Concept concept = testUtil.createConceptWithPathIdAndTerm("MAIN/A", "100001", "Heart");
 
 		assertEquals(Collections.emptySet(), branchService.findLatest("MAIN/A").getVersionsReplaced().get("Description"));
 
@@ -272,7 +295,7 @@ public class DescriptionServiceTest extends AbstractTest {
 
 	@Test
 	public void testVersionControlOnMainBranch() throws ServiceException {
-		Concept concept = testUtil.createConceptWithPathIdAndTerms("MAIN", "100001", "Heart");
+		Concept concept = testUtil.createConceptWithPathIdAndTerm("MAIN", "100001", "Heart");
 
 		assertEquals(Collections.emptySet(), branchService.findLatest("MAIN").getVersionsReplaced().get("Description"));
 

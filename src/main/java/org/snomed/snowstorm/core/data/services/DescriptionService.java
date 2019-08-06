@@ -16,6 +16,7 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.mapper.ConceptToConceptIdMapper;
@@ -25,6 +26,7 @@ import org.snomed.snowstorm.core.data.services.mapper.RefsetMemberToReferenceCom
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.core.data.services.pojo.SimpleAggregation;
+import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -49,6 +51,9 @@ import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
 
 @Service
 public class DescriptionService extends ComponentService {
+
+	@Autowired
+	private SearchLanguagesConfiguration searchLanguagesConfiguration;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -110,7 +115,11 @@ public class DescriptionService extends ComponentService {
 	}
 
 	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
-		return findDescriptionsWithAggregations(path, term, true, null, null, null, null, false, null, Collections.singleton("en"), pageRequest);
+		return findDescriptionsWithAggregations(path, term, Collections.singleton("en"), pageRequest);
+	}
+
+	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, Set<String> languageCodes, PageRequest pageRequest) {
+		return findDescriptionsWithAggregations(path, term, true, null, null, null, null, false, null, languageCodes, pageRequest);
 	}
 
 	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path,
@@ -431,11 +440,11 @@ public class DescriptionService extends ComponentService {
 		return conceptIds;
 	}
 
-	static void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder) {
+	void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder) {
 		addTermClauses(term, languageCodes, boolBuilder, null);
 	}
 
-	private static void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder, SearchMode searchMode) {
+	private void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder, SearchMode searchMode) {
 		if (IdentifierService.isConceptId(term)) {
 			boolBuilder.must(termQuery(Description.Fields.CONCEPT_ID, term));
 		} else {
@@ -450,18 +459,26 @@ public class DescriptionService extends ComponentService {
 					}
 					boolBuilder.must(regexpQuery(Description.Fields.TERM, term));
 				} else {
-					// Must match one of the following 'should' clauses:
-					boolBuilder.must(boolQuery()
+					// Must match at least one of the following 'should' clauses:
+					BoolQueryBuilder shouldClauses = boolQuery()
+							// All given words. Match Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query.html
+							.should(matchQuery(Description.Fields.TERM_FOLDED, term)
+									.operator(Operator.AND));
 
-									// All given words. Match Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query.html
-									.should(matchQuery(Description.Fields.TERM_FOLDED, term)
-											.operator(Operator.AND))
+					// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
+					// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
+					// Put search term through character folding for each requested language
+					Map<String, Set<Character>> charactersNotFoldedSets = searchLanguagesConfiguration.getCharactersNotFoldedSets();
+					for (String languageCode : languageCodes) {
+						Set<Character> charactersNotFoldedForLanguage = charactersNotFoldedSets.getOrDefault(languageCode, Collections.emptySet());
+						String foldedSearchTerm = DescriptionHelper.foldTerm(term, charactersNotFoldedForLanguage);
+						shouldClauses.should(boolQuery()
+								.must(termQuery(Description.Fields.LANGUAGE_CODE, languageCode))
+								.filter(simpleQueryStringQuery((foldedSearchTerm.trim().replace(" ", "* ") + "*") .replace("**", "*"))
+										.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND)));
+					}
 
-									// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
-									.should(simpleQueryStringQuery((term.trim().replace(" ", "* ") + "*") .replace("**", "*"))
-											.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND))
-							// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
-					);
+					boolBuilder.must(shouldClauses);
 				}
 				// Must match the requested language
 				boolBuilder.must(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes));

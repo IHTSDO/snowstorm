@@ -41,7 +41,8 @@ import java.util.concurrent.TimeUnit;
 public class TestConfig extends Config {
 
 	private static final String ELASTIC_SEARCH_VERSION = "6.5.4";
-	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList("en");
+	public static final String DEFAULT_LANGUAGE_CODE = "en";
+	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList(DEFAULT_LANGUAGE_CODE);
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;

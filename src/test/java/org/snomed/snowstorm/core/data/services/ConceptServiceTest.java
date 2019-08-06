@@ -733,7 +733,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Test
 	public void testLatestVersionMatch() throws ServiceException {
-		testUtil.createConceptWithPathIdAndTerms("MAIN", "100001", "Heart");
+		testUtil.createConceptWithPathIdAndTerm("MAIN", "100001", "Heart");
 
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
 		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
