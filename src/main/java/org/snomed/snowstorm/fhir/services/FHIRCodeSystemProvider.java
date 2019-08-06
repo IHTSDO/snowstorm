@@ -50,7 +50,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="property") List<CodeType> propertiesType ) throws FHIROperationException {
 
 		if (system == null || system.isEmpty() || !system.equals(SNOMED_URI)) {
-			String detail = "  Instead received: " + system==null?"null": ("'" + system.asStringValue() + "'");
+			String detail = "  Instead received: " + (system == null ? "null" : ("'" + system.asStringValue() + "'"));
 			throw new FHIROperationException(IssueType.VALUE, "'system' parameter must be present, and currently only '" + SNOMED_URI + "' is supported." + detail);
 		}
 
