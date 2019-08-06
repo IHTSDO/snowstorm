@@ -836,14 +836,13 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals(effectiveTime, memberWithRestoredDate.getEffectiveTimeI());
 	}
 
-	// Uncomment to run - takes around 45 seconds.
-//	@Test
+	@Test
 	public void testCreateUpdate10KConcepts() throws ServiceException {
 		branchService.create("MAIN/A");
 		conceptService.create(new Concept(SNOMEDCT_ROOT), "MAIN/A");
 
 		List<Concept> concepts = new ArrayList<>();
-		final int tenThousand = 10 * 1000;
+		final int tenThousand = 10_000;
 		for (int i = 0; i < tenThousand; i++) {
 			concepts.add(
 					new Concept(null, Concepts.CORE_MODULE)
@@ -882,14 +881,6 @@ public class ConceptServiceTest extends AbstractTest {
 		}
 		assertEquals(anotherModule, someConcept.getModuleId());
 		assertEquals(1, someConcept.getRelationships().size());
-
-		// Move all concepts in hierarchy
-		conceptService.create(new Concept(Concepts.CLINICAL_FINDING).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)), "MAIN/A");
-		concepts.forEach(c -> {
-			c.getRelationships().iterator().next().setActive(false);
-			c.addRelationship(new Relationship(ISA, Concepts.CLINICAL_FINDING));
-		});
-		conceptService.createUpdate(concepts, "MAIN/A");
 	}
 
 	private void printAllDescriptions(String path) {
