@@ -129,17 +129,19 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			return;
 		}
 		switch (mode) {
-			case EQUALS : if (!actual.equals(expected)) {
-					throw new FHIROperationException (null, fieldName + " must be exactly equal to '" + expected + "'.  Received '" + actual + "'.");
+			case EQUALS:
+				if (actual == null || !actual.equals(expected)) {
+					throw new FHIROperationException(null, fieldName + " must be exactly equal to '" + expected + "'.  Received '" + actual + "'.");
 				}
 				break;
-			case STARTS_WITH : if (!actual.startsWith(expected)) {
-					throw new FHIROperationException (null, fieldName + " must start with '" + expected + "'.  Received '" + actual + "'.");
+			case STARTS_WITH:
+				if (actual == null || !actual.startsWith(expected)) {
+					throw new FHIROperationException(null, fieldName + " must start with '" + expected + "'.  Received '" + actual + "'.");
 				}
 				break;
 		}
 	}
-	
+
 	private void validate(String fieldName, String actual, Validation mode, String[] permittedValues, boolean mandatory) throws FHIROperationException {
 		if (!mandatory && actual == null) {
 			return;
