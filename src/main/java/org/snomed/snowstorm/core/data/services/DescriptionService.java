@@ -458,12 +458,11 @@ public class DescriptionService extends ComponentService {
 						term = term.substring(0, term.length()-1);
 					}
 					boolBuilder.must(regexpQuery(Description.Fields.TERM, term));
+					// Must match the requested language
+					boolBuilder.must(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes));
 				} else {
 					// Must match at least one of the following 'should' clauses:
-					BoolQueryBuilder shouldClauses = boolQuery()
-							// All given words. Match Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-query.html
-							.should(matchQuery(Description.Fields.TERM_FOLDED, term)
-									.operator(Operator.AND));
+					BoolQueryBuilder shouldClauses = boolQuery();
 
 					// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
 					// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
@@ -474,14 +473,12 @@ public class DescriptionService extends ComponentService {
 						String foldedSearchTerm = DescriptionHelper.foldTerm(term, charactersNotFoldedForLanguage);
 						shouldClauses.should(boolQuery()
 								.must(termQuery(Description.Fields.LANGUAGE_CODE, languageCode))
-								.filter(simpleQueryStringQuery((foldedSearchTerm.trim().replace(" ", "* ") + "*") .replace("**", "*"))
+								.filter(simpleQueryStringQuery((foldedSearchTerm.trim().replace(" ", "* ") + "*").replace("**", "*"))
 										.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND)));
 					}
 
 					boolBuilder.must(shouldClauses);
 				}
-				// Must match the requested language
-				boolBuilder.must(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes));
 			}
 		}
 	}
