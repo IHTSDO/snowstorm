@@ -146,7 +146,7 @@ public class TraceabilityLogService implements CommitListener {
 				break;
 			}
 		}
-		if (!changeFound) {
+		if (commit.getCommitType() == CONTENT && !changeFound) {
 			logger.info("Skipping traceability because there was no traceable change.");
 			return;
 		}
