@@ -21,6 +21,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.util.Collections;
 import java.util.Stack;
 
+import static junit.framework.TestCase.assertNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
@@ -87,20 +88,22 @@ public class TraceabilityLogServiceTest extends AbstractTest {
 
 		// Update concept with no change
 		conceptService.update(concept, MAIN);
-		activity = getActivity();
-		assertEquals("No concept changes.", activity.getCommitComment());
-		assertEquals(0, activity.getChanges().size());
+		activity = getActivityWithTimeout(10);// Shorter timeout here because we know the test JMS broker is up and we don't expect a message to come.
+		assertNull("No concept changes so no traceability commit.", activity);
 	}
 
 	public Activity getActivity() throws InterruptedException {
-		int maxWait = 20;
+		return getActivityWithTimeout(20);
+	}
+
+	public Activity getActivityWithTimeout(int maxWait) throws InterruptedException {
 		int waited = 0;
 		while (activitiesLogged.isEmpty() && waited < maxWait) {
 			Thread.sleep(1_000);
 			waited++;
 		}
 		if (activitiesLogged.isEmpty()) {
-			fail("No message received.");
+			return null;
 		}
 		return activitiesLogged.pop();
 	}
@@ -109,13 +112,13 @@ public class TraceabilityLogServiceTest extends AbstractTest {
 	public void createCommitCommentRebase() {
 		Commit commit = new Commit(new Branch("MAIN/A"), Commit.CommitType.REBASE, null, null);
 		commit.setSourceBranchPath("MAIN");
-		assertEquals("kkewley performed merge of MAIN to MAIN/A", traceabilityLogService.createCommitComment("kkewley", commit, Collections.emptySet(), true, false));
+		assertEquals("kkewley performed merge of MAIN to MAIN/A", traceabilityLogService.createCommitComment("kkewley", commit, Collections.emptySet(), false));
 	}
 
 	@Test
 	public void createCommitCommentPromotion() {
 		Commit commit = new Commit(new Branch("MAIN"), Commit.CommitType.PROMOTION, null, null);
 		commit.setSourceBranchPath("MAIN/A");
-		assertEquals("kkewley performed merge of MAIN/A to MAIN", traceabilityLogService.createCommitComment("kkewley", commit, Collections.emptySet(), true, false));
+		assertEquals("kkewley performed merge of MAIN/A to MAIN", traceabilityLogService.createCommitComment("kkewley", commit, Collections.emptySet(), false));
 	}
 }

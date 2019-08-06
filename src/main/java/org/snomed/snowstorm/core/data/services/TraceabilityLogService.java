@@ -138,8 +138,20 @@ public class TraceabilityLogService implements CommitListener {
 			}
 		}
 
-		boolean anyStatedChanges = false;
 		Map<String, Activity.ConceptActivity> changes = activity.getChanges();
+		boolean changeFound = false;
+		for (Activity.ConceptActivity conceptActivity : changes.values()) {
+			if (!conceptActivity.getChanges().isEmpty()) {
+				changeFound = true;
+				break;
+			}
+		}
+		if (!changeFound) {
+			logger.info("Skipping traceability because there was no traceable change.");
+			return;
+		}
+
+		boolean anyStatedChanges = false;
 		if (!activityMap.isEmpty()) {
 			List<Long> conceptsWithNoChange = new LongArrayList();
 			for (Activity.ConceptActivity conceptActivity : activityMap.values()) {
@@ -154,7 +166,7 @@ public class TraceabilityLogService implements CommitListener {
 			}
 		}
 
-		String commitComment = createCommitComment(userId, commit, concepts, changes.isEmpty(), anyStatedChanges);
+		String commitComment = createCommitComment(userId, commit, concepts, anyStatedChanges);
 		activity.setCommitComment(commitComment);
 
 		if (activityMap.size() > inferredMax) {
@@ -184,12 +196,10 @@ public class TraceabilityLogService implements CommitListener {
 		activityConsumer.accept(activity);
 	}
 
-	String createCommitComment(String userId, Commit commit, Collection<Concept> concepts, boolean noConceptChanges, boolean anyStatedChanges) {
+	String createCommitComment(String userId, Commit commit, Collection<Concept> concepts, boolean anyStatedChanges) {
 		Commit.CommitType commitType = commit.getCommitType();
 		if (commitType == CONTENT) {
-			if (noConceptChanges) {
-				return "No concept changes.";
-			} else if (!anyStatedChanges) {
+			if (!anyStatedChanges) {
 				return "Classified ontology.";
 			} else if (concepts.size() == 1) {
 				Concept concept = concepts.iterator().next();
