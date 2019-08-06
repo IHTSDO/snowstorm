@@ -48,10 +48,12 @@ class MRCMLoader {
 		File mrcmMainFile = new File(mrcmMainDir, MRCM_FILE_NAME);
 		if (!mrcmMainFile.isFile()) {
 			try {
-			if (!mrcmMainFile.createNewFile()) {
-				throw new ServiceException("Failed to create MRCM configuration file " + mrcmMainFile.getAbsolutePath());
-			}
-				Streams.copy(getClass().getResourceAsStream("/mrcm/" + MRCM_FILE_NAME), new FileOutputStream(mrcmMainFile), true);
+				if (!mrcmMainFile.createNewFile()) {
+					throw new ServiceException("Failed to create MRCM configuration file " + mrcmMainFile.getAbsolutePath());
+				}
+				try (FileOutputStream outputStream = new FileOutputStream(mrcmMainFile)) {
+					Streams.copy(getClass().getResourceAsStream("/mrcm/" + MRCM_FILE_NAME), outputStream, true);
+				}
 			} catch (IOException e) {
 				throw new ServiceException("Failed to write default MRCM configuration file " + mrcmMainFile.getAbsolutePath());
 			}
@@ -66,10 +68,12 @@ class MRCMLoader {
 				public FileVisitResult visitFile(Path filePath, BasicFileAttributes attrs) throws IOException {
 					File file = filePath.toFile();
 					if (file.isFile() && file.getName().equals(MRCM_FILE_NAME)) {
-						MRCM mrcm = load(new FileInputStream(file));
-						String branchPath = file.getAbsolutePath().substring(mrcmDir.getAbsolutePath().length() + 1);
-						branchPath = branchPath.substring(0, branchPath.length() - file.getName().length() - 1);
-						branchMrcmMap.put(branchPath, mrcm);
+						try (FileInputStream mrcmXmlStream = new FileInputStream(file)) {
+							MRCM mrcm = load(mrcmXmlStream);
+							String branchPath = file.getAbsolutePath().substring(mrcmDir.getAbsolutePath().length() + 1);
+							branchPath = branchPath.substring(0, branchPath.length() - file.getName().length() - 1);
+							branchMrcmMap.put(branchPath, mrcm);
+						}
 					}
 					return FileVisitResult.CONTINUE;
 				}
