@@ -75,7 +75,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		ValueSetWrapper savedVs = valuesetRepository.save(new ValueSetWrapper(id, vs));
 		int version = 1;
 		if (id.hasVersionIdPart()) {
-			version += id.getVersionIdPartAsLong();
+			version += id.getVersionIdPartAsLong().intValue();
 		}
 		outcome.setId(new IdType("ValueSet", savedVs.getId(), Long.toString(version)));
 		return outcome;
