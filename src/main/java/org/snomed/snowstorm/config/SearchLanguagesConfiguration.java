@@ -16,16 +16,17 @@ public class SearchLanguagesConfiguration {
 
 	public Map<String, Set<Character>> getCharactersNotFoldedSets() {
 		if (charactersNotFoldedSets == null) {
-			synchronized (this) {
-				if (charactersNotFoldedSets == null) {
-					charactersNotFoldedSets = new HashMap<>();
-					for (Map.Entry<String, String> entry : charactersNotFolded.entrySet()) {
-						charactersNotFoldedSets.put(entry.getKey(), toCharSet(entry.getValue()));
-					}
-				}
-			}
+			charactersNotFoldedSets = buildMap();
 		}
 		return charactersNotFoldedSets;
+	}
+
+	private synchronized Map<String, Set<Character>> buildMap() {
+		Map<String, Set<Character>> notFoldedSets = new HashMap<>();
+		for (Map.Entry<String, String> entry : charactersNotFolded.entrySet()) {
+			notFoldedSets.put(entry.getKey(), toCharSet(entry.getValue()));
+		}
+		return notFoldedSets;
 	}
 
 	private Set<Character> toCharSet(String s) {
