@@ -176,7 +176,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		}
 		
 		//If someone specified designations, then include them in any event
-		Boolean includeDesignations = includeDesignationsType == null ? false : includeDesignationsType.booleanValue();
+		boolean includeDesignations = includeDesignationsType != null && includeDesignationsType.booleanValue();
 		if (designations != null) {
 			includeDesignations = true;
 		}
