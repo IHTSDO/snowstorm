@@ -4,6 +4,103 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## 4.1.0 Release - 2019-08-07 - Public API supporting the SNOMED browser
+
+This major version includes the API for the SNOMED International public SNOMEDCT browser!
+The browser descriptions endpoint is now faster and includes the full set of aggregations and filters to support the browser search.
+
+Another new feature is enhanced character matching for non-english languages. 
+Diacritic characters which are considered as additional letters in the alphabet of a language can be added to configuration to have them indexed correctly for search. 
+For example the Swedish language uses the characters 'å', 'ä' and 'ö' as additional letters in their alphabet, these letters are not just accented versions of 'a' and 'o'.
+Thank you to Daniel Karlsson for educating us about this and providing an initial proof of concept. 
+
+Thank you to everyone who asked questions and provided feedback during another great release.
+
+_Note: The old public browser API project "sct-snapshot-rest-api" has now been archived in favour of the Snowstorm terminology server._
+
+### Breaking
+- Description index mapping has been updated with better support for non-english languages. 
+Please migrate existing data to the new mapping using the [reindexing guide](docs/index-mapping-changes.md) then run 
+the new admin "Rebuild the description index" function found in the swagger API docs.
+
+### Features
+- Search: Enhanced character matching for non-english languages (configured under "Search International Character Handling" in application.properties).
+- Full set of aggregations and filters for browser description API endpoint.
+- New concept references endpoint.
+- New aggregated browser reference set members endpoint for refset summary view.
+- FHIR:
+  - Valueset maintenance / CRUD operations.
+  - Language support - search appropriate language refset.
+
+### Improvements
+- Scalability:
+  - Branch merge operation data now persisted in Elasticsearch. No other non-persistent operational data found. Ready for testing as multi-instance authoring server.
+- Browser description search:
+  - Faster aggregations.
+  - New search parameters: active, semanticTag, module, conceptRefset.
+  - New options: group by concept. 
+  - New search mode for regular expressions.
+- Browser:
+  - Browser Concept JSON format made consistent with Snow Owl (minor changes made on both sides).
+- Code system listing enhanced with languages, modules and latest release.
+- OWL:
+  - Use latest International stemming axioms to link Object Properties and Data Properties to the main Class hierarchy.
+- Configuration:
+  - Added extension module mapping for Estonia, Ireland, India and Norway extensions.
+- FHIR:
+  - Add Postman link to FHIR docs.
+  - Upgrade to HAPI 3.8.0.
+  - Add filter support for extensionally defined valuesets - on expansion.
+- Authoring:
+  - Add attribute grouped/ungrouped validation.
+  - Semantic index processing of new object attribute axioms.
+  - Automatically add description non-current indicators when inactive concept saved.
+  - Automatically inactivate lang refset members when inactive description saved.
+  - Validation: GCI must contain at least one parent and one attribute.
+- Classification:
+  - Equivalent concepts response format compatible with Snow Owl.
+  - Add inferred not previously stated flag to relationship changes in classification report.
+- Version Control:
+  - Rebase no longer changes the base timepoint of the original branch version.
+  - Allow loading concepts from branch base timepoint using GET /browser/{branch}@^/concept/{conceptId}.
+  - Log commit duration.
+- RF2 Import:
+  - Change skipped components warning message to info.
+- Code Build:
+  - Allow Elasticsearch unit tests to run when disk low.
+  - Replace Cobertura maven plugin with Jacoco.
+  - Fix all lgtm.com automated code review suggestions.
+- Deployment:
+  - Debian package uses urandom for SecureRandom session IDs.
+
+### Fixes
+- Fix issue #16 Return complete list of code system versions.
+- Fix issue #49 Correct total results count in simple concept search.
+- Fix issue #53 Incorrect ECL ancestor count after delta import.
+  - Account for multiple ancestors in semantic index update concept graph.
+- Fix issue #55 Security fix - upgrade embedded Tomcat container to 8.5.41.
+- FHIR:
+  - Correct ICD-10 URI and allow reverse map lookup.
+  - Don't show refset membership in system URI.
+  - Protect against null pointer if VS is not found.
+- Search:
+  - Use translated FSN and PT in concept browser response.
+  - Fix concept search when combining ECL and definition status.
+  - Concept search using concept id can now return inactive concepts.
+  - Fix active flag concept filter. 
+- Version Control:
+  - Fix branch rebase issue where multiple versions of a component could survive.   
+  - Fix performance issue when promoting a large amount of changes to MAIN.
+  - Branch merge review now checks changes on all ancestor branches not just the parent branch.
+- Authoring validation:
+  - Drools: Multiple hierarchy error should not use inferred form.
+  - No traceability logging when concept updated with no change.
+- Other:
+  - Fix classification job date formats.
+  - Concept browser format returns PT in PT field rather than FSN.
+
+
+
 ## 3.0.3 Release - 2019-05-17
 
 This major version has support for Complete OWL SNOMED releases with no need for any active stated relationships.
