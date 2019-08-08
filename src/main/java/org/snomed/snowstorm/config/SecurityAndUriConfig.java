@@ -38,6 +38,9 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean restApiReadOnly;
 
+	@Value("${ims-security.roles.enabled}")
+	private boolean rolesEnabled;
+
 	@Autowired
 	private List<String> allowReadOnlyPostEndpointPrefixes;
 
@@ -113,6 +116,12 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 					.antMatchers(HttpMethod.PUT, "/**").denyAll()
 					.antMatchers(HttpMethod.PATCH, "/**").denyAll()
 					.antMatchers(HttpMethod.DELETE, "/**").denyAll()
+					.anyRequest().anonymous();
+		} else if (rolesEnabled) {
+			http.authorizeRequests()
+					.antMatchers("/admin").hasRole("snowstorm-admin")// ROLE_snowstorm-admin
+					.antMatchers(HttpMethod.PUT, "/codesystems").hasRole("snowstorm-admin")
+					.antMatchers(HttpMethod.POST, "/codesystems").hasRole("snowstorm-admin")
 					.anyRequest().anonymous();
 		}
 	}
