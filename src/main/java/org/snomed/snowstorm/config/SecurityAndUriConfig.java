@@ -136,7 +136,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 					.antMatchers("/admin").hasRole("snowstorm-admin")// ROLE_snowstorm-admin
 					.antMatchers(HttpMethod.PUT, "/codesystems").hasRole("snowstorm-admin")
 					.antMatchers(HttpMethod.POST, "/codesystems").hasRole("snowstorm-admin")
-					.anyRequest().anonymous();
+					.anyRequest().permitAll();
 		}
 	}
 
