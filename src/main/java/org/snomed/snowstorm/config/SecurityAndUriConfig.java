@@ -133,9 +133,9 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 					.anyRequest().anonymous();
 		} else if (rolesEnabled) {
 			http.authorizeRequests()
-					.antMatchers("/admin").hasRole("snowstorm-admin")// ROLE_snowstorm-admin
-					.antMatchers(HttpMethod.PUT, "/codesystems").hasRole("snowstorm-admin")
-					.antMatchers(HttpMethod.POST, "/codesystems").hasRole("snowstorm-admin")
+					.antMatchers("/admin/**").hasRole("snowstorm-admin")// ROLE_snowstorm-admin
+					.antMatchers(HttpMethod.PUT, "/codesystems/**").hasRole("snowstorm-admin")
+					.antMatchers(HttpMethod.POST, "/codesystems/**").hasRole("snowstorm-admin")
 					.anyRequest().permitAll();
 		}
 	}
