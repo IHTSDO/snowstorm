@@ -64,23 +64,12 @@ import org.springframework.jms.support.converter.MappingJackson2MessageConverter
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.MessageType;
 import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
-import springfox.documentation.builders.RequestHandlerSelectors;
-import springfox.documentation.service.ApiInfo;
-import springfox.documentation.service.Contact;
-import springfox.documentation.spi.DocumentationType;
-import springfox.documentation.spring.web.plugins.ApiSelectorBuilder;
-import springfox.documentation.spring.web.plugins.Docket;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-
-import static com.google.common.base.Predicates.not;
-import static springfox.documentation.builders.PathSelectors.regex;
 
 @SpringBootApplication(
 		exclude = {
@@ -104,9 +93,6 @@ public abstract class Config {
 	public static final String SYSTEM_USERNAME = "System";
 	public static final int BATCH_SAVE_SIZE = 10000;
 	public static final int AGGREGATION_SEARCH_SIZE = 200;
-
-	@Value("${snowstorm.rest-api.readonly}")
-	private boolean restApiReadOnly;
 
 	@Value("${elasticsearch.username}")
 	private String elasticsearchUsername;
@@ -335,58 +321,6 @@ public abstract class Config {
 	@Bean
 	public ECLQueryBuilder eclQueryBuilder() {
 		return new ECLQueryBuilder(new SECLObjectFactory());
-	}
-
-	@Bean(name = "allowReadOnlyPostEndpointPrefixes")
-	public List<String> allowReadOnlyPostEndpointPrefixes() {
-		return Collections.singletonList("/fhir");
-	}
-
-	@Bean
-	public Docket api() {
-		Docket docket = new Docket(DocumentationType.SWAGGER_2);
-		docket.apiInfo(new ApiInfo("Snowstorm", "SNOMED CT Terminology Server REST API", "1.0", null, new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null), "Apache 2.0", "http://www.apache.org/licenses/LICENSE-2.0"));
-		ApiSelectorBuilder apiSelectorBuilder = docket.select();
-
-		if (restApiReadOnly) {
-			// Read-only mode
-			List<String> allowReadOnlyPostEndpointPrefixes = allowReadOnlyPostEndpointPrefixes();
-
-			apiSelectorBuilder
-					.apis(requestHandler -> {
-						// Hide POST/PUT/PATCH/DELETE
-						if (requestHandler != null) {
-							// Allow FHIR endpoints with GET method (even if endpoint has POST too)
-							RequestMappingInfo requestMapping = requestHandler.getRequestMapping();
-							if (requestMapping.getPatternsCondition().getPatterns().stream()
-									.filter(pattern -> allowReadOnlyPostEndpointPrefixes.stream().filter(pattern::startsWith).count() > 0).count() > 0
-									&& requestMapping.getMethodsCondition().getMethods().contains(RequestMethod.GET)) {
-								return true;
-							}
-							Set<RequestMethod> methods = requestMapping.getMethodsCondition().getMethods();
-							return !methods.contains(RequestMethod.POST) && !methods.contains(RequestMethod.PUT)
-									&& !methods.contains(RequestMethod.PATCH) && !methods.contains(RequestMethod.DELETE);
-						}
-						return false;
-					})
-					// Also hide endpoints related to authoring
-					.paths(not(regex("/merge.*")))
-					.paths(not(regex("/review.*")))
-					.paths(not(regex(".*/classification.*")))
-					.paths(not(regex("/exports.*")))
-					.paths(not(regex("/imports.*")));
-		} else {
-			// Not read-only mode, allow everything!
-			apiSelectorBuilder
-					.apis(RequestHandlerSelectors.any());
-		}
-
-		// Don't show the error or root endpoints in swagger
-		apiSelectorBuilder
-				.paths(not(regex("/error")))
-				.paths(not(regex("/")));
-
-		return apiSelectorBuilder.build();
 	}
 
 	@Bean // Serialize message content to json using TextMessage

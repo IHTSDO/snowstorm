@@ -13,7 +13,6 @@ import org.snomed.snowstorm.rest.config.CodeSystemVersionMixIn;
 import org.snomed.snowstorm.rest.config.PageMixin;
 import org.snomed.snowstorm.rest.pojo.BranchPojo;
 import org.snomed.snowstorm.rest.security.RequestHeaderAuthenticationDecoratorWithRequiredRole;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -28,8 +27,21 @@ import org.springframework.security.config.annotation.web.configuration.WebSecur
 import org.springframework.security.config.annotation.web.configurers.ExpressionUrlAuthorizationConfigurer;
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
+import springfox.documentation.builders.RequestHandlerSelectors;
+import springfox.documentation.service.ApiInfo;
+import springfox.documentation.service.Contact;
+import springfox.documentation.spi.DocumentationType;
+import springfox.documentation.spring.web.plugins.ApiSelectorBuilder;
+import springfox.documentation.spring.web.plugins.Docket;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+
+import static com.google.common.base.Predicates.not;
+import static springfox.documentation.builders.PathSelectors.regex;
 
 @Configuration
 @EnableWebSecurity
@@ -40,9 +52,6 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
-
-	@Autowired
-	private List<String> allowReadOnlyPostEndpointPrefixes;
 
 	@Bean
 	public ObjectMapper getGeneralMapper() {
@@ -95,8 +104,13 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 
 	@Override
-	public void configure(WebSecurity web) throws Exception {
+	public void configure(WebSecurity web) {
 		web.httpFirewall(allowUrlEncodedSlashHttpFirewall());
+	}
+
+	@Bean
+	public List<String> allowReadOnlyPostEndpointPrefixes() {
+		return Collections.singletonList("/fhir");
 	}
 
 	@Override
@@ -108,7 +122,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 			// Allow some explicitly defined endpoints
 			ExpressionUrlAuthorizationConfigurer<HttpSecurity>.ExpressionInterceptUrlRegistry authorizeRequests = http.authorizeRequests();
-			allowReadOnlyPostEndpointPrefixes.forEach(prefix -> authorizeRequests.antMatchers(HttpMethod.POST, prefix + "/**").anonymous());
+			allowReadOnlyPostEndpointPrefixes().forEach(prefix -> authorizeRequests.antMatchers(HttpMethod.POST, prefix + "/**").anonymous());
 
 			// Block all other POST/PUT/PATCH/DELETE
 			authorizeRequests
@@ -124,6 +138,54 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 					.antMatchers(HttpMethod.POST, "/codesystems").hasRole("snowstorm-admin")
 					.anyRequest().anonymous();
 		}
+	}
+
+	@Bean
+	// Swagger config
+	public Docket api() {
+		Docket docket = new Docket(DocumentationType.SWAGGER_2);
+		docket.apiInfo(new ApiInfo("Snowstorm", "SNOMED CT Terminology Server REST API", "1.0", null, new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null), "Apache 2.0", "http://www.apache.org/licenses/LICENSE-2.0"));
+		ApiSelectorBuilder apiSelectorBuilder = docket.select();
+
+		if (restApiReadOnly) {
+			// Read-only mode
+			List<String> allowReadOnlyPostEndpointPrefixes = allowReadOnlyPostEndpointPrefixes();
+
+			apiSelectorBuilder
+					.apis(requestHandler -> {
+						// Hide POST/PUT/PATCH/DELETE
+						if (requestHandler != null) {
+							// Allow FHIR endpoints with GET method (even if endpoint has POST too)
+							RequestMappingInfo requestMapping = requestHandler.getRequestMapping();
+							if (requestMapping.getPatternsCondition().getPatterns().stream()
+									.filter(pattern -> allowReadOnlyPostEndpointPrefixes.stream().filter(pattern::startsWith).count() > 0).count() > 0
+									&& requestMapping.getMethodsCondition().getMethods().contains(RequestMethod.GET)) {
+								return true;
+							}
+							Set<RequestMethod> methods = requestMapping.getMethodsCondition().getMethods();
+							return !methods.contains(RequestMethod.POST) && !methods.contains(RequestMethod.PUT)
+									&& !methods.contains(RequestMethod.PATCH) && !methods.contains(RequestMethod.DELETE);
+						}
+						return false;
+					})
+					// Also hide endpoints related to authoring
+					.paths(not(regex("/merge.*")))
+					.paths(not(regex("/review.*")))
+					.paths(not(regex(".*/classification.*")))
+					.paths(not(regex("/exports.*")))
+					.paths(not(regex("/imports.*")));
+		} else {
+			// Not read-only mode, allow everything!
+			apiSelectorBuilder
+					.apis(RequestHandlerSelectors.any());
+		}
+
+		// Don't show the error or root endpoints in swagger
+		apiSelectorBuilder
+				.paths(not(regex("/error")))
+				.paths(not(regex("/")));
+
+		return apiSelectorBuilder.build();
 	}
 
 	@Bean
