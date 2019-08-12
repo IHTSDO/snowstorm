@@ -5,6 +5,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
@@ -218,7 +219,7 @@ public class QueryService implements ApplicationContextAware {
 					}
 				}
 			}
-			List<Long> allFilteredLogicalMatchesFinal = filterByDefinitionStatus(allFilteredLogicalMatches, conceptQuery.getDefinitionStatusFilter(), branchCriteria);
+			Collection<Long> allFilteredLogicalMatchesFinal = filterByDefinitionStatus(allFilteredLogicalMatches, conceptQuery.getDefinitionStatusFilter(), branchCriteria, new LongOpenHashSet());
 
 			timer.checkpoint("filtered logical complete");
 
@@ -248,12 +249,11 @@ public class QueryService implements ApplicationContextAware {
 		return conceptBoolQuery;
 	}
 
-	private List<Long> filterByDefinitionStatus(List<Long> conceptIds, @Nullable String definitionStatus, BranchCriteria branchCriteria) {
+	private <C extends Collection<Long>> C filterByDefinitionStatus(C conceptIds, @Nullable String definitionStatus, BranchCriteria branchCriteria, C filteredConceptIds) {
 		if (definitionStatus == null || definitionStatus.isEmpty()) {
-			return conceptIds;
+			filteredConceptIds.addAll(conceptIds);
+			return filteredConceptIds;
 		}
-
-		List<Long> filteredConceptIds = new LongArrayList();
 
 		NativeSearchQueryBuilder conceptDefinitionQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
@@ -306,7 +306,7 @@ public class QueryService implements ApplicationContextAware {
 		String definitionStatusFilter = conceptQuery.definitionStatusFilter;
 		if (definitionStatusFilter != null && !definitionStatusFilter.isEmpty()) {
 			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), null, null);
-			List<Long> filteredConceptIds = filterByDefinitionStatus(allConceptIds.getContent(), conceptQuery.definitionStatusFilter, branchCriteria);
+			List<Long> filteredConceptIds = filterByDefinitionStatus(allConceptIds.getContent(), conceptQuery.definitionStatusFilter, branchCriteria, new LongArrayList());
 			return PageHelper.fullListToPage(filteredConceptIds, pageRequest, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		} else {
 			return PageHelper.toSearchAfterPage(eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), pageRequest),

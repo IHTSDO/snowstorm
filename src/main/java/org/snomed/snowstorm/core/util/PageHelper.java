@@ -7,6 +7,7 @@ import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.data.elasticsearch.core.aggregation.impl.AggregatedPageImpl;
 
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
@@ -14,7 +15,7 @@ import java.util.stream.Collectors;
 
 public class PageHelper {
 
-	public static <T> SearchAfterPage<T> listIntersection(List<T> orderedListA, List<T> listB, Pageable pageable, Function<T, Object[]> searchAfterExtractor) {
+	public static <T> SearchAfterPage<T> listIntersection(List<T> orderedListA, Collection<T> listB, Pageable pageable, Function<T, Object[]> searchAfterExtractor) {
 		List<T> fullResultList = orderedListA.stream().filter(listB::contains).collect(Collectors.toList());
 		return fullListToPage(fullResultList, pageable, searchAfterExtractor);
 	}

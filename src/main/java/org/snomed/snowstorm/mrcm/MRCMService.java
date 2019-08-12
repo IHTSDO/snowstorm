@@ -94,22 +94,24 @@ public class MRCMService {
 
 		StringBuilder ecl = new StringBuilder();
 		for (Range range : attribute.getRangeSet()) {
-			Long conceptId = range.getConceptId();
+			String conceptId = range.getConceptId().toString();
 			InclusionType inclusionType = range.getInclusionType();
 			switch (inclusionType) {
 				case SELF:
 					ifNotEmptyAppendOr(ecl);
-					ecl.append(conceptId.toString());
+					ecl.append(conceptId);
 					break;
 				case DESCENDANT:
 					ifNotEmptyAppendOr(ecl);
 					ecl.append("<");
-					ecl.append(conceptId.toString());
+					ecl.append(conceptId);
 					break;
 				case SELF_OR_DESCENDANT:
 					ifNotEmptyAppendOr(ecl);
-					ecl.append("<<");
-					ecl.append(conceptId.toString());
+					if (!conceptId.equals(Concepts.SNOMEDCT_ROOT)) {
+						ecl.append("<<");
+						ecl.append(conceptId);
+					}
 					break;
 			}
 		}
