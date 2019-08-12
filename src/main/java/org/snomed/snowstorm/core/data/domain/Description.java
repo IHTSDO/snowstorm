@@ -87,7 +87,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	private Map<String, ReferenceSetMember> langRefsetMembers;
 
 	@JsonIgnore
-	private ReferenceSetMember inactivationIndicatorMember;
+	private Set<ReferenceSetMember> inactivationIndicatorMembers;
 
 	@JsonIgnore
 	// Populated when requesting an update
@@ -111,6 +111,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		caseSignificanceId = Concepts.CASE_INSENSITIVE;
 		acceptabilityMap = new HashMap<>();
 		langRefsetMembers = new HashMap<>();
+		inactivationIndicatorMembers = new HashSet<>();
 	}
 
 	public Description(String term) {
@@ -256,6 +257,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	@JsonView(value = View.Component.class)
 	public String getInactivationIndicator() {
+		ReferenceSetMember inactivationIndicatorMember = getInactivationIndicatorMember();
 		if (inactivationIndicatorMember != null && inactivationIndicatorMember.isActive()) {
 			return Concepts.inactivationIndicatorNames.get(inactivationIndicatorMember.getAdditionalField("valueId"));
 		}
@@ -264,6 +266,23 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public void setInactivationIndicator(String inactivationIndicatorName) {
 		this.inactivationIndicatorName = inactivationIndicatorName;
+	}
+
+	@JsonIgnore
+	public ReferenceSetMember getInactivationIndicatorMember() {
+		return !inactivationIndicatorMembers.isEmpty() ? inactivationIndicatorMembers.iterator().next() : null;
+	}
+
+	/*
+	 * There should be at most one inactivation indicator apart from part way through a branch merge.
+	 */
+	@JsonIgnore
+	public Set<ReferenceSetMember> getInactivationIndicatorMembers() {
+		return inactivationIndicatorMembers;
+	}
+
+	public void addInactivationIndicatorMember(ReferenceSetMember inactivationIndicatorMember) {
+		inactivationIndicatorMembers.add(inactivationIndicatorMember);
 	}
 
 	public void addAssociationTargetMember(ReferenceSetMember member) {
@@ -386,14 +405,6 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	public Description setCaseSignificanceId(String caseSignificanceId) {
 		this.caseSignificanceId = caseSignificanceId;
 		return this;
-	}
-
-	public ReferenceSetMember getInactivationIndicatorMember() {
-		return inactivationIndicatorMember;
-	}
-
-	public void setInactivationIndicatorMember(ReferenceSetMember inactivationIndicatorMember) {
-		this.inactivationIndicatorMember = inactivationIndicatorMember;
 	}
 
 	@Override

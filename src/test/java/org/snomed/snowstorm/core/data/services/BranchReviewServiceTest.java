@@ -53,8 +53,8 @@ public class BranchReviewServiceTest extends AbstractTest {
 		branchService.deleteAll();
 		conceptService.deleteAll();
 
-		setupStartTime = now();
 		branchService.create("MAIN");
+		setupStartTime = now();
 		createConcept("10000100", "MAIN");
 		branchService.create("MAIN/A");
 		setupEndTime = now();

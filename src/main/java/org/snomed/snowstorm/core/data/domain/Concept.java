@@ -36,7 +36,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	@Size(min = 5, max = 18)
 	private String conceptId;
 	@JsonIgnore
-	private ReferenceSetMember inactivationIndicatorMember;
+	private Set<ReferenceSetMember> inactivationIndicatorMembers;
 
 	@JsonIgnore
 	// Populated when requesting an update
@@ -84,6 +84,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		relationships = new HashSet<>();
 		classAxioms = new HashSet<>();
 		generalConceptInclusionAxioms = new HashSet<>();
+		inactivationIndicatorMembers = new HashSet<>();
 	}
 
 	public Concept(String conceptId) {
@@ -142,6 +143,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	@JsonView(value = View.Component.class)
 	public String getInactivationIndicator() {
+		ReferenceSetMember inactivationIndicatorMember = getInactivationIndicatorMember();
 		if (inactivationIndicatorMember != null && inactivationIndicatorMember.isActive()) {
 			return Concepts.inactivationIndicatorNames.get(inactivationIndicatorMember.getAdditionalField("valueId"));
 		}
@@ -302,17 +304,25 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	@JsonIgnore
 	public ReferenceSetMember getInactivationIndicatorMember() {
-		return inactivationIndicatorMember;
+		return !inactivationIndicatorMembers.isEmpty() ? inactivationIndicatorMembers.iterator().next() : null;
 	}
 
-	public void setInactivationIndicatorMember(ReferenceSetMember inactivationIndicatorMember) {
-		this.inactivationIndicatorMember = inactivationIndicatorMember;
+	/*
+	 * There should be at most one inactivation indicator apart from part way through a branch merge.
+	 */
+	@JsonIgnore
+	public Set<ReferenceSetMember> getInactivationIndicatorMembers() {
+		return inactivationIndicatorMembers;
+	}
+
+	public void addInactivationIndicatorMember(ReferenceSetMember inactivationIndicatorMember) {
+		inactivationIndicatorMembers.add(inactivationIndicatorMember);
 	}
 
 	public Set<Relationship> getRelationshipsWithDestination(String destinationId) {
 		return relationships.stream().filter(r -> destinationId.equals(r.getDestinationId())).collect(Collectors.toSet());
 	}
-	
+
 	public List<Relationship> getRelationships(Boolean activeFlag, String typeId, String destinationId, String charTypeId) {
 		List<Relationship> matchingDescriptions = relationships.stream()
 							.filter(rel -> (activeFlag == null || activeFlag.equals(rel.isActive())))

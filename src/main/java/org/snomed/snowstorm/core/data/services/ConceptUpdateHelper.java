@@ -255,20 +255,24 @@ public class ConceptUpdateHelper extends ComponentService {
 		if (existingAssociations != null && !MapUtil.containsAllKeysAndSetsAreSupersets(newAssociations, existingAssociations)) {
 			// One or more existing associations need to be made inactive
 
-			Set<ReferenceSetMember> existingAssociationTargetMembers = existingComponent.getAssociationTargetMembers();
 			if (newAssociations == null) {
 				newAssociations = new HashMap<>();
 			}
+			// Check each association type
 			for (String associationName : existingAssociations.keySet()) {
+				// Associations for this type on both sides
 				Set<String> existingAssociationsOfType = existingAssociations.get(associationName);
 				Set<String> newAssociationsOfType = newAssociations.get(associationName);
-				for (String existingAssociationOfType : existingAssociationsOfType) {
-					if (newAssociationsOfType == null || !newAssociationsOfType.contains(existingAssociationOfType)) {
+				// Iterate existing set
+				for (String existingAssociationTarget : existingAssociationsOfType) {
+					// If new set doesn't exist or doesn't contain existing association make it inactive.
+					if (newAssociationsOfType == null || !newAssociationsOfType.contains(existingAssociationTarget)) {
 						// Existing association should be made inactive
+						// Find the refset member for this association concept id and target concept id
 						String associationRefsetId = Concepts.historicalAssociationNames.inverse().get(associationName);
-						for (ReferenceSetMember existingMember : existingAssociationTargetMembers) {
+						for (ReferenceSetMember existingMember : existingComponent.getAssociationTargetMembers()) {
 							if (existingMember.isActive() && existingMember.getRefsetId().equals(associationRefsetId)
-									&& existingAssociationOfType.equals(existingMember.getAdditionalField("targetComponentId"))) {
+									&& existingAssociationTarget.equals(existingMember.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID))) {
 								existingMember.setActive(false);
 								existingMember.markChanged();
 								refsetMembersToPersist.add(existingMember);
@@ -306,25 +310,42 @@ public class ConceptUpdateHelper extends ComponentService {
 			String indicatorReferenceSet) {
 
 		String newIndicator = newComponent.getInactivationIndicator();
-		String existingIndicator = existingComponent == null ? null : existingComponent.getInactivationIndicator();
-		if (existingIndicator != null && !existingIndicator.equals(newIndicator)) {
-			// Make existing indicator inactive
-			ReferenceSetMember existingIndicatorMember = existingComponent.getInactivationIndicatorMember();
-			existingIndicatorMember.setActive(false);
-			existingIndicatorMember.markChanged();
-			refsetMembersToPersist.add(existingIndicatorMember);
-		}
-		if (newIndicator != null && !newIndicator.equals(existingIndicator)) {
-			// Create new indicator
-			String newIndicatorId = inactivationIndicatorNames.inverse().get(newIndicator);
+		String newIndicatorId = null;
+		if (newIndicator != null) {
+			newIndicatorId = inactivationIndicatorNames.inverse().get(newIndicator);
 			if (newIndicatorId == null) {
 				throw new IllegalArgumentException(newComponent.getClass().getSimpleName() + " inactivation indicator not recognised '" + newIndicator + "'.");
 			}
+		}
+
+		ReferenceSetMember matchingExistingMember = null;
+		if (existingComponent != null) {
+			for (ReferenceSetMember existingIndicatorMember : existingComponent.getInactivationIndicatorMembers()) {
+				if (existingIndicatorMember.getAdditionalField("valueId").equals(newIndicatorId)) {
+					if (!existingIndicatorMember.isActive()) {
+						existingIndicatorMember.setActive(true);
+						existingIndicatorMember.markChanged();
+						refsetMembersToPersist.add(existingIndicatorMember);
+					}
+					matchingExistingMember = existingIndicatorMember;
+				} else {
+					if (existingIndicatorMember.isActive()) {
+						existingIndicatorMember.setActive(false);
+						existingIndicatorMember.markChanged();
+						refsetMembersToPersist.add(existingIndicatorMember);
+					}
+				}
+			}
+		}
+
+		if (newIndicatorId != null && matchingExistingMember == null) {
+			// Create new indicator
 			ReferenceSetMember newIndicatorMember = new ReferenceSetMember(newComponent.getModuleId(), indicatorReferenceSet, newComponent.getId());
 			newIndicatorMember.setAdditionalField("valueId", newIndicatorId);
 			newIndicatorMember.setChanged(true);
 			refsetMembersToPersist.add(newIndicatorMember);
-			newComponent.setInactivationIndicatorMember(newIndicatorMember);
+			newComponent.getInactivationIndicatorMembers().clear();
+			newComponent.addInactivationIndicatorMember(newIndicatorMember);
 		}
 	}
 

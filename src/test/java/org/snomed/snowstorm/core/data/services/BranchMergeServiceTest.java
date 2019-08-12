@@ -6,6 +6,7 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
+import org.assertj.core.util.Maps;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.junit.After;
@@ -420,6 +421,56 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertEquals("100009002", conceptService.find(conceptId, "MAIN/A").getModuleId());
 		Set<Long> ancestorIds = queryService.findAncestorIds(conceptId, "MAIN/A", true);
 		assertEquals(toLongSet(Concepts.SNOMEDCT_ROOT, Concepts.CLINICAL_FINDING, "131148009"), ancestorIds);
+	}
+
+	@Test
+	public void testAutomaticMergeOfConceptDoubleInactivation() throws ServiceException {
+		// The same concept is made inactive on two different branches with different inactivation reasons and historical associations.
+		// The concept comes up in the rebase review and the picked version should be kept.
+		// The redundant inactivation reason and historical association must be removed.
+
+		// Create concepts to be used in test
+		String conceptAId = "131148009";
+		String conceptBId = "313413008";
+		conceptService.createUpdate(Lists.newArrayList(
+				new Concept(Concepts.SNOMEDCT_ROOT),
+				new Concept(Concepts.ISA).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept(Concepts.CLINICAL_FINDING).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept(conceptAId).addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING)),
+				new Concept(conceptBId).addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING))
+		), "MAIN");
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+		String taskA1 = "MAIN/A/A1";
+		branchMergeService.mergeBranchSync("MAIN/A", taskA1, Collections.emptySet());
+		String taskA2 = "MAIN/A/A2";
+		branchMergeService.mergeBranchSync("MAIN/A", taskA2, Collections.emptySet());
+
+		// On branch A1 inactivate conceptA with AMBIGUOUS reason and Equivalent association
+		Concept concept = conceptService.find(conceptAId, taskA1);
+		concept.setActive(false);
+		concept.setInactivationIndicator("AMBIGUOUS");
+		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(conceptBId)));
+		conceptService.update(concept, taskA1);
+		assertEquals(2, memberService.findMembers(taskA1, conceptAId, LARGE_PAGE).getTotalElements());
+
+		// On branch A2 inactivate conceptA with OUTDATED reason and
+		concept = conceptService.find(conceptAId, taskA2);
+		concept.setActive(false);
+		concept.setInactivationIndicator("OUTDATED");
+		concept.setAssociationTargets(Maps.newHashMap("REPLACED_BY", Sets.newHashSet(conceptBId)));
+		conceptService.update(concept, taskA2);
+		assertEquals(2, memberService.findMembers(taskA2, conceptAId, LARGE_PAGE).getTotalElements());
+
+		// Promote task A1
+		assertEquals(0, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
+		branchMergeService.mergeBranchSync(taskA1, "MAIN/A", Collections.emptySet());
+		assertEquals(2, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
+
+		// Rebase the diverged branch supplying the A2 concept version as the manually merged concept
+		branchMergeService.mergeBranchSync("MAIN/A", taskA2, Collections.singleton(concept));
+		Page<ReferenceSetMember> members = memberService.findMembers(taskA2, conceptAId, LARGE_PAGE);
+		members.getContent().forEach(System.out::println);
+		assertEquals(2, members.getTotalElements());
 	}
 
 	@Test

@@ -294,10 +294,10 @@ public class DescriptionService extends ComponentService {
 						String referencedComponentId = member.getReferencedComponentId();
 						switch (member.getRefsetId()) {
 							case Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET:
-								conceptIdMap.get(referencedComponentId).setInactivationIndicatorMember(member);
+								conceptIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
 								break;
 							case Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET:
-								descriptionIdMap.get(referencedComponentId).setInactivationIndicatorMember(member);
+								descriptionIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
 								break;
 							default:
 								if (IdentifierService.isConceptId(referencedComponentId)) {
