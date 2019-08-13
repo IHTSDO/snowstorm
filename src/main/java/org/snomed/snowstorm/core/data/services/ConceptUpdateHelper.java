@@ -322,7 +322,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		ReferenceSetMember matchingExistingMember = null;
 		if (existingComponent != null) {
 			for (ReferenceSetMember existingIndicatorMember : existingComponent.getInactivationIndicatorMembers()) {
-				if (existingIndicatorMember.getAdditionalField("valueId").equals(newIndicatorId) &&
+				if (matchingExistingMember == null && existingIndicatorMember.getAdditionalField("valueId").equals(newIndicatorId) &&
 						(newMember == null || existingIndicatorMember.getId().equals(newMember.getId()))) {
 					// Keep member
 					if (!existingIndicatorMember.isActive()) {

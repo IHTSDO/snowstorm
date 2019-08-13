@@ -474,6 +474,8 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// Rebase the diverged branch supplying the A2 concept version as the manually merged concept
+		concept.getInactivationIndicatorMembers().clear();
+		concept.getDescriptions().iterator().next().getInactivationIndicatorMembers().clear();
 		branchMergeService.mergeBranchSync("MAIN/A", taskA2, Collections.singleton(concept));
 		Page<ReferenceSetMember> members = memberService.findMembers(taskA2, conceptAId, LARGE_PAGE);
 		members.getContent().forEach(System.out::println);
