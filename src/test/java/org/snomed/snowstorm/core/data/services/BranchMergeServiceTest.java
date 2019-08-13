@@ -20,6 +20,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.review.MergeReview;
 import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -436,7 +437,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 				new Concept(Concepts.SNOMEDCT_ROOT),
 				new Concept(Concepts.ISA).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
 				new Concept(Concepts.CLINICAL_FINDING).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
-				new Concept(conceptAId).addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING)),
+				new Concept(conceptAId).addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING)).addDescription(new Description("thingamajig")),
 				new Concept(conceptBId).addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING))
 		), "MAIN");
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
@@ -452,6 +453,10 @@ public class BranchMergeServiceTest extends AbstractTest {
 		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(conceptBId)));
 		conceptService.update(concept, taskA1);
 		assertEquals(2, memberService.findMembers(taskA1, conceptAId, LARGE_PAGE).getTotalElements());
+		MemberSearchRequest descriptionInactivationMemberSearchRequest = new MemberSearchRequest()
+				.referenceSet(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET)
+				.referencedComponentId(concept.getDescriptions().iterator().next().getId());
+		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// On branch A2 inactivate conceptA with OUTDATED reason and
 		concept = conceptService.find(conceptAId, taskA2);
@@ -460,17 +465,20 @@ public class BranchMergeServiceTest extends AbstractTest {
 		concept.setAssociationTargets(Maps.newHashMap("REPLACED_BY", Sets.newHashSet(conceptBId)));
 		conceptService.update(concept, taskA2);
 		assertEquals(2, memberService.findMembers(taskA2, conceptAId, LARGE_PAGE).getTotalElements());
+		assertEquals(1, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// Promote task A1
 		assertEquals(0, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
 		branchMergeService.mergeBranchSync(taskA1, "MAIN/A", Collections.emptySet());
 		assertEquals(2, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
+		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// Rebase the diverged branch supplying the A2 concept version as the manually merged concept
 		branchMergeService.mergeBranchSync("MAIN/A", taskA2, Collections.singleton(concept));
 		Page<ReferenceSetMember> members = memberService.findMembers(taskA2, conceptAId, LARGE_PAGE);
 		members.getContent().forEach(System.out::println);
 		assertEquals(2, members.getTotalElements());
+		assertEquals(1, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 	}
 
 	@Test

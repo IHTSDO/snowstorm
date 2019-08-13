@@ -318,10 +318,13 @@ public class ConceptUpdateHelper extends ComponentService {
 			}
 		}
 
+		ReferenceSetMember newMember = newComponent.getInactivationIndicatorMember();
 		ReferenceSetMember matchingExistingMember = null;
 		if (existingComponent != null) {
 			for (ReferenceSetMember existingIndicatorMember : existingComponent.getInactivationIndicatorMembers()) {
-				if (existingIndicatorMember.getAdditionalField("valueId").equals(newIndicatorId)) {
+				if (existingIndicatorMember.getAdditionalField("valueId").equals(newIndicatorId) &&
+						(newMember == null || existingIndicatorMember.getId().equals(newMember.getId()))) {
+					// Keep member
 					if (!existingIndicatorMember.isActive()) {
 						existingIndicatorMember.setActive(true);
 						existingIndicatorMember.markChanged();
@@ -329,6 +332,7 @@ public class ConceptUpdateHelper extends ComponentService {
 					}
 					matchingExistingMember = existingIndicatorMember;
 				} else {
+					// Remove member
 					if (existingIndicatorMember.isActive()) {
 						existingIndicatorMember.setActive(false);
 						existingIndicatorMember.markChanged();
