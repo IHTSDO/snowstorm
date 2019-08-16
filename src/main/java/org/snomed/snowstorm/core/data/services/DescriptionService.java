@@ -119,12 +119,12 @@ public class DescriptionService extends ComponentService {
 	}
 
 	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, Set<String> languageCodes, PageRequest pageRequest) {
-		return findDescriptionsWithAggregations(path, term, true, null, null, null, null, false, null, languageCodes, pageRequest);
+		return findDescriptionsWithAggregations(path, term, languageCodes, true, null, null, null, null, false, null, pageRequest);
 	}
 
 	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path,
-			String term, Boolean active, String module, String semanticTag,
-			Boolean conceptActive, String conceptRefset, boolean groupByConcept, SearchMode searchMode, Collection<String> languageCodes, PageRequest pageRequest) {
+			String term, Collection<String> languageCodes, Boolean active, String module, String semanticTag,
+			Boolean conceptActive, String conceptRefset, boolean groupByConcept, SearchMode searchMode, PageRequest pageRequest) {
 
 		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);

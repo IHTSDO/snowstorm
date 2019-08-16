@@ -3,6 +3,7 @@ package org.snomed.snowstorm.rest;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
@@ -30,6 +31,10 @@ public class DescriptionController {
 	@Autowired
 	private DescriptionService descriptionService;
 
+	@ApiOperation(value = "Search for concept descriptions.",
+			notes = "The Accept-Language header is used to specify the user's preferred language, 'en' is always added as a fallback if not already included in the list. " +
+					"Each language is used as an optional clause for matching and will include the correct character folding behaviour for that language. " +
+					"The Accept-Language header list is also used to chose the best translated FSN and PT values in the response.")
 	@RequestMapping(value = "browser/{branch}/descriptions", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
@@ -38,6 +43,10 @@ public class DescriptionController {
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(required = false) String module,
+			@ApiParam(value = "List of two character language codes to match. " +
+					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
+					"Accept-Language header still controls result FSN and PT language selection.")
+			@RequestParam(required = false) List<String> language,
 			@RequestParam(required = false) String semanticTag,
 			@RequestParam(required = false) Boolean conceptActive,
 			@RequestParam(required = false) String conceptRefset,
@@ -50,29 +59,30 @@ public class DescriptionController {
 		branch = BranchPathUriUtil.decodePath(branch);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 
-		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		List<String> acceptLanguageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		List<String> searchLanguageCodes = language != null && !language.isEmpty() ? language : acceptLanguageCodes;
 
 		PageWithBucketAggregations<Description> page = descriptionService.findDescriptionsWithAggregations(
 				branch,
 				// Description clauses
-				term, active, module, semanticTag,
+				term, searchLanguageCodes, active, module, semanticTag,
 				// Concept clauses
 				conceptActive, conceptRefset,
 				// Grouping
 				groupByConcept,
-				//search mode
+				// Search mode
 				searchMode,
-				// Language and page
-				languageCodes, pageRequest);
+				// Page
+				pageRequest);
 
 		Set<String> conceptIds = page.getContent().stream().map(Description::getConceptId).collect(Collectors.toSet());
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds, languageCodes).getResultsMap();
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds, acceptLanguageCodes).getResultsMap();
 
 		List<BrowserDescriptionSearchResult> results = new ArrayList<>();
 		page.getContent().forEach(d -> results.add(new BrowserDescriptionSearchResult(d.getTerm(), d.isActive(), d.getLanguageCode(), d.getModuleId(), conceptMinis.get(d.getConceptId()))));
 
 		PageWithBucketAggregations<BrowserDescriptionSearchResult> pageWithBucketAggregations = new PageWithBucketAggregations<>(results, page.getPageable(), page.getTotalElements(), page.getBuckets());
-		addBucketConcepts(branch, languageCodes, pageWithBucketAggregations);
+		addBucketConcepts(branch, acceptLanguageCodes, pageWithBucketAggregations);
 		return pageWithBucketAggregations;
 	}
 
