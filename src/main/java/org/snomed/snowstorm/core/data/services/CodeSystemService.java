@@ -337,6 +337,7 @@ public class CodeSystemService {
 		modelMapper.map(updateRequest, codeSystem);
 		validatorService.validate(codeSystem);
 		repository.save(codeSystem);
+		contentInformationCache.remove(codeSystem.getBranchPath());
 		return codeSystem;
 	}
 }
