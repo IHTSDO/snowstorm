@@ -101,6 +101,32 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testDescriptionSearchWithNonAlphanumericCharacters() throws ServiceException {
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100001", "Urine micr.: leucs - % polys", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100002", "Spinal fusion of atlas-axis,test (procedure)", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100003", "test procedure", "en");
+
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "urine micr.: leucs - % polys", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine Micr.: Leucs - % Polys", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine micr leucs - % Polys", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "urine micr leucs polys", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine micrr.: leucs", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine mic.: leucs", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine mic leucs", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "atlas-axis,", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "atla-axis,", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Spinal fusion of atlas-axis", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "atlas axis", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "procedure", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "(procedure)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "test procedure", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "test procedure)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+
+	}
+
+	@Test
 	public void testDescriptionSearchAggregations() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
@@ -320,5 +346,4 @@ public class DescriptionServiceTest extends AbstractTest {
 			d.setLanguageCode("en");
 		}));
 	}
-
 }

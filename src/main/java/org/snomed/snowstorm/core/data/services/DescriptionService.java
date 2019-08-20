@@ -8,6 +8,7 @@ import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import org.apache.commons.lang.StringUtils;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
@@ -450,7 +451,7 @@ public class DescriptionService extends ComponentService {
 		} else {
 			if (!Strings.isNullOrEmpty(term)) {
 				if (searchMode == SearchMode.REGEX) {
-					//https://www.elastic.co/guide/en/elasticsearch/reference/master/query-dsl-query-string-query.html#_regular_expressions
+					// https://www.elastic.co/guide/en/elasticsearch/reference/master/query-dsl-query-string-query.html#_regular_expressions
 					if (term.startsWith("^")) {
 						term = term.substring(1);
 					}
@@ -463,7 +464,6 @@ public class DescriptionService extends ComponentService {
 				} else {
 					// Must match at least one of the following 'should' clauses:
 					BoolQueryBuilder shouldClauses = boolQuery();
-
 					// All prefixes given. Simple Query String Query: https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-simple-query-string-query.html
 					// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
 					// Put search term through character folding for each requested language
@@ -471,16 +471,67 @@ public class DescriptionService extends ComponentService {
 					for (String languageCode : languageCodes) {
 						Set<Character> charactersNotFoldedForLanguage = charactersNotFoldedSets.getOrDefault(languageCode, Collections.emptySet());
 						String foldedSearchTerm = DescriptionHelper.foldTerm(term, charactersNotFoldedForLanguage);
+						if (!StringUtils.isAlphanumeric(foldedSearchTerm)) {
+							foldedSearchTerm = replaceNonAlphanumericWithSpace(foldedSearchTerm);
+						}
 						shouldClauses.should(boolQuery()
 								.must(termQuery(Description.Fields.LANGUAGE_CODE, languageCode))
-								.filter(simpleQueryStringQuery((foldedSearchTerm.trim().replace(" ", "* ") + "*").replace("**", "*"))
+								.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
 										.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND)));
 					}
 
+					if (!StringUtils.isAlphanumeric(term)) {
+						String regexString = constructRegexQuery(term);
+						boolBuilder.must(regexpQuery(Description.Fields.TERM, regexString));
+					}
 					boolBuilder.must(shouldClauses);
 				}
 			}
 		}
+	}
+
+	private String constructSimpleQueryString(String searchTerm) {
+		return (searchTerm.trim().replace(" ", "* ") + "*").replace("**", "*");
+	}
+
+	private String constructRegexQuery(String term) {
+
+		String[] words = term.split(" ", -1);
+
+		StringBuilder regexBuilder = new StringBuilder();
+		regexBuilder.append(".*");
+		for (String word : words) {
+			if (StringUtils.isAlphanumeric(word)) {
+				if (!regexBuilder.toString().endsWith(".*")) {
+					regexBuilder.append(".*");
+				}
+				continue;
+			}
+			for (char c : word.toCharArray()) {
+				if (Character.isLetter(c)) {
+					regexBuilder.append("[" + Character.toLowerCase(c) + Character.toUpperCase(c) + "]");
+				} else if (Character.isDigit(c)){
+					regexBuilder.append(c);
+				} else {
+					regexBuilder.append("\\" + c);
+				}
+			}
+			regexBuilder.append(".*");
+		}
+		if (!regexBuilder.toString().endsWith(".*")) {
+			regexBuilder.append(".*");
+		}
+		return regexBuilder.toString();
+	}
+
+	private String replaceNonAlphanumericWithSpace(String foldedSearchTerm) {
+		String result = foldedSearchTerm;
+		for (char c : foldedSearchTerm.toCharArray()) {
+			if (!Character.isLetterOrDigit(c)) {
+				result = result.replace(c, ' ');
+			}
+		}
+		return result;
 	}
 
 	static NativeSearchQuery addTermSort(NativeSearchQuery query) {
