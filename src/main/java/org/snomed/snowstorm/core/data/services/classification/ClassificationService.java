@@ -519,46 +519,48 @@ public class ClassificationService {
 		// - Mark inferred not previously stated changes -
 		// Build query to find concepts in the stated semantic index which do not contain the inferred parents or attributes
 		Map<Long, List<RelationshipChange>> activeConceptChanges = new HashMap<>();
-		BoolQueryBuilder allConceptsQuery = boolQuery();
-		for (RelationshipChange relationshipChange : relationshipChanges) {
-			if (relationshipChange.isActive()) {
-				Long sourceId = parseLong(relationshipChange.getSourceId());
-				BoolQueryBuilder conceptQuery = boolQuery()
-						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, sourceId));
-				if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
-					conceptQuery.mustNot(termQuery(QueryConcept.Fields.PARENTS, relationshipChange.getDestinationId()));
-				} else {
-					conceptQuery.mustNot(termQuery(QueryConcept.Fields.ATTR + "." + relationshipChange.getTypeId(), relationshipChange.getDestinationId()));
+		for (List<RelationshipChange> relationshipChangePartition : Lists.partition(relationshipChanges, 900)) {
+			BoolQueryBuilder allConceptsQuery = boolQuery();
+			for (RelationshipChange relationshipChange : relationshipChangePartition) {
+				if (relationshipChange.isActive()) {
+					Long sourceId = parseLong(relationshipChange.getSourceId());
+					BoolQueryBuilder conceptQuery = boolQuery()
+							.must(termQuery(QueryConcept.Fields.CONCEPT_ID, sourceId));
+					if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
+						conceptQuery.mustNot(termQuery(QueryConcept.Fields.PARENTS, relationshipChange.getDestinationId()));
+					} else {
+						conceptQuery.mustNot(termQuery(QueryConcept.Fields.ATTR + "." + relationshipChange.getTypeId(), relationshipChange.getDestinationId()));
+					}
+					allConceptsQuery.should(conceptQuery);
+					activeConceptChanges.computeIfAbsent(sourceId, id -> new ArrayList<>()).add(relationshipChange);
 				}
-				allConceptsQuery.should(conceptQuery);
-				activeConceptChanges.computeIfAbsent(sourceId, id -> new ArrayList<>()).add(relationshipChange);
 			}
-		}
-		try (CloseableIterator<QueryConcept> semanticIndexConcepts = elasticsearchOperations.stream(
-				new NativeSearchQueryBuilder()
-						.withQuery(termQuery(QueryConcept.Fields.STATED, true))
-						.withFilter(allConceptsQuery)
-						.withPageable(LARGE_PAGE).build(),
-				QueryConcept.class)) {
+			try (CloseableIterator<QueryConcept> semanticIndexConcepts = elasticsearchOperations.stream(
+					new NativeSearchQueryBuilder()
+							.withQuery(termQuery(QueryConcept.Fields.STATED, true))
+							.withFilter(allConceptsQuery)
+							.withPageable(LARGE_PAGE).build(),
+					QueryConcept.class)) {
 
-			semanticIndexConcepts.forEachRemaining(semanticIndexConcept -> {
-				// One or more inferred attributes or parents do not exist on this stated semanticIndexConcept
-				List<RelationshipChange> conceptChanges = activeConceptChanges.get(semanticIndexConcept.getConceptIdL());
-				if (conceptChanges != null) {
-					Map<String, Set<String>> conceptAttributes = semanticIndexConcept.getAttr();
-					for (RelationshipChange relationshipChange : conceptChanges) {
-						if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
-							if (!semanticIndexConcept.getParents().contains(parseLong(relationshipChange.getDestinationId()))) {
-								relationshipChange.setInferredNotStated(true);
-							}
-						} else {
-							if (!conceptAttributes.getOrDefault(relationshipChange.getTypeId(), Collections.emptySet()).contains(relationshipChange.getDestinationId())) {
-								relationshipChange.setInferredNotStated(true);
+				semanticIndexConcepts.forEachRemaining(semanticIndexConcept -> {
+					// One or more inferred attributes or parents do not exist on this stated semanticIndexConcept
+					List<RelationshipChange> conceptChanges = activeConceptChanges.get(semanticIndexConcept.getConceptIdL());
+					if (conceptChanges != null) {
+						Map<String, Set<String>> conceptAttributes = semanticIndexConcept.getAttr();
+						for (RelationshipChange relationshipChange : conceptChanges) {
+							if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
+								if (!semanticIndexConcept.getParents().contains(parseLong(relationshipChange.getDestinationId()))) {
+									relationshipChange.setInferredNotStated(true);
+								}
+							} else {
+								if (!conceptAttributes.getOrDefault(relationshipChange.getTypeId(), Collections.emptySet()).contains(relationshipChange.getDestinationId())) {
+									relationshipChange.setInferredNotStated(true);
+								}
 							}
 						}
 					}
-				}
-			});
+				});
+			}
 		}
 
 		if (!relationshipChanges.isEmpty()) {
