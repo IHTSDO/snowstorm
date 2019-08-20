@@ -88,6 +88,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 				"/(.*)/classifications.*",
 				"/(.*)/integrity-check",
 				"/(.*)/integrity-check-full",
+				"/(.*)/report/.*",
 				"/mrcm/(.*)/domain-attributes",
 				"/mrcm/(.*)/attribute-values.*",
 				"/browser/(.*)/validate/concept",
