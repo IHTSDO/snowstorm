@@ -597,4 +597,10 @@ public class ClassificationService {
 			}
 		}
 	}
+
+	public void deleteAll() {
+		classificationRepository.deleteAll();
+		relationshipChangeRepository.deleteAll();
+		equivalentConceptsRepository.deleteAll();
+	}
 }

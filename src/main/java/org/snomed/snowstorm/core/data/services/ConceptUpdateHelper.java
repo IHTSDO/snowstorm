@@ -434,13 +434,6 @@ public class ConceptUpdateHelper extends ComponentService {
 	}
 
 	private <C extends SnomedComponent> void markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents, boolean rebase) {
-		// Mark deletions
-		for (C existingComponent : existingComponents) {
-			if (!newComponents.contains(existingComponent)) {
-				existingComponent.markDeleted();
-				newComponents.add(existingComponent);// Add to newComponents collection so the deletion is persisted
-			}
-		}
 		// Mark updates
 		final Map<String, C> map = existingComponents.stream().collect(Collectors.toMap(DomainEntity::getId, Function.identity()));
 		for (C newComponent : newComponents) {
@@ -453,6 +446,18 @@ public class ConceptUpdateHelper extends ComponentService {
 			} else {
 				newComponent.setCreating(true);
 				newComponent.clearReleaseDetails();
+			}
+		}
+		// Mark deletions
+		for (C existingComponent : existingComponents) {
+			if (!newComponents.contains(existingComponent)) {
+				if (existingComponent.isReleased()) {
+					existingComponent.setActive(false);
+					existingComponent.setChanged(true);
+				} else {
+					existingComponent.markDeleted();
+				}
+				newComponents.add(existingComponent);// Add to newComponents collection so the deletion is persisted
 			}
 		}
 	}
