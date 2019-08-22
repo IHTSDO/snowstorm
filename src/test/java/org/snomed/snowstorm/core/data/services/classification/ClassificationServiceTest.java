@@ -29,10 +29,13 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
+import static junit.framework.TestCase.assertNull;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.COMPLETED;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.SAVED;
 
@@ -152,12 +155,16 @@ public class ClassificationServiceTest extends AbstractTest {
 		Set<Relationship> relationships = conceptService.find(conceptId, path).getRelationships();
 		assertEquals("Two relationships.", 2, relationships.size());
 		assertEquals("Two active relationships.", 2, relationships.stream().filter(Relationship::isActive).count());
+		assertEquals("Two relationships with effective time.", 2, relationships.stream().filter(rel -> rel.getEffectiveTime() != null).count());
 
 		assertEquals(SAVED, saveClassificationAndWaitForCompletion(path, classificationId));
 
 		relationships = conceptService.find(conceptId, path).getRelationships();
 		assertEquals("Released redundant relationship not removed.", 2, relationships.size());
 		assertEquals("Released redundant relationship made inactive.", 1, relationships.stream().filter(Relationship::isActive).count());
+		Relationship inactiveRelationship = relationships.stream().filter(rel -> !rel.isActive()).collect(Collectors.toList()).get(0);
+		assertNotNull(inactiveRelationship);
+		assertNull(inactiveRelationship.getEffectiveTime());
 	}
 
 	public void createClassification(String path, String classificationId) {

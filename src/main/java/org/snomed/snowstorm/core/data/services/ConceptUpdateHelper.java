@@ -454,6 +454,7 @@ public class ConceptUpdateHelper extends ComponentService {
 				if (existingComponent.isReleased()) {
 					existingComponent.setActive(false);
 					existingComponent.setChanged(true);
+					existingComponent.updateEffectiveTime();
 				} else {
 					existingComponent.markDeleted();
 				}
