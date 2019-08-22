@@ -472,7 +472,10 @@ public class DescriptionService extends ComponentService {
 						Set<Character> charactersNotFoldedForLanguage = charactersNotFoldedSets.getOrDefault(languageCode, Collections.emptySet());
 						String foldedSearchTerm = DescriptionHelper.foldTerm(term, charactersNotFoldedForLanguage);
 						if (!StringUtils.isAlphanumeric(foldedSearchTerm)) {
-							foldedSearchTerm = replaceNonAlphanumericWithSpace(foldedSearchTerm);
+							foldedSearchTerm = replaceNonAlphanumericWordWithSpace(foldedSearchTerm);
+							if (foldedSearchTerm.trim().isEmpty()) {
+								continue;
+							}
 						}
 						shouldClauses.should(boolQuery()
 								.must(termQuery(Description.Fields.LANGUAGE_CODE, languageCode))
@@ -524,14 +527,16 @@ public class DescriptionService extends ComponentService {
 		return regexBuilder.toString();
 	}
 
-	private String replaceNonAlphanumericWithSpace(String foldedSearchTerm) {
-		String result = foldedSearchTerm;
-		for (char c : foldedSearchTerm.toCharArray()) {
-			if (!Character.isLetterOrDigit(c)) {
-				result = result.replace(c, ' ');
+	private String replaceNonAlphanumericWordWithSpace(String foldedSearchTerm) {
+		String[] splits = foldedSearchTerm.split(" ", -1);
+		StringBuilder builder = new StringBuilder();
+		for (String split : splits) {
+			if (StringUtils.isAlphanumeric(split)) {
+				builder.append(split);
+				builder.append(" ");
 			}
 		}
-		return result;
+		return builder.toString().trim();
 	}
 
 	static NativeSearchQuery addTermSort(NativeSearchQuery query) {

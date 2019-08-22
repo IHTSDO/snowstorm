@@ -127,6 +127,47 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testDescriptionSearchWithExtendedCharacters() throws ServiceException {
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100001", "Tübingen", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100002", "Tubingen", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100003", "Köln, Löwchen", "en");
+
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100004", "Ménière", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100005", "Meniere", "en");
+
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100006", "Alzheimer's", "en");
+
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100007", "phospho-2-dehydro-3-deoxygluconate aldolase", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100008", "Salmonella II 43:g,t:[1,5] (organism)", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100009", "lidocaine hydrochloride 1.5%/epinephrine 1:200,000 injection solution vial (product)", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "1000010", "pT3: tumor invades adventitia (esophagus)", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "1000011", "Technetium Tc^99c^ medronate (substance)", "en");
+
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "1000012", "Minnesota pig #1", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "1000013", "Lidocaine hydrochloride 1.5%/epinephrine", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "1000014", "Hypodermic needles & syringes", "en");
+
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Tübingen", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Tubingen", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Köln, Löwchen", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Ménière", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Meniere", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Alzheimer's", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "phospho-2-dehydro-3-deoxygluconate aldolase", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Salmonella II 43:g,t:[1,5] (organism)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "lidocaine hydrochloride 1.5%/epinephrine 1:200,000 injection solution vial (product)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "pT3: tumor invades adventitia (esophagus)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Technetium Tc^99c^ medronate (substance)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Minnesota pig #1", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Lidocaine hydrochloride 1.5%/epinephrine", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Hypodermic needles & syringes", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+	}
+
+	@Test
 	public void testDescriptionSearchAggregations() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
