@@ -109,6 +109,12 @@ public class QueryServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testFindConceptsByTermUsingConceptId() {
+		Page<ConceptMini> activeSearch = service.search(service.createQueryBuilder(true).termMatch("100003").activeFilter(true), PATH, PAGE_REQUEST);
+		assertEquals(1, activeSearch.getNumberOfElements());
+	}
+
+	@Test
 	public void testDefinitionStatusFilter() {
 		QueryService.ConceptQueryBuilder query = service.createQueryBuilder(true)
 				.ecl(pizza_2.getConceptId())

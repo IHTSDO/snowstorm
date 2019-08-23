@@ -11,6 +11,7 @@ import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
@@ -111,6 +112,11 @@ public class QueryService implements ApplicationContextAware {
 
 		// Validate Lexical criteria
 		String term = conceptQuery.getTermPrefix();
+		if (IdentifierService.isConceptId(term)) {
+			conceptQuery.conceptIds(Collections.singleton(term));
+			term = null;
+			conceptQuery.termMatch(term);
+		}
 		Collection<String> languageCodes = conceptQuery.getLanguageCodes();
 		boolean hasLexicalCriteria;
 		if (term != null) {
