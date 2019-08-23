@@ -133,7 +133,8 @@ public class QueryService implements ApplicationContextAware {
 			Page<Description> descriptionPage = elasticsearchTemplate.queryForPage(descriptionQuery, Description.class);
 			descriptionPage.getContent().forEach(d -> pageOfIds.add(parseLong(d.getConceptId())));
 
-			conceptIdPage = new AggregatedPageImpl<>(pageOfIds, pageRequest, descriptionPage.getTotalElements(), ((SearchAfterPage)descriptionPage).getSearchAfter());
+			conceptIdPage = new AggregatedPageImpl<>(pageOfIds.stream().distinct().collect(Collectors.toList()),pageRequest, descriptionPage.getTotalElements(),
+					((SearchAfterPage)descriptionPage).getSearchAfter());
 
 		} else if (hasLogicalConditions && !hasLexicalCriteria) {
 			// Logical Only

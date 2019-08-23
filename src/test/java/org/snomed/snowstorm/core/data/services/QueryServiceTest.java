@@ -6,10 +6,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -50,8 +47,10 @@ public class QueryServiceTest extends AbstractTest {
 		pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Pizza");
 		cheesePizza_3 = new Concept("100005").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza");
 		reallyCheesyPizza_4 = new Concept("100008").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza");
-		reallyCheesyPizza_5 = new Concept("100003").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza");
-		inactivePizza_6 = (Concept) new Concept("100006").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("Inactive Pizza").setActive(false);
+		reallyCheesyPizza_5 = new Concept("100003").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza")
+				.addDescription(new Description("Cheesy Pizza"));
+		inactivePizza_6 = (Concept) new Concept("100006").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("Inactive Pizza")
+				.addDescription( new Description("additional pizza")).setActive(false);
 		conceptService.batchCreate(Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5, inactivePizza_6), PATH);
 	}
 
@@ -93,6 +92,20 @@ public class QueryServiceTest extends AbstractTest {
 		assertEquals(1, service.search(service.createQueryBuilder(true).termMatch("Inacti").definitionStatusFilter(Concepts.PRIMITIVE).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
 		assertEquals(0, service.search(service.createQueryBuilder(true).termMatch("Not").definitionStatusFilter(Concepts.PRIMITIVE).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
 		assertEquals(0, service.search(service.createQueryBuilder(true).definitionStatusFilter(Concepts.FULLY_DEFINED).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
+	}
+
+
+	@Test
+	public void testFindConceptsByTerm() {
+
+		Page<ConceptMini> activeSearch = service.search(service.createQueryBuilder(true).termMatch("pizza").activeFilter(true), PATH, PAGE_REQUEST);
+		assertEquals(4, activeSearch.getNumberOfElements());
+
+		Page<ConceptMini> inactiveSearch = service.search(service.createQueryBuilder(true).termMatch("pizza").activeFilter(false), PATH, PAGE_REQUEST);
+		assertEquals(1, inactiveSearch.getNumberOfElements());
+
+		Page<ConceptMini> page = service.search(service.createQueryBuilder(true).termMatch("pizza"), PATH, PAGE_REQUEST);
+		assertEquals(5, page.getNumberOfElements());
 	}
 
 	@Test
