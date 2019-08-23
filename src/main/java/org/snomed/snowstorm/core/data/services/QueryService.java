@@ -2,10 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.longs.LongArraySet;
-import it.unimi.dsi.fastutil.longs.LongComparators;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.*;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
@@ -133,14 +130,19 @@ public class QueryService implements ApplicationContextAware {
 		if (hasLexicalCriteria && !hasLogicalConditions) {
 			// Lexical Only
 			logger.info("Lexical search {}", term);
-			NativeSearchQuery descriptionQuery = getLexicalQuery(term, conceptQuery.getTermActive(), languageCodes, branchCriteria, pageRequest);
-			descriptionQuery.addFields(Description.Fields.CONCEPT_ID);
-			final List<Long> pageOfIds = new LongArrayList();
-			Page<Description> descriptionPage = elasticsearchTemplate.queryForPage(descriptionQuery, Description.class);
-			descriptionPage.getContent().forEach(d -> pageOfIds.add(parseLong(d.getConceptId())));
+			Collection<Long> conceptIds = findLexicalMatchDescriptionConceptIds(term, conceptQuery.getTermActive(), languageCodes, branchCriteria);
+			logger.info("Total concepts {} matching {}", conceptIds.size(), term);
 
-			conceptIdPage = new AggregatedPageImpl<>(pageOfIds.stream().distinct().collect(Collectors.toList()),pageRequest, descriptionPage.getTotalElements(),
-					((SearchAfterPage)descriptionPage).getSearchAfter());
+			LinkedHashSet<String> idsInString = new LinkedHashSet<>(conceptIds.stream().map(c -> String.valueOf(c)).collect(Collectors.toList()));
+			conceptQuery.conceptIds(idsInString);
+			BoolQueryBuilder conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
+			Page<Concept> pageOfConcepts = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+					.withQuery(conceptBoolQuery)
+					.withFields(Concept.Fields.CONCEPT_ID)
+					.withPageable(pageRequest)
+					.build(), Concept.class);
+			List<Long> pageOfIds = pageOfConcepts.getContent().stream().map(Concept::getConceptIdAsLong).collect(Collectors.toList());
+			conceptIdPage = PageHelper.toSearchAfterPage(new PageImpl<>(pageOfIds, pageRequest, pageOfConcepts.getTotalElements()), CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 
 		} else if (hasLogicalConditions && !hasLexicalCriteria) {
 			// Logical Only
@@ -171,7 +173,7 @@ public class QueryService implements ApplicationContextAware {
 			// We fetch all lexical results then use them to filter the logical matches and for ordering of the final results.
 			logger.info("Lexical search before logical {}", term);
 			TimerUtil timer = new TimerUtil("Lexical and Logical Search");
-			final List<Long> allLexicalMatchesWithOrdering = findLexicalMatchDescriptionConceptIds(term, conceptQuery.getTermActive(), languageCodes, branchCriteria);
+			final Collection<Long> allLexicalMatchesWithOrdering = findLexicalMatchDescriptionConceptIds(term, conceptQuery.getTermActive(), languageCodes, branchCriteria);
 			timer.checkpoint("lexical complete");
 
 			// Fetch Logical matches
@@ -233,7 +235,7 @@ public class QueryService implements ApplicationContextAware {
 			logger.info("{} lexical results, {} logical results", allLexicalMatchesWithOrdering.size(), allFilteredLogicalMatchesFinal.size());
 
 			// Create page of ids which is an intersection of the lexical and logical lists using the lexical ordering
-			conceptIdPage = PageHelper.listIntersection(allLexicalMatchesWithOrdering, allFilteredLogicalMatchesFinal, pageRequest, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
+			conceptIdPage = PageHelper.listIntersection(new ArrayList<>(allLexicalMatchesWithOrdering), allFilteredLogicalMatchesFinal, pageRequest, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		}
 
 		if (conceptIdPage != null) {
@@ -294,16 +296,14 @@ public class QueryService implements ApplicationContextAware {
 		return PageHelper.toSearchAfterPage(new PageImpl<>(pageOfIds, pageRequest, pageOfConcepts.getTotalElements()), CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 	}
 
-	private List<Long> findLexicalMatchDescriptionConceptIds(String term, Boolean termActive, Collection<String> languageCodes, BranchCriteria branchCriteria) {
-		final List<Long> allLexicalMatchesWithOrdering = new LongArrayList();
-
+	private Collection<Long> findLexicalMatchDescriptionConceptIds(String term, Boolean termActive, Collection<String> languageCodes, BranchCriteria branchCriteria) {
+		final Collection<Long> conceptIds = new LongLinkedOpenHashSet();
 		NativeSearchQuery query = getLexicalQuery(term, termActive, languageCodes, branchCriteria, LARGE_PAGE);
 		query.addFields(Description.Fields.CONCEPT_ID);
 		try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(query, Description.class)) {
-			descriptionStream.forEachRemaining(description -> allLexicalMatchesWithOrdering.add(parseLong(description.getConceptId())));
+			descriptionStream.forEachRemaining(description -> conceptIds.add(parseLong(description.getConceptId())));
 		}
-
-		return allLexicalMatchesWithOrdering.stream().distinct().collect(Collectors.toList());
+		return conceptIds;
 	}
 
 	private SearchAfterPage<Long> doEclSearchAndDefinitionFilter(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, BranchCriteria branchCriteria) {
@@ -321,7 +321,7 @@ public class QueryService implements ApplicationContextAware {
 		}
 	}
 
-	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, List<Long> conceptIdFilter) {
+	private List<Long> doEclSearch(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, Collection<Long> conceptIdFilter) {
 		String ecl = conceptQuery.getEcl();
 		logger.debug("ECL Search {}", ecl);
 		return eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter).getContent();
