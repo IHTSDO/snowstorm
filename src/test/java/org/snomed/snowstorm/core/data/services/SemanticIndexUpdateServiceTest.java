@@ -346,7 +346,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		ambulanceman.setActive(false);
 		conceptService.create(ambulanceman, path);
 
-		Page<ConceptMini> concepts = queryService.search(queryService.createQueryBuilder(true).descendant(parseLong(SNOMEDCT_ROOT)), path, PAGE_REQUEST);
+		Page<ConceptMini> concepts = queryService.search(queryService.createQueryBuilder(true).ecl("<" + SNOMEDCT_ROOT), path, PAGE_REQUEST);
 		assertEquals(0, concepts.getTotalElements());
 	}
 
@@ -356,13 +356,13 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		conceptService.create(new Concept(SNOMEDCT_ROOT), path);
 		Concept ambulanceman = conceptService.create(new Concept("10000123").addFSN("Ambulanceman").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)), path);
 
-		Page<ConceptMini> concepts = queryService.search(queryService.createQueryBuilder(true).selfOrDescendant(parseLong(SNOMEDCT_ROOT)).termMatch("Amb"), path, PAGE_REQUEST);
+		Page<ConceptMini> concepts = queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT).termMatch("Amb"), path, PAGE_REQUEST);
 		assertEquals(1, concepts.getTotalElements());
 
 		ambulanceman.setActive(false);
 		conceptService.update(ambulanceman, path);
 
-		concepts = queryService.search(queryService.createQueryBuilder(true).selfOrDescendant(parseLong(SNOMEDCT_ROOT)).termMatch("Amb"), path, PAGE_REQUEST);
+		concepts = queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT).termMatch("Amb"), path, PAGE_REQUEST);
 		assertEquals(0, concepts.getTotalElements());
 	}
 

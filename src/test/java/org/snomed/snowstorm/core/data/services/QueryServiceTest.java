@@ -63,20 +63,20 @@ public class QueryServiceTest extends AbstractTest {
 		assertEquals("So Cheesy Pizza", matches.get(2).getFsnTerm());
 		assertEquals("Really Cheesy Pizza", matches.get(3).getFsnTerm());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(SNOMEDCT_ROOT)).termMatch("Piz"), PATH, PAGE_REQUEST).getContent();
+		matches = service.search(service.createQueryBuilder(true).ecl("<" + SNOMEDCT_ROOT).termMatch("Piz"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(4, matches.size());
 		assertEquals("Pizza", matches.get(0).getFsnTerm());
 		assertEquals("Cheese Pizza", matches.get(1).getFsnTerm());
 		assertEquals("So Cheesy Pizza", matches.get(2).getFsnTerm());
 		assertEquals("Really Cheesy Pizza", matches.get(3).getFsnTerm());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termMatch("Piz"), PATH, PAGE_REQUEST).getContent();
+		matches = service.search(service.createQueryBuilder(true).ecl("<" + pizza_2.getConceptId()).termMatch("Piz"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(3, matches.size());
 		assertEquals("Cheese Pizza", matches.get(0).getFsnTerm());
 		assertEquals("So Cheesy Pizza", matches.get(1).getFsnTerm());
 		assertEquals("Really Cheesy Pizza", matches.get(2).getFsnTerm());
 
-		matches = service.search(service.createQueryBuilder(true).descendant(parseLong(pizza_2.getConceptId())).termMatch("Cheesy"), PATH, PAGE_REQUEST).getContent();
+		matches = service.search(service.createQueryBuilder(true).ecl("<" + pizza_2.getConceptId()).termMatch("Cheesy"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(2, matches.size());
 		assertEquals("So Cheesy Pizza", matches.get(0).getFsnTerm());
 		assertEquals("Really Cheesy Pizza", matches.get(1).getFsnTerm());
