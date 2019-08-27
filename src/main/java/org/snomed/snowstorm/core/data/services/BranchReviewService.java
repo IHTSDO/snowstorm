@@ -5,9 +5,10 @@ import com.fasterxml.jackson.databind.ObjectReader;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -116,7 +117,7 @@ public class BranchReviewService {
 		return mergeReview;
 	}
 
-	public MergeReview getMergeReviewOrThrow(String id) {
+	private MergeReview getMergeReviewOrThrow(String id) {
 		final MergeReview mergeReview = getMergeReview(id);
 		if (mergeReview == null) {
 			throw new IllegalArgumentException("Merge review " + id + " does not exist.");
@@ -261,7 +262,7 @@ public class BranchReviewService {
 		return getCreateReview(sourceBranch, targetBranch);
 	}
 
-	public BranchReview getCreateReview(Branch sourceBranch, Branch targetBranch) {
+	private BranchReview getCreateReview(Branch sourceBranch, Branch targetBranch) {
 		BranchReview existingReview = branchReviewRepository.findBySourceAndTargetPathsAndStates(
 				sourceBranch.getPath(), sourceBranch.getBase().getTime(), sourceBranch.getHead().getTime(),
 				targetBranch.getPath(), targetBranch.getBase().getTime(), targetBranch.getHead().getTime());
@@ -301,7 +302,7 @@ public class BranchReviewService {
 
 	}
 
-	public boolean isBranchStateCurrent(BranchState branchState) {
+	private boolean isBranchStateCurrent(BranchState branchState) {
 		final Branch branch = branchService.findBranchOrThrow(branchState.getPath());
 		return branch.getBase().getTime() == branchState.getBaseTimestamp() && branch.getHead().getTime() == branchState.getHeadTimestamp();
 	}
@@ -337,7 +338,7 @@ public class BranchReviewService {
 		branchReviewRepository.save(branchReview);
 	}
 
-	public Set<Long> createConceptChangeReportOnBranchForTimeRange(String path, Date start, Date end, boolean sourceIsParent) {
+	Set<Long> createConceptChangeReportOnBranchForTimeRange(String path, Date start, Date end, boolean sourceIsParent) {
 
 		logger.info("Creating change report: branch {} time range {} to {}", path, start, end);
 
@@ -361,7 +362,7 @@ public class BranchReviewService {
 
 		// Find components of each type that are on the target branch and have been ended on the source branch
 		final Set<Long> changedConcepts = new LongOpenHashSet();
-		final Map<String, String> referenceComponentIdToConceptMap = new HashMap<>();
+		final Map<Long, Long> referenceComponentIdToConceptMap = new Long2ObjectOpenHashMap<>();
 		Branch branch = branchService.findBranchOrThrow(path);
 		logger.debug("Collecting versions replaced for change report: branch {} time range {} to {}", path, start, end);
 
@@ -401,7 +402,7 @@ public class BranchReviewService {
 					ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
 					.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)));
 			try (final CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(refsetQuery.build(), ReferenceSetMember.class)) {
-				stream.forEachRemaining(member -> referenceComponentIdToConceptMap.put(member.getReferencedComponentId(), member.getConceptId()));
+				stream.forEachRemaining(member -> referenceComponentIdToConceptMap.put(parseLong(member.getReferencedComponentId()), parseLong(member.getConceptId())));
 			}
 		}
 
@@ -424,9 +425,7 @@ public class BranchReviewService {
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.build();
 		try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(conceptsWithNewVersionsQuery, Concept.class)) {
-			stream.forEachRemaining(concept -> {
-				changedConcepts.add(parseLong(concept.getConceptId()));
-			});
+			stream.forEachRemaining(concept -> changedConcepts.add(parseLong(concept.getConceptId())));
 		}
 
 		logger.debug("Collecting description changes for change report: branch {} time range {} to {}", path, start, end);
@@ -462,27 +461,29 @@ public class BranchReviewService {
 				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
 				.build();
 		try (final CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(memberQuery, ReferenceSetMember.class)) {
-			stream.forEachRemaining(member -> referenceComponentIdToConceptMap.put(member.getReferencedComponentId(), member.getConceptId()));
+			stream.forEachRemaining(member -> referenceComponentIdToConceptMap.put(parseLong(member.getReferencedComponentId()), parseLong(member.getConceptId())));
 		}
 
-		// Filter out changes for Synonyms
-		List<String> synonymAndTextDefIds = new ArrayList<>();
+		// Filter out changes for active Synonyms
+		// Inactive synonym changes should be included to avoid inactivation indicator / association clashes
+		List<Long> synonymAndTextDefIds = new LongArrayList();
 		NativeSearchQueryBuilder synonymQuery = new NativeSearchQueryBuilder()
 				.withQuery(versionControlHelper.getBranchCriteria(branch).getEntityBranchCriteria(Description.class))
 				.withFilter(boolQuery()
 						.mustNot(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
-						.must(termsQuery(Description.Fields.DESCRIPTION_ID, referenceComponentIdToConceptMap.keySet())));
+						.must(termsQuery(Description.Fields.DESCRIPTION_ID, referenceComponentIdToConceptMap.keySet()))
+						.must(termQuery(Description.Fields.ACTIVE, true)));
 		try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(synonymQuery.build(), Description.class)) {
-			stream.forEachRemaining(description -> synonymAndTextDefIds.add(description.getDescriptionId()));
+			stream.forEachRemaining(description -> synonymAndTextDefIds.add(parseLong(description.getDescriptionId())));
 		}
 
-		Set<String> changedComponents = referenceComponentIdToConceptMap.keySet()
+		Set<Long> changedComponents = referenceComponentIdToConceptMap.keySet()
 				.stream()
 				.filter(r -> !synonymAndTextDefIds.contains(r))
 				.collect(Collectors.toSet());
 
-		for (String componentId : changedComponents) {
-			changedConcepts.add(parseLong(referenceComponentIdToConceptMap.get(componentId)));
+		for (Long componentId : changedComponents) {
+			changedConcepts.add(referenceComponentIdToConceptMap.get(componentId));
 		}
 
 		logger.info("Change report complete for branch {} time range {} to {}", path, start, end);
@@ -516,10 +517,6 @@ public class BranchReviewService {
 
 	/**
 	 * Persist manually merged concept in a temp store to be applied to the branch when the merge review is applied.
-	 * @param mergeReviewId
-	 * @param conceptId
-	 * @param manuallyMergedConcept
-	 * @throws ServiceException
 	 */
 	public void persistManuallyMergedConcept(String mergeReviewId, Long conceptId, Concept manuallyMergedConcept) throws ServiceException {
 		getMergeReviewOrThrow(mergeReviewId);
@@ -536,8 +533,6 @@ public class BranchReviewService {
 
 	/**
 	 * Persist manually merged concept deletion in a temp store to be applied to the branch when the merge review is applied.
-	 * @param mergeReviewId
-	 * @param conceptId
 	 */
 	public void persistManualMergeConceptDeletion(String mergeReviewId, Long conceptId) {
 		getMergeReviewOrThrow(mergeReviewId);

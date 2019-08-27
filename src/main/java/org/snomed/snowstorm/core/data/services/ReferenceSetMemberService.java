@@ -44,6 +44,7 @@ import java.util.*;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
+import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationAndAssociationRefsets;
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 
 @Service
@@ -223,9 +224,8 @@ public class ReferenceSetMemberService extends ComponentService {
 				.filter(member -> member.getConceptId() == null)
 				.forEach(member -> {
 					if (IdentifierService.isDescriptionId(member.getReferencedComponentId())
-							&& (member.getAdditionalFields().keySet().equals(LANG_REFSET_MEMBER_FIELD_SET))
-							|| Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET.equals(member.getRefsetId())) {
-						// Lang refset or description inactivation indicator
+							&& (member.getAdditionalFields().keySet().equals(LANG_REFSET_MEMBER_FIELD_SET) || inactivationAndAssociationRefsets.contains(member.getRefsetId()))) {
+						// Lang refset or description inactivation indicator / historical association
 						// Save member so we can load it to lookup the conceptId
 						descriptionMembers.add(member);
 						descriptionIds.add(parseLong(member.getReferencedComponentId()));

@@ -270,7 +270,7 @@ public class ConceptUpdateHelper extends ComponentService {
 						// Existing association should be made inactive
 						// Find the refset member for this association concept id and target concept id
 						String associationRefsetId = Concepts.historicalAssociationNames.inverse().get(associationName);
-						for (ReferenceSetMember existingMember : existingComponent.getAssociationTargetMembers()) {
+						for (ReferenceSetMember existingMember : Optional.ofNullable(existingComponent.getAssociationTargetMembers()).orElse(Collections.emptySet())) {
 							if (existingMember.isActive() && existingMember.getRefsetId().equals(associationRefsetId)
 									&& existingAssociationTarget.equals(existingMember.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID))) {
 								existingMember.setActive(false);
