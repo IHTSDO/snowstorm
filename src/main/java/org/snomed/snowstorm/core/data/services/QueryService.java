@@ -128,6 +128,10 @@ public class QueryService implements ApplicationContextAware {
 		}
 		boolean hasLogicalConditions = conceptQuery.hasLogicalConditions();
 
+		if (!hasLogicalConditions && !hasLexicalCriteria) {
+			return Optional.empty();
+		}
+
 		SearchAfterPage<Long> conceptIdPage;
 		if (hasLogicalConditions && !hasLexicalCriteria) {
 			// Logical Only
