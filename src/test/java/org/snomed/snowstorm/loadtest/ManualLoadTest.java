@@ -193,7 +193,7 @@ public class ManualLoadTest {
 				}
 
 			} catch (Exception e) {
-				LOGGER.error("User {} failed.", e);
+				LOGGER.error("User {} failed.", username, e);
 			} finally {
 				LOGGER.info("{} ended", username);
 			}
@@ -254,7 +254,8 @@ public class ManualLoadTest {
 
 	private void validateConcept(String taskBranch, Concept concept) throws JsonProcessingException {
 		long startMilis = new Date().getTime();
-		restTemplate.postForObject("/browser/" + taskBranch + "/validate/concept", conceptToString(concept), ArrayList.class);
+		String request = conceptToString(concept);
+		restTemplate.postForObject("/browser/" + taskBranch + "/validate/concept", request, ArrayList.class);
 		LOGGER.info("Validated concept {} on {} in {} seconds", concept.getFsn(), taskBranch, recordDuration("validate-concept", startMilis));
 	}
 
@@ -283,7 +284,6 @@ public class ManualLoadTest {
 		return objectMapper.writeValueAsString(concept)
 				.replace("\"grouped\":true,", "")
 				.replace("\"grouped\":false,", "")
-				.replace("classAxioms", "additionalAxioms")
 				.replace(",\"acceptabilityMapFromLangRefsetMembers\":{}", "")
 				.replaceAll("\"tag\":\"[a-z ]*\",", "")
 				.replaceAll("\"languageCode\":\"[a-z]*\",", "")
@@ -305,9 +305,7 @@ public class ManualLoadTest {
 
 	private List<ConceptResult> getConcepts(String loadTestBranch, String ecl) {
 		long startMilis = new Date().getTime();
-		ResponseEntity<ItemsPagePojo<ConceptResult>> conceptListResponse = restTemplate.exchange("/" + loadTestBranch + "/concepts?active=true", HttpMethod.GET, null, PAGE_OF_CONCEPTS_TYPE, ImmutableMap.builder()
-				.put("ecl", ecl)
-				.build());
+		ResponseEntity<ItemsPagePojo<ConceptResult>> conceptListResponse = restTemplate.exchange("/" + loadTestBranch + "/concepts?active=true&ecl=" + ecl, HttpMethod.GET, null, PAGE_OF_CONCEPTS_TYPE);
 		if (!conceptListResponse.getStatusCode().is2xxSuccessful()) {
 			LOGGER.error("ECL request not successful {}", conceptListResponse.getStatusCodeValue());
 		}
