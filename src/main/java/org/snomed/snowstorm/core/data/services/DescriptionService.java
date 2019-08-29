@@ -79,8 +79,13 @@ public class DescriptionService extends ComponentService {
 			logger.error(message + " {}", descriptions);
 			throw new IllegalStateException(message);
 		}
+		// Join refset members
 		if (!descriptions.isEmpty()) {
-			return descriptions.get(0);
+			Description description = descriptions.get(0);
+			Map<String, Description> descriptionIdMap = Collections.singletonMap(descriptionId, description);
+			joinLangRefsetMembers(branchCriteria, Collections.singleton(description.getConceptId()), descriptionIdMap);
+			joinInactivationIndicatorsAndAssociations(null, descriptionIdMap, branchCriteria, null);
+			return description;
 		}
 		return null;
 	}
@@ -253,7 +258,7 @@ public class DescriptionService extends ComponentService {
 					// Workaround - transient property used to be persisted.
 					description.setInactivationIndicator(null);
 
-					// Join Descriptions
+					// Join Descriptions to concepts for loading whole concepts use case.
 					final String descriptionConceptId = description.getConceptId();
 					if (conceptIdMap != null) {
 						final Concept concept = conceptIdMap.get(descriptionConceptId);
@@ -261,6 +266,7 @@ public class DescriptionService extends ComponentService {
 							concept.addDescription(description);
 						}
 					}
+					// Join Description to ConceptMinis for search result use case.
 					if (conceptMiniMap != null) {
 						final ConceptMini conceptMini = conceptMiniMap.get(descriptionConceptId);
 						if (conceptMini != null && description.isActive()) {
@@ -275,62 +281,69 @@ public class DescriptionService extends ComponentService {
 		}
 		if (timer != null) timer.checkpoint("get descriptions " + getFetchCount(allConceptIds.size()));
 
-		// Fetch Inactivation Indicators and Associations
-		if (fetchInactivationInfo) {
-			Set<String> componentIds;
-			if (conceptIdMap != null) {
-				componentIds = Sets.union(conceptIdMap.keySet(), descriptionIdMap.keySet());
-			} else {
-				componentIds = descriptionIdMap.keySet();
-			}
-			for (List<String> componentIdsSegment : Iterables.partition(componentIds, CLAUSE_LIMIT)) {
-				queryBuilder.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termsQuery("refsetId", Concepts.inactivationAndAssociationRefsets))
-						.must(termsQuery("referencedComponentId", componentIdsSegment)))
-						.withPageable(LARGE_PAGE);
-				// Join Members
-				try (final CloseableIterator<ReferenceSetMember> members = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
-					members.forEachRemaining(member -> {
-						String referencedComponentId = member.getReferencedComponentId();
-						switch (member.getRefsetId()) {
-							case Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET:
-								conceptIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
-								break;
-							case Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET:
-								descriptionIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
-								break;
-							default:
-								if (IdentifierService.isConceptId(referencedComponentId)) {
-									Concept concept = conceptIdMap.get(referencedComponentId);
-									if (concept != null) {
-										concept.addAssociationTargetMember(member);
-									} else {
-										logger.warn("Association ReferenceSetMember {} references concept {} " +
-												"which is not in scope.", member.getId(), referencedComponentId);
-									}
-								} else if (IdentifierService.isDescriptionId(referencedComponentId)) {
-									Description description = descriptionIdMap.get(referencedComponentId);
-									if (description != null) {
-										description.addAssociationTargetMember(member);
-									} else {
-										logger.warn("Association ReferenceSetMember {} references concept {} " +
-												"which is not in scope.", member.getId(), referencedComponentId);
-									}
-								} else {
-									logger.error("Association ReferenceSetMember {} references unexpected component type {}", member.getId(), referencedComponentId);
-								}
-								break;
-						}
-					});
-				}
-			}
-			if (timer != null) timer.checkpoint("get inactivation refset " + getFetchCount(componentIds.size()));
-		}
-
 		// Fetch Lang Refset Members
 		joinLangRefsetMembers(branchCriteria, allConceptIds, descriptionIdMap);
 		if (timer != null) timer.checkpoint("get lang refset " + getFetchCount(allConceptIds.size()));
+
+		// Fetch Inactivation Indicators and Associations
+		if (fetchInactivationInfo) {
+			joinInactivationIndicatorsAndAssociations(conceptIdMap, descriptionIdMap, branchCriteria, timer);
+		}
+	}
+
+	private void joinInactivationIndicatorsAndAssociations(Map<String, Concept> conceptIdMap, Map<String, Description> descriptionIdMap,
+			BranchCriteria branchCriteria, TimerUtil timer) {
+
+		Set<String> componentIds;
+		if (conceptIdMap != null) {
+			componentIds = Sets.union(conceptIdMap.keySet(), descriptionIdMap.keySet());
+		} else {
+			componentIds = descriptionIdMap.keySet();
+		}
+		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
+		for (List<String> componentIdsSegment : Iterables.partition(componentIds, CLAUSE_LIMIT)) {
+			queryBuilder.withQuery(boolQuery()
+					.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+					.must(termsQuery("refsetId", Concepts.inactivationAndAssociationRefsets))
+					.must(termsQuery("referencedComponentId", componentIdsSegment)))
+					.withPageable(LARGE_PAGE);
+			// Join Members
+			try (final CloseableIterator<ReferenceSetMember> members = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
+				members.forEachRemaining(member -> {
+					String referencedComponentId = member.getReferencedComponentId();
+					switch (member.getRefsetId()) {
+						case Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET:
+							conceptIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
+							break;
+						case Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET:
+							descriptionIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
+							break;
+						default:
+							if (IdentifierService.isConceptId(referencedComponentId)) {
+								Concept concept = conceptIdMap.get(referencedComponentId);
+								if (concept != null) {
+									concept.addAssociationTargetMember(member);
+								} else {
+									logger.warn("Association ReferenceSetMember {} references concept {} " +
+											"which is not in scope.", member.getId(), referencedComponentId);
+								}
+							} else if (IdentifierService.isDescriptionId(referencedComponentId)) {
+								Description description = descriptionIdMap.get(referencedComponentId);
+								if (description != null) {
+									description.addAssociationTargetMember(member);
+								} else {
+									logger.warn("Association ReferenceSetMember {} references description {} " +
+											"which is not in scope.", member.getId(), referencedComponentId);
+								}
+							} else {
+								logger.error("Association ReferenceSetMember {} references unexpected component type {}", member.getId(), referencedComponentId);
+							}
+							break;
+					}
+				});
+			}
+		}
+		if (timer != null) timer.checkpoint("get inactivation refset " + getFetchCount(componentIds.size()));
 	}
 
 	private void joinLangRefsetMembers(BranchCriteria branchCriteria, Set<String> allConceptIds, Map<String, Description> descriptionIdMap) {
