@@ -250,7 +250,7 @@ public class DescriptionService extends ComponentService {
 					.withPageable(LARGE_PAGE);
 			try (final CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(queryBuilder.build(), Description.class)) {
 				descriptions.forEachRemaining(description -> {
-					// Workaround - transient property sometimes persisted? FIXME
+					// Workaround - transient property used to be persisted.
 					description.setInactivationIndicator(null);
 
 					// Join Descriptions
