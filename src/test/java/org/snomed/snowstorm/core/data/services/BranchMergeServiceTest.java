@@ -815,11 +815,25 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertTrue(descriptionA.isReleased());
 		assertFalse(descriptionA.isActive());
 		assertEquals("NOT_SEMANTICALLY_EQUIVALENT", descriptionA.getInactivationIndicator());
+		assertEquals("{REFERS_TO=[61462000]}", descriptionA.getAssociationTargets().toString());
+
+		descriptionA = conceptService.find(conceptId, "MAIN/A").getDescriptions().iterator().next();
+		assertTrue(descriptionA.isReleased());
+		assertFalse(descriptionA.isActive());
+		assertEquals("NOT_SEMANTICALLY_EQUIVALENT", descriptionA.getInactivationIndicator());
+		assertEquals("{REFERS_TO=[61462000]}", descriptionA.getAssociationTargets().toString());
 
 		Description descriptionA2 = descriptionService.findDescription("MAIN/A/A2", descriptionId);
 		assertTrue(descriptionA2.isReleased());
 		assertFalse(descriptionA2.isActive());
 		assertEquals("OUTDATED", descriptionA2.getInactivationIndicator());
+		assertNull(descriptionA2.getAssociationTargets());
+		descriptionA2 = conceptService.find(conceptId, "MAIN/A/A2").getDescriptions().iterator().next();
+		assertTrue(descriptionA2.isReleased());
+		assertFalse(descriptionA2.isActive());
+		assertEquals("OUTDATED", descriptionA2.getInactivationIndicator());
+		assertNull(descriptionA2.getAssociationTargets());
+
 
 		MergeReview mergeReview = reviewService.createMergeReview("MAIN/A", "MAIN/A/A2");
 		// Wait for completion
@@ -838,7 +852,11 @@ public class BranchMergeServiceTest extends AbstractTest {
 		Concept rightSideConcept = conceptVersions.get(2);
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(rightSideConcept));
 
-		assertEquals(1, conceptService.find(conceptId, "MAIN/A/A2").getDescriptions().size());
+		Set<Description> descriptions = conceptService.find(conceptId, "MAIN/A/A2").getDescriptions();
+		assertEquals(1, descriptions.size());
+		Description description = descriptions.iterator().next();
+		assertEquals("OUTDATED", description.getInactivationIndicator());
+		assertNull(description.getAssociationTargets());
 
 		// Promote the branch (no conflicts at this point)
 		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);

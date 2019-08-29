@@ -274,8 +274,8 @@ public class DescriptionService extends ComponentService {
 						}
 					}
 
-					// Store Descriptions for Lang Refset join
-					descriptionIdMap.put(description.getDescriptionId(), description);
+					// Store Descriptions in a map for adding Lang Refset and inactivation members.
+					descriptionIdMap.putIfAbsent(description.getDescriptionId(), description);
 				});
 			}
 		}
