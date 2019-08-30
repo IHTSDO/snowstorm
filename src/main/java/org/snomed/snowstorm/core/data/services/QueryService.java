@@ -251,12 +251,16 @@ public class QueryService implements ApplicationContextAware {
 		logger.debug("ECL Search {}", ecl);
 
 		String definitionStatusFilter = conceptQuery.definitionStatusFilter;
+		Collection<Long> conceptIdFilter = null;
+		if (conceptQuery.conceptIds != null && !conceptQuery.conceptIds.isEmpty()) {
+			conceptIdFilter = conceptQuery.conceptIds.stream().map(c -> Long.valueOf(c)).collect(Collectors.toSet());
+		}
 		if (definitionStatusFilter != null && !definitionStatusFilter.isEmpty()) {
-			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), null, null);
+			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, null);
 			List<Long> filteredConceptIds = filterByDefinitionStatus(allConceptIds.getContent(), conceptQuery.definitionStatusFilter, branchCriteria, new LongArrayList());
 			return PageHelper.fullListToPage(filteredConceptIds, pageRequest, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		} else {
-			return PageHelper.toSearchAfterPage(eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), pageRequest),
+			return PageHelper.toSearchAfterPage(eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, pageRequest),
 					CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		}
 	}

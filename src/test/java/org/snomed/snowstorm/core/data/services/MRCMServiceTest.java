@@ -30,6 +30,7 @@ public class MRCMServiceTest extends AbstractTest {
 	@Before
 	public void setup() throws ServiceException {
 		conceptService.create(new Concept(Concepts.ISA, "10000111"), "MAIN");
+		mrcmService.loadFromFiles();
 	}
 	
 	@Test
@@ -38,5 +39,12 @@ public class MRCMServiceTest extends AbstractTest {
 		Collection<ConceptMini> attributes = mrcmService.retrieveDomainAttributes("MAIN", null, null);
 		assertEquals(1, attributes.size());
 		assertEquals(Concepts.ISA, attributes.iterator().next().getId());
+	}
+
+	@Test
+	public void testRetrieveAttributeValue() {
+		Collection<ConceptMini> result = mrcmService.retrieveAttributeValues("MAIN", Concepts.ISA, Concepts.ISA, null);
+		assertEquals(1, result.size());
+		assertEquals(Concepts.ISA, result.iterator().next().getConceptId());
 	}
 }
