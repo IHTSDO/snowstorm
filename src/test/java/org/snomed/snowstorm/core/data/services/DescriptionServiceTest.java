@@ -59,8 +59,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	public void testDescriptionSearch() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTerm("MAIN", "100001", "Heart");
 		testUtil.createConceptWithPathIdAndTerm("MAIN", "100002", "Lung");
-		testUtil.createConceptWithPathIdAndTerm("MAIN", "100006", "Foot cramps");
-		testUtil.createConceptWithPathIdAndTerm("MAIN", "100007", "Foot cramp");
+		testUtil.createConceptWithPathIdAndTerms("MAIN", "100006", "Foot cramps", "Foot cramp");
 		testUtil.createConceptWithPathIdAndTerm("MAIN", "100003", "Foot bone");
 		testUtil.createConceptWithPathIdAndTerm("MAIN", "100004", "Foot");
 		testUtil.createConceptWithPathIdAndTerm("MAIN", "100005", "Footwear");
@@ -72,6 +71,12 @@ public class DescriptionServiceTest extends AbstractTest {
 		content = descriptionService.findDescriptionsWithAggregations("MAIN", "Foo", ServiceTestUtil.PAGE_REQUEST).getContent();
 		actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
 		assertEquals(Lists.newArrayList("Foot", "Footwear", "Foot bone", "Foot cramp", "Foot cramps"), actualTerms);
+
+		boolean groupByConcept = true;
+		content = descriptionService.findDescriptionsWithAggregations("MAIN", "Foo", Collections.singleton("en"), true, null, null, null, null,
+				groupByConcept, DescriptionService.SearchMode.STANDARD, ServiceTestUtil.PAGE_REQUEST).getContent();
+		actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
+		assertEquals(Lists.newArrayList("Foot", "Footwear", "Foot bone", "Foot cramp"), actualTerms);
 
 		content = descriptionService.findDescriptionsWithAggregations("MAIN", "cramps", ServiceTestUtil.PAGE_REQUEST).getContent();
 		actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());

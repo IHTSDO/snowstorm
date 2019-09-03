@@ -25,7 +25,15 @@ public class ServiceTestUtil {
 	}
 
 	public Concept createConceptWithPathIdAndTerm(String path, String conceptId, String term) throws ServiceException {
-		return createConceptWithPathIdAndTermWithLang(path, conceptId, term, DEFAULT_LANGUAGE_CODE);
+		return createConceptWithPathIdAndTerms(path, conceptId, term);
+	}
+
+	public Concept createConceptWithPathIdAndTerms(String path, String conceptId, String... terms) throws ServiceException {
+		final Concept concept = new Concept(conceptId);
+		for (String term : terms) {
+			concept.addDescription(new Description(term));
+		}
+		return conceptService.create(concept, path);
 	}
 
 	public Concept createConceptWithPathIdAndTermWithLang(String path, String conceptId, String term, String languageCode) throws ServiceException {

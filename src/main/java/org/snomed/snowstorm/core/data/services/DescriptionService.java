@@ -9,7 +9,6 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.apache.commons.lang.StringUtils;
-import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -403,13 +402,14 @@ public class DescriptionService extends ComponentService {
 			conceptIds = new LongArrayList();
 			mapper = new DescriptionToConceptIdMapper(conceptIds);
 		}
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+				.withQuery(descriptionCriteria)
+				.withStoredFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
+				.withPageable(LARGE_PAGE)
+				.build();
+		addTermSort(searchQuery);
 		try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(
-				new NativeSearchQueryBuilder()
-						.withQuery(descriptionCriteria)
-						.withSort(SortBuilders.fieldSort("_doc"))
-						.withStoredFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
-						.withPageable(LARGE_PAGE)
-						.build(), Description.class, mapper)) {
+				searchQuery, Description.class, mapper)) {
 			stream.forEachRemaining(hit -> {});
 		}
 
@@ -512,7 +512,7 @@ public class DescriptionService extends ComponentService {
 		}
 	}
 
-	private List<String> analyze (String text, StandardAnalyzer analyzer) {
+	private List<String> analyze(String text, StandardAnalyzer analyzer) {
 		List<String> result = new ArrayList<>();
 		try {
 			TokenStream tokenStream = analyzer.tokenStream("contents", text);
@@ -579,7 +579,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	static NativeSearchQuery addTermSort(NativeSearchQuery query) {
-		query.addSort(Sort.by("termLen"));
+		query.addSort(Sort.by(Description.Fields.TERM_LEN));
 		query.addSort(Sort.by("_score"));
 		return query;
 	}
