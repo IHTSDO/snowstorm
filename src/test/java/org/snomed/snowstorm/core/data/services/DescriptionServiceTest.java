@@ -127,6 +127,26 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testDescriptionSearchWithEdgeCases() throws ServiceException {
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100001", "Man (person)", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100002", "Elderly man (person)", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100003", "1.5%/epinephrine substance", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100004", "drugs 1.5%/epinephrine (substance)", "en");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100005", "drugs with 1.5%/epinephrine", "en");
+
+		// Combining Regex search and simple query as term containing non-alphanumeric
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Man (person)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(3, descriptionService.findDescriptionsWithAggregations("MAIN", "1.5%/epine", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "1.5%/epinephrine (", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "1.5%/epinephrine substance", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "d 1.5%/epinephrine", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+
+		// These two tests are to highlight that ElasticSearch simple query doesn't check cardinality
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Man (person) p", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "man person p", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+	}
+
+	@Test
 	public void testDescriptionSearchWithExtendedCharacters() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100001", "Tübingen", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100002", "Tubingen", "en");

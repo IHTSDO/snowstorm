@@ -9,6 +9,10 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.apache.commons.lang.StringUtils;
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
@@ -41,6 +45,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -463,6 +468,8 @@ public class DescriptionService extends ComponentService {
 			boolBuilder.must(termQuery(Description.Fields.CONCEPT_ID, term));
 		} else {
 			if (!Strings.isNullOrEmpty(term)) {
+				BoolQueryBuilder termFilter = new BoolQueryBuilder();
+				boolBuilder.filter(termFilter);
 				if (searchMode == SearchMode.REGEX) {
 					// https://www.elastic.co/guide/en/elasticsearch/reference/master/query-dsl-query-string-query.html#_regular_expressions
 					if (term.startsWith("^")) {
@@ -471,7 +478,7 @@ public class DescriptionService extends ComponentService {
 					if (term.endsWith("$")) {
 						term = term.substring(0, term.length()-1);
 					}
-					boolBuilder.must(regexpQuery(Description.Fields.TERM, term));
+					termFilter.must(regexpQuery(Description.Fields.TERM, term));
 					// Must match the requested language
 					boolBuilder.must(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes));
 				} else {
@@ -484,11 +491,9 @@ public class DescriptionService extends ComponentService {
 					for (String languageCode : languageCodes) {
 						Set<Character> charactersNotFoldedForLanguage = charactersNotFoldedSets.getOrDefault(languageCode, Collections.emptySet());
 						String foldedSearchTerm = DescriptionHelper.foldTerm(term, charactersNotFoldedForLanguage);
-						if (!StringUtils.isAlphanumeric(foldedSearchTerm)) {
-							foldedSearchTerm = replaceNonAlphanumericWordWithSpace(foldedSearchTerm);
-							if (foldedSearchTerm.trim().isEmpty()) {
-								continue;
-							}
+						foldedSearchTerm = constructSearchTerm(analyze(foldedSearchTerm, new StandardAnalyzer()));
+						if (foldedSearchTerm.isEmpty()) {
+							continue;
 						}
 						shouldClauses.should(boolQuery()
 								.must(termQuery(Description.Fields.LANGUAGE_CODE, languageCode))
@@ -498,12 +503,27 @@ public class DescriptionService extends ComponentService {
 
 					if (!StringUtils.isAlphanumeric(term)) {
 						String regexString = constructRegexQuery(term);
-						boolBuilder.must(regexpQuery(Description.Fields.TERM, regexString));
+						termFilter.must(regexpQuery(Description.Fields.TERM, regexString));
 					}
-					boolBuilder.must(shouldClauses);
+					termFilter.must(shouldClauses);
 				}
 			}
 		}
+	}
+
+	private List<String> analyze (String text, Analyzer analyzer) {
+		List<String> result = new ArrayList<>();
+		try {
+			TokenStream tokenStream = analyzer.tokenStream("contents", text);
+			CharTermAttribute attr = tokenStream.addAttribute(CharTermAttribute.class);
+			tokenStream.reset();
+			while (tokenStream.incrementToken()) {
+				result.add(attr.toString());
+			}
+		} catch (IOException e) {
+			logger.error("Failed to analyze text {}", text, e);
+		}
+		return result;
 	}
 
 	private String constructSimpleQueryString(String searchTerm) {
@@ -540,14 +560,11 @@ public class DescriptionService extends ComponentService {
 		return regexBuilder.toString();
 	}
 
-	private String replaceNonAlphanumericWordWithSpace(String foldedSearchTerm) {
-		String[] splits = foldedSearchTerm.split(" ", -1);
+	private String constructSearchTerm(List<String> tokens) {
 		StringBuilder builder = new StringBuilder();
-		for (String split : splits) {
-			if (StringUtils.isAlphanumeric(split)) {
-				builder.append(split);
-				builder.append(" ");
-			}
+		for (String token : tokens) {
+			builder.append(token);
+			builder.append(" ");
 		}
 		return builder.toString().trim();
 	}
