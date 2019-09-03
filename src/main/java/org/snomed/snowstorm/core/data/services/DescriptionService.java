@@ -10,6 +10,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
@@ -491,7 +492,7 @@ public class DescriptionService extends ComponentService {
 					for (String languageCode : languageCodes) {
 						Set<Character> charactersNotFoldedForLanguage = charactersNotFoldedSets.getOrDefault(languageCode, Collections.emptySet());
 						String foldedSearchTerm = DescriptionHelper.foldTerm(term, charactersNotFoldedForLanguage);
-						foldedSearchTerm = constructSearchTerm(analyze(foldedSearchTerm, new StandardAnalyzer()));
+						foldedSearchTerm = constructSearchTerm(analyze(foldedSearchTerm, new StandardAnalyzer(CharArraySet.EMPTY_SET)));
 						if (foldedSearchTerm.isEmpty()) {
 							continue;
 						}
@@ -501,7 +502,7 @@ public class DescriptionService extends ComponentService {
 										.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND)));
 					}
 
-					if (!StringUtils.isAlphanumeric(term)) {
+					if (containingNonAlphanumeric(term)) {
 						String regexString = constructRegexQuery(term);
 						termFilter.must(regexpQuery(Description.Fields.TERM, regexString));
 					}
@@ -511,7 +512,7 @@ public class DescriptionService extends ComponentService {
 		}
 	}
 
-	private List<String> analyze (String text, Analyzer analyzer) {
+	private List<String> analyze (String text, StandardAnalyzer analyzer) {
 		List<String> result = new ArrayList<>();
 		try {
 			TokenStream tokenStream = analyzer.tokenStream("contents", text);
@@ -530,10 +531,18 @@ public class DescriptionService extends ComponentService {
 		return (searchTerm.trim().replace(" ", "* ") + "*").replace("**", "*");
 	}
 
-	private String constructRegexQuery(String term) {
-
+	private boolean containingNonAlphanumeric(String term) {
 		String[] words = term.split(" ", -1);
+		for (String word : words) {
+			if (!StringUtils.isAlphanumeric(word)) {
+				return true;
+			}
+		}
+		return false;
+	}
 
+	private String constructRegexQuery(String term) {
+		String[] words = term.split(" ", -1);
 		StringBuilder regexBuilder = new StringBuilder();
 		regexBuilder.append(".*");
 		for (String word : words) {

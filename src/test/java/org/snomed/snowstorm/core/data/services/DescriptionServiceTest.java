@@ -134,6 +134,9 @@ public class DescriptionServiceTest extends AbstractTest {
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100004", "drugs 1.5%/epinephrine (substance)", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100005", "drugs with 1.5%/epinephrine", "en");
 
+		// testing stop words
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "an man person not", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+
 		// Combining Regex search and simple query as term containing non-alphanumeric
 		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Man (person)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 		assertEquals(3, descriptionService.findDescriptionsWithAggregations("MAIN", "1.5%/epine", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
