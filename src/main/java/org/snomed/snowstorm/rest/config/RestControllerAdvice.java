@@ -37,6 +37,7 @@ public class RestControllerAdvice {
 		result.put("error", HttpStatus.BAD_REQUEST);
 		result.put("message", exception.getMessage());
 		logger.info("bad request {}", exception.getMessage());
+		logger.debug("bad request {}", exception.getMessage(), exception);
 		return result;
 	}
 
