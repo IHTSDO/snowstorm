@@ -9,6 +9,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 @RestController
 @Api(tags = "Admin", description = "-")
@@ -54,6 +57,18 @@ public class AdminController {
 	@ResponseBody
 	public void updateDefinitionStatuses(@PathVariable String branch) throws ServiceException {
 		definitionStatusUpdateService.updateAllDefinitionStatuses(BranchPathUriUtil.decodePath(branch));
+	}
+
+	@ApiOperation(value = "End duplicate versions of donated components in version control.",
+			notes = "You may need this action if you have used the branch merge operation to upgrade an extension " +
+					"which has donated content to the International Edition. The operation should be run on the extension branch.")
+	@RequestMapping(value = "/{branch}/actions/end-donated-content", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> endDonatedContent(@PathVariable String branch) {
+		Map<String, Object> response = new HashMap<>();
+		Map<Class, Set<String>> fixes = adminOperationsService.findAndEndDonatedContent(BranchPathUriUtil.decodePath(branch));
+		response.put("fixesApplied", fixes);
+		return response;
 	}
 
 }
