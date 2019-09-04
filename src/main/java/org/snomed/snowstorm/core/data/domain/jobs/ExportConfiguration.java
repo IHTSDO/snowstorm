@@ -5,26 +5,31 @@ import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.data.elasticsearch.annotations.Document;
 
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Pattern;
 import java.util.Date;
 
 @Document(indexName = "export-config")
-public final class ExportConfiguration {
-
-	@NotNull
-	private String branchPath;
-
-	@NotNull
-	private RF2Type type;
-
-	private String filenameEffectiveDate;
-
-	@ApiModelProperty(value = "false")
-	private boolean conceptsAndRelationshipsOnly;
+public class ExportConfiguration {
 
 	private String id;
 
 	private Date startDate;
 
+	@NotNull
+	private String branchPath;
+
+	@NotNull
+	@ApiModelProperty(value = "DELTA")
+	private RF2Type type;
+
+	@Pattern(regexp = "[0-9]{8}]")
+	private String filenameEffectiveDate;
+
+	@ApiModelProperty(value = "false")
+	private boolean conceptsAndRelationshipsOnly;
+
+	@ApiModelProperty(notes = "Format: yyyymmdd. Add an a transient effectiveTime to rows of content which are not yet versioned.")
+	@Pattern(regexp = "[0-9]{8}]")
 	private String transientEffectiveTime;
 
 	public ExportConfiguration() {
