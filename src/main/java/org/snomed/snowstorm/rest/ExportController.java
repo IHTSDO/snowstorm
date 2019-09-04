@@ -3,9 +3,8 @@ package org.snomed.snowstorm.rest;
 import io.swagger.annotations.Api;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
+import org.snomed.snowstorm.rest.pojo.ExportRequestView;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,7 +22,7 @@ public class ExportController {
 
 	@RequestMapping(method = RequestMethod.POST)
 	@ResponseBody
-	public ResponseEntity<Void> createExportJob(@Valid @RequestBody ExportConfiguration exportConfiguration) {
+	public ResponseEntity<Void> createExportJob(@Valid @RequestBody ExportRequestView exportConfiguration) {
 		String id = exportService.createJob(exportConfiguration);
 		return ControllerHelper.getCreatedResponse(id);
 	}
