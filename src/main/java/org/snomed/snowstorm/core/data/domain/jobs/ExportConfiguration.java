@@ -8,7 +8,7 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 import java.util.Date;
 
-@Document(indexName = "export-config")
+@Document(indexName = "export-config", type = "exportconfiguration")
 public class ExportConfiguration {
 
 	private String id;
@@ -22,18 +22,18 @@ public class ExportConfiguration {
 	@ApiModelProperty(value = "DELTA")
 	private RF2Type type;
 
-	@Pattern(regexp = "[0-9]{8}]")
+	@Pattern(regexp = "[0-9]{8}")
 	private String filenameEffectiveDate;
 
 	@ApiModelProperty(value = "false")
 	private boolean conceptsAndRelationshipsOnly;
 
 	@ApiModelProperty(notes = "Format: yyyymmdd. Add an a transient effectiveTime to rows of content which are not yet versioned.")
-	@Pattern(regexp = "[0-9]{8}]")
+	@Pattern(regexp = "[0-9]{8}")
 	private String transientEffectiveTime;
 
 	@ApiModelProperty(notes = "Format: yyyymmdd. Can be used to produce a delta after content is versioned by filtering a SNAPSHOT export by effectiveTime.")
-	@Pattern(regexp = "[0-9]{8}]")
+	@Pattern(regexp = "[0-9]{8}")
 	private String startEffectiveTime;
 
 	public ExportConfiguration() {

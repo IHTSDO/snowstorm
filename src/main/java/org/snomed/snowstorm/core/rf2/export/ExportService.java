@@ -66,7 +66,7 @@ public class ExportService {
 			throw new IllegalArgumentException("FULL RF2 export is not implemented.");
 		}
 		if (exportConfiguration.getStartEffectiveTime() != null && exportConfiguration.getType() != RF2Type.SNAPSHOT) {
-			throw new IllegalArgumentException("The startEffectiveTime parameter can only be used with the Snapshot export type.");
+			throw new IllegalArgumentException("The startEffectiveTime parameter can only be used with the SNAPSHOT export type.");
 		}
 		branchService.findBranchOrThrow(exportConfiguration.getBranchPath());
 		exportConfiguration.setId(UUID.randomUUID().toString());
