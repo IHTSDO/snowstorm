@@ -32,6 +32,10 @@ public class ExportConfiguration {
 	@Pattern(regexp = "[0-9]{8}]")
 	private String transientEffectiveTime;
 
+	@ApiModelProperty(notes = "Format: yyyymmdd. Can be used to produce a delta after content is versioned by filtering a SNAPSHOT export by effectiveTime.")
+	@Pattern(regexp = "[0-9]{8}]")
+	private String startEffectiveTime;
+
 	public ExportConfiguration() {
 	}
 
@@ -94,5 +98,13 @@ public class ExportConfiguration {
 
 	public String getTransientEffectiveTime() {
 		return this.transientEffectiveTime;
+	}
+
+	public String getStartEffectiveTime() {
+		return startEffectiveTime;
+	}
+
+	public void setStartEffectiveTime(String startEffectiveTime) {
+		this.startEffectiveTime = startEffectiveTime;
 	}
 }

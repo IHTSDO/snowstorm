@@ -58,7 +58,7 @@ public class ExportServiceTest extends AbstractTest {
 
 		List<Concept> concepts = new ArrayList<>();
 
-		Concept langRefsetConcept = new Concept(Concepts.LANG_REFSET);
+		Concept langRefsetConcept = new Concept(Concepts.LANG_REFSET).addDescription(new Description("640588126141710019", "Language refset"));
 		concepts.add(langRefsetConcept);
 
 		Concept gbLangRefsetConcept = new Concept(Concepts.GB_EN_LANG_REFSET).addRelationship(new Relationship(Concepts.ISA, Concepts.LANG_REFSET));
@@ -66,9 +66,6 @@ public class ExportServiceTest extends AbstractTest {
 
 		Concept owlExpressionRefsetConcept = new Concept(Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET);
 		concepts.add(owlExpressionRefsetConcept);
-
-		Concept owlAxiomRefsetConcept = new Concept(Concepts.OWL_AXIOM_REFERENCE_SET).addRelationship(new Relationship(Concepts.ISA, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET));
-		concepts.add(owlAxiomRefsetConcept);
 
 		Concept simpleRefsetConcept = new Concept(Concepts.REFSET_SIMPLE);
 		concepts.add(simpleRefsetConcept);
@@ -80,6 +77,10 @@ public class ExportServiceTest extends AbstractTest {
 		String path = "MAIN";
 		conceptService.batchCreate(concepts, path);
 		releaseService.createVersion(20100131, path);
+
+		// A concept against another dummy version
+		conceptService.create(new Concept(Concepts.OWL_AXIOM_REFERENCE_SET).addDescription(new Description("3494181019", "OWL axiom reference set")).addRelationship(new Relationship(Concepts.ISA, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET)), path);
+		releaseService.createVersion(20190131, path);
 
 		String conceptId = "123001";
 		descriptionId = "124011";
@@ -292,6 +293,107 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("124011\t20190731\t1\t900000000000207008\t123001\ten\t" + Concepts.FSN + "\tBleeding (finding)\t900000000000448009", lines.get(1));
 		}
 
+	}
+
+	@Test
+	public void exportSnapshot() throws Exception {
+		File exportFile = getTempFile("export", ".zip");
+		exportFile.deleteOnExit();
+
+		// Run export
+		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
+			ExportConfiguration exportConfiguration = new ExportConfiguration("MAIN", RF2Type.SNAPSHOT);
+
+			exportConfiguration.setConceptsAndRelationshipsOnly(false);
+			exportConfiguration.setFilenameEffectiveDate("20190904");
+			exportService.createJob(exportConfiguration);
+			exportService.exportRF2Archive(exportConfiguration, outputStream);
+		}
+
+		// Test export
+		try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(exportFile))) {
+			// Concepts
+			ZipEntry concepts = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Snapshot_INT_20190904.txt", concepts.getName());
+			List<String> lines = getLines(zipInputStream);
+			assertEquals(8, lines.size());
+			int line = 0;
+			printLines(lines);
+
+			assertEquals(ConceptExportWriter.HEADER, lines.get(line++));
+			assertEquals("900000000000506000\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
+			assertEquals("900000000000508004\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
+			assertEquals("762676003\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
+			assertEquals("446609009\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
+			assertEquals("900000000000538005\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
+			assertEquals("733073007\t20190131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
+			assertEquals("123001\t\t1\t900000000000207008\t900000000000074008", lines.get(line++));
+
+			// Descriptions
+			ZipEntry descriptions = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Description_Snapshot_INT_20190904.txt", descriptions.getName());
+			lines = getLines(zipInputStream);
+			printLines(lines);
+
+			assertEquals(4, lines.size());
+			line = 0;
+			assertEquals(DescriptionExportWriter.HEADER, lines.get(line++));
+			assertEquals("640588126141710019\t20100131\t1\t900000000000207008\t900000000000506000\ten\t900000000000013009\tLanguage refset\t900000000000448009", lines.get(line++));
+			assertEquals("3494181019\t20190131\t1\t900000000000207008\t733073007\ten\t900000000000013009\tOWL axiom reference set\t900000000000448009", lines.get(line++));
+			assertEquals("124011\t\t1\t900000000000207008\t123001\ten\t900000000000003001\tBleeding (finding)\t900000000000448009", lines.get(line++));
+		}
+
+	}
+
+	@Test
+	public void exportSnapshotWithStartEffectiveTime() throws Exception {
+		File exportFile = getTempFile("export", ".zip");
+		exportFile.deleteOnExit();
+
+		// Run export
+		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
+			ExportConfiguration exportConfiguration = new ExportConfiguration("MAIN", RF2Type.SNAPSHOT);
+
+			exportConfiguration.setConceptsAndRelationshipsOnly(false);
+			exportConfiguration.setFilenameEffectiveDate("20190904");
+			exportConfiguration.setStartEffectiveTime("20190131");
+			exportService.createJob(exportConfiguration);
+			exportService.exportRF2Archive(exportConfiguration, outputStream);
+		}
+
+		// Test export
+		try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(exportFile))) {
+			// Concepts
+			ZipEntry concepts = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Snapshot_INT_20190904.txt", concepts.getName());
+			List<String> lines = getLines(zipInputStream);
+			printLines(lines);
+			assertEquals(3, lines.size());
+			int line = 0;
+
+			assertEquals(ConceptExportWriter.HEADER, lines.get(line++));
+			assertEquals("733073007\t20190131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
+			assertEquals("123001\t\t1\t900000000000207008\t900000000000074008", lines.get(line++));
+
+			// Descriptions
+			ZipEntry descriptions = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Description_Snapshot_INT_20190904.txt", descriptions.getName());
+			lines = getLines(zipInputStream);
+			printLines(lines);
+
+			assertEquals(3, lines.size());
+			line = 0;
+			assertEquals(DescriptionExportWriter.HEADER, lines.get(line++));
+			assertEquals("3494181019\t20190131\t1\t900000000000207008\t733073007\ten\t900000000000013009\tOWL axiom reference set\t900000000000448009", lines.get(line++));
+			assertEquals("124011\t\t1\t900000000000207008\t123001\ten\t900000000000003001\tBleeding (finding)\t900000000000448009", lines.get(line++));
+		}
+
+	}
+
+	public void printLines(List<String> lines) {
+		for (String l : lines) {
+			System.out.println(l);
+		}
 	}
 
 	private List<String> getLines(ZipInputStream zipInputStream) throws IOException {
