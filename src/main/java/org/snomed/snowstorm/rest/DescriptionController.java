@@ -10,6 +10,7 @@ import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.pojo.BrowserDescriptionSearchResult;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,6 +84,7 @@ public class DescriptionController {
 
 		PageWithBucketAggregations<BrowserDescriptionSearchResult> pageWithBucketAggregations = new PageWithBucketAggregations<>(results, page.getPageable(), page.getTotalElements(), page.getBuckets());
 		addBucketConcepts(branch, acceptLanguageCodes, pageWithBucketAggregations);
+		addLanguageNames(pageWithBucketAggregations);
 		return pageWithBucketAggregations;
 	}
 
@@ -97,6 +99,17 @@ public class DescriptionController {
 		}
 		if (!bucketConceptIds.isEmpty()) {
 			pageWithBucketAggregations.setBucketConcepts(conceptService.findConceptMinis(branch, bucketConceptIds, languageCodes).getResultsMap());
+		}
+	}
+
+	private void addLanguageNames(PageWithBucketAggregations<BrowserDescriptionSearchResult> aggregations) {
+		Map<String, Long> language = aggregations.getBuckets().get("language");
+		if (language != null) {
+			Map<String, String> languageCodeToName = new HashMap<>();
+			for (String languageCode : language.keySet()) {
+				languageCodeToName.put(languageCode, LangUtil.convertLanguageCodeToName(languageCode).toLowerCase());
+			}
+			aggregations.setLanguageNames(languageCodeToName);
 		}
 	}
 
