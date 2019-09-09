@@ -166,7 +166,7 @@ public class ConceptService extends ComponentService {
 		if (branchTimepoint.isBranchCreationTimepoint()) {
 			return versionControlHelper.getBranchCriteriaAtBranchCreationTimepoint(branchTimepoint.getBranchPath());
 		} else if (branchTimepoint.isBranchBaseTimepoint()) {
-			return versionControlHelper.getBranchCriteriaAtBranchBaseTimepoint(branchTimepoint.getBranchPath());
+			return versionControlHelper.getBranchCriteriaForParentBranchAtBranchBaseTimepoint(branchTimepoint.getBranchPath());
 		} else if (branchTimepoint.getTimepoint() != null) {
 			return versionControlHelper.getBranchCriteriaAtTimepoint(branchTimepoint.getBranchPath(), branchTimepoint.getTimepoint());
 		} else {

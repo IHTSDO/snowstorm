@@ -17,6 +17,7 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -55,6 +56,9 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Autowired
 	private QueryService queryService;
+
+	@Autowired
+	private BranchMergeService branchMergeService;
 
 	private ServiceTestUtil testUtil;
 
@@ -881,6 +885,45 @@ public class ConceptServiceTest extends AbstractTest {
 		}
 		assertEquals(anotherModule, someConcept.getModuleId());
 		assertEquals(1, someConcept.getRelationships().size());
+	}
+
+	@Test
+	public void testLoadConceptFromParentBranchUsingBaseTimepoint() throws ServiceException {
+		List<String> en = Lists.newArrayList("en");
+		String conceptId = "100001";
+
+		// Concept on MAIN with 1 description
+		Concept concept = testUtil.createConceptWithPathIdAndTerm("MAIN", conceptId, "Heart");
+
+		// Create branch A
+		branchService.create("MAIN/A");
+		assertEquals(1, conceptService.find(conceptId, en, new BranchTimepoint("MAIN/A")).getDescriptions().size());
+
+		// Add a second description on A
+		String branch = "MAIN/A";
+		conceptService.update(conceptService.find(conceptId, branch).addDescription(new Description("Another A")), branch);
+		assertEquals(2, conceptService.find(conceptId, en, new BranchTimepoint("MAIN/A")).getDescriptions().size());
+
+		// Concept using base version still has 1
+		assertEquals(1, conceptService.find(conceptId, en, new BranchTimepoint("MAIN/A", "^")).getDescriptions().size());
+
+		// Add a second description on MAIN
+		branch = "MAIN";
+		conceptService.update(conceptService.find(conceptId, branch).addDescription(new Description("Another MAIN")), branch);
+
+		// Concept using base version still has 1
+		assertEquals(1, conceptService.find(conceptId, en, new BranchTimepoint("MAIN/A", "^")).getDescriptions().size());
+
+		// Rebase A
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+
+		// A now has 3 descriptions
+		assertEquals(3, conceptService.find(conceptId, en, new BranchTimepoint("MAIN/A")).getDescriptions().size());
+
+		// Base version should now have 2 descriptions because the base of the branch moved when the rebase happened. It's the 2 descriptions on MAIN.
+		assertEquals(2, conceptService.find(conceptId, en, new BranchTimepoint("MAIN/A", "^")).getDescriptions().size());
+		assertEquals("[Heart, Another MAIN]", conceptService.find(conceptId, en, new BranchTimepoint("MAIN/A", "^")).getDescriptions().stream()
+				.sorted(Comparator.comparing(Description::getTermLen)).map(Description::getTerm).collect(Collectors.toList()).toString());
 	}
 
 	private void printAllDescriptions(String path) {

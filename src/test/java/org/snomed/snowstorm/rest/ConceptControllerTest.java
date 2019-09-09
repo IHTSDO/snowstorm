@@ -118,11 +118,11 @@ public class ConceptControllerTest extends AbstractTest {
 		assertEquals(1, intermediateConceptVersion.getRelationships().size());
 		assertEquals(2, intermediateConceptVersion.getDescriptions().size());
 
-		// Load base version of the concept
+		// Load base version of the concept (from parent branch)
 		timepoint = "@^";
 		Concept baseConceptVersion = this.restTemplate.getForObject("http://localhost:" + port + "/browser/MAIN/projectA" + timepoint + "/concepts/257751006", Concept.class);
-		assertEquals(1, baseConceptVersion.getRelationships().size());
-		assertEquals(3, baseConceptVersion.getDescriptions().size());
+		assertEquals(0, baseConceptVersion.getRelationships().size());
+		assertEquals(0, baseConceptVersion.getDescriptions().size());
 
 		// Load current version of dummy concept
 		timepoint = "";
