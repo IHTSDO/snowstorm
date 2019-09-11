@@ -97,13 +97,15 @@ public class ImportService {
 			Integer maxEffectiveTime = null;
 			switch (importType) {
 				case DELTA: {
-					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion);
+					// If we are not creating a new version copy the release fields from the existing components
+					boolean copyReleaseFields = !job.isCreateCodeSystemVersion();
+					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion, copyReleaseFields);
 					releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
 					maxEffectiveTime = importComponentFactory.getMaxEffectiveTime();
 					break;
 				}
 				case SNAPSHOT: {
-					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion);
+					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion, false);
 					releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
 					maxEffectiveTime = importComponentFactory.getMaxEffectiveTime();
 					break;
@@ -131,8 +133,8 @@ public class ImportService {
 		}
 	}
 
-	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath, Integer patchReleaseVersion) {
-		return new ImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, branchPath, patchReleaseVersion);
+	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath, Integer patchReleaseVersion, boolean copyReleaseFields) {
+		return new ImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, branchPath, patchReleaseVersion, copyReleaseFields);
 	}
 
 	private HistoryAwareComponentFactory getFullImportComponentFactory(String branchPath) {

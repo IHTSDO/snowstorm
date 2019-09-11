@@ -426,8 +426,17 @@ public class ImportServiceTest extends AbstractTest {
 		assertEquals(4, relationshipGroups.get(0).get());
 		assertNull(relationshipGroups.get(1));
 
+		// Assert contents of release fields
+		Concept concept = conceptService.find("400000000", "MAIN");
+		assertTrue(concept.isReleased());
+		assertEquals("true|900000000000012004|900000000000074008", concept.getReleaseHash());
+		Description description = concept.getDescription("400000010");
+		assertTrue(description.isReleased());
+		assertEquals("true|Associated morphology|900000000000012004|en|900000000000013009|900000000000020002", description.getReleaseHash());
+
+
 		zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/blankOrLaterEffectiveTimeTest");
-		importId = importService.createJob(RF2Type.DELTA, "MAIN", true);
+		importId = importService.createJob(RF2Type.DELTA, "MAIN", false);
 		importService.importArchive(importId, new FileInputStream(zipFile));
 
 		concepts = conceptService.findAll("MAIN", PageRequest.of(0, 10)).getContent();
@@ -446,6 +455,14 @@ public class ImportServiceTest extends AbstractTest {
 
 		assertEquals(2, relationshipGroups.get(0).get());
 		assertEquals(2, relationshipGroups.get(1).get());
+
+		// Assert contents of release fields is unchanged after RF2 import of unreleased content
+		concept = conceptService.find("400000000", "MAIN");
+		assertTrue(concept.isReleased());
+		assertEquals("true|900000000000012004|900000000000074008", concept.getReleaseHash());
+		description = concept.getDescription("400000010");
+		assertTrue(description.isReleased());
+		assertEquals("true|Associated morphology|900000000000012004|en|900000000000013009|900000000000020002", description.getReleaseHash());
 
 
 		// Import again allowing version 20180131 to be patched
@@ -469,8 +486,6 @@ public class ImportServiceTest extends AbstractTest {
 
 		assertEquals(1, relationshipGroups.get(0).get());
 		assertEquals(3, relationshipGroups.get(1).get());
-
-
 	}
 
 	private void collectContentCounts(List<Concept> concepts, Map<String, AtomicInteger> conceptDefinitionStatuses, Map<String, AtomicInteger> descriptionCaseSignificance, Map<String, AtomicInteger> descriptionAcceptability, Map<Integer, AtomicInteger> relationshipGroups) {

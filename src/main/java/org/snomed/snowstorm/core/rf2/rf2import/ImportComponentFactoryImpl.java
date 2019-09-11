@@ -19,6 +19,7 @@ import org.springframework.data.util.CloseableIterator;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -53,7 +54,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	boolean coreComponentsFlushed;
 
 	ImportComponentFactoryImpl(ConceptUpdateHelper conceptUpdateHelper, ReferenceSetMemberService memberService, BranchService branchService,
-			BranchMetadataHelper branchMetadataHelper, String path, Integer patchReleaseVersion) {
+			BranchMetadataHelper branchMetadataHelper, String path, Integer patchReleaseVersion, boolean copyReleaseFields) {
 
 		this.branchService = branchService;
 		this.branchMetadataHelper = branchMetadataHelper;
@@ -117,9 +118,9 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	}
 
 	/*
-		- Mark as changed for version control
-		- collect max effectiveTime
-		- remove c
+		- Mark as changed for version control.
+		- Remove if earlier or equal effectiveTime to existing.
+		- Copy release fields from existing.
 	 */
 	private <T extends SnomedComponent> void processEntities(Collection<T> components, Integer patchReleaseVersion, ElasticsearchOperations elasticsearchTemplate, Class<T> componentClass) {
 		Map<Integer, List<T>> effectiveDateMap = new HashMap<>();
@@ -156,6 +157,25 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 				// Remove ineffective components
 				logger.info("{} {} components in the RF2 import with effectiveTime {} will not be imported because components already exist " +
 						"with the same identifier at the same or later effectiveTime.", alreadyExistingComponentCount.get(), componentClass.getSimpleName(), effectiveTime);
+			}
+		}
+		Map<String, T> idToUnreleasedComponentMap = components.stream().filter(component -> component.getEffectiveTime() == null).collect(Collectors.toMap(T::getId, Function.identity()));
+		if (!idToUnreleasedComponentMap.isEmpty()) {
+			String idField = idToUnreleasedComponentMap.values().iterator().next().getIdField();
+			try (CloseableIterator<T> stream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
+							.must(termQuery(SnomedComponent.Fields.RELEASED, true))
+							.filter(termsQuery(idField, idToUnreleasedComponentMap.keySet()))
+					)
+					.withPageable(LARGE_PAGE)
+					.build(), componentClass)) {
+				stream.forEachRemaining(component -> {
+					T t = idToUnreleasedComponentMap.get(component.getId());
+					// noinspection unchecked
+					t.copyReleaseDetails(component);
+					t.updateEffectiveTime();
+				});
 			}
 		}
 	}
