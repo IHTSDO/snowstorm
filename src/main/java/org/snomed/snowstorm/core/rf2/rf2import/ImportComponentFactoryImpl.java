@@ -68,7 +68,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		conceptPersistBuffer = new PersistBuffer<Concept>() {
 			@Override
 			public void persistCollection(Collection<Concept> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Concept.class);
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Concept.class, copyReleaseFields);
 				if (!entities.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchConcepts(entities, commit);
 				}
@@ -79,7 +79,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		descriptionPersistBuffer = new PersistBuffer<Description>() {
 			@Override
 			public void persistCollection(Collection<Description> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Description.class);
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Description.class, copyReleaseFields);
 				if (!entities.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchDescriptions(entities, commit);
 				}
@@ -90,7 +90,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		relationshipPersistBuffer = new PersistBuffer<Relationship>() {
 			@Override
 			public void persistCollection(Collection<Relationship> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Relationship.class);
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Relationship.class, copyReleaseFields);
 				if (!entities.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchRelationships(entities, commit);
 				}
@@ -109,7 +109,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 						}
 					}
 				}
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, ReferenceSetMember.class);
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, ReferenceSetMember.class, copyReleaseFields);
 				if (!entities.isEmpty()) {
 					memberService.doSaveBatchMembers(entities, commit);
 				}
@@ -122,7 +122,9 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		- Remove if earlier or equal effectiveTime to existing.
 		- Copy release fields from existing.
 	 */
-	private <T extends SnomedComponent> void processEntities(Collection<T> components, Integer patchReleaseVersion, ElasticsearchOperations elasticsearchTemplate, Class<T> componentClass) {
+	private <T extends SnomedComponent> void processEntities(Collection<T> components, Integer patchReleaseVersion, ElasticsearchOperations elasticsearchTemplate,
+			Class<T> componentClass, boolean copyReleaseFields) {
+
 		Map<Integer, List<T>> effectiveDateMap = new HashMap<>();
 		components.forEach(component -> {
 			component.setChanged(true);
@@ -159,23 +161,25 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 						"with the same identifier at the same or later effectiveTime.", alreadyExistingComponentCount.get(), componentClass.getSimpleName(), effectiveTime);
 			}
 		}
-		Map<String, T> idToUnreleasedComponentMap = components.stream().filter(component -> component.getEffectiveTime() == null).collect(Collectors.toMap(T::getId, Function.identity()));
-		if (!idToUnreleasedComponentMap.isEmpty()) {
-			String idField = idToUnreleasedComponentMap.values().iterator().next().getIdField();
-			try (CloseableIterator<T> stream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
-							.must(termQuery(SnomedComponent.Fields.RELEASED, true))
-							.filter(termsQuery(idField, idToUnreleasedComponentMap.keySet()))
-					)
-					.withPageable(LARGE_PAGE)
-					.build(), componentClass)) {
-				stream.forEachRemaining(component -> {
-					T t = idToUnreleasedComponentMap.get(component.getId());
-					// noinspection unchecked
-					t.copyReleaseDetails(component);
-					t.updateEffectiveTime();
-				});
+		if (copyReleaseFields) {
+			Map<String, T> idToUnreleasedComponentMap = components.stream().filter(component -> component.getEffectiveTime() == null).collect(Collectors.toMap(T::getId, Function.identity()));
+			if (!idToUnreleasedComponentMap.isEmpty()) {
+				String idField = idToUnreleasedComponentMap.values().iterator().next().getIdField();
+				try (CloseableIterator<T> stream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
+								.must(termQuery(SnomedComponent.Fields.RELEASED, true))
+								.filter(termsQuery(idField, idToUnreleasedComponentMap.keySet()))
+						)
+						.withPageable(LARGE_PAGE)
+						.build(), componentClass)) {
+					stream.forEachRemaining(component -> {
+						T t = idToUnreleasedComponentMap.get(component.getId());
+						// noinspection unchecked
+						t.copyReleaseDetails(component);
+						t.updateEffectiveTime();
+					});
+				}
 			}
 		}
 	}
