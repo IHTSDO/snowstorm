@@ -2,6 +2,7 @@ package org.snomed.snowstorm.rest;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.ConceptMicro;
 import org.snomed.snowstorm.core.data.services.AuthoringStatsService;
 import org.snomed.snowstorm.core.data.services.pojo.AuthoringStatsSummary;
@@ -18,6 +19,7 @@ public class AuthoringStatsController {
 	@Autowired
 	private AuthoringStatsService authoringStatsService;
 
+	@ApiOperation(value = "Calculate statistics for unreleased/unversioned content to be used in daily build browser.", notes = "Does not work on versioned content.")
 	@RequestMapping(value = "{branch}/authoring-stats", method = RequestMethod.GET, produces = "application/json")
 	@ResponseBody
 	public AuthoringStatsSummary getStats(@PathVariable String branch) {
@@ -50,6 +52,15 @@ public class AuthoringStatsController {
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		return authoringStatsService.getReactivatedConcepts(BranchPathUriUtil.decodePath(branch), ControllerHelper.getLanguageCodes(acceptLanguageHeader));
+	}
+
+	@RequestMapping(value = "{branch}/authoring-stats/changed-fully-specified-names", method = RequestMethod.GET, produces = "application/json")
+	@ResponseBody
+	public List<ConceptMicro> getChangedFSNs(
+			@PathVariable String branch,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		return authoringStatsService.getChangedFSNs(BranchPathUriUtil.decodePath(branch), ControllerHelper.getLanguageCodes(acceptLanguageHeader));
 	}
 
 }

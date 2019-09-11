@@ -20,6 +20,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
+import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
@@ -64,16 +65,7 @@ public class AuthoringStatsService {
 		authoringStatsSummary.setReactivatedConceptsCount(reactivatedConceptsPage.getTotalElements());
 
 		// Changed FSNs
-		Page<Description> changedFSNsPage = elasticsearchOperations.queryForPage(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Description.class))
-						// To get the concepts with changed FSNs
-						// just select published FSNs which have been changed.
-						// This will cover: minor changes to term, change to case significance and replaced FSNs.
-						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
-						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-						.must(termQuery(Concept.Fields.RELEASED, "true")))
-				.withFields(Description.Fields.CONCEPT_ID)
+		Page<Description> changedFSNsPage = elasticsearchOperations.queryForPage(getChangedFSNsCriteria(branchCriteria)
 				.withPageable(pageOfOne)
 				.build(), Description.class);
 		timer.checkpoint("changed FSNs");
@@ -104,7 +96,7 @@ public class AuthoringStatsService {
 				.withFields(Description.Fields.CONCEPT_ID)
 				.withPageable(LARGE_PAGE)
 				.build(), Description.class)) {
-			stream.forEachRemaining(description -> newSynonymConceptIds.add(Long.parseLong(description.getConceptId())));
+			stream.forEachRemaining(description -> newSynonymConceptIds.add(parseLong(description.getConceptId())));
 		}
 		timer.checkpoint("new synonym concept ids");
 		Set<Long> existingConceptsWithNewSynonyms = new LongOpenHashSet();
@@ -184,6 +176,16 @@ public class AuthoringStatsService {
 		return getConceptMicros(conceptIds, languageCodes, branchCriteria);
 	}
 
+	public List<ConceptMicro> getChangedFSNs(String branch, List<String> languageCodes) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+
+		List<Long> conceptIds = new LongArrayList();
+		try (CloseableIterator<Description> stream = elasticsearchOperations.stream(getChangedFSNsCriteria(branchCriteria).withPageable(LARGE_PAGE).build(), Description.class)) {
+			stream.forEachRemaining(description -> conceptIds.add(parseLong(description.getConceptId())));
+		}
+		return getConceptMicros(conceptIds, languageCodes, branchCriteria);
+	}
+
 	private NativeSearchQueryBuilder getNewConceptCriteria(BranchCriteria branchCriteria) {
 		return new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
@@ -216,6 +218,19 @@ public class AuthoringStatsService {
 						.must(prefixQuery(Concept.Fields.RELEASE_HASH, "false"))
 				)
 				.withFields(Concept.Fields.CONCEPT_ID);
+	}
+
+	private NativeSearchQueryBuilder getChangedFSNsCriteria(BranchCriteria branchCriteria) {
+		return new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Description.class))
+						// To get the concepts with changed FSNs
+						// just select published FSNs which have been changed.
+						// This will cover: minor changes to term, change to case significance and replaced FSNs.
+						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
+						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
+						.must(termQuery(Concept.Fields.RELEASED, "true")))
+				.withFields(Description.Fields.CONCEPT_ID);
 	}
 
 	private List<ConceptMicro> getConceptMicros(List<Long> conceptIds, List<String> languageCodes, BranchCriteria branchCriteria) {
