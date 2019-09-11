@@ -3,10 +3,9 @@ package org.snomed.snowstorm.core.data.services;
 import ch.qos.logback.classic.Level;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.AuthoringStatsSummary;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,7 +16,8 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -31,6 +31,9 @@ public class AuthoringStatsService {
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
 
+	@Autowired
+	private ConceptService conceptService;
+
 	public AuthoringStatsSummary getStats(String branch) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
@@ -40,15 +43,7 @@ public class AuthoringStatsService {
 
 		// New concepts
 		PageRequest pageOfOne = PageRequest.of(0, 1);
-		Page<Concept> newConceptsPage = elasticsearchOperations.queryForPage(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(Concept.Fields.ACTIVE, "true"))
-						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-						.must(termQuery(Concept.Fields.RELEASED, "false")))
-				.withFields(Concept.Fields.CONCEPT_ID)
-				.withPageable(pageOfOne)
-				.build(), Concept.class);
+		Page<Concept> newConceptsPage = elasticsearchOperations.queryForPage(getNewConceptCriteria(branchCriteria).withPageable(pageOfOne).build(), Concept.class);
 		timer.checkpoint("new concepts");
 		authoringStatsSummary.setNewConceptsCount(newConceptsPage.getTotalElements());
 
@@ -171,5 +166,30 @@ public class AuthoringStatsService {
 		authoringStatsSummary.setReactivatedSynonymsCount(reactivatedSynonyms.getTotalElements());
 
 		return authoringStatsSummary;
+	}
+
+	public List<ConceptMicro> getNewConcepts(String branch, List<String> languageCodes) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+
+		List<Long> conceptIds = new LongArrayList();
+		try (CloseableIterator<Concept> stream = elasticsearchOperations.stream(getNewConceptCriteria(branchCriteria).withPageable(LARGE_PAGE).build(), Concept.class)) {
+			stream.forEachRemaining(concept -> conceptIds.add(concept.getConceptIdAsLong()));
+		}
+		return getConceptMicros(conceptIds, languageCodes, branchCriteria);
+	}
+
+	private NativeSearchQueryBuilder getNewConceptCriteria(BranchCriteria branchCriteria) {
+		return new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termQuery(Concept.Fields.ACTIVE, "true"))
+						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
+						.must(termQuery(Concept.Fields.RELEASED, "false")))
+				.withFields(Concept.Fields.CONCEPT_ID);
+	}
+
+	private List<ConceptMicro> getConceptMicros(List<Long> conceptIds, List<String> languageCodes, BranchCriteria branchCriteria) {
+		return conceptService.findConceptMinis(branchCriteria, conceptIds, languageCodes).getResultsMap().values().stream()
+				.map(ConceptMicro::new).sorted(Comparator.comparing(ConceptMicro::getTerm)).collect(Collectors.toList());
 	}
 }
