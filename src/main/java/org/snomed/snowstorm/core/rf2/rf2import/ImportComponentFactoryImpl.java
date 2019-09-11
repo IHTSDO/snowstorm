@@ -19,6 +19,7 @@ import org.springframework.data.util.CloseableIterator;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -48,6 +49,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	private List<PersistBuffer> persistBuffers;
 	private List<PersistBuffer> coreComponentPersistBuffers;
 	private MaxEffectiveTimeCollector maxEffectiveTimeCollector;
+	private Map<String, AtomicLong> componentTypeSkippedMap = new HashMap<>();
 
 	// A small number of stated relationships also appear in the inferred file. These should not be persisted when importing a snapshot.
 	Set<Long> statedRelationshipsToSkip = Sets.newHashSet(3187444026L, 3192499027L, 3574321020L);
@@ -151,15 +153,12 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 					.withPageable(LARGE_PAGE)
 					.build(), componentClass)) {
 				componentsWithSameOrLaterEffectiveTime.forEachRemaining(component -> {
+					// Skip component import
 					components.remove(component);// Compared by id only
 					alreadyExistingComponentCount.incrementAndGet();
 				});
 			}
-			if (alreadyExistingComponentCount.get() > 0) {
-				// Remove ineffective components
-				logger.info("{} {} components in the RF2 import with effectiveTime {} will not be imported because components already exist " +
-						"with the same identifier at the same or later effectiveTime.", alreadyExistingComponentCount.get(), componentClass.getSimpleName(), effectiveTime);
-			}
+			componentTypeSkippedMap.computeIfAbsent(componentClass.getSimpleName(), key -> new AtomicLong()).addAndGet(alreadyExistingComponentCount.get());
 		}
 		if (copyReleaseFields) {
 			Map<String, T> idToUnreleasedComponentMap = components.stream().filter(component -> component.getEffectiveTime() == null).collect(Collectors.toMap(T::getId, Function.identity()));
@@ -201,6 +200,11 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	}
 
 	void completeImportCommit() {
+		if (!componentTypeSkippedMap.isEmpty()) {
+			for (String type : componentTypeSkippedMap.keySet()) {
+				logger.info("{} components of type {} were not imported from RF2 because a newer version was found.", componentTypeSkippedMap.get(type).get(), type);
+			}
+		}
 		persistBuffers.forEach(PersistBuffer::flush);
 		commit.markSuccessful();
 		commit.close();
