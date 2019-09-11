@@ -48,16 +48,7 @@ public class AuthoringStatsService {
 		authoringStatsSummary.setNewConceptsCount(newConceptsPage.getTotalElements());
 
 		// Inactivated concepts
-		Page<Concept> inactivatedConceptsPage = elasticsearchOperations.queryForPage(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(Concept.Fields.ACTIVE, "false"))
-						.must(termQuery(Concept.Fields.RELEASED, "true"))
-						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-				)
-				.withFields(Concept.Fields.CONCEPT_ID)
-				.withPageable(pageOfOne)
-				.build(), Concept.class);
+		Page<Concept> inactivatedConceptsPage = elasticsearchOperations.queryForPage(getInactivatedConceptsCriteria(branchCriteria).withPageable(pageOfOne).build(), Concept.class);
 		timer.checkpoint("inactivated concepts");
 		authoringStatsSummary.setInactivatedConceptsCount(inactivatedConceptsPage.getTotalElements());
 
@@ -178,6 +169,16 @@ public class AuthoringStatsService {
 		return getConceptMicros(conceptIds, languageCodes, branchCriteria);
 	}
 
+	public List<ConceptMicro> getInactivatedConcepts(String branch, List<String> languageCodes) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+
+		List<Long> conceptIds = new LongArrayList();
+		try (CloseableIterator<Concept> stream = elasticsearchOperations.stream(getInactivatedConceptsCriteria(branchCriteria).withPageable(LARGE_PAGE).build(), Concept.class)) {
+			stream.forEachRemaining(concept -> conceptIds.add(concept.getConceptIdAsLong()));
+		}
+		return getConceptMicros(conceptIds, languageCodes, branchCriteria);
+	}
+
 	private NativeSearchQueryBuilder getNewConceptCriteria(BranchCriteria branchCriteria) {
 		return new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
@@ -185,6 +186,17 @@ public class AuthoringStatsService {
 						.must(termQuery(Concept.Fields.ACTIVE, "true"))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
 						.must(termQuery(Concept.Fields.RELEASED, "false")))
+				.withFields(Concept.Fields.CONCEPT_ID);
+	}
+
+	public NativeSearchQueryBuilder getInactivatedConceptsCriteria(BranchCriteria branchCriteria) {
+		return new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termQuery(Concept.Fields.ACTIVE, "false"))
+						.must(termQuery(Concept.Fields.RELEASED, "true"))
+						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
+				)
 				.withFields(Concept.Fields.CONCEPT_ID);
 	}
 

@@ -34,4 +34,13 @@ public class AuthoringStatsController {
 		return authoringStatsService.getNewConcepts(BranchPathUriUtil.decodePath(branch), ControllerHelper.getLanguageCodes(acceptLanguageHeader));
 	}
 
+	@RequestMapping(value = "{branch}/authoring-stats/inactivated-concepts", method = RequestMethod.GET, produces = "application/json")
+	@ResponseBody
+	public List<ConceptMicro> getInactivatedConcepts(
+			@PathVariable String branch,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		return authoringStatsService.getInactivatedConcepts(BranchPathUriUtil.decodePath(branch), ControllerHelper.getLanguageCodes(acceptLanguageHeader));
+	}
+
 }
