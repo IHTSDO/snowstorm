@@ -43,26 +43,21 @@ public class AuthoringStatsService {
 
 		// New concepts
 		PageRequest pageOfOne = PageRequest.of(0, 1);
-		Page<Concept> newConceptsPage = elasticsearchOperations.queryForPage(getNewConceptCriteria(branchCriteria).withPageable(pageOfOne).build(), Concept.class);
+		Page<Concept> newConceptsPage = elasticsearchOperations.queryForPage(getNewConceptCriteria(branchCriteria)
+				.withPageable(pageOfOne)
+				.build(), Concept.class);
 		timer.checkpoint("new concepts");
 		authoringStatsSummary.setNewConceptsCount(newConceptsPage.getTotalElements());
 
 		// Inactivated concepts
-		Page<Concept> inactivatedConceptsPage = elasticsearchOperations.queryForPage(getInactivatedConceptsCriteria(branchCriteria).withPageable(pageOfOne).build(), Concept.class);
+		Page<Concept> inactivatedConceptsPage = elasticsearchOperations.queryForPage(getInactivatedConceptsCriteria(branchCriteria)
+				.withPageable(pageOfOne)
+				.build(), Concept.class);
 		timer.checkpoint("inactivated concepts");
 		authoringStatsSummary.setInactivatedConceptsCount(inactivatedConceptsPage.getTotalElements());
 
 		// Reactivated concepts
-		Page<Concept> reactivatedConceptsPage = elasticsearchOperations.queryForPage(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(Concept.Fields.ACTIVE, "true"))
-						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-						.must(termQuery(Concept.Fields.RELEASED, "true"))
-						// Previously released as active=false
-						.must(prefixQuery(Concept.Fields.RELEASE_HASH, "false"))
-				)
-				.withFields(Concept.Fields.CONCEPT_ID)
+		Page<Concept> reactivatedConceptsPage = elasticsearchOperations.queryForPage(getReactivatedConceptsCriteria(branchCriteria)
 				.withPageable(pageOfOne)
 				.build(), Concept.class);
 		timer.checkpoint("reactivated concepts");
@@ -179,6 +174,16 @@ public class AuthoringStatsService {
 		return getConceptMicros(conceptIds, languageCodes, branchCriteria);
 	}
 
+	public List<ConceptMicro> getReactivatedConcepts(String branch, List<String> languageCodes) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+
+		List<Long> conceptIds = new LongArrayList();
+		try (CloseableIterator<Concept> stream = elasticsearchOperations.stream(getReactivatedConceptsCriteria(branchCriteria).withPageable(LARGE_PAGE).build(), Concept.class)) {
+			stream.forEachRemaining(concept -> conceptIds.add(concept.getConceptIdAsLong()));
+		}
+		return getConceptMicros(conceptIds, languageCodes, branchCriteria);
+	}
+
 	private NativeSearchQueryBuilder getNewConceptCriteria(BranchCriteria branchCriteria) {
 		return new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
@@ -189,13 +194,26 @@ public class AuthoringStatsService {
 				.withFields(Concept.Fields.CONCEPT_ID);
 	}
 
-	public NativeSearchQueryBuilder getInactivatedConceptsCriteria(BranchCriteria branchCriteria) {
+	private NativeSearchQueryBuilder getInactivatedConceptsCriteria(BranchCriteria branchCriteria) {
 		return new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.ACTIVE, "false"))
 						.must(termQuery(Concept.Fields.RELEASED, "true"))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
+				)
+				.withFields(Concept.Fields.CONCEPT_ID);
+	}
+
+	private NativeSearchQueryBuilder getReactivatedConceptsCriteria(BranchCriteria branchCriteria) {
+		return new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termQuery(Concept.Fields.ACTIVE, "true"))
+						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
+						.must(termQuery(Concept.Fields.RELEASED, "true"))
+						// Previously released as active=false
+						.must(prefixQuery(Concept.Fields.RELEASE_HASH, "false"))
 				)
 				.withFields(Concept.Fields.CONCEPT_ID);
 	}
