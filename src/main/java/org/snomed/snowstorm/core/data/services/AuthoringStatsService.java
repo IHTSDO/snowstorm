@@ -71,7 +71,7 @@ public class AuthoringStatsService {
 		timer.checkpoint("changed FSNs");
 		authoringStatsSummary.setChangedFsnCount(changedFSNsPage.getTotalElements());
 
-		// Inactivated descriptions
+		// Inactivated synonyms
 		Page<Description> inactivatedSynonyms = elasticsearchOperations.queryForPage(getInactivatedSynonymCriteria(branchCriteria)
 				.withFields(Description.Fields.CONCEPT_ID)
 				.withPageable(pageOfOne)
@@ -79,7 +79,7 @@ public class AuthoringStatsService {
 		timer.checkpoint("inactivated descriptions");
 		authoringStatsSummary.setInactivatedSynonymsCount(inactivatedSynonyms.getTotalElements());
 
-		// New descriptions for existing concepts
+		// New synonyms for existing concepts
 		Page<Description> newSynonymsForExistingConcepts = elasticsearchOperations.queryForPage(getNewSynonymsOnExistingConceptsCriteria(branchCriteria, timer)
 				.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
 				.withPageable(pageOfOne)
@@ -87,16 +87,8 @@ public class AuthoringStatsService {
 		timer.checkpoint("new synonyms for existing concepts");
 		authoringStatsSummary.setNewSynonymsForExistingConceptsCount(newSynonymsForExistingConcepts.getTotalElements());
 
-		// Reactivated descriptions
-		Page<Description> reactivatedSynonyms = elasticsearchOperations.queryForPage(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Description.class))
-						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
-						.must(termQuery(Description.Fields.ACTIVE, true))
-						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-						// Previously released as active=false
-						.must(prefixQuery(Description.Fields.RELEASE_HASH, "false"))
-						.must(termQuery(Description.Fields.RELEASED, "true")))
+		// Reactivated synonyms
+		Page<Description> reactivatedSynonyms = elasticsearchOperations.queryForPage(getReactivatedSynonymsCriteria(branchCriteria)
 				.withFields(Description.Fields.CONCEPT_ID)
 				.withPageable(pageOfOne)
 				.build(), Description.class);
@@ -188,20 +180,22 @@ public class AuthoringStatsService {
 
 	public List<ConceptMicro> getInactivatedSynonyms(String branch) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
-
-		List<ConceptMicro> micros = new ArrayList<>();
-		try (CloseableIterator<Description> stream = elasticsearchOperations.stream(getInactivatedSynonymCriteria(branchCriteria).withPageable(LARGE_PAGE).build(), Description.class)) {
-			stream.forEachRemaining(description -> micros.add(new ConceptMicro(description.getConceptId(), description.getTerm())));
-		}
-		micros.sort(Comparator.comparing(ConceptMicro::getTerm));
-		return micros;
+		return getDescriptionResults(getInactivatedSynonymCriteria(branchCriteria));
 	}
 
 	public List<ConceptMicro> getNewSynonymsOnExistingConcepts(String branch) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		return getDescriptionResults(getNewSynonymsOnExistingConceptsCriteria(branchCriteria, null));
+	}
 
+	public List<ConceptMicro> getReactivatedSynonyms(String branch) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		return getDescriptionResults(getReactivatedSynonymsCriteria(branchCriteria));
+	}
+
+	private List<ConceptMicro> getDescriptionResults(NativeSearchQueryBuilder criteria) {
 		List<ConceptMicro> micros = new ArrayList<>();
-		try (CloseableIterator<Description> stream = elasticsearchOperations.stream(getNewSynonymsOnExistingConceptsCriteria(branchCriteria, null).withPageable(LARGE_PAGE).build(), Description.class)) {
+		try (CloseableIterator<Description> stream = elasticsearchOperations.stream(criteria.withPageable(LARGE_PAGE).build(), Description.class)) {
 			stream.forEachRemaining(description -> micros.add(new ConceptMicro(description.getConceptId(), description.getTerm())));
 		}
 		micros.sort(Comparator.comparing(ConceptMicro::getTerm));
@@ -255,7 +249,7 @@ public class AuthoringStatsService {
 				.withFields(Description.Fields.CONCEPT_ID);
 	}
 
-	public NativeSearchQueryBuilder getInactivatedSynonymCriteria(BranchCriteria branchCriteria) {
+	private NativeSearchQueryBuilder getInactivatedSynonymCriteria(BranchCriteria branchCriteria) {
 		return new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
@@ -263,6 +257,18 @@ public class AuthoringStatsService {
 						.must(termQuery(Concept.Fields.ACTIVE, false))
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
 						.must(termQuery(Concept.Fields.RELEASED, "true")));
+	}
+
+	private NativeSearchQueryBuilder getReactivatedSynonymsCriteria(BranchCriteria branchCriteria) {
+		return new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Description.class))
+						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
+						.must(termQuery(Description.Fields.ACTIVE, true))
+						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
+						// Previously released as active=false
+						.must(prefixQuery(Description.Fields.RELEASE_HASH, "false"))
+						.must(termQuery(Description.Fields.RELEASED, "true")));
 	}
 
 	private List<ConceptMicro> getConceptMicros(List<Long> conceptIds, List<String> languageCodes, BranchCriteria branchCriteria) {

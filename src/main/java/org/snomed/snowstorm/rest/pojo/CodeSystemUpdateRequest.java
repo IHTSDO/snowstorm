@@ -1,11 +1,15 @@
 package org.snomed.snowstorm.rest.pojo;
 
+import io.swagger.annotations.ApiModelProperty;
+
 public class CodeSystemUpdateRequest {
 
 	public String name;
 	public String countryCode;
 	public String defaultLanguageCode;
 	public String branchPath;
+
+	@ApiModelProperty(value = "false")
 	public boolean dailyBuildAvailable;
 
 	public CodeSystemUpdateRequest() {
