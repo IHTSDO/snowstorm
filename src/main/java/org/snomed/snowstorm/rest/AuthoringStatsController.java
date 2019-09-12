@@ -63,4 +63,10 @@ public class AuthoringStatsController {
 		return authoringStatsService.getChangedFSNs(BranchPathUriUtil.decodePath(branch), ControllerHelper.getLanguageCodes(acceptLanguageHeader));
 	}
 
+	@RequestMapping(value = "{branch}/authoring-stats/inactivated-synonyms", method = RequestMethod.GET, produces = "application/json")
+	@ResponseBody
+	public List<ConceptMicro> getInactivatedSynonyms(@PathVariable String branch) {
+		return authoringStatsService.getInactivatedSynonyms(BranchPathUriUtil.decodePath(branch));
+	}
+
 }

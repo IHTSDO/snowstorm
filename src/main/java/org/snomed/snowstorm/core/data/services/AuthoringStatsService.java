@@ -72,13 +72,7 @@ public class AuthoringStatsService {
 		authoringStatsSummary.setChangedFsnCount(changedFSNsPage.getTotalElements());
 
 		// Inactivated descriptions
-		Page<Description> inactivatedSynonyms = elasticsearchOperations.queryForPage(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Description.class))
-						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
-						.must(termQuery(Concept.Fields.ACTIVE, false))
-						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-						.must(termQuery(Concept.Fields.RELEASED, "true")))
+		Page<Description> inactivatedSynonyms = elasticsearchOperations.queryForPage(getInactivatedSynonymCriteria(branchCriteria)
 				.withFields(Description.Fields.CONCEPT_ID)
 				.withPageable(pageOfOne)
 				.build(), Description.class);
@@ -186,6 +180,17 @@ public class AuthoringStatsService {
 		return getConceptMicros(conceptIds, languageCodes, branchCriteria);
 	}
 
+	public List<ConceptMicro> getInactivatedSynonyms(String branch) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+
+		List<ConceptMicro> micros = new ArrayList<>();
+		try (CloseableIterator<Description> stream = elasticsearchOperations.stream(getInactivatedSynonymCriteria(branchCriteria).withPageable(LARGE_PAGE).build(), Description.class)) {
+			stream.forEachRemaining(description -> micros.add(new ConceptMicro(description.getConceptId(), description.getTerm())));
+		}
+		micros.sort(Comparator.comparing(ConceptMicro::getTerm));
+		return micros;
+	}
+
 	private NativeSearchQueryBuilder getNewConceptCriteria(BranchCriteria branchCriteria) {
 		return new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
@@ -231,6 +236,16 @@ public class AuthoringStatsService {
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
 						.must(termQuery(Concept.Fields.RELEASED, "true")))
 				.withFields(Description.Fields.CONCEPT_ID);
+	}
+
+	public NativeSearchQueryBuilder getInactivatedSynonymCriteria(BranchCriteria branchCriteria) {
+		return new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Description.class))
+						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
+						.must(termQuery(Concept.Fields.ACTIVE, false))
+						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
+						.must(termQuery(Concept.Fields.RELEASED, "true")));
 	}
 
 	private List<ConceptMicro> getConceptMicros(List<Long> conceptIds, List<String> languageCodes, BranchCriteria branchCriteria) {

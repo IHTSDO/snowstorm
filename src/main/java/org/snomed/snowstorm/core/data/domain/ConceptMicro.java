@@ -6,7 +6,7 @@ import java.util.Objects;
 public class ConceptMicro {
 
 	private final String id;
-	private boolean primitive;
+	private Boolean primitive;
 	private String term;
 	
 	public ConceptMicro(ConceptMini mini) {
@@ -21,8 +21,13 @@ public class ConceptMicro {
 		this.primitive = c.isPrimitive();
 	}
 
-	public ConceptMicro(String id) {
-		this.id = id;
+	public ConceptMicro(String conceptId) {
+		this.id = conceptId;
+	}
+
+	public ConceptMicro(String conceptId, String term) {
+		this.id = conceptId;
+		this.term = term;
 	}
 
 	public void setTerm(String term) {
@@ -37,14 +42,14 @@ public class ConceptMicro {
 		return term;
 	}
 	
-	public boolean isPrimitive() {
+	public Boolean isPrimitive() {
 		return primitive;
 	}
 	
-	public void setPrimitive(boolean isPrimitive) {
+	public void setPrimitive(Boolean isPrimitive) {
 		this.primitive = isPrimitive;
 	}
-	
+
 	@Override
 	public boolean equals(Object other) {
 		if (other instanceof ConceptMicro) {
