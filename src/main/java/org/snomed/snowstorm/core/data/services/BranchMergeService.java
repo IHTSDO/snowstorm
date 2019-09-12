@@ -1,20 +1,19 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Iterables;
-import io.kaicode.elasticvc.api.BranchCriteria;
-import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Entity;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.review.BranchReview;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
-import org.snomed.snowstorm.core.data.repositories.BranchMergeJobRepository;
+import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -63,6 +62,21 @@ public class BranchMergeService {
 	@Autowired
 	private IntegrityService integrityService;
 
+	@Autowired
+	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private ConceptRepository conceptRepository;
+
+	@Autowired
+	private DescriptionRepository descriptionRepository;
+
+	@Autowired
+	private RelationshipRepository relationshipRepository;
+
+	@Autowired
+	private ReferenceSetMemberRepository referenceSetMemberRepository;
+
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
 	private static final String USE_BRANCH_REVIEW = "The target branch is diverged, please use the branch review endpoint instead.";
 	private static final Logger logger = LoggerFactory.getLogger(BranchMergeService.class);
@@ -70,6 +84,12 @@ public class BranchMergeService {
 	public BranchMergeJob mergeBranchAsync(MergeRequest mergeRequest) {
 		final String source = mergeRequest.getSource();
 		final String target = mergeRequest.getTarget();
+
+		if (codeSystemService.codeSystemExistsOnBranch(target)) {
+			throw new IllegalArgumentException("It looks like you are attempting to upgrade a code system. " +
+					"Please use the code system upgrade operation for this.");
+		}
+
 		BranchReview branchReview = null;
 		if (mergeRequest.getReviewId() != null) {
 			branchReview = checkBranchReview(mergeRequest, source, target);
@@ -244,7 +264,7 @@ public class BranchMergeService {
 		Set<String> componentsChangedOnBranch = new HashSet<>();
 		NativeSearchQueryBuilder changesQueryBuilder = new NativeSearchQueryBuilder().withQuery(
 				changesOnBranchCriteria.getEntityBranchCriteria(componentClass)
-				.must(clause))
+						.must(clause))
 				.withFields(idField)
 				.withPageable(LARGE_PAGE);
 		try (CloseableIterator<T> stream = elasticsearchTemplate.stream(changesQueryBuilder.build(), componentClass)) {
@@ -280,6 +300,88 @@ public class BranchMergeService {
 			versionControlHelper.endOldVersionsOnThisBranch(componentClass, duplicateComponents, idField, clause, commit, repository);
 		}
 	}
+
+	void rebaseToSpecificTimepointAndRemoveDuplicateContent(String sourceBranch, Date sourceTimepoint, String targetBranch, String targetLockMessage) {
+		if (!sourceBranch.equals(PathUtil.getParentPath(targetBranch))) {
+			throw new IllegalArgumentException("Source branch must be direct parent of the target for this operation.");
+		}
+		if (sourceTimepoint == null) {
+			throw new IllegalArgumentException("No source timepoint given for rebase operation.");
+		}
+		try (Commit commit = branchService.openRebaseToSpecificParentTimepointCommit(targetBranch, sourceTimepoint, branchMetadataHelper.getBranchLockMetadata(targetLockMessage))) {
+			BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+			findAndEndDonatedComponentsOfAllTypes(targetBranch, branchCriteriaIncludingOpenCommit, new HashMap<>());
+		}
+	}
+
+	void findAndEndDonatedComponentsOfAllTypes(String branch, BranchCriteria branchCriteria, Map<Class, Set<String>> fixesApplied) {
+		findAndEndDonatedComponents(branch, branchCriteria, Concept.class, Concept.Fields.CONCEPT_ID, conceptRepository, fixesApplied);
+		findAndEndDonatedComponents(branch, branchCriteria, Description.class, Description.Fields.DESCRIPTION_ID, descriptionRepository, fixesApplied);
+		findAndEndDonatedComponents(branch, branchCriteria, Relationship.class, Relationship.Fields.RELATIONSHIP_ID, relationshipRepository, fixesApplied);
+		findAndEndDonatedComponents(branch, branchCriteria, ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID, referenceSetMemberRepository, fixesApplied);
+	}
+
+	private void findAndEndDonatedComponents(String branch, BranchCriteria branchCriteria, Class<? extends SnomedComponent> clazz, String idField, ElasticsearchCrudRepository repository, Map<Class, Set<String>> fixesApplied) {
+		logger.info("Searching for duplicate {} records on {}", clazz.getSimpleName(), branch);
+		BoolQueryBuilder entityBranchCriteria = branchCriteria.getEntityBranchCriteria(clazz);
+
+		// Find components on extension branch
+		Set<String> ids = new HashSet<>();
+		try (CloseableIterator<? extends SnomedComponent> conceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery().must(entityBranchCriteria)
+						.must(termQuery("path", branch)))
+				.withPageable(ComponentService.LARGE_PAGE)
+				.withFields(idField).build(), clazz)) {
+			conceptStream.forEachRemaining(c -> ids.add(c.getId()));
+		}
+
+		// Find donated components where the extension version is not ended
+		Set<String> duplicateIds = new HashSet<>();
+		try (CloseableIterator<? extends SnomedComponent> conceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery().must(entityBranchCriteria)
+						.mustNot(termQuery("path", branch)))
+				.withFilter(termsQuery(idField, ids))
+				.withPageable(ComponentService.LARGE_PAGE)
+				.withFields(idField).build(), clazz)) {
+			conceptStream.forEachRemaining(c -> {
+				if(ids.contains(c.getId())) {
+					duplicateIds.add(c.getId());
+				}
+			});
+		}
+
+		logger.info("Found {} duplicate {} records: {}", duplicateIds.size(), clazz.getSimpleName(), duplicateIds);
+
+		// End duplicate components using the commit timestamp of the donated content
+		for (String duplicateId : duplicateIds) {
+			List<? extends SnomedComponent> intVersionList = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery().must(entityBranchCriteria)
+							.must(termQuery(idField, duplicateId))
+							.mustNot(termQuery("path", branch)))
+					.build(), clazz);
+			if (intVersionList.size() != 1) {
+				throw new IllegalStateException(String.format("During fix stage expecting 1 int version but found %s for id %s", intVersionList.size(), clazz));
+			}
+			SnomedComponent intVersion = intVersionList.get(0);
+			Date donatedVersionCommitTimepoint = intVersion.getStart();
+
+			List<? extends SnomedComponent> extensionVersionList = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery().must(entityBranchCriteria)
+							.must(termQuery(idField, duplicateId))
+							.must(termQuery("path", branch)))
+					.build(), clazz);
+			if (extensionVersionList.size() != 1) {
+				throw new IllegalStateException(String.format("During fix stage expecting 1 extension version but found %s for id %s", extensionVersionList.size(), clazz));
+			}
+			SnomedComponent extensionVersion = extensionVersionList.get(0);
+			extensionVersion.setEnd(donatedVersionCommitTimepoint);
+			repository.save(extensionVersion);
+			logger.info("Ended {} on {} at timepoint {} to match {} version start date.", duplicateId, branch, donatedVersionCommitTimepoint, intVersion.getPath());
+
+			fixesApplied.put(clazz, duplicateIds);
+		}
+	}
+
 
 	private <T extends SnomedComponent> void promoteEntities(String source, Commit commit, Class<T> entityClass,
 			ElasticsearchCrudRepository<T, String> entityRepository, Map<String, Set<String>> versionsReplaced) {

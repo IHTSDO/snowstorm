@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
@@ -62,7 +63,7 @@ public class CodeSystemService {
 	private ReleaseService releaseService;
 
 	@Autowired
-	private BranchMergeService mergeService;
+	private BranchMergeService branchMergeService;
 
 	@Autowired
 	private ConceptService conceptService;
@@ -93,6 +94,10 @@ public class CodeSystemService {
 		for (CodeSystemConfiguration configuration : codeSystemConfigurationService.getConfigurations()) {
 			System.out.println(configuration);
 		}
+	}
+
+	public boolean codeSystemExistsOnBranch(String branchPath) {
+		return repository.findOneByBranchPath(branchPath) != null;
 	}
 
 	public synchronized void createCodeSystem(CodeSystem codeSystem) {
@@ -298,6 +303,32 @@ public class CodeSystemService {
 		versionRepository.deleteAll();
 	}
 
+	public void upgrade(String shortName, Integer newDependantVersion) {
+		CodeSystem codeSystem = find(shortName);
+		if (codeSystem == null) {
+			throw new NotFoundException(String.format("Code System with short name '%s' does not exist.", shortName));
+		}
+		String branchPath = codeSystem.getBranchPath();
+		String parentPath = PathUtil.getParentPath(branchPath);
+		if (parentPath == null) {
+			throw new IllegalArgumentException("The root Code System can not be upgraded.");
+		}
+		CodeSystem parentCodeSystem = repository.findOneByBranchPath(parentPath);
+		if (parentCodeSystem == null) {
+			throw new IllegalStateException(String.format("The Code System to be upgraded must be on a branch which is the direct child of another Code System. " +
+					"There is no Code System on parent branch '%s'.", parentPath));
+		}
+		CodeSystemVersion newParentVersion = findVersion(parentCodeSystem.getShortName(), newDependantVersion);
+		if (newParentVersion == null) {
+			throw new IllegalArgumentException(String.format("Parent Code System %s has no version with effectiveTime '%s'.", parentCodeSystem.getShortName(), newDependantVersion));
+		}
+
+		Branch newParentVersionBranch = branchService.findLatest(newParentVersion.getBranchPath());
+		Date newParentBaseTimepoint = newParentVersionBranch.getBase();
+		branchMergeService.rebaseToSpecificTimepointAndRemoveDuplicateContent(parentPath, newParentBaseTimepoint, branchPath, String.format("Upgrading extension to %s@%s.", parentPath, newParentVersion.getVersion()));
+	}
+
+	@Deprecated// Deprecated in favour of upgrade operation.
 	public void migrateDependantCodeSystemVersion(CodeSystem codeSystem, String dependantCodeSystem, Integer newDependantVersion, boolean copyMetadata) throws ServiceException {
 		try {
 			CodeSystemVersion newDependantCodeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(dependantCodeSystem, newDependantVersion);
@@ -315,7 +346,7 @@ public class CodeSystemService {
 			String targetBranchPath = newDependantCodeSystemVersion.getParentBranchPath() + BranchPathUriUtil.SLASH
 					+ newDependantCodeSystemVersion.getVersion() + BranchPathUriUtil.SLASH + codeSystem.getShortName();
 
-			mergeService.copyBranchToNewParent(sourceBranchPath, targetBranchPath);
+			branchMergeService.copyBranchToNewParent(sourceBranchPath, targetBranchPath);
 
 			// Update code system branch path
 			codeSystem.setBranchPath(targetBranchPath);
