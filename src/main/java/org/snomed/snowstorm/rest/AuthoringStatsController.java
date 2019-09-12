@@ -69,4 +69,10 @@ public class AuthoringStatsController {
 		return authoringStatsService.getInactivatedSynonyms(BranchPathUriUtil.decodePath(branch));
 	}
 
+	@RequestMapping(value = "{branch}/authoring-stats/new-synonyms-on-existing-concepts", method = RequestMethod.GET, produces = "application/json")
+	@ResponseBody
+	public List<ConceptMicro> getNewSynonymsOnExistingConcepts(@PathVariable String branch) {
+		return authoringStatsService.getNewSynonymsOnExistingConcepts(BranchPathUriUtil.decodePath(branch));
+	}
+
 }

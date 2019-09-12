@@ -38,7 +38,7 @@ public class AuthoringStatsService {
 	public AuthoringStatsSummary getStats(String branch) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
-		TimerUtil timer = new TimerUtil("Authoring stats", Level.INFO, 1);
+		TimerUtil timer = new TimerUtil("Authoring stats", Level.INFO, 5);
 
 		AuthoringStatsSummary authoringStatsSummary = new AuthoringStatsSummary();
 
@@ -80,41 +80,7 @@ public class AuthoringStatsService {
 		authoringStatsSummary.setInactivatedSynonymsCount(inactivatedSynonyms.getTotalElements());
 
 		// New descriptions for existing concepts
-		Set<Long> newSynonymConceptIds = new LongOpenHashSet();
-		try (CloseableIterator<Description> stream = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Description.class))
-						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
-						.must(termQuery(Concept.Fields.ACTIVE, true))
-						.must(termQuery(Concept.Fields.RELEASED, "false")))
-				.withFields(Description.Fields.CONCEPT_ID)
-				.withPageable(LARGE_PAGE)
-				.build(), Description.class)) {
-			stream.forEachRemaining(description -> newSynonymConceptIds.add(parseLong(description.getConceptId())));
-		}
-		timer.checkpoint("new synonym concept ids");
-		Set<Long> existingConceptsWithNewSynonyms = new LongOpenHashSet();
-		try (CloseableIterator<Concept> stream = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(Concept.Fields.RELEASED, "true"))
-						.filter(termsQuery(Concept.Fields.CONCEPT_ID, newSynonymConceptIds))
-				)
-				.withFields(Concept.Fields.CONCEPT_ID)
-				.withPageable(LARGE_PAGE)
-				.build(), Concept.class)) {
-			stream.forEachRemaining(concept -> existingConceptsWithNewSynonyms.add(concept.getConceptIdAsLong()));
-		}
-		timer.checkpoint("existing concepts with new synonyms");
-		Page<Description> newSynonymsForExistingConcepts = elasticsearchOperations.queryForPage(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Description.class))
-						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
-						.must(termQuery(Description.Fields.ACTIVE, true))
-						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-						.must(termQuery(Description.Fields.RELEASED, "false"))
-						.filter(termsQuery(Description.Fields.CONCEPT_ID, existingConceptsWithNewSynonyms))
-				)
+		Page<Description> newSynonymsForExistingConcepts = elasticsearchOperations.queryForPage(getNewSynonymsOnExistingConceptsCriteria(branchCriteria, timer)
 				.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
 				.withPageable(pageOfOne)
 				.build(), Description.class);
@@ -138,6 +104,46 @@ public class AuthoringStatsService {
 		authoringStatsSummary.setReactivatedSynonymsCount(reactivatedSynonyms.getTotalElements());
 
 		return authoringStatsSummary;
+	}
+
+	private NativeSearchQueryBuilder getNewSynonymsOnExistingConceptsCriteria(BranchCriteria branchCriteria, TimerUtil timer) {
+		Set<Long> newSynonymConceptIds = new LongOpenHashSet();
+		try (CloseableIterator<Description> stream = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Description.class))
+						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
+						.must(termQuery(Concept.Fields.ACTIVE, true))
+						.must(termQuery(Concept.Fields.RELEASED, "false")))
+				.withFields(Description.Fields.CONCEPT_ID)
+				.withPageable(LARGE_PAGE)
+				.build(), Description.class)) {
+			stream.forEachRemaining(description -> newSynonymConceptIds.add(parseLong(description.getConceptId())));
+		}
+		if (timer != null) timer.checkpoint("new synonym concept ids");
+
+		Set<Long> existingConceptsWithNewSynonyms = new LongOpenHashSet();
+		try (CloseableIterator<Concept> stream = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termQuery(Concept.Fields.RELEASED, "true"))
+						.filter(termsQuery(Concept.Fields.CONCEPT_ID, newSynonymConceptIds))
+				)
+				.withFields(Concept.Fields.CONCEPT_ID)
+				.withPageable(LARGE_PAGE)
+				.build(), Concept.class)) {
+			stream.forEachRemaining(concept -> existingConceptsWithNewSynonyms.add(concept.getConceptIdAsLong()));
+		}
+		if (timer != null) timer.checkpoint("existing concepts with new synonyms");
+
+		return new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Description.class))
+						.must(termQuery(Description.Fields.TYPE_ID, Concepts.SYNONYM))
+						.must(termQuery(Description.Fields.ACTIVE, true))
+						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
+						.must(termQuery(Description.Fields.RELEASED, "false"))
+						.filter(termsQuery(Description.Fields.CONCEPT_ID, existingConceptsWithNewSynonyms))
+				);
 	}
 
 	public List<ConceptMicro> getNewConcepts(String branch, List<String> languageCodes) {
@@ -185,6 +191,17 @@ public class AuthoringStatsService {
 
 		List<ConceptMicro> micros = new ArrayList<>();
 		try (CloseableIterator<Description> stream = elasticsearchOperations.stream(getInactivatedSynonymCriteria(branchCriteria).withPageable(LARGE_PAGE).build(), Description.class)) {
+			stream.forEachRemaining(description -> micros.add(new ConceptMicro(description.getConceptId(), description.getTerm())));
+		}
+		micros.sort(Comparator.comparing(ConceptMicro::getTerm));
+		return micros;
+	}
+
+	public List<ConceptMicro> getNewSynonymsOnExistingConcepts(String branch) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+
+		List<ConceptMicro> micros = new ArrayList<>();
+		try (CloseableIterator<Description> stream = elasticsearchOperations.stream(getNewSynonymsOnExistingConceptsCriteria(branchCriteria, null).withPageable(LARGE_PAGE).build(), Description.class)) {
 			stream.forEachRemaining(description -> micros.add(new ConceptMicro(description.getConceptId(), description.getTerm())));
 		}
 		micros.sort(Comparator.comparing(ConceptMicro::getTerm));
