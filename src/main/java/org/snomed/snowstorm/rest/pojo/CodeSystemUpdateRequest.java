@@ -6,6 +6,7 @@ public class CodeSystemUpdateRequest {
 	public String countryCode;
 	public String defaultLanguageCode;
 	public String branchPath;
+	public boolean dailyBuildAvailable;
 
 	public CodeSystemUpdateRequest() {
 	}
@@ -29,5 +30,9 @@ public class CodeSystemUpdateRequest {
 
 	public String getBranchPath() {
 		return branchPath;
+	}
+
+	public boolean isDailyBuildAvailable() {
+		return dailyBuildAvailable;
 	}
 }

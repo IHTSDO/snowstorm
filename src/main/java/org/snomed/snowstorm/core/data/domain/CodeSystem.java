@@ -44,7 +44,7 @@ public class CodeSystem implements CodeSystemCreate {
 	private String branchPath;
 
 	@Field(type = FieldType.Boolean)
-	private String dailyBuildImported;
+	private boolean dailyBuildAvailable;
 
 	@Transient
 	private Map<String, String> languages;
@@ -110,12 +110,12 @@ public class CodeSystem implements CodeSystemCreate {
 		this.branchPath = branchPath;
 	}
 
-	public String getDailyBuildImported() {
-		return dailyBuildImported;
+	public boolean isDailyBuildAvailable() {
+		return dailyBuildAvailable;
 	}
 
-	public void setDailyBuildImported(String dailyBuildImported) {
-		this.dailyBuildImported = dailyBuildImported;
+	public void setDailyBuildAvailable(boolean dailyBuildAvailable) {
+		this.dailyBuildAvailable = dailyBuildAvailable;
 	}
 
 	public Map<String, String> getLanguages() {
