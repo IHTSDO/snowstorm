@@ -43,6 +43,9 @@ public class CodeSystem implements CodeSystemCreate {
 	@Pattern(regexp = "MAIN.*")
 	private String branchPath;
 
+	@Field(type = FieldType.Boolean)
+	private String dailyBuildImported;
+
 	@Transient
 	private Map<String, String> languages;
 
@@ -105,6 +108,14 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setBranchPath(String branchPath) {
 		this.branchPath = branchPath;
+	}
+
+	public String getDailyBuildImported() {
+		return dailyBuildImported;
+	}
+
+	public void setDailyBuildImported(String dailyBuildImported) {
+		this.dailyBuildImported = dailyBuildImported;
 	}
 
 	public Map<String, String> getLanguages() {
