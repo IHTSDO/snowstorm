@@ -40,7 +40,8 @@ public class AuthoringStatsService {
 
 		TimerUtil timer = new TimerUtil("Authoring stats", Level.INFO, 5);
 
-		AuthoringStatsSummary authoringStatsSummary = new AuthoringStatsSummary();
+		AuthoringStatsSummary authoringStatsSummary = new AuthoringStatsSummary(new Date());
+		authoringStatsSummary.setTitle("Authoring changes since last release");
 
 		// New concepts
 		PageRequest pageOfOne = PageRequest.of(0, 1);

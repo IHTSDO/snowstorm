@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
+import java.util.Date;
+
 public class AuthoringStatsSummary {
 	private long newConceptsCount;
 	private long inactivatedConceptsCount;
@@ -8,6 +10,12 @@ public class AuthoringStatsSummary {
 	private long inactivatedSynonymsCount;
 	private long newSynonymsForExistingConceptsCount;
 	private long reactivatedSynonymsCount;
+	private Date executionTime;
+	private String title;
+
+	public AuthoringStatsSummary(Date time) {
+		this.executionTime = time;
+	}
 
 	public void setNewConceptsCount(long newConceptsCount) {
 		this.newConceptsCount = newConceptsCount;
@@ -64,4 +72,17 @@ public class AuthoringStatsSummary {
 	public long getReactivatedSynonymsCount() {
 		return reactivatedSynonymsCount;
 	}
+
+	public Date getExecutionTime() {
+		return this.executionTime;
+	}
+
+	public String getTitle() {
+		return title;
+	}
+
+	public void setTitle(String title) {
+		this.title = title;
+	}
+
 }
