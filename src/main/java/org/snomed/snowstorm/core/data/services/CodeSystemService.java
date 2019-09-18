@@ -97,7 +97,7 @@ public class CodeSystemService {
 	}
 
 	public boolean codeSystemExistsOnBranch(String branchPath) {
-		return repository.findOneByBranchPath(branchPath) != null;
+		return findOneByBranchPath(branchPath) != null;
 	}
 
 	public synchronized void createCodeSystem(CodeSystem codeSystem) {
@@ -313,7 +313,7 @@ public class CodeSystemService {
 		if (parentPath == null) {
 			throw new IllegalArgumentException("The root Code System can not be upgraded.");
 		}
-		CodeSystem parentCodeSystem = repository.findOneByBranchPath(parentPath);
+		CodeSystem parentCodeSystem = findOneByBranchPath(parentPath);
 		if (parentCodeSystem == null) {
 			throw new IllegalStateException(String.format("The Code System to be upgraded must be on a branch which is the direct child of another Code System. " +
 					"There is no Code System on parent branch '%s'.", parentPath));
@@ -362,6 +362,12 @@ public class CodeSystemService {
 		} catch (ConcurrentModificationException e) {
 			throw new ServiceException("Code system migration failed.", e);
 		}
+	}
+
+	private CodeSystem findOneByBranchPath(String path) {
+		List<CodeSystem> results = elasticsearchOperations.queryForList(
+				new NativeSearchQueryBuilder().withQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, path)).build(), CodeSystem.class);
+		return results.isEmpty() ? null : results.get(0);
 	}
 
 	public CodeSystem update(CodeSystem codeSystem, CodeSystemUpdateRequest updateRequest) {

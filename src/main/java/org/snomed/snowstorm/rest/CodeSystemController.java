@@ -74,7 +74,7 @@ public class CodeSystemController {
 	}
 
 	@ApiOperation(value = "Upgrade code system to a different dependant version.",
-			notes = "This operation can be used to upgrade an extension. The extension must have been imported on a branch directly under MAIN. " +
+			notes = "This operation can be used to upgrade an extension. The extension must have been imported on a branch which is a direct child of MAIN. " +
 					"For example: MAIN/SNOMEDCT-BE. " +
 					"An integrity check should be run after this operation to find content that needs fixing.")
 	@RequestMapping(value = "/{shortName}/upgrade", method = RequestMethod.POST)

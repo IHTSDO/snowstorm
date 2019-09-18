@@ -26,12 +26,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class CodeSystemIntegrationTest extends AbstractTest {
+public class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
@@ -49,6 +48,8 @@ public class CodeSystemIntegrationTest extends AbstractTest {
 	private ConceptService conceptService;
 
 	@Test
+		// Create international code system
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN", "International Edition", ""));
 	// We set up content for the international edition and an extension.
 	// We inactivate an international concept then see the extension break when it's upgraded.
 	public void createCodeSystemsWithContentTestingUpgrade() throws IOException, ReleaseImportException, ServiceException {

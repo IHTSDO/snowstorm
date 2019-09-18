@@ -311,6 +311,7 @@ public class BranchMergeService {
 		try (Commit commit = branchService.openRebaseToSpecificParentTimepointCommit(targetBranch, sourceTimepoint, branchMetadataHelper.getBranchLockMetadata(targetLockMessage))) {
 			BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 			findAndEndDonatedComponentsOfAllTypes(targetBranch, branchCriteriaIncludingOpenCommit, new HashMap<>());
+			commit.markSuccessful();
 		}
 	}
 
