@@ -333,6 +333,17 @@
 			</snapshots>
 			<url>https://nexus3.ihtsdotools.org/repository/maven-snapshots/</url>
 		</repository>
+		<!-- Old Nexus repository here during transition period -->
+		<repository>
+			<id>ihtsdo-releases-old</id>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+			<url>https://maven.ihtsdotools.org/content/repositories/releases/</url>
+		</repository>
 	</repositories>
 	<pluginRepositories>
 		<pluginRepository>
