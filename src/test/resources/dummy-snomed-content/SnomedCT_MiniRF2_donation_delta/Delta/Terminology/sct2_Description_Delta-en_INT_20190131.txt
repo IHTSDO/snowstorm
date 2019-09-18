@@ -1,0 +1,2 @@
+id	effectiveTime	active	moduleId	conceptId	languageCode	typeId	term	caseSignificanceId
+746272015	20190131	1	900000000000207008	18736003	en	900000000000003001	Middle ear exploration through ear canal incision (procedure)	900000000000448009

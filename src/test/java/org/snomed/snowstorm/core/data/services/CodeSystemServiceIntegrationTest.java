@@ -48,10 +48,131 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 	private ConceptService conceptService;
 
 	@Test
+	// We set up two versions of the international edition, 20180731 and 20190131, both on MAIN.
+	// We import an extension directly under MAIN at the timepoint when 20180731 was created.
+	// We then upgrade the extension to international version 20190131 which contains concept 18736003 that has been donated from the extension.
+	// We check that the donated concept is in the correct module.
+	public void testCodeSystemUpgradeProcessDonatedContent() throws IOException, ReleaseImportException, ServiceException {
 		// Create international code system
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN", "International Edition", ""));
+
+		// Import dummy international content for 20180731
+		File snomedBase = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
+		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true);
+		importService.importArchive(importJob, new FileInputStream(snomedBase));
+		assertNotNull(codeSystemService.findVersion("SNOMEDCT", 20180731));
+
+		// Import dummy international content for 20190131
+		File snomedDelta = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_donation_delta");
+		String deltaImportJob = importService.createJob(RF2Type.DELTA, "MAIN", true);
+		importService.importArchive(deltaImportJob, new FileInputStream(snomedDelta));
+		assertNotNull(codeSystemService.findVersion("SNOMEDCT", 20190131));
+
+		// Create extension code system under 20180731 int version
+		CodeSystem extensionCodeSystem = new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE", "Belgian Edition", "be");
+		extensionCodeSystem.setDependantVersion(20180731);
+		codeSystemService.createCodeSystem(extensionCodeSystem);
+
+		// Extension concept 18736003 should not exist on extension branch
+		// because although it exists on the latest version of MAIN the extension is dependant on the older version
+		assertNotNull(conceptService.find("18736003", "MAIN"));
+		assertNull(conceptService.find("18736003", "MAIN/SNOMEDCT-BE"));
+
+		// Import dummy extension content
+		File snomedExtension = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Extension_snapshot");
+		importJob = importService.createJob(RF2Type.SNAPSHOT, extensionCodeSystem.getBranchPath(), true);
+		importService.importArchive(importJob, new FileInputStream(snomedExtension));
+
+		IntegrityIssueReport componentsWithBadIntegrityOnExtension = integrityService.findAllComponentsWithBadIntegrity(
+				branchService.findLatest(extensionCodeSystem.getBranchPath()), true);
+		assertTrue("Integrity report should be empty: " + componentsWithBadIntegrityOnExtension.toString(), componentsWithBadIntegrityOnExtension.isEmpty());
+
+		// Extension concept 18736003 should be in the extension module
+		assertEquals("900101001", conceptService.find("18736003", "MAIN/SNOMEDCT-BE").getModuleId());
+
+		// Upgrade the extension to international version 20190131
+		codeSystemService.upgrade("SNOMEDCT-BE", 20190131);
+
+		extensionCodeSystem = codeSystemService.find("SNOMEDCT-BE");
+		assertEquals("MAIN/SNOMEDCT-BE", extensionCodeSystem.getBranchPath());
+
+		// Integrity check still be clean
+		componentsWithBadIntegrityOnExtension = integrityService.findAllComponentsWithBadIntegrity(
+				branchService.findLatest(extensionCodeSystem.getBranchPath()), true);
+		assertTrue("Integrity report should be empty: " + componentsWithBadIntegrityOnExtension.toString(), componentsWithBadIntegrityOnExtension.isEmpty());
+
+		// Extension concept 18736003 has now been donated so has the international module.
+		assertEquals("900000000000207008", conceptService.find("18736003", "MAIN/SNOMEDCT-BE").getModuleId());
+	}
+
+	@Test
 	// We set up content for the international edition and an extension.
 	// We inactivate an international concept then see the extension break when it's upgraded.
+	public void testCodeSystemUpgradeFindBrokenRelationships() throws IOException, ReleaseImportException, ServiceException {
+		// Create international code system
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN", "International Edition", ""));
+
+		// Import dummy international content
+		File snomedBase = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
+		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true);
+		importService.importArchive(importJob, new FileInputStream(snomedBase));
+
+		// Check integrity of international dummy content
+		IntegrityIssueReport componentsWithBadIntegrityOnMAIN = integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN"), true);
+		assertTrue("Integrity report should be empty: " + componentsWithBadIntegrityOnMAIN.toString(), componentsWithBadIntegrityOnMAIN.isEmpty());
+
+
+		// Create extension code system
+		CodeSystem extensionCodeSystem = new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE", "Belgian Edition", "be");
+		codeSystemService.createCodeSystem(extensionCodeSystem);
+
+		// Import dummy extension content
+		File snomedExtension = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Extension_snapshot");
+		importJob = importService.createJob(RF2Type.SNAPSHOT, extensionCodeSystem.getBranchPath(), true);
+		importService.importArchive(importJob, new FileInputStream(snomedExtension));
+
+		IntegrityIssueReport componentsWithBadIntegrityOnExtension = integrityService.findAllComponentsWithBadIntegrity(
+				branchService.findLatest(extensionCodeSystem.getBranchPath()), true);
+		assertTrue("Integrity report should be empty: " + componentsWithBadIntegrityOnExtension.toString(), componentsWithBadIntegrityOnExtension.isEmpty());
+
+
+		// Replace a concept in International
+		// Create "Incision of ear (procedure)"
+		Concept incisionOfEar = conceptService.create(new Concept().addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), "MAIN");
+
+		// Make "Incision of middle ear (procedure)" inactive
+		String incisionOfMiddleEarId = "12481008";
+		Concept incisionOfMiddleEarConcept = conceptService.find(incisionOfMiddleEarId, "MAIN");
+		incisionOfMiddleEarConcept.setActive(false);
+		// Mark as outdated
+		incisionOfMiddleEarConcept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.OUTDATED));
+		// Mark as possibly equivalent to "Incision of ear (procedure)"
+		HashMap<String, Set<String>> associationTargets = new HashMap<>();
+		associationTargets.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION), Collections.singleton(incisionOfEar.getConceptId()));
+		incisionOfMiddleEarConcept.setAssociationTargets(associationTargets);
+		conceptService.update(incisionOfMiddleEarConcept, "MAIN");
+
+		// Create a new version of International
+		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT"), 20190131, "Dummy 2019-01-31 release.");
+
+		// Upgrade the extension to the new international version
+		codeSystemService.upgrade("SNOMEDCT-BE", 20190131);
+
+		extensionCodeSystem = codeSystemService.find("SNOMEDCT-BE");
+		assertEquals("MAIN/SNOMEDCT-BE", extensionCodeSystem.getBranchPath());
+
+		// Integrity check should fail because the extension is using a concept which has been made inactive
+		componentsWithBadIntegrityOnExtension = integrityService.findAllComponentsWithBadIntegrity(
+				branchService.findLatest(extensionCodeSystem.getBranchPath()), true);
+		assertEquals("One of the extension relationships should be found to have an inactive destination concept.",
+				1, componentsWithBadIntegrityOnExtension.getRelationshipsWithMissingOrInactiveDestination().size());
+	}
+
+	// NOTE - This is the old way of doing things using the deprecated migrateDependantCodeSystemVersion method.
+	// Please use the upgrade method instead.
+	// We set up content for the international edition and an extension.
+	// We inactivate an international concept then see the extension break when it's upgraded.
+	@Test
 	public void createCodeSystemsWithContentTestingUpgrade() throws IOException, ReleaseImportException, ServiceException {
 		// Create international code system
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN", "International Edition", ""));
