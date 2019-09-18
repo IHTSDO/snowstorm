@@ -23,6 +23,8 @@ public class CodeSystemController {
 	@ApiOperation(value = "Create a code system",
 			notes = "Required fields are shortName and branch. " +
 					"shortName should use format SNOMEDCT-XX where XX is the country code for national extensions. " +
+					"dependantVersion can be used if the new code system depends on an older version of the parent code system, " +
+					"otherwise the latest version will be selected automatically. " +
 					"defaultLanguageCode can be used to force the sort order of the languages listed under the codesystem, " +
 					"otherwise these are sorted by the number of active translated terms.")
 	@RequestMapping(method = RequestMethod.POST)

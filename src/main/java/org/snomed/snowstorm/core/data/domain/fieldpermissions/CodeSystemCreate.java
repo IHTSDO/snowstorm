@@ -11,4 +11,5 @@ public interface CodeSystemCreate {
 	String getCountryCode();
 	String getDefaultLanguageCode();
 	String getBranchPath();
+	Integer getDependantVersion();
 }

@@ -43,6 +43,9 @@ public class CodeSystem implements CodeSystemCreate {
 	@Pattern(regexp = "MAIN.*")
 	private String branchPath;
 
+	@Field(type = FieldType.Integer)
+	private Integer dependantVersion;
+
 	@Field(type = FieldType.Boolean)
 	private boolean dailyBuildAvailable;
 
@@ -108,6 +111,14 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setBranchPath(String branchPath) {
 		this.branchPath = branchPath;
+	}
+
+	public Integer getDependantVersion() {
+		return dependantVersion;
+	}
+
+	public void setDependantVersion(Integer dependantVersion) {
+		this.dependantVersion = dependantVersion;
 	}
 
 	public boolean isDailyBuildAvailable() {

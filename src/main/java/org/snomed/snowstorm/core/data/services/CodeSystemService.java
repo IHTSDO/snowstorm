@@ -109,7 +109,43 @@ public class CodeSystemService {
 		if (findByBranchPath(branchPath).isPresent()) {
 			throw new IllegalArgumentException("A code system already exists with this branch path.");
 		}
-		if (!branchService.exists(branchPath)) {
+		String parentPath = PathUtil.getParentPath(codeSystem.getBranchPath());
+		CodeSystem parentCodeSystem = null;
+		if (parentPath != null) {
+			Integer dependantVersion = codeSystem.getDependantVersion();
+			parentCodeSystem = findByBranchPath(parentPath).orElse(null);
+			if (dependantVersion != null) {
+				// Check dependant version exists on parent path
+				if (parentCodeSystem != null) {
+					if (findVersion(parentCodeSystem.getShortName(), dependantVersion) == null) {
+						throw new IllegalArgumentException(String.format("No code system version found matching dependantVersion '%s' on the parent branch path '%s'.", dependantVersion, parentPath));
+					}
+				} else {
+					throw new IllegalArgumentException(String.format("No code system found on the parent branch path '%s' so dependantVersion property is not required.", parentPath));
+				}
+			} else if (parentCodeSystem != null) {
+				// Find latest version on parent path
+				CodeSystemVersion latestVersion = findLatestVersion(parentCodeSystem.getShortName());
+				if (latestVersion != null) {
+					codeSystem.setDependantVersion(latestVersion.getEffectiveDate());
+				}
+			}
+		}
+		Integer dependantVersion = codeSystem.getDependantVersion();
+		boolean branchExists = branchService.exists(branchPath);
+		if (parentCodeSystem != null && dependantVersion != null) {
+			if (branchExists) {
+				throw new IllegalStateException(String.format("Unable to create code system branch with correct base timepoint because branch '%s' already exists!", branchPath));
+			}
+			// Create branch with base timepoint matching dependant version creation timepoint
+			String releaseBranchPath = getReleaseBranchPath(parentCodeSystem.getBranchPath(), dependantVersion);
+			Branch dependantVersionBranch = branchService.findLatest(releaseBranchPath);
+			if (dependantVersionBranch == null) {
+				throw new IllegalStateException(String.format("Dependant version branch '%s' is missing.", releaseBranchPath));
+			}
+			branchService.createAtBaseTimepoint(branchPath, dependantVersionBranch.getHead());
+
+		} else if (!branchExists) {
 			logger.info("Creating Code System branch '{}'.", branchPath);
 			branchService.create(branchPath);
 		}
@@ -132,10 +168,9 @@ public class CodeSystemService {
 		if (effectiveDate == null || effectiveDate.toString().length() != 8) {
 			throw new IllegalArgumentException("Effective Date must have format yyyymmdd");
 		}
-		String effectiveDateString = effectiveDate.toString();
-		String version = effectiveDateString.substring(0, 4) + "-" + effectiveDateString.substring(4, 6) + "-" + effectiveDateString.substring(6, 8);
+		String version = getHyphenatedVersionString(effectiveDate);
 		String branchPath = codeSystem.getBranchPath();
-		String releaseBranchPath = branchPath + "/" + version;
+		String releaseBranchPath = getReleaseBranchPath(branchPath, effectiveDate);
 
 		CodeSystemVersion codeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(codeSystem.getShortName(), effectiveDate);
 		if (codeSystemVersion != null) {
@@ -148,14 +183,23 @@ public class CodeSystemService {
 		releaseService.createVersion(effectiveDate, branchPath);
 
 		logger.info("Creating version branch content...");
-		branchService.create(releaseBranchPath);
+		Branch branch = branchService.create(releaseBranchPath);
 
 		logger.info("Persisting Code System Version...");
-		versionRepository.save(new CodeSystemVersion(codeSystem.getShortName(), new Date(), branchPath, effectiveDate, version, description));
+		versionRepository.save(new CodeSystemVersion(codeSystem.getShortName(), branch.getHead(), branchPath, effectiveDate, version, description));
 
 		logger.info("Versioning complete.");
 
 		return version;
+	}
+
+	private String getHyphenatedVersionString(Integer effectiveDate) {
+		String effectiveDateString = effectiveDate.toString();
+		return effectiveDateString.substring(0, 4) + "-" + effectiveDateString.substring(4, 6) + "-" + effectiveDateString.substring(6, 8);
+	}
+
+	private String getReleaseBranchPath(String branchPath, Integer effectiveDate) {
+		return branchPath + "/" + getHyphenatedVersionString(effectiveDate);
 	}
 
 	public synchronized void createVersionIfCodeSystemFoundOnPath(String branchPath, Integer releaseDate) {
