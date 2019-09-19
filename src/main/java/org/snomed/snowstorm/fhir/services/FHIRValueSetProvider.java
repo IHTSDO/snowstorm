@@ -61,9 +61,12 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	
 	@Read()
 	public ValueSet getValueSet(@IdParam IdType id) {
-		Optional<ValueSetWrapper> vs = valuesetRepository.findById(id.getIdPart());
-		if (vs.isPresent()) {
-			return vs.get().getValueset();
+		Optional<ValueSetWrapper> vsOpt = valuesetRepository.findById(id.getIdPart());
+		if (vsOpt.isPresent()) {
+			ValueSet vs = vsOpt.get().getValueset();
+			//If we're not calling the expansion operation, don't include that element
+			vs.setExpansion(null);
+			return vs;
 		}
 		return null;
 	}
@@ -194,11 +197,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		} else {
 			StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
 			String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
-			boolean missingFsns = false;
 			//Are we looking for all known refsets?  Special case.
 			if (url.endsWith("?fhir_vs=refset")) {
 				conceptMiniPage = findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
-				missingFsns = true;
 			} else {
 				String ecl = determineEcl(url);
 				QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
@@ -211,10 +212,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
 			}
 			
-			//Do we need further detail on each concept?
-			if (includeDesignations || missingFsns || displayLanguage != null || designations != null) {
-				conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, languageCodes);
-			}
+			//We will always need the PT, so recover further details
+			conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, languageCodes);
 		}
 		
 		ValueSet valueSet = mapper.mapToFHIR(vs, conceptMiniPage.getContent(), url, conceptDetails, languageCodes, displayLanguage, includeDesignations); 
