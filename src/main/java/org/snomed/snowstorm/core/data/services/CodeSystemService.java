@@ -137,13 +137,13 @@ public class CodeSystemService {
 			if (branchExists) {
 				throw new IllegalStateException(String.format("Unable to create code system branch with correct base timepoint because branch '%s' already exists!", branchPath));
 			}
-			// Create branch with base timepoint matching dependant version creation timepoint
+			// Create branch with base timepoint matching dependant version branch base timepoint
 			String releaseBranchPath = getReleaseBranchPath(parentCodeSystem.getBranchPath(), dependantVersion);
 			Branch dependantVersionBranch = branchService.findLatest(releaseBranchPath);
 			if (dependantVersionBranch == null) {
 				throw new IllegalStateException(String.format("Dependant version branch '%s' is missing.", releaseBranchPath));
 			}
-			branchService.createAtBaseTimepoint(branchPath, dependantVersionBranch.getHead());
+			branchService.createAtBaseTimepoint(branchPath, dependantVersionBranch.getBase());
 
 		} else if (!branchExists) {
 			logger.info("Creating Code System branch '{}'.", branchPath);
