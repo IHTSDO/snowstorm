@@ -80,7 +80,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery("active", active))
-						.must(matchPhraseQuery("term", exactTerm))
+						.must(termQuery("term", exactTerm))
 				)
 				.build();
 		List<Description> matches = elasticsearchTemplate.queryForList(query, Description.class);
