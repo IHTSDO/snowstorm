@@ -111,7 +111,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 
 	private void importEditionRF2FromDisk(String releasePath, RF2Type importType) {
 		// Import archive
-		String importId = importService.createJob(importType, "MAIN", true);
+		String importId = importService.createJob(importType, "MAIN", true, false);
 		try (FileInputStream releaseFileStream = new FileInputStream(releasePath)) {
 			importService.importArchive(importId, releaseFileStream);
 		} catch (IOException | ReleaseImportException e) {

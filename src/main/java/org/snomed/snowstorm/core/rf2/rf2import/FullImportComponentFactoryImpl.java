@@ -16,7 +16,7 @@ public class FullImportComponentFactoryImpl extends ImportComponentFactoryImpl i
 
 	FullImportComponentFactoryImpl(ConceptUpdateHelper conceptUpdateHelper, ReferenceSetMemberService memberService, BranchService branchService,
 			BranchMetadataHelper branchMetadataHelper, CodeSystemService codeSystemService, String path, String stopImportAfterEffectiveTime) {
-		super(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, path, null, false);
+		super(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, path, null, false, false);
 		this.branchMetadataHelper = branchMetadataHelper;
 		this.basePath = path;
 		this.stopImportAfterEffectiveTime = stopImportAfterEffectiveTime;

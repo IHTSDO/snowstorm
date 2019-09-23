@@ -6,7 +6,6 @@ import io.kaicode.elasticvc.domain.Commit;
 import org.assertj.core.util.Lists;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
@@ -189,7 +188,7 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 
 		// Import stated relationship snapshot
 		try (FileInputStream releaseFileStream = new FileInputStream(rf2Archive)) {
-			importService.importArchive(importService.createJob(RF2Type.SNAPSHOT, MAIN, false), releaseFileStream);
+			importService.importArchive(importService.createJob(RF2Type.SNAPSHOT, MAIN, false, false), releaseFileStream);
 		}
 		assertEquals("[131148009:FULLY_DEFINED, 413350009:FULLY_DEFINED]", getDefinedConcepts().toString());
 
@@ -205,7 +204,7 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 
 		// Import complete OWL delta - let the definition status update hook fix the statuses
 		try (FileInputStream releaseFileStream = new FileInputStream(completeOwlRf2Archive)) {
-			importService.importArchive(importService.createJob(RF2Type.DELTA, MAIN, false), releaseFileStream);
+			importService.importArchive(importService.createJob(RF2Type.DELTA, MAIN, false, false), releaseFileStream);
 		}
 		assertEquals("Expecting statuses to be fixed to original set of FD concepts.",
 				"[131148009:FULLY_DEFINED, 413350009:FULLY_DEFINED]", getDefinedConcepts().toString());

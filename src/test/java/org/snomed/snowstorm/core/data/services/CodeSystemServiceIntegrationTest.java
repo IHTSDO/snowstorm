@@ -2,7 +2,6 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
@@ -58,13 +57,13 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Import dummy international content for 20180731
 		File snomedBase = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
-		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true);
+		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true, false);
 		importService.importArchive(importJob, new FileInputStream(snomedBase));
 		assertNotNull(codeSystemService.findVersion("SNOMEDCT", 20180731));
 
 		// Import dummy international content for 20190131
 		File snomedDelta = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_donation_delta");
-		String deltaImportJob = importService.createJob(RF2Type.DELTA, "MAIN", true);
+		String deltaImportJob = importService.createJob(RF2Type.DELTA, "MAIN", true, false);
 		importService.importArchive(deltaImportJob, new FileInputStream(snomedDelta));
 		assertNotNull(codeSystemService.findVersion("SNOMEDCT", 20190131));
 
@@ -80,7 +79,7 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Import dummy extension content
 		File snomedExtension = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Extension_snapshot");
-		importJob = importService.createJob(RF2Type.SNAPSHOT, extensionCodeSystem.getBranchPath(), true);
+		importJob = importService.createJob(RF2Type.SNAPSHOT, extensionCodeSystem.getBranchPath(), true, false);
 		importService.importArchive(importJob, new FileInputStream(snomedExtension));
 
 		IntegrityIssueReport componentsWithBadIntegrityOnExtension = integrityService.findAllComponentsWithBadIntegrity(
@@ -114,7 +113,7 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Import dummy international content
 		File snomedBase = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
-		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true);
+		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true, false);
 		importService.importArchive(importJob, new FileInputStream(snomedBase));
 
 		// Check integrity of international dummy content
@@ -128,7 +127,7 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Import dummy extension content
 		File snomedExtension = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Extension_snapshot");
-		importJob = importService.createJob(RF2Type.SNAPSHOT, extensionCodeSystem.getBranchPath(), true);
+		importJob = importService.createJob(RF2Type.SNAPSHOT, extensionCodeSystem.getBranchPath(), true, false);
 		importService.importArchive(importJob, new FileInputStream(snomedExtension));
 
 		IntegrityIssueReport componentsWithBadIntegrityOnExtension = integrityService.findAllComponentsWithBadIntegrity(
@@ -179,7 +178,7 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Import dummy international content
 		File snomedBase = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
-		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true);
+		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true, false);
 		importService.importArchive(importJob, new FileInputStream(snomedBase));
 
 		// Check integrity of international dummy content
@@ -193,7 +192,7 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Import dummy extension content
 		File snomedExtension = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Extension_snapshot");
-		importJob = importService.createJob(RF2Type.SNAPSHOT, extensionCodeSystem.getBranchPath(), true);
+		importJob = importService.createJob(RF2Type.SNAPSHOT, extensionCodeSystem.getBranchPath(), true, false);
 		importService.importArchive(importJob, new FileInputStream(snomedExtension));
 
 		IntegrityIssueReport componentsWithBadIntegrityOnExtension = integrityService.findAllComponentsWithBadIntegrity(

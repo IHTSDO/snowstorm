@@ -56,7 +56,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	boolean coreComponentsFlushed;
 
 	ImportComponentFactoryImpl(ConceptUpdateHelper conceptUpdateHelper, ReferenceSetMemberService memberService, BranchService branchService,
-			BranchMetadataHelper branchMetadataHelper, String path, Integer patchReleaseVersion, boolean copyReleaseFields) {
+			BranchMetadataHelper branchMetadataHelper, String path, Integer patchReleaseVersion, boolean copyReleaseFields, boolean clearEffectiveTimes) {
 
 		this.branchService = branchService;
 		this.branchMetadataHelper = branchMetadataHelper;
@@ -70,7 +70,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		conceptPersistBuffer = new PersistBuffer<Concept>() {
 			@Override
 			public void persistCollection(Collection<Concept> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Concept.class, copyReleaseFields);
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Concept.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchConcepts(entities, commit);
 				}
@@ -81,7 +81,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		descriptionPersistBuffer = new PersistBuffer<Description>() {
 			@Override
 			public void persistCollection(Collection<Description> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Description.class, copyReleaseFields);
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Description.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchDescriptions(entities, commit);
 				}
@@ -92,7 +92,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		relationshipPersistBuffer = new PersistBuffer<Relationship>() {
 			@Override
 			public void persistCollection(Collection<Relationship> entities) {
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Relationship.class, copyReleaseFields);
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Relationship.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchRelationships(entities, commit);
 				}
@@ -111,7 +111,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 						}
 					}
 				}
-				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, ReferenceSetMember.class, copyReleaseFields);
+				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, ReferenceSetMember.class, copyReleaseFields, clearEffectiveTimes);
 				if (!entities.isEmpty()) {
 					memberService.doSaveBatchMembers(entities, commit);
 				}
@@ -125,11 +125,14 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		- Copy release fields from existing.
 	 */
 	private <T extends SnomedComponent> void processEntities(Collection<T> components, Integer patchReleaseVersion, ElasticsearchOperations elasticsearchTemplate,
-			Class<T> componentClass, boolean copyReleaseFields) {
+			Class<T> componentClass, boolean copyReleaseFields, boolean clearEffectiveTimes) {
 
 		Map<Integer, List<T>> effectiveDateMap = new HashMap<>();
 		components.forEach(component -> {
 			component.setChanged(true);
+			if (clearEffectiveTimes) {
+				component.setEffectiveTimeI(null);
+			}
 			Integer effectiveTimeI = component.getEffectiveTimeI();
 			if (effectiveTimeI != null) {
 				effectiveDateMap.computeIfAbsent(effectiveTimeI, i -> new ArrayList<>()).add(component);

@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
-import jdk.nashorn.internal.objects.annotations.Setter;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.Before;
 import org.junit.Test;
@@ -19,7 +18,6 @@ import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.security.core.parameters.P;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -72,7 +70,7 @@ public class ConceptServiceAttributeTest extends AbstractTest {
 	}
 
 	public void importRF2(RF2Type type, File rf2Archive, String path) throws IOException {
-		String importJobId = importService.createJob(type, path, false);
+		String importJobId = importService.createJob(type, path, false, false);
 		try (FileInputStream releaseFileStream = new FileInputStream(rf2Archive)) {
 			importService.importArchive(importJobId, releaseFileStream);
 		} catch (ReleaseImportException e) {

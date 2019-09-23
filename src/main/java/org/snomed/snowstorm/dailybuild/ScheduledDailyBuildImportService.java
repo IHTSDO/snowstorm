@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 @ConditionalOnProperty(name = "daily-build.delta-import.enabled", havingValue = "true")
 public class ScheduledDailyBuildImportService {
 
-	protected static final String DAILY_BUILD_DATE_FORMAT = "yyyy-MM-dd-HHmmss";
+	static final String DAILY_BUILD_DATE_FORMAT = "yyyy-MM-dd-HHmmss";
 	private static final String LOCK_MESSAGE = "Branch locked for daily build import.";
 
 	@Autowired
@@ -126,7 +126,7 @@ public class ScheduledDailyBuildImportService {
 			rollbackCommitsAfterTimepoint(codeSystem.getBranchPath(), latestReleaseBranch.getBase());
 
 			logger.info("Start daily build delta import for code system " +  codeSystem.getShortName());
-			String importId = importService.createJob(RF2Type.DELTA, codeSystem.getBranchPath(), false);
+			String importId = importService.createJob(RF2Type.DELTA, codeSystem.getBranchPath(), false, true);
 			importService.importArchive(importId, dailyBuildSteam);
 			logger.info("Daily build delta import completed for code system " +  codeSystem.getShortName());
 

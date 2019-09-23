@@ -51,8 +51,10 @@ public class ImportService {
 		importJobMap = new HashMap<>();
 	}
 
-	public String createJob(RF2Type importType, String branchPath, boolean createCodeSystemVersion) {
-		return createJob(new RF2ImportConfiguration(importType, branchPath).setCreateCodeSystemVersion(createCodeSystemVersion));
+	public String createJob(RF2Type importType, String branchPath, boolean createCodeSystemVersion, boolean clearEffectiveTimes) {
+		return createJob(new RF2ImportConfiguration(importType, branchPath)
+				.setCreateCodeSystemVersion(createCodeSystemVersion)
+				.setClearEffectiveTimes(clearEffectiveTimes));
 	}
 
 	public String createJob(RF2ImportConfiguration importConfiguration) {
@@ -99,13 +101,13 @@ public class ImportService {
 				case DELTA: {
 					// If we are not creating a new version copy the release fields from the existing components
 					boolean copyReleaseFields = !job.isCreateCodeSystemVersion();
-					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion, copyReleaseFields);
+					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion, copyReleaseFields, job.isClearEffectiveTimes());
 					releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
 					maxEffectiveTime = importComponentFactory.getMaxEffectiveTime();
 					break;
 				}
 				case SNAPSHOT: {
-					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion, false);
+					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion, false, false);
 					releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
 					maxEffectiveTime = importComponentFactory.getMaxEffectiveTime();
 					break;
@@ -133,8 +135,8 @@ public class ImportService {
 		}
 	}
 
-	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath, Integer patchReleaseVersion, boolean copyReleaseFields) {
-		return new ImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, branchPath, patchReleaseVersion, copyReleaseFields);
+	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath, Integer patchReleaseVersion, boolean copyReleaseFields, boolean clearEffectiveTimes) {
+		return new ImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, branchPath, patchReleaseVersion, copyReleaseFields, clearEffectiveTimes);
 	}
 
 	private HistoryAwareComponentFactory getFullImportComponentFactory(String branchPath) {

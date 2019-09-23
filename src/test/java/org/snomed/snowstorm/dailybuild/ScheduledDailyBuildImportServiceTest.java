@@ -75,7 +75,7 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		baseLineRelease = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
 		snomedct = new CodeSystem("SNOMEDCT", "MAIN");
 		codeSystemService.createCodeSystem(snomedct);
-		String importId = importService.createJob(RF2Type.SNAPSHOT, snomedct.getBranchPath(), true);
+		String importId = importService.createJob(RF2Type.SNAPSHOT, snomedct.getBranchPath(), true, false);
 		importService.importArchive(importId, new FileInputStream(baseLineRelease));
 		rf2Archive1 = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-daily-build/DailyBuild_Day1");
 		rf2Archive2 = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-daily-build/DailyBuild_Day2");
@@ -96,7 +96,7 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 
 		InputStream dailyBuildInputStream = new FileInputStream(rf2Archive1);
 		// first RF2 Delta import
-		String importId = importService.createJob(RF2Type.DELTA, branchPath, false);
+		String importId = importService.createJob(RF2Type.DELTA, branchPath, false, true);
 		importService.importArchive(importId, dailyBuildInputStream);
 		branchPage = branchService.findAllVersions("MAIN", Pageable.unpaged());
 		assertEquals(4, branchPage.getTotalElements());
@@ -113,6 +113,7 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		Concept concept = conceptService.find("131148009", branchPath);
 		assertNotNull(concept);
 		assertEquals("131148009", concept.getConceptId());
+		assertNull(concept.getEffectiveTimeI());
 
 		// scheduled daily build import with changes to revert previous day's authoring and add a brand new concept
 

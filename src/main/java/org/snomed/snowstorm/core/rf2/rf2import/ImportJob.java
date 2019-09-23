@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.rf2.rf2import;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 
 import java.util.Set;
@@ -47,6 +48,11 @@ public class ImportJob {
 
 	public boolean isCreateCodeSystemVersion() {
 		return importConfiguration.isCreateCodeSystemVersion();
+	}
+
+	@JsonIgnore
+	public boolean isClearEffectiveTimes() {
+		return importConfiguration.isClearEffectiveTimes();
 	}
 
 	public ImportStatus getStatus() {

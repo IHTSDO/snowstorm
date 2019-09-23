@@ -14,6 +14,9 @@ public final class RF2ImportConfiguration {
 	private Set<String> moduleIds;
 	private Integer patchReleaseVersion;
 
+	// Used to remove the effectiveTime from imported RF2 rows - for daily build.
+	private Boolean clearEffectiveTimes;
+
 	public RF2ImportConfiguration() {
 	}
 
@@ -46,6 +49,15 @@ public final class RF2ImportConfiguration {
 	public RF2ImportConfiguration setCreateCodeSystemVersion(boolean createCodeSystemVersion) {
 		this.createCodeSystemVersion = createCodeSystemVersion;
 		return this;
+	}
+
+	public RF2ImportConfiguration setClearEffectiveTimes(Boolean clearEffectiveTimes) {
+		this.clearEffectiveTimes = clearEffectiveTimes;
+		return this;
+	}
+
+	public boolean isClearEffectiveTimes() {
+		return clearEffectiveTimes != null && clearEffectiveTimes;
 	}
 
 	public Set<String> getModuleIds() {
