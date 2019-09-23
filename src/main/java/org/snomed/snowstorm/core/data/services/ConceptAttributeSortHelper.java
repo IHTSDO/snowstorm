@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import org.apache.commons.lang3.ObjectUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.SortOrderProperties;
@@ -158,7 +157,7 @@ public class ConceptAttributeSortHelper {
 
 		Set<Relationship> sortedRelationships = new TreeSet<>(RELATIONSHIP_COMPARATOR);
 		for (Relationship relationship : relationships) {
-			if (relationship.getGroupId() != 0) {
+			if (relationship.getGroupId() != 0 && oldGroupToNewGroupMap.containsKey(relationship.getGroupId())) {
 				relationship.setGroupId(oldGroupToNewGroupMap.get(relationship.getGroupId()));
 			}
 			sortedRelationships.add(relationship);
