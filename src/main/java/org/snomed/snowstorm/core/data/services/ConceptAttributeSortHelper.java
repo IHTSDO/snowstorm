@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import org.apache.commons.lang3.ObjectUtils;
 import org.snomed.snowstorm.config.SortOrderProperties;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
@@ -39,16 +40,16 @@ public class ConceptAttributeSortHelper {
 	}
 
 	private static final Comparator<Relationship> ACTIVE_RELATIONSHIP_COMPARATOR_WITHOUT_GROUP = Comparator
-			.comparing(Relationship::getAttributeOrder)
-			.thenComparing(Relationship::getTargetFsn);
+			.comparing(Relationship::getAttributeOrder, Comparator.nullsLast(Short::compareTo))
+			.thenComparing(Relationship::getTargetFsn, Comparator.nullsLast(String::compareTo));
 
 	private static final Comparator<Relationship> RELATIONSHIP_COMPARATOR = Comparator
 			.comparing(Relationship::isActive).reversed()
 			.thenComparing(Relationship::getGroupId)
-			.thenComparing(Relationship::getAttributeOrder)
-			.thenComparing(Relationship::getTargetFsn)
-			.thenComparing(Relationship::getTypeId)
-			.thenComparing(Relationship::getDestinationId)
+			.thenComparing(Relationship::getAttributeOrder, Comparator.nullsLast(Short::compareTo))
+			.thenComparing(Relationship::getTargetFsn, Comparator.nullsLast(String::compareTo))
+			.thenComparing(Relationship::getTypeId, Comparator.nullsLast(String::compareTo))
+			.thenComparing(Relationship::getDestinationId, Comparator.nullsLast(String::compareTo))
 			.thenComparing(Relationship::hashCode);
 
 	void sortAttributes(Collection<Concept> concepts) {
