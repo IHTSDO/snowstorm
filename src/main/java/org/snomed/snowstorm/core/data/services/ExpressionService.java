@@ -4,9 +4,11 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.*;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+@Service
 public class ExpressionService {
 	
 	@Autowired

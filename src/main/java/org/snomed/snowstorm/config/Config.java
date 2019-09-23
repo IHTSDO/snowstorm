@@ -37,7 +37,6 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierCacheManager
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalIdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.SnowstormCISClient;
-import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
 import org.snomed.snowstorm.fhir.domain.ValueSetDeserializer;
 import org.snomed.snowstorm.fhir.domain.ValueSetSerializer;
@@ -259,13 +258,8 @@ public abstract class Config {
 	}
 
 	@Bean
-	public ImportService getImportService() {
-		return new ImportService();
-	}
-	
-	@Bean
-	public ExpressionService getExpressionService() {
-		return new ExpressionService();
+	public VersionControlHelper getVersionControlHelper() {
+		return new VersionControlHelper();
 	}
 
 	@Bean
@@ -282,8 +276,8 @@ public abstract class Config {
 			return new SnowstormCISClient(cisApiUrl, username, password, softwareName, timeoutSeconds);
 		}
 	}
-	
-	@Bean 
+
+	@Bean
 	public IdentifierCacheManager getIdentifierCacheManager(@Value("${cis.cache.concept-prefetch-count}") int conceptIdPrefetchCount) {
 		IdentifierCacheManager icm = new IdentifierCacheManager();
 		// Concept
@@ -293,11 +287,6 @@ public abstract class Config {
 		// Relationship
 		icm.addCache(0, "02", conceptIdPrefetchCount * 4);
 		return icm;
-	}
-
-	@Bean
-	public VersionControlHelper getVersionControlHelper() {
-		return new VersionControlHelper();
 	}
 
 	@Bean
@@ -316,6 +305,12 @@ public abstract class Config {
 	@ConfigurationProperties(prefix = "search.language")
 	public SearchLanguagesConfiguration searchLanguagesConfiguration() {
 		return new SearchLanguagesConfiguration();
+	}
+
+	@Bean
+	@ConfigurationProperties(prefix = "sort-order")
+	public SortOrderProperties sortOrderProperties() {
+		return new SortOrderProperties();
 	}
 
 	@Bean

@@ -47,8 +47,9 @@ public class ConceptMini implements Serializable {
 		this.languageCodes = languageCodes;
 	}
 
-	public void addActiveDescription(Description fsn) {
+	public ConceptMini addActiveDescription(Description fsn) {
 		activeDescriptions.add(fsn);
+		return this;
 	}
 
 	public void addActiveDescriptions(Collection<Description> fsns) {

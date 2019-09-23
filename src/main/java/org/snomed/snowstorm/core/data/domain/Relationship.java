@@ -90,6 +90,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	private ConceptMini target;
 
+	@JsonIgnore
+	private Short attributeOrder;
+
 	public Relationship() {
 		active = true;
 		moduleId = Concepts.CORE_MODULE;
@@ -207,11 +210,12 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return target;
 	}
 
-	public void setTarget(ConceptMini target) {
+	public Relationship setTarget(ConceptMini target) {
 		this.target = target;
 		if (target != null && !Strings.isNullOrEmpty(target.getConceptId())) {
 			this.destinationId = target.getConceptId();
 		}
+		return this;
 	}
 
 	@JsonView(value = View.Component.class)
@@ -308,6 +312,20 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public String getModifierId() {
 		return modifierId;
+	}
+
+	@JsonIgnore
+	public Short getAttributeOrder() {
+		return attributeOrder;
+	}
+
+	public void setAttributeOrder(Short attributeOrder) {
+		this.attributeOrder = attributeOrder;
+	}
+
+	@JsonIgnore
+	public String getTargetFsn() {
+		return target != null ? target.getFsnTerm() : null;
 	}
 
 	@Override

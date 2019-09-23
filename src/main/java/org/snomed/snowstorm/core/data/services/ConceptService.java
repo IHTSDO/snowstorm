@@ -18,6 +18,7 @@ import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
+import org.snomed.snowstorm.config.SortOrderProperties;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
@@ -90,6 +91,9 @@ public class ConceptService extends ComponentService {
 
 	@Autowired
 	private TraceabilityLogService traceabilityLogService;
+
+	@Autowired
+	private ConceptAttributeSortHelper conceptAttributeSortHelper;
 
 	private final Cache<String, AsyncConceptChangeBatch> batchConceptChanges;
 
@@ -315,6 +319,10 @@ public class ConceptService extends ComponentService {
 		timer.checkpoint("get relationship def status " + getFetchCount(conceptMiniMap.size()));
 
 		descriptionService.joinDescriptions(branchCriteria, conceptIdMap, conceptMiniMap, timer, includeDescriptionInactivationInfo);
+
+		conceptAttributeSortHelper.sortAttributes(conceptIdMap.values());
+		timer.checkpoint("Sort attributes");
+
 		timer.finish();
 
 		return concepts;
