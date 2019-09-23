@@ -16,6 +16,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jms.annotation.EnableJms;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 import java.io.File;
@@ -25,6 +26,7 @@ import java.util.List;
 
 @EnableSwagger2
 @EnableJms
+@EnableScheduling
 public class SnowstormApplication extends Config implements ApplicationRunner {
 
 	private static final String DELETE_INDICES_FLAG = "delete-indices";
