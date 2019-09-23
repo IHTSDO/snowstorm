@@ -28,7 +28,6 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
 
 import static junit.framework.TestCase.assertNull;
 import static junit.framework.TestCase.assertTrue;
@@ -153,7 +152,7 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 //		resourceManager.writeResource(snomedct.getShortName() + "/" + first + ".zip", new FileInputStream(rf2Archive1));
 
 		assertNotNull(main);
-		InputStream inputStream = dailyBuildImportService.getLatestDailyBuildIfExists(snomedct, main.getHeadTimestamp());
+		InputStream inputStream = dailyBuildImportService.getNewDailyBuildIfExists(snomedct, main.getHeadTimestamp());
 		assertNull(inputStream);
 	}
 }
