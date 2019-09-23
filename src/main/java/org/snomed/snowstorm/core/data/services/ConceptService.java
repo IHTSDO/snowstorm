@@ -14,6 +14,7 @@ import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -248,10 +249,11 @@ public class ConceptService extends ComponentService {
 			}
 			concepts = new PageImpl<>(allConcepts, pageRequest, total);
 		} else {
-			queryBuilder
+			NativeSearchQueryBuilder conceptQueryBuilder = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(Concept.class)))
+					.withSort(SortBuilders.fieldSort(Concept.Fields.CONCEPT_ID))// Needed to support searchAfter
 					.withPageable(pageRequest);
-			concepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
+			concepts = elasticsearchTemplate.queryForPage(conceptQueryBuilder.build(), Concept.class);
 		}
 		for (Concept concept : concepts) {
 			concept.setRequestedLanguages(languageCodes);

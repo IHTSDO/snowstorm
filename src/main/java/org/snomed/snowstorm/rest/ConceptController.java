@@ -7,6 +7,7 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ConceptView;
@@ -17,10 +18,15 @@ import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.MapPage;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
+import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.core.SearchAfterPage;
+import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
@@ -56,6 +62,9 @@ public class ConceptController {
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
+
+	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
+	private boolean allowUnlimitedConceptPagination;
 
 	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
 	@ResponseBody
@@ -146,18 +155,34 @@ public class ConceptController {
 				acceptLanguageHeader);
 	}
 
+	@ApiOperation(value = "Load concepts in the browser format.",
+			notes = "When enabled 'searchAfter' can be used for unlimited pagination. " +
+					"Load the first page then take the 'searchAfter' value from the response and use that " +
+					"as a parameter in the next page request instead of 'number'.")
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public Page<? extends ConceptView> getBrowserConcepts(
+	public ItemsPage<Concept> getBrowserConcepts(
 			@PathVariable String branch,
 			@RequestParam(defaultValue = "0") int number,
 			@RequestParam(defaultValue = "100") int size,
+			@RequestParam(required = false) String searchAfter,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		PageRequest pageRequest = PageRequest.of(number, size);
-		ControllerHelper.validatePageSize(pageRequest.getOffset(), pageRequest.getPageSize());
-		return conceptService.findAll(BranchPathUriUtil.decodePath(branch), ControllerHelper.getLanguageCodes(acceptLanguageHeader), pageRequest);
+		PageRequest pageRequest;
+		if (!Strings.isNullOrEmpty(searchAfter)) {
+			if (!allowUnlimitedConceptPagination) {
+				throw new IllegalArgumentException("Unlimited pagination of the full concept representation is disabled in this deployment.");
+			}
+			pageRequest = SearchAfterPageRequest.of(SearchAfterHelper.fromSearchAfterToken(searchAfter), size);
+		} else {
+			pageRequest = PageRequest.of(number, size);
+			ControllerHelper.validatePageSize(pageRequest.getOffset(), pageRequest.getPageSize());
+		}
+
+		Page<Concept> page = conceptService.findAll(BranchPathUriUtil.decodePath(branch), ControllerHelper.getLanguageCodes(acceptLanguageHeader), pageRequest);
+		SearchAfterPage<Concept> concepts = PageHelper.toSearchAfterPage(page, concept -> SearchAfterHelper.convertToTokenAndBack(new Object[]{concept.getId()}));
+		return new ItemsPage<>(concepts);
 	}
 
 	@RequestMapping(value = "/browser/{branch}/concepts/bulk-load", method = RequestMethod.POST)
