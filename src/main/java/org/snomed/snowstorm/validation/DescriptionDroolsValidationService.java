@@ -20,10 +20,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -159,9 +156,9 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	}
 
 	private String findStatedHierarchyRootId(org.ihtsdo.drools.domain.Concept concept) {
-		Set<? extends org.ihtsdo.drools.domain.Relationship> statedIsARelationships = concept.getRelationships().stream().filter(r -> r.isActive()
+		Set<String> statedIsARelationships = concept.getRelationships().stream().filter(r -> r.isActive()
 				&& Concepts.STATED_RELATIONSHIP.equals(r.getCharacteristicTypeId())
-				&& Concepts.ISA.equals(r.getTypeId())).collect(Collectors.toSet());
+				&& Concepts.ISA.equals(r.getTypeId())).map(org.ihtsdo.drools.domain.Relationship :: getDestinationId).collect(Collectors.toSet());
 
 		if (statedIsARelationships.isEmpty()) {
 			return null;
@@ -174,9 +171,10 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 		}
 
 		// Search ancestors of stated is-a relationships
-		String firstStatedParentId = statedIsARelationships.iterator().next().getDestinationId();
+		String firstStatedParentId = statedIsARelationships.iterator().next();
 		Set<Long> statedAncestors = queryService.findAncestorIds(firstStatedParentId, branchPath, true);
-		statedHierarchyRoot = Sets.intersection(hierarchyRootIds, statedAncestors);
+		Set<String> statedAncestorsAsStringArray = statedAncestors.stream().map(String::valueOf).collect(Collectors.toSet());
+		statedHierarchyRoot = Sets.intersection(hierarchyRootIds, statedAncestorsAsStringArray);
 		if (!statedHierarchyRoot.isEmpty()) {
 			return statedHierarchyRoot.iterator().next();
 		}
@@ -192,7 +190,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 						.withQuery(boolQuery()
 								.must(mainBranchCriteria)
 								.must(termQuery("active", true))
-								.must(termQuery("characteristicTypeId", Concepts.INFERRED_RELATIONSHIP))
+								.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP))
 								.must(termQuery("destinationId", Concepts.SNOMEDCT_ROOT)))
 						.withPageable(PageRequest.of(0, 1000))
 						.build();
