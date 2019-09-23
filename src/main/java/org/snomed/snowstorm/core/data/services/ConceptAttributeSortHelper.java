@@ -55,7 +55,7 @@ public class ConceptAttributeSortHelper {
 			.thenComparing(Relationship::getDestinationId, Comparator.nullsLast(String::compareTo))
 			.thenComparing(Relationship::hashCode);
 
-	void sortAttributes(Collection<Concept> concepts) {
+	void sortAttributes(Iterable<Concept> concepts) {
 		for (Concept concept : concepts) {
 			String semanticTag = getEnSemanticTag(concept);
 			if (semanticTag != null) {

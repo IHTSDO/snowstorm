@@ -458,6 +458,7 @@ public class ConceptService extends ComponentService {
 		joinComponentsToConcepts(persistedComponents, conceptMiniMap, languageCodes);
 		// Populate relationship descriptions
 		populateConceptMinis(versionControlHelper.getBranchCriteria(branch), conceptMiniMap, languageCodes);
+		conceptAttributeSortHelper.sortAttributes(persistedComponents.getPersistedConcepts());
 	}
 
 	private PersistedComponents doSave(Collection<Concept> concepts, Branch branch) throws ServiceException {
