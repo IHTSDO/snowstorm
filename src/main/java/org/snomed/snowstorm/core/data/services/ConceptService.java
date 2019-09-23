@@ -18,7 +18,6 @@ import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
-import org.snomed.snowstorm.config.SortOrderProperties;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;

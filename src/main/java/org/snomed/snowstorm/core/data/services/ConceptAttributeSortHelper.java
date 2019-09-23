@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
 import org.apache.commons.lang3.ObjectUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.SortOrderProperties;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
@@ -33,6 +35,8 @@ public class ConceptAttributeSortHelper {
 
 	private static final Pattern TAG_PATTERN = Pattern.compile("^.*\\((.*)\\)$");
 	private static final Set<String> EN_LANGUAGE_CODE = Collections.singleton("en");
+
+	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
 	public void init() {
@@ -88,11 +92,15 @@ public class ConceptAttributeSortHelper {
 						.filter(r -> r.isActive() && Concepts.STATED_RELATIONSHIP.equals(r.getCharacteristicTypeId())).collect(Collectors.toSet()));
 			}
 			if (statedParent != null) {
-				Page<ConceptMini> topLevelHierarchy = queryService.eclSearch("<!" + Concepts.SNOMEDCT_ROOT + " AND >" + statedParent, true, "MAIN", PageRequest.of(0, 1));
-				if (topLevelHierarchy.getTotalElements() > 0) {
-					String fsnTerm = topLevelHierarchy.getContent().get(0).getFsnTerm();
-					String parentTag = getEnSemanticTag(fsnTerm);
-					subHierarchyToTopLevelTagCache.put(semanticTag, parentTag);
+				try {
+					Page<ConceptMini> topLevelHierarchy = queryService.eclSearch("<!" + Concepts.SNOMEDCT_ROOT + " AND >" + statedParent, true, "MAIN", PageRequest.of(0, 1));
+					if (topLevelHierarchy.getTotalElements() > 0) {
+						String fsnTerm = topLevelHierarchy.getContent().get(0).getFsnTerm();
+						String parentTag = getEnSemanticTag(fsnTerm);
+						subHierarchyToTopLevelTagCache.put(semanticTag, parentTag);
+					}
+				} catch (IllegalArgumentException e) {
+					logger.info("Could not sort attributes of concept {} because ECL to fetch the top level hierarchy failed.", concept.getId());
 				}
 			}
 		}
