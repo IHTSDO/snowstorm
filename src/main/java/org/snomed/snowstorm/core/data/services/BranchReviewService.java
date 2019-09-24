@@ -374,8 +374,8 @@ public class BranchReviewService {
 		Map<String, Set<String>> endVersionsReplaced = versionControlHelper.getAllVersionsReplaced(endTimeSlice);
 		for (String type : Sets.union(startVersionsReplaced.keySet(), endVersionsReplaced.keySet())) {
 			changedVersionsReplaced.put(type, Sets.difference(
-					endVersionsReplaced.computeIfAbsent(type, t -> Collections.emptySet()),
-					startVersionsReplaced.computeIfAbsent(type, t1 -> Collections.emptySet())));
+					endVersionsReplaced.getOrDefault(type, Collections.emptySet()),
+					startVersionsReplaced.getOrDefault(type, Collections.emptySet())));
 		}
 		if (!changedVersionsReplaced.getOrDefault(Concept.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
 			try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(
