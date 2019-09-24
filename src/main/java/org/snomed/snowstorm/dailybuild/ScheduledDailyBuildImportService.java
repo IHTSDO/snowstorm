@@ -78,12 +78,11 @@ public class ScheduledDailyBuildImportService {
 		logger.info("Daily build import is enabled.");
 	}
 
-	@Scheduled(fixedDelay = 60_000)
+	@Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
 	public void scheduledDailyBuildDeltaImport() {
 		if (!initialised) {
 			return;
 		}
-
 		List<CodeSystem> codeSystems = codeSystemService.findAll().stream()
 				.filter(CodeSystem::isDailyBuildAvailable).collect(Collectors.toList());
 
@@ -160,41 +159,38 @@ public class ScheduledDailyBuildImportService {
 	InputStream getNewDailyBuildIfExists(CodeSystem codeSystem, long lastImportTimepoint) {
 		String deltaDirectoryPath = ResourcePathHelper.getFullPath(dailyBuildResourceConfig, codeSystem.getShortName());
 		logger.debug("Daily build resources path '{}'.", deltaDirectoryPath);
-
-		Resource codeSystemDeltaDirectory = resourcePatternResolver.getResource(deltaDirectoryPath);
-		if (codeSystemDeltaDirectory.exists()) {
-			List<String> archiveFilenames = new ArrayList<>();
-			try {
-				Resource[] deltaArchives = resourcePatternResolver.getResources(deltaDirectoryPath + "/" + "*.zip");
-				for (Resource deltaArchive : deltaArchives) {
-					String filename = deltaArchive.getFilename();
-					if (filename != null && filename.endsWith(".zip")) {
-						// Check the uploaded time after the last import
-						if (isAfter(filename, lastImportTimepoint)) {
-							archiveFilenames.add(filename);
-						}
+		List<String> archiveFilenames = new ArrayList<>();
+		try {
+			Resource[] deltaArchives = resourcePatternResolver.getResources(deltaDirectoryPath + "/" + "*.zip");
+			logger.debug("Found total builds {} from {}",  deltaArchives.length, deltaDirectoryPath);
+			for (Resource deltaArchive : deltaArchives) {
+				String filename = deltaArchive.getFilename();
+				if (filename != null && filename.endsWith(".zip")) {
+					// Check the uploaded time after the last import
+					if (isAfter(filename, lastImportTimepoint)) {
+						archiveFilenames.add(filename);
 					}
 				}
-			} catch (FileNotFoundException e) {
-				logger.info("No daily builds found from '{}'.", deltaDirectoryPath);
-			} catch (IOException e) {
-				logger.error("Failed to fetch delta archives from '{}'.", deltaDirectoryPath, e);
 			}
+		} catch (FileNotFoundException e) {
+			logger.info("No daily builds found from '{}'.", deltaDirectoryPath);
+		} catch (IOException e) {
+			logger.error("Failed to fetch delta archives from '{}'.", deltaDirectoryPath, e);
+		}
 
-			// Get the most recent build for today
-			Collections.sort(archiveFilenames);
-			Collections.reverse(archiveFilenames);
-			if (!archiveFilenames.isEmpty()) {
-				String mostRecentBuild = archiveFilenames.iterator().next();
-				if (archiveFilenames.size() > 1) {
-					logger.info("Found total {} daily builds. '{}' will be loaded.", archiveFilenames.size(), mostRecentBuild);
-				}
-				String archivePath = codeSystem.getShortName() + "/" + mostRecentBuild;
-				try {
-					return resourceManager.readResourceStream(archivePath);
-				} catch (IOException e) {
-					logger.error("Failed to read resource from '{}'", archivePath, e);
-				}
+		// Get the most recent build for today
+		Collections.sort(archiveFilenames);
+		Collections.reverse(archiveFilenames);
+		if (!archiveFilenames.isEmpty()) {
+			String mostRecentBuild = archiveFilenames.iterator().next();
+			if (archiveFilenames.size() > 1) {
+				logger.info("Found total {} daily builds. '{}' will be loaded.", archiveFilenames.size(), mostRecentBuild);
+			}
+			String archivePath = codeSystem.getShortName() + "/" + mostRecentBuild;
+			try {
+				return resourceManager.readResourceStream(archivePath);
+			} catch (IOException e) {
+				logger.error("Failed to read resource from '{}'", archivePath, e);
 			}
 		}
 		return null;
@@ -202,6 +198,9 @@ public class ScheduledDailyBuildImportService {
 
 	private boolean isAfter(String filename, long timestamp) {
 		String dateStr = filename.substring(0, filename.lastIndexOf("."));
+		if (filename.contains("/")) {
+			dateStr = filename.substring(filename.lastIndexOf("/") + 1, filename.lastIndexOf("."));
+		}
 		SimpleDateFormat formatter = new SimpleDateFormat(DAILY_BUILD_DATE_FORMAT);
 		try {
 			if (formatter.parse(dateStr).after(new Date(timestamp))) {
