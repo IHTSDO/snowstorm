@@ -1,12 +1,10 @@
 package org.snomed.snowstorm.validation;
 
-import java.io.File;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.ihtsdo.drools.RuleExecutor;
 import org.ihtsdo.drools.RuleExecutorFactory;
 import org.ihtsdo.drools.response.InvalidContent;
@@ -17,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -26,12 +25,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
+import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -111,9 +110,22 @@ public class DroolsValidationService {
 		Map<Long, Description> descriptionMap = new Long2ObjectOpenHashMap<>();
 		Map<Long, Relationship> relationshipMap = new Long2ObjectOpenHashMap<>();
 		concepts.forEach(concept -> {
+			if (newComponent(concept)) {
+				return;
+			}
 			conceptMap.put(concept.getConceptIdAsLong(), concept);
-			concept.getDescriptions().forEach(description -> descriptionMap.put(parseLong(description.getId()), description));
-			concept.getRelationships().forEach(relationship -> relationshipMap.put(parseLong(relationship.getId()), relationship));
+			concept.getDescriptions().forEach(description -> {
+				if (newComponent(description)) {
+					return;
+				}
+				descriptionMap.put(parseLong(description.getId()), description);
+			});
+			concept.getRelationships().forEach(relationship -> {
+				if (newComponent(relationship)) {
+					return;
+				}
+				relationshipMap.put(parseLong(relationship.getId()), relationship);
+			});
 		});
 		try (CloseableIterator<Concept> conceptStream = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
@@ -157,6 +169,10 @@ public class DroolsValidationService {
 				relationship.updateEffectiveTime();
 			});
 		}
+	}
+
+	private boolean newComponent(SnomedComponent component) {
+		return component.getId() == null || component.getId().contains("-");
 	}
 
 	public void newRuleExecutorAndResources() {
