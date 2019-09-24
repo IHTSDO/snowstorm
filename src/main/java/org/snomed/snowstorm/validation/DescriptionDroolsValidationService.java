@@ -185,12 +185,12 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	private Set<String> findHierarchyRootsOnMAIN() {
 		if (hierarchyRootIds == null) {
 			synchronized (DescriptionDroolsValidationService.class) {
-				QueryBuilder mainBranchCriteria = versionControlHelper.getBranchCriteria("MAIN").getEntityBranchCriteria(org.snomed.snowstorm.core.data.domain.Description.class);
+				QueryBuilder mainBranchCriteria = versionControlHelper.getBranchCriteria("MAIN").getEntityBranchCriteria(Relationship.class);
 				NativeSearchQuery query = new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(mainBranchCriteria)
 								.must(termQuery("active", true))
-								.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP))
+								.must(termQuery("characteristicTypeId", Concepts.INFERRED_RELATIONSHIP))
 								.must(termQuery("destinationId", Concepts.SNOMEDCT_ROOT)))
 						.withPageable(PageRequest.of(0, 1000))
 						.build();
