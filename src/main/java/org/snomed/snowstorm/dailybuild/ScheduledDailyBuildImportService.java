@@ -87,11 +87,15 @@ public class ScheduledDailyBuildImportService {
 				.filter(CodeSystem::isDailyBuildAvailable).collect(Collectors.toList());
 
 		for (CodeSystem codeSystem : codeSystems) {
-			performScheduledImport(codeSystem);
+			try {
+				performScheduledImport(codeSystem);
+			} catch (IOException | ReleaseImportException e) {
+				logger.error("Failed to import daily build for code system " + codeSystem.getShortName());
+			}
 		}
 	}
 
-	private void performScheduledImport(CodeSystem codeSystem) {
+	private void performScheduledImport(CodeSystem codeSystem) throws IOException, ReleaseImportException {
 		String branchPath = codeSystem.getBranchPath();
 		Branch codeSystemBranch = branchService.findBranchOrThrow(branchPath);
 		if (codeSystemBranch.isLocked()) {
@@ -101,42 +105,30 @@ public class ScheduledDailyBuildImportService {
 		try {
 			// Lock branch immediately to stop other instances performing daily build.
 			branchService.lockBranch(branchPath, LOCK_MESSAGE);
-
-			try (InputStream dailyBuildSteam = getNewDailyBuildIfExists(codeSystem, codeSystemBranch.getHeadTimestamp())) {
-				dailyBuildDeltaImport(codeSystem, dailyBuildSteam);
-			} catch (IOException e) {
-				logger.error("Failed to import daily build for CodeSystem " + codeSystem.getShortName(), e);
-			}
+			String dailyBuildSteam = getNewDailyBuildIfExists(codeSystem, codeSystemBranch.getHeadTimestamp());
+			dailyBuildDeltaImport(codeSystem, dailyBuildSteam);
 		} finally {
 			branchService.unlock(branchPath);
 		}
 	}
 
-	void dailyBuildDeltaImport(CodeSystem codeSystem, InputStream dailyBuildSteam) {
-		if (dailyBuildSteam == null) {
+	void dailyBuildDeltaImport(CodeSystem codeSystem, String dailyBuildFilename) throws IOException, ReleaseImportException {
+		if (dailyBuildFilename == null) {
 			return;
 		}
-		logger.info("New daily build found for " + codeSystem.getShortName());
-
-		try {
-			// Roll back commits on Code System branch which were made after latest release branch base timepoint.
-			CodeSystemVersion latestVersion = codeSystemService.findLatestVersion(codeSystem.getShortName());
-			Branch latestReleaseBranch = branchService.findLatest(latestVersion.getBranchPath());
-			boolean isSuccessful = rollbackCommitsAfterTimepoint(codeSystem.getBranchPath(), latestReleaseBranch.getBase());
-			if (!isSuccessful) {
-				return;
-			}
-			logger.info("Start daily build delta import for code system " +  codeSystem.getShortName());
-			String importId = importService.createJob(RF2Type.DELTA, codeSystem.getBranchPath(), false, true);
-			importService.importArchive(importId, dailyBuildSteam);
-			logger.info("Daily build delta import completed for code system " +  codeSystem.getShortName());
-
-		} catch (ReleaseImportException e) {
-			logger.error("Failed to import daily build delta.", e);
-		}
+		logger.info("New daily build {} found for {} ", dailyBuildFilename, codeSystem.getShortName());
+		// Roll back commits on Code System branch which were made after latest release branch base timepoint.
+		CodeSystemVersion latestVersion = codeSystemService.findLatestVersion(codeSystem.getShortName());
+		Branch latestReleaseBranch = branchService.findLatest(latestVersion.getBranchPath());
+		rollbackCommitsAfterTimepoint(codeSystem.getBranchPath(), latestReleaseBranch.getBase());
+		logger.info("start daily build delta import for code system " +  codeSystem.getShortName());
+		String importId = importService.createJob(RF2Type.DELTA, codeSystem.getBranchPath(), false, true);
+		InputStream dailyBuildStream = resourceManager.readResourceStreamOrNullIfNotExists(codeSystem.getShortName() + "/" + dailyBuildFilename);
+		importService.importArchive(importId, dailyBuildStream);
+		logger.info("Daily build delta import completed for code system " +  codeSystem.getShortName());
 	}
 
-	private boolean rollbackCommitsAfterTimepoint(String path, Date timepoint) {
+	private void rollbackCommitsAfterTimepoint(String path, Date timepoint) {
 		try {
 			// Find all versions after base timestamp
 			Page<Branch> branchPage = branchService.findAllVersionsAfterTimestamp(path, timepoint, Pageable.unpaged());
@@ -151,16 +143,12 @@ public class ScheduledDailyBuildImportService {
 			for (Branch branchVersion : rollbackList) {
 				branchService.rollbackCompletedCommit(branchVersion, domainTypes);
 			}
-			return true;
-		} catch (Exception e) {
-			logger.error("Failed to rollback commits on {} started at {}.", path, timepoint, e);
-			return false;
 		} finally {
 			branchService.unlock(path);
 		}
 	}
 
-	InputStream getNewDailyBuildIfExists(CodeSystem codeSystem, long lastImportTimepoint) {
+	String getNewDailyBuildIfExists(CodeSystem codeSystem, long lastImportTimepoint) {
 		String deltaDirectoryPath = ResourcePathHelper.getFullPath(dailyBuildResourceConfig, codeSystem.getShortName());
 		logger.debug("Daily build resources path '{}'.", deltaDirectoryPath);
 		List<String> archiveFilenames = new ArrayList<>();
@@ -194,11 +182,7 @@ public class ScheduledDailyBuildImportService {
 			if (archiveFilenames.size() > 1) {
 				logger.info("Found total {} daily builds. '{}' will be loaded.", archiveFilenames.size(), mostRecentBuild);
 			}
-			try {
-				return resourceManager.readResourceStream(codeSystem.getShortName() + "/" + mostRecentBuild);
-			} catch (IOException e) {
-				logger.error("Failed to read resource from '{}'", mostRecentBuild, e);
-			}
+			return mostRecentBuild;
 		}
 		return null;
 	}
@@ -215,6 +199,10 @@ public class ScheduledDailyBuildImportService {
 			logger.error("File name contains invalid date format expected '{}' but is '{}'.", DAILY_BUILD_DATE_FORMAT, dateStr);
 		}
 		return false;
+	}
+
+	void setResourceManager(ResourceManager resourceManager) {
+		this.resourceManager = resourceManager;
 	}
 
 	private static class ResourcePathHelper {

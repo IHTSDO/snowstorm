@@ -2,6 +2,7 @@ package org.snomed.snowstorm.dailybuild;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
+import org.ihtsdo.otf.resourcemanager.ResourceConfiguration;
 import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.junit.Before;
 import org.junit.Test;
@@ -23,9 +24,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
+import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -65,10 +64,10 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 	private ElasticsearchTemplate elasticsearchTemplate;
 
 	@Autowired
-	private DailyBuildResourceConfig dailyBuildResourceConfig;
+	private ResourceLoader resourceLoader;
 
 	@Autowired
-	private ResourceLoader resourceLoader;
+	private DailyBuildResourceConfig dailyBuildResourceConfig;
 
 	@Before
 	public void setUp() throws Exception {
@@ -79,6 +78,7 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		importService.importArchive(importId, new FileInputStream(baseLineRelease));
 		rf2Archive1 = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-daily-build/DailyBuild_Day1");
 		rf2Archive2 = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-daily-build/DailyBuild_Day2");
+		dailyBuildImportService.setResourceManager(new MockResourceManager(dailyBuildResourceConfig, resourceLoader));
 	}
 
 	@Test
@@ -117,8 +117,8 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 
 		// scheduled daily build import with changes to revert previous day's authoring and add a brand new concept
 
-		InputStream dailyBuildInputStream2 = new FileInputStream(rf2Archive2);
-		dailyBuildImportService.dailyBuildDeltaImport(snomedct, dailyBuildInputStream2);
+		System.out.println(rf2Archive2.getAbsolutePath());
+		dailyBuildImportService.dailyBuildDeltaImport(snomedct, rf2Archive2.getAbsolutePath());
 		Thread.sleep(2000);
 		elasticsearchTemplate.refresh(Branch.class);
 		branchPage = branchService.findAllVersions(branchPath, Pageable.unpaged());
@@ -140,21 +140,29 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 
 	}
 
+	private static class MockResourceManager extends ResourceManager {
 
-	@Test
-	public void testGetDailyBuildAvailable() throws Exception {
-		Branch main = branchService.findLatest(snomedct.getBranchPath());
-		ResourceManager resourceManager = new ResourceManager(dailyBuildResourceConfig, resourceLoader);
-		Date now = new Date(main.getHeadTimestamp() + 1000);
+		public static final String SNOMEDCT = "SNOMEDCT";
 
-		SimpleDateFormat formatter = new SimpleDateFormat(ScheduledDailyBuildImportService.DAILY_BUILD_DATE_FORMAT);
-		String first = formatter.format(now);
-		// TODO need to update the Resource manager
-//		resourceManager.writeResource(snomedct.getShortName() + "/" + first + ".zip", new FileInputStream(rf2Archive1));
+		public MockResourceManager(ResourceConfiguration resourceConfiguration, ResourceLoader cloudResourceLoader) {
+			super(resourceConfiguration, cloudResourceLoader);
+		}
 
-		assertNotNull(main);
-		InputStream inputStream = dailyBuildImportService.getNewDailyBuildIfExists(snomedct, main.getHeadTimestamp());
-		assertNull(inputStream);
+		public InputStream readResourceStream(String fullPath) throws IOException {
+			if (fullPath.startsWith(SNOMEDCT)) {
+				fullPath = fullPath.replace(SNOMEDCT, "");
+			}
+			File file = new File(fullPath);
+			if (file.exists() && file.canRead()) {
+				return new FileInputStream(fullPath);
+			} else {
+				return null;
+			}
+		}
+
+		public InputStream readResourceStreamOrNullIfNotExists(String fullPath) throws IOException {
+			return  this.readResourceStream(fullPath);
+		}
 	}
 }
 
