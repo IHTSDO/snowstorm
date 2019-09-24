@@ -166,6 +166,10 @@ public class ScheduledDailyBuildImportService {
 			for (Resource deltaArchive : deltaArchives) {
 				String filename = deltaArchive.getFilename();
 				if (filename != null && filename.endsWith(".zip")) {
+					// Strip off file separators
+					if (filename.contains("/")) {
+						filename = filename.substring(filename.lastIndexOf("/") + 1);
+					}
 					// Check the uploaded time after the last import
 					if (isAfter(filename, lastImportTimepoint)) {
 						archiveFilenames.add(filename);
@@ -186,11 +190,10 @@ public class ScheduledDailyBuildImportService {
 			if (archiveFilenames.size() > 1) {
 				logger.info("Found total {} daily builds. '{}' will be loaded.", archiveFilenames.size(), mostRecentBuild);
 			}
-			String archivePath = codeSystem.getShortName() + "/" + mostRecentBuild;
 			try {
-				return resourceManager.readResourceStream(archivePath);
+				return resourceManager.readResourceStream(codeSystem.getShortName() + "/" + mostRecentBuild);
 			} catch (IOException e) {
-				logger.error("Failed to read resource from '{}'", archivePath, e);
+				logger.error("Failed to read resource from '{}'", mostRecentBuild, e);
 			}
 		}
 		return null;
@@ -198,9 +201,6 @@ public class ScheduledDailyBuildImportService {
 
 	private boolean isAfter(String filename, long timestamp) {
 		String dateStr = filename.substring(0, filename.lastIndexOf("."));
-		if (filename.contains("/")) {
-			dateStr = filename.substring(filename.lastIndexOf("/") + 1, filename.lastIndexOf("."));
-		}
 		SimpleDateFormat formatter = new SimpleDateFormat(DAILY_BUILD_DATE_FORMAT);
 		try {
 			if (formatter.parse(dateStr).after(new Date(timestamp))) {
