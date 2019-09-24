@@ -9,6 +9,7 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -61,7 +62,7 @@ public class DescriptionDroolsValidationServiceTest extends AbstractTest {
     @Before
     public void setup() throws ServiceException {
         root = new Concept(SNOMEDCT_ROOT);
-        bodyStructureAncestor = new Concept("123037004").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Body structure (body structure)");
+        bodyStructureAncestor = new Concept("123037004").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Concepts.INFERRED_RELATIONSHIP)).addFSN("Body structure (body structure)");
         bodyStructureDescendant1 = new Concept("442083009").addRelationship(new Relationship(ISA, bodyStructureAncestor.getId())).addFSN("Anatomical or acquired body structure (body structure)");
         bodyStructureDescendant2 = new Concept("302509004").addRelationship(new Relationship(ISA, bodyStructureDescendant1.getId())).addFSN("Entire heart (body structure)").addDescription(new Description("444221019", 20170731, true, "900000000000207008", "302509004", "en", "900000000000013009", "Entire heart", "900000000000448009"));
 
