@@ -89,8 +89,8 @@ public class ScheduledDailyBuildImportService {
 		for (CodeSystem codeSystem : codeSystems) {
 			try {
 				performScheduledImport(codeSystem);
-			} catch (IOException | ReleaseImportException e) {
-				logger.error("Failed to import daily build for code system " + codeSystem.getShortName());
+			} catch (Exception e) {
+				logger.error("Failed to import daily build for code system " + codeSystem.getShortName(), e);
 			}
 		}
 	}
@@ -99,17 +99,13 @@ public class ScheduledDailyBuildImportService {
 		String branchPath = codeSystem.getBranchPath();
 		Branch codeSystemBranch = branchService.findBranchOrThrow(branchPath);
 		if (codeSystemBranch.isLocked()) {
+			logger.info("Scheduled daily build import is skipped as branch {} is already locked.", branchPath);
 			return;
 		}
-
-		try {
-			// Lock branch immediately to stop other instances performing daily build.
-			branchService.lockBranch(branchPath, LOCK_MESSAGE);
-			String dailyBuildSteam = getNewDailyBuildIfExists(codeSystem, codeSystemBranch.getHeadTimestamp());
-			dailyBuildDeltaImport(codeSystem, dailyBuildSteam);
-		} finally {
-			branchService.unlock(branchPath);
-		}
+		// check any new daily builds
+		String dailyBuildSteam = getNewDailyBuildIfExists(codeSystem, codeSystemBranch.getHeadTimestamp());
+		// perform rollback and import
+		dailyBuildDeltaImport(codeSystem, dailyBuildSteam);
 	}
 
 	void dailyBuildDeltaImport(CodeSystem codeSystem, String dailyBuildFilename) throws IOException, ReleaseImportException {
@@ -117,10 +113,16 @@ public class ScheduledDailyBuildImportService {
 			return;
 		}
 		logger.info("New daily build {} found for {} ", dailyBuildFilename, codeSystem.getShortName());
+
+		// Lock branch immediately to stop other instances performing daily build.
+		branchService.lockBranch(codeSystem.getBranchPath(), LOCK_MESSAGE);
 		// Roll back commits on Code System branch which were made after latest release branch base timepoint.
 		CodeSystemVersion latestVersion = codeSystemService.findLatestVersion(codeSystem.getShortName());
 		Branch latestReleaseBranch = branchService.findLatest(latestVersion.getBranchPath());
 		rollbackCommitsAfterTimepoint(codeSystem.getBranchPath(), latestReleaseBranch.getBase());
+		// unlock branch so that delta import can be executed
+		branchService.unlock(codeSystem.getBranchPath());
+
 		logger.info("start daily build delta import for code system " +  codeSystem.getShortName());
 		String importId = importService.createJob(RF2Type.DELTA, codeSystem.getBranchPath(), false, true);
 		InputStream dailyBuildStream = resourceManager.readResourceStreamOrNullIfNotExists(codeSystem.getShortName() + "/" + dailyBuildFilename);
@@ -129,22 +131,18 @@ public class ScheduledDailyBuildImportService {
 	}
 
 	private void rollbackCommitsAfterTimepoint(String path, Date timepoint) {
-		try {
-			// Find all versions after base timestamp
-			Page<Branch> branchPage = branchService.findAllVersionsAfterTimestamp(path, timepoint, Pageable.unpaged());
+		// Find all versions after base timestamp
+		Page<Branch> branchPage = branchService.findAllVersionsAfterTimestamp(path, timepoint, Pageable.unpaged());
 
-			logger.info("{} branch commits found to roll back on {} after timepoint {}.", branchPage.getTotalElements(), path, timepoint);
+		logger.info("{} branch commits found to roll back on {} after timepoint {}.", branchPage.getTotalElements(), path, timepoint);
 
-			// Roll back in reverse order (i.e the most recent first)
-			List<Branch> rollbackList = new ArrayList<>(branchPage.getContent());
-			Collections.reverse(rollbackList);
+		// Roll back in reverse order (i.e the most recent first)
+		List<Branch> rollbackList = new ArrayList<>(branchPage.getContent());
+		Collections.reverse(rollbackList);
 
-			List<Class<? extends DomainEntity>> domainTypes = new ArrayList<>(domainEntityConfiguration.getAllDomainEntityTypes());
-			for (Branch branchVersion : rollbackList) {
-				branchService.rollbackCompletedCommit(branchVersion, domainTypes);
-			}
-		} finally {
-			branchService.unlock(path);
+		List<Class<? extends DomainEntity>> domainTypes = new ArrayList<>(domainEntityConfiguration.getAllDomainEntityTypes());
+		for (Branch branchVersion : rollbackList) {
+			branchService.rollbackCompletedCommit(branchVersion, domainTypes);
 		}
 	}
 

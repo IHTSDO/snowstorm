@@ -116,8 +116,6 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		assertNull(concept.getEffectiveTimeI());
 
 		// scheduled daily build import with changes to revert previous day's authoring and add a brand new concept
-
-		System.out.println(rf2Archive2.getAbsolutePath());
 		dailyBuildImportService.dailyBuildDeltaImport(snomedct, rf2Archive2.getAbsolutePath());
 		Thread.sleep(2000);
 		elasticsearchTemplate.refresh(Branch.class);
