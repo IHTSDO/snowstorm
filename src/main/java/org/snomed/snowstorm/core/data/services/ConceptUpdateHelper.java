@@ -97,10 +97,14 @@ public class ConceptUpdateHelper extends ComponentService {
 				concept.setInactivationIndicator(null);
 				concept.setAssociationTargets(null);
 			} else {
-				// Make relationships and axioms inactive
-				concept.getRelationships().forEach(relationship -> relationship.setActive(false));
-				concept.getDescriptions().forEach(description -> description.setInactivationIndicator(inactivationIndicatorNames.get(Concepts.CONCEPT_NON_CURRENT)));
+				// Make stated relationships and axioms inactive
+				concept.getRelationships().forEach(relationship -> {
+					if (Concepts.STATED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId())) {
+						relationship.setActive(false);
+					}
+				});
 				newVersionOwlAxiomMembers.forEach(axiom -> axiom.setActive(false));
+				concept.getDescriptions().forEach(description -> description.setInactivationIndicator(inactivationIndicatorNames.get(Concepts.CONCEPT_NON_CURRENT)));
 			}
 
 			// Mark changed concepts as changed
