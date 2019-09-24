@@ -122,8 +122,10 @@ public class ScheduledDailyBuildImportService {
 			// Roll back commits on Code System branch which were made after latest release branch base timepoint.
 			CodeSystemVersion latestVersion = codeSystemService.findLatestVersion(codeSystem.getShortName());
 			Branch latestReleaseBranch = branchService.findLatest(latestVersion.getBranchPath());
-			rollbackCommitsAfterTimepoint(codeSystem.getBranchPath(), latestReleaseBranch.getBase());
-
+			boolean isSuccessful = rollbackCommitsAfterTimepoint(codeSystem.getBranchPath(), latestReleaseBranch.getBase());
+			if (!isSuccessful) {
+				return;
+			}
 			logger.info("Start daily build delta import for code system " +  codeSystem.getShortName());
 			String importId = importService.createJob(RF2Type.DELTA, codeSystem.getBranchPath(), false, true);
 			importService.importArchive(importId, dailyBuildSteam);
@@ -134,7 +136,7 @@ public class ScheduledDailyBuildImportService {
 		}
 	}
 
-	private void rollbackCommitsAfterTimepoint(String path, Date timepoint) {
+	private boolean rollbackCommitsAfterTimepoint(String path, Date timepoint) {
 		try {
 			// Find all versions after base timestamp
 			Page<Branch> branchPage = branchService.findAllVersionsAfterTimestamp(path, timepoint, Pageable.unpaged());
@@ -142,15 +144,17 @@ public class ScheduledDailyBuildImportService {
 			logger.info("{} branch commits found to roll back on {} after timepoint {}.", branchPage.getTotalElements(), path, timepoint);
 
 			// Roll back in reverse order (i.e the most recent first)
-			List<Branch> rollbackList = branchPage.getContent();
+			List<Branch> rollbackList = new ArrayList<>(branchPage.getContent());
 			Collections.reverse(rollbackList);
 
 			List<Class<? extends DomainEntity>> domainTypes = new ArrayList<>(domainEntityConfiguration.getAllDomainEntityTypes());
 			for (Branch branchVersion : rollbackList) {
 				branchService.rollbackCompletedCommit(branchVersion, domainTypes);
 			}
+			return true;
 		} catch (Exception e) {
 			logger.error("Failed to rollback commits on {} started at {}.", path, timepoint, e);
+			return false;
 		} finally {
 			branchService.unlock(path);
 		}
@@ -171,7 +175,7 @@ public class ScheduledDailyBuildImportService {
 						filename = filename.substring(filename.lastIndexOf("/") + 1);
 					}
 					// Check the uploaded time after the last import
-					if (isAfter(filename, lastImportTimepoint)) {
+					if (isAfterAndNotFuture(filename, lastImportTimepoint)) {
 						archiveFilenames.add(filename);
 					}
 				}
@@ -199,11 +203,12 @@ public class ScheduledDailyBuildImportService {
 		return null;
 	}
 
-	private boolean isAfter(String filename, long timestamp) {
+	private boolean isAfterAndNotFuture(String filename, long timestamp) {
 		String dateStr = filename.substring(0, filename.lastIndexOf("."));
 		SimpleDateFormat formatter = new SimpleDateFormat(DAILY_BUILD_DATE_FORMAT);
 		try {
-			if (formatter.parse(dateStr).after(new Date(timestamp))) {
+			Date buildDate = formatter.parse(dateStr);
+			if (buildDate.before(new Date()) && buildDate.after(new Date(timestamp))) {
 				return true;
 			}
 		} catch (ParseException e) {
