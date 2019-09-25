@@ -11,9 +11,9 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -28,7 +28,7 @@ public class RelationshipDroolsValidationServiceTest extends AbstractTest {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchOperations;
+	private QueryService queryService;
 
 	private RelationshipDroolsValidationService service;
 
@@ -39,13 +39,13 @@ public class RelationshipDroolsValidationServiceTest extends AbstractTest {
 				new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
 				branchPath);
 
-		service = new RelationshipDroolsValidationService(versionControlHelper.getBranchCriteria(branchPath), elasticsearchOperations);
+		service = new RelationshipDroolsValidationService(branchPath, versionControlHelper.getBranchCriteria(branchPath), queryService);
 	}
 
 	@Test
 	public void hasActiveInboundStatedRelationship() throws Exception {
-		Assert.assertTrue(service.hasActiveInboundStatedRelationship("100001", Concepts.ISA));
-		Assert.assertFalse(service.hasActiveInboundStatedRelationship("100001", "10000123"));
+		Assert.assertTrue(service.hasActiveInboundStatedRelationship(Concepts.SNOMEDCT_ROOT, Concepts.ISA));
+		Assert.assertFalse(service.hasActiveInboundStatedRelationship(Concepts.SNOMEDCT_ROOT, "10000123"));
 		Assert.assertFalse(service.hasActiveInboundStatedRelationship("100002", Concepts.ISA));
 	}
 

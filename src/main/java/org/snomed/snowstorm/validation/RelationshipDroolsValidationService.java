@@ -1,45 +1,49 @@
 package org.snomed.snowstorm.validation;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
-import org.elasticsearch.common.Strings;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.services.QueryService;
+import org.springframework.data.domain.PageRequest;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
 public class RelationshipDroolsValidationService implements org.ihtsdo.drools.service.RelationshipService {
 
-	private ElasticsearchOperations elasticsearchTemplate;
+	private final QueryService queryService;
+	private final String branchPath;
 	private BranchCriteria branchCriteria;
 
-	RelationshipDroolsValidationService(BranchCriteria branchCriteria, ElasticsearchOperations elasticsearchTemplate) {
+	RelationshipDroolsValidationService(String branchPath, BranchCriteria branchCriteria, QueryService queryService) {
+		this.branchPath = branchPath;
 		this.branchCriteria = branchCriteria;
-		this.elasticsearchTemplate = elasticsearchTemplate;
+		this.queryService = queryService;
 	}
 
 	@Override
 	public boolean hasActiveInboundStatedRelationship(String conceptId) {
+		if (conceptId.contains("-")) {
+			return false;
+		}
 		return hasActiveInboundStatedRelationship(conceptId, null);
 	}
 
 	@Override
 	public boolean hasActiveInboundStatedRelationship(String conceptId, String relationshipTypeId) {
-		final BoolQueryBuilder builder = boolQuery()
-				.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
-				.must(termQuery("sourceId", conceptId))
-				.must(termQuery("active", true));
-		if (!Strings.isNullOrEmpty(relationshipTypeId)) {
-			builder.must(termQuery("typeId", relationshipTypeId));
+		if (conceptId.contains("-")) {
+			return false;
 		}
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
-				.withQuery(builder)
-				.withPageable(Config.PAGE_OF_ONE)
-				.build();
-		return !elasticsearchTemplate.queryForList(query, Relationship.class).isEmpty();
+		String ecl;
+		if (Concepts.ISA.equals(relationshipTypeId)) {
+			// Concept is parent of any concept
+			ecl = "<" + conceptId;
+		} else if (relationshipTypeId != null) {
+			// Concept is target of specific attribute type
+			ecl = "*:" + relationshipTypeId + "=" + conceptId;
+		} else {
+			// Concept is target of any attribute type
+			ecl = "*:*=" + conceptId;
+		}
+
+		return queryService.searchForIds(queryService.createQueryBuilder(true).ecl(ecl), branchPath, branchCriteria, PageRequest.of(0, 1)).getTotalElements() > 0;
 	}
 }

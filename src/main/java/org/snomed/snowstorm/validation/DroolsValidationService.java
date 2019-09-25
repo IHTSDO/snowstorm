@@ -101,7 +101,7 @@ public class DroolsValidationService {
 		ConceptDroolsValidationService conceptService = new ConceptDroolsValidationService(branchPath, branchCriteria, elasticsearchOperations, queryService);
 		DescriptionDroolsValidationService descriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, versionControlHelper, elasticsearchOperations,
 				this.descriptionService, queryService, testResourceProvider);
-		RelationshipDroolsValidationService relationshipService = new RelationshipDroolsValidationService(branchCriteria, elasticsearchOperations);
+		RelationshipDroolsValidationService relationshipService = new RelationshipDroolsValidationService(branchPath, branchCriteria, queryService);
 		return ruleExecutor.execute(ruleSetNames, droolsConcepts, conceptService, descriptionService, relationshipService, false, false);
 	}
 

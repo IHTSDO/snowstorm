@@ -95,6 +95,10 @@ public class QueryService implements ApplicationContextAware {
 
 	public SearchAfterPage<Long> searchForIds(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		return searchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
+	}
+
+	public SearchAfterPage<Long> searchForIds(ConceptQueryBuilder conceptQuery, String branchPath, BranchCriteria branchCriteria, PageRequest pageRequest) {
 		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
 		return conceptIdPageOptional.orElseGet(() -> {
 			// No ids - return page of all concept ids
