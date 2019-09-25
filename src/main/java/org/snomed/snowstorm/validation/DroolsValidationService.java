@@ -96,7 +96,7 @@ public class DroolsValidationService {
 		Set<DroolsConcept> droolsConcepts = concepts.stream().map(DroolsConcept::new).collect(Collectors.toSet());
 
 		// Look-up release hashes from the store to set/update the component effectiveTimes
-		setReleaseHashAndEffectiveTime(concepts);
+		setReleaseHashAndEffectiveTime(concepts, branchCriteria);
 
 		ConceptDroolsValidationService conceptService = new ConceptDroolsValidationService(branchPath, branchCriteria, elasticsearchOperations, queryService);
 		DescriptionDroolsValidationService descriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, versionControlHelper, elasticsearchOperations,
@@ -105,7 +105,7 @@ public class DroolsValidationService {
 		return ruleExecutor.execute(ruleSetNames, droolsConcepts, conceptService, descriptionService, relationshipService, false, false);
 	}
 
-	private void setReleaseHashAndEffectiveTime(Set<Concept> concepts) {
+	private void setReleaseHashAndEffectiveTime(Set<Concept> concepts, BranchCriteria branchCriteria) {
 		Map<Long, Concept> conceptMap = new Long2ObjectOpenHashMap<>();
 		Map<Long, Description> descriptionMap = new Long2ObjectOpenHashMap<>();
 		Map<Long, Relationship> relationshipMap = new Long2ObjectOpenHashMap<>();
@@ -129,6 +129,7 @@ public class DroolsValidationService {
 		});
 		try (CloseableIterator<Concept> conceptStream = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.RELEASED, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptMap.keySet()))
 				)
@@ -143,6 +144,7 @@ public class DroolsValidationService {
 		}
 		try (CloseableIterator<Description> descriptionStream = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery(Concept.Fields.RELEASED, true))
 						.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionMap.keySet()))
 				)
@@ -157,6 +159,7 @@ public class DroolsValidationService {
 		}
 		try (CloseableIterator<Relationship> relationshipsFromStore = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 						.must(termQuery(Concept.Fields.RELEASED, true))
 						.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipMap.keySet()))
 				)
