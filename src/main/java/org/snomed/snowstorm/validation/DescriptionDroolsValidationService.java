@@ -34,8 +34,8 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	private final DescriptionService descriptionService;
 	private final QueryService queryService;
 	private final TestResourceProvider testResourceProvider;
-
 	private static Set<String> hierarchyRootIds;
+	private Map<String, String> statedHierarchyRootIdCache = Collections.synchronizedMap(new HashMap<>());
 	private static final Logger LOGGER = LoggerFactory.getLogger(DescriptionDroolsValidationService.class);
 
 	DescriptionDroolsValidationService(String branchPath,
@@ -88,22 +88,24 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 
 	@Override
 	public Set<org.ihtsdo.drools.domain.Description> findMatchingDescriptionInHierarchy(org.ihtsdo.drools.domain.Concept concept, org.ihtsdo.drools.domain.Description description) {
-		Set<org.ihtsdo.drools.domain.Description> matchingDescriptions = findActiveDescriptionByExactTerm(description.getTerm())
-				.stream().filter(d -> d.getLanguageCode().equals(description.getLanguageCode())).collect(Collectors.toSet());
+		try {
+			Set<org.ihtsdo.drools.domain.Description> matchingDescriptions = findActiveDescriptionByExactTerm(description.getTerm())
+					.stream().filter(d -> d.getLanguageCode().equals(description.getLanguageCode())).collect(Collectors.toSet());
 
-		if (!matchingDescriptions.isEmpty()) {
-			// Filter matching descriptions by hierarchy
+			if (!matchingDescriptions.isEmpty()) {
+				// Filter matching descriptions by hierarchy
 
-			// Find root for this concept
-			String conceptHierarchyRootId = findStatedHierarchyRootId(concept);
-			if (conceptHierarchyRootId != null) {
-				LOGGER.info("Found stated hierarchy id {}", conceptHierarchyRootId);
-
-				return matchingDescriptions.stream().filter(d -> {
-					Set<Long> matchingDescriptionAncestors = queryService.findAncestorIds(d.getConceptId(), branchPath, true);
-					return matchingDescriptionAncestors.contains(new Long(conceptHierarchyRootId));
-				}).collect(Collectors.toSet());
+				// Find root for this concept
+				String conceptHierarchyRootId = findStatedHierarchyRootId(concept);
+				if (conceptHierarchyRootId != null) {
+					return matchingDescriptions.stream().filter(d -> {
+						Set<Long> matchingDescriptionAncestors = queryService.findAncestorIds(branchCriteria, branchPath, true, d.getConceptId());
+						return matchingDescriptionAncestors.contains(new Long(conceptHierarchyRootId));
+					}).collect(Collectors.toSet());
+				}
 			}
+		} catch (IllegalArgumentException e) {
+			LOGGER.error("Drools rule failed.", e);
 		}
 		return Collections.emptySet();
 	}
@@ -156,6 +158,14 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	}
 
 	private String findStatedHierarchyRootId(org.ihtsdo.drools.domain.Concept concept) {
+		String conceptId = concept.getId();
+		if (!statedHierarchyRootIdCache.containsKey(conceptId)) {
+			statedHierarchyRootIdCache.put(conceptId, doFindStatedHierarchyRootId(concept));
+		}
+		return statedHierarchyRootIdCache.get(conceptId);
+	}
+
+	private String doFindStatedHierarchyRootId(org.ihtsdo.drools.domain.Concept concept) {
 		Set<String> statedIsARelationships = concept.getRelationships().stream().filter(r -> r.isActive()
 				&& Concepts.STATED_RELATIONSHIP.equals(r.getCharacteristicTypeId())
 				&& Concepts.ISA.equals(r.getTypeId())).map(org.ihtsdo.drools.domain.Relationship :: getDestinationId).collect(Collectors.toSet());
