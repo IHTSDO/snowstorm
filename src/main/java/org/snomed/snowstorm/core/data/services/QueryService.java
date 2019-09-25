@@ -329,10 +329,7 @@ public class QueryService implements ApplicationContextAware {
 			logger.error("More than one index concept found {}", concepts);
 			throw new IllegalStateException("More than one query-index-concept found for id " + conceptId + " on branch " + path + ".");
 		}
-		if (concepts.isEmpty()) {
-			throw new IllegalArgumentException(String.format("Concept %s not found on branch %s", conceptId, path));
-		}
-		return concepts.get(0).getAncestors();
+		return !concepts.isEmpty() ? concepts.get(0).getAncestors() : Collections.emptySet();
 	}
 
 	public Set<Long> findAncestorIdsAsUnion(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptId) {
