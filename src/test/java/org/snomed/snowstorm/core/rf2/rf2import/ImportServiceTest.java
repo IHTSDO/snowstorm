@@ -488,7 +488,26 @@ public class ImportServiceTest extends AbstractTest {
 		assertEquals(3, relationshipGroups.get(1).get());
 	}
 
-	private void collectContentCounts(List<Concept> concepts, Map<String, AtomicInteger> conceptDefinitionStatuses, Map<String, AtomicInteger> descriptionCaseSignificance, Map<String, AtomicInteger> descriptionAcceptability, Map<Integer, AtomicInteger> relationshipGroups) {
+
+	@Test
+	public void testImportWithEffectiveTimeCleared() throws IOException, ReleaseImportException {
+		// The content in these zips is for the daily build and the effective time needs to be cleared
+
+		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-daily-build/DailyBuild_Day1");
+		String importId = importService.createJob(RF2Type.DELTA, "MAIN", false, true);
+		importService.importArchive(importId, new FileInputStream(zipFile));
+
+		List<Concept> concepts = conceptService.findAll("MAIN", PageRequest.of(0, 10)).getContent();
+		assertEquals(2, concepts.size());
+		Concept concept = conceptService.find("131148009", "MAIN");
+		assertNull(concept.getEffectiveTime());
+		assertFalse(concept.isReleased());
+		assertNull(concept.getReleasedEffectiveTime());
+
+
+	}
+
+		private void collectContentCounts(List<Concept> concepts, Map<String, AtomicInteger> conceptDefinitionStatuses, Map<String, AtomicInteger> descriptionCaseSignificance, Map<String, AtomicInteger> descriptionAcceptability, Map<Integer, AtomicInteger> relationshipGroups) {
 		conceptDefinitionStatuses.clear();
 		descriptionCaseSignificance.clear();
 		descriptionAcceptability.clear();

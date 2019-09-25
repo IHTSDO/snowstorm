@@ -132,6 +132,9 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			component.setChanged(true);
 			if (clearEffectiveTimes) {
 				component.setEffectiveTimeI(null);
+				component.setReleased(false);
+				component.setReleaseHash(null);
+				component.setReleasedEffectiveTime(null);
 			}
 			Integer effectiveTimeI = component.getEffectiveTimeI();
 			if (effectiveTimeI != null) {

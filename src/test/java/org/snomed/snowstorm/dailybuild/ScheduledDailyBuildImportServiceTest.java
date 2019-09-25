@@ -25,9 +25,6 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.io.*;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
 import static junit.framework.TestCase.assertNull;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
@@ -105,6 +102,9 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		publishedConcept = conceptService.find("12481008", branchPath);
 		assertNotNull(publishedConcept);
 		assertTrue(!publishedConcept.isActive());
+		assertTrue(publishedConcept.isReleased());
+		assertNotNull(publishedConcept.getReleasedEffectiveTime());
+		assertNull(publishedConcept.getEffectiveTime());
 
 		String day1InternalId = publishedConcept.getInternalId();
 		assertNotEquals(publishedInternalId, day1InternalId);
@@ -128,6 +128,11 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		assertNotNull(publishedConcept);
 		assertTrue(publishedConcept.isActive());
 		assertEquals(publishedInternalId, publishedConcept.getInternalId());
+		assertTrue(publishedConcept.isReleased());
+		assertNotNull(publishedConcept.getReleasedEffectiveTime());
+		assertNotNull(publishedConcept.getEffectiveTime());
+		assertEquals("20170131", publishedConcept.getEffectiveTime());
+
 		// dropped
 		concept = conceptService.find("131148010", branchPath);
 		assertNotNull(concept);

@@ -78,7 +78,7 @@ public class ScheduledDailyBuildImportService {
 		logger.info("Daily build import is enabled.");
 	}
 
-	@Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
+	@Scheduled(fixedDelayString = "${daily-build.delta-import.schedule}", initialDelay = 30_000)
 	public void scheduledDailyBuildDeltaImport() {
 		if (!initialised) {
 			return;
