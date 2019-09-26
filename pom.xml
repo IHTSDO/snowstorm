@@ -7,7 +7,7 @@
 
 	<groupId>org.snomed</groupId>
 	<artifactId>snowstorm</artifactId>
-	<version>4.3.3-SNAPSHOT</version>
+	<version>4.3.3</version>
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>
