@@ -85,7 +85,7 @@ public class BranchMergeService {
 		final String source = mergeRequest.getSource();
 		final String target = mergeRequest.getTarget();
 
-		if (codeSystemService.codeSystemExistsOnBranch(target)) {
+		if (codeSystemService.codeSystemExistsOnBranch(source) && codeSystemService.codeSystemExistsOnBranch(target)) {
 			throw new IllegalArgumentException("It looks like you are attempting to upgrade a code system. " +
 					"Please use the code system upgrade operation for this.");
 		}
