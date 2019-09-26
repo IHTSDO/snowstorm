@@ -4,13 +4,15 @@
 
 Snowstorms's FHIR capabilities are managed using the HAPI Server package, which brings a number of benefits such as automatic creation of the Capabilities resource. It also means that future releases of the FHIR Specification will not require code changes by SNOMED International as we'll be able migrate to the next version of HAPI.
 
+## Documentation
 
-
-# Testing
 Unfortunately HAPI does not easily support a Swagger interface for testing, but if you are used to working with **[Postman](https://www.getpostman.com/downloads/)**, here is a Postman project to try out some of the FHIR API calls.
 
 [![Run in Postman](https://run.pstmn.io/button.svg)](https://app.getpostman.com/run-collection/4aa97fbcc6a6ccd0e94c)
 
+You can also find a description of the capabilities here - https://documenter.getpostman.com/view/462462/S1TVXJ3k
+
+## Testing
 
 In a default installation, the FHIR endpoints can be found at: http://localhost:8080/fhir  although there is no operation there, so you could try one of these calls:
 
