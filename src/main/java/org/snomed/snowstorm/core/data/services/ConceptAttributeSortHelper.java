@@ -42,9 +42,10 @@ public class ConceptAttributeSortHelper {
 		domainAttributeOrderMap = sortOrderProperties.getDomainAttributeOrderMap();
 	}
 
-	private static final Comparator<Relationship> ACTIVE_RELATIONSHIP_COMPARATOR_WITHOUT_GROUP = Comparator
+	private static final Comparator<Relationship> ACTIVE_RELATIONSHIP_COMPARATOR_WITH_GROUP_LAST = Comparator
 			.comparing(Relationship::getAttributeOrder, Comparator.nullsLast(Short::compareTo))
-			.thenComparing(Relationship::getTargetFsn, Comparator.nullsLast(String::compareTo));
+			.thenComparing(Relationship::getTargetFsn, Comparator.nullsLast(String::compareTo))
+			.thenComparing(Relationship::getGroupId);
 
 	private static final Comparator<Relationship> RELATIONSHIP_COMPARATOR = Comparator
 			.comparing(Relationship::isActive).reversed()
@@ -135,7 +136,7 @@ public class ConceptAttributeSortHelper {
 		int originalSize = relationshipSet.size();
 
 		List<Relationship> relationships = new ArrayList<>(relationshipSet);
-		Set<Relationship> sortedUngroupedRelationships = new TreeSet<>(ACTIVE_RELATIONSHIP_COMPARATOR_WITHOUT_GROUP);
+		Set<Relationship> sortedUngroupedRelationships = new TreeSet<>(ACTIVE_RELATIONSHIP_COMPARATOR_WITH_GROUP_LAST);
 		for (Relationship relationship : relationships) {
 			relationship.setAttributeOrder(attributeOrderMap.get(parseLong(relationship.getTypeId())));
 			if (relationship.isActive()) {
