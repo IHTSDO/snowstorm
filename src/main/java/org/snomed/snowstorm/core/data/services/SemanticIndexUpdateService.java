@@ -18,6 +18,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.QueryConceptRepository;
 import org.snomed.snowstorm.core.data.services.pojo.SAxiomRepresentation;
 import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilder;
+import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilderException;
 import org.snomed.snowstorm.core.data.services.transitiveclosure.Node;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,15 +77,15 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		if (semanticIndexingEnabled) {
 			try {
 				updateStatedAndInferredSemanticIndex(commit);
-			} catch (ConversionException e) {
-				throw new IllegalStateException("Failed to convert OWL Axioms.", e);
+			} catch (ConversionException | GraphBuilderException e) {
+				throw new IllegalStateException("Failed to update semantic index. " + e.getMessage(), e);
 			}
 		} else {
 			logger.info("Semantic indexing is disabled.");
 		}
 	}
 
-	public void rebuildStatedAndInferredSemanticIndex(String branch) throws ConversionException {
+	public void rebuildStatedAndInferredSemanticIndex(String branch) throws ServiceException {
 		// TODO: Only use on MAIN
 		try (Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata("Rebuilding semantic index."))) {
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
@@ -92,10 +93,12 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			updateSemanticIndex(Form.STATED, branchCriteria, Collections.emptySet(), commit, timeSlice, true);
 			updateSemanticIndex(Form.INFERRED, branchCriteria, Collections.emptySet(), commit, timeSlice, true);
 			commit.markSuccessful();
+		} catch (ConversionException | GraphBuilderException e) {
+			throw new ServiceException("Failed to update semantic index. " + e.getMessage(), e);
 		}
 	}
 
-	private void updateStatedAndInferredSemanticIndex(Commit commit) throws IllegalStateException, ConversionException {
+	private void updateStatedAndInferredSemanticIndex(Commit commit) throws IllegalStateException, ConversionException, GraphBuilderException {
 		if (commit.isRebase()) {
 			// Recreate query index using new parent base point + content on this branch
 			Branch branch = commit.getBranch();
@@ -118,7 +121,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	}
 
 	private void updateSemanticIndex(Form form, BranchCriteria changesBranchCriteria, Set<String> internalIdsOfDeletedComponents, Commit commit,
-			List<Branch> timeSlice, boolean rebuild) throws IllegalStateException, ConversionException {
+			List<Branch> timeSlice, boolean rebuild) throws IllegalStateException, ConversionException, GraphBuilderException {
 
 		// Note: Searches within this method use a filter clause for collections of identifiers because these
 		//       can become larger than the maximum permitted query criteria.
@@ -236,14 +239,15 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 								.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsToUpdate)))
 				)
 				.withPageable(ConceptService.LARGE_PAGE).build(), QueryConcept.class)) {
-			existingQueryConcepts.forEachRemaining(queryConcept -> {
+			while (existingQueryConcepts.hasNext()) {
+				QueryConcept queryConcept = existingQueryConcepts.next();
 				Long conceptId = queryConcept.getConceptIdL();
 				Node node = nodesToSave.get(conceptId);
 				boolean save = false;
 				if (node != null) {
 					// TC changes
 					queryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
-					queryConcept.setAncestors(node.getTransitiveClosure(branchPath));
+					queryConcept.setAncestors(new HashSet<>(node.getTransitiveClosure(branchPath)));
 					save = true;
 				}
 				if (updatedConceptIds.contains(conceptId)) {
@@ -254,20 +258,20 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 					queryConceptsToSave.add(queryConcept);
 				}
 				nodesNotFound.remove(conceptId);
-			});
+			}
 		}
 
 		timer.checkpoint("Collect existingDescendants from QueryConcept.");
 
 		// The remaining nodes are new - create new QueryConcepts
-		nodesNotFound.forEach(nodeId -> {
+		for (Long nodeId : nodesNotFound) {
 			Node node = nodesToSave.get(nodeId);
-			final Set<Long> transitiveClosure = node.getTransitiveClosure(branchPath);
+			final Set<Long> transitiveClosure = new HashSet<>(node.getTransitiveClosure(branchPath));
 			final Set<Long> parentIds = node.getParents().stream().map(Node::getId).collect(Collectors.toSet());
 			QueryConcept queryConcept = new QueryConcept(nodeId, parentIds, transitiveClosure, form.isStated());
 			applyAttributeChanges(queryConcept, nodeId, conceptAttributeChanges);
 			queryConceptsToSave.add(queryConcept);
-		});
+		}
 		if (!queryConceptsToSave.isEmpty()) {
 
 			// Delete query concepts which have no parents
@@ -313,7 +317,8 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 		if (rebuild) {
 			logger.info("Performing rebuild of {} semantic index", form.getName());
-		} else {
+		}
+		else {
 			// Step: Collect source and destinations of changed is-a relationships
 			try (final CloseableIterator<Relationship> changedIsARelationships = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().filter(

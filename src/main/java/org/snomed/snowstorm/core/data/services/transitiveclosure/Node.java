@@ -3,7 +3,9 @@ package org.snomed.snowstorm.core.data.services.transitiveclosure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class Node {
@@ -19,22 +21,30 @@ public class Node {
 		parents = new HashSet<>();
 	}
 
-	public Set<Long> getTransitiveClosure(String path) {
-		Set<Long> parentIds = new HashSet<>();
-		return getTransitiveClosure(parentIds, 1, path);
+	public Set<Long> getTransitiveClosure(String path) throws GraphBuilderException {
+		List<Long> parentIds = new ArrayList<>();
+		boolean success = getTransitiveClosure(parentIds, 1);
+		if (!success) {
+			Set<Long> parentSet = new HashSet<>(parentIds);
+			LOGGER.error("Transitive closure depth exceeded. Concept:{}, Path:{}, Ancestor Set so far:{}, Ancestors list in collection order:{}",
+					id, path, parentSet, parentIds);
+			throw new GraphBuilderException("Transitive closure depth exceeded. See log for details.");
+		}
+		return new HashSet<>(parentIds);
 	}
 
-	private Set<Long> getTransitiveClosure(Set<Long> parentIds, final int depth, String path) {
-		if (depth > 50) {
-			String message = "Transitive closure stack depth has exceeded the soft limit for concept " + id + " on path " + path + ", ancestor ids: " + parentIds.toString();
-			LOGGER.error(message);
-			return parentIds;
+	private boolean getTransitiveClosure(List<Long> parentIds, final int depth) {
+		if (depth > 500) {
+			return false;
 		}
-		parents.forEach(node -> {
-			parentIds.add(node.getId());
-			node.getTransitiveClosure(parentIds, depth + 1, path);
-		});
-		return parentIds;
+		int nextDepth = depth + 1;
+		for (Node parent : parents) {
+			parentIds.add(parent.getId());
+			if (!parent.getTransitiveClosure(parentIds, nextDepth)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	public Long getId() {
