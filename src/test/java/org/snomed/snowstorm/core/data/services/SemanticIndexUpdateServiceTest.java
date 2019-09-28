@@ -325,7 +325,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertTC(n14, n12, n11, root);
 	}
 
-	@Test
+	@Test(expected = IllegalStateException.class)
 	public void testCircularReference() throws ServiceException {
 		Concept root = new Concept(SNOMEDCT_ROOT);
 

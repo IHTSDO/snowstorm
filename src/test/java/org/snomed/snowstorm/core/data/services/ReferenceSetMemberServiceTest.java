@@ -48,6 +48,8 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	public void setup() throws ServiceException {
 		conceptService.deleteAll();
 		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), MAIN);
+		conceptService.create(new Concept(Concepts.ISA)
+				.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
 		conceptService.create(new Concept(Concepts.CLINICAL_FINDING)
 				.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
 		conceptService.create(new Concept(Concepts.REFSET_HISTORICAL_ASSOCIATION)
@@ -154,12 +156,12 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 		assertEquals(axiom.getAdditionalField("owlExpression"), found.getAdditionalField("owlExpression"));
 
 		ReferenceSetMember updatedMember = new ReferenceSetMember(axiom.getModuleId(), axiom.getRefsetId(), axiom.getReferencedComponentId());
-		updatedMember.setAdditionalField("owlExpression", "EquivalentClasses(:404684003 :138875005)");
+		updatedMember.setAdditionalField("owlExpression", "SubClassOf(:404684003 :100138875005)");
 		updatedMember.setMemberId(axiom.getMemberId());
 		updatedMember = memberService.updateMember(MAIN, updatedMember);
 
 		ReferenceSetMember result = memberService.findMember(MAIN, updatedMember.getMemberId());
-		assertEquals("EquivalentClasses(:404684003 :138875005)", result.getAdditionalField("owlExpression"));
+		assertEquals("SubClassOf(:404684003 :100138875005)", result.getAdditionalField("owlExpression"));
 		assertEquals(updatedMember.getRefsetId(), result.getRefsetId());
 		assertEquals(updatedMember.getMemberId(), result.getMemberId());
 	}
