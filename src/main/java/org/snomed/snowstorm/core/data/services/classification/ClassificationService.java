@@ -50,6 +50,7 @@ import org.springframework.web.client.RestClientException;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.io.*;
+import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -184,6 +185,7 @@ public class ClassificationService {
 								classification.setStatus(latestStatus);
 								classification.setCompletionDate(new Date());
 								classificationRepository.save(classification);
+								logger.info("Classification {} {}.", classification.getId(), classification.getStatus());
 							}
 							if (latestStatus != ClassificationStatus.SCHEDULED && latestStatus != ClassificationStatus.RUNNING) {
 								synchronized (classificationsInProgress) {
@@ -500,24 +502,36 @@ public class ClassificationService {
 		List<RelationshipChange> relationshipChanges = new ArrayList<>();
 		int recordSortNumber = 0;
 		String line;
+		long activeRows = 0;
+		boolean active;
 		while ((line = reader.readLine()) != null) {
 			String[] values = line.split("\\t");
 			// Header id	effectiveTime	active	moduleId	sourceId	destinationId	relationshipGroup	typeId	characteristicTypeId	modifierId
+			active = "1".equals(values[RelationshipFieldIndexes.active]);
 			relationshipChanges.add(new RelationshipChange(
 					recordSortNumber++,
 					classificationId,
 					values[RelationshipFieldIndexes.id],
-					"1".equals(values[RelationshipFieldIndexes.active]),
+					active,
 					values[RelationshipFieldIndexes.sourceId],
 					values[RelationshipFieldIndexes.destinationId],
 					Integer.parseInt(values[RelationshipFieldIndexes.relationshipGroup]),
 					values[RelationshipFieldIndexes.typeId],
 					values[RelationshipFieldIndexes.modifierId],
 					false));
+			if (active) {
+				activeRows++;
+			}
 		}
 
 		// - Mark inferred not previously stated changes -
 		// Build query to find concepts in the stated semantic index which do not contain the inferred parents or attributes
+		NumberFormat numberFormat = NumberFormat.getIntegerInstance();
+		if (activeRows > 0) {
+			logger.info("Looking up 'inferred not previously stated' values for {} active inferred relationship changes for classification {}.",
+					numberFormat.format(activeRows), classificationId);
+		}
+		long rowsProcessed = 0;
 		Map<Long, List<RelationshipChange>> activeConceptChanges = new HashMap<>();
 		for (List<RelationshipChange> relationshipChangePartition : Lists.partition(relationshipChanges, 900)) {
 			BoolQueryBuilder allConceptsQuery = boolQuery();
@@ -533,6 +547,10 @@ public class ClassificationService {
 					}
 					allConceptsQuery.should(conceptQuery);
 					activeConceptChanges.computeIfAbsent(sourceId, id -> new ArrayList<>()).add(relationshipChange);
+					rowsProcessed++;
+					if (rowsProcessed % 1_000 == 0) {
+						logger.info("Processing row {} of {} for classification {}", numberFormat.format(rowsProcessed), numberFormat.format(activeRows), classificationId);
+					}
 				}
 			}
 			try (CloseableIterator<QueryConcept> semanticIndexConcepts = elasticsearchOperations.stream(
@@ -564,9 +582,13 @@ public class ClassificationService {
 		}
 
 		if (!relationshipChanges.isEmpty()) {
-			logger.info("Saving {} classification relationship changes", relationshipChanges.size());
-			List<List<RelationshipChange>> partition = Lists.partition(relationshipChanges, 10_000);
+			logger.info("Saving {} classification relationship changes total.", numberFormat.format(relationshipChanges.size()));
+			int chunkSize = 10_000;
+			List<List<RelationshipChange>> partition = Lists.partition(relationshipChanges, chunkSize);
 			for (List<RelationshipChange> changes : partition) {
+				if (relationshipChanges.size() > chunkSize) {
+					logger.info("Saving batch of {} classification relationship changes.", numberFormat.format(changes.size()));
+				}
 				relationshipChangeRepository.saveAll(changes);
 			}
 		}
