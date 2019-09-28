@@ -73,4 +73,13 @@ public class AdminController {
 		return response;
 	}
 
+	@ApiOperation(value = "Rollback a commit on a branch.",
+			notes = "Use with extreme caution! Only rollback a commit which you know is the latest commit on the branch " +
+					"and that there are no child branches created or rebased since the commit otherwise version control will break."
+	)
+	@RequestMapping(value = "/{branch}/actions/rollback-commit", method = RequestMethod.POST)
+	public void rollbackCommit(@PathVariable String branch, @RequestParam long commitHeadTime) {
+		adminOperationsService.rollbackCommit(branch, commitHeadTime);
+	}
+
 }

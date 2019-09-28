@@ -1,26 +1,22 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Branch;
 import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
-import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.repositories.ConceptRepository;
-import org.snomed.snowstorm.core.data.repositories.DescriptionRepository;
-import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
-import org.snomed.snowstorm.core.data.repositories.RelationshipRepository;
+import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.UpdateQuery;
 import org.springframework.data.elasticsearch.core.query.UpdateQueryBuilder;
-import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
@@ -31,7 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
 @Service
 public class AdminOperationsService {
@@ -47,6 +43,12 @@ public class AdminOperationsService {
 
 	@Autowired
 	private BranchMergeService branchMergeService;
+
+	@Autowired
+	private BranchService branchService;
+
+	@Autowired
+	private DomainEntityConfiguration domainEntityConfiguration;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -123,5 +125,13 @@ public class AdminOperationsService {
 
 		logger.info("Completed donated content fixing on {}.", branch);
 		return fixesApplied;
+	}
+
+	public void rollbackCommit(String branchPath, long timepoint) {
+		Branch branchVersion = branchService.findAtTimepointOrThrow(branchPath, new Date(timepoint));
+		if (branchVersion.getEnd() != null) {
+			throw new IllegalStateException(String.format("Branch %s at timepoint %s is already ended, it's not the latest commit.", branchPath, timepoint));
+		}
+		branchService.rollbackCompletedCommit(branchVersion, new ArrayList<>(domainEntityConfiguration.getAllDomainEntityTypes()));
 	}
 }
