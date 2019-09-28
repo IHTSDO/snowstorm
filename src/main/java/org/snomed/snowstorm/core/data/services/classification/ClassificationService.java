@@ -398,7 +398,10 @@ public class ClassificationService {
 					}
 					break;
 				case REDUNDANT:
-					concept.getRelationships().remove(new Relationship(relationshipChange.getRelationshipId()));
+					Relationship relationshipToRemove = concept.getRelationship(relationshipChange.getRelationshipId());
+					if (relationshipToRemove == null || !concept.getRelationships().remove(relationshipToRemove)) {
+						throw new ServiceException(String.format("Failed to remove relationship %s from concept %s.", relationshipChange.getRelationshipId(), concept.getConceptId()));
+					}
 					break;
 			}
 			if (copyDescriptions && relationship != null) {
