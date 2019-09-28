@@ -398,12 +398,10 @@ public class ClassificationService {
 					}
 					break;
 				case REDUNDANT:
-					Relationship relationshipToRemove = concept.getRelationship(relationshipChange.getRelationshipId());
-					List<Relationship> relationships = new ArrayList<>(concept.getRelationships());
-					if (relationshipToRemove == null || !relationships.remove(relationshipToRemove)) {
+					int before = concept.getRelationships().size();
+					if (!concept.getRelationships().remove(new Relationship(relationshipChange.getRelationshipId())) || concept.getRelationships().size() == before) {
 						throw new ServiceException(String.format("Failed to remove relationship %s from concept %s.", relationshipChange.getRelationshipId(), concept.getConceptId()));
 					}
-					concept.setRelationships(new HashSet<>(relationships));
 					break;
 			}
 			if (copyDescriptions && relationship != null) {

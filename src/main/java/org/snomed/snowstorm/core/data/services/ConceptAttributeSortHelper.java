@@ -168,7 +168,7 @@ public class ConceptAttributeSortHelper {
 			throw new IllegalStateException(String.format("Sorted attribute set is smaller than original set for conceptId %s. Do duplicates exist?", conceptId));
 		}
 
-		return sortedRelationships;
+		return new LinkedHashSet<>(sortedRelationships);
 	}
 
 	Map<String, String> getSubHierarchyToTopLevelTagCache() {
