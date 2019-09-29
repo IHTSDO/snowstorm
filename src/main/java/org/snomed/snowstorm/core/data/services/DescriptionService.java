@@ -366,9 +366,6 @@ public class DescriptionService extends ComponentService {
 					Description description = descriptionIdMap.get(langRefsetMember.getReferencedComponentId());
 					if (description != null) {
 						description.addLanguageRefsetMember(langRefsetMember);
-					} else {
-						logger.error("Description {} for lang refset member {} not found on branch {}!",
-								langRefsetMember.getReferencedComponentId(), langRefsetMember.getMemberId(), branchCriteria.toString().replace("\n", ""));
 					}
 				});
 			}
