@@ -79,7 +79,7 @@ public class AdminController {
 	)
 	@RequestMapping(value = "/{branch}/actions/rollback-commit", method = RequestMethod.POST)
 	public void rollbackCommit(@PathVariable String branch, @RequestParam long commitHeadTime) {
-		adminOperationsService.rollbackCommit(branch, commitHeadTime);
+		adminOperationsService.rollbackCommit(BranchPathUriUtil.decodePath(branch), commitHeadTime);
 	}
 
 }
