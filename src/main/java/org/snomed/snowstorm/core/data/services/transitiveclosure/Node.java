@@ -12,6 +12,7 @@ public class Node {
 
 	private static final int TC_MAX_DEPTH = 500;
 	private static final int SAME_ANCESTOR_IN_TC_MAX = 30;
+	private static final int TC_HOPS_MAX = 200;
 
 	private final Long id;
 	private final Set<Node> parents;
@@ -88,7 +89,7 @@ public class Node {
 	}
 
 	private boolean isAncestorOrSelfUpdated(Node node, int depth, String path) {
-		if (depth > 50) {
+		if (depth > TC_HOPS_MAX) {
 			String message = "Node updated check has exceeded the soft limit for concept " + id + " on path " + path + ", working around.";
 			LOGGER.warn(message);
 			// None found before recursion, returning false allows other paths to be explored.
@@ -97,8 +98,9 @@ public class Node {
 		if (node.updated) {
 			return true;
 		}
+		depth++;
 		for (Node parent : node.parents) {
-			if (isAncestorOrSelfUpdated(parent, depth + 1, path)) {
+			if (isAncestorOrSelfUpdated(parent, depth, path)) {
 				return true;
 			}
 		}
