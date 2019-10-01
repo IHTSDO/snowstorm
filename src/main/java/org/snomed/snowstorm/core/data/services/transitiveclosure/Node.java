@@ -1,14 +1,17 @@
 package org.snomed.snowstorm.core.data.services.transitiveclosure;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 public class Node {
+
+	private static final int TC_MAX_DEPTH = 500;
+	private static final int SAME_ANCESTOR_IN_TC_MAX = 30;
 
 	private final Long id;
 	private final Set<Node> parents;
@@ -21,26 +24,47 @@ public class Node {
 		parents = new HashSet<>();
 	}
 
-	public Set<Long> getTransitiveClosure(String path) throws GraphBuilderException {
-		List<Long> parentIds = new ArrayList<>();
-		boolean success = getTransitiveClosure(parentIds, 1);
+	public Set<Long> getTransitiveClosure(String path, boolean throwExceptionIfLoopFound) throws GraphBuilderException {
+		List<Long> parentIds = new LongArrayList();
+		boolean success = getTransitiveClosure(parentIds, 1, throwExceptionIfLoopFound);
 		if (!success) {
 			Set<Long> parentSet = new HashSet<>(parentIds);
-			LOGGER.error("Transitive closure depth exceeded. Concept:{}, Path:{}, Ancestor Set so far:{}, Ancestors list in collection order:{}",
+			LOGGER.error("Transitive closure depth exceeded, is this a loop? Concept:{}, Path:{}, Ancestor Set so far:{}, Ancestors list in collection order:{}",
 					id, path, parentSet, parentIds);
-			throw new GraphBuilderException("Transitive closure depth exceeded. See log for details.");
+			throw new GraphBuilderException(String.format("Transitive closure depth exceeded in path:'%s'. See log for details.", path));
 		}
+		// Return a Set to remove duplicates.
 		return new HashSet<>(parentIds);
 	}
 
-	private boolean getTransitiveClosure(List<Long> parentIds, final int depth) {
-		if (depth > 500) {
+	private boolean getTransitiveClosure(List<Long> parentIds, final int depth, boolean throwExceptionIfLoopFound) {
+		if (depth > TC_MAX_DEPTH) {
 			return false;
 		}
 		int nextDepth = depth + 1;
 		for (Node parent : parents) {
-			parentIds.add(parent.getId());
-			if (!parent.getTransitiveClosure(parentIds, nextDepth)) {
+			Long parentId = parent.getId();
+			parentIds.add(parentId);
+			if (parentIds.contains(parentId)) {
+				// Concepts may have the same grandparent through different parent routes.
+				// We should only fail here if the same ancestor has been hit an unacceptable number of times.
+				int visits = 0;
+				for (Long parentVisited : parentIds) {
+					if (parentVisited.equals(parentId)) {
+						visits++;
+					}
+				}
+				if (visits >= SAME_ANCESTOR_IN_TC_MAX) {
+					if (throwExceptionIfLoopFound) {
+						// Exception will be thrown by calling method
+						return false;
+					} else {
+						// Skip this parent, we have already visited it many times.
+						continue;
+					}
+				}
+			}
+			if (!parent.getTransitiveClosure(parentIds, nextDepth, throwExceptionIfLoopFound)) {
 				return false;
 			}
 		}
