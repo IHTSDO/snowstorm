@@ -39,10 +39,6 @@ public class HapiValueSetMapper implements FHIRConstants {
 					if (includeDesignations && languageCodes.contains(d.getLanguageCode())) {
 						component.addDesignation(asDesignation(d));
 					}
-					//Are we mising the FSN in the conceptMini?
-					if (component.getDisplay() == null && d.getTypeId().equals(Concepts.FSN)) {
-						component.setDisplay(d.getTerm());
-					}
 					
 					//Use the preferred term in the specified display language.
 					if (d.getLanguageCode().equalsIgnoreCase(displayLanguage) &&

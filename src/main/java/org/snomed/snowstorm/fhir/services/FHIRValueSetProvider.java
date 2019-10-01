@@ -178,6 +178,15 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			languageCodes.add(displayLanguage);
 		}
 		
+		//If we haven't specified a display language, use the first of our language codes
+		if (displayLanguage == null) {
+			if (languageCodes == null || languageCodes.size() == 0) {
+				displayLanguage = "en";
+			} else {
+				displayLanguage = languageCodes.get(0);
+			}
+		}
+		
 		//If someone specified designations, then include them in any event
 		boolean includeDesignations = includeDesignationsType != null && includeDesignationsType.booleanValue();
 		if (designations != null) {
