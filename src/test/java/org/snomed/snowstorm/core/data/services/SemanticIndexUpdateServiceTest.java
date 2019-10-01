@@ -30,7 +30,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static java.lang.Long.parseLong;
 import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
@@ -46,6 +45,9 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
+
+	@Autowired
+	private BranchMergeService branchMergeService;
 
 	@Autowired
 	private ConceptService conceptService;
@@ -326,7 +328,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test(expected = IllegalStateException.class)
-	public void testCircularReference() throws ServiceException {
+	public void testCircularReferenceInNormalCommitThrowsException() throws ServiceException {
 		Concept root = new Concept(SNOMEDCT_ROOT);
 
 		Concept n11 = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
@@ -336,6 +338,31 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		String branch = "MAIN";
 		conceptService.batchCreate(Lists.newArrayList(root, n11, n12, n13), branch);
+	}
+
+	@Test
+	public void testCircularReferenceCreatedDuringRebaseDoesNotThrowException() throws ServiceException {
+		// On MAIN
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		Concept cA = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept cB = new Concept("1000012").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		// C -> B
+		Concept cC = new Concept("1000013").addRelationship(new Relationship(ISA, cB.getId()));
+		conceptService.batchCreate(Lists.newArrayList(root, cA, cB, cC), "MAIN");
+
+		// On MAIN/A
+		// B -> A
+		cB.addRelationship(new Relationship(ISA, cA.getId()));
+		branchService.create("MAIN/A");
+		conceptService.update(cB, "MAIN/A");
+
+		// On MAIN
+		// A -> C
+		cA.addRelationship(new Relationship(ISA, cC.getId()));
+		conceptService.update(cA, "MAIN");
+
+		// Rebase causes the loop
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
 	}
 
 	@Test
@@ -457,7 +484,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRebuildSemanticIndexWithSameTripleActiveAndInactiveOnSameDate() throws ServiceException, InterruptedException, ConversionException {
+	public void testRebuildSemanticIndexWithSameTripleActiveAndInactiveOnSameDate() throws ServiceException, InterruptedException {
 		String path = "MAIN";
 		List<Concept> concepts = new ArrayList<>();
 

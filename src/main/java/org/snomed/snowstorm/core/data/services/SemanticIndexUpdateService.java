@@ -226,6 +226,11 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		Set<Long> conceptIdsToUpdate = new LongOpenHashSet(nodesToSave.keySet());
 		conceptIdsToUpdate.addAll(conceptAttributeChanges.keySet());
 
+		// If there is a loop found in the transitive closure we throw an exception,
+		// unless it's a rebase/extension upgrade; that must be fixed manually afterwards
+		// either by authoring or importing the new version of the extension.
+		boolean throwExceptionIfTransitiveClosureLoopFound = !commit.isRebase();
+
 		try (final CloseableIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteriaForAlreadyCommittedContent.getEntityBranchCriteria(QueryConcept.class))
@@ -247,7 +252,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 				if (node != null) {
 					// TC changes
 					queryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
-					queryConcept.setAncestors(new HashSet<>(node.getTransitiveClosure(branchPath)));
+					queryConcept.setAncestors(new HashSet<>(node.getTransitiveClosure(branchPath, throwExceptionIfTransitiveClosureLoopFound)));
 					save = true;
 				}
 				if (updatedConceptIds.contains(conceptId)) {
@@ -266,7 +271,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// The remaining nodes are new - create new QueryConcepts
 		for (Long nodeId : nodesNotFound) {
 			Node node = nodesToSave.get(nodeId);
-			final Set<Long> transitiveClosure = new HashSet<>(node.getTransitiveClosure(branchPath));
+			final Set<Long> transitiveClosure = new HashSet<>(node.getTransitiveClosure(branchPath, throwExceptionIfTransitiveClosureLoopFound));
 			final Set<Long> parentIds = node.getParents().stream().map(Node::getId).collect(Collectors.toSet());
 			QueryConcept queryConcept = new QueryConcept(nodeId, parentIds, transitiveClosure, form.isStated());
 			applyAttributeChanges(queryConcept, nodeId, conceptAttributeChanges);
