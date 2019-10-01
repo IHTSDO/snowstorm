@@ -12,7 +12,7 @@ Snowstorm is a SNOMED CT terminology server built on top of Elasticsearch, with 
 - Full history (depending on initial RF2 import decision)
 - Read-only FHIR API
 
-**Authoring** - although write and update features are available this aspect is currently not production ready, having not been fully tested, so should be considered proof of concept.
+**Authoring** - tested and being used by SNOMED International to author and maintain the International Edition of SNOMED CT.
 
 Please add any issues or any questions in the [GitHub issues page](https://github.com/IHTSDO/snowstorm/issues).
 
