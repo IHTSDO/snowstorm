@@ -9,7 +9,6 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
@@ -291,7 +290,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		String branch = "MAIN";
 		conceptService.batchCreate(Lists.newArrayList(root, a, aa, aaa, ab, ac, acc, accc), branch);
 
-		assertTC(accc, a, aa, aaa, ac, acc, acc, root);
+		assertTC(accc, a, aa, aaa, ac, acc, root);
 		assertTC(ac, a, root);
 
 		ac.getRelationships().clear();
@@ -300,7 +299,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		assertTC(ac, ab, a, root);
 		// After 'ac' is updated descendant 'accc' should gain ancestor 'ab' but should not loose existing ancestors from alternative routes e.g. 'aa'.
-		assertTC(accc, a, aa, aaa, ac, acc, acc, ab, root);
+		assertTC(accc, a, aa, aaa, ac, acc, ab, root);
 	}
 
 	@Test
@@ -341,7 +340,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testCircularReferenceCreatedDuringRebaseDoesNotThrowException() throws ServiceException {
+	public void testCircularReferenceCreatedDuringRebaseDoesNotBreak() throws ServiceException {
 		// On MAIN
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept cA = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
@@ -363,6 +362,9 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Rebase causes the loop
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+
+		Page<ConceptMini> concepts = queryService.eclSearch(">1000012", true, "MAIN/A", PageRequest.of(0, 10));
+		assertEquals("[138875005, 1000013, 1000011]", concepts.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toList()).toString());
 	}
 
 	@Test
