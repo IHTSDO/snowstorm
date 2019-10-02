@@ -1,18 +1,13 @@
 package org.snomed.snowstorm.core.data.services.transitiveclosure;
 
-import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 public class Node {
-
-	private static final int TC_MAX_DEPTH = 500;
-	private static final int SAME_ANCESTOR_IN_TC_MAX = 30;
-	private static final int TC_HOPS_MAX = 200;
 
 	private final Long id;
 	private final Set<Node> parents;
@@ -26,85 +21,52 @@ public class Node {
 	}
 
 	public Set<Long> getTransitiveClosure(String path, boolean throwExceptionIfLoopFound) throws GraphBuilderException {
-		List<Long> parentIds = new LongArrayList();
-		boolean success = getTransitiveClosure(parentIds, 1, throwExceptionIfLoopFound);
-		if (!success) {
-			Set<Long> parentSet = new HashSet<>(parentIds);
-			LOGGER.error("Transitive closure depth exceeded, is this a loop? Concept:{}, Path:{}, Ancestor Set so far:{}, Ancestors list in collection order:{}",
-					id, path, parentSet, parentIds);
-			throw new GraphBuilderException(String.format("Transitive closure depth exceeded in path:'%s'. See log for details.", path));
+		LongOpenHashSet parentIds = new LongOpenHashSet();
+		getTransitiveClosure(parentIds);
+		if (parentIds.contains(id)) {
+			String message = String.format("Loop found in transitive closure for concept %s on branch %s.", id, path);
+			if (throwExceptionIfLoopFound) {
+				throw new GraphBuilderException(message);
+			} else {
+				LOGGER.warn(message);
+			}
+			parentIds.remove(id);
 		}
-		// Return a Set to remove duplicates.
-		return new HashSet<>(parentIds);
+		return parentIds;
 	}
 
-	private boolean getTransitiveClosure(List<Long> parentIds, final int depth, boolean throwExceptionIfLoopFound) {
-		if (depth > TC_MAX_DEPTH) {
-			return false;
-		}
-		int nextDepth = depth + 1;
+	private void getTransitiveClosure(Set<Long> parentIds) {
 		for (Node parent : parents) {
-			Long parentId = parent.getId();
-			parentIds.add(parentId);
-			if (parentIds.contains(parentId)) {
-				// Concepts may have the same grandparent through different parent routes.
-				// We should only fail here if the same ancestor has been hit an unacceptable number of times.
-				int visits = 0;
-				for (Long parentVisited : parentIds) {
-					if (parentVisited.equals(parentId)) {
-						visits++;
-					}
-				}
-				if (visits >= SAME_ANCESTOR_IN_TC_MAX) {
-					if (throwExceptionIfLoopFound) {
-						// Exception will be thrown by calling method
-						return false;
-					} else {
-						// Skip this parent, we have already visited it many times.
-						continue;
-					}
-				}
-			}
-			if (!parent.getTransitiveClosure(parentIds, nextDepth, throwExceptionIfLoopFound)) {
-				return false;
+			if (parentIds.add(parent.getId())) {
+				parent.getTransitiveClosure(parentIds);
 			}
 		}
-		return true;
 	}
 
-	public Long getId() {
-		return id;
+	public boolean isAncestorOrSelfUpdated() {
+		return isAncestorOrSelfUpdated(new LongOpenHashSet());
+	}
+
+	private boolean isAncestorOrSelfUpdated(Set<Long> parentIds) {
+		if (updated) {
+			return true;
+		}
+		for (Node parent : parents) {
+			if (parentIds.add(parent.getId())) {
+				if (parent.isAncestorOrSelfUpdated(parentIds)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	void addParent(Node parent) {
 		parents.add(parent);
 	}
 
-	void removeParent(Long parentId) {
-		parents.remove(new Node(parentId));
-	}
-
-	public boolean isAncestorOrSelfUpdated(String path) {
-		return isAncestorOrSelfUpdated(this, 1, path);
-	}
-
-	private boolean isAncestorOrSelfUpdated(Node node, int depth, String path) {
-		if (depth > TC_HOPS_MAX) {
-			String message = "Node updated check has exceeded the soft limit for concept " + id + " on path " + path + ", working around.";
-			LOGGER.warn(message);
-			// None found before recursion, returning false allows other paths to be explored.
-			return false;
-		}
-		if (node.updated) {
-			return true;
-		}
-		depth++;
-		for (Node parent : node.parents) {
-			if (isAncestorOrSelfUpdated(parent, depth, path)) {
-				return true;
-			}
-		}
-		return false;
+	public Long getId() {
+		return id;
 	}
 
 	public Node markUpdated() {
