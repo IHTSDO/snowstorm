@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -37,17 +38,30 @@ public class ConceptAttributeSortHelperTest {
 						relationship(0, "116680003", "298325004", "Finding of movement (finding)"),
 						relationship(0, "116680003", "64572001", "Disease (disorder)"),
 						relationship(1, "116676008", "57048009", "Contracture (morphologic abnormality)"),
+						relationship(1, "363698007", "72696002", "Knee region structure (body structure)")
+				)
+				.addAxiom(
+						relationship(0, "116680003", "298325004", "Finding of movement (finding)"),
+						relationship(0, "116680003", "64572001", "Disease (disorder)"),
+						relationship(1, "116676008", "57048009", "Contracture (morphologic abnormality)"),
 						relationship(1, "363698007", "72696002", "Knee region structure (body structure)"),
 						relationship(2, "363713009", "1250004", "Decreased (qualifier value)"),
 						relationship(2, "363714003", "299332000", "Knee joint - range of movement (observable entity)")
 				);
 		conceptAttributeSortHelper.sortAttributes(Collections.singleton(concept));
 
-		for (Relationship relationship : concept.getClassAxioms().iterator().next().getRelationships()) {
+		ArrayList<Axiom> axioms = new ArrayList<>(concept.getClassAxioms());
+		assertEquals(2, axioms.size());
+		assertEquals("Second axiom should have been sorted to the top because type 363714003 sorts higher than 363698007", 6, axioms.get(0).getRelationships().size());
+		assertEquals(6, axioms.get(0).getRelationships().size());
+		assertEquals(4, axioms.get(1).getRelationships().size());
+
+		Axiom axiom = axioms.get(0);
+		for (Relationship relationship : axiom.getRelationships()) {
 			System.out.println(asString(relationship));
 		}
 
-		Iterator<Relationship> iterator = concept.getClassAxioms().iterator().next().getRelationships().iterator();
+		Iterator<Relationship> iterator = axiom.getRelationships().iterator();
 
 		// Assert that is a attributes are sorted alphabetically
 		assertEquals("0, 116680003, Disease (disorder)", asString(iterator.next()));

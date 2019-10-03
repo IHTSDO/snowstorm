@@ -37,11 +37,6 @@ public class ConceptAttributeSortHelper {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
-	@PostConstruct
-	public void init() {
-		domainAttributeOrderMap = sortOrderProperties.getDomainAttributeOrderMap();
-	}
-
 	private static final Comparator<Relationship> ACTIVE_RELATIONSHIP_COMPARATOR_WITH_GROUP_LAST = Comparator
 			.comparing(Relationship::getAttributeOrder, Comparator.nullsLast(Short::compareTo))
 			.thenComparing(Relationship::getTargetFsn, Comparator.nullsLast(String::compareTo))
@@ -56,8 +51,42 @@ public class ConceptAttributeSortHelper {
 			.thenComparing(Relationship::getDestinationId, Comparator.nullsLast(String::compareTo))
 			.thenComparing(Relationship::hashCode);
 
+	private static final Comparator<Axiom> AXIOM_COMPARATOR = (a, b) -> {
+		Set<Relationship> relsA = a.getRelationships();
+		Set<Relationship> relsB = b.getRelationships();
+		if (relsA.isEmpty() && relsB.isEmpty()) {
+			return 0;
+		} else if (relsA.isEmpty()) {
+			return -1;
+		} else if (relsB.isEmpty()) {
+			return 1;
+		} else {
+			Relationship[] arrayA = relsA.toArray(new Relationship[]{});
+			Relationship[] arrayB = relsB.toArray(new Relationship[]{});
+			for (int i = 0; i < arrayA.length; i++) {
+				Relationship relationshipA = arrayA[i];
+				if (arrayB.length == i) {
+					return 1;
+				}
+				Relationship relationshipB = arrayB[i];
+				int compare = RELATIONSHIP_COMPARATOR.compare(relationshipA, relationshipB);
+				if (compare != 0) {
+					return compare;
+				}
+			}
+		}
+		return 0;
+	};
+
+	@PostConstruct
+	public void init() {
+		domainAttributeOrderMap = sortOrderProperties.getDomainAttributeOrderMap();
+	}
+
 	void sortAttributes(Iterable<Concept> concepts) {
 		for (Concept concept : concepts) {
+			// Attributes sort order is specified per hierarchy.
+			// Use FSN semantic tag to allow correct attribute sorting on concepts which have not yet been classified.
 			String semanticTag = getEnSemanticTag(concept);
 			if (semanticTag != null) {
 				if (!domainAttributeOrderMap.containsKey(semanticTag)) {
@@ -67,16 +96,27 @@ public class ConceptAttributeSortHelper {
 				if (attributeOrderMap != null) {
 					// Add sorting for Is a (attribute)
 					attributeOrderMap.putAll(domainAttributeOrderMap.getOrDefault("all", Collections.emptyMap()));
+
 					for (Axiom axiom : concept.getClassAxioms()) {
 						axiom.setRelationships(getSortedRelationships(axiom.getRelationships(), attributeOrderMap, concept.getConceptId()));
 					}
+					concept.setClassAxioms(getSortedAxioms(concept.getClassAxioms()));
+
 					for (Axiom axiom : concept.getGciAxioms()) {
 						axiom.setRelationships(getSortedRelationships(axiom.getRelationships(), attributeOrderMap, concept.getConceptId()));
 					}
+					concept.setGciAxioms(getSortedAxioms(concept.getGciAxioms()));
+
 					concept.setRelationships(getSortedRelationships(concept.getRelationships(), attributeOrderMap, concept.getConceptId()));
 				}
 			}
 		}
+	}
+
+	private Set<Axiom> getSortedAxioms(Set<Axiom> axioms) {
+		TreeSet<Axiom> sortedSet = new TreeSet<>(AXIOM_COMPARATOR);
+		sortedSet.addAll(axioms);
+		return new LinkedHashSet<>(sortedSet);
 	}
 
 	private String getTopLevelHierarchyTag(String semanticTag, Concept concept) {
