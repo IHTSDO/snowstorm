@@ -1,5 +1,9 @@
 package org.snomed.snowstorm.config;
 
+import com.amazonaws.auth.AWS4Signer;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
+import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
+import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
@@ -108,6 +112,9 @@ public abstract class Config {
 	@Value("${elasticsearch.index.replicas}")
 	private short indexReplicas;
 
+	@Value("${snowstorm.aws.request-signing.enabled}")
+	private Boolean awsRequestSigning;
+
 	@Autowired
 	private BranchService branchService;
 
@@ -158,14 +165,29 @@ public abstract class Config {
 			return builder;
 		});
 
+
 		if (elasticsearchUsername != null && !elasticsearchUsername.isEmpty()) {
 			final CredentialsProvider credentialsProvider = new BasicCredentialsProvider();
 			credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(elasticsearchUsername, elasticsearchPassword));
 			restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider));
 		}
 
+		if (awsRequestSigning != null && awsRequestSigning) {
+			restClientBuilder.setHttpClientConfigCallback(httpClientBuilder -> httpClientBuilder.addInterceptorLast(awsInterceptor("es")));
+		}
+
 		return new ElasticsearchRestClient(new HashMap<>(), restClientBuilder);
 	}
+
+    private AWSRequestSigningApacheInterceptor awsInterceptor(String serviceName) {
+        AWS4Signer signer = new AWS4Signer();
+        DefaultAwsRegionProviderChain regionProviderChain = new DefaultAwsRegionProviderChain();
+		DefaultAWSCredentialsProviderChain credentialsProvider = new DefaultAWSCredentialsProviderChain();
+		signer.setServiceName(serviceName);
+		signer.setRegionName(regionProviderChain.getRegion());
+
+        return new AWSRequestSigningApacheInterceptor(serviceName, signer, credentialsProvider);
+    }
 
 	private static HttpHost[] getHttpHosts(String[] hosts) {
 		List<HttpHost> httpHosts = new ArrayList<>();
