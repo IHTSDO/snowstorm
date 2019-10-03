@@ -166,6 +166,11 @@
 			<artifactId>hapi-fhir-server</artifactId>
 			<version>${hapi.version}</version>
 		</dependency>
+		<dependency>
+			<groupId>com.github.awslabs</groupId>
+			<artifactId>aws-request-signing-apache-interceptor</artifactId>
+			<version>b3772780da</version>
+		</dependency>
 
 		<!-- Test dependencies -->
 		<dependency>
@@ -343,6 +348,10 @@
 				<enabled>false</enabled>
 			</snapshots>
 			<url>https://maven.ihtsdotools.org/content/repositories/releases/</url>
+		</repository>
+		<repository>
+			<id>jitpack.io</id>
+			<url>https://jitpack.io</url>
 		</repository>
 	</repositories>
 	<pluginRepositories>
