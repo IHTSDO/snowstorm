@@ -60,6 +60,9 @@ public class ConceptServiceTest extends AbstractTest {
 	@Autowired
 	private BranchMergeService branchMergeService;
 
+	@Autowired
+	private CodeSystemService codeSystemService;
+
 	private ServiceTestUtil testUtil;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -71,6 +74,7 @@ public class ConceptServiceTest extends AbstractTest {
 		objectMapper = new ObjectMapper();
 		DeserializationConfig deserializationConfig = objectMapper.getDeserializationConfig().without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 		objectMapper.setConfig(deserializationConfig);
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
 	}
 
 	@Test
@@ -533,6 +537,17 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals("Description automatically has inactivation indicator", "CONCEPT_NON_CURRENT", description.getInactivationIndicator());
 
 		assertFalse("Relationship is inactive.", inactiveConcept.getRelationships().iterator().next().isActive());
+
+		CodeSystem snomedct = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(snomedct, 20200131, "");
+
+		inactiveConcept = conceptService.find(inactiveConcept.getId(), path);
+		inactiveConcept.getInactivationIndicatorMembers().clear();
+		inactiveConcept.setInactivationIndicator("OUTDATED");
+		conceptService.update(inactiveConcept, path);
+
+		inactiveConcept = conceptService.find(inactiveConcept.getId(), path);
+		assertEquals("OUTDATED", inactiveConcept.getInactivationIndicator());
 	}
 
 	@Test

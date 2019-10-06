@@ -257,9 +257,13 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	@JsonView(value = View.Component.class)
 	public String getInactivationIndicator() {
-		ReferenceSetMember inactivationIndicatorMember = getInactivationIndicatorMember();
-		if (inactivationIndicatorMember != null && inactivationIndicatorMember.isActive()) {
-			return Concepts.inactivationIndicatorNames.get(inactivationIndicatorMember.getAdditionalField("valueId"));
+		Set<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
+		if (inactivationIndicatorMembers != null) {
+			for (ReferenceSetMember inactivationIndicatorMember : inactivationIndicatorMembers) {
+				if (inactivationIndicatorMember.isActive()) {
+					return Concepts.inactivationIndicatorNames.get(inactivationIndicatorMember.getAdditionalField("valueId"));
+				}
+			}
 		}
 		return inactivationIndicatorName;
 	}

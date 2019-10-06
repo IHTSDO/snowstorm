@@ -26,15 +26,16 @@ import static org.snomed.snowstorm.core.util.DescriptionHelper.EN_LANGUAGE_CODE;
 public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
 	public interface Fields extends SnomedComponent.Fields {
-
 		String CONCEPT_ID = "conceptId";
 		String MODULE_ID = "moduleId";
 		String DEFINITION_STATUS_ID = "definitionStatusId";
 	}
+
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.keyword, store = true)
 	@Size(min = 5, max = 18)
 	private String conceptId;
+
 	@JsonIgnore
 	private Set<ReferenceSetMember> inactivationIndicatorMembers;
 
@@ -143,9 +144,13 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	@JsonView(value = View.Component.class)
 	public String getInactivationIndicator() {
-		ReferenceSetMember inactivationIndicatorMember = getInactivationIndicatorMember();
-		if (inactivationIndicatorMember != null && inactivationIndicatorMember.isActive()) {
-			return Concepts.inactivationIndicatorNames.get(inactivationIndicatorMember.getAdditionalField("valueId"));
+		Set<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
+		if (inactivationIndicatorMembers != null) {
+			for (ReferenceSetMember inactivationIndicatorMember : inactivationIndicatorMembers) {
+				if (inactivationIndicatorMember.isActive()) {
+					return Concepts.inactivationIndicatorNames.get(inactivationIndicatorMember.getAdditionalField("valueId"));
+				}
+			}
 		}
 		return inactivationIndicatorName;
 	}
