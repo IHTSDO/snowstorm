@@ -35,6 +35,16 @@ public class CodeSystemServiceTest extends AbstractTest {
 		assertEquals(codeSystemBe, codeSystemService.find("SNOMEDCT-BE"));
 	}
 
+	@Test(expected = IllegalArgumentException.class)
+	public void createCodeSystemWithBadBranchPath() {
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+
+		assertEquals(1, codeSystemService.findAll().size());
+
+		CodeSystem codeSystemBe = new CodeSystem("SNOMEDCT-TEST", "MAIN.test");
+		codeSystemService.createCodeSystem(codeSystemBe);
+	}
+
 	@Test
 	public void testCodesystemUpdateValidation() {
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
