@@ -106,12 +106,13 @@ public class BranchReviewService {
 		final MergeReview mergeReview = mergeReviewRepository.findById(id).orElse(null);
 		if (mergeReview != null && mergeReview.getStatus() == ReviewStatus.CURRENT) {
 			// Only check one branch review - they will both have the same status.
-			BranchReview branchReview = branchReviewRepository.findById(mergeReview.getSourceToTargetReviewId()).orElse(null);
+			String sourceToTargetReviewId = mergeReview.getSourceToTargetReviewId();
+			BranchReview branchReview = getBranchReview(sourceToTargetReviewId);
 			if (branchReview != null) {
 				mergeReview.setStatus(branchReview.getStatus());
 			} else {
 				mergeReview.setStatus(ReviewStatus.FAILED);
-				mergeReview.setMessage("Branch merge not found in store. (" + mergeReview.getSourceToTargetReviewId() + ")");
+				mergeReview.setMessage("Branch merge not found in store. (" + sourceToTargetReviewId + ")");
 			}
 		}
 		return mergeReview;
