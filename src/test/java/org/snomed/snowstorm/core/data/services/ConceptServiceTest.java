@@ -214,6 +214,22 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testCreateDeleteConcept() throws ServiceException {
+		String path = "MAIN";
+		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), path);
+		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), path);
+
+		String conceptId = "100001";
+		conceptService.create(new Concept(conceptId).addAxiom(new Relationship(ISA, SNOMEDCT_ROOT)), path);
+
+		assertEquals(1, referenceSetMemberService.findMembers(path, conceptId, ComponentService.LARGE_PAGE).getTotalElements());
+
+		conceptService.deleteConceptAndComponents(conceptId, path, false);
+
+		assertEquals(0, referenceSetMemberService.findMembers(path, conceptId, ComponentService.LARGE_PAGE).getTotalElements());
+	}
+
+	@Test
 	public void testCreateDeleteRelationship() throws ServiceException {
 		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), "MAIN");
 		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), "MAIN");
