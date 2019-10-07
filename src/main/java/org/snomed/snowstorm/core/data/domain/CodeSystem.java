@@ -39,6 +39,9 @@ public class CodeSystem implements CodeSystemCreate {
 	private String defaultLanguageCode;
 
 	@Field(type = FieldType.keyword)
+	private String defaultLanguageReferenceSet;
+
+	@Field(type = FieldType.keyword)
 	@NotNull
 	@Pattern(regexp = "MAIN.*")
 	private String branchPath;
@@ -103,6 +106,14 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setDefaultLanguageCode(String defaultLanguageCode) {
 		this.defaultLanguageCode = defaultLanguageCode;
+	}
+
+	public String getDefaultLanguageReferenceSet() {
+		return defaultLanguageReferenceSet;
+	}
+
+	public void setDefaultLanguageReferenceSet(String defaultLanguageReferenceSet) {
+		this.defaultLanguageReferenceSet = defaultLanguageReferenceSet;
 	}
 
 	public String getBranchPath() {
