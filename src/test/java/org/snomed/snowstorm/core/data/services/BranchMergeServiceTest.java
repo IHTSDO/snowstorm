@@ -26,6 +26,7 @@ import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.test.context.ContextConfiguration;
@@ -85,16 +86,19 @@ public class BranchMergeServiceTest extends AbstractTest {
 	private CodeSystemService codeSystemService;
 
 	@Before
-	public void setup() {
+	public void setup() throws ServiceException {
 		conceptService.deleteAll();
 
 		Map<String, String> metadata = new HashMap<>();
 		metadata.put(BranchMetadataKeys.ASSERTION_GROUP_NAMES, "common-authoring");
 		branchService.updateMetadata("MAIN", metadata);
+		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), "MAIN");
 		branchService.create("MAIN/A");
 		branchService.create("MAIN/A/A1");
 		branchService.create("MAIN/A/A2");
 		branchService.create("MAIN/C");
+
+
 		traceabilityLogService.setEnabled(true);
 		activities = new ArrayList<>();
 		traceabilityLogService.setActivityConsumer(activities::add);
@@ -197,8 +201,13 @@ public class BranchMergeServiceTest extends AbstractTest {
 		final String concept1 = "10000100";
 		final String concept2 = "10000200";
 		conceptService.create(new Concept(concept1)
-						.addDescription(new Description("One")),
+						.addDescription(new Description("One"))
+						.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
 				"MAIN/A/A1");
+		List<ConceptMini> content = queryService.eclSearch(">" + concept1, true, "MAIN/A/A1", PageRequest.of(0, 10)).getContent();
+		assertEquals(1, content.size());
+		assertEquals(Concepts.SNOMEDCT_ROOT, content.get(0).getConceptId());
+
 		conceptService.create(new Concept(concept2)
 						.addDescription(new Description("1000021", "Two1"))
 						.addDescription(new Description("1000022", "Two2")),
@@ -242,6 +251,10 @@ public class BranchMergeServiceTest extends AbstractTest {
 		concept1OnA1 = assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.UP_TO_DATE, concept1, true);
 		assertEquals(1, concept1OnA1.getDescriptions().size());
 		assertConceptNotVisible("MAIN/A/A1", concept2);
+		content = queryService.eclSearch(">" + concept1, true, "MAIN/A/A1", PageRequest.of(0, 10)).getContent();
+		assertEquals(1, content.size());
+		assertEquals(Concepts.SNOMEDCT_ROOT, content.get(0).getConceptId());
+
 
 		// MAIN/A/A2 is now diverged because there are changes on the branch and it's parent
 		assertBranchStateAndConceptVisibility("MAIN/A/A2", Branch.BranchState.DIVERGED, concept2, true);

@@ -242,7 +242,7 @@ public class BranchMergeService {
 
 				logger.info("Performing promotion {} -> {}", source, target);
 				final Map<String, Set<String>> versionsReplaced = sourceBranch.getVersionsReplaced();
-				final Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepoMap = domainEntityConfiguration.getComponentTypeRepositoryMap();
+				final Map<Class<? extends DomainEntity>, ElasticsearchCrudRepository> componentTypeRepoMap = domainEntityConfiguration.getAllTypeRepositoryMap();
 				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
 				commit.markSuccessful();
 			}
@@ -384,7 +384,7 @@ public class BranchMergeService {
 	}
 
 
-	private <T extends SnomedComponent> void promoteEntities(String source, Commit commit, Class<T> entityClass,
+	private <T extends DomainEntity> void promoteEntities(String source, Commit commit, Class<T> entityClass,
 			ElasticsearchCrudRepository<T, String> entityRepository, Map<String, Set<String>> versionsReplaced) {
 
 		final String targetPath = commit.getBranch().getPath();
@@ -423,7 +423,7 @@ public class BranchMergeService {
 		copyChangesOnBranchToCommit(source, commit, entityClass, entityRepository, "Promoting", true);
 	}
 
-	private <T extends SnomedComponent> void copyChangesOnBranchToCommit(String source, Commit commit, Class<T> entityClass,
+	private <T extends DomainEntity> void copyChangesOnBranchToCommit(String source, Commit commit, Class<T> entityClass,
 			ElasticsearchCrudRepository<T, String> entityRepository, String logAction, boolean endEntitiesOnSource) {
 
 		// Load all entities on source

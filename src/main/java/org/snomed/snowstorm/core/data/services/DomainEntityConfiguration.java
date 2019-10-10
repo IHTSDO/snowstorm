@@ -2,10 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.domain.DomainEntity;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.repositories.ConceptRepository;
-import org.snomed.snowstorm.core.data.repositories.DescriptionRepository;
-import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
-import org.snomed.snowstorm.core.data.repositories.RelationshipRepository;
+import org.snomed.snowstorm.core.data.repositories.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.stereotype.Service;
@@ -31,7 +28,14 @@ public class DomainEntityConfiguration {
 	@Autowired
 	private ReferenceSetMemberRepository referenceSetMemberRepository;
 
+	@Autowired
+	private QueryConceptRepository queryConceptRepository;
+
+	@Autowired
+	private ReferenceSetTypeRepository referenceSetTypeRepository;
+
 	private Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepositoryMap;
+	private Map<Class<? extends DomainEntity>, ElasticsearchCrudRepository> allTypeRepositoryMap;
 
 	private Set<Class<? extends DomainEntity>> allTypes;
 
@@ -43,6 +47,10 @@ public class DomainEntityConfiguration {
 		componentTypeRepositoryMap.put(Relationship.class, relationshipRepository);
 		componentTypeRepositoryMap.put(ReferenceSetMember.class, referenceSetMemberRepository);
 
+		allTypeRepositoryMap = new LinkedHashMap<>(componentTypeRepositoryMap);
+		allTypeRepositoryMap.put(QueryConcept.class, queryConceptRepository);
+		allTypeRepositoryMap.put(ReferenceSetType.class, referenceSetTypeRepository);
+
 		allTypes = new HashSet<>();
 		allTypes.addAll(componentTypeRepositoryMap.keySet());
 		allTypes.add(QueryConcept.class);
@@ -51,6 +59,10 @@ public class DomainEntityConfiguration {
 
 	public Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> getComponentTypeRepositoryMap() {
 		return componentTypeRepositoryMap;
+	}
+
+	public Map<Class<? extends DomainEntity>, ElasticsearchCrudRepository> getAllTypeRepositoryMap() {
+		return allTypeRepositoryMap;
 	}
 
 	public Set<Class<? extends DomainEntity>> getAllDomainEntityTypes() {

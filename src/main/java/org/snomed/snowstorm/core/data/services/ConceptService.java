@@ -11,6 +11,7 @@ import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.DomainEntity;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -549,7 +550,7 @@ public class ConceptService extends ComponentService {
 				.forEach(member -> joinAxiom(member, conceptMap, conceptMiniMap, languageCodes));
 	}
 
-	<T extends SnomedComponent> void doSaveBatchComponents(List<T> componentsToSave, Class<T> componentType, Commit commit) {
+	<T extends DomainEntity> void doSaveBatchComponents(List<T> componentsToSave, Class<T> componentType, Commit commit) {
 		conceptUpdateHelper.doSaveBatchComponents(componentsToSave, componentType, commit);
 	}
 

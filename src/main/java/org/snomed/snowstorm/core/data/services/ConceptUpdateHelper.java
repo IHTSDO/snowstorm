@@ -10,9 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.repositories.ConceptRepository;
-import org.snomed.snowstorm.core.data.repositories.DescriptionRepository;
-import org.snomed.snowstorm.core.data.repositories.RelationshipRepository;
+import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierReservedBlock;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
@@ -48,6 +46,12 @@ public class ConceptUpdateHelper extends ComponentService {
 
 	@Autowired
 	private ReferenceSetMemberService memberService;
+
+	@Autowired
+	private ReferenceSetTypeRepository referenceSetTypeRepository;
+
+	@Autowired
+	private QueryConceptRepository queryConceptRepository;
 
 	@Autowired
 	private AxiomConversionService axiomConversionService;
@@ -416,6 +420,14 @@ public class ConceptUpdateHelper extends ComponentService {
 		doSaveBatchComponents(relationships, commit, "relationshipId", relationshipRepository);
 	}
 
+	private void doSaveBatchReferenceSetType(Collection<ReferenceSetType> referenceSetTypes, Commit commit) {
+		doSaveBatchComponents(referenceSetTypes, commit, ReferenceSetType.Fields.CONCEPT_ID, referenceSetTypeRepository);
+	}
+
+	private void doSaveBatchQueryConcept(Collection<QueryConcept> queryConcepts, Commit commit) {
+		doSaveBatchComponents(queryConcepts, commit, QueryConcept.Fields.CONCEPT_ID_FORM, queryConceptRepository);
+	}
+
 	private void doDeleteMembersWhereReferencedComponentDeleted(Set<String> entityVersionsDeleted, Commit commit) {
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(
@@ -467,17 +479,22 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 	}
 
-	<T extends SnomedComponent> void doSaveBatchComponents(Collection<T> components, Class<T> type, Commit commit) {
+	@SuppressWarnings("unchecked")
+	<T extends DomainEntity> void doSaveBatchComponents(Collection<T> components, Class<T> type, Commit commit) {
 		if (type.equals(Concept.class)) {
 			doSaveBatchConcepts((Collection<Concept>) components, commit);
 		} else if (type.equals(Description.class)) {
 			doSaveBatchDescriptions((Collection<Description>) components, commit);
 		} else if (type.equals(Relationship.class)) {
 			doSaveBatchRelationships((Collection<Relationship>) components, commit);
-		} else if (ReferenceSetMember.class.isAssignableFrom(type)) {
+		} else if (type.equals(ReferenceSetMember.class)) {
 			memberService.doSaveBatchMembers((Collection<ReferenceSetMember>) components, commit);
+		} else if (type.equals(ReferenceSetType.class)) {
+			doSaveBatchReferenceSetType((Collection<ReferenceSetType>) components, commit);
+		} else if (type.equals(QueryConcept.class)) {
+			doSaveBatchQueryConcept((Collection<QueryConcept>) components, commit);
 		} else {
-			throw new IllegalArgumentException("SnomedComponent type " + type + " not regognised");
+			throw new IllegalArgumentException("DomainEntity type " + type + " not recognised");
 		}
 	}
 
