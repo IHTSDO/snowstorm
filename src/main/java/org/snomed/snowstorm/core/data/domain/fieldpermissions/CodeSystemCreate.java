@@ -10,7 +10,7 @@ public interface CodeSystemCreate {
 	String getName();
 	String getCountryCode();
 	String getDefaultLanguageCode();
-	String getDefaultLanguageReferenceSet();
+	String[] getDefaultLanguageReferenceSets();
 	String getBranchPath();
 	Integer getDependantVersion();
 }

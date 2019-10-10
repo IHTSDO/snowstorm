@@ -7,7 +7,7 @@ public class CodeSystemUpdateRequest {
 	public String name;
 	public String countryCode;
 	public String defaultLanguageCode;
-	public String defaultLanguageReferenceSet;
+	public String[] defaultLanguageReferenceSets;
 	public String branchPath;
 
 	@ApiModelProperty(value = "false")
@@ -33,8 +33,8 @@ public class CodeSystemUpdateRequest {
 		return defaultLanguageCode;
 	}
 
-	public String getDefaultLanguageReferenceSet() {
-		return defaultLanguageReferenceSet;
+	public String[] getDefaultLanguageReferenceSets() {
+		return defaultLanguageReferenceSets;
 	}
 
 	public String getBranchPath() {
