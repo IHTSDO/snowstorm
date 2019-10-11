@@ -490,16 +490,35 @@ public class ConceptService extends ComponentService {
 
 	public void deleteConceptAndComponents(String conceptId, String path, boolean force) {
 		try (final Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Deleting concept " + conceptId))) {
-			deleteConceptsAndComponentsWithinCommit(Collections.singleton(conceptId), commit, force);
+			List<Concept> deletedConcepts = deleteConceptsAndComponentsWithinCommit(Collections.singleton(conceptId), commit, force);
+			if (traceabilityLogService.isEnabled()) {
+				if (!deletedConcepts.isEmpty()) {
+					Concept concept = deletedConcepts.get(0);
+					Set<ReferenceSetMember> members = new HashSet<>();
+					if (concept.getInactivationIndicatorMembers() != null) {
+						members.addAll(concept.getInactivationIndicatorMembers());
+					}
+					if (concept.getAssociationTargetMembers() != null) {
+						members.addAll(concept.getAssociationTargetMembers());
+					}
+					if (concept.getAllOwlAxiomMembers() != null) {
+						members.addAll(concept.getAllOwlAxiomMembers());
+					}
+					PersistedComponents persistedComponents = new PersistedComponents(deletedConcepts, concept.getDescriptions(), concept.getRelationships(), members);
+					traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit, persistedComponents);
+				}
+			}
+			commit.markSuccessful();
 		}
 	}
 
-	public void deleteConceptsAndComponentsWithinCommit(Collection<String> conceptIds, Commit commit, boolean force) {
+	public List<Concept> deleteConceptsAndComponentsWithinCommit(Collection<String> conceptIds, Commit commit, boolean force) {
 		if (conceptIds.isEmpty()) {
-			return;
+			return Collections.emptyList();
 		}
 
 		String path = commit.getBranch().getPath();
+		List<Concept> concepts = new ArrayList<>();
 		for (String conceptId : conceptIds) {
 			final Concept concept = find(conceptId, DEFAULT_LANGUAGE_CODES, path);
 			if (concept == null) {
@@ -509,7 +528,9 @@ public class ConceptService extends ComponentService {
 				throw new IllegalStateException("Released concept will not be deleted.");
 			}
 			conceptUpdateHelper.doDeleteConcept(path, commit, concept);
+			concepts.add(concept);
 		}
+		return concepts;
 	}
 
 	private void joinComponentsToConcepts(PersistedComponents persistedComponents, Map<String, ConceptMini> conceptMiniMap, List<String> languageCodes) {

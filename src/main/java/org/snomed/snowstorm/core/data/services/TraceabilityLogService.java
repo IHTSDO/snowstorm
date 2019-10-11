@@ -203,7 +203,7 @@ public class TraceabilityLogService implements CommitListener {
 				return "Classified ontology.";
 			} else if (concepts.size() == 1) {
 				Concept concept = concepts.iterator().next();
-				return (concept.isCreating() ? "Creating " : "Updating ") + "concept " + concept.getFsn().getTerm();
+				return (concept.isCreating() ? "Creating " : concept.isDeleted() ? "Deleting " : "Updating ") + "concept " + concept.getFsn().getTerm();
 			} else {
 				return "Bulk update to " + concepts.size() + " concepts.";
 			}

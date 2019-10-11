@@ -22,8 +22,7 @@ import java.util.Collections;
 import java.util.Stack;
 
 import static junit.framework.TestCase.assertNull;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -59,7 +58,7 @@ public class TraceabilityLogServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void createConcept() throws ServiceException, InterruptedException {
+	public void createDeleteConcept() throws ServiceException, InterruptedException {
 		Concept concept = conceptService.create(new Concept().addFSN("New concept"), MAIN);
 
 		Activity activity = getActivity();
@@ -90,6 +89,12 @@ public class TraceabilityLogServiceTest extends AbstractTest {
 		conceptService.update(concept, MAIN);
 		activity = getActivityWithTimeout(10);// Shorter timeout here because we know the test JMS broker is up and we don't expect a message to come.
 		assertNull("No concept changes so no traceability commit.", activity);
+
+		conceptService.deleteConceptAndComponents(concept.getConceptId(), MAIN, false);
+		activity = getActivity();
+		assertNotNull(activity);
+		assertEquals("Deleting concept New concept", activity.getCommitComment());
+		assertEquals(1, activity.getChanges().size());
 	}
 
 	public Activity getActivity() throws InterruptedException {

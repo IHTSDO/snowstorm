@@ -390,7 +390,6 @@ public class ConceptUpdateHelper extends ComponentService {
 		membersToDelete.forEach(ReferenceSetMember::markDeleted);
 		memberService.doSaveBatchMembers(membersToDelete, commit);
 		doSaveBatchRelationships(concept.getRelationships(), commit);
-		commit.markSuccessful();
 	}
 
 
