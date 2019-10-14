@@ -5,6 +5,8 @@ import java.util.List;
 
 import javax.servlet.ServletException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemProvider;
 import org.snomed.snowstorm.fhir.services.FHIRConceptMapProvider;
 import org.snomed.snowstorm.fhir.services.FHIRValueSetProvider;
@@ -21,6 +23,8 @@ import ca.uhn.fhir.rest.server.RestfulServer;
 public class HapiRestfulServlet extends RestfulServer {
 
 	private static final long serialVersionUID = 1L;
+	
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	/**
 	 * The initialize method is automatically called when the servlet is starting up, so it can be used to configure the
@@ -64,6 +68,12 @@ public class HapiRestfulServlet extends RestfulServer {
 		resourceProviders.add(vsp);
 		resourceProviders.add(cmp);
 		setResourceProviders(resourceProviders);
+		
+		// Now register interceptors
+		RootInterceptor interceptor = new RootInterceptor();
+		registerInterceptor(interceptor);
+		
+		logger.info("FHIR Resource providers and interceptors registered");
 	}
 }
 

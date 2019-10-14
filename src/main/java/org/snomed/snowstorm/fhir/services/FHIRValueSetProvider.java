@@ -183,6 +183,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			if (languageCodes == null || languageCodes.size() == 0) {
 				displayLanguage = "en";
 			} else {
+				//TODO The display language should be the first one in the list
+				//_that we actually have_  so we have to keep this as a list
+				//and show the 'best effort' match.
 				displayLanguage = languageCodes.get(0);
 			}
 		}
