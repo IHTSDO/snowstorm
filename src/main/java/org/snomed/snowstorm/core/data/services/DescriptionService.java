@@ -4,8 +4,10 @@ import ch.qos.logback.classic.Level;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.apache.commons.lang.StringUtils;
@@ -65,7 +67,13 @@ public class DescriptionService extends ComponentService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
+	private BranchService branchService;
+
+	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
+
+	@Autowired
+	private ConceptUpdateHelper conceptUpdateHelper;
 
 	public enum SearchMode {
 		STANDARD, REGEX
@@ -93,6 +101,18 @@ public class DescriptionService extends ComponentService {
 			return description;
 		}
 		return null;
+	}
+
+	public void deleteDescription(String path, Description description) {
+		if (description.isReleased()) {
+			throw new IllegalStateException("This description is released and can not be deleted.");
+		}
+		try (Commit commit = branchService.openCommit(path)) {
+			description.markDeleted();
+			conceptUpdateHelper.doDeleteMembersWhereReferencedComponentDeleted(Collections.singleton(description.getDescriptionId()), commit);
+			conceptUpdateHelper.doSaveBatchDescriptions(Collections.singleton(description), commit);
+			commit.markSuccessful();
+		}
 	}
 
 	public Page<Description> findDescriptions(String branch, String exactTerm, String concept, PageRequest pageRequest) {

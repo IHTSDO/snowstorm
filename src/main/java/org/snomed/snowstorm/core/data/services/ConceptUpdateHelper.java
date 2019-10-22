@@ -427,7 +427,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		doSaveBatchComponents(queryConcepts, commit, QueryConcept.Fields.CONCEPT_ID_FORM, queryConceptRepository);
 	}
 
-	private void doDeleteMembersWhereReferencedComponentDeleted(Set<String> entityVersionsDeleted, Commit commit) {
+	void doDeleteMembersWhereReferencedComponentDeleted(Set<String> entityVersionsDeleted, Commit commit) {
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(
 						boolQuery()
