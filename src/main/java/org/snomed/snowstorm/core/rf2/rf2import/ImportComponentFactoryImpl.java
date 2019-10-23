@@ -233,7 +233,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
 		final Relationship relationship = new Relationship(id, effectiveTimeI, isActive(active), moduleId, sourceId,
 				destinationId, Integer.parseInt(relationshipGroup), typeId, characteristicTypeId, modifierId);
-		if (effectiveTime != null) {
+		if (effectiveTimeI != null) {
 			relationship.release(effectiveTimeI);
 		}
 
@@ -268,7 +268,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		for (int i = MEMBER_ADDITIONAL_FIELD_OFFSET; i < fieldNames.length; i++) {
 			member.setAdditionalField(fieldNames[i], otherValues[i - MEMBER_ADDITIONAL_FIELD_OFFSET]);
 		}
-		if (effectiveTime != null) {
+		if (effectiveTimeI != null) {
 			member.release(effectiveTimeI);
 		}
 		memberPersistBuffer.save(member);

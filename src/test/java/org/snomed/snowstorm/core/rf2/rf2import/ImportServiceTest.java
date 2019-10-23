@@ -492,7 +492,6 @@ public class ImportServiceTest extends AbstractTest {
 	@Test
 	public void testImportWithEffectiveTimeCleared() throws IOException, ReleaseImportException {
 		// The content in these zips is for the daily build and the effective time needs to be cleared
-
 		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-daily-build/DailyBuild_Day1");
 		String importId = importService.createJob(RF2Type.DELTA, "MAIN", false, true);
 		importService.importArchive(importId, new FileInputStream(zipFile));
@@ -503,6 +502,49 @@ public class ImportServiceTest extends AbstractTest {
 		assertNull(concept.getEffectiveTime());
 		assertFalse(concept.isReleased());
 		assertNull(concept.getReleasedEffectiveTime());
+
+	}
+
+	@Test
+	public void testImportWithBlankEffectiveTime() throws IOException, ReleaseImportException {
+
+		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/blankEffectiveTimeTest");
+		String importId = importService.createJob(RF2Type.DELTA, "MAIN", false, false);
+		importService.importArchive(importId, new FileInputStream(zipFile));
+
+		List<Concept> concepts = conceptService.findAll("MAIN", PageRequest.of(0, 10)).getContent();
+		assertEquals(5, concepts.size());
+		Concept concept = conceptService.find("100000000", "MAIN");
+		assertNull(concept.getEffectiveTime());
+		assertFalse(concept.isReleased());
+		assertNull(concept.getReleasedEffectiveTime());
+		assertNull(concept.getReleaseHash());
+		assertNull(concept.getEffectiveTimeI());
+
+		Set<Description> descriptions = concept.getDescriptions();
+		assertNotNull(descriptions);
+		assertEquals(1, descriptions.size());
+		Description description = descriptions.iterator().next();
+		assertNull(description.getEffectiveTime());
+		assertNull(description.getEffectiveTimeI());
+		assertNull(description.getReleaseHash());
+		assertFalse(description.isReleased());
+		assertNull(description.getReleasedEffectiveTime());
+
+		Relationship relationship = relationshipService.findRelationship("MAIN", "200000020");
+		assertNotNull(relationship);
+		assertFalse(relationship.isReleased());
+		assertNull(relationship.getEffectiveTimeI());
+		assertNull(relationship.getEffectiveTime());
+		assertNull(relationship.getReleaseHash());
+
+		ReferenceSetMember referenceSetMember = referenceSetMemberService.findMember("MAIN", "009c6780-97ff-5298-8c6d-37df7b41838e");
+		assertNotNull(referenceSetMember);
+		assertFalse(referenceSetMember.isReleased());
+		assertNull(referenceSetMember.getReleaseHash());
+		assertNull(referenceSetMember.getEffectiveTimeI());
+		assertNull(referenceSetMember.getReleasedEffectiveTime());
+		assertNull(referenceSetMember.getEffectiveTime());
 
 
 	}
