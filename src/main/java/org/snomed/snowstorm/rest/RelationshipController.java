@@ -108,4 +108,14 @@ public class RelationshipController {
 		return ControllerHelper.throwIfNotFound("Relationship", relationship);
 	}
 
+	@RequestMapping(value = "{branch}/relationships/{relationshipId}", method = RequestMethod.DELETE)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public void deleteRelationship(
+			@PathVariable String branch,
+			@PathVariable String relationshipId) {
+		branch = BranchPathUriUtil.decodePath(branch);
+		relationshipService.deleteRelationship(relationshipId, branch);
+	}
+
 }

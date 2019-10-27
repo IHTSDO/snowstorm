@@ -1,8 +1,11 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
@@ -34,6 +37,12 @@ public class RelationshipService extends ComponentService {
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
+
+	@Autowired
+	private BranchService branchService;
+
+	@Autowired
+	private ConceptUpdateHelper conceptUpdateHelper;
 
 	public Relationship findRelationship(String branchPath, String relationshipId) {
 		Page<Relationship> relationships = findRelationships(branchPath, relationshipId, null, null, null, null, null, null, null, null, PageRequest.of(0, 1));
@@ -130,5 +139,20 @@ public class RelationshipService extends ComponentService {
 		List<Long> sortedIds = new LongArrayList(destinationIds);
 		sortedIds.sort(LongComparators.OPPOSITE_COMPARATOR);
 		return sortedIds;
+	}
+
+	public void deleteRelationship(String relationshipId, String branch) {
+		Relationship relationship = findRelationship(BranchPathUriUtil.decodePath(branch), relationshipId);
+		if (relationship == null) {
+			throw new NotFoundException("Relationship not found.");
+		}
+		if (relationship.isReleased()) {
+			throw new IllegalArgumentException("Relationship is released so can not be deleted.");
+		}
+		try (Commit commit = branchService.openCommit(branch)) {
+			relationship.markDeleted();
+			conceptUpdateHelper.doSaveBatchRelationships(Collections.singleton(relationship), commit);
+			commit.markSuccessful();
+		}
 	}
 }
