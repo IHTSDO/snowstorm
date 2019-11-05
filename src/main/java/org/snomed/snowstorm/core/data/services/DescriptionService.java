@@ -103,11 +103,17 @@ public class DescriptionService extends ComponentService {
 		return null;
 	}
 
-	public void deleteDescription(String path, Description description) {
-		if (description.isReleased()) {
+	/**
+	 * Delete a description by id.
+	 * @param description The description to delete.
+	 * @param branch The branch on which to make the change.
+	 * @param force Delete the description even if it has been released.
+	 */
+	public void deleteDescription(Description description, String branch, boolean force) {
+		if (description.isReleased() && !force) {
 			throw new IllegalStateException("This description is released and can not be deleted.");
 		}
-		try (Commit commit = branchService.openCommit(path)) {
+		try (Commit commit = branchService.openCommit(branch)) {
 			description.markDeleted();
 			conceptUpdateHelper.doDeleteMembersWhereReferencedComponentDeleted(Collections.singleton(description.getDescriptionId()), commit);
 			conceptUpdateHelper.doSaveBatchDescriptions(Collections.singleton(description), commit);

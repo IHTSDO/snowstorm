@@ -131,14 +131,18 @@ public class DescriptionController {
 		return ControllerHelper.throwIfNotFound("Description", descriptionService.findDescription(BranchPathUriUtil.decodePath(branch), descriptionId));
 	}
 
-	@ApiOperation(value = "Delete a description.", notes = "Can only be used before a description is released.")
+	@ApiOperation(value = "Delete a description.")
 	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.DELETE)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
-	public void deleteDescription(@PathVariable String branch, @PathVariable String descriptionId) {
+	public void deleteDescription(
+			@PathVariable String branch,
+			@PathVariable String descriptionId,
+			@ApiParam("Force the deletion of a released description.")
+			@RequestParam(defaultValue = "false") boolean force) {
 		branch = BranchPathUriUtil.decodePath(branch);
 		Description description = ControllerHelper.throwIfNotFound("Description", descriptionService.findDescription(branch, descriptionId));
-		descriptionService.deleteDescription(branch, description);
+		descriptionService.deleteDescription(description, branch, force);
 	}
 
 }

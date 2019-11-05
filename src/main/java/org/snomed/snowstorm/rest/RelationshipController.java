@@ -3,6 +3,8 @@ package org.snomed.snowstorm.rest;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -108,14 +110,17 @@ public class RelationshipController {
 		return ControllerHelper.throwIfNotFound("Relationship", relationship);
 	}
 
+	@ApiOperation(value = "Delete a relationship.")
 	@RequestMapping(value = "{branch}/relationships/{relationshipId}", method = RequestMethod.DELETE)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public void deleteRelationship(
 			@PathVariable String branch,
-			@PathVariable String relationshipId) {
+			@PathVariable String relationshipId,
+			@ApiParam("Force the deletion of a released relationship.")
+			@RequestParam(defaultValue = "false") boolean force) {
 		branch = BranchPathUriUtil.decodePath(branch);
-		relationshipService.deleteRelationship(relationshipId, branch);
+		relationshipService.deleteRelationship(relationshipId, branch, force);
 	}
 
 }

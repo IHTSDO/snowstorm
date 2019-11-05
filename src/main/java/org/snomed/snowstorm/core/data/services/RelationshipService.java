@@ -141,12 +141,18 @@ public class RelationshipService extends ComponentService {
 		return sortedIds;
 	}
 
-	public void deleteRelationship(String relationshipId, String branch) {
+	/**
+	 * Delete a relationship by id.
+	 * @param relationshipId The id of the relationship to be deleted.
+	 * @param branch The branch on which to make the change.
+	 * @param force Delete the relationship even if it has been released.
+	 */
+	public void deleteRelationship(String relationshipId, String branch, boolean force) {
 		Relationship relationship = findRelationship(BranchPathUriUtil.decodePath(branch), relationshipId);
 		if (relationship == null) {
 			throw new NotFoundException("Relationship not found.");
 		}
-		if (relationship.isReleased()) {
+		if (relationship.isReleased() && !force) {
 			throw new IllegalArgumentException("Relationship is released so can not be deleted.");
 		}
 		try (Commit commit = branchService.openCommit(branch)) {
