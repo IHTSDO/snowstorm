@@ -3,6 +3,86 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## 4.4.0 Release - 2019-10-11 - International Authoring platform using Snowstorm
+
+Since 4.1.0 we have made many minor and patch releases during preparation for another Snowstorm milestone.
+I am very pleased to announce that we have now gone live with Snowstorm as the Terminology Server for the SNOMED International Edition Authoring Platform!
+
+As usual we have also had plenty of engagement from the community with many questions, issues and pull requests coming through. Thank you.
+
+Please note the new approach to importing and upgrading extensions. The Code System _migrate_ function is now deprecated in favour of the new _upgrade_ function. 
+Code System branches should be created directly under `MAIN` rather than under a version branch. For example `MAIN/SNOMEDCT-US`. 
+Using the _upgrade_ function Snowstorm will rebase the Code System branch to the a specific point on the timeline of the parent branch where the requested version 
+was created, without having to use release branches like `MAIN/2019-07-31`.
+
+I hope you find this release useful and as always please just reach out or raise an issue if you have questions.
+
+### Features
+- New approach to upgrading extensions using Code System upgrade function. (_Migrate_ function now deprecated).
+  - This allows extensions to live directly under the main International Edition branch rather than under a version branch.
+- Concept attributes and axioms sorted in all hierarchies using International Authoring Team's preferred order for best readability.
+- Description search language filter.
+- Pull request #77 AWS ElasticSearch request signing.
+- Ability to import daily build RF2 automatically from S3.
+- Daily build authoring statistics endpoint.
+- Content report for concepts made inactive with no association.
+  - GET /{branch}/report/inactive-concepts-without-association
+- Authoring:
+  - Admin function to rollback a commit.
+
+### Improvements
+- Implemented #75 Option to enable unlimited pagination of full concept format using `snowstorm.rest-api.allowUnlimitedConceptPagination=true` (disabled by default).
+- Implemented #74 Set default upload size limit to 1024MB.
+- FHIR:
+  - Make json the default
+  - Minor updates to FHIR readme.
+- Ability to filter RF2 Snapshot Export by effectiveTime.
+- Upgrade baked-in MRCM XML to 1.25.0 - matching the July 2019 International Edition.
+- Search:
+  -  Issue #41 Configure Danish, Norwegian and Finnish alphabet additional characters.
+- Authoring:
+  - Prevent duplicate historical associations and inactivation reasons during branch merge.
+  - API to Load Concept version from base branch timepoint.
+  - API to delete single descriptions including force option.
+  - API to delete single relationships including force option.
+  - Log more information while processing large classification results.
+- Browser:
+  - Add default defaultLanguageReferenceSets to Code Systems.
+- Updated docker compose and readme.
+- MRCM typeahead performance improvement.
+- Stateless HTTP session management to prevent memory leak.
+- Update IHTSDO maven repos to nexus3.
+
+### Fixes
+- Fix issue #62 Concept search using non-alphanumeric characters
+- Fix issue #78 Branch path format validation.
+- Fix search results totals not consistent for the three active status options.
+- Changing code system default language no longer requires restart.
+- Fix inferredNotStated lookup for classifications with over 1K results.
+- Prevent duplicate results when using a concept id in the search "term" field.
+- Minor load test harness fixes.
+- Admin operation to remove duplicate versions of donated content in version control.
+- Fixed search result sorting when descriptions grouped by concept.
+- RF2 Import:
+  - Fix clearing release status of components when new version imported via RF2.
+  - Fix Unpublished refset components being marked as released during RF2 delta import when no effective time given.
+- Authoring Validation:
+  - Fix Incorrect Drools semantic tag warning related to inactive FSNs.
+  - Fix Drools not detecting use of duplicate synonym in same hierarchy.
+  - Fix Drools warning for duplicate FSNs which are inactive.
+  - Fix Drools inbound relationship check to use axioms.
+  - Fix validation endpoint JSON / URL mapping issue.
+- Authoring:
+  - Fix Rebase failing when branch has large number of semantic changes
+  - Prevent duplicate concepts in semantic index during promotion.
+- Fix thread safety issue in branch review function.
+- Stop making inferred relationships inactive during concept inactivation. Classification must do this.
+- Semantic index: improve depth counting, error reporting and handling.
+- Fix Changing published inactivation indicator does not come back consistently.
+- Fix Concept deletion orphaning active axioms.
+- Allow transitive closure loop during rebase commit.
+
+
 
 ## 4.1.0 Release - 2019-08-07 - Public API supporting the SNOMED browser
 
