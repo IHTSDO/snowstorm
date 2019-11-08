@@ -49,6 +49,8 @@ public class DescriptionController {
 					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
 					"Accept-Language header still controls result FSN and PT language selection.")
 			@RequestParam(required = false) List<String> language,
+			@ApiParam(value = "List of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
+			@RequestParam(required = false) List<Long> type,
 			@RequestParam(required = false) String semanticTag,
 			@RequestParam(required = false) Boolean conceptActive,
 			@RequestParam(required = false) String conceptRefset,
@@ -71,6 +73,7 @@ public class DescriptionController {
 						.searchLanguageCodes(searchLanguageCodes)
 						.active(active)
 						.module(module)
+						.type(type)
 						.semanticTag(semanticTag)
 						// Concept clauses
 						.conceptActive(conceptActive)

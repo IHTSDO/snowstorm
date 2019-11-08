@@ -172,7 +172,7 @@ public class DescriptionService extends ComponentService {
 		final BoolQueryBuilder descriptionQuery = boolQuery();
 		BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
 		descriptionQuery.must(descriptionBranchCriteria);
-		addTermClauses(criteria.getTerm(), criteria.getSearchLanguageCodes(), descriptionQuery, criteria.getSearchMode());
+		addTermClauses(criteria.getTerm(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQuery, criteria.getSearchMode());
 
 		Boolean active = criteria.getActive();
 		if (active != null) {
@@ -491,10 +491,10 @@ public class DescriptionService extends ComponentService {
 	}
 
 	void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder) {
-		addTermClauses(term, languageCodes, boolBuilder, null);
+		addTermClauses(term, languageCodes, null, boolBuilder, null);
 	}
 
-	private void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder, SearchMode searchMode) {
+	private void addTermClauses(String term, Collection<String> languageCodes, Collection<Long> descriptionTypes, BoolQueryBuilder boolBuilder, SearchMode searchMode) {
 		if (IdentifierService.isConceptId(term)) {
 			boolBuilder.must(termQuery(Description.Fields.CONCEPT_ID, term));
 		} else {
@@ -539,6 +539,9 @@ public class DescriptionService extends ComponentService {
 					termFilter.must(shouldClauses);
 				}
 			}
+		}
+		if (descriptionTypes != null && !descriptionTypes.isEmpty()) {
+			boolBuilder.must(termsQuery(Description.Fields.TYPE_ID, descriptionTypes));
 		}
 	}
 

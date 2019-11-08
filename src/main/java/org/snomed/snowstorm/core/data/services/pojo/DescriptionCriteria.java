@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services.pojo;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 
 import java.util.Collection;
+import java.util.List;
 
 import static org.snomed.snowstorm.core.data.services.DescriptionService.EN_LANGUAGE_CODES;
 
@@ -17,6 +18,7 @@ public class DescriptionCriteria {
 	private String conceptRefset;
 	private boolean groupByConcept;
 	private DescriptionService.SearchMode searchMode = DescriptionService.SearchMode.STANDARD;
+	private Collection<Long> type;
 
 	public DescriptionCriteria term(String term) {
 		this.term = term;
@@ -61,6 +63,15 @@ public class DescriptionCriteria {
 
 	public String getSemanticTag() {
 		return semanticTag;
+	}
+
+	public DescriptionCriteria type(Collection<Long> type) {
+		this.type = type;
+		return this;
+	}
+
+	public Collection<Long> getType() {
+		return type;
 	}
 
 	public DescriptionCriteria conceptActive(Boolean conceptActive) {

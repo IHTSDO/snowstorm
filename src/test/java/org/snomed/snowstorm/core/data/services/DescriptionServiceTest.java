@@ -23,10 +23,10 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
+import static java.lang.Long.parseLong;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
-import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.services.DescriptionService.SearchMode.REGEX;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -389,6 +389,37 @@ public class DescriptionServiceTest extends AbstractTest {
 
 		descriptionCriteria.conceptRefset(Concepts.REFSET_MRCM_ATTRIBUTE_RANGE);
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+	}
+
+	@Test
+	public void testDescriptionSearchTypeFilter() throws ServiceException {
+		String path = "MAIN";
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
+		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)");
+		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
+		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (so pizza)")
+				.addDescription(new Description("So cheesy pizza synonym"));
+		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		setModulesAndLanguage(concepts);
+		conceptService.batchCreate(concepts, path);
+
+		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
+				.active(true)
+				.term("pizza");
+		assertEquals(4, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+
+		descriptionCriteria.type(Collections.singleton(parseLong(Concepts.FSN)));
+		assertEquals(3, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+
+		descriptionCriteria.type(Collections.singleton(parseLong(Concepts.SYNONYM)));
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+
+		descriptionCriteria.type(Collections.singleton(parseLong(Concepts.TEXT_DEFINITION)));
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+
+		descriptionCriteria.type(Lists.newArrayList(parseLong(FSN), parseLong(SYNONYM)));
+		assertEquals(4, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
 	}
 
 	@Test
