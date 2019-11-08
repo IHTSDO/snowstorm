@@ -185,15 +185,15 @@ public class ConceptController {
 		return new ItemsPage<>(concepts);
 	}
 
-	@RequestMapping(value = "/browser/{branch}/concepts/bulk-load", method = RequestMethod.POST)
+	@RequestMapping(value = "/browser/{branch}/concepts/bulk-load", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Collection<Concept> getBrowserConcepts(
 			@PathVariable String branch,
-			@RequestBody ConceptIdsPojo request,
+			@RequestParam Set<String> conceptIds,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return conceptService.find(BranchPathUriUtil.decodePath(branch), request.getConceptIds(), ControllerHelper.getLanguageCodes(acceptLanguageHeader));
+		return conceptService.find(BranchPathUriUtil.decodePath(branch), conceptIds, ControllerHelper.getLanguageCodes(acceptLanguageHeader));
 	}
 
 	@ApiOperation(value = "Load a concept in the browser format.",
