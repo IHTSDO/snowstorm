@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.rest.View;
@@ -958,7 +959,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	private void printAllDescriptions(String path) {
-		final Page<Description> descriptions = descriptionService.findDescriptionsWithAggregations(path, null, ServiceTestUtil.PAGE_REQUEST);
+		final Page<Description> descriptions = descriptionService.findDescriptionsWithAggregations(path, new DescriptionCriteria(), ServiceTestUtil.PAGE_REQUEST);
 		logger.info("Description on " + path);
 		for (Description description : descriptions) {
 			logger.info("{}", description);

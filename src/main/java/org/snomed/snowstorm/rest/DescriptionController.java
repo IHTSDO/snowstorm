@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
+import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.pojo.BrowserDescriptionSearchResult;
@@ -64,15 +65,18 @@ public class DescriptionController {
 		List<String> searchLanguageCodes = language != null && !language.isEmpty() ? language : acceptLanguageCodes;
 
 		PageWithBucketAggregations<Description> page = descriptionService.findDescriptionsWithAggregations(
-				branch,
-				// Description clauses
-				term, searchLanguageCodes, active, module, semanticTag,
-				// Concept clauses
-				conceptActive, conceptRefset,
-				// Grouping
-				groupByConcept,
-				// Search mode
-				searchMode,
+				branch, new DescriptionCriteria()
+						// Description clauses
+						.term(term)
+						.searchLanguageCodes(searchLanguageCodes)
+						.active(active)
+						.module(module)
+						.semanticTag(semanticTag)
+						// Concept clauses
+						.conceptActive(conceptActive)
+						.conceptRefset(conceptRefset)
+						.groupByConcept(groupByConcept)
+						.searchMode(searchMode),
 				// Page
 				pageRequest);
 

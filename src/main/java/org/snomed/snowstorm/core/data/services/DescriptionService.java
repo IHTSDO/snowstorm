@@ -30,6 +30,7 @@ import org.snomed.snowstorm.core.data.services.mapper.ConceptToConceptIdMapper;
 import org.snomed.snowstorm.core.data.services.mapper.DescriptionToConceptIdGroupingMapper;
 import org.snomed.snowstorm.core.data.services.mapper.DescriptionToConceptIdMapper;
 import org.snomed.snowstorm.core.data.services.mapper.RefsetMemberToReferenceComponentIdMapper;
+import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.core.data.services.pojo.SimpleAggregation;
@@ -74,6 +75,8 @@ public class DescriptionService extends ComponentService {
 
 	@Autowired
 	private ConceptUpdateHelper conceptUpdateHelper;
+
+	public static final Set<String> EN_LANGUAGE_CODES = Collections.singleton("en");
 
 	public enum SearchMode {
 		STANDARD, REGEX
@@ -152,39 +155,42 @@ public class DescriptionService extends ComponentService {
 	}
 
 	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
-		return findDescriptionsWithAggregations(path, term, Collections.singleton("en"), pageRequest);
+		return findDescriptionsWithAggregations(path, term, EN_LANGUAGE_CODES, pageRequest);
 	}
 
 	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, Set<String> languageCodes, PageRequest pageRequest) {
-		return findDescriptionsWithAggregations(path, term, languageCodes, true, null, null, null, null, false, null, pageRequest);
+		return findDescriptionsWithAggregations(path, new DescriptionCriteria().term(term).searchLanguageCodes(languageCodes), pageRequest);
 	}
 
-	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path,
-			String term, Collection<String> languageCodes, Boolean active, String module, String semanticTag,
-			Boolean conceptActive, String conceptRefset, boolean groupByConcept, SearchMode searchMode, PageRequest pageRequest) {
-
+	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, DescriptionCriteria criteria, PageRequest pageRequest) {
 		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		timer.checkpoint("Build branch criteria");
 
 
 		// Build up the description criteria
-		final BoolQueryBuilder descriptionCriteria = boolQuery();
+		final BoolQueryBuilder descriptionQuery = boolQuery();
 		BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
-		descriptionCriteria.must(descriptionBranchCriteria);
-		addTermClauses(term, languageCodes, descriptionCriteria, searchMode);
+		descriptionQuery.must(descriptionBranchCriteria);
+		addTermClauses(criteria.getTerm(), criteria.getSearchLanguageCodes(), descriptionQuery, criteria.getSearchMode());
+
+		Boolean active = criteria.getActive();
 		if (active != null) {
-			descriptionCriteria.must(termQuery(Description.Fields.ACTIVE, active));
+			descriptionQuery.must(termQuery(Description.Fields.ACTIVE, active));
 		}
+
+		String module = criteria.getModule();
 		if (!Strings.isNullOrEmpty(module)) {
-			descriptionCriteria.must(termQuery(Description.Fields.MODULE_ID, module));
+			descriptionQuery.must(termQuery(Description.Fields.MODULE_ID, module));
 		}
 
 
 		// Fetch all matching description and concept ids
 		Collection<Long> descriptionIdsGroupedByConcept = new LongArrayList();
 		// ids of concepts where all descriptions and concept criteria are met
-		Collection<Long> conceptIds = findDescriptionConceptIds(descriptionCriteria, conceptActive, conceptRefset, groupByConcept, descriptionIdsGroupedByConcept, branchCriteria);
+		boolean groupByConcept = criteria.isGroupByConcept();
+		Collection<Long> conceptIds = findDescriptionConceptIds(descriptionQuery, criteria.getConceptActive(), criteria.getConceptRefset(), groupByConcept,
+				descriptionIdsGroupedByConcept, branchCriteria);
 
 		// Apply group by concept clause
 		BoolQueryBuilder descriptionFilter = boolQuery();
@@ -199,6 +205,7 @@ public class DescriptionService extends ComponentService {
 
 		// Fetch FSN aggregation
 		BoolQueryBuilder fsnClauses = boolQuery();
+		String semanticTag = criteria.getSemanticTag();
 		boolean semanticTagFiltering = !Strings.isNullOrEmpty(semanticTag);
 		if (semanticTagFiltering) {
 			fsnClauses.must(termQuery(Description.Fields.TAG, semanticTag));
@@ -247,7 +254,7 @@ public class DescriptionService extends ComponentService {
 		// Perform final paged description search with description property aggregations
 		descriptionFilter.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds));
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(descriptionCriteria
+				.withQuery(descriptionQuery
 						.filter(descriptionFilter))
 				.addAggregation(AggregationBuilders.terms("module").field(Description.Fields.MODULE_ID))
 				.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
