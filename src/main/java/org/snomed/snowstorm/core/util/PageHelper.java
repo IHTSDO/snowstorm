@@ -51,6 +51,9 @@ public class PageHelper {
 	}
 
 	public static <T> List<T> subList(List<T> wholeList, int pageNumber, int pageSize) {
+		if (wholeList == null) {
+			return null;
+		}
 		int offset = pageNumber * pageSize;
 		int limit = (pageNumber + 1) * pageSize;
 		if (offset >= wholeList.size()) {
@@ -76,7 +79,12 @@ public class PageHelper {
 	}
 
 	public static <T> SearchAfterPage<T> toSearchAfterPage(Page<T> page, Function<T, Object[]> searchAfterExtractor) {
-		return new AggregatedPageImpl<>(page.getContent(), page.getPageable(), page.getTotalElements(), searchAfterExtractor.apply(getLastItem(page.getContent())));
+		return toSearchAfterPage(page, searchAfterExtractor, null);
+	}
+
+	public static <T> SearchAfterPage<T> toSearchAfterPage(Page<T> page, Function<T, Object[]> searchAfterExtractor, Integer forceTotalElements) {
+		return new AggregatedPageImpl<>(page.getContent(), page.getPageable(), forceTotalElements != null ? forceTotalElements : page.getTotalElements(), searchAfterExtractor.apply(getLastItem(page.getContent())));
+
 	}
 
 	public static <T, R> SearchAfterPage<T> toSearchAfterPage(List<T> results, SearchAfterPage<R> searchAfterPage) {

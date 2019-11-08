@@ -164,12 +164,14 @@ public class ConceptController {
 	@JsonView(value = View.Component.class)
 	public ItemsPage<Concept> getBrowserConcepts(
 			@PathVariable String branch,
+			@RequestParam(required = false) List<Long> conceptIds,
 			@RequestParam(defaultValue = "0") int number,
 			@RequestParam(defaultValue = "100") int size,
 			@RequestParam(required = false) String searchAfter,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		PageRequest pageRequest;
+		Integer conceptIdsSize = conceptIds != null ? conceptIds.size() : null;
 		if (!Strings.isNullOrEmpty(searchAfter)) {
 			if (!allowUnlimitedConceptPagination) {
 				throw new IllegalArgumentException("Unlimited pagination of the full concept representation is disabled in this deployment.");
@@ -178,10 +180,11 @@ public class ConceptController {
 		} else {
 			pageRequest = PageRequest.of(number, size);
 			ControllerHelper.validatePageSize(pageRequest.getOffset(), pageRequest.getPageSize());
+			conceptIds = PageHelper.subList(conceptIds, number, size);
 		}
 
-		Page<Concept> page = conceptService.findAll(BranchPathUriUtil.decodePath(branch), ControllerHelper.getLanguageCodes(acceptLanguageHeader), pageRequest);
-		SearchAfterPage<Concept> concepts = PageHelper.toSearchAfterPage(page, concept -> SearchAfterHelper.convertToTokenAndBack(new Object[]{concept.getId()}));
+		Page<Concept> page = conceptService.find(conceptIds, ControllerHelper.getLanguageCodes(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch), pageRequest);
+		SearchAfterPage<Concept> concepts = PageHelper.toSearchAfterPage(page, concept -> SearchAfterHelper.convertToTokenAndBack(new Object[]{concept.getId()}), conceptIdsSize);
 		return new ItemsPage<>(concepts);
 	}
 

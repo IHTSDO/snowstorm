@@ -128,6 +128,10 @@ public class ConceptService extends ComponentService {
 		return doFind(ids, languageCodes, new BranchTimepoint(path), PageRequest.of(0, ids.size())).getContent();
 	}
 
+	public Page<Concept> find(List<Long> conceptIds, List<String> languageCodes, String path, PageRequest pageRequest) {
+		return doFind(conceptIds, languageCodes, new BranchTimepoint(path), pageRequest);
+	}
+
 	public boolean exists(String id, String path) {
 		return getNonExistentConceptIds(Collections.singleton(id), path).isEmpty();
 	}
