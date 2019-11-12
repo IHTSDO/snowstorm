@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -43,7 +42,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static java.lang.Long.min;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
@@ -80,8 +78,7 @@ public class QueryService implements ApplicationContextAware {
 			conceptId -> conceptId == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{conceptId});
 
 	private static final Set<Long> DESCENDANT_COUNT_PARALLEL_JOIN_CONCEPTS = Sets.newHashSet(
-			parseLong(Concepts.CLINICAL_FINDING),
-			parseLong(Concepts.ORGANISM)
+			parseLong(Concepts.CLINICAL_FINDING)
 	);
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
