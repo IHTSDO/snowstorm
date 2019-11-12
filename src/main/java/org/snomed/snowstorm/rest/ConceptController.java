@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -19,6 +20,7 @@ import org.snomed.snowstorm.core.data.services.pojo.MapPage;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -339,17 +341,26 @@ public class ConceptController {
 	public Collection<ConceptMini> findConceptChildren(@PathVariable String branch,
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
+			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		String branchPath = BranchPathUriUtil.decodePath(branch);
 
+		TimerUtil timer = new TimerUtil("Child listing: " + conceptId, Level.INFO, 5);
+
 		QueryService.ConceptQueryBuilder conceptQuery = queryService.createQueryBuilder(form)
 				.ecl("<!" + conceptId)
 				.languageCodes(languageCodes);
-		Page<ConceptMini> children = queryService.search(conceptQuery, branchPath, LARGE_PAGE);
-		queryService.joinIsLeafFlag(children.getContent(), branchPath, form);
-		return children.getContent();
+		List<ConceptMini> children = queryService.search(conceptQuery, branchPath, LARGE_PAGE).getContent();
+		timer.checkpoint("Find children");
+		queryService.joinIsLeafFlag(children, branchPath, form);
+		timer.checkpoint("Join leaf flag");
+		if (includeDescendantCount) {
+			queryService.joinDescendantCount(children, branchPath, form);
+			timer.checkpoint("Join descendant count");
+		}
+		return children;
 	}
 
 	@ResponseBody

@@ -20,6 +20,7 @@ public class ConceptMini implements Serializable {
 	private String definitionStatusId;
 	private Boolean leafInferred;
 	private Boolean leafStated;
+	private Long descendantCount;
 	private String moduleId;
 	private Boolean active;
 	private Map<String, Object> extraFields;
@@ -150,6 +151,21 @@ public class ConceptMini implements Serializable {
 	public ConceptMini setLeafStated(Boolean leafStated) {
 		this.leafStated = leafStated;
 		return this;
+	}
+
+	// Call this method first otherwise minis with no descendants will have null descendant count.
+	public ConceptMini startDescendantCount() {
+		descendantCount = 0L;
+		return this;
+	}
+
+	public void incrementDescendantCount() {
+		descendantCount++;
+	}
+
+	@JsonView(value = View.Component.class)
+	public Long getDescendantCount() {
+		return descendantCount;
 	}
 
 	@JsonView(value = View.Component.class)

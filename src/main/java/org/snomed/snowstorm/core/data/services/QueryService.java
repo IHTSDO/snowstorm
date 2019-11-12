@@ -2,10 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.longs.LongArraySet;
-import it.unimi.dsi.fastutil.longs.LongComparators;
-import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
+import it.unimi.dsi.fastutil.longs.*;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
@@ -14,6 +11,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.core.util.StreamUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
@@ -34,6 +32,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -477,6 +476,38 @@ public class QueryService implements ApplicationContextAware {
 						conceptMap.get(parent).setLeaf(form, false);
 						// We don't need to check this one again
 						conceptIdsToFind.remove(parent);
+					}
+				}
+			});
+		}
+	}
+
+	public void joinDescendantCount(List<ConceptMini> concepts, String branchPath, Relationship.CharacteristicType form) {
+		if (concepts.isEmpty()) {
+			return;
+		}
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		Map<Long, ConceptMini> conceptMap = concepts.stream().map(ConceptMini::startDescendantCount).collect(
+				Collectors.toMap(
+						mini -> Long.parseLong(mini.getConceptId()),
+						Function.identity(),
+						StreamUtil.MERGE_FUNCTION,
+						Long2ObjectOpenHashMap::new));
+
+		Set<Long> conceptIdsToFind = new LongOpenHashSet(conceptMap.keySet());
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(new BoolQueryBuilder()
+						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
+						.must(termQuery(QueryConcept.Fields.STATED, form == Relationship.CharacteristicType.stated))
+						.must(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIdsToFind)))
+				.withPageable(LARGE_PAGE);
+		try (CloseableIterator<QueryConcept> children = elasticsearchTemplate.stream(queryBuilder.build(), QueryConcept.class)) {
+			children.forEachRemaining(child -> {
+				Set<Long> ancestors = child.getAncestors();
+				for (Long ancestor : ancestors) {
+					ConceptMini conceptMini = conceptMap.get(ancestor);
+					if (conceptMini != null) {
+						conceptMini.incrementDescendantCount();
 					}
 				}
 			});
