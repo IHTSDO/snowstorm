@@ -11,6 +11,8 @@ import java.io.Serializable;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static java.lang.Long.parseLong;
+
 public class ConceptMini implements Serializable {
 
 	private String conceptId;
@@ -60,6 +62,10 @@ public class ConceptMini implements Serializable {
 	@JsonView(value = View.Component.class)
 	public String getConceptId() {
 		return conceptId;
+	}
+
+	public Long getConceptIdAsLong() {
+		return conceptId != null ? parseLong(conceptId) : null;
 	}
 
 	@JsonView(value = View.Component.class)

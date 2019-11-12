@@ -37,6 +37,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.snomed.snowstorm.core.pojo.BranchTimepoint.BRANCH_CREATION_TIMEPOINT;
@@ -342,7 +343,7 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		String branchPath = BranchPathUriUtil.decodePath(branch);
@@ -357,7 +358,11 @@ public class ConceptController {
 		queryService.joinIsLeafFlag(children, branchPath, form);
 		timer.checkpoint("Join leaf flag");
 		if (includeDescendantCount) {
-			queryService.joinDescendantCount(children, branchPath, form);
+			try {
+				queryService.joinDescendantCount(children, branchPath, form);
+			} catch (InterruptedException | ExecutionException e) {
+				throw new ServiceException("Failed to join concept descendant count.", e);
+			}
 			timer.checkpoint("Join descendant count");
 		}
 		return children;
