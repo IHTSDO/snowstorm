@@ -6,6 +6,10 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 
 import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceComponent;
+import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
+import org.hl7.fhir.r4.model.ValueSet.ConceptSetFilterComponent;
+import org.hl7.fhir.r4.model.ValueSet.FilterOperator;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -110,6 +114,51 @@ class FHIRHelper {
 				header = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER;
 			}
 			return ControllerHelper.getLanguageCodes(header);
+		}
+	}
+
+	public String convertToECL(ConceptSetComponent setDefn) throws FHIROperationException {
+		String ecl = "";
+		boolean firstItem = true;
+		for (ConceptReferenceComponent concept : setDefn.getConcept()) {
+			if (firstItem) {
+				firstItem = false;
+			} else {
+				ecl += " OR ";
+			}
+			ecl += concept.getCode() + "|" + concept.getDisplay() + "|";
+		}
+		
+		for (ConceptSetFilterComponent filter : setDefn.getFilter()) {
+			if (firstItem) {
+				firstItem = false;
+			} else {
+				ecl += " AND ";
+			}
+			if (filter.getProperty().equals("concept")) {
+				ecl += convertOperationToECL(filter.getOp());
+				ecl += filter.getValue();
+			} else if (filter.getProperty().equals("constraint")) {
+				if (filter.getOp().toCode() != "=") {
+					throw new FHIROperationException (IssueType.NOTSUPPORTED , "ValueSet compose filter 'constaint' operation - only '=' currently implemented");
+				}
+				ecl += filter.getValue();
+			} else {
+				throw new FHIROperationException (IssueType.NOTSUPPORTED , "ValueSet compose filter property - only 'concept' and 'constraint' currently implemented");
+			}
+
+		}
+		
+		return ecl;
+	}
+
+	private String convertOperationToECL(FilterOperator op) throws FHIROperationException {
+		switch (op.toCode()) {
+			case "is-a" : return " << ";
+			case "=" : return " ";
+			case "descendant-of" : return " < ";
+			default :
+				throw new FHIROperationException (IssueType.NOTSUPPORTED , "ValueSet compose filter operation " + op.toCode() + " (" + op.getDisplay() + ") not currently supported");
 		}
 	}
 }

@@ -11,6 +11,7 @@ import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceComponent;
 import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
+import org.hl7.fhir.r4.model.ValueSet.ValueSetComposeComponent;
 import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionComponent;
 import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionContainsComponent;
 import org.hl7.fhir.instance.model.api.IBaseResource;
@@ -163,7 +164,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				throw new FHIROperationException(IssueType.VALUE, "Cannot expand both '" + vs.getUrl() + "' in " + id.getIdPart() + "' and '" + url + "' in request.");
 			}
 			url = vs.getUrl();
-			moveAndFilterContentForExpansion(vs, filter);
 		}
 		
 		List<String> languageCodes = fhirHelper.getLanguageCodes(designations, request);
@@ -199,12 +199,24 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
 		int cutPoint = url == null ? -1 : url.indexOf("?");
 		if (cutPoint == NOT_SET) {
-			String msg = "'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ";
-			//We don't need ECL if we're expanding a named valueset
-			if (vs != null) {
-				logger.warn(msg + " when expanding " + vs.getId());
+			if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
+				String branchPath = obtainConsistentCodeSystemVersionFromCompose(vs.getCompose());
+				String ecl = covertComposeToECL(vs.getCompose());
+				QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
+				queryBuilder.ecl(ecl)
+							.termMatch(filter)
+							.languageCodes(languageCodes)
+							.activeFilter(active);
+				conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
+				logger.info("Recovered: {} concepts from branch: {} with ecl from compose: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
 			} else {
-				throw new FHIROperationException(IssueType.VALUE, msg);
+				String msg = "Compose element(s) or 'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ";
+				//We don't need ECL if we're expanding a named valueset
+				if (vs != null) {
+					logger.warn(msg + " when expanding " + vs.getId());
+				} else {
+					throw new FHIROperationException(IssueType.VALUE, msg);
+				}
 			}
 		} else {
 			StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
@@ -233,40 +245,62 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		valueSet.getExpansion().setOffset(offset);
 		return valueSet;
 	}
-	
-	//During an expansion, any concept declared in the compose element should move to expansion and 
-	//be filtered if required.
-	private void moveAndFilterContentForExpansion(ValueSet vs, String filter) {
-		ValueSetExpansionComponent expansion = vs.getExpansion();  //Will autocreate
-		if (vs.hasCompose() && vs.getCompose().getInclude() != null) {
-			for (ConceptSetComponent concept : vs.getCompose().getInclude()) {
-				expansion.addContains()
-				.setCode(concept.getId())
-				.setDisplay(concept.primitiveValue())
-				.setSystem(concept.getSystem());
-				//Add any child concepts
-				//TODO re-write this as a recursive function - if use case exists?
-				if (concept.hasConcept()) {
-					for (ConceptReferenceComponent subConcept : concept.getConcept()){
-						expansion.addContains()
-						.setCode(subConcept.getId())
-						.setDisplay(subConcept.primitiveValue())
-						.setSystem(concept.getSystem()); //Will be same as parent
-					}
-				}
+
+	private String obtainConsistentCodeSystemVersionFromCompose(ValueSetComposeComponent compose) throws FHIROperationException {
+		String system = null;
+		String version = null;
+		
+		//Check all include and exclude elements to ensure they have a consistent snomed URI
+		List<ConceptSetComponent> allIncludeExcludes = new ArrayList<>(compose.getInclude());
+		allIncludeExcludes.addAll(compose.getExclude());
+		for (ConceptSetComponent thisIncludeExclude : allIncludeExcludes) {
+			if (thisIncludeExclude.getSystem() != null && !thisIncludeExclude.getSystem().contains(SNOMED_URI)) {
+				throw new FHIROperationException (IssueType.NOTSUPPORTED , "Server currently limited to compose elements using SNOMED CT code system");
+			}
+			if (thisIncludeExclude.getSystem() != null && system == null) {
+				system = thisIncludeExclude.getSystem();
+			}
+			if (thisIncludeExclude.getVersion() != null && version == null) {
+				version = thisIncludeExclude.getVersion();
+			}
+			if (system != null && thisIncludeExclude.getSystem() != null && !system.equals(thisIncludeExclude.getSystem())) {
+				String msg = "Server currently requires consistency in ValueSet compose element code systems.";
+				msg += " Encoundered both '" + system + "' and '" + thisIncludeExclude.getSystem() + "'."; 
+				throw new FHIROperationException (IssueType.NOTSUPPORTED , msg);
+			}
+			if (version != null && thisIncludeExclude.getVersion() != null && !version.equals(thisIncludeExclude.getVersion())) {
+				throw new FHIROperationException (IssueType.NOTSUPPORTED , "Server currently requires consistency in ValueSet compose element code system versions");
 			}
 		}
-		//Remove the compose element, we've expanded instead.
-		vs.setCompose(null);
-		
-		//Now that we've amalgamated compose and any existing expansion, filter if required
-		if (filter != null && !filter.isEmpty()) {
-			List<ValueSetExpansionContainsComponent> contains = vs.getExpansion().getContains()
-					.stream()
-					.filter(c -> c.getDisplay().toLowerCase().contains(filter.toLowerCase()))
-					.collect(Collectors.toList());
-			vs.getExpansion().setContains(contains);
+		StringType codeSystemVersionUri = new StringType(system + "/" + version);
+		return fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
+	}
+	
+	
+	private String covertComposeToECL(ValueSetComposeComponent compose) throws FHIROperationException {
+		//Successive include elements will be added using 'OR'
+		//While the excludes will be added using 'MINUS'
+		String ecl = "";
+		boolean isFirstInclude = true;
+		for (ConceptSetComponent include : compose.getInclude()) {
+			if (isFirstInclude) {
+				isFirstInclude = false;
+			} else {
+				ecl += " OR ";
+			}
+			ecl += "( " + fhirHelper.convertToECL(include) + " )";
 		}
+		
+		//We need something to minus!
+		if (isFirstInclude) {
+			throw new FHIROperationException (IssueType.VALUE , "Invalid use of exclude without include in ValueSet compose element.");
+		}
+		
+		for (ConceptSetComponent exclude : compose.getExclude()) {
+			ecl += " MINUS ( " + fhirHelper.convertToECL(exclude) + " )";
+		}
+		
+		return ecl;
 	}
 
 	private void validateId(IdType id, ValueSet vs) throws FHIROperationException {
