@@ -31,7 +31,7 @@ Before doing anything, you will need to have a SNAPSHOT (or Full version) of the
 As this is the first time we will be importing another extension, we will need to create a CodeSystem on the server. For this example, we are going to use the Spanish Edition but it should be the same for any other edition or extension. 
 
 
-On the swagger interface, look for the create a code system POST on the admin endpoint ( http://localhost:8080/swagger-ui.html#!/Admin/createCodeSystemUsingPOST ). Use the following in the request to create the branch:
+On the swagger interface, look for the create a code system POST on the code systems endpoint ( http://localhost:8080/swagger-ui.html#!/Code_Systems/createCodeSystemUsingPOST ). Use the following in the request to create the branch:
 
 ```json
 {
