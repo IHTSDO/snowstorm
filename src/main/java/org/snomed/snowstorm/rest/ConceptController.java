@@ -355,15 +355,18 @@ public class ConceptController {
 				.languageCodes(languageCodes);
 		List<ConceptMini> children = queryService.search(conceptQuery, branchPath, LARGE_PAGE).getContent();
 		timer.checkpoint("Find children");
-		queryService.joinIsLeafFlag(children, branchPath, form);
-		timer.checkpoint("Join leaf flag");
-		if (includeDescendantCount) {
+
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		if (!includeDescendantCount) {
+			queryService.joinIsLeafFlag(children, form, branchCriteria);
+			timer.checkpoint("Join leaf flag");
+		} else {
 			try {
-				queryService.joinDescendantCount(children, branchPath, form);
+				queryService.joinDescendantCountAndLeafFlag(children, form, branchPath, branchCriteria);
 			} catch (InterruptedException | ExecutionException e) {
 				throw new ServiceException("Failed to join concept descendant count.", e);
 			}
-			timer.checkpoint("Join descendant count");
+			timer.checkpoint("Join descendant count and leaf flag");
 		}
 		return children;
 	}

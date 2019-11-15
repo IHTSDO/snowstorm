@@ -1,9 +1,11 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import it.unimi.dsi.fastutil.longs.*;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongArraySet;
+import it.unimi.dsi.fastutil.longs.LongComparators;
+import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
@@ -12,7 +14,6 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.util.PageHelper;
-import org.snomed.snowstorm.core.util.StreamUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
@@ -34,10 +35,6 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -70,16 +67,10 @@ public class QueryService implements ApplicationContextAware {
 	@Autowired
 	private DescriptionService descriptionService;
 
-	private ExecutorService executorService = Executors.newFixedThreadPool(10);
-
 	private ConceptService conceptService;
 
 	public static final Function<Long, Object[]> CONCEPT_ID_SEARCH_AFTER_EXTRACTOR =
 			conceptId -> conceptId == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{conceptId});
-
-	private static final Set<Long> DESCENDANT_COUNT_PARALLEL_JOIN_CONCEPTS = Sets.newHashSet(
-			parseLong(Concepts.CLINICAL_FINDING)
-	);
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -462,11 +453,10 @@ public class QueryService implements ApplicationContextAware {
 		return new ConceptQueryBuilder(form == Relationship.CharacteristicType.stated);
 	}
 
-	public void joinIsLeafFlag(List<ConceptMini> concepts, String branchPath, Relationship.CharacteristicType form) {
+	public void joinIsLeafFlag(List<ConceptMini> concepts, Relationship.CharacteristicType form, BranchCriteria branchCriteria) {
 		if (concepts.isEmpty()) {
 			return;
 		}
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Map<Long, ConceptMini> conceptMap = concepts.stream().map(mini -> mini.setLeaf(form, true)).collect(Collectors.toMap(mini -> Long.parseLong(mini.getConceptId()), Function.identity()));
 		Set<Long> conceptIdsToFind = new HashSet<>(conceptMap.keySet());
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
@@ -493,73 +483,16 @@ public class QueryService implements ApplicationContextAware {
 		}
 	}
 
-	public void joinDescendantCount(List<ConceptMini> concepts, String branchPath, Relationship.CharacteristicType form) throws ExecutionException, InterruptedException {
+	public void joinDescendantCountAndLeafFlag(List<ConceptMini> concepts, Relationship.CharacteristicType form, String branchPath, BranchCriteria branchCriteria) throws ExecutionException, InterruptedException {
 		if (concepts.isEmpty()) {
 			return;
 		}
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		Map<Long, ConceptMini> conceptMap = concepts.stream().map(ConceptMini::startDescendantCount).collect(
-				Collectors.toMap(
-						mini -> Long.parseLong(mini.getConceptId()),
-						Function.identity(),
-						StreamUtil.MERGE_FUNCTION,
-						Long2ObjectOpenHashMap::new));
 
-		List<Future<Map<Long, ConceptMini>>> tasks = new ArrayList<>();
-
-		// Process expensive hierarchies in separate threads to reduce overall loading time.
-		for (Long expensiveConcept : DESCENDANT_COUNT_PARALLEL_JOIN_CONCEPTS) {
-			if (conceptMap.containsKey(expensiveConcept)) {
-				ConceptMini conceptMini = conceptMap.get(expensiveConcept);
-				conceptMap.remove(expensiveConcept);
-				Map<Long, ConceptMini> map = Long2ObjectMaps.singleton(expensiveConcept, conceptMini);
-				tasks.add(executorService.submit(() -> doJoinDescendantCount(map, form, branchCriteria)));
-			}
+		for (ConceptMini concept : concepts) {
+			SearchAfterPage<Long> page = searchForIds(createQueryBuilder(form).ecl("<" + concept.getId()), branchPath, branchCriteria, PAGE_OF_ONE);
+			concept.setDescendantCount(page.getTotalElements());
+			concept.setLeaf(form, page.getTotalElements() == 0);
 		}
-		// Lookup for main list
-		doJoinDescendantCount(conceptMap, form, branchCriteria);
-
-		for (Future<Map<Long, ConceptMini>> task : tasks) {
-			conceptMap.putAll(task.get());
-		}
-
-		// Add any other concept with over 10K descendants to the parallel load set
-		for (ConceptMini mini : conceptMap.values()) {
-			if (mini.getDescendantCount() > 10_000 && !DESCENDANT_COUNT_PARALLEL_JOIN_CONCEPTS.contains(mini.getConceptIdAsLong()) ) {
-				synchronized (this) {
-					logger.info("Concept {} | {} | has high number of descendants ({}). Descendants will be counted in a separate thread in the future.",
-							mini.getConceptId(), mini.getFsnTerm(), mini.getDescendantCount());
-					DESCENDANT_COUNT_PARALLEL_JOIN_CONCEPTS.add(mini.getConceptIdAsLong());
-				}
-			}
-		}
-	}
-
-	private Map<Long, ConceptMini> doJoinDescendantCount(Map<Long, ConceptMini> conceptMap, Relationship.CharacteristicType form, BranchCriteria branchCriteria) {
-		if (conceptMap.isEmpty()) {
-			return conceptMap;
-		}
-		Set<Long> conceptIdsToFind = new LongOpenHashSet(conceptMap.keySet());
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(new BoolQueryBuilder()
-						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-						.must(termQuery(QueryConcept.Fields.STATED, form == Relationship.CharacteristicType.stated))
-						.must(termsQuery(QueryConcept.Fields.ANCESTORS, conceptIdsToFind)))
-				.withPageable(LARGE_PAGE);
-		AtomicLong recordsRead = new AtomicLong();
-		try (CloseableIterator<QueryConcept> children = elasticsearchTemplate.stream(queryBuilder.build(), QueryConcept.class)) {
-			children.forEachRemaining(child -> {
-				recordsRead.incrementAndGet();
-				Set<Long> ancestors = child.getAncestors();
-				for (Long ancestor : ancestors) {
-					ConceptMini conceptMini = conceptMap.get(ancestor);
-					if (conceptMini != null) {
-						conceptMini.incrementDescendantCount();
-					}
-				}
-			});
-		}
-		return conceptMap;
 	}
 
 	@Override

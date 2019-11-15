@@ -64,6 +64,7 @@ public class ConceptMini implements Serializable {
 		return conceptId;
 	}
 
+	@JsonIgnore
 	public Long getConceptIdAsLong() {
 		return conceptId != null ? parseLong(conceptId) : null;
 	}
@@ -172,6 +173,10 @@ public class ConceptMini implements Serializable {
 	@JsonView(value = View.Component.class)
 	public Long getDescendantCount() {
 		return descendantCount;
+	}
+
+	public void setDescendantCount(Long descendantCount) {
+		this.descendantCount = descendantCount;
 	}
 
 	@JsonView(value = View.Component.class)
