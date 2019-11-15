@@ -51,6 +51,9 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean restApiReadOnly;
 
+	@Value("${snowstorm.rest-api.readonly.allowReadOnlyPostEndpoints}")
+	private boolean restApiAllowReadOnlyPostEndpoints;
+
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
 
@@ -116,6 +119,11 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 		return Collections.singletonList("/fhir");
 	}
 
+	@Bean
+	public List<String> allowReadOnlyPostEndpoints() {
+		return Collections.singletonList("/browser/{branch}/concepts/bulk-load");
+	}
+
 	@Override
 	protected void configure(HttpSecurity http) throws Exception {
 		http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
@@ -127,6 +135,9 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 			// Allow some explicitly defined endpoints
 			ExpressionUrlAuthorizationConfigurer<HttpSecurity>.ExpressionInterceptUrlRegistry authorizeRequests = http.authorizeRequests();
 			allowReadOnlyPostEndpointPrefixes().forEach(prefix -> authorizeRequests.antMatchers(HttpMethod.POST, prefix + "/**").anonymous());
+			if (restApiAllowReadOnlyPostEndpoints) {
+				allowReadOnlyPostEndpoints().forEach(endpoint -> authorizeRequests.antMatchers(HttpMethod.POST, endpoint).anonymous());
+			}
 
 			// Block all other POST/PUT/PATCH/DELETE
 			authorizeRequests
@@ -154,17 +165,32 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 		if (restApiReadOnly) {
 			// Read-only mode
 			List<String> allowReadOnlyPostEndpointPrefixes = allowReadOnlyPostEndpointPrefixes();
+			List<String> allowReadOnlyPostEndpoints = allowReadOnlyPostEndpoints();
 
 			apiSelectorBuilder
 					.apis(requestHandler -> {
 						// Hide POST/PUT/PATCH/DELETE
 						if (requestHandler != null) {
-							// Allow FHIR endpoints with GET method (even if endpoint has POST too)
 							RequestMappingInfo requestMapping = requestHandler.getRequestMapping();
-							if (requestMapping.getPatternsCondition().getPatterns().stream()
-									.filter(pattern -> allowReadOnlyPostEndpointPrefixes.stream().filter(pattern::startsWith).count() > 0).count() > 0
+							// Allow FHIR endpoints with GET method (even if endpoint has POST too)
+							if (requestMapping.getPatternsCondition().getPatterns()
+									.stream().
+											anyMatch(pattern -> allowReadOnlyPostEndpointPrefixes
+													.stream()
+													.anyMatch(pattern::startsWith))
 									&& requestMapping.getMethodsCondition().getMethods().contains(RequestMethod.GET)) {
 								return true;
+							}
+							if (restApiAllowReadOnlyPostEndpoints) {
+								// Allow specific endpoints with POST method
+								if (requestMapping.getPatternsCondition().getPatterns()
+										.stream().
+												anyMatch(pattern -> allowReadOnlyPostEndpoints
+														.stream()
+														.anyMatch(pattern::equals))
+										&& requestMapping.getMethodsCondition().getMethods().contains(RequestMethod.POST)) {
+									return true;
+								}
 							}
 							Set<RequestMethod> methods = requestMapping.getMethodsCondition().getMethods();
 							return !methods.contains(RequestMethod.POST) && !methods.contains(RequestMethod.PUT)
