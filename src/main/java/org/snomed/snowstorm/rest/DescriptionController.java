@@ -153,4 +153,14 @@ public class DescriptionController {
 		descriptionService.deleteDescription(description, branch, force);
 	}
 
+	@ApiOperation("List semantic tags of all active concepts together with a count of concepts using each.")
+	@RequestMapping(value = "{branch}/descriptions/semantictags", method = RequestMethod.GET)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public Map<String, Long> countSemanticTags(@PathVariable String branch) {
+
+		branch = BranchPathUriUtil.decodePath(branch);
+		return descriptionService.countActiveConceptsPerSemanticTag(branch);
+	}
+
 }

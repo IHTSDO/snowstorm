@@ -7,6 +7,7 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
@@ -15,11 +16,16 @@ import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
+import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,6 +46,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchResultMapper;
@@ -51,6 +58,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -76,6 +84,8 @@ public class DescriptionService extends ComponentService {
 
 	@Autowired
 	private ConceptUpdateHelper conceptUpdateHelper;
+
+	private final Map<String, SemanticTagCacheEntry> semanticTagAggregationCache = new ConcurrentHashMap<>();
 
 	@Value("${search.description.aggregation.maxProcessableResultsSize}")
 	private int aggregationMaxProcessableResultsSize;
@@ -331,6 +341,53 @@ public class DescriptionService extends ComponentService {
 		if (fetchInactivationInfo) {
 			joinInactivationIndicatorsAndAssociations(conceptIdMap, descriptionIdMap, branchCriteria, timer);
 		}
+	}
+
+	public Map<String, Long> countActiveConceptsPerSemanticTag(String branch) {
+
+		Branch branchObject = branchService.findLatest(branch);
+
+		SemanticTagCacheEntry semanticTagCacheEntry = semanticTagAggregationCache.get(branch);
+		if (semanticTagCacheEntry != null) {
+			if (semanticTagCacheEntry.getBranchHeadTime() == branchObject.getHead().getTime()) {
+				return semanticTagCacheEntry.getTagCounts();
+			}
+		}
+
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+
+		List<Long> activeConcepts = new LongArrayList();
+
+		try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termQuery(Concept.Fields.ACTIVE, true)))
+				.withStoredFields(Concept.Fields.CONCEPT_ID)
+				.withPageable(LARGE_PAGE).build(), Concept.class, new ConceptToConceptIdMapper(activeConcepts))) {
+			stream.forEachRemaining(concept -> {});
+		}
+
+		AggregatedPage<Description> page = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Description.class))
+						.must(termQuery(Description.Fields.ACTIVE, true))
+						.must(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
+						.filter(termsQuery(Description.Fields.CONCEPT_ID, activeConcepts))
+				)
+				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG).size(AGGREGATION_SEARCH_SIZE))
+				.build(), Description.class);
+
+		Map<String, Long> tagCounts = new TreeMap<>();
+		ParsedStringTerms semanticTags = (ParsedStringTerms) page.getAggregation("semanticTags");
+		List<? extends Terms.Bucket> buckets = semanticTags.getBuckets();
+		for (Terms.Bucket bucket : buckets) {
+			tagCounts.put(bucket.getKeyAsString(), bucket.getDocCount());
+		}
+
+		// Cache result
+		semanticTagAggregationCache.put(branch, new SemanticTagCacheEntry(branchObject.getHead().getTime(), tagCounts));
+
+		return tagCounts;
 	}
 
 	private void joinInactivationIndicatorsAndAssociations(Map<String, Concept> conceptIdMap, Map<String, Description> descriptionIdMap,
@@ -624,5 +681,24 @@ public class DescriptionService extends ComponentService {
 		query.addSort(Sort.by(Description.Fields.TERM_LEN));
 		query.addSort(Sort.by("_score"));
 		return query;
+	}
+
+	private static class SemanticTagCacheEntry {
+
+		private final long branchHeadTime;
+		private final Map<String, Long> tagCounts;
+
+		SemanticTagCacheEntry(long branchHeadTime, Map<String, Long> tagCounts) {
+			this.branchHeadTime = branchHeadTime;
+			this.tagCounts = tagCounts;
+		}
+
+		public long getBranchHeadTime() {
+			return branchHeadTime;
+		}
+
+		public Map<String, Long> getTagCounts() {
+			return tagCounts;
+		}
 	}
 }
