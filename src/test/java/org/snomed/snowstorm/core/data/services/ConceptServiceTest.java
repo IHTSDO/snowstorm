@@ -958,7 +958,7 @@ public class ConceptServiceTest extends AbstractTest {
 				.sorted(Comparator.comparing(Description::getTermLen)).map(Description::getTerm).collect(Collectors.toList()).toString());
 	}
 
-	private void printAllDescriptions(String path) {
+	private void printAllDescriptions(String path) throws TooCostlyException {
 		final Page<Description> descriptions = descriptionService.findDescriptionsWithAggregations(path, new DescriptionCriteria(), ServiceTestUtil.PAGE_REQUEST);
 		logger.info("Description on " + path);
 		for (Description description : descriptions) {

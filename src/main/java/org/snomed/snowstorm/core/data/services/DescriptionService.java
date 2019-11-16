@@ -37,6 +37,7 @@ import org.snomed.snowstorm.core.data.services.pojo.SimpleAggregation;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -75,6 +76,9 @@ public class DescriptionService extends ComponentService {
 
 	@Autowired
 	private ConceptUpdateHelper conceptUpdateHelper;
+
+	@Value("${search.description.aggregation.maxProcessableResultsSize}")
+	private int aggregationMaxProcessableResultsSize;
 
 	public static final Set<String> EN_LANGUAGE_CODES = Collections.singleton("en");
 
@@ -154,16 +158,16 @@ public class DescriptionService extends ComponentService {
 		return conceptMap.values().stream().flatMap(c -> c.getDescriptions().stream()).collect(Collectors.toSet());
 	}
 
-	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) {
+	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) throws TooCostlyException {
 		return findDescriptionsWithAggregations(path, term, EN_LANGUAGE_CODES, pageRequest);
 	}
 
-	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, Set<String> languageCodes, PageRequest pageRequest) {
+	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, Set<String> languageCodes, PageRequest pageRequest) throws TooCostlyException {
 		return findDescriptionsWithAggregations(path, new DescriptionCriteria().term(term).searchLanguageCodes(languageCodes), pageRequest);
 	}
 
-	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, DescriptionCriteria criteria, PageRequest pageRequest) {
-		TimerUtil timer = new TimerUtil("Search", Level.DEBUG);
+	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, DescriptionCriteria criteria, PageRequest pageRequest) throws TooCostlyException {
+		TimerUtil timer = new TimerUtil("Search", Level.INFO, 5);
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		timer.checkpoint("Build branch criteria");
 
@@ -418,7 +422,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	private Collection<Long> findDescriptionConceptIds(BoolQueryBuilder descriptionCriteria, Boolean conceptActive, String conceptRefset,
-			boolean groupByConcept, Collection<Long> descriptionIdsGroupedByConcept, BranchCriteria branchCriteria) {
+			boolean groupByConcept, Collection<Long> descriptionIdsGroupedByConcept, BranchCriteria branchCriteria) throws TooCostlyException {
 
 		Collection<Long> conceptIds;
 		SearchResultMapper mapper;
@@ -432,11 +436,16 @@ public class DescriptionService extends ComponentService {
 			conceptIds = new LongArrayList();
 			mapper = new DescriptionToConceptIdMapper(conceptIds);
 		}
-		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
+		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(descriptionCriteria)
-				.withStoredFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
-				.withPageable(LARGE_PAGE)
-				.build();
+				.withStoredFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID);
+
+		long totalElements = elasticsearchTemplate.queryForPage(searchQueryBuilder.withPageable(PAGE_OF_ONE).build(), Description.class).getTotalElements();
+		if (totalElements > aggregationMaxProcessableResultsSize) {
+			throw new TooCostlyException(String.format("There are over %s results. Aggregating these results would be too costly.", aggregationMaxProcessableResultsSize));
+		}
+
+		NativeSearchQuery searchQuery = searchQueryBuilder.withPageable(LARGE_PAGE).build();
 		addTermSort(searchQuery);
 		try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(
 				searchQuery, Description.class, mapper)) {

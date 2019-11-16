@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
+import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.util.LangUtil;
@@ -58,7 +59,7 @@ public class DescriptionController {
 			@RequestParam(defaultValue = "STANDARD") DescriptionService.SearchMode searchMode,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws TooCostlyException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);

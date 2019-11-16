@@ -4,6 +4,7 @@ import io.kaicode.elasticvc.api.BranchNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -38,6 +39,18 @@ public class RestControllerAdvice {
 		result.put("message", exception.getMessage());
 		logger.info("bad request {}", exception.getMessage());
 		logger.debug("bad request {}", exception.getMessage(), exception);
+		return result;
+	}
+
+	@ExceptionHandler(TooCostlyException.class)
+	@ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+	@ResponseBody
+	public Map<String,Object> handleTooExpensiveException(TooCostlyException exception) {
+		HashMap<String, Object> result = new HashMap<>();
+		result.put("error", HttpStatus.UNPROCESSABLE_ENTITY);
+		result.put("message", exception.getMessage());
+		logger.info("Too Costly request {}", exception.getMessage());
+		logger.debug("Too Costly request {}", exception.getMessage(), exception);
 		return result;
 	}
 
