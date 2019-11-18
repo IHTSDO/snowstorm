@@ -7,6 +7,8 @@ import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.common.Strings;
+import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.util.concurrent.UncategorizedExecutionException;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -115,7 +117,17 @@ public class ClassificationService {
 	}
 
 	@PostConstruct
-	private void init() {
+	private void init() throws ServiceException {
+
+		try {
+			if (!elasticsearchOperations.indexExists(Concept.class)) {
+				throw new StartupException("Elasticsearch Concept index does not exist.");
+			}
+		} catch (UncategorizedExecutionException e) {
+			throw new StartupException("Not able to connect to Elasticsearch. " +
+					"Check that Elasticsearch is running and that you have the right version installed.", e);
+		}
+
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(termsQuery(Classification.Fields.STATUS, ClassificationStatus.SCHEDULED.name(), ClassificationStatus.RUNNING.name()))
 				.withPageable(PAGE_FIRST_1K);
