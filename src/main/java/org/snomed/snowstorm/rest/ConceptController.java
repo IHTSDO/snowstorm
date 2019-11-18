@@ -377,14 +377,23 @@ public class ConceptController {
 	public Collection<ConceptMini> findConceptParents(@PathVariable String branch,
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		Set<Long> parentIds = queryService.findParentIds(branchCriteria, form == Relationship.CharacteristicType.stated, conceptId);
-		return conceptService.findConceptMinis(branchCriteria, parentIds, languageCodes).getResultsMap().values();
+		Collection<ConceptMini> parents = conceptService.findConceptMinis(branchCriteria, parentIds, languageCodes).getResultsMap().values();
+		if (includeDescendantCount) {
+			try {
+				queryService.joinDescendantCountAndLeafFlag(parents, form, branch, branchCriteria);
+			} catch (InterruptedException | ExecutionException e) {
+				throw new ServiceException("Failed to join concept descendant count.", e);
+			}
+		}
+		return parents;
 	}
 
 	@ResponseBody

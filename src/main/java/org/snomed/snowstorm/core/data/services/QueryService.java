@@ -483,7 +483,7 @@ public class QueryService implements ApplicationContextAware {
 		}
 	}
 
-	public void joinDescendantCountAndLeafFlag(List<ConceptMini> concepts, Relationship.CharacteristicType form, String branchPath, BranchCriteria branchCriteria) throws ExecutionException, InterruptedException {
+	public void joinDescendantCountAndLeafFlag(Collection<ConceptMini> concepts, Relationship.CharacteristicType form, String branchPath, BranchCriteria branchCriteria) throws ExecutionException, InterruptedException {
 		if (concepts.isEmpty()) {
 			return;
 		}
