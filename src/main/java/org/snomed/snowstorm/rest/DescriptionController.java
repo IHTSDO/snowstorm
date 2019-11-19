@@ -46,13 +46,20 @@ public class DescriptionController {
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(required = false) String module,
-			@ApiParam(value = "List of two character language codes to match. " +
+
+			@ApiParam(value = "Set of two character language codes to match. " +
 					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
 					"Accept-Language header still controls result FSN and PT language selection.")
-			@RequestParam(required = false) List<String> language,
-			@ApiParam(value = "List of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
-			@RequestParam(required = false) List<Long> type,
+			@RequestParam(required = false) Set<String> language,
+
+			@ApiParam(value = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
+			@RequestParam(required = false) Set<Long> type,
+
 			@RequestParam(required = false) String semanticTag,
+
+			@ApiParam(value = "Set of description language reference sets. The description must be preferred in at least one of these to match.")
+			@RequestParam(required = false) Set<Long> preferredIn,
+
 			@RequestParam(required = false) Boolean conceptActive,
 			@RequestParam(required = false) String conceptRefset,
 			@RequestParam(defaultValue = "false") boolean groupByConcept,
@@ -65,17 +72,21 @@ public class DescriptionController {
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 
 		List<String> acceptLanguageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
-		List<String> searchLanguageCodes = language != null && !language.isEmpty() ? language : acceptLanguageCodes;
+		Set<String> searchLanguageCodes = language != null && !language.isEmpty() ? language : new HashSet<>(acceptLanguageCodes);
 
 		PageWithBucketAggregations<Description> page = descriptionService.findDescriptionsWithAggregations(
 				branch, new DescriptionCriteria()
 						// Description clauses
 						.term(term)
-						.searchLanguageCodes(searchLanguageCodes)
 						.active(active)
 						.module(module)
+						.searchLanguageCodes(searchLanguageCodes)
 						.type(type)
 						.semanticTag(semanticTag)
+
+						// Language reference set clauses
+						.preferredIn(preferredIn)
+
 						// Concept clauses
 						.conceptActive(conceptActive)
 						.conceptRefset(conceptRefset)

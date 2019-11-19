@@ -163,8 +163,9 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return Concepts.descriptionTypeNames.get(typeId);
 	}
 
-	public void setType(String type) {
+	public Description setType(String type) {
 		typeId = Concepts.descriptionTypeNames.inverse().get(type);
+		return this;
 	}
 
 	@JsonView(value = View.Component.class)

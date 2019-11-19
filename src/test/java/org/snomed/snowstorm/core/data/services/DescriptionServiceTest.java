@@ -423,6 +423,51 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testDescriptionSearchAcceptabilityFilter() throws ServiceException {
+		String path = "MAIN";
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addDescription(new Description("Food (food)").addLanguageRefsetMember(GB_EN_LANG_REFSET, PREFERRED));
+		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId()))
+				.addDescription(new Description("Cheese Pizza (pizza)").setTypeId(FSN).addLanguageRefsetMember(GB_EN_LANG_REFSET, PREFERRED))
+				.addDescription(new Description("Cheese Pizza").addLanguageRefsetMember(GB_EN_LANG_REFSET, PREFERRED))
+				.addDescription(new Description("Cheeze Pizza").addLanguageRefsetMember(GB_EN_LANG_REFSET, ACCEPTABLE));
+		;
+		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId()))
+				.addFSN("Really Cheesy Pizza (pizza)")
+				.addDescription(new Description("Really Cheesy Pizza").addLanguageRefsetMember(GB_EN_LANG_REFSET, PREFERRED));
+		;
+		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (so pizza)")
+				.addDescription(new Description("So cheesy pizza synonym"));
+		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		setModulesAndLanguage(concepts);
+		conceptService.batchCreate(concepts, path);
+
+		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
+				.active(true)
+				.term("pizza");
+		assertEquals(7, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+
+		descriptionCriteria.type(Collections.singleton(parseLong(Concepts.FSN)));
+		assertEquals(3, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+
+		descriptionCriteria.preferredIn(Collections.singleton(parseLong(GB_EN_LANG_REFSET)));
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+
+		descriptionCriteria
+				.term("Cheeze")
+				.type(Collections.singleton(parseLong(Concepts.SYNONYM)))
+				.preferredIn(Collections.singleton(parseLong(GB_EN_LANG_REFSET)));
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+
+		descriptionCriteria
+				.term("Cheeze")
+				.type(Collections.singleton(parseLong(Concepts.SYNONYM)))
+				.preferredIn(Collections.emptySet());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+	}
+
+	@Test
 	public void testVersionControlOnChildOfMainBranch() throws ServiceException {
 		branchService.create("MAIN/A");
 		Concept concept = testUtil.createConceptWithPathIdAndTerm("MAIN/A", "100001", "Heart");
