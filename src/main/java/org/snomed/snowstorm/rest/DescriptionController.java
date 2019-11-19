@@ -60,6 +60,12 @@ public class DescriptionController {
 			@ApiParam(value = "Set of description language reference sets. The description must be preferred in at least one of these to match.")
 			@RequestParam(required = false) Set<Long> preferredIn,
 
+			@ApiParam(value = "Set of description language reference sets. The description must be acceptable in at least one of these to match.")
+			@RequestParam(required = false) Set<Long> acceptableIn,
+
+			@ApiParam(value = "Set of description language reference sets. The description must be preferred OR acceptable in at least one of these to match.")
+			@RequestParam(required = false) Set<Long> preferredOrAcceptableIn,
+
 			@RequestParam(required = false) Boolean conceptActive,
 			@RequestParam(required = false) String conceptRefset,
 			@RequestParam(defaultValue = "false") boolean groupByConcept,
@@ -86,6 +92,8 @@ public class DescriptionController {
 
 						// Language reference set clauses
 						.preferredIn(preferredIn)
+						.acceptableIn(acceptableIn)
+						.preferredOrAcceptableIn(acceptableIn)
 
 						// Concept clauses
 						.conceptActive(conceptActive)

@@ -23,6 +23,8 @@ public class DescriptionCriteria {
 	private DescriptionService.SearchMode searchMode = DescriptionService.SearchMode.STANDARD;
 	private Collection<Long> type;
 	private Set<Long> preferredIn;
+	private Set<Long> acceptableIn;
+	private Set<Long> preferredOrAcceptableIn;
 
 	public DescriptionCriteria term(String term) {
 		this.term = term;
@@ -85,6 +87,24 @@ public class DescriptionCriteria {
 
 	public Set<Long> getPreferredIn() {
 		return preferredIn;
+	}
+
+	public DescriptionCriteria acceptableIn(Set<Long> acceptableIn) {
+		this.acceptableIn = acceptableIn;
+		return this;
+	}
+
+	public Set<Long> getAcceptableIn() {
+		return acceptableIn;
+	}
+
+	public DescriptionCriteria preferredOrAcceptableIn(Set<Long> preferredOrAcceptableIn) {
+		this.preferredOrAcceptableIn = preferredOrAcceptableIn;
+		return this;
+	}
+
+	public Set<Long> getPreferredOrAcceptableIn() {
+		return preferredOrAcceptableIn;
 	}
 
 	public boolean hasLanguageRefsetClauses() {
