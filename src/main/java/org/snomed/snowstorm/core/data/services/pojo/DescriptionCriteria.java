@@ -1,9 +1,12 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
 import org.snomed.snowstorm.core.data.services.DescriptionService;
+import org.springframework.util.CollectionUtils;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import static org.snomed.snowstorm.core.data.services.DescriptionService.EN_LANGUAGE_CODES;
 
@@ -19,6 +22,7 @@ public class DescriptionCriteria {
 	private boolean groupByConcept;
 	private DescriptionService.SearchMode searchMode = DescriptionService.SearchMode.STANDARD;
 	private Collection<Long> type;
+	private Set<Long> preferredIn;
 
 	public DescriptionCriteria term(String term) {
 		this.term = term;
@@ -72,6 +76,19 @@ public class DescriptionCriteria {
 
 	public Collection<Long> getType() {
 		return type;
+	}
+
+	public DescriptionCriteria preferredIn(Set<Long> preferredIn) {
+		this.preferredIn = preferredIn;
+		return this;
+	}
+
+	public Set<Long> getPreferredIn() {
+		return preferredIn;
+	}
+
+	public boolean hasLanguageRefsetClauses() {
+		return !CollectionUtils.isEmpty(preferredIn);
 	}
 
 	public DescriptionCriteria conceptActive(Boolean conceptActive) {

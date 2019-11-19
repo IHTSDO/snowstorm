@@ -9,17 +9,17 @@ import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
 import org.springframework.data.elasticsearch.core.aggregation.impl.AggregatedPageImpl;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 import static java.lang.Long.parseLong;
 
 public class DescriptionToConceptIdMapper implements SearchResultMapper {
 
-	private final Collection<Long> conceptIds;
+	private final Map<Long, Long> descriptionIdToConceptId;
 
-	public DescriptionToConceptIdMapper(Collection<Long> conceptIds) {
-		this.conceptIds = conceptIds;
+	public DescriptionToConceptIdMapper(Map<Long, Long> descriptionIdToConceptId) {
+		this.descriptionIdToConceptId = descriptionIdToConceptId;
 	}
 
 	@Override
@@ -28,10 +28,13 @@ public class DescriptionToConceptIdMapper implements SearchResultMapper {
 		Description d = new Description();
 		SearchHit lastHit = null;
 		for (SearchHit hit : response.getHits().getHits()) {
-			conceptIds.add(parseLong(hit.getFields().get(Description.Fields.CONCEPT_ID).getValue()));
+			descriptionIdToConceptId.put(
+					parseLong(hit.getFields().get(Description.Fields.DESCRIPTION_ID).getValue()),
+					parseLong(hit.getFields().get(Description.Fields.CONCEPT_ID).getValue()));
 			results.add((T) d);
 			lastHit = hit;
 		}
-		return new AggregatedPageImpl<>(results, pageable, response.getHits().getTotalHits(), response.getAggregations(), response.getScrollId(), lastHit != null ? lastHit.getSortValues() : null);
+		return new AggregatedPageImpl<>(results, pageable, response.getHits().getTotalHits(), response.getAggregations(), response.getScrollId(),
+				lastHit != null ? lastHit.getSortValues() : null);
 	}
 }
