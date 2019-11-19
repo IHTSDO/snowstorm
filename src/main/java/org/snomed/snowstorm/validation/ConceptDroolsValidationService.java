@@ -7,6 +7,7 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.validation.domain.DroolsConcept;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -47,7 +48,19 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 		return !matches.isEmpty();
 	}
 
-	@Override
+    @Override
+    public org.ihtsdo.drools.domain.Concept findById(String conceptId) {
+        NativeSearchQuery query = new NativeSearchQueryBuilder()
+                .withQuery(boolQuery()
+                        .must(branchCriteria.getEntityBranchCriteria(Concept.class))
+                        .must(termQuery(Concept.Fields.CONCEPT_ID, conceptId)))
+                .withPageable(Config.PAGE_OF_ONE)
+                .build();
+        List<Concept> matches = elasticsearchTemplate.queryForList(query, Concept.class);
+        return !matches.isEmpty() ? new DroolsConcept(matches.get(0)) : null;
+    }
+
+    @Override
 	public Set<String> getAllTopLevelHierarchies() {
 		return getConceptIdsByEcl(false, "<!" + Concepts.SNOMEDCT_ROOT);
 	}
