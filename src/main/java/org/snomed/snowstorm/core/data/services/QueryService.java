@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
+import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
@@ -483,7 +484,7 @@ public class QueryService implements ApplicationContextAware {
 		}
 	}
 
-	public void joinDescendantCountAndLeafFlag(Collection<ConceptMini> concepts, Relationship.CharacteristicType form, String branchPath, BranchCriteria branchCriteria) throws ExecutionException, InterruptedException {
+	public void joinDescendantCountAndLeafFlag(Collection<ConceptMini> concepts, Relationship.CharacteristicType form, String branchPath, BranchCriteria branchCriteria) {
 		if (concepts.isEmpty()) {
 			return;
 		}
@@ -493,6 +494,16 @@ public class QueryService implements ApplicationContextAware {
 			concept.setDescendantCount(page.getTotalElements());
 			concept.setLeaf(form, page.getTotalElements() == 0);
 		}
+	}
+
+	public void joinDescendantCount(Concept concept, Relationship.CharacteristicType form, List<String> languageCodes, BranchTimepoint branchTimepoint) {
+		if (concept == null) {
+			return;
+		}
+		BranchCriteria branchCriteria = conceptService.getBranchCriteria(branchTimepoint);
+		ConceptMini mini = new ConceptMini(concept, languageCodes);
+		joinDescendantCountAndLeafFlag(Collections.singleton(mini), form, branchTimepoint.getBranchPath(), branchCriteria);
+		concept.setDescendantCount(mini.getDescendantCount());
 	}
 
 	@Override

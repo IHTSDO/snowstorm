@@ -51,4 +51,7 @@ public abstract class ConceptStoreMixIn {
 	@JsonIgnore
 	abstract Set<ReferenceSetMember> getAllOwlAxiomMembers();
 
+	@JsonIgnore
+	abstract Long getDescendantCount();
+
 }

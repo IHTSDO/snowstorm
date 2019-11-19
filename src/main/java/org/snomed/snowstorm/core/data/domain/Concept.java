@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 import static org.snomed.snowstorm.core.util.DescriptionHelper.EN_LANGUAGE_CODE;
 
 @Document(indexName = "concept")
-@JsonPropertyOrder({"conceptId", "fsn", "pt", "active", "effectiveTime", "released", "releasedEffectiveTime",  "inactivationIndicator", "associationTargets",
+@JsonPropertyOrder({"conceptId", "descendantCount", "fsn", "pt", "active", "effectiveTime", "released", "releasedEffectiveTime",  "inactivationIndicator", "associationTargets",
 		"moduleId", "definitionStatus", "definitionStatusId", "descriptions", "classAxioms", "gciAxioms", "relationships"})
 public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
@@ -76,6 +76,9 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	@Transient
 	@JsonIgnore
 	private List<String> requestedLanguages;
+
+	@Transient
+	private Long descendantCount;
 
 	public Concept() {
 		active = true;
@@ -394,6 +397,15 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public void setGciAxioms(Set<Axiom> generalConceptInclusionAxioms) {
 		this.generalConceptInclusionAxioms = generalConceptInclusionAxioms;
+	}
+
+	@JsonView(value = View.Component.class)
+	public Long getDescendantCount() {
+		return descendantCount;
+	}
+
+	public void setDescendantCount(Long descendantCount) {
+		this.descendantCount = descendantCount;
 	}
 
 	public void setRequestedLanguages(List<String> requestedLanguages) {

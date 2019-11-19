@@ -55,7 +55,9 @@ public class ConceptSerialisationTest {
 	@Test
 	public void testRESTApiSerialisation() throws JsonProcessingException {
 		ObjectWriter restApiWriter = generalObjectMapper.writerWithView(View.Component.class).forType(ConceptView.class);
-		final String conceptJson = restApiWriter.writeValueAsString(new Concept("123", null, true, "33", "900000000000074008"));
+		Concept concept = new Concept("123", null, true, "33", "900000000000074008");
+		concept.setDescendantCount(123L);
+		final String conceptJson = restApiWriter.writeValueAsString(concept);
 		System.out.println(conceptJson);
 		assertFalse(conceptJson.contains("internalId"));
 		assertFalse(conceptJson.contains("path"));
@@ -64,6 +66,7 @@ public class ConceptSerialisationTest {
 		assertFalse(conceptJson.contains("effectiveTimeI"));
 		assertFalse(conceptJson.contains("releaseHash"));
 		assertFalse(conceptJson.contains("allOwlAxiomMembers"));
+		assertFalse(conceptJson.contains("descendantCount"));
 
 		assertTrue(conceptJson.contains("fsn"));
 		assertTrue(conceptJson.contains("pt"));
@@ -77,6 +80,7 @@ public class ConceptSerialisationTest {
 	public void testStoreSerialisation() throws JsonProcessingException {
 		// Dummy data to serialise
 		Concept concept = new Concept("123", null, true, "33", "900000000000074008");
+		concept.setDescendantCount(123L);
 
 		final String conceptJson = storeObjectMapper.writeValueAsString(concept);
 		System.out.println(conceptJson);
@@ -93,6 +97,7 @@ public class ConceptSerialisationTest {
 		assertFalse(conceptJson.contains("gciAxioms"));
 		assertFalse(conceptJson.contains("allOwlAxiomMembers"));
 		assertFalse(conceptJson.contains("associationTargets"));
+		assertFalse(conceptJson.contains("descendantCount"));
 
 		assertTrue(conceptJson.contains("internalId"));
 		assertTrue(conceptJson.contains("path"));

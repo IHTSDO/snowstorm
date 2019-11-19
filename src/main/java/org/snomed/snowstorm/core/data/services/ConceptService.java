@@ -171,7 +171,7 @@ public class ConceptService extends ComponentService {
 		return doFind(conceptIds, languageCodes, branchCriteria, pageRequest, true, true);
 	}
 
-	private BranchCriteria getBranchCriteria(BranchTimepoint branchTimepoint) {
+	protected BranchCriteria getBranchCriteria(BranchTimepoint branchTimepoint) {
 		if (branchTimepoint.isBranchCreationTimepoint()) {
 			return versionControlHelper.getBranchCriteriaAtBranchCreationTimepoint(branchTimepoint.getBranchPath());
 		} else if (branchTimepoint.isBranchBaseTimepoint()) {

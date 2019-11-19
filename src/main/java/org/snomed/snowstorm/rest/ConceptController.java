@@ -7,6 +7,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -37,7 +38,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.snomed.snowstorm.core.pojo.BranchTimepoint.BRANCH_CREATION_TIMEPOINT;
@@ -212,9 +212,17 @@ public class ConceptController {
 	public ConceptView findBrowserConcept(
 			@PathVariable String branch,
 			@PathVariable String conceptId,
+			@ApiParam("If this parameter is set a descendantCount will be included in the response using stated/inferred as requested.")
+			@RequestParam(required = false) Relationship.CharacteristicType descendantCountForm,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, ControllerHelper.getLanguageCodes(acceptLanguageHeader), parseBranchTimepoint(branch)));
+		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		BranchTimepoint branchTimepoint = parseBranchTimepoint(branch);
+		Concept concept = conceptService.find(conceptId, languageCodes, branchTimepoint);
+		if (descendantCountForm != null) {
+			queryService.joinDescendantCount(concept, descendantCountForm, languageCodes, branchTimepoint);
+		}
+		return ControllerHelper.throwIfNotFound("Concept", concept);
 	}
 
 	@ResponseBody
@@ -361,11 +369,7 @@ public class ConceptController {
 			queryService.joinIsLeafFlag(children, form, branchCriteria);
 			timer.checkpoint("Join leaf flag");
 		} else {
-			try {
-				queryService.joinDescendantCountAndLeafFlag(children, form, branchPath, branchCriteria);
-			} catch (InterruptedException | ExecutionException e) {
-				throw new ServiceException("Failed to join concept descendant count.", e);
-			}
+			queryService.joinDescendantCountAndLeafFlag(children, form, branchPath, branchCriteria);
 			timer.checkpoint("Join descendant count and leaf flag");
 		}
 		return children;
@@ -387,11 +391,7 @@ public class ConceptController {
 		Set<Long> parentIds = queryService.findParentIds(branchCriteria, form == Relationship.CharacteristicType.stated, conceptId);
 		Collection<ConceptMini> parents = conceptService.findConceptMinis(branchCriteria, parentIds, languageCodes).getResultsMap().values();
 		if (includeDescendantCount) {
-			try {
-				queryService.joinDescendantCountAndLeafFlag(parents, form, branch, branchCriteria);
-			} catch (InterruptedException | ExecutionException e) {
-				throw new ServiceException("Failed to join concept descendant count.", e);
-			}
+			queryService.joinDescendantCountAndLeafFlag(parents, form, branch, branchCriteria);
 		}
 		return parents;
 	}
