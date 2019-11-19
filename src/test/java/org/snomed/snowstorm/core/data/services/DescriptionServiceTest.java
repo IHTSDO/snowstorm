@@ -431,12 +431,13 @@ public class DescriptionServiceTest extends AbstractTest {
 		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId()))
 				.addDescription(new Description("Cheese Pizza (pizza)").setTypeId(FSN).addLanguageRefsetMember(GB_EN_LANG_REFSET, PREFERRED))
 				.addDescription(new Description("Cheese Pizza").addLanguageRefsetMember(GB_EN_LANG_REFSET, PREFERRED))
-				.addDescription(new Description("Cheeze Pizza").addLanguageRefsetMember(GB_EN_LANG_REFSET, ACCEPTABLE));
-		;
+				.addDescription(new Description("Cheeze Pizza").addLanguageRefsetMember(GB_EN_LANG_REFSET, ACCEPTABLE))
+				.addDescription(new Description("Cheezze Pizza").addLanguageRefsetMember(US_EN_LANG_REFSET, ACCEPTABLE));
+
 		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId()))
 				.addFSN("Really Cheesy Pizza (pizza)")
 				.addDescription(new Description("Really Cheesy Pizza").addLanguageRefsetMember(GB_EN_LANG_REFSET, PREFERRED));
-		;
+
 		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (so pizza)")
 				.addDescription(new Description("So cheesy pizza synonym"));
 		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
@@ -446,7 +447,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
 				.active(true)
 				.term("pizza");
-		assertEquals(7, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(8, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
 
 		descriptionCriteria.type(Collections.singleton(parseLong(Concepts.FSN)));
 		assertEquals(3, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
@@ -459,11 +460,26 @@ public class DescriptionServiceTest extends AbstractTest {
 				.type(Collections.singleton(parseLong(Concepts.SYNONYM)))
 				.preferredIn(Collections.singleton(parseLong(GB_EN_LANG_REFSET)));
 		assertEquals(0, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+		descriptionCriteria.preferredIn(null);
 
 		descriptionCriteria
 				.term("Cheeze")
 				.type(Collections.singleton(parseLong(Concepts.SYNONYM)))
-				.preferredIn(Collections.emptySet());
+				.acceptableIn(Collections.singleton(parseLong(GB_EN_LANG_REFSET)));
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+		descriptionCriteria.acceptableIn(null);
+
+		descriptionCriteria
+				.term("Cheezze")
+				.type(Collections.singleton(parseLong(Concepts.SYNONYM)))
+				.preferredIn(Collections.singleton(parseLong(US_EN_LANG_REFSET)));
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+		descriptionCriteria.preferredIn(null);
+
+		descriptionCriteria
+				.term("Cheezze")
+				.type(Collections.singleton(parseLong(Concepts.SYNONYM)))
+				.preferredOrAcceptableIn(Collections.singleton(parseLong(US_EN_LANG_REFSET)));
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
 	}
 

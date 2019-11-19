@@ -202,6 +202,8 @@ public class DescriptionService extends ComponentService {
 		DescriptionMatches descriptionMatches = findDescriptionAndConceptIds(
 				descriptionQuery,
 				criteria.getPreferredIn(),
+				criteria.getAcceptableIn(),
+				criteria.getPreferredOrAcceptableIn(),
 				criteria.getConceptActive(),
 				criteria.getConceptRefset(),
 				groupByConcept,
@@ -482,7 +484,7 @@ public class DescriptionService extends ComponentService {
 
 	private DescriptionMatches findDescriptionAndConceptIds(
 			BoolQueryBuilder descriptionCriteria,
-			Set<Long> preferredIn,
+			Set<Long> preferredIn, Set<Long> acceptableIn, Set<Long> preferredOrAcceptableIn,
 			Boolean conceptActive, String conceptRefset,
 			boolean groupByConcept, BranchCriteria branchCriteria) throws TooCostlyException {
 
@@ -506,14 +508,28 @@ public class DescriptionService extends ComponentService {
 		}
 
 		// Second pass to apply lang refset filter
-		if (!CollectionUtils.isEmpty(preferredIn)) {
+		if (!CollectionUtils.isEmpty(preferredIn) || !CollectionUtils.isEmpty(acceptableIn) || !CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
+
+			BoolQueryBuilder queryBuilder = boolQuery()
+					.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
+			if (!CollectionUtils.isEmpty(preferredIn)) {
+				queryBuilder
+						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, preferredIn))
+						.must(termQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED));
+			}
+			if (!CollectionUtils.isEmpty(acceptableIn)) {
+				queryBuilder
+						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, acceptableIn))
+						.must(termQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.ACCEPTABLE));
+			}
+			if (!CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
+				queryBuilder
+						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, preferredOrAcceptableIn))
+						.must(termsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Sets.newHashSet(Concepts.PREFERRED, Concepts.ACCEPTABLE)));
+			}
+
 			NativeSearchQuery nativeSearchQuery = new NativeSearchQueryBuilder()
-					.withQuery(
-							boolQuery()
-									.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-									.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, preferredIn))
-									.must(termsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED))
-					)
+					.withQuery(queryBuilder)
 					.withFilter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, descriptionToConceptMap.keySet()))
 					.withStoredFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 					.withPageable(LARGE_PAGE)
