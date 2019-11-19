@@ -196,11 +196,12 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			includeDesignations = true;
 		}
 		
+		String branchPath = null;
 		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
 		int cutPoint = url == null ? -1 : url.indexOf("?");
 		if (cutPoint == NOT_SET) {
 			if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
-				String branchPath = obtainConsistentCodeSystemVersionFromCompose(vs.getCompose());
+				branchPath = obtainConsistentCodeSystemVersionFromCompose(vs.getCompose());
 				String ecl = covertComposeToECL(vs.getCompose());
 				QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 				queryBuilder.ecl(ecl)
@@ -220,7 +221,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			}
 		} else {
 			StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
-			String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
+			branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
 			//Are we looking for all known refsets?  Special case.
 			if (url.endsWith("?fhir_vs=refset")) {
 				conceptMiniPage = findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
@@ -235,11 +236,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
 				logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
 			}
-			
-			//We will always need the PT, so recover further details
-			conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, languageCodes);
 		}
 		
+		//We will always need the PT, so recover further details
+		conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, languageCodes);
 		ValueSet valueSet = mapper.mapToFHIR(vs, conceptMiniPage.getContent(), url, conceptDetails, languageCodes, displayLanguage, includeDesignations); 
 		valueSet.getExpansion().setTotal((int)conceptMiniPage.getTotalElements());
 		valueSet.getExpansion().setOffset(offset);
