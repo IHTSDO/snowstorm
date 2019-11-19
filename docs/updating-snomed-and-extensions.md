@@ -9,16 +9,24 @@
 - [Upgrading an Extension to the new International Edition](#upgrading-an-extension-to-the-new-international-edition)
 - [Upgrading to a new local Edition or Extension](#upgrading-to-a-new-local-edition-or-extension)
 
-## Extensions vs Editions
+## Editions vs Extensions
 
-To try to defuse any confusion about what SNOMED CT versions you are working, this is a brief summary of the difference between an edition and an extension. Editions generally bundle international and local counry content into a single release. An extension is local content extended on top of an already published International Edition.
+Technically speaking the difference between an Edition and an Extension is just a question of what the RF2 release package contains.  
 
-A few exceptions to the rule worth being aware of:
+- An Edition release package contains both the content of the International Edition and the content of a country Extension.
+In an Edition package only one set of RF2 files are expected for each component type, for example one concept file containing both the International concepts and the Extension concepts. 
 
-- **Spanish Edition**: referred to as en edition when in fact it is an *extension* and should be loaded as documented below
-- **UK Edition**: packaged as a single zip file, but actually contains full International Edition folder and a UK Extension folder. The latter should be loaded as documented below.
+- An Extension release package contains just the Extension content and does not include the International Edition content.
 
-In the case of real editions (the US, Canada and Australia editions are included in the list), there is no need to load the International Edition, and you should load the relevat adition in the same way as the International Edition.
+_However please be aware that these terms are not always used consistently!_
+
+A few known exceptions to the rule worth being aware of:
+
+- **Spanish Edition**: referred to as an _Edition_ when in fact the package is an _Extension_ and should be loaded as documented below.
+- **UK Edition**: packaged as a single zip file, but actually contains full International Edition folder and a UK Extension folder. 
+Snowstorm is not able to process this directory structure so it's best to create a separate zip file containing just the UK Extension folder and load as documented below.
+
+In the case of real Editions (for example the US, Canada and Australia Editions) loading the International Edition is not required and you could load the Edition directly into MAIN the same way as the International Edition.
 
 ## Loading the initial data
 
