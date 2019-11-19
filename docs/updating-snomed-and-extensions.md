@@ -55,12 +55,12 @@ You now need to import the Spanish extension. You need to start the import proce
 and then click on 'Try it now' and then note the id of the import as you will need it for the next step (it will look something like - d0b30d96-3714-443e-99a5-2f282b1f1b0). As before, you now need to upload the file. This can be done through Swagger using the /imports/{importId}/archive endpoint, or via curl.  In both cases, specify the ID recovered in the previous step:
 
 ```bash
-curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_SpanishRelease-es_Production_20180430T120000Z.zip 'http://localhost:8080/imports/<import id>/archive'
+curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_SpanishRelease-es_Production_20190430T120000Z.zip 'http://localhost:8080/imports/<import id>/archive'
 ```
 
 You can watch log to see how this is progressing, or simply to the import endpoint - http://localhost:8080/imports/<import id>. This will take around 5-6 minutes.
 
-You can check the import has been a success using the Branching endpoint - http://localhost:8080/branches, where you should now see a MAIN/SNOMEDCT-ES and a MAIN/SNOMEDCT-ES/2018-04-30 branch.
+You can check the import has been a success using the Branching endpoint - http://localhost:8080/branches, where you should now see a MAIN/SNOMEDCT-ES and a MAIN/SNOMEDCT-ES/2019-04-30 branch.
 
 ## Importing a new International Edition
 
@@ -77,22 +77,19 @@ Every 6 months there is a new International Edition and it is important to keep 
 and then click on 'Try it now' and then note the id of the import as before. We now need to upload the July 2018 International release file as before:
 
 ```bash
-curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_InternationalRF2_PRODUCTION_20180731T120000Z.zip  'http://localhost:8080/imports/<import id>/archive'
+curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_InternationalRF2_PRODUCTION_20190731T120000Z.zip  'http://localhost:8080/imports/<import id>/archive'
 ```
 
 You can tail the system log to see how this is progressing, or simply to the import endpoint - http://localhost:8080/imports/<import id>
 
-## Upgrading an Extension to the new International Edition
+## Upgrading an Extension/Edition to the new International Edition
 
-Upgrading the Edition branch to the new International Edition (merging the branch) and new Edition version
+We now need to upgrade the local extension/edition branch. 
 
-You should only really do this once the relevant edition update is also available. We first need to merge the Spanish branch and so we will now merge the MAIN branch into the SNOMEDCT-SE branch using the merge endpoint ( http://localhost:8080/swagger-ui.html#!/Branching/mergeBranchUsingPOST )
-
+In our example, we will now merge the MAIN branch into the SNOMEDCT-ES branch using the CodeSystem upgrade endpoint using the shortname, SNOMEDCT-ES, `/codesystems/SNOMEDCT-ES/upgrade`:
 ```json
 {
-  "commitComment": "Merging in the 2018-07-31 edition",
-  "source": "MAIN",
-  "target": "MAIN/SNOMEDCT-ES"
+  "newDependantVersion": 20190731
 }
 ```
 
@@ -113,7 +110,7 @@ The Edition or Extension upgrade is an import again, but for this time, it is a 
 and then click on 'Try it now' and then note the id of the import as before. You now need to upload the October 2018 Spanish release file as before -
 
 ```bash
-curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_SpanishRelease-es_Production_20181031T120000Z.zip  'http://localhost:8080/imports/<import id>/archive'
+curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_SpanishRelease-es_Production_20191031T120000Z.zip  'http://localhost:8080/imports/<import id>/archive'
 ```
 
 You can tail the system log to see how this is progressing, or simply to the import endpoint - http://localhost:8080/imports/<import id>
