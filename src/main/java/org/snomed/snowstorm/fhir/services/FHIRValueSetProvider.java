@@ -9,8 +9,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
-import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
-import org.hl7.fhir.r4.model.ValueSet.ValueSetComposeComponent;
+import org.hl7.fhir.r4.model.ValueSet.*;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,6 +73,13 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	public MethodOutcome createValueset(@IdParam IdType id, @ResourceParam ValueSet vs) throws FHIROperationException {
 		MethodOutcome outcome = new MethodOutcome();
 		validateId(id, vs);
+		
+		//Attempt to expand the valueset in lieu of full validation
+		if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
+			obtainConsistentCodeSystemVersionFromCompose(vs.getCompose());
+			covertComposeToECL(vs.getCompose());
+		}
+		
 		ValueSetWrapper savedVs = valuesetRepository.save(new ValueSetWrapper(id, vs));
 		int version = 1;
 		if (id.hasVersionIdPart()) {
