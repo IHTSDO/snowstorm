@@ -98,6 +98,12 @@ public class BranchController {
 		return getBranchPojo(branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(path), includeInheritedMetadata));
 	}
 
+	@RequestMapping(value = "/branches/{path}/actions/lock", method = RequestMethod.POST)
+	@ResponseBody
+	public void lockBranch(@PathVariable String path, @RequestParam String lockMessage) {
+		branchService.lockBranch(BranchPathUriUtil.decodePath(path), lockMessage);
+	}
+
 	@RequestMapping(value = "/branches/{path}/actions/unlock", method = RequestMethod.POST)
 	@ResponseBody
 	public void unlockBranch(@PathVariable String path) {
