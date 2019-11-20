@@ -7,6 +7,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,9 @@ public class CodeSystemController {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private DailyBuildService dailyBuildService;
 
 	@ApiOperation(value = "Create a code system",
 			notes = "Required fields are shortName and branch. " +
@@ -98,6 +102,16 @@ public class CodeSystemController {
 		ControllerHelper.throwIfNotFound("CodeSystem", codeSystem);
 
 		codeSystemService.migrateDependantCodeSystemVersion(codeSystem, request.getDependantCodeSystem(), request.getNewDependantVersion(), request.isCopyMetadata());
+	}
+
+	@ApiOperation(value = "Rollback daily build commits.",
+			notes = "If you have a daily build set up for a code system this operation should be used to revert/rollback the daily build content " +
+					"before importing any versioned content. Be sure to disable the daily build too.")
+	@RequestMapping(value = "/{shortName}/daily-build/rollback", method = RequestMethod.POST)
+	@ResponseBody
+	public void rollbackDailyBuildContent(@PathVariable String shortName) {
+		CodeSystem codeSystem = codeSystemService.find(shortName);
+		dailyBuildService.rollbackDailyBuildContent(codeSystem);
 	}
 
 }

@@ -35,7 +35,7 @@ import static org.junit.Assert.assertNotNull;
 @ContextConfiguration(classes = TestConfig.class)
 public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 	@Autowired
-	private ScheduledDailyBuildImportService dailyBuildImportService;
+	private DailyBuildService dailyBuildImportService;
 
 	@Autowired
 	private BranchService branchService;
