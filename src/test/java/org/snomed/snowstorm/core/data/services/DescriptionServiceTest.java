@@ -431,6 +431,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId()))
 				.addDescription(new Description("Cheese Pizza (pizza)").setTypeId(FSN).addLanguageRefsetMember(GB_EN_LANG_REFSET, PREFERRED))
 				.addDescription(new Description("Cheese Pizza").addLanguageRefsetMember(GB_EN_LANG_REFSET, PREFERRED))
+				.addDescription(new Description("Cheese").addLanguageRefsetMember(GB_EN_LANG_REFSET, ACCEPTABLE))
 				.addDescription(new Description("Cheeze Pizza").addLanguageRefsetMember(GB_EN_LANG_REFSET, ACCEPTABLE))
 				.addDescription(new Description("Cheezze Pizza").addLanguageRefsetMember(US_EN_LANG_REFSET, ACCEPTABLE));
 
@@ -454,6 +455,13 @@ public class DescriptionServiceTest extends AbstractTest {
 
 		descriptionCriteria.preferredIn(Collections.singleton(parseLong(GB_EN_LANG_REFSET)));
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+
+		descriptionCriteria
+				.term("Cheese")
+				.type(Collections.singleton(parseLong(Concepts.SYNONYM)))
+				.preferredIn(Collections.singleton(parseLong(GB_EN_LANG_REFSET)));
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
+		descriptionCriteria.preferredIn(null);
 
 		descriptionCriteria
 				.term("Cheeze")

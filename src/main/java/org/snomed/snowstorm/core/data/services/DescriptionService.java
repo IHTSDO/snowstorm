@@ -207,14 +207,12 @@ public class DescriptionService extends ComponentService {
 				criteria.getConceptActive(),
 				criteria.getConceptRefset(),
 				groupByConcept,
-				branchCriteria);
+				branchCriteria,
+				timer);
 
-		// Apply group by concept clause
+		// Apply group by concept and acceptability filtering
 		BoolQueryBuilder descriptionFilter = boolQuery();
-		if (groupByConcept) {
-			descriptionFilter.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionMatches.getMatchedDescriptionIds()));
-		}
-		timer.checkpoint("Fetch all related concept ids for semantic tag aggregation");
+		descriptionFilter.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionMatches.getMatchedDescriptionIds()));
 
 
 		// Start fetching aggregations..
@@ -486,7 +484,7 @@ public class DescriptionService extends ComponentService {
 			BoolQueryBuilder descriptionCriteria,
 			Set<Long> preferredIn, Set<Long> acceptableIn, Set<Long> preferredOrAcceptableIn,
 			Boolean conceptActive, String conceptRefset,
-			boolean groupByConcept, BranchCriteria branchCriteria) throws TooCostlyException {
+			boolean groupByConcept, BranchCriteria branchCriteria, TimerUtil timer) throws TooCostlyException {
 
 		// First pass search to collect all description and concept ids.
 		Map<Long, Long> descriptionToConceptMap = new Long2ObjectLinkedOpenHashMap<>();
@@ -499,6 +497,7 @@ public class DescriptionService extends ComponentService {
 		if (totalElements > aggregationMaxProcessableResultsSize) {
 			throw new TooCostlyException(String.format("There are over %s results. Aggregating these results would be too costly.", aggregationMaxProcessableResultsSize));
 		}
+		timer.checkpoint("Count all check");
 
 		NativeSearchQuery searchQuery = searchQueryBuilder.withPageable(LARGE_PAGE).build();
 		addTermSort(searchQuery);
@@ -506,6 +505,7 @@ public class DescriptionService extends ComponentService {
 				searchQuery, Description.class, mapper)) {
 			stream.forEachRemaining(hit -> {});
 		}
+		timer.checkpoint("Collect all description and concept ids");
 
 		// Second pass to apply lang refset filter
 		if (!CollectionUtils.isEmpty(preferredIn) || !CollectionUtils.isEmpty(acceptableIn) || !CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
@@ -547,6 +547,7 @@ public class DescriptionService extends ComponentService {
 				filteredDescriptionToConceptMap.put(descriptionId, descriptionToConceptMap.get(descriptionId));
 			}
 			descriptionToConceptMap = filteredDescriptionToConceptMap;
+			timer.checkpoint("Language refset filtering");
 		}
 
 		Set<Long> conceptIds = new LongOpenHashSet(descriptionToConceptMap.values());
@@ -571,6 +572,7 @@ public class DescriptionService extends ComponentService {
 					stream.forEachRemaining(hit -> {
 					});
 				}
+				timer.checkpoint("Concept active filtering");
 			}
 
 			// Apply refset filter
@@ -591,6 +593,7 @@ public class DescriptionService extends ComponentService {
 					stream.forEachRemaining(hit -> {
 					});
 				}
+				timer.checkpoint("Concept refset filtering");
 			}
 		}
 
