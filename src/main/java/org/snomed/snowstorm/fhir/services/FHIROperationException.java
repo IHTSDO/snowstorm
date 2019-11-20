@@ -21,4 +21,12 @@ public class FHIROperationException extends Exception {
 	public IssueType getIssueType() {
 		return issueType;
 	}
+	
+	public String getMessage() {
+		String msg = super.getMessage();
+		if (getCause() != null) {
+			msg += " due to: " + getCause().getMessage();
+		}
+		return msg;
+	}
 }
