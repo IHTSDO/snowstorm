@@ -3,6 +3,32 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+
+## 4.5.0 Release - 2019-11-20
+
+Some small features and enhancements for the community and to support an update to the SNOMED International public browser.
+
+### Features
+- Pull request #85 New config flag to make concept bulk-load accessible when in read-only mode.
+- API to list all active semantic tags including concept count.
+- Descendants count option on concept, children and parents API endpoints.
+- Type filter on Description search.
+- API for deletion of single descriptions and relationships including force flag.
+### Improvements
+- Updates to documentation on extension management.
+- FHIR API
+  - Make JSON the default response.
+  - Support expansion examination of the "compose" element.
+- Fix #80 Human readable error when Snowstorm fails to connect to Elastic.
+- Prevent description aggregation requests which take a very long time.
+- Add conceptIds parameter to browser concept list API.
+- Upgrade SNOMED Drools Engine.
+### Fixes
+- Fix URL mapping for bulk concept validation.
+- Fix delta import marking unpublished reference set members as released.
+
+
+
 ## 4.4.0 Release - 2019-10-11 - International Authoring platform using Snowstorm
 
 Since 4.1.0 we have made many minor and patch releases during preparation for another Snowstorm milestone.
