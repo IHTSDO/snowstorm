@@ -16,13 +16,11 @@ import org.snomed.snowstorm.core.data.services.DomainEntityConfiguration;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -35,7 +33,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class DailyBuildService {
@@ -104,7 +101,7 @@ public class DailyBuildService {
 		// Lock branch immediately to stop other instances performing daily build.
 		branchService.lockBranch(codeSystem.getBranchPath(), LOCK_MESSAGE);
 		// Roll back commits on Code System branch which were made after latest release branch base timepoint.
-		CodeSystemVersion latestVersion = codeSystemService.findLatestVersion(codeSystem.getShortName());
+		CodeSystemVersion latestVersion = codeSystemService.findLatestImportedVersion(codeSystem.getShortName());
 		Branch latestReleaseBranch = branchService.findLatest(latestVersion.getBranchPath());
 		rollbackCommitsAfterTimepoint(codeSystem.getBranchPath(), latestReleaseBranch.getBase());
 		// unlock branch so that delta import can be executed
@@ -127,7 +124,7 @@ public class DailyBuildService {
 		}
 	}
 
-	String getNewDailyBuildIfExists(CodeSystem codeSystem, long lastImportTimepoint) {
+	private String getNewDailyBuildIfExists(CodeSystem codeSystem, long lastImportTimepoint) {
 		String deltaDirectoryPath = ResourcePathHelper.getFullPath(dailyBuildResourceConfig, codeSystem.getShortName());
 		logger.debug("Daily build resources path '{}'.", deltaDirectoryPath);
 		List<String> archiveFilenames = new ArrayList<>();

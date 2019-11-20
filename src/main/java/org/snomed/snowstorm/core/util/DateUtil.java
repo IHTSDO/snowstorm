@@ -19,4 +19,7 @@ public class DateUtil {
 		return remoteClassificationCutoff.getTime();
 	}
 
+	public static int getTodaysEffectiveTime() {
+		return Integer.parseInt(DateUtil.DATE_STAMP_FORMAT.format(new Date()));
+	}
 }

@@ -5,7 +5,6 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
@@ -59,15 +58,33 @@ public class CodeSystemServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void recoverLatestVersion() {
-		CodeSystem cs = new CodeSystem("SNOMEDCT", "MAIN");
-		codeSystemService.createCodeSystem(cs);
-		codeSystemService.createVersion(cs, 20190731, "");
-		
-		//Now version it again with a later date, and recover the most recent one
-		codeSystemService.createVersion(cs, 20200131, "");
-		CodeSystemVersion csv = codeSystemService.findLatestVersion("SNOMEDCT");
-		assertEquals(new Integer(20200131), csv.getEffectiveDate());
+	public void testFindLatestImportedVersion() {
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystemService.createCodeSystem(codeSystem);
+		codeSystemService.createVersion(codeSystem, 20190731, "");
+
+		// Now version it again with a later date, and recover the most recent one
+		codeSystemService.createVersion(codeSystem, 20200131, "");
+		assertEquals(20200131, codeSystemService.findLatestImportedVersion("SNOMEDCT").getEffectiveDate().intValue());
+
+		// Versions in the future will be returned with this method.
+		codeSystemService.createVersion(codeSystem, 20990131, "");
+		assertEquals(20990131, codeSystemService.findLatestImportedVersion("SNOMEDCT").getEffectiveDate().intValue());
+
+	}
+
+	@Test
+	public void testFindLatestEffectiveVersion() {
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystemService.createCodeSystem(codeSystem);
+		codeSystemService.createVersion(codeSystem, 20190131, "");
+
+		codeSystemService.createVersion(codeSystem, 20190701, "");
+		assertEquals(20190701, codeSystemService.findLatestEffectiveVersion("SNOMEDCT").getEffectiveDate().intValue());
+
+		// Versions in the future will NOT be returned with this method.
+		codeSystemService.createVersion(codeSystem, 20990131, "");
+		assertEquals(20190701, codeSystemService.findLatestEffectiveVersion("SNOMEDCT").getEffectiveDate().intValue());
 	}
 
 }

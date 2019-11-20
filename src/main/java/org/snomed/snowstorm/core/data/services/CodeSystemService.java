@@ -21,6 +21,7 @@ import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
+import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -125,7 +126,7 @@ public class CodeSystemService {
 				}
 			} else if (parentCodeSystem != null) {
 				// Find latest version on parent path
-				CodeSystemVersion latestVersion = findLatestVersion(parentCodeSystem.getShortName());
+				CodeSystemVersion latestVersion = findLatestImportedVersion(parentCodeSystem.getShortName());
 				if (latestVersion != null) {
 					codeSystem.setDependantVersion(latestVersion.getEffectiveDate());
 				}
@@ -223,11 +224,8 @@ public class CodeSystemService {
 			Branch latestBranch = branchService.findLatest(branchPath);
 			if (latestBranch == null) continue;
 
-			// Lookup latest version
-			List<CodeSystemVersion> versions = versionRepository.findByShortNameOrderByEffectiveDateDesc(codeSystem.getShortName(), LARGE_PAGE).getContent();
-			if (!versions.isEmpty()) {
-				codeSystem.setLatestVersion(versions.get(0));
-			}
+			// Lookup latest version with an effective date equal or less than today
+			codeSystem.setLatestVersion(findLatestEffectiveVersion(codeSystem.getShortName()));
 
 			// Pull from cache
 			Pair<Date, CodeSystem> dateCodeSystemPair = contentInformationCache.get(branchPath);
@@ -333,11 +331,24 @@ public class CodeSystemService {
 		}
 	}
 
-	public CodeSystemVersion findLatestVersion(String shortName) {
+	public CodeSystemVersion findLatestImportedVersion(String shortName) {
 		//return versionRepository.findTopByShortNameOrderByEffectiveDateDesc(shortName);
 		List<CodeSystemVersion> versions = findAllVersions(shortName, false);
 		if (versions != null && versions.size() > 0) {
 			return versions.get(0);
+		}
+		return null;
+	}
+
+	public CodeSystemVersion findLatestEffectiveVersion(String shortName) {
+		List<CodeSystemVersion> versions = findAllVersions(shortName, false);
+		if (!versions.isEmpty()) {
+			int todayEffectiveTime = DateUtil.getTodaysEffectiveTime();
+			for (CodeSystemVersion version : versions) {
+				if (todayEffectiveTime >= version.getEffectiveDate()) {
+					return version;
+				}
+			}
 		}
 		return null;
 	}
