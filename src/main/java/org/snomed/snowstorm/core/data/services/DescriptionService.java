@@ -511,7 +511,9 @@ public class DescriptionService extends ComponentService {
 		if (!CollectionUtils.isEmpty(preferredIn) || !CollectionUtils.isEmpty(acceptableIn) || !CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
 
 			BoolQueryBuilder queryBuilder = boolQuery()
-					.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
+					.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+					.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true));
+
 			if (!CollectionUtils.isEmpty(preferredIn)) {
 				queryBuilder
 						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, preferredIn))
