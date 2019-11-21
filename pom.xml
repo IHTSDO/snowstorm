@@ -32,15 +32,21 @@
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_VERSION and getting-started guide updated.
 		-->
 		<elasticvc.version>2.6.2</elasticvc.version>
+
+		<!-- Elasticsearch Client version -->
+		<!-- Can not be changed without code changes in ElasticVC and Spring Data Elasticsearch -->
 		<elasticsearch.version>6.0.1</elasticsearch.version>
-		<hapi.version>3.8.0</hapi.version>
+
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
 		<!-- Spring Boot 2.0.1 needs specific tomcat version (8.5.41) which has fix for CVE-2019-10072 -->
 		<tomcat.version>8.5.41</tomcat.version>
 		<snomed-boot.version>1.12.1</snomed-boot.version>
-		<slf4j.version>1.7.5</slf4j.version>
-		<docker.image.prefix>snomedinternational</docker.image.prefix>
 
+		<!-- FHIR HAPI library -->
+		<hapi.version>3.8.0</hapi.version>
+
+		<docker.image.prefix>snomedinternational</docker.image.prefix>
+		<slf4j.version>1.7.5</slf4j.version>
 	</properties>
 
 	<dependencies>
