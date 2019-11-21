@@ -319,21 +319,27 @@ public class CodeSystemService {
 		return versionRepository.findOneByShortNameAndEffectiveDate(shortName, effectiveTime);
 	}
 
-	public List<CodeSystemVersion> findAllVersions(String shortName) {
-		return findAllVersions(shortName, true);
+	public List<CodeSystemVersion> findAllVersions(String shortName, Boolean showFutureVersions) {
+		return findAllVersions(shortName, true, showFutureVersions);
 	}
 
-	public List<CodeSystemVersion> findAllVersions(String shortName, boolean ascOrder) {
+	private List<CodeSystemVersion> findAllVersions(String shortName, boolean ascOrder, Boolean showFutureVersions) {
+		List<CodeSystemVersion> content;
 		if (ascOrder) {
-			return versionRepository.findByShortNameOrderByEffectiveDate(shortName, LARGE_PAGE).getContent();
+			content = versionRepository.findByShortNameOrderByEffectiveDate(shortName, LARGE_PAGE).getContent();
 		} else {
-			return versionRepository.findByShortNameOrderByEffectiveDateDesc(shortName, LARGE_PAGE).getContent();
+			content = versionRepository.findByShortNameOrderByEffectiveDateDesc(shortName, LARGE_PAGE).getContent();
+		}
+		if (showFutureVersions) {
+			return content;
+		} else {
+			int todaysEffectiveTime = DateUtil.getTodaysEffectiveTime();
+			return content.stream().filter(version -> version.getEffectiveDate() <= todaysEffectiveTime).collect(Collectors.toList());
 		}
 	}
 
 	public CodeSystemVersion findLatestImportedVersion(String shortName) {
-		//return versionRepository.findTopByShortNameOrderByEffectiveDateDesc(shortName);
-		List<CodeSystemVersion> versions = findAllVersions(shortName, false);
+		List<CodeSystemVersion> versions = findAllVersions(shortName, false, true);
 		if (versions != null && versions.size() > 0) {
 			return versions.get(0);
 		}
@@ -341,14 +347,9 @@ public class CodeSystemService {
 	}
 
 	public CodeSystemVersion findLatestEffectiveVersion(String shortName) {
-		List<CodeSystemVersion> versions = findAllVersions(shortName, false);
+		List<CodeSystemVersion> versions = findAllVersions(shortName, false, false);
 		if (!versions.isEmpty()) {
-			int todayEffectiveTime = DateUtil.getTodaysEffectiveTime();
-			for (CodeSystemVersion version : versions) {
-				if (todayEffectiveTime >= version.getEffectiveDate()) {
-					return version;
-				}
-			}
+			return versions.get(0);
 		}
 		return null;
 	}

@@ -65,8 +65,8 @@ public class CodeSystemController {
 	@ApiOperation("Retrieve all code system versions")
 	@RequestMapping(value = "/{shortName}/versions", method = RequestMethod.GET)
 	@ResponseBody
-	public ItemsPage<CodeSystemVersion> findAllVersions(@PathVariable String shortName) {
-		return new ItemsPage<>(codeSystemService.findAllVersions(shortName));
+	public ItemsPage<CodeSystemVersion> findAllVersions(@PathVariable String shortName, @RequestParam(required = false) Boolean showFutureVersions) {
+		return new ItemsPage<>(codeSystemService.findAllVersions(shortName, showFutureVersions));
 	}
 
 	@ApiOperation("Create a new code system version")
