@@ -10,6 +10,8 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,6 +25,9 @@ public class CodeSystemController {
 
 	@Autowired
 	private DailyBuildService dailyBuildService;
+
+	@Value("${daily-build.delta-import.enabled}")
+	private boolean dailyBuildEnabled;
 
 	@ApiOperation(value = "Create a code system",
 			notes = "Required fields are shortName and branch. " +
@@ -110,8 +115,9 @@ public class CodeSystemController {
 	@RequestMapping(value = "/{shortName}/daily-build/rollback", method = RequestMethod.POST)
 	@ResponseBody
 	public void rollbackDailyBuildContent(@PathVariable String shortName) {
-		CodeSystem codeSystem = codeSystemService.find(shortName);
-		dailyBuildService.rollbackDailyBuildContent(codeSystem);
+		if (dailyBuildEnabled) {
+			CodeSystem codeSystem = codeSystemService.find(shortName);
+			dailyBuildService.rollbackDailyBuildContent(codeSystem);
+		}
 	}
-
 }
