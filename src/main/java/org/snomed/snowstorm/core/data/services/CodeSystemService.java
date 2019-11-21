@@ -330,7 +330,7 @@ public class CodeSystemService {
 		} else {
 			content = versionRepository.findByShortNameOrderByEffectiveDateDesc(shortName, LARGE_PAGE).getContent();
 		}
-		if (showFutureVersions) {
+		if (showFutureVersions != null && showFutureVersions) {
 			return content;
 		} else {
 			int todaysEffectiveTime = DateUtil.getTodaysEffectiveTime();
