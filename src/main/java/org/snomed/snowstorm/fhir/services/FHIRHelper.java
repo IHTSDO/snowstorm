@@ -88,7 +88,7 @@ class FHIRHelper {
 			branchPath = codeSystemVersion.getBranchPath();
 		} else {
 			// Lookup latest
-			//codeSystemVersion = codeSystemService.findLatestVersion(shortName);
+			//codeSystemVersion = codeSystemService.findLatestEffectiveVersion(shortName);
 			branchPath = codeSystem.getBranchPath();
 		}
 		if (branchPath == null) {
