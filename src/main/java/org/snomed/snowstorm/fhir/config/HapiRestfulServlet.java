@@ -7,6 +7,7 @@ import javax.servlet.ServletException;
 
 import org.snomed.snowstorm.fhir.services.FHIRCodeSystemProvider;
 import org.snomed.snowstorm.fhir.services.FHIRConceptMapProvider;
+import org.snomed.snowstorm.fhir.services.FHIRMedicationProvider;
 import org.snomed.snowstorm.fhir.services.FHIRValueSetProvider;
 import org.springframework.web.context.WebApplicationContext;
 import org.springframework.web.context.support.WebApplicationContextUtils;
@@ -59,10 +60,13 @@ public class HapiRestfulServlet extends RestfulServer {
 		FHIRCodeSystemProvider csp = applicationContext.getBean(FHIRCodeSystemProvider.class);
 		FHIRValueSetProvider vsp = applicationContext.getBean(FHIRValueSetProvider.class);
 		FHIRConceptMapProvider cmp = applicationContext.getBean(FHIRConceptMapProvider.class);
+		FHIRMedicationProvider mp = applicationContext.getBean(FHIRMedicationProvider.class);
 
 		resourceProviders.add(csp);
 		resourceProviders.add(vsp);
 		resourceProviders.add(cmp);
+		resourceProviders.add(mp);
+
 		setResourceProviders(resourceProviders);
 	}
 }
