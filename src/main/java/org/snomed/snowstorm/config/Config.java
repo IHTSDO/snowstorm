@@ -39,7 +39,7 @@ import org.snomed.snowstorm.core.data.repositories.config.RelationshipStoreMixIn
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierCacheManager;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
-import org.snomed.snowstorm.core.data.services.identifier.LocalIdentifierSource;
+import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.SnowstormCISClient;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
 import org.snomed.snowstorm.fhir.domain.ValueSetDeserializer;
@@ -292,8 +292,8 @@ public abstract class Config {
 			@Value("${cis.softwareName}") String softwareName,
 			@Value("${cis.timeout}") int timeoutSeconds) {
 
-		if (cisApiUrl.equals("local")) {
-			return new LocalIdentifierSource();
+		if (cisApiUrl.equals("local-random") || cisApiUrl.equals("local")) {// local is the legacy name
+			return new LocalRandomIdentifierSource(elasticsearchTemplate());
 		} else {
 			return new SnowstormCISClient(cisApiUrl, username, password, softwareName, timeoutSeconds);
 		}
