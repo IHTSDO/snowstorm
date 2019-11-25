@@ -40,7 +40,7 @@ You can watch the log to see how this is progressing, or simply to the import en
 
 To delete any existing Snowstorm Elasticsearch indices and load the RF2 **Snapshot** start Snowstorm with the following arguments:
 
-`java -Xms2g -Xmx4g -jar target/snowstorm*.jar --delete-indices --import=<Absolute-path-of-SNOMED-CT-RF2-zip>`
+`java -Xms2g -Xmx2g -jar target/snowstorm*.jar --delete-indices --import=<Absolute-path-of-SNOMED-CT-RF2-zip>`
 
 This will take between 30-60 minutes depending on the performance of your machine.
 
