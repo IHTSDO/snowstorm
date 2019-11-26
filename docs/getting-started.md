@@ -38,5 +38,5 @@ On the first run of Snowstorm the SNOMED CT data may need to be loaded. [Follow 
 
 On subsequent runs just start Snowstorm (in read only mode).
 ```bash
-java -Xms2g -Xmx2g -jar target/snowstorm*.jar --snowstorm.rest-api.readonly=true
+java -Xms2g -Xmx4g -jar target/snowstorm*.jar --snowstorm.rest-api.readonly=true
 ```
