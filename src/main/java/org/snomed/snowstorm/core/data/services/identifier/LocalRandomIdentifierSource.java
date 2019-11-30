@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services.identifier;
 
 import com.google.common.collect.Lists;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.Relationship;
@@ -12,6 +13,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
@@ -33,7 +35,8 @@ public class LocalRandomIdentifierSource implements IdentifierSource {
 
 	@Override
 	public List<Long> reserveIds(int namespaceId, String partitionId, int quantity) {
-		List<Long> newIdentifiers = new LongArrayList();
+		Set<Long> newIdentifiers = new LongLinkedOpenHashSet();
+		List<Long> newIdentifierList = null;
 		do {
 			String hackId = itemIdProvider.getItemIdentifier();
 			String namespace = namespaceId == 0 ? "" : namespaceId + "";
@@ -42,9 +45,10 @@ public class LocalRandomIdentifierSource implements IdentifierSource {
 			long newSctid = Long.parseLong(sctidWithoutCheck + verhoeff);
 			newIdentifiers.add(newSctid);
 			if (newIdentifiers.size() == quantity) {
+				newIdentifierList = new LongArrayList(newIdentifiers);
 				// Bulk unique check
 				List<Long> alreadyExistingIdentifiers = new LongArrayList();
-				for (List<Long> newIdentifierBatch : Lists.partition(newIdentifiers, 10_000)) {
+				for (List<Long> newIdentifierBatch : Lists.partition(newIdentifierList, 10_000)) {
 					switch (partitionId) {
 						case "00":
 						case "10":
@@ -68,7 +72,7 @@ public class LocalRandomIdentifierSource implements IdentifierSource {
 			}
 		} while (newIdentifiers.size() < quantity);
 
-		return newIdentifiers;
+		return newIdentifierList;
 	}
 
 	// Finds and returns matching existing identifiers
