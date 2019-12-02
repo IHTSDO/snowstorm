@@ -13,7 +13,9 @@ import org.snomed.snowstorm.rest.config.CodeSystemVersionMixIn;
 import org.snomed.snowstorm.rest.config.PageMixin;
 import org.snomed.snowstorm.rest.pojo.BranchPojo;
 import org.snomed.snowstorm.rest.security.RequestHeaderAuthenticationDecoratorWithRequiredRole;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -56,6 +58,9 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
+
+	@Autowired
+	private BuildProperties buildProperties;
 
 	@Bean
 	public ObjectMapper getGeneralMapper() {
@@ -160,7 +165,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	// Swagger config
 	public Docket api() {
 		Docket docket = new Docket(DocumentationType.SWAGGER_2);
-		docket.apiInfo(new ApiInfo("Snowstorm", "SNOMED CT Terminology Server REST API", "1.0", null, new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null), "Apache 2.0", "http://www.apache.org/licenses/LICENSE-2.0"));
+		docket.apiInfo(new ApiInfo("Snowstorm", "SNOMED CT Terminology Server REST API", buildProperties.getVersion(), null, new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null), "Apache 2.0", "http://www.apache.org/licenses/LICENSE-2.0"));
 		ApiSelectorBuilder apiSelectorBuilder = docket.select();
 
 		if (restApiReadOnly) {
