@@ -18,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 public class VersionController {
 
 	@Autowired
-	BuildProperties buildProperties;
+	private BuildProperties buildProperties;
 
 	@ApiOperation("Software build version and timestamp.")
 	@RequestMapping(value = "/version", method = RequestMethod.GET, produces = "application/json")
