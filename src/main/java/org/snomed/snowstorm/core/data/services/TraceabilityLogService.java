@@ -111,12 +111,19 @@ public class TraceabilityLogService implements CommitListener {
 		for (ReferenceSetMember refsetMember : persistedReferenceSetMembers) {
 			if (refsetMember.isChanged() || refsetMember.isDeleted()) {
 				String referencedComponentId = refsetMember.getReferencedComponentId();
+				String componentId = referencedComponentId;
 				long referencedComponentLong = parseLong(referencedComponentId);
 				Activity.ConceptActivity conceptActivity = null;
 				String componentType = null;
 				if (IdentifierService.isConceptId(referencedComponentId)) {
 					conceptActivity = activityMap.get(referencedComponentLong);
-					componentType = "Concept";
+					Map<String, String> additionalFields = refsetMember.getAdditionalFields();
+					if (additionalFields != null && additionalFields.size() == 1 && additionalFields.keySet().contains(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION)) {
+						componentType = "OWLAxiom";
+						componentId = refsetMember.getMemberId();
+					} else {
+						componentType = "Concept";
+					}
 				} else {
 					Long conceptId = componentToConceptIdMap.get(referencedComponentLong);
 					if (IdentifierService.isDescriptionId(referencedComponentId)) {
@@ -131,7 +138,7 @@ public class TraceabilityLogService implements CommitListener {
 				if (conceptActivity != null && componentType != null) {
 					conceptActivity.addComponentChange(new Activity.ComponentChange(
 							componentType,
-							referencedComponentId,
+							componentId,
 							"UPDATE"))
 							.statedChange();
 				}
