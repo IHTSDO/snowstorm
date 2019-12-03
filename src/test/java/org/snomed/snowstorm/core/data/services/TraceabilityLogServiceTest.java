@@ -19,6 +19,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
 import java.util.Stack;
 
 import static junit.framework.TestCase.assertNull;
@@ -76,7 +78,14 @@ public class TraceabilityLogServiceTest extends AbstractTest {
 		conceptService.update(concept, MAIN);
 		activity = getActivity();
 		assertEquals("Updating concept New concept", activity.getCommitComment());
-		assertEquals(1, activity.getChanges().size());
+		Map<String, Activity.ConceptActivity> changes = activity.getChanges();
+		assertEquals(1, changes.size());
+		Activity.ConceptActivity conceptActivity = changes.get(concept.getConceptId());
+		Set<Activity.ComponentChange> conceptChanges = conceptActivity.getChanges();
+		assertEquals(1, conceptChanges.size());
+		Activity.ComponentChange axiomChange = conceptChanges.iterator().next();
+		assertEquals("OWLAxiom", axiomChange.getComponentType());
+		assertEquals(concept.getClassAxioms().iterator().next().getAxiomId(), axiomChange.getComponentId());
 
 		// Add inferred relationship
 		concept.addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING).setInferred(true));
