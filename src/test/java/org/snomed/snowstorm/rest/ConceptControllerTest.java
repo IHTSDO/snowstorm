@@ -17,9 +17,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.junit4.SpringRunner;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -27,6 +33,7 @@ import java.util.LinkedHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
@@ -190,5 +197,22 @@ public class ConceptControllerTest extends AbstractTest {
 		assertThat(responseBody).doesNotContain("\"internalId\"");
 		assertThat(responseBody).doesNotContain("\"start\"");
 		assertThat(responseBody).doesNotContain("\"effectiveTimeI\"");
+	}
+
+	@Test
+	public void testConceptSearchWithCSVResults() throws IOException {
+		HttpHeaders headers = new HttpHeaders();
+		headers.add("Accept", "text/csv");
+		ResponseEntity<String> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/projectA/concepts",
+				HttpMethod.GET, new HttpEntity<>(null, headers), String.class, Collections.singletonMap("limit", 100));
+
+		assertEquals(200, responseEntity.getStatusCode().value());
+		String responseBody = responseEntity.getBody();
+		assertNotNull(responseBody);
+		try (BufferedReader reader = new BufferedReader(new StringReader(responseBody))) {
+			String header = reader.readLine();
+			assertEquals("id\tfsn\teffectiveTime\tactive\tmoduleId\tdefinitionStatus", header);
+			assertEquals("257751006\tWallace \"69\" side-to-end anastomosis - action (qualifier value)\t\ttrue\t900000000000207008\tPRIMITIVE", reader.readLine());
+		}
 	}
 }
