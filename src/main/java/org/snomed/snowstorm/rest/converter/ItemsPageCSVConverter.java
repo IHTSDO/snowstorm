@@ -14,6 +14,7 @@ import org.springframework.http.converter.HttpMessageNotWritableException;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.HashSet;
@@ -33,7 +34,7 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 
 	@Override
 	protected void writeInternal(ItemsPage<?> itemsPage, Type type, HttpOutputMessage outputMessage) throws IOException, HttpMessageNotWritableException {
-		try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(outputMessage.getBody()))) {
+		try (BufferedWriter writer = new NullSafeBufferedWriter(new OutputStreamWriter(outputMessage.getBody()))) {
 			Collection<?> items = itemsPage.getItems();
 			if (!items.isEmpty()) {
 				Object item = items.iterator().next();
@@ -121,5 +122,20 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 	@Override
 	protected ItemsPage<ConceptMini> readInternal(Class<? extends ItemsPage<?>> clazz, HttpInputMessage inputMessage) throws HttpMessageNotReadableException {
 		return new ItemsPage<>(new HashSet<>());
+	}
+
+	private static final class NullSafeBufferedWriter extends BufferedWriter {
+
+		public NullSafeBufferedWriter(Writer out) {
+			super(out);
+		}
+
+		@Override
+		public void write(String str) throws IOException {
+			if (str == null) {
+				str = "";
+			}
+			super.write(str);
+		}
 	}
 }
