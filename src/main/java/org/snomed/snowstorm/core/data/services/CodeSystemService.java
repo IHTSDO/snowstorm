@@ -25,6 +25,7 @@ import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -80,6 +81,9 @@ public class CodeSystemService {
 
 	@Autowired
 	private ModelMapper modelMapper;
+
+	@Value("${codesystem.all.latest-version.allow-future}")
+	private boolean latestVersionCanBeFuture;
 
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
 	private final ConcurrentHashMap<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
@@ -349,7 +353,12 @@ public class CodeSystemService {
 	public CodeSystemVersion findLatestEffectiveVersion(String shortName) {
 		List<CodeSystemVersion> versions = findAllVersions(shortName, false, false);
 		if (!versions.isEmpty()) {
-			return versions.get(0);
+			int todayEffectiveTime = DateUtil.getTodaysEffectiveTime();
+			for (CodeSystemVersion version : versions) {
+				if (latestVersionCanBeFuture || todayEffectiveTime >= version.getEffectiveDate()) {
+					return version;
+				}
+			}
 		}
 		return null;
 	}
@@ -432,5 +441,9 @@ public class CodeSystemService {
 		repository.save(codeSystem);
 		contentInformationCache.remove(codeSystem.getBranchPath());
 		return codeSystem;
+	}
+
+	protected void setLatestVersionCanBeFuture(boolean latestVersionCanBeFuture) {
+		this.latestVersionCanBeFuture = latestVersionCanBeFuture;
 	}
 }
