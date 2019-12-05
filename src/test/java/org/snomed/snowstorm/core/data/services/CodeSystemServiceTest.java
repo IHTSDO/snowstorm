@@ -85,6 +85,10 @@ public class CodeSystemServiceTest extends AbstractTest {
 		// Versions in the future will NOT be returned with this method.
 		codeSystemService.createVersion(codeSystem, 20990131, "");
 		assertEquals(20190701, codeSystemService.findLatestEffectiveVersion("SNOMEDCT").getEffectiveDate().intValue());
+
+		codeSystemService.setLatestVersionCanBeFuture(true);
+		assertEquals(20990131, codeSystemService.findLatestEffectiveVersion("SNOMEDCT").getEffectiveDate().intValue());
+		codeSystemService.setLatestVersionCanBeFuture(false);
 	}
 
 }
