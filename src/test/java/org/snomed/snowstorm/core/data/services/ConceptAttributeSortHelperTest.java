@@ -67,11 +67,11 @@ public class ConceptAttributeSortHelperTest {
 		assertEquals("0, 116680003, Disease (disorder)", asString(iterator.next()));
 		assertEquals("0, 116680003, Finding of movement (finding)", asString(iterator.next()));
 
-		// Assert that group ids have been switched because type 363714003 sorts higher than 363698007.
-		assertEquals("1, 363714003, Knee joint - range of movement (observable entity)", asString(iterator.next()));
-		assertEquals("1, 363713009, Decreased (qualifier value)", asString(iterator.next()));
-		assertEquals("2, 363698007, Knee region structure (body structure)", asString(iterator.next()));
-		assertEquals("2, 116676008, Contracture (morphologic abnormality)", asString(iterator.next()));
+		// Assert that groups have swapped position because type 363714003 sorts higher than 363698007.
+		assertEquals("2, 363714003, Knee joint - range of movement (observable entity)", asString(iterator.next()));
+		assertEquals("2, 363713009, Decreased (qualifier value)", asString(iterator.next()));
+		assertEquals("1, 363698007, Knee region structure (body structure)", asString(iterator.next()));
+		assertEquals("1, 116676008, Contracture (morphologic abnormality)", asString(iterator.next()));
 	}
 
 	private String asString(Relationship relationship) {
