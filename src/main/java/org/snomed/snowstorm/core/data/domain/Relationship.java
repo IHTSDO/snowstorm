@@ -93,6 +93,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@JsonIgnore
 	private Short attributeOrder;
 
+	@JsonIgnore
+	private Integer groupOrder;
+
 	public Relationship() {
 		active = true;
 		moduleId = Concepts.CORE_MODULE;
@@ -321,6 +324,15 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public void setAttributeOrder(Short attributeOrder) {
 		this.attributeOrder = attributeOrder;
+	}
+
+	@JsonIgnore
+	public int getGroupOrder() {
+		return groupOrder != null ? groupOrder : relationshipGroup;
+	}
+
+	public void setGroupOrder(int groupOrder) {
+		this.groupOrder = groupOrder;
 	}
 
 	@JsonIgnore
