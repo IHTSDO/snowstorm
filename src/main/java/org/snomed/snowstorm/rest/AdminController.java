@@ -82,4 +82,10 @@ public class AdminController {
 		adminOperationsService.rollbackCommit(BranchPathUriUtil.decodePath(branch), commitHeadTime);
 	}
 
+	@ApiOperation(value = "Restore role group number of inactive relationships.")
+	@RequestMapping(value = "/{branch}/actions/inactive-relationships-restore-group-number", method = RequestMethod.POST)
+	public void restoreGroupNumberOfInactiveRelationships(@PathVariable String branch, @RequestParam String currentEffectiveTime, @RequestParam String previousReleaseBranch) {
+		adminOperationsService.restoreGroupNumberOfInactiveRelationships(BranchPathUriUtil.decodePath(branch), currentEffectiveTime, previousReleaseBranch);
+	}
+
 }
