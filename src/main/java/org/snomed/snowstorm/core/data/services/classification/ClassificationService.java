@@ -568,10 +568,16 @@ public class ClassificationService {
 					}
 				}
 			}
+
+			// make sure the should clause is not empty before running semantic index search
+			if (allConceptsQuery.should().isEmpty()) {
+				continue;
+			}
+
 			try (CloseableIterator<QueryConcept> semanticIndexConcepts = elasticsearchOperations.stream(
 					new NativeSearchQueryBuilder()
-							.withQuery(termQuery(QueryConcept.Fields.STATED, true))
-							.withFilter(allConceptsQuery)
+							.withQuery(allConceptsQuery)
+							.withFilter(termQuery(QueryConcept.Fields.STATED, true))
 							.withPageable(LARGE_PAGE).build(),
 					QueryConcept.class)) {
 
