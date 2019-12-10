@@ -22,6 +22,8 @@ import static java.lang.Long.parseLong;
 @Service
 public class ConceptAttributeSortHelper {
 
+	public static final int NEXT_GROUP_DEFAULT = 50;
+
 	@Autowired
 	private SortOrderProperties sortOrderProperties;
 
@@ -191,7 +193,9 @@ public class ConceptAttributeSortHelper {
 			int groupId = relationship.getGroupId();
 			if (groupId != 0) {
 				if (!oldGroupToNewGroupMap.keySet().contains(groupId)) {
-					oldGroupToNewGroupMap.put(groupId, group++);
+					group++;
+					boolean isSelfGrouped = isSeflGroupedAtrributes(groupId, sortedUngroupedRelationships);
+					oldGroupToNewGroupMap.put(groupId, isSelfGrouped ? group : group + NEXT_GROUP_DEFAULT);
 				}
 			}
 		}
@@ -210,6 +214,16 @@ public class ConceptAttributeSortHelper {
 
 		return new LinkedHashSet<>(sortedRelationships);
 	}
+
+    private boolean isSeflGroupedAtrributes(int groupId, Set<Relationship> relationshipSet) {
+	    int count = 0;
+        for (Relationship relationship : relationshipSet) {
+            if (relationship.getGroupId() == groupId) {
+                count++;
+            }
+        }
+        return count == 1;
+    }
 
 	Map<String, String> getSubHierarchyToTopLevelTagCache() {
 		return subHierarchyToTopLevelTagCache;
