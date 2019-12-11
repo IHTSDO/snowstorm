@@ -501,6 +501,9 @@ public class ConceptServiceTest extends AbstractTest {
 		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
+		Description inactiveDescriptionCreate = new Description("Another");
+		inactiveDescriptionCreate.setActive(false);
+		concept.addDescription(inactiveDescriptionCreate);
 		concept.addRelationship(new Relationship(ISA, "107658001"));
 		Concept savedConcept = conceptService.create(concept, path);
 
@@ -549,9 +552,15 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals(concept.getId(), associationTargetMember.getReferencedComponentId());
 		assertEquals("87100004", associationTargetMember.getAdditionalField("targetComponentId"));
 
-		Description description = inactiveConcept.getDescriptions().iterator().next();
-		assertTrue("Description is still active", description.isActive());
-		assertEquals("Description automatically has inactivation indicator", "CONCEPT_NON_CURRENT", description.getInactivationIndicator());
+		Set<Description> descriptions = inactiveConcept.getDescriptions();
+		Optional<Description> activeDescription = descriptions.stream().filter(Description::isActive).findFirst();
+		assertTrue("One description is still active", activeDescription.isPresent());
+		assertEquals("Active description automatically has inactivation indicator", "CONCEPT_NON_CURRENT", activeDescription.get().getInactivationIndicator());
+
+		// Assert that inactive descriptions also have concept non current indicator applied automatically too.
+		Optional<Description> inactiveDescription = descriptions.stream().filter(d -> !d.isActive()).findFirst();
+		assertTrue("One description is still inactive", inactiveDescription.isPresent());
+		assertEquals("Inactive description automatically has inactivation indicator", "CONCEPT_NON_CURRENT", inactiveDescription.get().getInactivationIndicator());
 
 		assertFalse("Relationship is inactive.", inactiveConcept.getRelationships().iterator().next().isActive());
 
