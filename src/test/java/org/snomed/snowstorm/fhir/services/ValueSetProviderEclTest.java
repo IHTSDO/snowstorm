@@ -84,10 +84,9 @@ public class ValueSetProviderEclTest extends AbstractFHIRTest {
 		assertEquals(11,v.getExpansion().getTotal());
 		
 		// ?fhir_vs=refset -> all concepts representing refsets
-		// This is 3 - two language refsets plus our test data
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=refset&_format=json";
 		v = get(url);
-		assertEquals(3,v.getExpansion().getTotal());
+		assertEquals("Two value sets in the latest release branch.", 2, v.getExpansion().getTotal());
 		
 		// ?fhir_vs=isa/<root concept> -> all concepts under root plus self
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT + "&_format=json";
