@@ -65,7 +65,7 @@ class FHIRHelper {
 	}
 
 	public String getBranchPathForCodeSystemVersion(StringType codeSystemVersionUri) {
-		String branchPath = null;
+		String branchPath;
 		String defaultModule = getSnomedEditionModule(codeSystemVersionUri);
 		Integer editionVersionString = null;
 		if (codeSystemVersionUri != null) {
@@ -87,9 +87,8 @@ class FHIRHelper {
 			codeSystemVersion = codeSystemService.findVersion(shortName, editionVersionString);
 			branchPath = codeSystemVersion.getBranchPath();
 		} else {
-			// Lookup latest
-			//codeSystemVersion = codeSystemService.findLatestEffectiveVersion(shortName);
-			branchPath = codeSystem.getBranchPath();
+			// Lookup latest effective version (future versions will not be used until publication date)
+			branchPath = codeSystem.getLatestVersion().getBranchPath();
 		}
 		if (branchPath == null) {
 			throw new NotFoundException(String.format("No branch found for Code system %s with default module %s.", shortName, defaultModule));
