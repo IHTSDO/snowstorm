@@ -229,7 +229,7 @@ public class CodeSystemService {
 			if (latestBranch == null) continue;
 
 			// Lookup latest version with an effective date equal or less than today
-			codeSystem.setLatestVersion(findLatestEffectiveVersion(codeSystem.getShortName()));
+			codeSystem.setLatestVersion(findLatestVisibleVersion(codeSystem.getShortName()));
 
 			// Pull from cache
 			Pair<Date, CodeSystem> dateCodeSystemPair = contentInformationCache.get(branchPath);
@@ -366,15 +366,10 @@ public class CodeSystemService {
 		return null;
 	}
 
-	public CodeSystemVersion findLatestEffectiveVersion(String shortName) {
-		List<CodeSystemVersion> versions = findAllVersions(shortName, false, false);
-		if (!versions.isEmpty()) {
-			int todayEffectiveTime = DateUtil.getTodaysEffectiveTime();
-			for (CodeSystemVersion version : versions) {
-				if (latestVersionCanBeFuture || todayEffectiveTime >= version.getEffectiveDate()) {
-					return version;
-				}
-			}
+	public CodeSystemVersion findLatestVisibleVersion(String shortName) {
+		List<CodeSystemVersion> versions = findAllVersions(shortName, false, latestVersionCanBeFuture);
+		if (versions != null && versions.size() > 0) {
+			return versions.get(0);
 		}
 		return null;
 	}
