@@ -1,7 +1,9 @@
 package org.snomed.snowstorm.core.data.services.classification;
 
 import com.google.common.collect.Lists;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -33,6 +35,7 @@ import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.export.ExportException;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
 import org.snomed.snowstorm.core.util.DateUtil;
+import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -99,6 +102,9 @@ public class ClassificationService {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private VersionControlHelper versionControlHelper;
 
 	private final List<Classification> classificationsInProgress;
 
@@ -176,7 +182,7 @@ public class ClassificationService {
 								Boolean equivalentConceptsFound = null;
 								if (latestStatus == COMPLETED) {
 									try {
-										downloadRemoteResults(classification.getId());
+										downloadRemoteResults(classification);
 
 										inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(),
 												Config.DEFAULT_LANGUAGE_CODES, PageRequest.of(0, 1), false, null).getTotalElements() > 0;
@@ -493,22 +499,22 @@ public class ClassificationService {
 		}
 	}
 
-	private void downloadRemoteResults(String classificationId) throws IOException, ElasticsearchException {
-		logger.info("Downloading remote classification results for {}", classificationId);
-		try (ZipInputStream rf2ResultsZipStream = new ZipInputStream(serviceClient.downloadRf2Results(classificationId))) {
+	private void downloadRemoteResults(Classification classification) throws IOException, ElasticsearchException {
+		logger.info("Downloading remote classification results for {}", classification.getId());
+		try (ZipInputStream rf2ResultsZipStream = new ZipInputStream(serviceClient.downloadRf2Results(classification.getId()))) {
 			ZipEntry zipEntry;
 			while ((zipEntry = rf2ResultsZipStream.getNextEntry()) != null) {
 				if (zipEntry.getName().contains("sct2_Relationship_Delta")) {
-					saveRelationshipChanges(classificationId, rf2ResultsZipStream);
+					saveRelationshipChanges(classification, rf2ResultsZipStream);
 				}
 				if (zipEntry.getName().contains("der2_sRefset_EquivalentConceptSimpleMapDelta")) {
-					saveEquivalentConcepts(classificationId, rf2ResultsZipStream);
+					saveEquivalentConcepts(classification.getId(), rf2ResultsZipStream);
 				}
 			}
 		}
 	}
 
-	void saveRelationshipChanges(String classificationId, InputStream rf2Stream) throws IOException, ElasticsearchException {
+	void saveRelationshipChanges(Classification classification, InputStream rf2Stream) throws IOException, ElasticsearchException {
 		// Leave the stream open after use.
 		BufferedReader reader = new BufferedReader(new InputStreamReader(rf2Stream));
 
@@ -525,7 +531,7 @@ public class ClassificationService {
 			active = "1".equals(values[RelationshipFieldIndexes.active]);
 			relationshipChanges.add(new RelationshipChange(
 					recordSortNumber++,
-					classificationId,
+					classification.getId(),
 					values[RelationshipFieldIndexes.id],
 					active,
 					values[RelationshipFieldIndexes.sourceId],
@@ -544,11 +550,13 @@ public class ClassificationService {
 		NumberFormat numberFormat = NumberFormat.getIntegerInstance();
 		if (activeRows > 0) {
 			logger.info("Looking up 'inferred not previously stated' values for {} active inferred relationship changes for classification {}.",
-					numberFormat.format(activeRows), classificationId);
+					numberFormat.format(activeRows), classification.getId());
 		}
 		long rowsProcessed = 0;
 		Map<Long, List<RelationshipChange>> activeConceptChanges = new HashMap<>();
-		for (List<RelationshipChange> relationshipChangePartition : Lists.partition(relationshipChanges, 900)) {
+
+		// The max clauses for bool query in elastic search by default is 1024
+		for (List<RelationshipChange> relationshipChangePartition : Lists.partition(relationshipChanges, 1000)) {
 			BoolQueryBuilder allConceptsQuery = boolQuery();
 			for (RelationshipChange relationshipChange : relationshipChangePartition) {
 				if (relationshipChange.isActive()) {
@@ -564,7 +572,7 @@ public class ClassificationService {
 					activeConceptChanges.computeIfAbsent(sourceId, id -> new ArrayList<>()).add(relationshipChange);
 					rowsProcessed++;
 					if (rowsProcessed % 1_000 == 0) {
-						logger.info("Processing row {} of {} for classification {}", numberFormat.format(rowsProcessed), numberFormat.format(activeRows), classificationId);
+						logger.info("Processing row {} of {} for classification {}", numberFormat.format(rowsProcessed), numberFormat.format(activeRows), classification.getId());
 					}
 				}
 			}
@@ -574,10 +582,13 @@ public class ClassificationService {
 				continue;
 			}
 
+			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(classification.getPath());
 			try (CloseableIterator<QueryConcept> semanticIndexConcepts = elasticsearchOperations.stream(
 					new NativeSearchQueryBuilder()
-							.withQuery(allConceptsQuery)
-							.withFilter(termQuery(QueryConcept.Fields.STATED, true))
+							.withQuery(boolQuery()
+									.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
+									.must(termQuery(QueryConcept.Fields.STATED, true)))
+							.withFilter(allConceptsQuery)
 							.withPageable(LARGE_PAGE).build(),
 					QueryConcept.class)) {
 

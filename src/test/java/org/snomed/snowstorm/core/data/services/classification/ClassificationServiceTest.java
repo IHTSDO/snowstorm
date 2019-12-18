@@ -73,7 +73,10 @@ public class ClassificationServiceTest extends AbstractTest {
 
 		// Save mock classification results with mix of previously stated and new triples
 		String classificationId = UUID.randomUUID().toString();
-		classificationService.saveRelationshipChanges(classificationId, new ByteArrayInputStream(("" +
+		Classification classification = new Classification();
+		classification.setId(classificationId);
+		classification.setPath("MAIN");
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
 				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
 				"\t\t1\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002\n" +
 				"\t\t1\t\t123123123001\t84301002\t0\t363698007\t900000000000227009\t900000000000451002\n" +
@@ -109,8 +112,8 @@ public class ClassificationServiceTest extends AbstractTest {
 		Relationship relationship = conceptService.find(conceptId, path).getRelationships().stream().filter(r -> r.getTypeId().equals("363698007")).collect(Collectors.toList()).get(0);
 
 		String classificationId = UUID.randomUUID().toString();
-		createClassification(path, classificationId);
-		classificationService.saveRelationshipChanges(classificationId, new ByteArrayInputStream(("" +
+		Classification classification = createClassification(path, classificationId);
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
 				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
 				relationship.getId() + "\t\t0\t\t123123123001\t84301002\t0\t363698007\t900000000000011006\t900000000000451002\n" +
 				"").getBytes()));
@@ -145,8 +148,8 @@ public class ClassificationServiceTest extends AbstractTest {
 		Relationship relationship = conceptService.find(conceptId, path).getRelationships().stream().filter(r -> r.getTypeId().equals("363698007")).collect(Collectors.toList()).get(0);
 
 		String classificationId = UUID.randomUUID().toString();
-		createClassification(path, classificationId);
-		classificationService.saveRelationshipChanges(classificationId, new ByteArrayInputStream(("" +
+		Classification classification = createClassification(path, classificationId);
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
 				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
 				relationship.getId() + "\t\t0\t\t123123123001\t84301002\t0\t363698007\t900000000000011006\t900000000000451002\n" +
 				"").getBytes()));
@@ -167,7 +170,7 @@ public class ClassificationServiceTest extends AbstractTest {
 		assertNull(inactiveRelationship.getEffectiveTime());
 	}
 
-	public void createClassification(String path, String classificationId) {
+	public Classification createClassification(String path, String classificationId) {
 		Classification classification = new Classification();
 		classification.setId(classificationId);
 		classification.setPath(path);
@@ -175,6 +178,7 @@ public class ClassificationServiceTest extends AbstractTest {
 		classification.setLastCommitDate(branchService.findLatest(path).getHead());
 		classification.setInferredRelationshipChangesFound(true);
 		classificationRepository.save(classification);
+		return classification;
 	}
 
 	public ClassificationStatus saveClassificationAndWaitForCompletion(String path, String classificationId) throws InterruptedException {
