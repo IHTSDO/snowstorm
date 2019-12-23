@@ -42,7 +42,7 @@
 		<snomed-boot.version>1.12.1</snomed-boot.version>
 
 		<!-- FHIR HAPI library -->
-		<hapi.version>3.8.0</hapi.version>
+		<hapi.version>4.1.0</hapi.version>
 
 		<docker.image.prefix>snomedinternational</docker.image.prefix>
 		<slf4j.version>1.7.5</slf4j.version>
