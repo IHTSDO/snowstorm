@@ -142,7 +142,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 			ExpressionUrlAuthorizationConfigurer<HttpSecurity>.ExpressionInterceptUrlRegistry authorizeRequests = http.authorizeRequests();
 			allowReadOnlyPostEndpointPrefixes().forEach(prefix -> authorizeRequests.antMatchers(HttpMethod.POST, prefix + "/**").anonymous());
 			if (restApiAllowReadOnlyPostEndpoints) {
-				allowReadOnlyPostEndpoints().forEach(endpoint -> authorizeRequests.antMatchers(HttpMethod.POST, endpoint).anonymous());
+				allowReadOnlyPostEndpoints().forEach(endpoint -> authorizeRequests.antMatchers(HttpMethod.POST, endpoint.replace("{branch}", "**")).anonymous());
 			}
 
 			// Block all other POST/PUT/PATCH/DELETE
