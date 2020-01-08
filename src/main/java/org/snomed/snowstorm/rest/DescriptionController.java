@@ -93,7 +93,7 @@ public class DescriptionController {
 						// Language reference set clauses
 						.preferredIn(preferredIn)
 						.acceptableIn(acceptableIn)
-						.preferredOrAcceptableIn(acceptableIn)
+						.preferredOrAcceptableIn(preferredOrAcceptableIn)
 
 						// Concept clauses
 						.conceptActive(conceptActive)
