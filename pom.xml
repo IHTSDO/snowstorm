@@ -28,8 +28,8 @@
 		- uses Snomed International's Fork of Spring Data Elasticsearch
 		- uses Elasticsearch Client version 6.0.1
 
-		Current recommended Elasticsearch Server version is 6.5.4
-		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_VERSION and getting-started guide updated.
+		Current recommended Elasticsearch _Server_ version is 6.8.0
+		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
 		-->
 		<elasticvc.version>2.6.2</elasticvc.version>
 

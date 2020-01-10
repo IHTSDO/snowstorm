@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
 				ElasticsearchDataAutoConfiguration.class})
 public class TestConfig extends Config {
 
-	private static final String ELASTIC_SEARCH_VERSION = "6.5.4";
+	private static final String ELASTIC_SEARCH_SERVER_VERSION = "6.8.0";
 	public static final String DEFAULT_LANGUAGE_CODE = "en";
 	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList(DEFAULT_LANGUAGE_CODE);
 
@@ -74,7 +74,7 @@ public class TestConfig extends Config {
 					downloadDir.mkdirs();
 				}
 				testElasticsearchSingleton = EmbeddedElastic.builder()
-						.withElasticVersion(ELASTIC_SEARCH_VERSION)
+						.withElasticVersion(ELASTIC_SEARCH_SERVER_VERSION)
 						.withStartTimeout(2, TimeUnit.MINUTES)
 						.withSetting(PopularProperties.CLUSTER_NAME, clusterName)
 						.withSetting(PopularProperties.HTTP_PORT, PORT)
