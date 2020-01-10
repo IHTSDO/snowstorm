@@ -175,45 +175,18 @@ public class DescriptionService extends ComponentService {
 
 	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, DescriptionCriteria criteria, PageRequest pageRequest) throws TooCostlyException {
 		TimerUtil timer = new TimerUtil("Search", Level.INFO, 5);
+
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		timer.checkpoint("Build branch criteria");
 
-
-		// Build up the description criteria
-		final BoolQueryBuilder descriptionQuery = boolQuery();
-		BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
-		descriptionQuery.must(descriptionBranchCriteria);
-		addTermClauses(criteria.getTerm(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQuery, criteria.getSearchMode());
-
-		Boolean active = criteria.getActive();
-		if (active != null) {
-			descriptionQuery.must(termQuery(Description.Fields.ACTIVE, active));
-		}
-
-		String module = criteria.getModule();
-		if (!Strings.isNullOrEmpty(module)) {
-			descriptionQuery.must(termQuery(Description.Fields.MODULE_ID, module));
-		}
-
-
 		// Fetch all matching description and concept ids
 		// ids of concepts where all descriptions and concept criteria are met
-		boolean groupByConcept = criteria.isGroupByConcept();
-		DescriptionMatches descriptionMatches = findDescriptionAndConceptIds(
-				descriptionQuery,
-				criteria.getPreferredIn(),
-				criteria.getAcceptableIn(),
-				criteria.getPreferredOrAcceptableIn(),
-				criteria.getConceptActive(),
-				criteria.getConceptRefset(),
-				groupByConcept,
-				branchCriteria,
-				timer);
+		DescriptionMatches descriptionMatches = findDescriptionAndConceptIds(criteria, branchCriteria, timer);
+		BoolQueryBuilder descriptionQuery = descriptionMatches.getDescriptionQuery();
 
-		// Apply group by concept and acceptability filtering
+		// Apply concept and acceptability filtering for final search
 		BoolQueryBuilder descriptionFilter = boolQuery();
 		descriptionFilter.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionMatches.getMatchedDescriptionIds()));
-
 
 		// Start fetching aggregations..
 		List<Aggregation> allAggregations = new ArrayList<>();
@@ -236,7 +209,7 @@ public class DescriptionService extends ComponentService {
 		}
 		NativeSearchQueryBuilder fsnQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(fsnClauses
-						.must(descriptionBranchCriteria)
+						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termsQuery(Description.Fields.ACTIVE, true))
 						.must(termsQuery(Description.Fields.TYPE_ID, Concepts.FSN))
 						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
@@ -488,17 +461,30 @@ public class DescriptionService extends ComponentService {
 		}
 	}
 
-	private DescriptionMatches findDescriptionAndConceptIds(
-			BoolQueryBuilder descriptionCriteria,
-			Set<Long> preferredIn, Set<Long> acceptableIn, Set<Long> preferredOrAcceptableIn,
-			Boolean conceptActive, String conceptRefset,
-			boolean groupByConcept, BranchCriteria branchCriteria, TimerUtil timer) throws TooCostlyException {
+	DescriptionMatches findDescriptionAndConceptIds(DescriptionCriteria criteria, BranchCriteria branchCriteria, TimerUtil timer) throws TooCostlyException {
+
+		// Build up the description criteria
+		final BoolQueryBuilder descriptionQuery = boolQuery();
+		BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
+		descriptionQuery.must(descriptionBranchCriteria);
+		addTermClauses(criteria.getTerm(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQuery, criteria.getSearchMode());
+
+		Boolean active = criteria.getActive();
+		if (active != null) {
+			descriptionQuery.must(termQuery(Description.Fields.ACTIVE, active));
+		}
+
+		String module = criteria.getModule();
+		if (!Strings.isNullOrEmpty(module)) {
+			descriptionQuery.must(termQuery(Description.Fields.MODULE_ID, module));
+		}
+
 
 		// First pass search to collect all description and concept ids.
 		Map<Long, Long> descriptionToConceptMap = new Long2ObjectLinkedOpenHashMap<>();
 		SearchResultMapper mapper = new DescriptionToConceptIdMapper(descriptionToConceptMap);
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(descriptionCriteria)
+				.withQuery(descriptionQuery)
 				.withStoredFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID);
 
 		long totalElements = elasticsearchTemplate.queryForPage(searchQueryBuilder.withPageable(PAGE_OF_ONE).build(), Description.class).getTotalElements();
@@ -516,6 +502,9 @@ public class DescriptionService extends ComponentService {
 		timer.checkpoint("Collect all description and concept ids");
 
 		// Second pass to apply lang refset filter
+		Set<Long> preferredIn = criteria.getPreferredIn();
+		Set<Long> acceptableIn = criteria.getAcceptableIn();
+		Set<Long> preferredOrAcceptableIn = criteria.getPreferredOrAcceptableIn();
 		if (!CollectionUtils.isEmpty(preferredIn) || !CollectionUtils.isEmpty(acceptableIn) || !CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
 
 			BoolQueryBuilder queryBuilder = boolQuery()
@@ -563,13 +552,13 @@ public class DescriptionService extends ComponentService {
 		if (!conceptIds.isEmpty()) {
 
 			// Apply concept active filter
-			if (conceptActive != null) {
+			if (criteria.getConceptActive() != null) {
 				List<Long> conceptIdCopy = new LongArrayList(conceptIds);
 				conceptIds.clear();
 				try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(
 						new NativeSearchQueryBuilder()
 								.withQuery(boolQuery()
-										.must(termQuery(Concept.Fields.ACTIVE, conceptActive.booleanValue()))
+										.must(termQuery(Concept.Fields.ACTIVE, criteria.getConceptActive()))
 										.filter(branchCriteria.getEntityBranchCriteria(Concept.class))
 										.filter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdCopy))
 								)
@@ -584,13 +573,13 @@ public class DescriptionService extends ComponentService {
 			}
 
 			// Apply refset filter
-			if (!Strings.isNullOrEmpty(conceptRefset)) {
+			if (!Strings.isNullOrEmpty(criteria.getConceptRefset())) {
 				List<Long> conceptIdCopy = new LongArrayList(conceptIds);
 				conceptIds.clear();
 				try (CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(
 						new NativeSearchQueryBuilder()
 								.withQuery(boolQuery()
-										.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, conceptRefset))
+										.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, criteria.getConceptRefset()))
 										.filter(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 										.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdCopy))
 								)
@@ -606,7 +595,7 @@ public class DescriptionService extends ComponentService {
 		}
 
 		Set<Long> descriptions;
-		if (groupByConcept) {
+		if (criteria.isGroupByConcept()) {
 			Set<Long> concepts = new LongOpenHashSet();
 			descriptions = new LongOpenHashSet();
 			for (Map.Entry<Long, Long> entry : descriptionToConceptMap.entrySet()) {
@@ -618,7 +607,7 @@ public class DescriptionService extends ComponentService {
 			descriptions = descriptionToConceptMap.keySet();
 		}
 
-		return new DescriptionMatches(descriptions, conceptIds);
+		return new DescriptionMatches(descriptions, conceptIds, descriptionQuery);
 	}
 
 	void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder) {
@@ -767,23 +756,28 @@ public class DescriptionService extends ComponentService {
 		}
 	}
 
-	private static class DescriptionMatches {
+	static class DescriptionMatches {
 
 		private final Set<Long> conceptIds;
 		private final Set<Long> descriptionIds;
+		private final BoolQueryBuilder descriptionQuery;
 
-		private DescriptionMatches(Set<Long> descriptionIds, Set<Long> conceptIds) {
+		private DescriptionMatches(Set<Long> descriptionIds, Set<Long> conceptIds, BoolQueryBuilder descriptionQuery) {
 			this.descriptionIds = descriptionIds;
 			this.conceptIds = conceptIds;
+			this.descriptionQuery = descriptionQuery;
 		}
 
-		private Set<Long> getMatchedDescriptionIds() {
+		Set<Long> getMatchedDescriptionIds() {
 			return descriptionIds;
 		}
 
-		private Set<Long> getMatchedConceptIds() {
+		Set<Long> getMatchedConceptIds() {
 			return conceptIds;
 		}
 
+		public BoolQueryBuilder getDescriptionQuery() {
+			return descriptionQuery;
+		}
 	}
 }
