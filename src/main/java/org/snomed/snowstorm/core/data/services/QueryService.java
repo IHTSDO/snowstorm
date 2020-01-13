@@ -557,7 +557,7 @@ public class QueryService implements ApplicationContextAware {
 			return resultLanguageCodes;
 		}
 
-		private DescriptionCriteria getDescriptionCriteria() {
+		public DescriptionCriteria getDescriptionCriteria() {
 			return descriptionCriteria;
 		}
 	}

@@ -4,7 +4,9 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
+import org.snomed.snowstorm.rest.pojo.AcceptLanguageValues;
 import org.snomed.snowstorm.rest.pojo.ConceptMiniNestedFsn;
 import org.springframework.data.domain.PageRequest;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
@@ -16,11 +18,20 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static java.lang.Long.parseLong;
 
 public class ControllerHelper {
 
 	public static final String DEFAULT_ACCEPT_LANG_HEADER = "en-US;q=0.8,en-GB;q=0.6";
+
+	private static final Pattern LANGUAGE_PATTERN = Pattern.compile("([a-z]{2})");
+	private static final Pattern LANGUAGE_AND_DIALECT_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2})");
+	private static final Pattern LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2})-x-(" + IdentifierService.SCTID_PATTERN + ")");
+	private static final Pattern LANGUAGE_AND_REFSET_PATTERN = Pattern.compile("([a-z]{2})-x-(" + IdentifierService.SCTID_PATTERN + ")");
 
 	public static BranchTimepoint parseBranchTimepoint(String branch) {
 		String[] parts = BranchPathUriUtil.decodePath(branch).split("@");
@@ -95,6 +106,47 @@ public class ControllerHelper {
 			languageCodes.add("en");
 		}
 		return languageCodes;
+	}
+
+	public static AcceptLanguageValues parseAcceptLanguageHeader(String acceptLanguageHeader) {
+		// en-ie-x-21000220103;q=0.8,en-US;q=0.5
+		AcceptLanguageValues values = new AcceptLanguageValues();
+
+		String[] acceptLanguageList = acceptLanguageHeader.toLowerCase().split(",");
+		for (String acceptLanguage : acceptLanguageList) {
+			String[] valueAndWeight = acceptLanguage.split(";");
+			// We don't use the weight, just take the value
+			String value = valueAndWeight[0];
+
+			Matcher matcher = LANGUAGE_PATTERN.matcher(value);
+			if (matcher.matches()) {
+				values.addLanguageCode(matcher.group(1));
+				continue;
+			}
+
+			matcher = LANGUAGE_AND_DIALECT_PATTERN.matcher(value);
+			if (matcher.matches()) {
+				values.addLanguageCode(matcher.group(1));
+				continue;
+			}
+
+			matcher = LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN.matcher(value);
+			if (matcher.matches()) {
+				values.addLanguageCode(matcher.group(1));
+				values.addLanguageReferenceSet(parseLong(matcher.group(3)));
+				continue;
+			}
+
+			matcher = LANGUAGE_AND_REFSET_PATTERN.matcher(value);
+			if (matcher.matches()) {
+				values.addLanguageCode(matcher.group(1));
+				values.addLanguageReferenceSet(parseLong(matcher.group(2)));
+				continue;
+			}
+
+			throw new IllegalArgumentException("Unexpected value within Accept-Language request header '" + value + "'.");
+		}
+		return values;
 	}
 
 	static void validatePageSize(long offset, int limit) {

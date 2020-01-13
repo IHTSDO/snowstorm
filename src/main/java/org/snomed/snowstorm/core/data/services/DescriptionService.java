@@ -213,7 +213,7 @@ public class DescriptionService extends ComponentService {
 						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
 				)
 				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG).size(AGGREGATION_SEARCH_SIZE));
-		if (!semanticTagFiltering || (semanticTagFiltering && allSemanticTags.size() > 1)) {
+		if (!semanticTagFiltering || allSemanticTags.size() > 1) {
 			fsnQueryBuilder
 					.withPageable(PAGE_OF_ONE);
 			AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(fsnQueryBuilder.build(), Description.class);

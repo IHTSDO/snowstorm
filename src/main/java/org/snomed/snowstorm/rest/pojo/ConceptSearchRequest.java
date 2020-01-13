@@ -7,6 +7,9 @@ public class ConceptSearchRequest {
 	private String termFilter;
 	private Boolean termActive;
 	private Boolean activeFilter;
+	private Set<Long> preferredIn;
+	private Set<Long> acceptableIn;
+	private Set<Long> preferredOrAcceptableIn;
 	private String definitionStatusFilter;
 	private String eclFilter;
 	private String statedEclFilter;
@@ -15,8 +18,6 @@ public class ConceptSearchRequest {
 	private int limit = 50;
 	private String searchAfter;
 //		  "moduleFilter": "",
-//		  "escgFilter": "",
-//		  "expand": "",
 
 
 	public ConceptSearchRequest() {
@@ -44,6 +45,18 @@ public class ConceptSearchRequest {
 
 	public void setActiveFilter(Boolean activeFilter) {
 		this.activeFilter = activeFilter;
+	}
+
+	public Set<Long> getPreferredIn() {
+		return preferredIn;
+	}
+
+	public Set<Long> getAcceptableIn() {
+		return acceptableIn;
+	}
+
+	public Set<Long> getPreferredOrAcceptableIn() {
+		return preferredOrAcceptableIn;
 	}
 
 	public String getDefinitionStatusFilter() {

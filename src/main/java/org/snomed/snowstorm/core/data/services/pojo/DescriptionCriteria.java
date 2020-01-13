@@ -133,6 +133,12 @@ public class DescriptionCriteria {
 		return preferredOrAcceptableIn;
 	}
 
+	public void preferredOrAcceptableValues(Set<Long> preferredOrAcceptableIn, Set<Long> preferredIn, Set<Long> acceptableIn) {
+		this.preferredOrAcceptableIn = preferredOrAcceptableIn;
+		this.preferredIn = preferredIn;
+		this.acceptableIn = acceptableIn;
+	}
+
 	public boolean hasLanguageRefsetClauses() {
 		return !CollectionUtils.isEmpty(preferredIn);
 	}
@@ -173,5 +179,4 @@ public class DescriptionCriteria {
 		return searchMode;
 	}
 
-	//	return this;
 }

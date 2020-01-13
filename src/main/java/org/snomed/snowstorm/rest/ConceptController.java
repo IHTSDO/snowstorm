@@ -77,12 +77,23 @@ public class ConceptController {
 			@RequestParam(required = false) String definitionStatusFilter,
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) Boolean termActive,
+
+			@ApiParam(value = "Set of description language reference sets. The description must be preferred in at least one of these to match.")
+			@RequestParam(required = false) Set<Long> preferredIn,
+
+			@ApiParam(value = "Set of description language reference sets. The description must be acceptable in at least one of these to match.")
+			@RequestParam(required = false) Set<Long> acceptableIn,
+
+			@ApiParam(value = "Set of description language reference sets. The description must be preferred OR acceptable in at least one of these to match.")
+			@RequestParam(required = false) Set<Long> preferredOrAcceptableIn,
+
 			@RequestParam(required = false) String ecl,
 			@RequestParam(required = false) String statedEcl,
 			@RequestParam(required = false) Set<String> conceptIds,
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestParam(required = false) String searchAfter,
+			@ApiParam("Accept-Language header on this endpoint can take the format en-x-900000000000508004 which is an alternative way to set the preferredOrAcceptableIn value.")
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		// Parameter validation
@@ -111,17 +122,22 @@ public class ConceptController {
 			ecl = statedEcl;
 		}
 
+		AcceptLanguageValues acceptLanguageValues = ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader);
+
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated)
 				.activeFilter(activeFilter)
 				.descriptionCriteria(descriptionCriteria -> descriptionCriteria
 						.active(termActive)
 						.term(term)
-						.searchLanguageCodes(ControllerHelper.getLanguageCodes(acceptLanguageHeader))
+						.searchLanguageCodes(acceptLanguageValues.getLanguageCodes())
+						.preferredOrAcceptableIn(acceptLanguageValues.getLanguageReferenceSets())
 				)
 				.definitionStatusFilter(definitionStatusFilter)
 				.ecl(ecl)
-				.resultLanguageCodes(ControllerHelper.getLanguageCodes(acceptLanguageHeader))
+				.resultLanguageCodes(acceptLanguageValues.getLanguageCodes())
 				.conceptIds(conceptIds);
+
+		queryBuilder.getDescriptionCriteria().preferredOrAcceptableValues(preferredOrAcceptableIn, preferredIn, acceptableIn);
 
 		ControllerHelper.validatePageSize(offset, limit);
 
@@ -152,6 +168,9 @@ public class ConceptController {
 				searchRequest.getDefinitionStatusFilter(),
 				searchRequest.getTermFilter(),
 				searchRequest.getTermActive(),
+				searchRequest.getPreferredIn(),
+				searchRequest.getAcceptableIn(),
+				searchRequest.getPreferredOrAcceptableIn(),
 				searchRequest.getEclFilter(),
 				searchRequest.getStatedEclFilter(),
 				searchRequest.getConceptIds(),
@@ -251,7 +270,7 @@ public class ConceptController {
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		String ecl = "<" + conceptId;
-		return findConcepts(branch, null, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, offset, limit, null, acceptLanguageHeader);
+		return findConcepts(branch, null, null, null, null, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, offset, limit, null, acceptLanguageHeader);
 	}
 
 	@ResponseBody

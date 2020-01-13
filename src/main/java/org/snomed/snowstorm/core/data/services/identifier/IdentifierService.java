@@ -20,7 +20,7 @@ import java.util.regex.Pattern;
 @Service
 public class IdentifierService {
 	
-	private static final Pattern SCTID_PATTERN = Pattern.compile("\\d{6,18}");
+	public static final Pattern SCTID_PATTERN = Pattern.compile("\\d{6,18}");
 
 	private static final String PARTITION_PART1_INTERNATIONAL = "0";
 	private static final String PARTITION_PART1_EXTENSION = "1";
