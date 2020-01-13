@@ -17,9 +17,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
@@ -299,11 +297,12 @@ public class DescriptionServiceTest extends AbstractTest {
 	public void testDescriptionSearchAggregationsSemanticTagFilter() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
-		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
-		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)");
+		Concept food_1 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
+		Concept food_2 = new Concept("100006").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food 2 (food)");
+		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, food_1.getId())).addFSN("Cheese Pizza (pizza)");
 		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
 		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
-		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		List<Concept> concepts = Lists.newArrayList(root, food_1, food_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		setModulesAndLanguage(concepts);
 		conceptService.batchCreate(concepts, path);
 
@@ -315,9 +314,9 @@ public class DescriptionServiceTest extends AbstractTest {
 
 		DescriptionCriteria descriptionCriteria = new DescriptionCriteria().active(true);
 		Map<String, Map<String, Long>> allAggregations = descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getBuckets();
-		assertEquals("{900000000000207008=4}", getAggregationString("module", allAggregations));
-		assertEquals("{en=4}", getAggregationString("language", allAggregations));
-		assertEquals("{pizza=3, food=1}", getAggregationString("semanticTags", allAggregations));
+		assertEquals("{900000000000207008=5}", getAggregationString("module", allAggregations));
+		assertEquals("{en=5}", getAggregationString("language", allAggregations));
+		assertEquals("{pizza=3, food=2}", getAggregationString("semanticTags", allAggregations));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", allAggregations));
 
 		descriptionCriteria.semanticTag("pizza");
@@ -326,6 +325,18 @@ public class DescriptionServiceTest extends AbstractTest {
 		assertEquals("{en=3}", getAggregationString("language", pizzaFilteredAggregations));
 		assertEquals("{pizza=3}", getAggregationString("semanticTags", pizzaFilteredAggregations));
 		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", pizzaFilteredAggregations));
+
+		descriptionCriteria.semanticTag(null);
+		Set<String> semanticTags = new HashSet<>();
+		semanticTags.add("food");
+		semanticTags.add("pizza");
+		descriptionCriteria.semanticTags(semanticTags);
+		Map<String, Map<String, Long>> multipleSemanticTagsFilteredAggregations = descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getBuckets();
+		assertEquals("{900000000000207008=5}", getAggregationString("module", multipleSemanticTagsFilteredAggregations));
+		assertEquals("{en=5}", getAggregationString("language", multipleSemanticTagsFilteredAggregations));
+		assertEquals("{pizza=3, food=2}", getAggregationString("semanticTags", multipleSemanticTagsFilteredAggregations));
+		assertEquals("{723592007=1, 723589008=2}", getAggregationString("membership", multipleSemanticTagsFilteredAggregations));
+
 	}
 
 	@Test

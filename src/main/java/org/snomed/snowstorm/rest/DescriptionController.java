@@ -55,7 +55,11 @@ public class DescriptionController {
 			@ApiParam(value = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
 			@RequestParam(required = false) Set<Long> type,
 
+			@Deprecated
 			@RequestParam(required = false) String semanticTag,
+
+			@ApiParam(value = "Set of semantic tags.")
+			@RequestParam(required = false) Set<String> semanticTags,
 
 			@ApiParam(value = "Set of description language reference sets. The description must be preferred in at least one of these to match.")
 			@RequestParam(required = false) Set<Long> preferredIn,
@@ -89,7 +93,7 @@ public class DescriptionController {
 						.searchLanguageCodes(searchLanguageCodes)
 						.type(type)
 						.semanticTag(semanticTag)
-
+						.semanticTags(semanticTags)
 						// Language reference set clauses
 						.preferredIn(preferredIn)
 						.acceptableIn(acceptableIn)

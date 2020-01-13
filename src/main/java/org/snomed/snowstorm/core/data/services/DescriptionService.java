@@ -222,9 +222,17 @@ public class DescriptionService extends ComponentService {
 		// Fetch FSN semantic tag aggregation
 		BoolQueryBuilder fsnClauses = boolQuery();
 		String semanticTag = criteria.getSemanticTag();
-		boolean semanticTagFiltering = !Strings.isNullOrEmpty(semanticTag);
+		Set<String> semanticTags = criteria.getSemanticTags();
+		boolean semanticTagFiltering = !Strings.isNullOrEmpty(semanticTag) || !CollectionUtils.isEmpty(semanticTags);
+		Set<String> allSemanticTags = new HashSet<>();
 		if (semanticTagFiltering) {
-			fsnClauses.must(termQuery(Description.Fields.TAG, semanticTag));
+			if (!Strings.isNullOrEmpty(semanticTag)) {
+				allSemanticTags.add(semanticTag);
+			}
+			if (!CollectionUtils.isEmpty(semanticTags)) {
+				allSemanticTags.addAll(semanticTags);
+			}
+			fsnClauses.must(termsQuery(Description.Fields.TAG, allSemanticTags));
 		}
 		NativeSearchQueryBuilder fsnQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(fsnClauses
@@ -234,7 +242,7 @@ public class DescriptionService extends ComponentService {
 						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
 				)
 				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG).size(AGGREGATION_SEARCH_SIZE));
-		if (!semanticTagFiltering) {
+		if (!semanticTagFiltering || (semanticTagFiltering && allSemanticTags.size() > 1)) {
 			fsnQueryBuilder
 					.withPageable(PAGE_OF_ONE);
 			AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(fsnQueryBuilder.build(), Description.class);
@@ -251,7 +259,7 @@ public class DescriptionService extends ComponentService {
 				descriptionStream.forEachRemaining(description -> conceptSemanticTagMatches.add(parseLong(description.getConceptId())));
 			}
 			conceptIds = conceptSemanticTagMatches;
-			allAggregations.add(new SimpleAggregation("semanticTags", semanticTag, conceptSemanticTagMatches.size()));
+			allAggregations.add(new SimpleAggregation("semanticTags", allSemanticTags.iterator().next(), conceptSemanticTagMatches.size()));
 		}
 
 		// Fetch concept refset membership aggregation

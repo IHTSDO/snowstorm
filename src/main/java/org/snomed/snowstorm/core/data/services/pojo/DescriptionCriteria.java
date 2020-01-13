@@ -17,6 +17,7 @@ public class DescriptionCriteria {
 	private Boolean active;
 	private String module;
 	private String semanticTag;
+	private Set<String> semanticTags;
 	private Boolean conceptActive;
 	private String conceptRefset;
 	private boolean groupByConcept;
@@ -69,6 +70,15 @@ public class DescriptionCriteria {
 
 	public String getSemanticTag() {
 		return semanticTag;
+	}
+
+	public DescriptionCriteria semanticTags(Set<String> semanticTags) {
+		this.semanticTags = semanticTags;
+		return this;
+	}
+
+	public Set<String> getSemanticTags() {
+		return semanticTags;
 	}
 
 	public DescriptionCriteria type(Collection<Long> type) {
