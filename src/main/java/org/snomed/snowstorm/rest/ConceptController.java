@@ -33,6 +33,7 @@ import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -77,6 +78,11 @@ public class ConceptController {
 			@RequestParam(required = false) String definitionStatusFilter,
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) Boolean termActive,
+
+			@ApiParam(value = "Set of two character language codes to match. " +
+					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
+					"Accept-Language header still controls result FSN and PT language selection.")
+			@RequestParam(required = false) Set<String> language,
 
 			@ApiParam(value = "Set of description language reference sets. The description must be preferred in at least one of these to match.")
 			@RequestParam(required = false) Set<Long> preferredIn,
@@ -129,7 +135,7 @@ public class ConceptController {
 				.descriptionCriteria(descriptionCriteria -> descriptionCriteria
 						.active(termActive)
 						.term(term)
-						.searchLanguageCodes(acceptLanguageValues.getLanguageCodes())
+						.searchLanguageCodes(CollectionUtils.isEmpty(language) ? acceptLanguageValues.getLanguageCodes() : language)
 						.preferredOrAcceptableIn(acceptLanguageValues.getLanguageReferenceSets())
 				)
 				.definitionStatusFilter(definitionStatusFilter)
@@ -168,6 +174,7 @@ public class ConceptController {
 				searchRequest.getDefinitionStatusFilter(),
 				searchRequest.getTermFilter(),
 				searchRequest.getTermActive(),
+				searchRequest.getLanguage(),
 				searchRequest.getPreferredIn(),
 				searchRequest.getAcceptableIn(),
 				searchRequest.getPreferredOrAcceptableIn(),
@@ -270,7 +277,7 @@ public class ConceptController {
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		String ecl = "<" + conceptId;
-		return findConcepts(branch, null, null, null, null, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, offset, limit, null, acceptLanguageHeader);
+		return findConcepts(branch, null, null, null, null, null, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, offset, limit, null, acceptLanguageHeader);
 	}
 
 	@ResponseBody

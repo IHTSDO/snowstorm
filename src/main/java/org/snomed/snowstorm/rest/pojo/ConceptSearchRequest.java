@@ -7,6 +7,7 @@ public class ConceptSearchRequest {
 	private String termFilter;
 	private Boolean termActive;
 	private Boolean activeFilter;
+	private Set<String> language;
 	private Set<Long> preferredIn;
 	private Set<Long> acceptableIn;
 	private Set<Long> preferredOrAcceptableIn;
@@ -45,6 +46,10 @@ public class ConceptSearchRequest {
 
 	public void setActiveFilter(Boolean activeFilter) {
 		this.activeFilter = activeFilter;
+	}
+
+	public Set<String> getLanguage() {
+		return language;
 	}
 
 	public Set<Long> getPreferredIn() {
