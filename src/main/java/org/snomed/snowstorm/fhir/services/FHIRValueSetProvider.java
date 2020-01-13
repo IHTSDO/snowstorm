@@ -9,11 +9,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
-import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceComponent;
 import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
 import org.hl7.fhir.r4.model.ValueSet.ValueSetComposeComponent;
-import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionComponent;
-import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionContainsComponent;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -203,12 +200,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
 				branchPath = obtainConsistentCodeSystemVersionFromCompose(vs.getCompose());
 				String ecl = covertComposeToECL(vs.getCompose());
-				QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
-				queryBuilder.ecl(ecl)
-							.termMatch(filter)
-							.languageCodes(languageCodes)
-							.activeFilter(active);
-				conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
+				conceptMiniPage = eclSearch(ecl, active, filter, languageCodes, branchPath, offset, pageSize);
 				logger.info("Recovered: {} concepts from branch: {} with ecl from compose: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
 			} else {
 				String msg = "Compose element(s) or 'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ";
@@ -227,13 +219,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				conceptMiniPage = findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
 			} else {
 				String ecl = determineEcl(url);
-				QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
-				queryBuilder.ecl(ecl)
-							.termMatch(filter)
-							.languageCodes(languageCodes)
-							.activeFilter(active);
-		
-				conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
+				conceptMiniPage = eclSearch(ecl, active, filter, languageCodes, branchPath, offset, pageSize);
 				logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
 			}
 		}
@@ -244,6 +230,17 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		valueSet.getExpansion().setTotal((int)conceptMiniPage.getTotalElements());
 		valueSet.getExpansion().setOffset(offset);
 		return valueSet;
+	}
+
+	private Page<ConceptMini> eclSearch(String ecl, Boolean active, String termFilter, List<String> languageCodes, String branchPath, int offset, int pageSize) {
+		Page<ConceptMini> conceptMiniPage;
+		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
+		queryBuilder.ecl(ecl)
+				.descriptionCriteria(descriptionCriteria -> descriptionCriteria.term(termFilter))
+				.searchAndResultLanguageCodes(languageCodes)
+				.activeFilter(active);
+		conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
+		return conceptMiniPage;
 	}
 
 	private String obtainConsistentCodeSystemVersionFromCompose(ValueSetComposeComponent compose) throws FHIROperationException {

@@ -29,7 +29,7 @@ public class MRCMServiceTest extends AbstractTest {
 	
 	@Before
 	public void setup() throws ServiceException {
-		conceptService.create(new Concept(Concepts.ISA, "10000111"), "MAIN");
+		conceptService.create(new Concept(Concepts.ISA, "10000111").addFSN("Term"), "MAIN");
 		mrcmService.loadFromFiles();
 	}
 	

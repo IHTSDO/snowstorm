@@ -4,16 +4,14 @@ import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.springframework.util.CollectionUtils;
 
 import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 
-import static org.snomed.snowstorm.core.data.services.DescriptionService.EN_LANGUAGE_CODES;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 
 public class DescriptionCriteria {
 
 	private String term;
-	private Collection<String> searchLanguageCodes = EN_LANGUAGE_CODES;
+	private Collection<String> searchLanguageCodes = DEFAULT_LANGUAGE_CODES;
 	private Boolean active;
 	private String module;
 	private String semanticTag;
@@ -27,7 +25,21 @@ public class DescriptionCriteria {
 	private Set<Long> acceptableIn;
 	private Set<Long> preferredOrAcceptableIn;
 
+	public boolean hasDescriptionCriteria() {
+		return term != null
+				|| (searchLanguageCodes != null && !searchLanguageCodes.equals(DEFAULT_LANGUAGE_CODES))
+				|| active != null
+				|| module != null
+				|| semanticTag != null
+				|| !CollectionUtils.isEmpty(preferredIn)
+				|| !CollectionUtils.isEmpty(acceptableIn)
+				|| !CollectionUtils.isEmpty(preferredOrAcceptableIn);
+	}
+
 	public DescriptionCriteria term(String term) {
+		if (term != null && term.isEmpty()) {
+			term = null;
+		}
 		this.term = term;
 		return this;
 	}
@@ -36,7 +48,11 @@ public class DescriptionCriteria {
 		return term;
 	}
 
+	// Unordered collection of language codes to match descriptions against.
 	public DescriptionCriteria searchLanguageCodes(Collection<String> searchLanguageCodes) {
+		if (searchLanguageCodes == null) {
+			searchLanguageCodes = DEFAULT_LANGUAGE_CODES;
+		}
 		this.searchLanguageCodes = searchLanguageCodes;
 		return this;
 	}

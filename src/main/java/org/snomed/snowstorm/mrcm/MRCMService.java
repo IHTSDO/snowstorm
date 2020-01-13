@@ -7,7 +7,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -88,10 +91,8 @@ public class MRCMService {
 			throw new IllegalArgumentException("MRCM Attribute " + attributeId + " not found.");
 		}
 		
-		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false)
-				.termMatch(termPrefix)
-				.termActive(true)
-				.languageCodes(languageCodes);
+		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false).resultLanguageCodes(languageCodes)
+				.descriptionCriteria(descriptionCriteria -> descriptionCriteria.term(termPrefix).active(true).searchLanguageCodes(languageCodes));
 
 		StringBuilder ecl = new StringBuilder();
 		for (Range range : attribute.getRangeSet()) {

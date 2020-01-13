@@ -11,6 +11,7 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.apache.commons.lang.StringUtils;
 import org.apache.lucene.analysis.CharArraySet;
@@ -61,8 +62,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
-import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
-import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
+import static org.snomed.snowstorm.config.Config.*;
 
 @Service
 public class DescriptionService extends ComponentService {
@@ -86,8 +86,6 @@ public class DescriptionService extends ComponentService {
 
 	@Value("${search.description.aggregation.maxProcessableResultsSize}")
 	private int aggregationMaxProcessableResultsSize;
-
-	public static final Set<String> EN_LANGUAGE_CODES = Collections.singleton("en");
 
 	public enum SearchMode {
 		STANDARD, REGEX
@@ -166,10 +164,10 @@ public class DescriptionService extends ComponentService {
 	}
 
 	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, PageRequest pageRequest) throws TooCostlyException {
-		return findDescriptionsWithAggregations(path, term, EN_LANGUAGE_CODES, pageRequest);
+		return findDescriptionsWithAggregations(path, term, DEFAULT_LANGUAGE_CODES, pageRequest);
 	}
 
-	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, Set<String> languageCodes, PageRequest pageRequest) throws TooCostlyException {
+	PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, String term, List<String> languageCodes, PageRequest pageRequest) throws TooCostlyException {
 		return findDescriptionsWithAggregations(path, new DescriptionCriteria().term(term).searchLanguageCodes(languageCodes), pageRequest);
 	}
 
@@ -533,73 +531,77 @@ public class DescriptionService extends ComponentService {
 					.withStoredFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 					.withPageable(LARGE_PAGE)
 					.build();
-			List<Long> filteredDescriptionIds = new LongArrayList();
+			Set<Long> filteredDescriptionIds = new LongOpenHashSet();
 			try (CloseableIterator<ReferenceSetMember> stream =
 						 elasticsearchTemplate.stream(nativeSearchQuery, ReferenceSetMember.class, new RefsetMemberToReferenceComponentIdMapper(filteredDescriptionIds))) {
 				stream.forEachRemaining(hit -> {});
 			}
 
+			// Create new map of descriptions and concepts, keeping the original description order.
 			Map<Long, Long> filteredDescriptionToConceptMap = new Long2ObjectLinkedOpenHashMap<>();
-			for (Long descriptionId : filteredDescriptionIds) {
-				filteredDescriptionToConceptMap.put(descriptionId, descriptionToConceptMap.get(descriptionId));
+			for (Long descriptionId : descriptionToConceptMap.keySet()) {
+				if (filteredDescriptionIds.contains(descriptionId)) {
+					filteredDescriptionToConceptMap.put(descriptionId, descriptionToConceptMap.get(descriptionId));
+				}
 			}
 			descriptionToConceptMap = filteredDescriptionToConceptMap;
 			timer.checkpoint("Language refset filtering");
 		}
 
-		Set<Long> conceptIds = new LongOpenHashSet(descriptionToConceptMap.values());
+		// Get unique set of concept ids keeping the order that the descriptions were found.
+		Set<Long> conceptIds = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
 
 		if (!conceptIds.isEmpty()) {
 
 			// Apply concept active filter
 			if (criteria.getConceptActive() != null) {
-				List<Long> conceptIdCopy = new LongArrayList(conceptIds);
-				conceptIds.clear();
+				List<Long> filteredConceptIds = new LongArrayList();
 				try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(
 						new NativeSearchQueryBuilder()
 								.withQuery(boolQuery()
 										.must(termQuery(Concept.Fields.ACTIVE, criteria.getConceptActive()))
 										.filter(branchCriteria.getEntityBranchCriteria(Concept.class))
-										.filter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdCopy))
+										.filter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
 								)
 								.withSort(SortBuilders.fieldSort("_doc"))
 								.withStoredFields(Concept.Fields.CONCEPT_ID)
 								.withPageable(LARGE_PAGE)
-								.build(), Concept.class, new ConceptToConceptIdMapper(conceptIds))) {
+								.build(), Concept.class, new ConceptToConceptIdMapper(filteredConceptIds))) {
 					stream.forEachRemaining(hit -> {
 					});
 				}
+				conceptIds = filterOrderedSet(conceptIds, filteredConceptIds);
 				timer.checkpoint("Concept active filtering");
 			}
 
 			// Apply refset filter
 			if (!Strings.isNullOrEmpty(criteria.getConceptRefset())) {
-				List<Long> conceptIdCopy = new LongArrayList(conceptIds);
-				conceptIds.clear();
+				List<Long> filteredConceptIds = new LongArrayList();
 				try (CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(
 						new NativeSearchQueryBuilder()
 								.withQuery(boolQuery()
 										.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, criteria.getConceptRefset()))
 										.filter(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-										.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdCopy))
+										.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
 								)
 								.withSort(SortBuilders.fieldSort("_doc"))
 								.withStoredFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 								.withPageable(LARGE_PAGE)
-								.build(), ReferenceSetMember.class, new RefsetMemberToReferenceComponentIdMapper(conceptIds))) {
+								.build(), ReferenceSetMember.class, new RefsetMemberToReferenceComponentIdMapper(filteredConceptIds))) {
 					stream.forEachRemaining(hit -> {
 					});
 				}
+				conceptIds = filterOrderedSet(conceptIds, filteredConceptIds);
 				timer.checkpoint("Concept refset filtering");
 			}
 		}
 
 		Set<Long> descriptions;
 		if (criteria.isGroupByConcept()) {
-			Set<Long> concepts = new LongOpenHashSet();
-			descriptions = new LongOpenHashSet();
+			descriptions = new LongLinkedOpenHashSet();
+			Set<Long> uniqueConceptIds = new LongOpenHashSet();
 			for (Map.Entry<Long, Long> entry : descriptionToConceptMap.entrySet()) {
-				if (concepts.add(entry.getValue())) {
+				if (uniqueConceptIds.add(entry.getValue())) {
 					descriptions.add(entry.getKey());
 				}
 			}
@@ -608,6 +610,16 @@ public class DescriptionService extends ComponentService {
 		}
 
 		return new DescriptionMatches(descriptions, conceptIds, descriptionQuery);
+	}
+
+	private Set<Long> filterOrderedSet(Set<Long> orderedIds, List<Long> idsToKeep) {
+		LongLinkedOpenHashSet newSet = new LongLinkedOpenHashSet();
+		for (Long orderedId : orderedIds) {
+			if (idsToKeep.contains(orderedId)) {
+				newSet.add(orderedId);
+			}
+		}
+		return newSet;
 	}
 
 	void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder) {

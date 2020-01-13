@@ -113,11 +113,14 @@ public class ConceptController {
 
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated)
 				.activeFilter(activeFilter)
-				.termActive(termActive)
+				.descriptionCriteria(descriptionCriteria -> descriptionCriteria
+						.active(termActive)
+						.term(term)
+						.searchLanguageCodes(ControllerHelper.getLanguageCodes(acceptLanguageHeader))
+				)
 				.definitionStatusFilter(definitionStatusFilter)
 				.ecl(ecl)
-				.termMatch(term)
-				.languageCodes(ControllerHelper.getLanguageCodes(acceptLanguageHeader))
+				.resultLanguageCodes(ControllerHelper.getLanguageCodes(acceptLanguageHeader))
 				.conceptIds(conceptIds);
 
 		ControllerHelper.validatePageSize(offset, limit);
@@ -351,7 +354,7 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		String branchPath = BranchPathUriUtil.decodePath(branch);
@@ -360,7 +363,7 @@ public class ConceptController {
 
 		QueryService.ConceptQueryBuilder conceptQuery = queryService.createQueryBuilder(form)
 				.ecl("<!" + conceptId)
-				.languageCodes(languageCodes);
+				.searchAndResultLanguageCodes(languageCodes);
 		List<ConceptMini> children = queryService.search(conceptQuery, branchPath, LARGE_PAGE).getContent();
 		timer.checkpoint("Find children");
 
@@ -382,7 +385,7 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
+			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);

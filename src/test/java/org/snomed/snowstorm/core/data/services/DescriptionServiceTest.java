@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.common.util.set.Sets;
@@ -20,7 +19,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static com.google.common.collect.Sets.newHashSet;
+import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.Long.parseLong;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -64,11 +63,11 @@ public class DescriptionServiceTest extends AbstractTest {
 
 		List<Description> content = descriptionService.findDescriptionsWithAggregations("MAIN", "Foo cr", ServiceTestUtil.PAGE_REQUEST).getContent();
 		List<String> actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
-		assertEquals(Lists.newArrayList("Foot cramp", "Foot cramps"), actualTerms);
+		assertEquals(newArrayList("Foot cramp", "Foot cramps"), actualTerms);
 
 		content = descriptionService.findDescriptionsWithAggregations("MAIN", "Foo", ServiceTestUtil.PAGE_REQUEST).getContent();
 		actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
-		assertEquals(Lists.newArrayList("Foot", "Footwear", "Foot bone", "Foot cramp", "Foot cramps"), actualTerms);
+		assertEquals(newArrayList("Foot", "Footwear", "Foot bone", "Foot cramp", "Foot cramps"), actualTerms);
 
 		content = descriptionService.findDescriptionsWithAggregations("MAIN",
 				new DescriptionCriteria()
@@ -77,11 +76,11 @@ public class DescriptionServiceTest extends AbstractTest {
 						.groupByConcept(true),
 				ServiceTestUtil.PAGE_REQUEST).getContent();
 		actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
-		assertEquals(Lists.newArrayList("Foot", "Footwear", "Foot bone", "Foot cramp"), actualTerms);
+		assertEquals(newArrayList("Foot", "Footwear", "Foot bone", "Foot cramp"), actualTerms);
 
 		content = descriptionService.findDescriptionsWithAggregations("MAIN", "cramps", ServiceTestUtil.PAGE_REQUEST).getContent();
 		actualTerms = content.stream().map(Description::getTerm).collect(Collectors.toList());
-		assertEquals(Lists.newArrayList("Foot cramps"), actualTerms);
+		assertEquals(newArrayList("Foot cramps"), actualTerms);
 	}
 
 	@Test
@@ -94,16 +93,16 @@ public class DescriptionServiceTest extends AbstractTest {
 
 		// In the French language 'é' is NOT configured as an extra character in the alphabet so is folded to it's simpler form 'e' in the index.
 		// Searching for either 'é' or 'e' should give the same match.
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "région", newHashSet("fr"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "region", newHashSet("fr"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "région", newArrayList("fr"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "region", newArrayList("fr"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
 		// In the Spanish language 'é' IS configured as an extra character in the alphabet. It is kept as 'é' in the index.
 		// Searching for 'é' should match but 'e' should not because it's considered as a different letter altogether.
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "déficit", newHashSet("es"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "deficit", newHashSet("es"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "déficit", newArrayList("es"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "deficit", newArrayList("es"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 		// Searching for both es and en language codes does not allow matching against the Spanish description with the é character
 		// because when the search term is folded for the English language matches are restricted to descriptions with en language code.
-		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "deficit", newHashSet("es", "en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "deficit", newArrayList("es", "en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 	}
 
 	@Test
@@ -112,23 +111,23 @@ public class DescriptionServiceTest extends AbstractTest {
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100002", "Spinal fusion of atlas-axis,test (procedure)", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100003", "test procedure", "en");
 
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "urine micr.: leucs - % polys", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine Micr.: Leucs - % Polys", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine micr leucs - % Polys", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "urine micr leucs polys", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine micrr.: leucs", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine mic.: leucs", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine mic leucs", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "urine micr.: leucs - % polys", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine Micr.: Leucs - % Polys", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine micr leucs - % Polys", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "urine micr leucs polys", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine micrr.: leucs", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine mic.: leucs", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Urine mic leucs", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "atlas-axis,", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "atla-axis,", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Spinal fusion of atlas-axis", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "atlas axis", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "atlas-axis,", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "atla-axis,", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Spinal fusion of atlas-axis", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "atlas axis", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "procedure", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "(procedure)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "test procedure", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "test procedure)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "procedure", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "(procedure)", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "test procedure", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "test procedure)", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
 	}
 
@@ -141,18 +140,18 @@ public class DescriptionServiceTest extends AbstractTest {
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100005", "drugs with 1.5%/epinephrine", "en");
 
 		// testing stop words
-		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "an man person not", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "an man person not", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
 		// Combining Regex search and simple query as term containing non-alphanumeric
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Man (person)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(3, descriptionService.findDescriptionsWithAggregations("MAIN", "1.5%/epine", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "1.5%/epinephrine (", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "1.5%/epinephrine substance", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "d 1.5%/epinephrine", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Man (person)", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(3, descriptionService.findDescriptionsWithAggregations("MAIN", "1.5%/epine", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "1.5%/epinephrine (", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "1.5%/epinephrine substance", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "d 1.5%/epinephrine", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
 		// These two tests are to highlight that ElasticSearch simple query doesn't check cardinality
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Man (person) p", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "man person p", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Man (person) p", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "man person p", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 	}
 
 	@Test
@@ -176,24 +175,24 @@ public class DescriptionServiceTest extends AbstractTest {
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "1000013", "Lidocaine hydrochloride 1.5%/epinephrine", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "1000014", "Hypodermic needles & syringes", "en");
 
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Tübingen", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Tubingen", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Köln, Löwchen", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Tübingen", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Tubingen", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Köln, Löwchen", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Ménière", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Meniere", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Ménière", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Meniere", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Alzheimer's", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Alzheimer's", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "phospho-2-dehydro-3-deoxygluconate aldolase", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Salmonella II 43:g,t:[1,5] (organism)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "lidocaine hydrochloride 1.5%/epinephrine 1:200,000 injection solution vial (product)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "pT3: tumor invades adventitia (esophagus)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Technetium Tc^99c^ medronate (substance)", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "phospho-2-dehydro-3-deoxygluconate aldolase", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Salmonella II 43:g,t:[1,5] (organism)", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "lidocaine hydrochloride 1.5%/epinephrine 1:200,000 injection solution vial (product)", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "pT3: tumor invades adventitia (esophagus)", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Technetium Tc^99c^ medronate (substance)", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Minnesota pig #1", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Lidocaine hydrochloride 1.5%/epinephrine", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Hypodermic needles & syringes", newHashSet("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Minnesota pig #1", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations("MAIN", "Lidocaine hydrochloride 1.5%/epinephrine", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Hypodermic needles & syringes", newArrayList("en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 	}
 
 	@Test
@@ -204,7 +203,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)");
 		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
 		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (so pizza)");
-		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		List<Concept> concepts = newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		setModulesAndLanguage(concepts);
 		conceptService.batchCreate(concepts, path);
 
@@ -256,7 +255,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)").addDescription(new Description("Cheese"));
 		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
 		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
-		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		List<Concept> concepts = newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		conceptService.batchCreate(concepts, path);
 
 		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
@@ -276,7 +275,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)").addDescription(new Description("Cheese"));
 		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
 		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
-		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		List<Concept> concepts = newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		conceptService.batchCreate(concepts, path);
 
 		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
@@ -302,7 +301,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, food_1.getId())).addFSN("Cheese Pizza (pizza)");
 		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
 		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
-		List<Concept> concepts = Lists.newArrayList(root, food_1, food_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		List<Concept> concepts = newArrayList(root, food_1, food_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		setModulesAndLanguage(concepts);
 		conceptService.batchCreate(concepts, path);
 
@@ -347,7 +346,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)");
 		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
 		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (pizza)");
-		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		List<Concept> concepts = newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		setModulesAndLanguage(concepts);
 		conceptService.batchCreate(concepts, path);
 
@@ -380,7 +379,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		Concept cheesePizza_3 = new Concept("100003").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza (pizza)");
 		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
 		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (so pizza)");
-		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		List<Concept> concepts = newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		setModulesAndLanguage(concepts);
 		conceptService.batchCreate(concepts, path);
 
@@ -411,7 +410,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		Concept reallyCheesyPizza_4 = new Concept("100004").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza (pizza)");
 		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (so pizza)")
 				.addDescription(new Description("So cheesy pizza synonym"));
-		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		List<Concept> concepts = newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		setModulesAndLanguage(concepts);
 		conceptService.batchCreate(concepts, path);
 
@@ -429,7 +428,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		descriptionCriteria.type(Collections.singleton(parseLong(Concepts.TEXT_DEFINITION)));
 		assertEquals(0, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
 
-		descriptionCriteria.type(Lists.newArrayList(parseLong(FSN), parseLong(SYNONYM)));
+		descriptionCriteria.type(newArrayList(parseLong(FSN), parseLong(SYNONYM)));
 		assertEquals(4, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria, PageRequest.of(0, 10)).getTotalElements());
 	}
 
@@ -452,7 +451,7 @@ public class DescriptionServiceTest extends AbstractTest {
 
 		Concept reallyCheesyPizza_5 = new Concept("100005").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza (so pizza)")
 				.addDescription(new Description("So cheesy pizza synonym"));
-		List<Concept> concepts = Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
+		List<Concept> concepts = newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5);
 		setModulesAndLanguage(concepts);
 		conceptService.batchCreate(concepts, path);
 
