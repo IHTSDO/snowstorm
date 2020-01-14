@@ -213,7 +213,7 @@ public class DescriptionService extends ComponentService {
 						.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds))
 				)
 				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG).size(AGGREGATION_SEARCH_SIZE));
-		if (!semanticTagFiltering || allSemanticTags.size() > 1) {
+		if (!semanticTagFiltering) {
 			fsnQueryBuilder
 					.withPageable(PAGE_OF_ONE);
 			AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(fsnQueryBuilder.build(), Description.class);
@@ -226,11 +226,18 @@ public class DescriptionService extends ComponentService {
 					.withFields(Description.Fields.CONCEPT_ID);
 
 			Set<Long> conceptSemanticTagMatches = new LongOpenHashSet();
-			try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(fsnQueryBuilder.build(), Description.class)) {
-				descriptionStream.forEachRemaining(description -> conceptSemanticTagMatches.add(parseLong(description.getConceptId())));
+			if (allSemanticTags.size() == 1) {
+				try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(fsnQueryBuilder.build(), Description.class)) {
+					descriptionStream.forEachRemaining(description -> conceptSemanticTagMatches.add(parseLong(description.getConceptId())));
+				}
+				allAggregations.add(new SimpleAggregation("semanticTags", allSemanticTags.iterator().next(), conceptSemanticTagMatches.size()));
+			} else {
+				AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(fsnQueryBuilder.build(), Description.class);
+				semanticTagResults.stream().forEach((description -> conceptSemanticTagMatches.add(parseLong(description.getConceptId()))));
+				allAggregations.add(semanticTagResults.getAggregation("semanticTags"));
 			}
+
 			conceptIds = conceptSemanticTagMatches;
-			allAggregations.add(new SimpleAggregation("semanticTags", allSemanticTags.iterator().next(), conceptSemanticTagMatches.size()));
 		}
 
 		// Fetch concept refset membership aggregation
