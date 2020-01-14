@@ -27,7 +27,6 @@ public class DescriptionCriteria {
 
 	public boolean hasDescriptionCriteria() {
 		return term != null
-				|| (searchLanguageCodes != null && !searchLanguageCodes.equals(DEFAULT_LANGUAGE_CODES))
 				|| active != null
 				|| module != null
 				|| semanticTag != null
