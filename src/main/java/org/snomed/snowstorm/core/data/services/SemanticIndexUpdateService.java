@@ -335,7 +335,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 											// Either on this branch
 											.should(changesBranchCriteria.getEntityBranchCriteria(Relationship.class))
 											// Or on parent branch and deleted/replaced on this branch
-											.should(termsQuery("internalId", internalIdsOfDeletedComponents))
+											.should(idsQuery().addIds(internalIdsOfDeletedComponents.toArray(new String[]{})))
 									)
 							)
 					)

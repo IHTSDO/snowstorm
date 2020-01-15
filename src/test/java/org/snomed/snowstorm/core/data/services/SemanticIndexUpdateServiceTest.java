@@ -30,6 +30,7 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -324,6 +325,38 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		n14 = conceptService.update(n14, branch);
 
 		assertTC(n14, n12, n11, root);
+	}
+
+	@Test
+	public void testRemoveSecondInferredIsAOnChildBranch() throws ServiceException {
+		Concept root = new Concept(SNOMEDCT_ROOT);
+
+		Concept n11 = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept n12 = new Concept("1000012").addRelationship(new Relationship(ISA, n11.getId()));
+		Concept n13 = new Concept("1000013").addRelationship(new Relationship(ISA, n12.getId()));
+		Concept n14 = new Concept("1000014").addRelationship(new Relationship(ISA, n13.getId())).addRelationship(new Relationship(ISA, n12.getId()));
+
+		String branch = "MAIN/ABC";
+		branchService.create(branch);
+		conceptService.batchCreate(Lists.newArrayList(root, n11, n12, n13, n14), branch);
+
+		assertTC(n14, branch, n13, n12, n11, root);
+
+		branch = "MAIN/ABC/ABC-1";
+		branchService.create(branch);
+
+		n14 = conceptService.find(n14.getId(), branch);
+		Set<Relationship> relationships = n14.getRelationships();
+		assertEquals(2, relationships.size());
+		Optional<Relationship> relationshipOptional = relationships.stream().filter(r -> r.getDestinationId().equals("1000013")).findFirst();
+		assertTrue(relationshipOptional.isPresent());
+		Relationship relationshipToDelete = relationshipOptional.get();
+		assertTrue(relationships.remove(relationshipToDelete));
+		assertEquals(1, relationships.size());
+		n14 = conceptService.update(n14, branch);
+
+		assertTC(n14, branch, n12, n11, root);
+		assertEquals(1, queryService.eclSearch(">!" + n14.getId(), true, branch, LARGE_PAGE).getTotalElements());
 	}
 
 	@Test(expected = IllegalStateException.class)
@@ -675,8 +708,12 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	private void assertTC(Concept concept, Concept... ancestors) {
+		assertTC(concept, "MAIN", ancestors);
+	}
+
+	private void assertTC(Concept concept, String branch, Concept... ancestors) {
 		Set<Long> expectedAncestors = Arrays.stream(ancestors).map(Concept::getConceptIdAsLong).collect(Collectors.toSet());
-		assertEquals(expectedAncestors, queryService.findAncestorIds(concept.getId(),"MAIN", true));
+		assertEquals(expectedAncestors, queryService.findAncestorIds(concept.getId(), branch, true));
 	}
 
 	@After
