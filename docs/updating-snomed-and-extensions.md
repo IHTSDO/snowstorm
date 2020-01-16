@@ -11,12 +11,12 @@
 
 ## Editions vs Extensions
 
-Technically speaking the difference between an Edition and an Extension is just a question of what the RF2 release package contains.  
+Technically speaking the difference between an edition and an extension is just a question of what the RF2 release package contains.  
 
-- An Edition release package contains both the content of the International Edition and the content of a country Extension.
-In an Edition package only one set of RF2 files are expected for each component type, for example one concept file containing both the International concepts and the Extension concepts. 
+- An edition release package contains both the content of the International edition and the content of a country extension.
+In an edition package only one set of RF2 files are expected for each component type, for example one concept file containing both the International concepts and the extension concepts. 
 
-- An Extension release package contains just the Extension content and does not include the International Edition content.
+- An extension release package contains just the extension content and does not include the International edition content.
 
 _However please be aware that these terms are not always used consistently!_
 
@@ -26,31 +26,44 @@ A few known exceptions to the rule worth being aware of:
 - **UK Edition**: packaged as a single zip file, but actually contains full International Edition folder and a UK Extension folder. 
 Snowstorm is not able to process this directory structure so it's best to create a separate zip file containing just the UK Extension folder and load as documented below.
 
-In the case of real Editions (for example the US, Canada and Australia Editions) loading the International Edition is not required and you could load the Edition directly into MAIN the same way as the International Edition.
+In the case of real editions (for example the US, Canada and Australia editions) loading the International Edition is not required and you could load the edition directly into MAIN the same way as the International Edition.
 
-## Loading the initial data
+## Loading an Edition
 
-Before doing anything, you will need to have a SNAPSHOT (or Full version) of the International Edition loaded into Snowstorm (this could be another edition including the US, CA or NL editions). Instructions on how to do that are in the [Snowstorm documents here](loading-snomed.md). Make sure to initially load the correct version that the extension you want to load is dependent upon.
+An edition must be loaded before loading any extensions. As a minimum the SNAPSHOT of the International Edition should be loaded. You may also choose to run the import in 
+FULL mode which will import all the versions of SNOMED CT in the RF2 archive you have and make them available on separate release branches. 
+There are other true "editions" whose RF2 package contains the whole of the International Edition (see above). 
+See [loading SNOMED](loading-snomed.md).
 
-**NOTE** - Make sure that you wait for the original import to complete before going any further forward. You can see it is completed by looking at the status of the import - http://localhost:8080/imports/<import id> - where it will say **COMPLETED**
+**NOTE** - Make sure that you wait for the original import to complete before going any further forward. 
+You can see it is completed by looking at the status of the import (`http://localhost:8080/imports/<import id>`) where it will say **COMPLETED** when done.
 
-## Loading another Extension
+## Loading Extensions
 
-As this is the first time we will be importing another extension, we will need to create a CodeSystem on the server. For this example, we are going to use the Spanish Edition but it should be the same for any other edition or extension. 
+Once an edition has been loaded an extension can be loaded on top. If you haven't loaded an edition yet please go back a step!
 
+For each extension added a CodeSystem must be created on the server. 
 
-On the swagger interface, look for the create a code system POST on the code systems endpoint ( http://localhost:8080/swagger-ui.html#!/Code_Systems/createCodeSystemUsingPOST ). Use the following in the request to create the branch:
+For this example, we are going to use the Spanish Edition.
+On the swagger interface, look for the create a code system POST on the code systems endpoint ( http://localhost:8080/swagger-ui.html#!/Code_Systems/createCodeSystemUsingPOST ). 
+Use the following in the request to create the branch:
 
 ```json
 {
+  "shortName": "SNOMEDCT-ES",
   "branchPath": "MAIN/SNOMEDCT-ES",
-  "shortName": "SNOMEDCT-ES"
+  "dependantVersion": 20190731  
 }
 ```
+The dependantVersion is the version of the Edition which the extension being imported is dependant on. For the International Edition the release dates are currently either 
+the Janurary release xxxx0131 or the July release xxxx0731. An extension with an effective date of 20191130 would probably depend on the previous International Edition 20190731.
+This field is used when creating the extension branch so that the new branch can see content from the desired release in the parent branch. This dependantVersion will be changed when upgrading the extension. 
 
-and then click on 'Try it now'.
+There are many optional fields available for that request that can be used to provide additional information about the code system. These are used by the [SNOMED Browser project](https://github.com/IHTSDO/sct-browser-frontend).
 
-You now need to import the Spanish extension. You need to start the import process by creating a new import job. Look for the Import endpoint ( http://localhost:8080/swagger-ui.html#!/Import/createImportJobUsingPOST ) and then create a new import using:
+To run the command click 'Try it now'.
+
+The Spanish Extension can now be imported. Start the import process by creating a new import job. Look for the Import endpoint ( http://localhost:8080/swagger-ui.html#!/Import/createImportJobUsingPOST ) and then create a new import using:
 
 ```json
 {
@@ -60,7 +73,8 @@ You now need to import the Spanish extension. You need to start the import proce
 }
 ```
 
-and then click on 'Try it now' and then note the id of the import as you will need it for the next step (it will look something like - d0b30d96-3714-443e-99a5-2f282b1f1b0). As before, you now need to upload the file. This can be done through Swagger using the /imports/{importId}/archive endpoint, or via curl.  In both cases, specify the ID recovered in the previous step:
+Click on 'Try it now' and note the ID of the import as you will need it for the next step (look for a UUID like `d0b30d96-3714-443e-99a5-2f282b1f1b0` in the Location response header). 
+As before, the RF2 file needs to be uploaded next. This can be done through Swagger using the /imports/{importId}/archive endpoint, or via curl. In both cases, specify the ID recovered in the previous step:
 
 ```bash
 curl -X POST --header 'Content-Type: multipart/form-data' --header 'Accept: application/json' -F file=@SnomedCT_SpanishRelease-es_Production_20190430T120000Z.zip 'http://localhost:8080/imports/<import id>/archive'
@@ -92,7 +106,7 @@ You can tail the system log to see how this is progressing, or simply to the imp
 
 ## Upgrading an Extension/Edition to the new International Edition
 
-We now need to upgrade the local extension/edition branch. 
+Once a new version of the International Edition is imported local extensions/editions can be upgraded. 
 
 In our example, we will now merge the MAIN branch into the SNOMEDCT-ES branch using the CodeSystem upgrade endpoint using the shortname, SNOMEDCT-ES, `/codesystems/SNOMEDCT-ES/upgrade`:
 ```json
@@ -105,7 +119,7 @@ You can check this has been successful by checking the status of the branch and 
 
 ## Upgrading to a new local Edition or Extension
 
-The Edition or Extension upgrade is an import again, but for this time, it is a DELTA import onto the relevant branch. First, we need to create an import job as before:
+The edition or extension upgrade is an import again, but for this time, it is a DELTA import onto the relevant branch. First, we need to create an import job as before:
 
 ```json
 {
