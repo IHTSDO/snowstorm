@@ -23,15 +23,6 @@ Development and testing is currently in progress for the authoring of SNOMED CT 
 
 ## Documentation
 
-- [Getting Started (plain installation)](docs/getting-started.md)
-- [Loading SNOMED](docs/loading-snomed.md)
-- [Using the API](docs/using-the-api.md)
-- [Using the FHIR API](docs/using-the-fhir-api.md)
-- [Loading & updating SNOMED CT with local Extensions or Editions](docs/updating-snomed-and-extensions.md)
-- [Configuration Guide](docs/configuration-guide.md)
-- [Elasticsearch Index Mapping Changes](docs/index-mapping-changes.md)
-- [Docker Quickstart](docs/using-docker.md)
-
 - Setup
   - [Getting Started (plain installation)](docs/getting-started.md)
   - [Configuration Guide](docs/configuration-guide.md)
