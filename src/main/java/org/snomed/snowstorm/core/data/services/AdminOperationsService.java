@@ -7,9 +7,10 @@ import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.DomainEntity;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,10 +21,7 @@ import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.core.query.UpdateQuery;
-import org.springframework.data.elasticsearch.core.query.UpdateQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.*;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
@@ -216,4 +214,34 @@ public class AdminOperationsService {
 		}
 		return relationshipMap;
 	}
+
+	public void hardDeleteBranch(String path) {
+		Branch branch = branchService.findBranchOrThrow(path);
+		if (PathUtil.isRoot(path)) {
+			throw new IllegalArgumentException("The root branch can not be deleted.");
+		}
+		int childrenCount = branchService.findChildren(path).size();
+		if (childrenCount != 0) {
+			throw new IllegalStateException(String.format("Branch '%s' can not be deleted because is has children (%s).", path, childrenCount));
+		}
+
+		if (branch.isLocked()) {
+			branchService.unlock(path);
+		}
+		branchService.lockBranch(path, "Deleting branch.");
+
+		logger.info("Deleting all documents on branch {}.", path);
+		DeleteQuery deleteQuery = new DeleteQuery();
+		deleteQuery.setQuery(QueryBuilders.termQuery("path", path));
+		for (Class<? extends DomainEntity> domainEntityType : domainEntityConfiguration.getAllDomainEntityTypes()) {
+			logger.info("Deleting all {} type documents on branch {}.", domainEntityType.getSimpleName(), path);
+			elasticsearchTemplate.delete(deleteQuery, domainEntityType);
+			elasticsearchTemplate.refresh(domainEntityType);
+		}
+
+		logger.info("Deleting branch documents for path {}.", path);
+		elasticsearchTemplate.delete(deleteQuery, Branch.class);
+		elasticsearchTemplate.refresh(Branch.class);
+	}
+
 }

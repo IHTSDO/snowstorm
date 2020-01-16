@@ -82,6 +82,17 @@ public class AdminController {
 		adminOperationsService.rollbackCommit(BranchPathUriUtil.decodePath(branch), commitHeadTime);
 	}
 
+	@ApiOperation(value = "Hard delete a branch including its content and history.",
+			notes = "This function is not usually needed but can be used to remove a branch which needs to be recreated with the same path. " +
+					"Everything will be wiped out including all the content (which is on the branch and has not yet been promoted to the parent branch) " +
+					"and the branch history (previous versions of the content in version control). " +
+					"This function only works on branches with no children. "
+	)
+	@RequestMapping(value = "/{branch}/actions/hard-delete", method = RequestMethod.DELETE)
+	public void hardDeleteBranch(@PathVariable String branch) {
+		adminOperationsService.hardDeleteBranch(BranchPathUriUtil.decodePath(branch));
+	}
+
 	@ApiOperation(value = "Restore role group number of inactive relationships.")
 	@RequestMapping(value = "/{branch}/actions/inactive-relationships-restore-group-number", method = RequestMethod.POST)
 	public void restoreGroupNumberOfInactiveRelationships(@PathVariable String branch, @RequestParam String currentEffectiveTime, @RequestParam String previousReleaseBranch) {

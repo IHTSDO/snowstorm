@@ -80,6 +80,9 @@ public class BranchMergeServiceTest extends AbstractTest {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
+	@Autowired
+	private AdminOperationsService adminOperationsService;
+
 	private List<Activity> activities;
 
 	@Autowired
@@ -183,6 +186,13 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertNotNull(mainBranch.getMetadata());
 		assertEquals(1, mainBranch.getMetadata().size());
 		assertEquals("common-authoring", mainBranch.getMetadata().get(BranchMetadataKeys.ASSERTION_GROUP_NAMES));
+
+		adminOperationsService.hardDeleteBranch("MAIN/C");
+		assertNull(branchService.findLatest("MAIN/C"));
+		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
+		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.BEHIND, conceptId, true);
+		assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.BEHIND, conceptId, true);
+		assertBranchStateAndConceptVisibility("MAIN/A/A2", Branch.BranchState.BEHIND, conceptId, true);
 	}
 
 	private String getLatestTraceabilityCommitComment() {
