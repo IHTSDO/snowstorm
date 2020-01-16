@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services.classification;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import org.junit.Test;
@@ -29,7 +30,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
@@ -96,6 +96,39 @@ public class ClassificationServiceTest extends AbstractTest {
 				"123123123001 -> 116680003 -> 138875005 inferredNotStated:false\n" +
 				"123123123001 -> 116680003 -> 247247001 inferredNotStated:true\n" +
 				"123123123001 -> 363698007 -> 84301002 inferredNotStated:false\n", allChanges.toString());
+	}
+
+	@Test
+	public void testSaveRelationshipChangesInExtension() throws IOException, ServiceException, InterruptedException {
+		// Create concept with some stated modeling in an axiom
+		conceptService.create(
+				new Concept("123123123001")
+						.addAxiom(
+								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT),
+								new Relationship("363698007", "84301002")
+						), "MAIN");
+
+		String extensionBranchPath = "MAIN/SNOMEDCT-SE";
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-SE", extensionBranchPath));
+		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of("defaultModuleId", "45991000052106"));
+
+		// Save mock classification results
+		Classification classification = createClassification(extensionBranchPath, UUID.randomUUID().toString());
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
+				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
+				"\t\t1\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002\n" +
+				"\t\t1\t\t123123123001\t84301002\t0\t363698007\t900000000000227009\t900000000000451002\n" +
+				"\t\t1\t\t123123123001\t50960005\t0\t116676008\t900000000000227009\t900000000000451002\n" +
+				"\t\t1\t\t123123123001\t247247001\t0\t116680003\t900000000000227009\t900000000000451002\n" +
+				"").getBytes()));
+
+		assertEquals(SAVED, saveClassificationAndWaitForCompletion(extensionBranchPath, classification.getId()));
+
+		Concept concept = conceptService.find("123123123001", extensionBranchPath);
+		assertEquals(4, concept.getRelationships().size());
+		for (Relationship relationship : concept.getRelationships()) {
+			assertEquals("45991000052106", relationship.getModuleId());
+		}
 	}
 
 	@Test

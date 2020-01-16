@@ -2,12 +2,14 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
@@ -71,12 +73,19 @@ public class ConceptUpdateHelper extends ComponentService {
 	@Autowired
 	private ValidatorService validatorService;
 
+	@Autowired
+	private BranchService branchService;
+
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	PersistedComponents saveNewOrUpdatedConcepts(Collection<Concept> concepts, Commit commit, Map<String, Concept> existingConceptsMap) throws ServiceException {
 		final boolean savingMergedConcepts = commit.isRebase();
 
 		validateConcepts(concepts);
+
+		// Grab branch metadata including values inherited from ancestor branches
+		Map<String, String> metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
+		String defaultModuleId = metadata != null ? metadata.get(Config.DEFAULT_MODULE_ID_KEY) : null;
 
 		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(concepts);
 
@@ -207,8 +216,12 @@ public class ConceptUpdateHelper extends ComponentService {
 					}
 				}
 			}
+
+			// Apply relationship source ids
 			concept.getRelationships()
 					.forEach(relationship -> relationship.setSourceId(concept.getConceptId()));
+
+			// Set new relationship ids
 			concept.getRelationships().stream()
 					.filter(relationship -> relationship.getRelationshipId() == null)
 					.forEach(relationship -> relationship.setRelationshipId(reservedIds.getNextId(ComponentType.Relationship).toString()));
@@ -221,6 +234,14 @@ public class ConceptUpdateHelper extends ComponentService {
 			refsetMembersToPersist.addAll(newVersionOwlAxiomMembers);
 			concept.getClassAxioms().clear();
 			concept.getGciAxioms().clear();
+		}
+
+		// Apply default module to changed components
+		if (defaultModuleId != null) {
+			concepts.stream().filter(DomainEntity::isChanged).forEach(e -> e.setModuleId(defaultModuleId));
+			descriptionsToPersist.stream().filter(DomainEntity::isChanged).forEach(e -> e.setModuleId(defaultModuleId));
+			relationshipsToPersist.stream().filter(DomainEntity::isChanged).forEach(e -> e.setModuleId(defaultModuleId));
+			refsetMembersToPersist.stream().filter(DomainEntity::isChanged).forEach(e -> e.setModuleId(defaultModuleId));
 		}
 
 		// TODO: Try saving all core component types at once - Elasticsearch likes multi-threaded writes.
@@ -359,6 +380,18 @@ public class ConceptUpdateHelper extends ComponentService {
 			newComponent.getInactivationIndicatorMembers().clear();
 			newComponent.addInactivationIndicatorMember(newIndicatorMember);
 		}
+	}
+
+	private void applyDefaultModule(Concept concept, String defaultModuleId) {
+		if (defaultModuleId == null) {
+			return;
+		}
+		if (concept.isChanged()) {
+			concept.setModuleId(defaultModuleId);
+		}
+		concept.getDescriptions().stream().filter(Description::isChanged).forEach(d -> d.setModuleId(defaultModuleId));
+		concept.getAllOwlAxiomMembers().stream().filter(ReferenceSetMember::isChanged).forEach(m -> m.setModuleId(defaultModuleId));
+		concept.getRelationships().stream().filter(Relationship::isChanged).forEach(r -> r.setModuleId(defaultModuleId));
 	}
 
 	void doDeleteConcept(String path, Commit commit, Concept concept) {

@@ -14,7 +14,7 @@ Snowstorm can be used in local implementations to query SNOMED CT with the follo
 - Multi-lingual search and content retrieval
 - Fully ECL v1.3 compliant
 - Full history (depends on full RF2 import)
-- Read-only FHIR API
+- Read-only FHIR API :fire:
 
 ### Authoring Use
 Snowstorm provides the API for the Authoring Platform of the International Edition of SNOMED CT.
@@ -33,7 +33,7 @@ Development and testing is currently in progress for the authoring of SNOMED CT 
   - [Docker Quickstart](docs/using-docker.md)
 - Use
   - [Using the API](docs/using-the-api.md)
-  - [Using the FHIR API](docs/using-the-fhir-api.md) :fire:
+  - [Using the FHIR API](docs/using-the-fhir-api.md)
 
 ## Contributing :star:
 
