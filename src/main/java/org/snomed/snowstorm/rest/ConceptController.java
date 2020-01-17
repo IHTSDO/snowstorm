@@ -99,7 +99,7 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestParam(required = false) String searchAfter,
-			@ApiParam("Accept-Language header on this endpoint can take the format en-x-900000000000508004 which is an alternative way to set the preferredOrAcceptableIn value.")
+			@ApiParam("Accept-Language header can take the format en-x-900000000000508004 which is an alternative way to set the preferredOrAcceptableIn value.")
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		// Parameter validation
@@ -276,7 +276,10 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		String ecl = "<" + conceptId;
+		return findConceptsWithECL("<" + conceptId, stated, branch, acceptLanguageHeader, offset, limit);
+	}
+
+	private ItemsPage<ConceptMini> findConceptsWithECL(String ecl, boolean stated, String branch, String acceptLanguageHeader, int offset, int limit) {
 		return findConcepts(branch, null, null, null, null, null, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, offset, limit, null, acceptLanguageHeader);
 	}
 
@@ -382,23 +385,20 @@ public class ConceptController {
 			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
-		String branchPath = BranchPathUriUtil.decodePath(branch);
-
+		branch = BranchPathUriUtil.decodePath(branch);
 		TimerUtil timer = new TimerUtil("Child listing: " + conceptId, Level.INFO, 5);
 
-		QueryService.ConceptQueryBuilder conceptQuery = queryService.createQueryBuilder(form)
-				.ecl("<!" + conceptId)
-				.searchAndResultLanguageCodes(languageCodes);
-		List<ConceptMini> children = queryService.search(conceptQuery, branchPath, LARGE_PAGE).getContent();
+		List<ConceptMini> children = (List<ConceptMini>) findConceptsWithECL("<!" + conceptId, form == Relationship.CharacteristicType.stated, branch, acceptLanguageHeader,
+				0, LARGE_PAGE.getPageSize()).getItems();
+
 		timer.checkpoint("Find children");
 
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		if (!includeDescendantCount) {
 			queryService.joinIsLeafFlag(children, form, branchCriteria);
 			timer.checkpoint("Join leaf flag");
 		} else {
-			queryService.joinDescendantCountAndLeafFlag(children, form, branchPath, branchCriteria);
+			queryService.joinDescendantCountAndLeafFlag(children, form, branch, branchCriteria);
 			timer.checkpoint("Join descendant count and leaf flag");
 		}
 		return children;
@@ -414,12 +414,12 @@ public class ConceptController {
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
-		Set<Long> parentIds = queryService.findParentIds(branchCriteria, form == Relationship.CharacteristicType.stated, conceptId);
-		Collection<ConceptMini> parents = conceptService.findConceptMinis(branchCriteria, parentIds, languageCodes).getResultsMap().values();
+		List<ConceptMini> parents = (List<ConceptMini>) findConceptsWithECL(">!" + conceptId, form == Relationship.CharacteristicType.stated, branch, acceptLanguageHeader,
+				0, LARGE_PAGE.getPageSize()).getItems();
+
 		if (includeDescendantCount) {
+			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 			queryService.joinDescendantCountAndLeafFlag(parents, form, branch, branchCriteria);
 		}
 		return parents;
@@ -433,9 +433,8 @@ public class ConceptController {
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		String branchPath = BranchPathUriUtil.decodePath(branch);
-		Set<Long> ancestorIds = queryService.findAncestorIds(conceptId, branchPath, form == Relationship.CharacteristicType.stated);
-		return conceptService.findConceptMinis(branchPath, ancestorIds, ControllerHelper.getLanguageCodes(acceptLanguageHeader)).getResultsMap().values();
+		branch = BranchPathUriUtil.decodePath(branch);
+		return findConceptsWithECL(">" + conceptId, form == Relationship.CharacteristicType.stated, branch, acceptLanguageHeader, 0, LARGE_PAGE.getPageSize()).getItems();
 	}
 
 	@ResponseBody

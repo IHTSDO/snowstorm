@@ -6,18 +6,18 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
+import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.AcceptLanguageValues;
 import org.snomed.snowstorm.rest.pojo.ConceptMiniNestedFsn;
 import org.springframework.data.domain.PageRequest;
-import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.util.*;
-import java.util.function.Supplier;
+import java.util.Collection;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -95,11 +95,7 @@ public class ControllerHelper {
 	}
 
 	public static List<String> getLanguageCodes(String acceptLanguageHeader) {
-		List<Locale.LanguageRange> languageRanges = Locale.LanguageRange.parse(acceptLanguageHeader);
-
-		List<String> languageCodes = new ArrayList<>(languageRanges.stream()
-				.map(languageRange -> languageRange.getRange().contains("-") ? languageRange.getRange().substring(0, languageRange.getRange().indexOf("-")) : languageRange.getRange())
-				.collect(Collectors.toCollection((Supplier<Set<String>>) LinkedHashSet::new)));
+		List<String> languageCodes = parseAcceptLanguageHeader(acceptLanguageHeader).getLanguageCodes();
 
 		// Always include en at the end if not already present because this is the default language.
 		if (!languageCodes.contains("en")) {
