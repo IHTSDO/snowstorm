@@ -36,7 +36,7 @@ public class IdentifierServiceTest extends AbstractTest {
 	@Test
 	public void testGetReserveBlock() throws ServiceException {
 		List<Concept> testConcepts = createTestData();
-		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts);
+		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts, null);
 		Assert.assertEquals(2, block.size(ComponentType.Concept));
 		Assert.assertEquals(4, block.size(ComponentType.Description));
 		Assert.assertEquals(3, block.size(ComponentType.Relationship));
@@ -62,7 +62,7 @@ public class IdentifierServiceTest extends AbstractTest {
 	@Test
 	public void testGetReserveBlockLarge() throws ServiceException {
 		List<Concept> testConcepts = createTestDataLarge(250);
-		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts);
+		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts, null);
 		Assert.assertEquals(250, block.size(ComponentType.Concept));
 	}
 	
@@ -74,7 +74,7 @@ public class IdentifierServiceTest extends AbstractTest {
 		}
 		
 		List<Concept> testConcepts = createTestDataLarge(5);
-		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts);
+		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts, null);
 		for (Concept c : testConcepts) {
 			Long sctId = block.getNextId(ComponentType.Concept);
 			c.setConceptId(sctId.toString());

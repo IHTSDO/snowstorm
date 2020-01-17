@@ -99,6 +99,7 @@ public abstract class Config {
 
 	// Branch metadata values
 	public static final String DEFAULT_MODULE_ID_KEY = "defaultModuleId";
+	public static final String DEFAULT_NAMESPACE_KEY = "defaultNamespace";
 
 	@Value("${elasticsearch.username}")
 	private String elasticsearchUsername;

@@ -7,6 +7,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
@@ -34,8 +35,7 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static junit.framework.TestCase.assertNull;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.COMPLETED;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.SAVED;
 
@@ -110,7 +110,7 @@ public class ClassificationServiceTest extends AbstractTest {
 
 		String extensionBranchPath = "MAIN/SNOMEDCT-SE";
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-SE", extensionBranchPath));
-		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of("defaultModuleId", "45991000052106"));
+		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "45991000052106", Config.DEFAULT_NAMESPACE_KEY, "1000052"));
 
 		// Save mock classification results
 		Classification classification = createClassification(extensionBranchPath, UUID.randomUUID().toString());
@@ -127,7 +127,8 @@ public class ClassificationServiceTest extends AbstractTest {
 		Concept concept = conceptService.find("123123123001", extensionBranchPath);
 		assertEquals(4, concept.getRelationships().size());
 		for (Relationship relationship : concept.getRelationships()) {
-			assertEquals("45991000052106", relationship.getModuleId());
+			assertEquals("New inferred relationships have the configured module applied.", "45991000052106", relationship.getModuleId());
+			assertTrue("New inferred relationships have SCTIDs in the configured namespace and correct partition ID", relationship.getId().contains("1000052" + "12"));
 		}
 	}
 

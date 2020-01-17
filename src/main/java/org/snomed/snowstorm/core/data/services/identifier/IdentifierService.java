@@ -91,7 +91,7 @@ public class IdentifierService {
 			cacheManager.populateIdBlock(idBlock, descriptionIds, namespace, partition_part1 + PARTITION_PART2_DESCRIPTION);
 			cacheManager.populateIdBlock(idBlock, relationshipIds, namespace, partition_part1 + PARTITION_PART2_RELATIONSHIP);
 		} catch (ServiceException e) {
-			throw new ServiceException ("Unable to obtain sctids", e);
+			throw new ServiceException ("Unable to obtain SCTIDs", e);
 		}
 		return idBlock;
 	}
@@ -132,7 +132,10 @@ public class IdentifierService {
 		} 
 	}
 
-	public IdentifierReservedBlock reserveIdentifierBlock(Collection<Concept> concepts) throws ServiceException {
+	public IdentifierReservedBlock reserveIdentifierBlock(Collection<Concept> concepts, String namespace) throws ServiceException {
+
+		int namespaceInt = Strings.isNullOrEmpty(namespace) ? 0 : Integer.parseInt(namespace);
+
 		//Work out how many new concept, description and relationship sctids we're going to need, and request these
 		int conceptIds = 0, descriptionIds = 0, relationshipIds = 0;
 		
@@ -154,8 +157,7 @@ public class IdentifierService {
 				}
 			}
 		}
-		int namespace = 0;
-		return getReservedBlock(namespace, conceptIds, descriptionIds, relationshipIds);
+		return getReservedBlock(namespaceInt, conceptIds, descriptionIds, relationshipIds);
 	}
 
 	public static void suspendRegistrationProcess(boolean suspend) {

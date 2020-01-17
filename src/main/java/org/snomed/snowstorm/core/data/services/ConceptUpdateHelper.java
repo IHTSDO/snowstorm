@@ -86,8 +86,8 @@ public class ConceptUpdateHelper extends ComponentService {
 		// Grab branch metadata including values inherited from ancestor branches
 		Map<String, String> metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
 		String defaultModuleId = metadata != null ? metadata.get(Config.DEFAULT_MODULE_ID_KEY) : null;
-
-		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(concepts);
+		String defaultNamespace = metadata != null ? metadata.get(Config.DEFAULT_NAMESPACE_KEY) : null;
+		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(concepts, defaultNamespace);
 
 		// Assign identifiers to new concepts
 		concepts.stream()
