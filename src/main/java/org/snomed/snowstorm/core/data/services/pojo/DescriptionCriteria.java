@@ -27,7 +27,6 @@ public class DescriptionCriteria {
 
 	public boolean hasDescriptionCriteria() {
 		return term != null
-				|| active != null
 				|| module != null
 				|| semanticTag != null
 				|| !CollectionUtils.isEmpty(preferredIn)
