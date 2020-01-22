@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.rest;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
@@ -87,11 +86,12 @@ public class BranchController {
 	@RequestMapping(value = "/branches/{path}", method = RequestMethod.PUT)
 	@ResponseBody
 	public BranchPojo updateBranch(@PathVariable String path, @RequestBody UpdateBranchRequest request) {
+		path = BranchPathUriUtil.decodePath(path);
 		if (branchService.findBranchOrThrow(path).isLocked()) {
 			throw new IllegalStateException("Branch metadata can not be updated when branch is locked.");
 		}
 		Map<String, String> metadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
-		return getBranchPojo(branchService.updateMetadata(BranchPathUriUtil.decodePath(path), metadata));
+		return getBranchPojo(branchService.updateMetadata(path, metadata));
 	}
 
 	@ApiOperation("Retrieve a single branch")
