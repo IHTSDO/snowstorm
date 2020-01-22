@@ -86,7 +86,10 @@ public class BranchController {
 	@ApiOperation("Update branch metadata")
 	@RequestMapping(value = "/branches/{path}", method = RequestMethod.PUT)
 	@ResponseBody
-	public BranchPojo updateBranch(@PathVariable String path, @RequestBody UpdateBranchRequest request) throws JsonProcessingException {
+	public BranchPojo updateBranch(@PathVariable String path, @RequestBody UpdateBranchRequest request) {
+		if (branchService.findBranchOrThrow(path).isLocked()) {
+			throw new IllegalStateException("Branch metadata can not be updated when branch is locked.");
+		}
 		Map<String, String> metadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
 		return getBranchPojo(branchService.updateMetadata(BranchPathUriUtil.decodePath(path), metadata));
 	}
