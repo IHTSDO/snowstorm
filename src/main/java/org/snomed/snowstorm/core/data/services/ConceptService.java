@@ -100,6 +100,8 @@ public class ConceptService extends ComponentService {
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
+	public static final String DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY = "disableContentAutomations";
+
 	public ConceptService() {
 		batchConceptChanges = CacheBuilder.newBuilder().expireAfterWrite(2, TimeUnit.HOURS).build();
 	}

@@ -64,6 +64,7 @@ import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.*;
+import static org.snomed.snowstorm.core.data.services.ConceptService.DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY;
 
 @Service
 public class ClassificationService {
@@ -316,6 +317,7 @@ public class ClassificationService {
 			try {
 				// Commit in auto-close try block like this will roll back if an exception is thrown
 				try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Saving classification " + classification.getId()))) {
+					commit.getBranch().getMetadata().put(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY, "true");
 
 					NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 							.withQuery(termQuery("classificationId", classificationId))
@@ -351,6 +353,7 @@ public class ClassificationService {
 						}
 					}
 
+					commit.getBranch().getMetadata().remove(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY);
 					commit.markSuccessful();
 					classification.setStatus(SAVED);
 					classification.setSaveDate(new Date());

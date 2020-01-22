@@ -33,6 +33,7 @@ import java.util.stream.Stream;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationIndicatorNames;
+import static org.snomed.snowstorm.core.data.services.ConceptService.DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY;
 
 @Service
 public class ConceptUpdateHelper extends ComponentService {
@@ -87,6 +88,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		Map<String, String> metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
 		String defaultModuleId = metadata != null ? metadata.get(Config.DEFAULT_MODULE_ID_KEY) : null;
 		String defaultNamespace = metadata != null ? metadata.get(Config.DEFAULT_NAMESPACE_KEY) : null;
+		boolean enableContentAutomations = metadata == null || !"true".equals(metadata.get(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY));
 		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(concepts, defaultNamespace);
 
 		// Assign identifiers to new concepts
@@ -105,19 +107,21 @@ public class ConceptUpdateHelper extends ComponentService {
 			final Map<String, Description> existingDescriptions = new HashMap<>();
 			final Set<ReferenceSetMember> newVersionOwlAxiomMembers = concept.getAllOwlAxiomMembers();
 
-			if (concept.isActive()) {
-				// Clear inactivation refsets
-				concept.setInactivationIndicator(null);
-				concept.setAssociationTargets(null);
-			} else {
-				// Make stated relationships and axioms inactive
-				concept.getRelationships().forEach(relationship -> {
-					if (Concepts.STATED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId())) {
-						relationship.setActive(false);
-					}
-				});
-				newVersionOwlAxiomMembers.forEach(axiom -> axiom.setActive(false));
-				concept.getDescriptions().forEach(description -> description.setInactivationIndicator(inactivationIndicatorNames.get(Concepts.CONCEPT_NON_CURRENT)));
+			if (enableContentAutomations) {
+				if (concept.isActive()) {
+					// Clear inactivation refsets
+					concept.setInactivationIndicator(null);
+					concept.setAssociationTargets(null);
+				} else {
+					// Make stated relationships and axioms inactive
+					concept.getRelationships().forEach(relationship -> {
+						if (Concepts.STATED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId())) {
+							relationship.setActive(false);
+						}
+					});
+					newVersionOwlAxiomMembers.forEach(axiom -> axiom.setActive(false));
+					concept.getDescriptions().forEach(description -> description.setInactivationIndicator(inactivationIndicatorNames.get(Concepts.CONCEPT_NON_CURRENT)));
+				}
 			}
 
 			// Mark changed concepts as changed
@@ -380,18 +384,6 @@ public class ConceptUpdateHelper extends ComponentService {
 			newComponent.getInactivationIndicatorMembers().clear();
 			newComponent.addInactivationIndicatorMember(newIndicatorMember);
 		}
-	}
-
-	private void applyDefaultModule(Concept concept, String defaultModuleId) {
-		if (defaultModuleId == null) {
-			return;
-		}
-		if (concept.isChanged()) {
-			concept.setModuleId(defaultModuleId);
-		}
-		concept.getDescriptions().stream().filter(Description::isChanged).forEach(d -> d.setModuleId(defaultModuleId));
-		concept.getAllOwlAxiomMembers().stream().filter(ReferenceSetMember::isChanged).forEach(m -> m.setModuleId(defaultModuleId));
-		concept.getRelationships().stream().filter(Relationship::isChanged).forEach(r -> r.setModuleId(defaultModuleId));
 	}
 
 	void doDeleteConcept(String path, Commit commit, Concept concept) {
