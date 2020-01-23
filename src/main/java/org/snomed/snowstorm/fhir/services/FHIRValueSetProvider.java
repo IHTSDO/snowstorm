@@ -18,6 +18,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
 import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
@@ -133,11 +134,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="offset") String offsetStr,
 			@OperationParam(name="count") String countStr) throws FHIROperationException {
-		return expand (null, request, response, url, filter, activeType, includeDesignationsType,
+		return expand(null, request, response, url, filter, activeType, includeDesignationsType,
 				designations, displayLanguage, offsetStr, countStr);
 	}
 	
-	private ValueSet expand (@IdParam IdType id,
+	private ValueSet expand(@IdParam IdType id,
 			HttpServletRequest request,
 			HttpServletResponse response,
 			String url,
@@ -148,15 +149,15 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			String displayLanguage,
 			String offsetStr,
 			String countStr) throws FHIROperationException {
-		//Are we expanding a specific named Valueset?
+		// Are we expanding a specific named Valueset?
 		ValueSet vs = null;
 		if (id != null) {
 			logger.info("Expanding '{}'",id.getIdPart());
 			vs = getValueSet(id);
 			if (vs == null) {
-				return null; //Will be translated into a 404
+				return null; // Will be translated into a 404
 			}
-			//Are we expanding based on the URL of the named ValueSet?  Can't do both!
+			// Are we expanding based on the URL of the named ValueSet?  Can't do both!
 			if (url != null && vs.getUrl() != null) {
 				throw new FHIROperationException(IssueType.VALUE, "Cannot expand both '" + vs.getUrl() + "' in " + id.getIdPart() + "' and '" + url + "' in request.");
 			}
@@ -167,24 +168,21 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
 		int pageSize = (countStr == null || countStr.isEmpty()) ? DEFAULT_PAGESIZE : Integer.parseInt(countStr);
 		Boolean active = activeType == null ? null : activeType.booleanValue();
-		Map<String, Concept> conceptDetails = null;
-		Page<ConceptMini> conceptMiniPage = new PageImpl<ConceptMini>(new ArrayList<ConceptMini>());
-		
-		//Also if displayLanguage has been used, ensure that's part of our requested Language Codes
+		Page<ConceptMini> conceptMiniPage = new PageImpl<>(new ArrayList<>());
+
+		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		if (displayLanguage != null && !languageCodes.contains(displayLanguage)) {
 			languageCodes.add(displayLanguage);
 		}
-		
-		//If we haven't specified a display language, use the first of our language codes
+
+		// If we haven't specified a display language, use the first of our language codes
 		if (displayLanguage == null) {
-			if (languageCodes == null || languageCodes.size() == 0) {
-				displayLanguage = "en";
-			} else {
-				//TODO The display language should be the first one in the list
-				//_that we actually have_  so we have to keep this as a list
-				//and show the 'best effort' match.
-				displayLanguage = languageCodes.get(0);
-			}
+			// TODO The display language should be the first one in the list
+			// _that we actually have_  so we have to keep this as a list
+			// and show the 'best effort' match.
+			//
+			// Kai: The DescriptionHelper class can do this.
+			displayLanguage = languageCodes.get(0);
 		}
 		
 		//If someone specified designations, then include them in any event
@@ -225,7 +223,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		}
 		
 		//We will always need the PT, so recover further details
-		conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, languageCodes);
+		Map<String, Concept> conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, languageCodes);
 		ValueSet valueSet = mapper.mapToFHIR(vs, conceptMiniPage.getContent(), url, conceptDetails, languageCodes, displayLanguage, includeDesignations); 
 		valueSet.getExpansion().setTotal((int)conceptMiniPage.getTotalElements());
 		valueSet.getExpansion().setOffset(offset);
@@ -237,7 +235,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		queryBuilder.ecl(ecl)
 				.descriptionCriteria(descriptionCriteria -> descriptionCriteria.term(termFilter))
-				.searchAndResultLanguageCodes(languageCodes)
+				.resultLanguageDialects(languageCodes.stream().map(LanguageDialect::new).collect(Collectors.toList()))
 				.activeFilter(active);
 		conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
 		return conceptMiniPage;
@@ -317,20 +315,19 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 					.map(s -> new ConceptMini(s, null))
 					.collect(Collectors.toList());
 		}
-		return new PageImpl<ConceptMini>(refsets, pageRequest, refsets.size());
+		return new PageImpl<>(refsets, pageRequest, refsets.size());
 	}
 
 	private Map<String, Concept> getConceptDetailsMap(String branchPath, Page<ConceptMini> page, List<String> languageCodes) {
-		Map<String, Concept> conceptDetails = null;
-		if (page.hasContent()) {
-			conceptDetails = new HashMap<>();
-			List<String> ids = page.getContent().stream()
-					.map(c -> c.getConceptId())
-					.collect(Collectors.toList());
-			conceptDetails = conceptService.find(branchPath, ids, languageCodes).stream()
-				.collect(Collectors.toMap(Concept::getConceptId, c-> c));
+		if (!page.hasContent()) {
+			return null;
 		}
-		return conceptDetails;
+		List<String> ids = page.getContent().stream()
+				.map(ConceptMini::getConceptId)
+				.collect(Collectors.toList());
+		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(languageCodes);
+		return conceptService.find(branchPath, ids, languageDialects).stream()
+			.collect(Collectors.toMap(Concept::getConceptId, c -> c));
 	}
 
 	/**
@@ -342,7 +339,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private String determineEcl(String url) throws FHIROperationException {
 		String ecl;
 		if (url.endsWith("?fhir_vs")) {
-			//Return all of SNOMED CT in this situation
+			// Return all of SNOMED CT in this situation
 			ecl = "*";
 		} else if (url.contains(IMPLICIT_ISA)) {
 			String sctId = url.substring(url.indexOf(IMPLICIT_ISA) + IMPLICIT_ISA.length());

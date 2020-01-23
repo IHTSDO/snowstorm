@@ -39,7 +39,7 @@ import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 import static org.junit.Assert.*;
-import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODES;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.review.ReviewStatus.CURRENT;
 import static org.snomed.snowstorm.core.data.domain.review.ReviewStatus.PENDING;
 
@@ -960,7 +960,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		assertEquals(ReviewStatus.CURRENT, review.getStatus());
 
-		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
 		assertEquals(1, mergeReviewConflictingConcepts.size());
 
 		// Check concept is only there on the source side.
@@ -997,7 +997,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		assertEquals(ReviewStatus.CURRENT, review.getStatus());
 
-		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
 		assertEquals(1, mergeReviewConflictingConcepts.size());
 
 		// Check concept is only there on the source side.
@@ -1034,7 +1034,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		assertEquals(ReviewStatus.CURRENT, review.getStatus());
 
-		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
 		assertEquals(1, mergeReviewConflictingConcepts.size());
 
 		// Check concept is only there on the source side.
@@ -1071,7 +1071,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		assertEquals(ReviewStatus.CURRENT, review.getStatus());
 
-		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
 		assertEquals(1, mergeReviewConflictingConcepts.size());
 
 		// Check concept is only there on the source side.

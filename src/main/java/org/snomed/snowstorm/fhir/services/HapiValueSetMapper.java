@@ -35,7 +35,7 @@ public class HapiValueSetMapper implements FHIRConstants {
 			
 			if (conceptDetails != null && conceptDetails.containsKey(concept.getConceptId())) {
 				Concept c = conceptDetails.get(concept.getConceptId());
-				for (Description d : c.getDescriptions(true, null, null, null)) {
+				for (Description d : c.getActiveDescriptions()) {
 					if (includeDesignations && languageCodes.contains(d.getLanguageCode())) {
 						component.addDesignation(asDesignation(d));
 					}

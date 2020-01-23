@@ -6,11 +6,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ConceptMicro;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
@@ -19,9 +15,10 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODES;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
-import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -51,7 +48,7 @@ public class ExpressionServiceTest extends AbstractTest {
 	public void setup() throws ServiceException {
 		branchService.create(EXPRESSION_TEST_BRANCH);
 		root = createConcept(SNOMEDCT_ROOT, (Concept)null, PRIMITIVE);
-		//ISA needs to exist to use in it's own definition!
+		// ISA needs to exist to use in it's own definition!
 		isa = new Concept(ISA);
 		isa = createConcept(ISA, root, PRIMITIVE);
 		attribute1 = createConcept("1000090", root, PRIMITIVE);
@@ -70,7 +67,7 @@ public class ExpressionServiceTest extends AbstractTest {
 		concept4.addRelationship(createRelationship(attribute1, target1, 0));
 		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
 
-		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
+		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), DEFAULT_LANGUAGE_DIALECTS, EXPRESSION_TEST_BRANCH);
 		
 		// Expecting one attribute (fully defined), and a single focus concept of concept 2
 		assertEquals(1, exp.getAttributes().size());
@@ -82,8 +79,8 @@ public class ExpressionServiceTest extends AbstractTest {
 
 	@Test
 	public void testConceptAuthoringFormComplex() throws ServiceException {
-		//Complex case checks correct calculation of proximal primitive parent(s)
-		//First parent's parent is actually also parent of 2nd parent, so should be discounted.
+		// Complex case checks correct calculation of proximal primitive parent(s)
+		// First parent's parent is actually also parent of 2nd parent, so should be discounted.
 		//                    Root
 		//                    /   \
 		//                  P       P
@@ -104,11 +101,11 @@ public class ExpressionServiceTest extends AbstractTest {
 		Concept concept6 = createConcept("1000026", parents, FULLY_DEFINED);
 		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
 
-		Expression exp = expressionService.getConceptAuthoringForm(concept6.getConceptId(), DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
+		Expression exp = expressionService.getConceptAuthoringForm(concept6.getConceptId(), DEFAULT_LANGUAGE_DIALECTS, EXPRESSION_TEST_BRANCH);
 		
 		// Expecting concepts 2 and 4 to be identified as PPPs
-		assertEquals(0, exp.getAttributes().size()); //zero attributes
-		assertEquals(2, exp.getConcepts().size()); //and a single focus concept
+		assertEquals(0, exp.getAttributes().size()); // zero attributes
+		assertEquals(2, exp.getConcepts().size()); // and a single focus concept
 		boolean concept2Found = false;
 		boolean concept4Found = false;
 		for (ConceptMicro c :  exp.getConcepts()) {
@@ -132,7 +129,7 @@ public class ExpressionServiceTest extends AbstractTest {
 		concept4.addRelationship(createRelationship(attribute2, target2, 1));
 		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
 
-		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), DEFAULT_LANGUAGE_CODES, EXPRESSION_TEST_BRANCH);
+		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), DEFAULT_LANGUAGE_DIALECTS, EXPRESSION_TEST_BRANCH);
 		
 		// Expecting: 
 		assertEquals(0, exp.getAttributes().size()); //zero attributes
@@ -149,7 +146,7 @@ public class ExpressionServiceTest extends AbstractTest {
 	}
 
 	private Concept createConcept(String sctId, Concept parent, String definitionStatusSctId) throws ServiceException {
-		return createConcept (sctId, new Concept[] {parent}, definitionStatusSctId);
+		return createConcept(sctId, new Concept[] {parent}, definitionStatusSctId);
 	}
 	
 	private Concept createConcept(String sctId, Concept[] parents, String definitionStatusSctId) throws ServiceException {

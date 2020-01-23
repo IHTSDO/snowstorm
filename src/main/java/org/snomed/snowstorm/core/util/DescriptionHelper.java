@@ -3,47 +3,58 @@ package org.snomed.snowstorm.core.util;
 import org.apache.lucene.analysis.miscellaneous.ASCIIFoldingFilter;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 
-import java.util.*;
-import java.util.function.Predicate;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 public class DescriptionHelper {
 
-	public static final Set<String> EN_LANGUAGE_CODE = Collections.singleton("en");
-
-	public static TermLangPojo getFsnDescriptionTermAndLang(Set<Description> descriptions, Collection<String> languageCodes) {
-		return getFsnDescription(descriptions, languageCodes).map(d -> new TermLangPojo(d.getTerm(), d.getLang())).orElse(new TermLangPojo());
+	public static TermLangPojo getFsnDescriptionTermAndLang(Set<Description> descriptions, List<LanguageDialect> languageDialects) {
+		return getFsnDescription(descriptions, languageDialects).map(d -> new TermLangPojo(d.getTerm(), d.getLang())).orElse(new TermLangPojo());
 	}
 
-	public static Optional<Description> getFsnDescription(Set<Description> descriptions, Collection<String> languageCodes) {
-		return Optional.ofNullable(getBestDescription(descriptions, languageCodes, description -> Concepts.FSN.equals(description.getTypeId())));
+	public static Optional<Description> getFsnDescription(Set<Description> descriptions, List<LanguageDialect> languageDialects) {
+		return Optional.ofNullable(getBestDescription(descriptions, languageDialects, Concepts.FSN));
 	}
 
-	public static TermLangPojo getPtDescriptionTermAndLang(Set<Description> descriptions, Collection<String> languageCodes) {
-		return getPtDescription(descriptions, languageCodes).map(d -> new TermLangPojo(d.getTerm(), d.getLang())).orElse(new TermLangPojo());
+	public static TermLangPojo getPtDescriptionTermAndLang(Set<Description> descriptions, List<LanguageDialect> languageDialects) {
+		return getPtDescription(descriptions, languageDialects).map(d -> new TermLangPojo(d.getTerm(), d.getLang())).orElse(new TermLangPojo());
 	}
 
-	public static Optional<Description> getPtDescription(Set<Description> descriptions, Collection<String> languageCodes) {
-		return Optional.ofNullable(getBestDescription(descriptions, languageCodes, description -> Concepts.SYNONYM.equals(description.getTypeId()) &&
-				// Preferred in any language refset
-				description.getAcceptabilityMap().values().contains(Concepts.PREFERRED_CONSTANT)));
+	public static Optional<Description> getPtDescription(Set<Description> descriptions, List<LanguageDialect> languageDialects) {
+		return Optional.ofNullable(getBestDescription(descriptions, languageDialects, Concepts.SYNONYM));
 	}
 
-	private static Description getBestDescription(Set<Description> descriptions, Collection<String> languageCodes, Predicate<Description> descriptionPredicate) {
-		Map<String, Description> descriptionsByLanguageCode = new HashMap<>();
-		for (Description description : descriptions) {
-			if (description.isActive() && descriptionPredicate.test(description)) {
-				descriptionsByLanguageCode.put(description.getLanguageCode(), description);
-			}
+	private static Description getBestDescription(Set<Description> descriptions, List<LanguageDialect> languageDialects, String descriptionType) {
+		if (languageDialects == null) {
+			return null;
 		}
-		if (languageCodes != null) {
-			for (String languageCode : languageCodes) {
-				if (descriptionsByLanguageCode.containsKey(languageCode)) {
-					return descriptionsByLanguageCode.get(languageCode);
+
+		// Try each LanguageDialect in given order to match descriptions
+		for (LanguageDialect languageDialect : languageDialects) {
+			for (Description description : descriptions) {
+				if (description.isActive()
+						&& descriptionType.equals(description.getTypeId())
+						&& description.getLang().equals(languageDialect.getLanguageCode())) {
+
+					if (languageDialect.getLanguageReferenceSet() != null) {
+						if (description.hasAcceptability(Concepts.PREFERRED, languageDialect.getLanguageReferenceSet().toString())) {
+							return description;
+						}
+					} else {
+						// Preferred in any language reference set
+						if (description.hasAcceptability(Concepts.PREFERRED)) {
+							return description;
+						}
+					}
 				}
 			}
 		}
+
 		return null;
 	}
 

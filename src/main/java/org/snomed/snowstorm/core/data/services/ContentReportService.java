@@ -25,11 +25,11 @@ import java.util.*;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Service
 public class ContentReportService {
 
-	public static final List<String> LANGUAGE_CODES = Collections.singletonList("en");
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
@@ -105,7 +105,7 @@ public class ContentReportService {
 							.add(parseLong(member.getReferencedComponentId())));
 		}
 
-		Map<String, ConceptMini> minis = conceptService.findConceptMinis(branchCriteria, conceptsByIndicator.keySet(), LANGUAGE_CODES).getResultsMap();
+		Map<String, ConceptMini> minis = conceptService.findConceptMinis(branchCriteria, conceptsByIndicator.keySet(), DEFAULT_LANGUAGE_DIALECTS).getResultsMap();
 
 		for (Long indicator : conceptsByIndicator.keySet()) {
 			results.add(new InactivationTypeAndConceptIdList(minis.get(indicator.toString()), new LongOpenHashSet(conceptsByIndicator.get(indicator))));
@@ -116,7 +116,7 @@ public class ContentReportService {
 			conceptsWithNoIndicator.removeAll(longs);
 		}
 		if (!conceptsWithNoIndicator.isEmpty()) {
-			results.add(new InactivationTypeAndConceptIdList(new ConceptMini("0", LANGUAGE_CODES), new LongOpenHashSet(conceptsWithNoIndicator)));
+			results.add(new InactivationTypeAndConceptIdList(new ConceptMini("0", DEFAULT_LANGUAGE_DIALECTS), new LongOpenHashSet(conceptsWithNoIndicator)));
 		}
 
 		return results;

@@ -2,6 +2,7 @@ package org.snomed.snowstorm.fhir.services;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -17,13 +18,18 @@ import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
+
 @Component
 class FHIRHelper {
+
+	private static final String ACCEPT_LANGUAGE_HEADER = "Accept-Language";
 
 	@Autowired
 	private CodeSystemService codeSystemService;
@@ -97,7 +103,7 @@ class FHIRHelper {
 	}
 
 	public List<String> getLanguageCodes(List<String> designations, HttpServletRequest request) throws FHIROperationException {
-		//Use designations by default, or fall back to language headers
+		// Use designations by default, or fall back to language headers
 		if (designations != null) {
 			List<String> languageCodes = new ArrayList<>();
 			for (String designation : designations) {
@@ -106,14 +112,17 @@ class FHIRHelper {
 				}
 				languageCodes.add(designation);
 			}
+			if (languageCodes.isEmpty()) {
+				languageCodes.add(DEFAULT_LANGUAGE_CODE);
+			}
 			return languageCodes;
 		} else {
-			String header = request.getHeader("Accept-Language");
-			if (header == null || header.isEmpty()) {
-				header = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER;
-			}
-			return ControllerHelper.getLanguageCodes(header);
+			return ControllerHelper.getLanguageCodes(request.getHeader(ACCEPT_LANGUAGE_HEADER));
 		}
+	}
+
+	List<LanguageDialect> getLanguageDialects(List<String> languageCodes) {
+		return languageCodes.stream().map(LanguageDialect::new).collect(Collectors.toList());
 	}
 
 	public String convertToECL(ConceptSetComponent setDefn) throws FHIROperationException {
@@ -127,7 +136,7 @@ class FHIRHelper {
 			}
 			ecl += concept.getCode() + "|" + concept.getDisplay() + "|";
 		}
-		
+
 		for (ConceptSetFilterComponent filter : setDefn.getFilter()) {
 			if (firstItem) {
 				firstItem = false;
@@ -147,7 +156,7 @@ class FHIRHelper {
 			}
 
 		}
-		
+
 		return ecl;
 	}
 

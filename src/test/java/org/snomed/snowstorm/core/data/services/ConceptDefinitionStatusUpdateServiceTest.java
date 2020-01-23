@@ -21,15 +21,15 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.junit.Assert.*;
-import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.CORE_MODULE;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -193,10 +193,10 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 		assertEquals("[131148009:FULLY_DEFINED, 413350009:FULLY_DEFINED]", getDefinedConcepts().toString());
 
 		// Mess up the concept definition statuses
-		Collection<Concept> concepts = conceptService.find(MAIN, Lists.newArrayList("131148009", "413350009"), DEFAULT_LANGUAGE_CODES);
+		Collection<Concept> concepts = conceptService.find(MAIN, Lists.newArrayList("131148009", "413350009"), DEFAULT_LANGUAGE_DIALECTS);
 		concepts.forEach(concept -> concept.setDefinitionStatusId(Concepts.PRIMITIVE));
 		conceptService.createUpdate(new ArrayList<>(concepts), MAIN);
-		concepts = conceptService.find(MAIN, Lists.newArrayList("64572001", "125676002"), DEFAULT_LANGUAGE_CODES);
+		concepts = conceptService.find(MAIN, Lists.newArrayList("64572001", "125676002"), DEFAULT_LANGUAGE_DIALECTS);
 		concepts.forEach(concept -> concept.setDefinitionStatusId(Concepts.FULLY_DEFINED));
 		conceptService.createUpdate(new ArrayList<>(concepts), MAIN);
 		assertEquals("Expecting only two primitive concepts to be fully defined.",

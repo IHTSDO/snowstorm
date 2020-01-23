@@ -5,10 +5,12 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.RelationshipService;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -55,10 +57,10 @@ public class RelationshipController {
 			@RequestParam(required = false) Integer group,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader);
 		Page<Relationship> relationshipPage = relationshipService.findRelationships(
 				branch,
 				null,
@@ -72,12 +74,12 @@ public class RelationshipController {
 				group,
 				ControllerHelper.getPageRequest(offset, limit));
 
-		expandSourceTypeAndDestination(branch, relationshipPage.getContent(), languageCodes);
+		expandSourceTypeAndDestination(branch, relationshipPage.getContent(), languageDialects);
 
 		return new ItemsPage<>(relationshipPage);
 	}
 
-	private void expandSourceTypeAndDestination(String branch, List<Relationship> relationships, List<String> languageCodes) {
+	private void expandSourceTypeAndDestination(String branch, List<Relationship> relationships, List<LanguageDialect> languageDialects) {
 		Set<String> allIds = new HashSet<>();
 		relationships.forEach(r -> {
 			allIds.add(r.getSourceId());
@@ -85,7 +87,7 @@ public class RelationshipController {
 			allIds.add(r.getDestinationId());
 		});
 		
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, allIds, languageCodes).getResultsMap();
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, allIds, languageDialects).getResultsMap();
 		
 		relationships.forEach(r -> {
 			r.setSource(conceptMinis.get(r.getSourceId()));
@@ -100,12 +102,11 @@ public class RelationshipController {
 	public Relationship fetchRelationship(
 			@PathVariable String branch,
 			@PathVariable String relationshipId,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 		branch = BranchPathUriUtil.decodePath(branch);
-		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
 		Relationship relationship = relationshipService.findRelationship(BranchPathUriUtil.decodePath(branch), relationshipId);
 		if (relationship != null) {
-			expandSourceTypeAndDestination(branch, Collections.singletonList(relationship), languageCodes);
+			expandSourceTypeAndDestination(branch, Collections.singletonList(relationship), ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
 		}
 		return ControllerHelper.throwIfNotFound("Relationship", relationship);
 	}

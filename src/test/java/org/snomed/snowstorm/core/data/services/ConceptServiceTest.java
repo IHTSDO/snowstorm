@@ -19,6 +19,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -31,6 +32,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
@@ -944,7 +946,7 @@ public class ConceptServiceTest extends AbstractTest {
 
 	@Test
 	public void testLoadConceptFromParentBranchUsingBaseTimepoint() throws ServiceException {
-		List<String> en = Lists.newArrayList("en");
+		List<LanguageDialect> en = DEFAULT_LANGUAGE_DIALECTS;
 		String conceptId = "100001";
 
 		// Concept on MAIN with 1 description
@@ -992,6 +994,7 @@ public class ConceptServiceTest extends AbstractTest {
 	private Description fsn(String term) {
 		Description description = new Description(term);
 		description.setTypeId(FSN);
+		description.addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED);
 		return description;
 	}
 

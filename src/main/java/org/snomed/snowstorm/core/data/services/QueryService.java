@@ -14,6 +14,7 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
@@ -41,7 +42,7 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
-import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.getDefaultSortForConcept;
 
 @Service
@@ -84,12 +85,12 @@ public class QueryService implements ApplicationContextAware {
 
 		if (conceptIdPageOptional.isPresent()) {
 			SearchAfterPage<Long> conceptIdPage = conceptIdPageOptional.get();
-			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptIdPage.getContent(), conceptQuery.getResultLanguageCodes());
+			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptIdPage.getContent(), conceptQuery.getResultLanguageDialects());
 			List<ConceptMini> conceptMinis1 = sortConceptMinisByTermOrder(conceptIdPage.getContent(), conceptMinis.getResultsMap());
 			return PageHelper.toSearchAfterPage(conceptMinis1, conceptIdPage);
 		} else {
 			// No ids - return page of all concepts
-			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptQuery.getResultLanguageCodes(), pageRequest);
+			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptQuery.getResultLanguageDialects(), pageRequest);
 			return new PageImpl<>(new ArrayList<>(conceptMinis.getResultsMap().values()), pageRequest, conceptMinis.getTotalElements());
 		}
 	}
@@ -456,12 +457,12 @@ public class QueryService implements ApplicationContextAware {
 		}
 	}
 
-	public void joinDescendantCount(Concept concept, Relationship.CharacteristicType form, List<String> languageCodes, BranchTimepoint branchTimepoint) {
+	public void joinDescendantCount(Concept concept, Relationship.CharacteristicType form, List<LanguageDialect> languageDialects, BranchTimepoint branchTimepoint) {
 		if (concept == null) {
 			return;
 		}
 		BranchCriteria branchCriteria = conceptService.getBranchCriteria(branchTimepoint);
-		ConceptMini mini = new ConceptMini(concept, languageCodes);
+		ConceptMini mini = new ConceptMini(concept, languageDialects);
 		joinDescendantCountAndLeafFlag(Collections.singleton(mini), form, branchTimepoint.getBranchPath(), branchCriteria);
 		concept.setDescendantCount(mini.getDescendantCount());
 	}
@@ -476,7 +477,7 @@ public class QueryService implements ApplicationContextAware {
 		private final boolean stated;
 		private Boolean activeFilter;
 		private String definitionStatusFilter;
-		private List<String> resultLanguageCodes = DEFAULT_LANGUAGE_CODES;
+		private List<LanguageDialect> resultLanguageDialects = DEFAULT_LANGUAGE_DIALECTS;
 		private String ecl;
 		private Set<String> conceptIds;
 		private DescriptionCriteria descriptionCriteria;
@@ -507,14 +508,8 @@ public class QueryService implements ApplicationContextAware {
 			return this;
 		}
 
-		public ConceptQueryBuilder resultLanguageCodes(List<String> resultLanguageCodes) {
-			this.resultLanguageCodes = resultLanguageCodes;
-			return this;
-		}
-
-		public ConceptQueryBuilder searchAndResultLanguageCodes(List<String> resultLanguageCodes) {
-			this.resultLanguageCodes = resultLanguageCodes;
-			descriptionCriteria.searchLanguageCodes(resultLanguageCodes);
+		public ConceptQueryBuilder resultLanguageDialects(List<LanguageDialect> resultLanguageDialects) {
+			this.resultLanguageDialects = resultLanguageDialects;
 			return this;
 		}
 
@@ -553,8 +548,8 @@ public class QueryService implements ApplicationContextAware {
 			return definitionStatusFilter;
 		}
 
-		private List<String> getResultLanguageCodes() {
-			return resultLanguageCodes;
+		private List<LanguageDialect> getResultLanguageDialects() {
+			return resultLanguageDialects;
 		}
 
 		public DescriptionCriteria getDescriptionCriteria() {

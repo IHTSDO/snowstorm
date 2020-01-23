@@ -15,6 +15,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -22,8 +23,6 @@ public class ConceptAttributeSortHelperTest {
 
 	@Autowired
 	private ConceptAttributeSortHelper conceptAttributeSortHelper;
-
-	private static final List<String> EN = Collections.singletonList("en");
 
 	@Before
 	public void setup() {
@@ -33,7 +32,7 @@ public class ConceptAttributeSortHelperTest {
 	@Test
 	public void sortAttributes() {
 		Concept concept = new Concept()
-				.addDescription(new Description("Contracture of knee joint (disorder)").setTypeId(Concepts.FSN))
+				.addFSN("Contracture of knee joint (disorder)")
 				.addAxiom(
 						relationship(0, "116680003", "298325004", "Finding of movement (finding)"),
 						relationship(0, "116680003", "64572001", "Disease (disorder)"),
@@ -84,6 +83,6 @@ public class ConceptAttributeSortHelperTest {
 
 	public Relationship relationship(int groupId, String typeId, String destinationId, String destinationTerm) {
 		return new Relationship(typeId, destinationId).setGroupId(groupId)
-				.setTarget(new ConceptMini(destinationId, EN).addActiveDescription(new Description(destinationTerm).setTypeId(Concepts.FSN)));
+				.setTarget(new ConceptMini(destinationId, DEFAULT_LANGUAGE_DIALECTS).addFSN(destinationTerm));
 	}
 }

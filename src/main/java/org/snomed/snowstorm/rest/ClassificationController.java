@@ -5,6 +5,7 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.otf.owltoolkit.service.SnomedReasonerService;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptView;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
 import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus;
@@ -50,7 +51,7 @@ public class ClassificationController {
 			@PathVariable String classificationId,
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "1000") int limit,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		int maxLimit = 10_000;
 		if (limit > maxLimit) {
@@ -60,7 +61,7 @@ public class ClassificationController {
 
 		try {
 			return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.decodePath(branch), classificationId,
-					ControllerHelper.getLanguageCodes(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
+					ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
 		} catch (IllegalStateException e) {
 			return null;
 		}
@@ -74,9 +75,9 @@ public class ClassificationController {
 			@PathVariable String branch,
 			@PathVariable String classificationId,
 			@PathVariable String conceptId,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
-		return classificationService.getConceptPreview(BranchPathUriUtil.decodePath(branch), classificationId, conceptId, ControllerHelper.getLanguageCodes(acceptLanguageHeader));
+		return classificationService.getConceptPreview(BranchPathUriUtil.decodePath(branch), classificationId, conceptId, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
 	}
 
 	@ApiOperation("Retrieve equivalent concepts from a classification run on a branch")
@@ -87,10 +88,10 @@ public class ClassificationController {
 			@PathVariable String classificationId,
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "1000") int limit,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		return new ItemsPage<>(classificationService.getEquivalentConcepts(BranchPathUriUtil.decodePath(branch), classificationId,
-				ControllerHelper.getLanguageCodes(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
+				ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
 	}
 
 	@ApiOperation("Create a classification on a branch")

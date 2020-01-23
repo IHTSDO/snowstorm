@@ -6,6 +6,7 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.BranchMergeJob;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.review.BranchReview;
@@ -154,9 +155,9 @@ public class BranchController {
 	@RequestMapping(value = "/merge-reviews/{id}/details", method = RequestMethod.GET)
 	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(
 			@PathVariable String id,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return reviewService.getMergeReviewConflictingConcepts(id, ControllerHelper.getLanguageCodes(acceptLanguageHeader));
+		return reviewService.getMergeReviewConflictingConcepts(id, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
 	}
 
 	@RequestMapping(value = "/merge-reviews/{id}/{conceptId}", method = RequestMethod.POST)

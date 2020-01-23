@@ -6,6 +6,7 @@ import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
 import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
@@ -41,6 +42,7 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierCacheManager
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.SnowstormCISClient;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
 import org.snomed.snowstorm.fhir.domain.ValueSetDeserializer;
 import org.snomed.snowstorm.fhir.domain.ValueSetSerializer;
@@ -74,6 +76,8 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import static java.lang.Long.parseLong;
+
 @SpringBootApplication(
 		exclude = {
 				ElasticsearchAutoConfiguration.class,
@@ -91,9 +95,19 @@ import java.util.concurrent.Executors;
 @EnableAsync
 public abstract class Config {
 
-	public static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
-	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList("en");
+	public static final String DEFAULT_LANGUAGE_CODE = "en";
+	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList(DEFAULT_LANGUAGE_CODE);
+
+	public static final String DEFAULT_ACCEPT_LANG_HEADER = "en-X-" + Concepts.US_EN_LANG_REFSET + ",en-X-" + Concepts.US_EN_LANG_REFSET + ",en";
+	public static final List<LanguageDialect> DEFAULT_LANGUAGE_DIALECTS = Lists.newArrayList(
+			new LanguageDialect("en", parseLong(Concepts.US_EN_LANG_REFSET)),
+			new LanguageDialect("en", parseLong(Concepts.GB_EN_LANG_REFSET)),
+			new LanguageDialect("en", null)
+	);
+
 	public static final String SYSTEM_USERNAME = "System";
+
+	public static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 	public static final int BATCH_SAVE_SIZE = 10000;
 	public static final int AGGREGATION_SEARCH_SIZE = 200;
 

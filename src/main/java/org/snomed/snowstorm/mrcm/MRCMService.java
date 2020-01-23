@@ -12,6 +12,7 @@ import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,7 +46,7 @@ public class MRCMService {
 		this.branchMrcmMap = new MRCMLoader(mrcmXmlPath).loadFromFiles();
 	}
 
-	public Collection<ConceptMini> retrieveDomainAttributes(String branchPath, Set<Long> parentIds, List<String> languageCodes) {
+	public Collection<ConceptMini> retrieveDomainAttributes(String branchPath, Set<Long> parentIds, List<LanguageDialect> languageDialects) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Set<Long> allMatchedAttributeIds; 
 		
@@ -82,21 +83,24 @@ public class MRCMService {
 			allMatchedAttributeIds.addAll(descendantAttributes);
 		}
 
-		return conceptService.findConceptMinis(branchCriteria, allMatchedAttributeIds, languageCodes).getResultsMap().values();
+		return conceptService.findConceptMinis(branchCriteria, allMatchedAttributeIds, languageDialects).getResultsMap().values();
 	}
 
-	public Collection<ConceptMini> retrieveAttributeValues(String branchPath, String attributeId, String termPrefix, List<String> languageCodes) {
+	public Collection<ConceptMini> retrieveAttributeValues(String branchPath, String attributeId, String termPrefix, List<LanguageDialect> languageDialects) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Attribute attribute = findSelfOrFirstAncestorAttribute(branchPath, branchCriteria, attributeId);
 		if (attribute == null) {
 			throw new IllegalArgumentException("MRCM Attribute " + attributeId + " not found.");
 		}
 		
-		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false).resultLanguageCodes(languageCodes);
+		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false).resultLanguageDialects(languageDialects);
 		if (IdentifierService.isConceptId(termPrefix)) {
 			queryBuilder.conceptIds(Collections.singleton(termPrefix));
 		} else {
-			queryBuilder.descriptionCriteria(descriptionCriteria -> descriptionCriteria.term(termPrefix).active(true).searchLanguageCodes(languageCodes));
+			queryBuilder.descriptionCriteria(descriptionCriteria -> descriptionCriteria
+					.term(termPrefix)
+					.active(true)
+					.searchLanguageCodes(languageDialects.stream().map(LanguageDialect::getLanguageCode).collect(Collectors.toSet())));
 		}
 
 		StringBuilder ecl = new StringBuilder();

@@ -2,12 +2,13 @@ package org.snomed.snowstorm.rest;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.elasticsearch.common.Strings;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
-import org.snomed.snowstorm.rest.pojo.AcceptLanguageValues;
 import org.snomed.snowstorm.rest.pojo.ConceptMiniNestedFsn;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
@@ -16,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -23,15 +25,14 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 public class ControllerHelper {
 
-	public static final String DEFAULT_ACCEPT_LANG_HEADER = "en-US;q=0.8,en-GB;q=0.6";
-
 	private static final Pattern LANGUAGE_PATTERN = Pattern.compile("([a-z]{2})");
+	private static final Pattern LANGUAGE_AND_REFSET_PATTERN = Pattern.compile("([a-z]{2})-x-(" + IdentifierService.SCTID_PATTERN + ")");
 	private static final Pattern LANGUAGE_AND_DIALECT_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2})");
 	private static final Pattern LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2})-x-(" + IdentifierService.SCTID_PATTERN + ")");
-	private static final Pattern LANGUAGE_AND_REFSET_PATTERN = Pattern.compile("([a-z]{2})-x-(" + IdentifierService.SCTID_PATTERN + ")");
 
 	public static BranchTimepoint parseBranchTimepoint(String branch) {
 		String[] parts = BranchPathUriUtil.decodePath(branch).split("@");
@@ -95,54 +96,54 @@ public class ControllerHelper {
 	}
 
 	public static List<String> getLanguageCodes(String acceptLanguageHeader) {
-		List<String> languageCodes = parseAcceptLanguageHeader(acceptLanguageHeader).getLanguageCodes();
-
-		// Always include en at the end if not already present because this is the default language.
-		if (!languageCodes.contains("en")) {
-			languageCodes.add("en");
-		}
-		return languageCodes;
+		return parseAcceptLanguageHeader(acceptLanguageHeader).stream().map(LanguageDialect::getLanguageCode).collect(Collectors.toList());
 	}
 
-	public static AcceptLanguageValues parseAcceptLanguageHeader(String acceptLanguageHeader) {
+	public static List<LanguageDialect> parseAcceptLanguageHeader(String acceptLanguageHeader) {
 		// en-ie-x-21000220103;q=0.8,en-US;q=0.5
-		AcceptLanguageValues values = new AcceptLanguageValues();
+		List<LanguageDialect> languageDialects = new ArrayList<>();
+
+		if (acceptLanguageHeader == null) {
+			acceptLanguageHeader = "";
+		}
 
 		String[] acceptLanguageList = acceptLanguageHeader.toLowerCase().split(",");
 		for (String acceptLanguage : acceptLanguageList) {
+
+			if (acceptLanguage.isEmpty()) {
+				continue;
+			}
+
+			String languageCode;
+			Long languageReferenceSet = null;
+
 			String[] valueAndWeight = acceptLanguage.split(";");
 			// We don't use the weight, just take the value
 			String value = valueAndWeight[0];
 
 			Matcher matcher = LANGUAGE_PATTERN.matcher(value);
 			if (matcher.matches()) {
-				values.addLanguageCode(matcher.group(1));
-				continue;
+				languageCode = matcher.group(1);
+			} else if ((matcher = LANGUAGE_AND_REFSET_PATTERN.matcher(value)).matches()) {
+				languageCode = matcher.group(1);
+				languageReferenceSet = parseLong(matcher.group(2));
+			} else if ((matcher = LANGUAGE_AND_DIALECT_PATTERN.matcher(value)).matches()) {
+				// We can't currently do anything with the dialect code.
+				// These could be mapped to a language reference set in the future.
+				languageCode = matcher.group(1);
+			} else if ((matcher = LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN.matcher(value)).matches()) {
+				languageCode = matcher.group(1);
+				languageReferenceSet = parseLong(matcher.group(3));
+			} else {
+				throw new IllegalArgumentException("Unexpected value within Accept-Language request header '" + value + "'.");
 			}
-
-			matcher = LANGUAGE_AND_DIALECT_PATTERN.matcher(value);
-			if (matcher.matches()) {
-				values.addLanguageCode(matcher.group(1));
-				continue;
-			}
-
-			matcher = LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN.matcher(value);
-			if (matcher.matches()) {
-				values.addLanguageCode(matcher.group(1));
-				values.addLanguageReferenceSet(parseLong(matcher.group(3)));
-				continue;
-			}
-
-			matcher = LANGUAGE_AND_REFSET_PATTERN.matcher(value);
-			if (matcher.matches()) {
-				values.addLanguageCode(matcher.group(1));
-				values.addLanguageReferenceSet(parseLong(matcher.group(2)));
-				continue;
-			}
-
-			throw new IllegalArgumentException("Unexpected value within Accept-Language request header '" + value + "'.");
+			languageDialects.add(new LanguageDialect(languageCode, languageReferenceSet));
 		}
-		return values;
+
+		// Add the defaults at the end
+		languageDialects.addAll(DEFAULT_LANGUAGE_DIALECTS);
+
+		return languageDialects;
 	}
 
 	static void validatePageSize(long offset, int limit) {

@@ -20,6 +20,7 @@ import org.snomed.snowstorm.core.data.domain.review.*;
 import org.snomed.snowstorm.core.data.repositories.BranchReviewRepository;
 import org.snomed.snowstorm.core.data.repositories.ManuallyMergedConceptRepository;
 import org.snomed.snowstorm.core.data.repositories.MergeReviewRepository;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -126,7 +127,7 @@ public class BranchReviewService {
 		return mergeReview;
 	}
 
-	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(String id, List<String> languageCodes) {
+	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(String id, List<LanguageDialect> languageDialects) {
 		final MergeReview mergeReview = getMergeReviewOrThrow(id);
 		assertMergeReviewCurrent(mergeReview);
 
@@ -135,10 +136,10 @@ public class BranchReviewService {
 		final Map<Long, MergeReviewConceptVersions> conflicts = new HashMap<>();
 		if (!conceptsChangedInBoth.isEmpty()) {
 
-			final Map<Long, Concept> conceptOnSource = conceptService.find(mergeReview.getSourcePath(), conceptsChangedInBoth, languageCodes)
+			final Map<Long, Concept> conceptOnSource = conceptService.find(mergeReview.getSourcePath(), conceptsChangedInBoth, languageDialects)
 					.stream().collect(Collectors.toMap(Concept::getConceptIdAsLong, Function.identity()));
 
-			final Map<Long, Concept> conceptOnTarget = conceptService.find(mergeReview.getTargetPath(), conceptsChangedInBoth, languageCodes)
+			final Map<Long, Concept> conceptOnTarget = conceptService.find(mergeReview.getTargetPath(), conceptsChangedInBoth, languageDialects)
 					.stream().collect(Collectors.toMap(Concept::getConceptIdAsLong, Function.identity()));
 
 			conceptsChangedInBoth.forEach(conceptId -> {

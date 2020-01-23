@@ -30,6 +30,7 @@ import org.snomed.snowstorm.core.data.repositories.classification.RelationshipCh
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.classification.pojo.ClassificationStatusResponse;
 import org.snomed.snowstorm.core.data.services.classification.pojo.EquivalentConceptsResponse;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.export.ExportException;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
@@ -184,10 +185,10 @@ public class ClassificationService {
 										downloadRemoteResults(classification);
 
 										inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(),
-												Config.DEFAULT_LANGUAGE_CODES, PageRequest.of(0, 1), false, null).getTotalElements() > 0;
+												Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1), false, null).getTotalElements() > 0;
 
 										equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(),
-												Config.DEFAULT_LANGUAGE_CODES, PageRequest.of(0, 1)).getTotalElements() > 0;
+												Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1)).getTotalElements() > 0;
 
 									} catch (IOException | ElasticsearchException e) {
 										latestStatus = ClassificationStatus.FAILED;
@@ -340,7 +341,7 @@ public class ClassificationService {
 							}
 
 							// Load concepts
-							Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet(), Config.DEFAULT_LANGUAGE_CODES);
+							Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet(), Config.DEFAULT_LANGUAGE_DIALECTS);
 
 							// Apply changes to concepts
 							for (Concept concept : concepts) {
@@ -431,12 +432,12 @@ public class ClassificationService {
 		}
 	}
 
-	public Page<RelationshipChange> getRelationshipChanges(String path, String classificationId, List<String> languageCodes, PageRequest pageRequest) {
+	public Page<RelationshipChange> getRelationshipChanges(String path, String classificationId, List<LanguageDialect> languageDialects, PageRequest pageRequest) {
 		checkClassificationHasResults(path, classificationId);
-		return doGetRelationshipChanges(path, classificationId, languageCodes, pageRequest, true, null);
+		return doGetRelationshipChanges(path, classificationId, languageDialects, pageRequest, true, null);
 	}
 
-	private Page<RelationshipChange> doGetRelationshipChanges(String path, String classificationId, List<String> languageCodes, PageRequest pageRequest, boolean fetchDescriptions, String sourceIdFilter) {
+	private Page<RelationshipChange> doGetRelationshipChanges(String path, String classificationId, List<LanguageDialect> languageDialects, PageRequest pageRequest, boolean fetchDescriptions, String sourceIdFilter) {
 
 		Page<RelationshipChange> relationshipChanges =
 				sourceIdFilter != null ?
@@ -446,9 +447,9 @@ public class ClassificationService {
 		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
 		for (RelationshipChange relationshipChange : relationshipChanges) {
 			if (fetchDescriptions) {
-				relationshipChange.setSource(conceptMiniMap.computeIfAbsent(relationshipChange.getSourceId(), conceptId -> new ConceptMini(conceptId, languageCodes)));
-				relationshipChange.setDestination(conceptMiniMap.computeIfAbsent(relationshipChange.getDestinationId(), conceptId -> new ConceptMini(conceptId, languageCodes)));
-				relationshipChange.setType(conceptMiniMap.computeIfAbsent(relationshipChange.getTypeId(), conceptId -> new ConceptMini(conceptId, languageCodes)));
+				relationshipChange.setSource(conceptMiniMap.computeIfAbsent(relationshipChange.getSourceId(), conceptId -> new ConceptMini(conceptId, languageDialects)));
+				relationshipChange.setDestination(conceptMiniMap.computeIfAbsent(relationshipChange.getDestinationId(), conceptId -> new ConceptMini(conceptId, languageDialects)));
+				relationshipChange.setType(conceptMiniMap.computeIfAbsent(relationshipChange.getTypeId(), conceptId -> new ConceptMini(conceptId, languageDialects)));
 			}
 		}
 		if (fetchDescriptions) {
@@ -458,29 +459,29 @@ public class ClassificationService {
 		return relationshipChanges;
 	}
 
-	public Page<EquivalentConceptsResponse> getEquivalentConcepts(String path, String classificationId, List<String> languageCodes, PageRequest pageRequest) {
+	public Page<EquivalentConceptsResponse> getEquivalentConcepts(String path, String classificationId, List<LanguageDialect> languageDialects, PageRequest pageRequest) {
 		checkClassificationHasResults(path, classificationId);
-		return doGetEquivalentConcepts(path, classificationId, languageCodes, pageRequest);
+		return doGetEquivalentConcepts(path, classificationId, languageDialects, pageRequest);
 	}
 
-	public Concept getConceptPreview(String path, String classificationId, String conceptId, List<String> languageCodes) throws ServiceException {
+	public Concept getConceptPreview(String path, String classificationId, String conceptId, List<LanguageDialect> languageDialects) throws ServiceException {
 		checkClassificationHasResults(path, classificationId);
 
-		Concept concept = conceptService.find(conceptId, languageCodes, path);
-		Page<RelationshipChange> conceptRelationshipChanges = doGetRelationshipChanges(path, classificationId, languageCodes, LARGE_PAGE, true, conceptId);
+		Concept concept = conceptService.find(conceptId, languageDialects, path);
+		Page<RelationshipChange> conceptRelationshipChanges = doGetRelationshipChanges(path, classificationId, languageDialects, LARGE_PAGE, true, conceptId);
 		applyRelationshipChangesToConcept(concept, conceptRelationshipChanges.getContent(), true);
 
 		return concept;
 	}
 
-	private Page<EquivalentConceptsResponse> doGetEquivalentConcepts(String path, String classificationId, List<String> languageCodes, PageRequest pageRequest) {
+	private Page<EquivalentConceptsResponse> doGetEquivalentConcepts(String path, String classificationId, List<LanguageDialect> languageDialects, PageRequest pageRequest) {
 		Page<EquivalentConcepts> relationshipChanges = equivalentConceptsRepository.findByClassificationId(classificationId, pageRequest);
 		if (relationshipChanges.getTotalElements() == 0) {
 			return new PageImpl<>(Collections.emptyList());
 		}
 
 		Set<String> conceptIds = relationshipChanges.getContent().stream().map(EquivalentConcepts::getConceptIds).flatMap(Collection::stream).collect(Collectors.toSet());
-		Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(path, conceptIds, languageCodes).getResultsMap();
+		Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(path, conceptIds, languageDialects).getResultsMap();
 		List<EquivalentConceptsResponse> responseContent = new ArrayList<>();
 		for (EquivalentConcepts equivalentConcepts : relationshipChanges.getContent()) {
 			HashSet<ConceptMini> concepts = new HashSet<>();

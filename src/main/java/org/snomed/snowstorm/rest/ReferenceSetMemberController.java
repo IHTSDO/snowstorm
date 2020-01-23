@@ -9,6 +9,7 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.apache.commons.lang3.SerializationUtils;
 import org.elasticsearch.common.util.set.Sets;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMemberView;
@@ -18,6 +19,7 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.RefSetMemberPageWithBucketAggregations;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
@@ -59,10 +61,10 @@ public class ReferenceSetMemberController {
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "10") int limit,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 
 		TimerUtil timer = new TimerUtil("Member aggregation debug " + branch);
@@ -82,7 +84,7 @@ public class ReferenceSetMemberController {
 		timer.checkpoint("load types (" + referenceSetIds.size() + ")");
 
 		// Load concept minis
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, Sets.union(referenceSetIds, new HashSet<>(refsetTypes.values())), languageCodes).getResultsMap();
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, Sets.union(referenceSetIds, new HashSet<>(refsetTypes.values())), languageDialects).getResultsMap();
 		Map<String, ConceptMini> referenceSets = new HashMap<>();
 		for (String referenceSetId : referenceSetIds) {
 			ConceptMini refsetMini = conceptMinis.get(referenceSetId);
@@ -125,7 +127,7 @@ public class ReferenceSetMemberController {
 			@RequestParam(name = "owlExpression.gci", required = false) Boolean owlExpressionGCI,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		Page<ReferenceSetMember> members = memberService.findMembers(
 				BranchPathUriUtil.decodePath(branch),
@@ -140,13 +142,13 @@ public class ReferenceSetMemberController {
 				,
 				ControllerHelper.getPageRequest(offset, limit)
 		);
-		joinReferencedComponents(members.getContent(), ControllerHelper.getLanguageCodes(acceptLanguageHeader), branch);
+		joinReferencedComponents(members.getContent(), ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), branch);
 		return new ItemsPage<>(members);
 	}
 
-	private void joinReferencedComponents(List<ReferenceSetMember> members, List<String> languageCodes, String branch) {
+	private void joinReferencedComponents(List<ReferenceSetMember> members, List<LanguageDialect> languageDialects, String branch) {
 		Set<String> conceptIds = members.stream().map(ReferenceSetMember::getReferencedComponentId).filter(IdentifierService::isConceptId).collect(Collectors.toSet());
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(BranchPathUriUtil.decodePath(branch), conceptIds, languageCodes).getResultsMap();
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(BranchPathUriUtil.decodePath(branch), conceptIds, languageDialects).getResultsMap();
 		members.forEach(member -> {
 			ConceptMini conceptMini = conceptMinis.get(member.getReferencedComponentId());
 			if (conceptMini != null) {
@@ -161,11 +163,11 @@ public class ReferenceSetMemberController {
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMember fetchMember(@PathVariable String branch,
 			@PathVariable String uuid,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		ReferenceSetMember member = memberService.findMember(BranchPathUriUtil.decodePath(branch), uuid);
 		ControllerHelper.throwIfNotFound("Member", member);
-		joinReferencedComponents(Collections.singletonList(member), ControllerHelper.getLanguageCodes(acceptLanguageHeader), branch);
+		joinReferencedComponents(Collections.singletonList(member), ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), branch);
 		return member;
 	}
 

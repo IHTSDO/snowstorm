@@ -5,6 +5,7 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -12,6 +13,7 @@ import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.pojo.BrowserDescriptionSearchResult;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
@@ -76,13 +78,12 @@ public class DescriptionController {
 			@RequestParam(defaultValue = "STANDARD") DescriptionService.SearchMode searchMode,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws TooCostlyException {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws TooCostlyException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 
-		List<String> acceptLanguageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
-		Set<String> searchLanguageCodes = language != null && !language.isEmpty() ? language : new HashSet<>(acceptLanguageCodes);
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader);
 
 		PageWithBucketAggregations<Description> page = descriptionService.findDescriptionsWithAggregations(
 				branch, new DescriptionCriteria()
@@ -90,7 +91,7 @@ public class DescriptionController {
 						.term(term)
 						.active(active)
 						.module(module)
-						.searchLanguageCodes(searchLanguageCodes)
+						.searchLanguageCodes(language)
 						.type(type)
 						.semanticTag(semanticTag)
 						.semanticTags(semanticTags)
@@ -108,18 +109,18 @@ public class DescriptionController {
 				pageRequest);
 
 		Set<String> conceptIds = page.getContent().stream().map(Description::getConceptId).collect(Collectors.toSet());
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds, acceptLanguageCodes).getResultsMap();
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds, languageDialects).getResultsMap();
 
 		List<BrowserDescriptionSearchResult> results = new ArrayList<>();
 		page.getContent().forEach(d -> results.add(new BrowserDescriptionSearchResult(d.getTerm(), d.isActive(), d.getLanguageCode(), d.getModuleId(), conceptMinis.get(d.getConceptId()))));
 
 		PageWithBucketAggregations<BrowserDescriptionSearchResult> pageWithBucketAggregations = new PageWithBucketAggregations<>(results, page.getPageable(), page.getTotalElements(), page.getBuckets());
-		addBucketConcepts(branch, acceptLanguageCodes, pageWithBucketAggregations);
+		addBucketConcepts(branch, languageDialects, pageWithBucketAggregations);
 		addLanguageNames(pageWithBucketAggregations);
 		return pageWithBucketAggregations;
 	}
 
-	private void addBucketConcepts(@PathVariable String branch, List<String> languageCodes, PageWithBucketAggregations<BrowserDescriptionSearchResult> pageWithBucketAggregations) {
+	private void addBucketConcepts(@PathVariable String branch, List<LanguageDialect> LanguageDialect, PageWithBucketAggregations<BrowserDescriptionSearchResult> pageWithBucketAggregations) {
 		Map<String, Map<String, Long>> buckets = pageWithBucketAggregations.getBuckets();
 		Set<String> bucketConceptIds = new HashSet<>();
 		if (buckets.containsKey("membership")) {
@@ -129,7 +130,7 @@ public class DescriptionController {
 			bucketConceptIds.addAll(buckets.get("module").keySet());
 		}
 		if (!bucketConceptIds.isEmpty()) {
-			pageWithBucketAggregations.setBucketConcepts(conceptService.findConceptMinis(branch, bucketConceptIds, languageCodes).getResultsMap());
+			pageWithBucketAggregations.setBucketConcepts(conceptService.findConceptMinis(branch, bucketConceptIds, LanguageDialect).getResultsMap());
 		}
 	}
 

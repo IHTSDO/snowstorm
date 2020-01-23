@@ -21,6 +21,7 @@ import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemVersionRepository;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
@@ -314,7 +315,8 @@ public class CodeSystemService {
 		if (memberPage.hasContent()) {
 			Map<String, Long> modulesOfActiveMembers = PageWithBucketAggregationsFactory.createPage(memberPage, memberPage.getAggregations().asList())
 					.getBuckets().get("module");
-			codeSystem.setModules(conceptService.findConceptMinis(branchCriteria, modulesOfActiveMembers.keySet(), acceptableLanguageCodes).getResultsMap().values());
+			List<LanguageDialect> languageDialects = acceptableLanguageCodes.stream().map(LanguageDialect::new).collect(Collectors.toList());
+			codeSystem.setModules(conceptService.findConceptMinis(branchCriteria, modulesOfActiveMembers.keySet(), languageDialects).getResultsMap().values());
 		}
 
 		// Add to cache

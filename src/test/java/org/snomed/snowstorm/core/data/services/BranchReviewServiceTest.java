@@ -22,7 +22,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
-import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODES;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -174,7 +174,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 		BranchReview targetToSourceReview = reviewService.getBranchReview(review.getTargetToSourceReviewId());
 		assertReportEquals(targetToSourceReview.getChangedConcepts(), new Long[]{10000200L, 10000400L, 10000600L, 800000000L});
 
-		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
 		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getSourceConcept().getId()).collect(Collectors.toCollection(TreeSet::new));
 		assertEquals("[10000200, 10000400, 10000600, 800000000]", conceptIds.toString());
 	}
@@ -237,7 +237,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 		BranchReview targetToSourceReview = reviewService.getBranchReview(review.getTargetToSourceReviewId());
 		assertReportEquals(targetToSourceReview.getChangedConcepts(), new Long[]{10000100L});
 
-		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
 		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getSourceConcept().getId()).collect(Collectors.toCollection(TreeSet::new));
 		assertEquals("[10000100]", conceptIds.toString());
 	}
@@ -263,7 +263,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 
 		assertEquals(ReviewStatus.CURRENT, review.getStatus());
 
-		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
 		assertEquals(1, mergeReviewConflictingConcepts.size());
 		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getTargetConcept().getId()).collect(Collectors.toSet());
 		assertTrue(conceptIds.contains("10000100"));
@@ -290,7 +290,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 
 		assertEquals(ReviewStatus.CURRENT, review.getStatus());
 
-		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
 		assertEquals(0, mergeReviewConflictingConcepts.size());
 	}
 
@@ -315,7 +315,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 
 		assertEquals(ReviewStatus.CURRENT, review.getStatus());
 
-		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_CODES);
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
 		assertEquals(1, mergeReviewConflictingConcepts.size());
 		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getSourceConcept().getId()).collect(Collectors.toSet());
 		assertTrue(conceptIds.contains("10000100"));

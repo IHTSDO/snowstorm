@@ -7,6 +7,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.AuthoringStatsSummary;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -139,44 +140,44 @@ public class AuthoringStatsService {
 				);
 	}
 
-	public List<ConceptMicro> getNewConcepts(String branch, List<String> languageCodes) {
+	public List<ConceptMicro> getNewConcepts(String branch, List<LanguageDialect> languageDialects) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
 		List<Long> conceptIds = new LongArrayList();
 		try (CloseableIterator<Concept> stream = elasticsearchOperations.stream(getNewConceptCriteria(branchCriteria).withPageable(LARGE_PAGE).build(), Concept.class)) {
 			stream.forEachRemaining(concept -> conceptIds.add(concept.getConceptIdAsLong()));
 		}
-		return getConceptMicros(conceptIds, languageCodes, branchCriteria);
+		return getConceptMicros(conceptIds, languageDialects, branchCriteria);
 	}
 
-	public List<ConceptMicro> getInactivatedConcepts(String branch, List<String> languageCodes) {
+	public List<ConceptMicro> getInactivatedConcepts(String branch, List<LanguageDialect> languageDialects) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
 		List<Long> conceptIds = new LongArrayList();
 		try (CloseableIterator<Concept> stream = elasticsearchOperations.stream(getInactivatedConceptsCriteria(branchCriteria).withPageable(LARGE_PAGE).build(), Concept.class)) {
 			stream.forEachRemaining(concept -> conceptIds.add(concept.getConceptIdAsLong()));
 		}
-		return getConceptMicros(conceptIds, languageCodes, branchCriteria);
+		return getConceptMicros(conceptIds, languageDialects, branchCriteria);
 	}
 
-	public List<ConceptMicro> getReactivatedConcepts(String branch, List<String> languageCodes) {
+	public List<ConceptMicro> getReactivatedConcepts(String branch, List<LanguageDialect> languageDialects) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
 		List<Long> conceptIds = new LongArrayList();
 		try (CloseableIterator<Concept> stream = elasticsearchOperations.stream(getReactivatedConceptsCriteria(branchCriteria).withPageable(LARGE_PAGE).build(), Concept.class)) {
 			stream.forEachRemaining(concept -> conceptIds.add(concept.getConceptIdAsLong()));
 		}
-		return getConceptMicros(conceptIds, languageCodes, branchCriteria);
+		return getConceptMicros(conceptIds, languageDialects, branchCriteria);
 	}
 
-	public List<ConceptMicro> getChangedFSNs(String branch, List<String> languageCodes) {
+	public List<ConceptMicro> getChangedFSNs(String branch, List<LanguageDialect> languageDialects) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
 		List<Long> conceptIds = new LongArrayList();
 		try (CloseableIterator<Description> stream = elasticsearchOperations.stream(getChangedFSNsCriteria(branchCriteria).withPageable(LARGE_PAGE).build(), Description.class)) {
 			stream.forEachRemaining(description -> conceptIds.add(parseLong(description.getConceptId())));
 		}
-		return getConceptMicros(conceptIds, languageCodes, branchCriteria);
+		return getConceptMicros(conceptIds, languageDialects, branchCriteria);
 	}
 
 	public List<ConceptMicro> getInactivatedSynonyms(String branch) {
@@ -272,8 +273,8 @@ public class AuthoringStatsService {
 						.must(termQuery(Description.Fields.RELEASED, "true")));
 	}
 
-	private List<ConceptMicro> getConceptMicros(List<Long> conceptIds, List<String> languageCodes, BranchCriteria branchCriteria) {
-		return conceptService.findConceptMinis(branchCriteria, conceptIds, languageCodes).getResultsMap().values().stream()
+	private List<ConceptMicro> getConceptMicros(List<Long> conceptIds, List<LanguageDialect> languageDialects, BranchCriteria branchCriteria) {
+		return conceptService.findConceptMinis(branchCriteria, conceptIds, languageDialects).getResultsMap().values().stream()
 				.map(ConceptMicro::new).sorted(Comparator.comparing(ConceptMicro::getTerm)).collect(Collectors.toList());
 	}
 }

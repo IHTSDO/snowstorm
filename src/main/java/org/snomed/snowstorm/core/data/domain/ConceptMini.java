@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.domain;
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.rest.View;
@@ -18,7 +19,7 @@ public class ConceptMini implements Serializable {
 	private String conceptId;
 	private String effectiveTime;
 	private Set<Description> activeDescriptions;
-	private Collection<String> languageCodes;
+	private List<LanguageDialect> requestedLanguageDialects;
 	private String definitionStatusId;
 	private Boolean leafInferred;
 	private Boolean leafStated;
@@ -31,14 +32,14 @@ public class ConceptMini implements Serializable {
 		activeDescriptions = new HashSet<>();
 	}
 
-	public ConceptMini(String conceptId, List<String> languageCodes) {
+	public ConceptMini(String conceptId, List<LanguageDialect> requestedLanguageDialects) {
 		this();
 		this.conceptId = conceptId;
-		this.languageCodes = languageCodes;
+		this.requestedLanguageDialects = requestedLanguageDialects;
 	}
 
-	public ConceptMini(Concept concept, List<String> languageCodes) {
-		this(concept.getConceptId(), languageCodes);
+	public ConceptMini(Concept concept, List<LanguageDialect> requestedLanguageDialects) {
+		this(concept.getConceptId(), requestedLanguageDialects);
 		effectiveTime = concept.getEffectiveTime();
 		active = concept.isActive();
 		definitionStatusId = concept.getDefinitionStatusId();
@@ -47,11 +48,15 @@ public class ConceptMini implements Serializable {
 		if (descriptions != null) {
 			activeDescriptions = descriptions.stream().filter(SnomedComponent::isActive).collect(Collectors.toSet());
 		}
-		this.languageCodes = languageCodes;
 	}
 
 	public ConceptMini addActiveDescription(Description fsn) {
 		activeDescriptions.add(fsn);
+		return this;
+	}
+
+	public ConceptMini addFSN(String term) {
+		activeDescriptions.add(new Description(term).setTypeId(Concepts.FSN).addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED));
 		return this;
 	}
 
@@ -80,7 +85,7 @@ public class ConceptMini implements Serializable {
 
 	@JsonView(value = View.Component.class)
 	public TermLangPojo getFsn() {
-		return DescriptionHelper.getFsnDescriptionTermAndLang(activeDescriptions, languageCodes);
+		return DescriptionHelper.getFsnDescriptionTermAndLang(activeDescriptions, requestedLanguageDialects);
 	}
 
 	@JsonIgnore
@@ -90,7 +95,7 @@ public class ConceptMini implements Serializable {
 
 	@JsonView(value = View.Component.class)
 	public TermLangPojo getPt() {
-		return DescriptionHelper.getPtDescriptionTermAndLang(activeDescriptions, languageCodes);
+		return DescriptionHelper.getPtDescriptionTermAndLang(activeDescriptions, requestedLanguageDialects);
 	}
 
 	public void setDefinitionStatusId(String definitionStatusId) {

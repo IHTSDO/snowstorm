@@ -3,6 +3,7 @@ package org.snomed.snowstorm.rest;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.mrcm.MRCMService;
@@ -10,7 +11,6 @@ import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Set;
 
 @RestController
@@ -27,11 +27,10 @@ public class MRCMController {
 	public ItemsPage<ConceptMini> retrieveDomainAttributes(
 			@PathVariable String path,
 			@RequestParam(required = false) Set<Long> parentIds,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		String branchPath = BranchPathUriUtil.decodePath(path);
-		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
-		return new ItemsPage<>(mrcmService.retrieveDomainAttributes(branchPath, parentIds, languageCodes));
+		return new ItemsPage<>(mrcmService.retrieveDomainAttributes(branchPath, parentIds, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader)));
 	}
 
 	@ApiOperation("Retrieve valid values for the given attribute and term prefix.")
@@ -41,11 +40,10 @@ public class MRCMController {
 			@PathVariable String path,
 			@PathVariable String attributeId,
 			@RequestParam String termPrefix,
-			@RequestHeader(value = "Accept-Language", defaultValue = ControllerHelper.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		String branchPath = BranchPathUriUtil.decodePath(path);
-		List<String> languageCodes = ControllerHelper.getLanguageCodes(acceptLanguageHeader);
-		return new ItemsPage<>(mrcmService.retrieveAttributeValues(branchPath, attributeId, termPrefix, languageCodes));
+		return new ItemsPage<>(mrcmService.retrieveAttributeValues(branchPath, attributeId, termPrefix, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader)));
 	}
 
 	@ApiOperation("Reload MRCM from XML files. This is an alternative implementation to the reference sets.")

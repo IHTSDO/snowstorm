@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.*;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -17,17 +18,17 @@ public class ExpressionService {
 	@Autowired
 	private QueryService queryService;
 
-	public Expression getConceptAuthoringForm(String conceptId, List<String> languageCodes, String branchPath) {
+	public Expression getConceptAuthoringForm(String conceptId, List<LanguageDialect> languageDialects, String branchPath) {
 		//First add the existing attributes
 		Expression expression = new Expression();
-		Concept concept = conceptService.find(conceptId, languageCodes, branchPath);
+		Concept concept = conceptService.find(conceptId, languageDialects, branchPath);
 		concept.getRelationships().stream()
 				.filter(relationship -> relationship.isActive() && !Concepts.STATED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId()))
 				.forEach(relationship -> addAttributeToExpression(relationship, expression));
 
 		//Now work out the nearest primitive parents
-		Collection<ConceptMini> ancestors = getAncestors(conceptId, languageCodes, branchPath);
-		final Collection<ConceptMini> proxPrimParents = getProximalPrimitiveParents(ancestors, languageCodes, branchPath);
+		Collection<ConceptMini> ancestors = getAncestors(conceptId, languageDialects, branchPath);
+		final Collection<ConceptMini> proxPrimParents = getProximalPrimitiveParents(ancestors, languageDialects, branchPath);
 		expression.addConcepts(proxPrimParents);
 		return expression;
 	}
@@ -43,14 +44,14 @@ public class ExpressionService {
 		return expression;
 	}
 	
-	public Expression getConceptNormalForm(String conceptId, List<String> languageCodes, String branchPath, boolean statedView) {
-		Concept concept = conceptService.find(conceptId, languageCodes, branchPath);
+	public Expression getConceptNormalForm(String conceptId, List<LanguageDialect> languageDialects, String branchPath, boolean statedView) {
+		Concept concept = conceptService.find(conceptId, languageDialects, branchPath);
 		return getExpression(concept, statedView);
 	}
 	
-	private Collection<ConceptMini> getAncestors(String conceptId, List<String> languageCodes, String branchPath) {
+	private Collection<ConceptMini> getAncestors(String conceptId, List<LanguageDialect> languageDialects, String branchPath) {
 		Set<Long> ancestorIds = queryService.findAncestorIds(conceptId, branchPath, false);
-		ResultMapPage<String, ConceptMini> pages = conceptService.findConceptMinis(branchPath, ancestorIds, languageCodes);
+		ResultMapPage<String, ConceptMini> pages = conceptService.findConceptMinis(branchPath, ancestorIds, languageDialects);
 		return pages.getResultsMap().values();
 	}
 
@@ -77,9 +78,9 @@ public class ExpressionService {
 		}
 	}
 	
-	public Collection<ConceptMini> getProximalPrimitiveParents(Collection<ConceptMini> ancestors, List<String> languageCodes, String branchPath) {
+	public Collection<ConceptMini> getProximalPrimitiveParents(Collection<ConceptMini> ancestors, List<LanguageDialect> languageDialects, String branchPath) {
 		Set<String> proxPrimIds = getProximalPrimitiveParentIds(ancestors, branchPath);
-		ResultMapPage<String, ConceptMini> pages = conceptService.findConceptMinis(branchPath, proxPrimIds, languageCodes);
+		ResultMapPage<String, ConceptMini> pages = conceptService.findConceptMinis(branchPath, proxPrimIds, languageDialects);
 		return pages.getResultsMap().values();
 	}
 	
@@ -115,8 +116,6 @@ public class ExpressionService {
 	/**
 	 * Returns <code>true</code> if the given superType is a superType of the given subType according to this tree, otherwise returns
 	 * <code>false</code>.
-	 * @param superType
-	 * @param subType
 	 */
 	public boolean isSuperTypeOf(Long superType, String subType, String branchPath) {
 		return queryService.findAncestorIds(subType, branchPath, false).contains(superType);
@@ -124,8 +123,6 @@ public class ExpressionService {
 
 	/**
 	 * Returns <code>true</code> if the given subType is a subType of the given superType according to this tree, otherwise returns <code>false</code>
-	 * @param subType
-	 * @param superType
 	 */
 	public boolean isSubTypeOf(String subType, Long superType, String branchPath) {
 		return queryService.findAncestorIds(subType, branchPath, false).contains(superType);

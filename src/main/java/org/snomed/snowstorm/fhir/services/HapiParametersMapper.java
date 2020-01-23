@@ -89,7 +89,7 @@ public class HapiParametersMapper implements FHIRConstants {
 	}
 
 	private void addDesignations(Parameters parameters, Concept c, Parameters.ParametersParameterComponent preferredTerm, String displayLanguage) {
-		for (Description d : c.getDescriptions(true, null, null, null)) {
+		for (Description d : c.getActiveDescriptions()) {
 			Parameters.ParametersParameterComponent designation = parameters.addParameter().setName(DESIGNATION);
 			designation.addPart().setName(LANGUAGE).setValue(new CodeType(d.getLang()));
 			designation.addPart().setName(USE).setValue(new Coding(SNOMED_URI, d.getTypeId(), FHIRHelper.translateDescType(d.getTypeId())));
