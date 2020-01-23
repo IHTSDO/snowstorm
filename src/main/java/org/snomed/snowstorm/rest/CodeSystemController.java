@@ -67,6 +67,14 @@ public class CodeSystemController {
 		return findCodeSystem(shortName);
 	}
 
+	@ApiOperation(value = "Delete a code system", notes = "This function deletes the code system and its versions but it does not delete the branches or the content.")
+	@RequestMapping(value = "/{shortName}", method = RequestMethod.DELETE)
+	@ResponseBody
+	public void deleteCodeSystem(@PathVariable String shortName) {
+		CodeSystem codeSystem = findCodeSystem(shortName);
+		codeSystemService.deleteCodeSystemAndVersions(codeSystem);
+	}
+
 	@ApiOperation("Retrieve all code system versions")
 	@RequestMapping(value = "/{shortName}/versions", method = RequestMethod.GET)
 	@ResponseBody

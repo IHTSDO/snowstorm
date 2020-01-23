@@ -454,6 +454,16 @@ public class CodeSystemService {
 		return codeSystem;
 	}
 
+	public void deleteCodeSystemAndVersions(CodeSystem codeSystem) {
+		if (codeSystem.getBranchPath().equals("MAIN")) {
+			throw new IllegalArgumentException("The root code system can not be deleted. " +
+					"If you need to start again delete all indices and restart Snowstorm.");
+		}
+		List<CodeSystemVersion> allVersions = findAllVersions(codeSystem.getShortName(), true);
+		versionRepository.deleteAll(allVersions);
+		repository.delete(codeSystem);
+	}
+
 	protected void setLatestVersionCanBeFuture(boolean latestVersionCanBeFuture) {
 		this.latestVersionCanBeFuture = latestVersionCanBeFuture;
 	}

@@ -102,6 +102,12 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Extension concept 18736003 has now been donated so has the international module.
 		assertEquals("900000000000207008", conceptService.find("18736003", "MAIN/SNOMEDCT-BE").getModuleId());
+
+		// Test delete code system
+		assertEquals(1, codeSystemService.findAllVersions("SNOMEDCT-BE", true).size());
+		codeSystemService.deleteCodeSystemAndVersions(extensionCodeSystem);
+		assertNull(codeSystemService.find("SNOMEDCT-BE"));
+		assertEquals(0, codeSystemService.findAllVersions("SNOMEDCT-BE", true).size());
 	}
 
 	@Test
