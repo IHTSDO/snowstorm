@@ -43,11 +43,6 @@ class FHIRHelper {
 				: Integer.parseInt(versionStr.substring(versionStr.indexOf(versionUri) + versionUri.length()));
 	}
 
-	//TODO Maintain a cache of known concepts so we can look up the preferred term at runtime
-	// ... Peter, this doesn't sound like a good idea. Just lookup all required preferred terms in batch including these known concepts.
-	// 		Looking up every time means you don't need to cache multiple versions of PTs for different snomed versions/extensions/languages. Kaicode
-
-
 	static String translateDescType(String typeSctid) {
 		switch (typeSctid) {
 			case Concepts.FSN : return "Fully specified name";
