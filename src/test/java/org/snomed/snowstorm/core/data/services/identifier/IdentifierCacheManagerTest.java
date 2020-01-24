@@ -40,7 +40,7 @@ public class IdentifierCacheManagerTest extends AbstractTest {
 		Assert.assertEquals(0, testCache.identifiersAvailable());
 		
 		//Since the cache is below critical level, asking for identifiers will trigger a top up + additional required
-		IdentifierReservedBlock reservedBlock = new IdentifierReservedBlock();
+		IdentifierReservedBlock reservedBlock = new IdentifierReservedBlock(0);
 		cacheManager.populateIdBlock(reservedBlock, TEST_DEMAND, TEST_NAMESPACE, TEST_PARTITION);
 		Assert.assertEquals(TEST_DEMAND, reservedBlock.size(ComponentType.Concept));
 		Assert.assertEquals(TEST_CAPACITY, testCache.identifiersAvailable());

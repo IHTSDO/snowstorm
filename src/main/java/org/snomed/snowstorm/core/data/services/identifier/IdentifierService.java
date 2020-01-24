@@ -84,7 +84,7 @@ public class IdentifierService {
 
 	private IdentifierReservedBlock getReservedBlock(int namespace, int conceptIds, int descriptionIds, int relationshipIds) throws ServiceException {
 		String partition_part1 = namespace == 0 ? PARTITION_PART1_INTERNATIONAL : PARTITION_PART1_EXTENSION;
-		IdentifierReservedBlock idBlock = new IdentifierReservedBlock();
+		IdentifierReservedBlock idBlock = new IdentifierReservedBlock(namespace);
 		//TODO Run these in parallel
 		try {
 			cacheManager.populateIdBlock(idBlock, conceptIds, namespace, partition_part1 + PARTITION_PART2_CONCEPT);
@@ -100,7 +100,7 @@ public class IdentifierService {
 		for (ComponentType componentType : ComponentType.values()) {
 			Collection<Long> idsAssigned = reservedBlock.getIdsAssigned(componentType);
 			if (!idsAssigned.isEmpty()) {
-				identifiersForRegistrationRepository.save(new IdentifiersForRegistration(0, idsAssigned));
+				identifiersForRegistrationRepository.save(new IdentifiersForRegistration(reservedBlock.getNamespace(), idsAssigned));
 			}
 		}
 	}
@@ -110,15 +110,9 @@ public class IdentifierService {
 		if (suspendRegistrationProcess) {
 			return;
 		}
-		// Gather sets of identifiers and group by namespace
-		Map<Integer, Set<Long>> namespaceIdentifierMap = new HashMap<>();
-		//PageRequest pageRequest = PageRequest.of(0,1000);
+		// Gather sets of identifiers and group by namespace, then register
 		Iterable<IdentifiersForRegistration> roundOfIdentifiers = identifiersForRegistrationRepository.findAll();
-		for (IdentifiersForRegistration identifiersForRegistration : roundOfIdentifiers) {
-			namespaceIdentifierMap.computeIfAbsent(identifiersForRegistration.getNamespace(), (n) -> new HashSet<>())
-					.addAll(identifiersForRegistration.getIds());
-		}
-		// Register each group
+		Map<Integer, Set<Long>> namespaceIdentifierMap = getNamespaceIdentifierMap(roundOfIdentifiers);
 		try {
 			for (Map.Entry<Integer, Set<Long>> entry : namespaceIdentifierMap.entrySet()) {
 				Integer namespace = entry.getKey();
@@ -130,6 +124,15 @@ public class IdentifierService {
 		} catch (ServiceException e) {
 			logger.warn("Failed to register identifiers. They are in persistent storage, will retry later.", e);
 		} 
+	}
+
+	protected Map<Integer, Set<Long>> getNamespaceIdentifierMap(Iterable<IdentifiersForRegistration> roundOfIdentifiers) {
+		Map<Integer, Set<Long>> namespaceIdentifierMap = new HashMap<>();
+		for (IdentifiersForRegistration identifiersForRegistration : roundOfIdentifiers) {
+			namespaceIdentifierMap.computeIfAbsent(identifiersForRegistration.getNamespace(), (n) -> new HashSet<>())
+					.addAll(identifiersForRegistration.getIds());
+		}
+		return namespaceIdentifierMap;
 	}
 
 	public IdentifierReservedBlock reserveIdentifierBlock(Collection<Concept> concepts, String namespace) throws ServiceException {
