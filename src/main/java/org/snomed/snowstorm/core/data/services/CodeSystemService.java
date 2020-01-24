@@ -461,9 +461,11 @@ public class CodeSystemService {
 			throw new IllegalArgumentException("The root code system can not be deleted. " +
 					"If you need to start again delete all indices and restart Snowstorm.");
 		}
+		logger.info("Deleting Code System '{}'.", codeSystem.getShortName());
 		List<CodeSystemVersion> allVersions = findAllVersions(codeSystem.getShortName(), true);
 		versionRepository.deleteAll(allVersions);
 		repository.delete(codeSystem);
+		logger.info("Deleted Code System '{}' and versions.", codeSystem.getShortName());
 	}
 
 	protected void setLatestVersionCanBeFuture(boolean latestVersionCanBeFuture) {
