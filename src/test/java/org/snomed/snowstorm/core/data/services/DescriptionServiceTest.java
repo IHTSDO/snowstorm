@@ -90,6 +90,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100003", "Foot cramps", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100004", "Région de l'Afrique", "fr");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100005", "déficit de apolipoproteína", "es");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100006", "thing", "zz");
 
 		// In the French language 'é' is NOT configured as an extra character in the alphabet so is folded to it's simpler form 'e' in the index.
 		// Searching for either 'é' or 'e' should give the same match.
@@ -103,6 +104,12 @@ public class DescriptionServiceTest extends AbstractTest {
 		// Searching for both es and en language codes does not allow matching against the Spanish description with the é character
 		// because when the search term is folded for the English language matches are restricted to descriptions with en language code.
 		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "deficit", newArrayList("es", "en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+
+		// Search all languages
+		List<String> languageCodes = null;
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "région", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "déficit", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "thing", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 	}
 
 	@Test

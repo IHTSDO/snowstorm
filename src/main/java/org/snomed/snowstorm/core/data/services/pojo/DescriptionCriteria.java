@@ -48,9 +48,6 @@ public class DescriptionCriteria {
 
 	// Unordered collection of language codes to match descriptions against.
 	public DescriptionCriteria searchLanguageCodes(Collection<String> searchLanguageCodes) {
-		if (searchLanguageCodes == null) {
-			searchLanguageCodes = DEFAULT_LANGUAGE_CODES;
-		}
 		this.searchLanguageCodes = searchLanguageCodes;
 		return this;
 	}

@@ -28,6 +28,7 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
@@ -629,10 +630,6 @@ public class DescriptionService extends ComponentService {
 		return newSet;
 	}
 
-	void addTermClauses(String term, Collection<String> languageCodes, BoolQueryBuilder boolBuilder) {
-		addTermClauses(term, languageCodes, null, boolBuilder, null);
-	}
-
 	private void addTermClauses(String term, Collection<String> languageCodes, Collection<Long> descriptionTypes, BoolQueryBuilder boolBuilder, SearchMode searchMode) {
 		if (IdentifierService.isConceptId(term)) {
 			boolBuilder.must(termQuery(Description.Fields.CONCEPT_ID, term));
@@ -640,6 +637,7 @@ public class DescriptionService extends ComponentService {
 			if (!Strings.isNullOrEmpty(term)) {
 				BoolQueryBuilder termFilter = new BoolQueryBuilder();
 				boolBuilder.filter(termFilter);
+				boolean allLanguages = CollectionUtils.isEmpty(languageCodes);
 				if (searchMode == SearchMode.REGEX) {
 					// https://www.elastic.co/guide/en/elasticsearch/reference/master/query-dsl-query-string-query.html#_regular_expressions
 					if (term.startsWith("^")) {
@@ -649,8 +647,10 @@ public class DescriptionService extends ComponentService {
 						term = term.substring(0, term.length()-1);
 					}
 					termFilter.must(regexpQuery(Description.Fields.TERM, term));
-					// Must match the requested language
-					boolBuilder.must(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes));
+					// Must match the requested languages
+					if (!allLanguages) {
+						boolBuilder.must(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes));
+					}
 				} else {
 					// Must match at least one of the following 'should' clauses:
 					BoolQueryBuilder shouldClauses = boolQuery();
@@ -658,6 +658,11 @@ public class DescriptionService extends ComponentService {
 					// e.g. 'Clin Fin' converts to 'clin* fin*' and matches 'Clinical Finding'
 					// Put search term through character folding for each requested language
 					Map<String, Set<Character>> charactersNotFoldedSets = searchLanguagesConfiguration.getCharactersNotFoldedSets();
+					if (allLanguages) {
+						Set<String> allLanguageCodes = new HashSet<>(charactersNotFoldedSets.keySet());
+						allLanguageCodes.add(DEFAULT_LANGUAGE_CODE);
+						languageCodes = allLanguageCodes;
+					}
 					for (String languageCode : languageCodes) {
 						Set<Character> charactersNotFoldedForLanguage = charactersNotFoldedSets.getOrDefault(languageCode, Collections.emptySet());
 						String foldedSearchTerm = DescriptionHelper.foldTerm(term, charactersNotFoldedForLanguage);
@@ -668,6 +673,13 @@ public class DescriptionService extends ComponentService {
 						shouldClauses.should(boolQuery()
 								.must(termQuery(Description.Fields.LANGUAGE_CODE, languageCode))
 								.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
+										.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND)));
+					}
+					if (allLanguages) {
+						shouldClauses.should(boolQuery()
+								// Any other language without folding
+								.mustNot(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes))
+								.filter(simpleQueryStringQuery(constructSimpleQueryString(term))
 										.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND)));
 					}
 
