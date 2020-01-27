@@ -202,8 +202,8 @@ public class ConceptUpdateHelper extends ComponentService {
 							member.setChanged(true);
 							member.copyReleaseDetails(existingMember);
 							member.updateEffectiveTime();
-							refsetMembersToPersist.add(member);
 						}
+						refsetMembersToPersist.add(member);
 						existingMembersToMatch.remove(languageRefsetId);
 					} else {
 						final ReferenceSetMember member = new ReferenceSetMember(description.getModuleId(), languageRefsetId, description.getId());

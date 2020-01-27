@@ -7,6 +7,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
+import org.elasticsearch.common.collect.MapBuilder;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -15,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
@@ -389,15 +391,28 @@ public class ConceptServiceTest extends AbstractTest {
 	@Test
 	public void testSaveConceptWithDescription() throws ServiceException {
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
-		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
-		conceptService.create(concept, "MAIN");
+		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", FSN,
+				"Bleeding (morphologic abnormality)", "900000000000020002").addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED));
+		Concept savedConcept = conceptService.create(concept, DEFAULT_LANGUAGE_DIALECTS, "MAIN");
+		assertEquals("Bleeding (morphologic abnormality)", savedConcept.getFsn().getTerm());
 
-		final Concept savedConcept = conceptService.find("50960005", "MAIN");
+		savedConcept = conceptService.find("50960005", "MAIN");
 		Assert.assertNotNull(savedConcept);
+		assertEquals("Bleeding (morphologic abnormality)", savedConcept.getFsn().getTerm());
 		assertEquals(1, savedConcept.getDescriptions().size());
-		final Description description = savedConcept.getDescriptions().iterator().next();
+		Description description = savedConcept.getDescriptions().iterator().next();
 		assertEquals("84923010", description.getDescriptionId());
-		assertEquals(0, description.getAcceptabilityMapFromLangRefsetMembers().size());
+		assertEquals(1, description.getAcceptabilityMapFromLangRefsetMembers().size());
+
+		description.clearLanguageRefsetMembers();
+		description.setAcceptabilityMap(MapBuilder.newMapBuilder(new HashMap<String, String>()).put(US_EN_LANG_REFSET, PREFERRED_CONSTANT).map());
+
+		Concept updatedConcept = conceptService.update(savedConcept, DEFAULT_LANGUAGE_DIALECTS, "MAIN");
+		assertEquals("Bleeding (morphologic abnormality)", updatedConcept.getFsn().getTerm());
+		assertEquals(1, updatedConcept.getDescriptions().size());
+		description = updatedConcept.getDescriptions().iterator().next();
+		assertEquals("84923010", description.getDescriptionId());
+		assertEquals(1, description.getAcceptabilityMapFromLangRefsetMembers().size());
 	}
 
 	@Test
