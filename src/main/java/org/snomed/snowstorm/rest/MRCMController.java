@@ -25,18 +25,18 @@ public class MRCMController {
 	private MRCMService mrcmService;
 
 	@ApiOperation(value = "Retrieve MRCM domain attributes applicable for the given stated parents.",
-			notes = "If creating post-coordinated expressions be sure to set the content type to POSTCOORDINATED.")
+			notes = "The parentIds must be the set ids of stated parents. If creating post-coordinated expressions be sure to set the content type to POSTCOORDINATED.")
 	@RequestMapping(value = "/mrcm/{branch}/domain-attributes", method = RequestMethod.GET)
 	@ResponseBody
 	public ItemsPage<ConceptMini> retrieveDomainAttributes(
 			@PathVariable String branch,
-			@RequestParam(required = false) Set<Long> statedParentIds,
+			@RequestParam(required = false) Set<Long> parentIds,
 			@RequestParam(required = false, defaultValue = "true") boolean proximalPrimitiveModeling,
 			@RequestParam(required = false, defaultValue = "NEW_PRECOORDINATED") ContentType contentType,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-		return new ItemsPage<>(mrcmService.retrieveDomainAttributes(contentType, proximalPrimitiveModeling, statedParentIds, branch, parseAcceptLanguageHeader(acceptLanguageHeader)));
+		return new ItemsPage<>(mrcmService.retrieveDomainAttributes(contentType, proximalPrimitiveModeling, parentIds, branch, parseAcceptLanguageHeader(acceptLanguageHeader)));
 	}
 
 	@ApiOperation("Retrieve valid values for the given attribute and term prefix.")
