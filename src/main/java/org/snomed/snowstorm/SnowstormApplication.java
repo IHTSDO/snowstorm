@@ -1,6 +1,5 @@
 package org.snomed.snowstorm;
 
-import org.elasticsearch.common.util.concurrent.UncategorizedExecutionException;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,7 +9,6 @@ import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.StartupException;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
-import org.snomed.snowstorm.mrcm.MRCMService;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
@@ -40,9 +38,6 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	@Autowired
 	private ImportService importService;
 	
-	@Autowired
-	private MRCMService mrcmService;
-
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
 
@@ -78,7 +73,6 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 			initialiseIndices(deleteIndices);
 
 			codeSystemService.init();
-			mrcmService.loadFromFiles();
 			referenceSetMemberService.init();
 
 			logger.info("--- Snowstorm startup complete ---");

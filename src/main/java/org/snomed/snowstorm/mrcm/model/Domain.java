@@ -1,40 +1,59 @@
 package org.snomed.snowstorm.mrcm.model;
 
-import java.util.HashSet;
-import java.util.Set;
-
 public class Domain {
-	private Long conceptId;
-	private InclusionType inclusionType;
-	private Set<Attribute> attributes;
 
-	public Domain(Long conceptId, InclusionType inclusionType) {
-		this.conceptId = conceptId;
-		this.inclusionType = inclusionType;
-		attributes = new HashSet<>();
+	private String id;
+	private String effectiveTime;
+	private boolean active;
+	private String referencedComponentId;
+	private Constraint domainConstraint;
+	private String parentDomain;
+	private Constraint proximalPrimitiveConstraint;
+	private String proximalPrimitiveRefinement;
+
+	public Domain(String id, String effectiveTime, boolean active, String referencedComponentId, Constraint domainConstraint, String parentDomain,
+			Constraint proximalPrimitiveConstraint, String proximalPrimitiveRefinement) {
+
+		this.id = id;
+		this.effectiveTime = effectiveTime;
+		this.active = active;
+		this.referencedComponentId = referencedComponentId;
+		this.domainConstraint = domainConstraint;
+		this.parentDomain = parentDomain;
+		this.proximalPrimitiveConstraint = proximalPrimitiveConstraint;
+		this.proximalPrimitiveRefinement = proximalPrimitiveRefinement;
 	}
 
-	public Long getConceptId() {
-		return conceptId;
+	public String getId() {
+		return id;
 	}
 
-	public void setConceptId(Long conceptId) {
-		this.conceptId = conceptId;
+	public String getEffectiveTime() {
+		return effectiveTime;
 	}
 
-	public InclusionType getInclusionType() {
-		return inclusionType;
+	public boolean isActive() {
+		return active;
 	}
 
-	public void setInclusionType(InclusionType inclusionType) {
-		this.inclusionType = inclusionType;
+	public String getReferencedComponentId() {
+		return referencedComponentId;
 	}
 
-	public Set<Attribute> getAttributes() {
-		return attributes;
+	public Constraint getDomainConstraint() {
+		return domainConstraint;
 	}
 
-	public void setAttributes(Set<Attribute> attributes) {
-		this.attributes = attributes;
+	public String getParentDomain() {
+		return parentDomain;
 	}
+
+	public Constraint getProximalPrimitiveConstraint() {
+		return proximalPrimitiveConstraint;
+	}
+
+	public String getProximalPrimitiveRefinement() {
+		return proximalPrimitiveRefinement;
+	}
+
 }
