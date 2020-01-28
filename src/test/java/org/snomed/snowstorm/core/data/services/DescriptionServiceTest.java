@@ -8,6 +8,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
@@ -21,8 +22,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.Lists.newArrayList;
 import static java.lang.Long.parseLong;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.services.DescriptionService.SearchMode.REGEX;
 
@@ -44,6 +44,9 @@ public class DescriptionServiceTest extends AbstractTest {
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
+
+	@Autowired
+	private SearchLanguagesConfiguration searchLanguagesConfiguration;
 
 	private ServiceTestUtil testUtil;
 
@@ -91,6 +94,7 @@ public class DescriptionServiceTest extends AbstractTest {
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100004", "Région de l'Afrique", "fr");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100005", "déficit de apolipoproteína", "es");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100006", "thing", "zz");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100007", "Ernährungsberater", "de");
 
 		// In the French language 'é' is NOT configured as an extra character in the alphabet so is folded to it's simpler form 'e' in the index.
 		// Searching for either 'é' or 'e' should give the same match.
@@ -110,6 +114,10 @@ public class DescriptionServiceTest extends AbstractTest {
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "région", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "déficit", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "thing", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+
+		assertNull("No configuration exists for the de language.", searchLanguagesConfiguration.getCharactersNotFolded().get("de"));
+		assertEquals("Match a term containing special characters using a language which is not configured.",
+				1, descriptionService.findDescriptionsWithAggregations("MAIN", "Ernährungsberater", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 	}
 
 	@Test

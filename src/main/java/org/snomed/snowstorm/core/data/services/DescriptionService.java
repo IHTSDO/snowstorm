@@ -28,7 +28,6 @@ import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
@@ -660,7 +659,10 @@ public class DescriptionService extends ComponentService {
 					Map<String, Set<Character>> charactersNotFoldedSets = searchLanguagesConfiguration.getCharactersNotFoldedSets();
 					if (allLanguages) {
 						Set<String> allLanguageCodes = new HashSet<>(charactersNotFoldedSets.keySet());
-						allLanguageCodes.add(DEFAULT_LANGUAGE_CODE);
+
+						// Any language - fully folded
+						allLanguageCodes.add("");
+
 						languageCodes = allLanguageCodes;
 					}
 					for (String languageCode : languageCodes) {
@@ -670,17 +672,13 @@ public class DescriptionService extends ComponentService {
 						if (foldedSearchTerm.isEmpty()) {
 							continue;
 						}
-						shouldClauses.should(boolQuery()
-								.must(termQuery(Description.Fields.LANGUAGE_CODE, languageCode))
+						BoolQueryBuilder languageQuery = boolQuery()
 								.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
-										.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND)));
-					}
-					if (allLanguages) {
-						shouldClauses.should(boolQuery()
-								// Any other language without folding
-								.mustNot(termsQuery(Description.Fields.LANGUAGE_CODE, languageCodes))
-								.filter(simpleQueryStringQuery(constructSimpleQueryString(term))
-										.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND)));
+										.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));
+						if (!languageCode.isEmpty()) {
+							languageQuery.must(termQuery(Description.Fields.LANGUAGE_CODE, languageCode));
+						}
+						shouldClauses.should(languageQuery);
 					}
 
 					if (containingNonAlphanumeric(term)) {
