@@ -25,6 +25,10 @@ public interface FHIRConstants {
 	String NAME = "name";
 	String PROPERTY = "property";
 	StringType PARENT = new StringType("parent");
+	
+	String ACCEPT_LANGUAGE_HEADER = "Accept-Language";
+	int MAX_LANGUAGE_CODE_LENGTH = 5;
+	String PIPE = "\\|";
 
 	String SNOMED_EDITION = "SNOMED CT International Edition";
 	String SNOMED_INTERNATIONAL = "SNOMED International";

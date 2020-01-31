@@ -2,15 +2,12 @@ package org.snomed.snowstorm.fhir.services;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpServletRequest;
 
 import org.hl7.fhir.r4.model.StringType;
-import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceComponent;
-import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
-import org.hl7.fhir.r4.model.ValueSet.ConceptSetFilterComponent;
-import org.hl7.fhir.r4.model.ValueSet.FilterOperator;
+import org.hl7.fhir.r4.model.ValueSet.*;
+import org.apache.commons.lang.StringUtils;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,9 +24,7 @@ import org.springframework.stereotype.Component;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
 
 @Component
-class FHIRHelper {
-
-	private static final String ACCEPT_LANGUAGE_HEADER = "Accept-Language";
+class FHIRHelper implements FHIRConstants {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
@@ -97,27 +92,32 @@ class FHIRHelper {
 		return branchPath;
 	}
 
-	public List<String> getLanguageCodes(List<String> designations, HttpServletRequest request) throws FHIROperationException {
-		// Use designations by default, or fall back to language headers
+	public List<LanguageDialect> getLanguageDialects(List<String> designations, HttpServletRequest request) throws FHIROperationException {
+		// Use designations preferably, or fall back to language headers
 		if (designations != null) {
-			List<String> languageCodes = new ArrayList<>();
+			List<LanguageDialect> languageDialects = new ArrayList<>();
 			for (String designation : designations) {
-				if (designation.length() > 5) {
-					throw new FHIROperationException(IssueType.VALUE, "'designation' parameters are currently limited to language codes.  Received '" + designation + "'");
+				if (designation.length() > MAX_LANGUAGE_CODE_LENGTH) {
+					//in this case we're expecting a designation token 
+					//of the form snomed PIPE langrefsetId
+					String[] tokenParts = designation.split(PIPE);
+					if (tokenParts.length < 2 || 
+							!StringUtils.isNumeric(tokenParts[1]) ||
+							!tokenParts[0].equals(SNOMED_URI)) {
+						throw new FHIROperationException(IssueType.VALUE, "Malformed designation token '" + designation + "' expected format http://snomed.info/sct PIPE langrefsetId");
+					}
+					languageDialects.add(new LanguageDialect(null, Long.parseLong(tokenParts[1])));
+				} else {
+					languageDialects.add(new LanguageDialect(designation));
 				}
-				languageCodes.add(designation);
 			}
-			if (languageCodes.isEmpty()) {
-				languageCodes.add(DEFAULT_LANGUAGE_CODE);
+			if (languageDialects.isEmpty()) {
+				languageDialects.add(new LanguageDialect(DEFAULT_LANGUAGE_CODE));
 			}
-			return languageCodes;
+			return languageDialects;
 		} else {
-			return ControllerHelper.getLanguageCodes(request.getHeader(ACCEPT_LANGUAGE_HEADER));
+			return ControllerHelper.parseAcceptLanguageHeader(request.getHeader(ACCEPT_LANGUAGE_HEADER));
 		}
-	}
-
-	List<LanguageDialect> getLanguageDialects(List<String> languageCodes) {
-		return languageCodes.stream().map(LanguageDialect::new).collect(Collectors.toList());
 	}
 
 	public String convertToECL(ConceptSetComponent setDefn) throws FHIROperationException {
@@ -163,5 +163,29 @@ class FHIRHelper {
 			default :
 				throw new FHIROperationException (IssueType.NOTSUPPORTED , "ValueSet compose filter operation " + op.toCode() + " (" + op.getDisplay() + ") not currently supported");
 		}
+	}
+
+	public void ensurePresent(String langCode, List<LanguageDialect> languageDialects) {
+		if (languageDialects == null) {
+			languageDialects = new ArrayList<>();
+		}
+			
+		if (!isPresent(languageDialects, langCode)) {
+			languageDialects.add(new LanguageDialect(langCode));
+		}
+	}
+
+	private boolean isPresent(List<LanguageDialect> languageDialects, String langCode) {
+		return languageDialects.stream()
+				.anyMatch(ld -> ld.getLanguageCode().equals(langCode));
+	}
+
+	public String getFirstLanguageSpecified(List<LanguageDialect> languageDialects) {
+		for (LanguageDialect dialect : languageDialects) {
+			if (dialect.getLanguageCode() != null) {
+				return dialect.getLanguageCode();
+			}
+		}
+		return null;
 	}
 }

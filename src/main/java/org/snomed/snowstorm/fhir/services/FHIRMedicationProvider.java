@@ -10,12 +10,15 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
+import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
+
+import javax.servlet.http.HttpServletRequest;
 
 @Component
 public class FHIRMedicationProvider implements IResourceProvider, FHIRConstants {
@@ -24,25 +27,17 @@ public class FHIRMedicationProvider implements IResourceProvider, FHIRConstants 
 	private ConceptService conceptService;
 
 	@Autowired
-	private QueryService queryService;
-
-	@Autowired
-	private HapiParametersMapper mapper;
-	
-	@Autowired
 	private FHIRHelper fhirHelper;
-
+	
 	@Read()
-	// XXX There are a lot of hardcoded values in here including language and branch. This should be cleanup up before it goes to master.
-	public Medication getMedication(@IdParam IdType id) throws FHIROperationException {
+	public Medication getMedication(HttpServletRequest request,
+									@IdParam IdType id) throws FHIROperationException {
 		Medication medication = new Medication();
-		List<String> languageCodes = new ArrayList<>();
-		languageCodes.add("es");
-		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(languageCodes);
+		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
 		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(id.getIdPart(), languageDialects, "MAIN"));
 		medication.setId(id);
-		String fsn = getFSN(concept, "es");
-		CodeableConcept code = new CodeableConcept(new Coding(FHIRConstants.SNOMED_URI, concept.getId(), fsn));
+		TermLangPojo fsn = concept.getFsn(languageDialects);
+		CodeableConcept code = new CodeableConcept(new Coding(FHIRConstants.SNOMED_URI, concept.getId(), fsn.getTerm()));
 		medication.setCode(code);
 		Set<Integer> groups = new HashSet<>();
 		List<Relationship> rels = concept.getRelationships(true, null, null, Concepts.INFERRED_RELATIONSHIP);
@@ -108,16 +103,6 @@ public class FHIRMedicationProvider implements IResourceProvider, FHIRConstants 
 			medication.setText(narrative);
 			return medication;
 		}
-	}
-
-	private String getFSN(Concept c, String languageCode) {
-		String term = "";
-		for (Description d : c.getActiveDescriptions()) {
-			if (d.getTypeId().equals(Concepts.FSN) && d.getLanguageCode().equals(languageCode)) {
-				term = d.getTerm();
-			}
-		}
-		return term;
 	}
 
 	@Override

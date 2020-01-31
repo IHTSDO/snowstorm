@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -11,10 +12,7 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -459,22 +457,63 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 				'}';
 	}
 
-	public boolean hasAcceptability(String acceptability, String refsetId) {
-		ReferenceSetMember entry = langRefsetMembers.get(refsetId);
+	//TODO would be better to agree if refsetIds are Strings or Long and make consistent everywhere
+	public boolean hasAcceptability(String acceptability, Object refsetId) {
+		ReferenceSetMember entry = langRefsetMembers.get(refsetId.toString());
 		return (entry != null 
 				&& entry.isActive() 
-				&& entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability));
+				&& acceptability == null || entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability));
 	}
 	
 	/**
+	 * @param acceptability one of Concept.PREFERRED, Concept.ACCEPTABLE or null for either
 	 * @return true if the description has that acceptability in ANY langrefset
 	 */
 	public boolean hasAcceptability(String acceptability) {
 		for (ReferenceSetMember entry : langRefsetMembers.values()) {
-			if (entry.isActive() && entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability)) {
+			if (entry.isActive() 
+					&& acceptability == null || entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability)) {
 				return true;
 			}
 		}
 		return false;
+	}
+	
+	/**
+	 * @return true if the description is either accepted or preferred 
+	 * in the given language refset 
+	 */
+	public boolean hasLanguageRefset(Long langRefsetId) {
+		String langRefsetIdStr = langRefsetId.toString();
+		return langRefsetMembers.values().stream()
+				.filter(l -> l.isActive())
+				.anyMatch(l ->l.getRefsetId().equals(langRefsetIdStr));
+	}
+	
+	/**
+	 * @return true if the description has the specified acceptability (or either, if null)
+	 * for the given language refset and/or language where specified in the dialect
+	 */
+	public boolean hasAcceptability(String acceptability, LanguageDialect dialect) {
+		//Is the language refset specified in the dialect?
+		if (dialect.getLanguageReferenceSet() == null) {
+			return languageCode.equals(dialect.getLanguageCode());
+		} else if (hasLanguageRefset(dialect.getLanguageReferenceSet())) {
+			//If the language hasn't been specified, that's good enough for a match
+			if (dialect.getLanguageCode() == null) {
+				return hasAcceptability(acceptability, dialect.getLanguageReferenceSet());
+			} else {
+				//...but if it has been, check that also
+				return languageCode.equals(dialect.getLanguageCode()); 
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * @return true if the description has any acceptability in any of the dialects specified
+	 */
+	public boolean hasAcceptability(List<LanguageDialect> dialects) {
+		return dialects.stream().anyMatch(d -> hasAcceptability(null, d));
 	}
 }

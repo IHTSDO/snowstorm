@@ -139,6 +139,10 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	public TermLangPojo getFsn() {
 		return DescriptionHelper.getFsnDescriptionTermAndLang(descriptions, requestedLanguageDialects != null ? requestedLanguageDialects : DEFAULT_LANGUAGE_DIALECTS);
 	}
+	
+	public TermLangPojo getFsn(List<LanguageDialect> requestedLanguageDialects) {
+		return DescriptionHelper.getFsnDescriptionTermAndLang(descriptions, requestedLanguageDialects != null ? requestedLanguageDialects : DEFAULT_LANGUAGE_DIALECTS);
+	}
 
 	@JsonView(value = View.Component.class)
 	@Override
