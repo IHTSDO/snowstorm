@@ -7,6 +7,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 import java.util.Date;
+import java.util.Set;
 
 @Document(indexName = "export-config", type = "exportconfiguration")
 public class ExportConfiguration {
@@ -28,13 +29,15 @@ public class ExportConfiguration {
 	@ApiModelProperty(value = "false")
 	private boolean conceptsAndRelationshipsOnly;
 
-	@ApiModelProperty(notes = "Format: yyyymmdd. Add an a transient effectiveTime to rows of content which are not yet versioned.")
+	@ApiModelProperty(notes = "Format: yyyymmdd. Add a transient effectiveTime to rows of content which are not yet versioned.")
 	@Pattern(regexp = "[0-9]{8}")
 	private String transientEffectiveTime;
 
 	@ApiModelProperty(notes = "Format: yyyymmdd. Can be used to produce a delta after content is versioned by filtering a SNAPSHOT export by effectiveTime.")
 	@Pattern(regexp = "[0-9]{8}")
 	private String startEffectiveTime;
+
+	private Set<String> moduleIds;
 
 	public ExportConfiguration() {
 	}
@@ -106,5 +109,13 @@ public class ExportConfiguration {
 
 	public void setStartEffectiveTime(String startEffectiveTime) {
 		this.startEffectiveTime = startEffectiveTime;
+	}
+
+	public Set<String> getModuleIds() {
+		return moduleIds;
+	}
+
+	public void setModuleIds(Set<String> moduleIds) {
+		this.moduleIds = moduleIds;
 	}
 }
