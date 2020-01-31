@@ -1,135 +1,126 @@
 package org.snomed.snowstorm.mrcm;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import org.apache.tomcat.util.http.fileupload.util.Streams;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.ECLQueryBuilder;
+import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
+import org.snomed.langauges.ecl.domain.expressionconstraint.RefinedExpressionConstraint;
+import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.mrcm.model.Attribute;
-import org.snomed.snowstorm.mrcm.model.Domain;
-import org.snomed.snowstorm.mrcm.model.MRCM;
-import org.snomed.snowstorm.mrcm.model.load.*;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.mrcm.model.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
-import java.io.*;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
-import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 
+@Service
+public class MRCMLoader {
 
-class MRCMLoader {
+	@Autowired
+	private ECLQueryBuilder eclQueryBuilder;
 
-	private final String mrcmXmlPath;
+	@Autowired
+	private ReferenceSetMemberService memberService;
 
 	private static Logger logger = LoggerFactory.getLogger(MRCMLoader.class);
-	private static final String MRCM_FILE_NAME = "mrcm.xmi";
 
-	MRCMLoader(String mrcmXmlPath) {
-		this.mrcmXmlPath = mrcmXmlPath;
-	}
+	// TODO: Make this work for MRCM extensions. Ask Guillermo how he is extending the MRCM in Extensions TermMed are maintaining.
+	MRCM loadActiveMRCM(String branchPath, BranchCriteria branchCriteria) throws ServiceException {
+		TimerUtil timer = new TimerUtil("MRCM");
 
-	Map<String, MRCM> loadFromFiles() throws ServiceException {
-		// Create MRCM config directory if it does not exist
-		File mrcmDir = new File(mrcmXmlPath);
-		File mrcmMainDir = new File(mrcmDir, MAIN);
-		if (!mrcmMainDir.exists()){
-			if (!mrcmMainDir.mkdirs()) {
-				throw new ServiceException("Failed to create MRCM configuration directory " + mrcmMainDir.getAbsolutePath());
+		List<ReferenceSetMember> domainMembers = memberService.findMembers(branchPath, branchCriteria,
+				new MemberSearchRequest().referenceSet(Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL), LARGE_PAGE).getContent();
+
+		List<Domain> domains = new ArrayList<>();
+		for (ReferenceSetMember member : domainMembers) {
+			// id	effectiveTime	active	moduleId	refsetId	referencedComponentId	domainConstraint	parentDomain
+			// proximalPrimitiveConstraint	proximalPrimitiveRefinement	domainTemplateForPrecoordination	domainTemplateForPostcoordination	guideURL
+			if (member.isActive()) {
+				domains.add(new Domain(
+						member.getMemberId(),
+						member.getEffectiveTime(),
+						member.isActive(),
+						member.getReferencedComponentId(),
+						getConstraint(member.getAdditionalField("domainConstraint"), member.getMemberId()),
+						member.getAdditionalField("parentDomain"),
+						getConstraint(member.getAdditionalField("proximalPrimitiveConstraint"), member.getMemberId()),
+						member.getAdditionalField("proximalPrimitiveRefinement")
+				));
 			}
 		}
+		timer.checkpoint("Load domains");
 
-		// Create MAIN MRCM file from the default if it does not yet exist
-		File mrcmMainFile = new File(mrcmMainDir, MRCM_FILE_NAME);
-		if (!mrcmMainFile.isFile()) {
-			try {
-				if (!mrcmMainFile.createNewFile()) {
-					throw new ServiceException("Failed to create MRCM configuration file " + mrcmMainFile.getAbsolutePath());
-				}
-				try (FileOutputStream outputStream = new FileOutputStream(mrcmMainFile)) {
-					Streams.copy(getClass().getResourceAsStream("/mrcm/" + MRCM_FILE_NAME), outputStream, true);
-				}
-			} catch (IOException e) {
-				throw new ServiceException("Failed to write default MRCM configuration file " + mrcmMainFile.getAbsolutePath());
+		List<ReferenceSetMember> attributeDomainMembers = memberService.findMembers(branchPath, branchCriteria,
+				new MemberSearchRequest().referenceSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL), LARGE_PAGE).getContent();
+
+		List<AttributeDomain> attributeDomains = new ArrayList<>();
+		for (ReferenceSetMember member : attributeDomainMembers) {
+			// id	effectiveTime	active	moduleId	refsetId	referencedComponentId	domainId
+			// grouped	attributeCardinality	attributeInGroupCardinality	ruleStrengthId	contentTypeId
+			if (member.isActive()) {
+				attributeDomains.add(new AttributeDomain(
+						member.getMemberId(),
+						member.getEffectiveTime(),
+						member.isActive(),
+						member.getReferencedComponentId(),
+						member.getAdditionalField("domainId"),
+						member.getAdditionalField("grouped").equalsIgnoreCase("1"),
+						new Cardinality(member.getAdditionalField("attributeCardinality")),
+						new Cardinality(member.getAdditionalField("attributeInGroupCardinality")),
+						RuleStrength.lookupByConceptId(member.getAdditionalField("ruleStrengthId")),
+						ContentType.lookupByConceptId(member.getAdditionalField("contentTypeId"))
+				));
 			}
 		}
+		timer.checkpoint("Load attribute domains");
 
-		// Walk mrcm directories. The directory path will be used as the branch path for each mrcm.xmi file.
 
-		Map<String, MRCM> branchMrcmMap = new HashMap<>();
-		try {
-			Files.walkFileTree(mrcmDir.toPath(), new SimpleFileVisitor<Path>() {
-				@Override
-				public FileVisitResult visitFile(Path filePath, BasicFileAttributes attrs) throws IOException {
-					File file = filePath.toFile();
-					if (file.isFile() && file.getName().equals(MRCM_FILE_NAME)) {
-						try (FileInputStream mrcmXmlStream = new FileInputStream(file)) {
-							MRCM mrcm = load(mrcmXmlStream);
-							String branchPath = file.getAbsolutePath().substring(mrcmDir.getAbsolutePath().length() + 1);
-							branchPath = branchPath.substring(0, branchPath.length() - file.getName().length() - 1);
-							branchMrcmMap.put(branchPath, mrcm);
-						}
-					}
-					return FileVisitResult.CONTINUE;
-				}
-			});
-		} catch (IOException e) {
-			throw new ServiceException("Failed to load MRCM from XML file.");
-		}
+		List<ReferenceSetMember> attributeRangeMembers = memberService.findMembers(branchPath, branchCriteria,
+				new MemberSearchRequest().referenceSet(Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL), LARGE_PAGE).getContent();
 
-		return branchMrcmMap;
-	}
-
-	private MRCM load(InputStream mrcmXmlStream) throws IOException {
-		Map<Long, Domain> domainMap = new HashMap<>();
-		Map<Long, Attribute> attributeMap = new HashMap<>();
-
-		logger.info("Loading MRCM from XML document.");
-		XmlMapper mapper = new XmlMapper();
-		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-		ConceptModel conceptModel = mapper.readValue(mrcmXmlStream, ConceptModel.class);
-		for (Constraints constraints : conceptModel.getConstraints()) {
-			org.snomed.snowstorm.mrcm.model.load.Domain loadDomain = constraints.getDomain();
-			Long domainConceptId = loadDomain.getConceptId();
-			logger.debug("domain " + domainConceptId);
-			Predicate predicate = constraints.getPredicate();
-			Predicate predicate1 = predicate.getPredicate();
-			org.snomed.snowstorm.mrcm.model.load.Attribute loadAttribute = predicate1.getAttribute();
-			if (loadAttribute != null) {
-
-				Domain domain = domainMap.computeIfAbsent(domainConceptId,
-						k -> new Domain(domainConceptId, loadDomain.getInclusionType()));
-
-				Attribute attribute = new Attribute(loadAttribute.getConceptId(), loadAttribute.getInclusionType());
-				attributeMap.put(attribute.getConceptId(), attribute);
-				domain.getAttributes().add(attribute);
-
-				logger.debug("attribute " + loadAttribute.getConceptId());
-				Range range = predicate1.getRange();
-				Long rangeConcepId = range.getConceptId();
-				logger.debug("range");
-				if (rangeConcepId != null) {
-					logger.debug("- " + rangeConcepId);
-					attribute.getRangeSet().add(new org.snomed.snowstorm.mrcm.model.Range(rangeConcepId, range.getInclusionType()));
-				} else {
-					for (Children rangeChild : range.getChildren()) {
-						logger.debug("+- " + rangeChild.getConceptId());
-						attribute.getRangeSet().add(new org.snomed.snowstorm.mrcm.model.Range(rangeChild.getConceptId(), rangeChild.getInclusionType()));
-					}
-				}
-			} else {
-				logger.debug("Lexical constraint will be ignored.");
+		List<AttributeRange> attributeRanges = new ArrayList<>();
+		for (ReferenceSetMember member : attributeRangeMembers) {
+			// id	effectiveTime	active	moduleId	refsetId	referencedComponentId	rangeConstraint	attributeRule	ruleStrengthId	contentTypeId
+			if (member.isActive()) {
+				attributeRanges.add(new AttributeRange(
+						member.getMemberId(),
+						member.getEffectiveTime(),
+						member.isActive(),
+						member.getReferencedComponentId(),
+						member.getAdditionalField("rangeConstraint"),
+						member.getAdditionalField("attributeRule"),
+						RuleStrength.lookupByConceptId(member.getAdditionalField("ruleStrengthId")),
+						ContentType.lookupByConceptId(member.getAdditionalField("contentTypeId"))
+				));
 			}
 		}
-		MRCM mrcm = new MRCM();
-		mrcm.setDomainMap(domainMap);
-		mrcm.setAttributeMap(attributeMap);
-		logger.info("MRCM loaded with {} domains and {} attributes.", domainMap.size(), attributeMap.size());
-		return mrcm;
+		timer.checkpoint("Load attribute ranges");
+
+		return new MRCM(domains, attributeDomains, attributeRanges);
 	}
+
+	private Constraint getConstraint(String constraint, String memberId) {
+		ExpressionConstraint ecl = eclQueryBuilder.createQuery(constraint);
+		if (ecl instanceof SubExpressionConstraint) {
+			SubExpressionConstraint sub = (SubExpressionConstraint) ecl;
+			return new Constraint(constraint, sub.getConceptId(), sub.getOperator());
+		} else if (ecl instanceof RefinedExpressionConstraint) {
+			RefinedExpressionConstraint refined = (RefinedExpressionConstraint) ecl;
+			SubExpressionConstraint sub = refined.getSubexpressionConstraint();
+			return new Constraint(constraint, sub.getConceptId(), sub.getOperator());
+		} else {
+			logger.error("Unable to process MRCM constraint '{}' in member {}.", constraint, memberId);
+		}
+		return null;
+	}
+
 }

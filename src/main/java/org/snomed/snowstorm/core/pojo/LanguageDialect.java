@@ -1,8 +1,9 @@
 package org.snomed.snowstorm.core.pojo;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public class LanguageDialect {
+public class LanguageDialect implements Serializable {
 
 	private String languageCode;
 	private Long languageReferenceSet;

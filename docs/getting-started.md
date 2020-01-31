@@ -19,13 +19,14 @@ Download and install [Elasticsearch version 6](https://www.elastic.co/downloads/
 
 Update the configuration file _config/jvm.options_ with the memory options `-Xms4g` and `-Xmx4g`.
 
-### Build Snowstorm
-Build Snowstorm using maven:
+### Get Snowstorm Application Jar
+Download the latest release jar from the [releases page](https://github.com/IHTSDO/snowstorm/releases).
+
+**Or** build Snowstorm from the source code using maven:
 ```bash
 mvn clean package
 ```
-
-**Or** download the most latest released jar from [the repository releases](https://github.com/IHTSDO/snowstorm/releases).
+Maven creates the jar file in the 'target' directory.
 
 
 ## Start Snowstorm

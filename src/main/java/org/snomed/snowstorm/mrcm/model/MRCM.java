@@ -1,25 +1,28 @@
 package org.snomed.snowstorm.mrcm.model;
 
-import java.util.Map;
+import java.util.List;
 
 public class MRCM {
 
-	private Map<Long, Domain> domainMap;
-	private Map<Long, Attribute> attributeMap;
+	private final List<Domain> domains;
+	private final List<AttributeDomain> attributeDomains;
+	private final List<AttributeRange> attributeRanges;
 
-	public void setDomainMap(Map<Long, Domain> domainsMap) {
-		this.domainMap = domainsMap;
+	public MRCM(List<Domain> domains, List<AttributeDomain> attributeDomains, List<AttributeRange> attributeRanges) {
+		this.domains = domains;
+		this.attributeDomains = attributeDomains;
+		this.attributeRanges = attributeRanges;
 	}
 
-	public Map<Long, Domain> getDomainMap() {
-		return domainMap;
+	public List<Domain> getDomains() {
+		return domains;
 	}
 
-	public void setAttributeMap(Map<Long, Attribute> attributeMap) {
-		this.attributeMap = attributeMap;
+	public List<AttributeDomain> getAttributeDomains() {
+		return attributeDomains;
 	}
 
-	public Map<Long, Attribute> getAttributeMap() {
-		return attributeMap;
+	public List<AttributeRange> getAttributeRanges() {
+		return attributeRanges;
 	}
 }

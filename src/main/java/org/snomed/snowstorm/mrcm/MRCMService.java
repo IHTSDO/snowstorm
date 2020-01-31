@@ -1,31 +1,36 @@
 package org.snomed.snowstorm.mrcm;
 
-import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.domain.refinement.Operator;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
-import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.util.*;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
+
+import static java.lang.Long.parseLong;
 
 @Service
 public class MRCMService {
-	
+
+	private static final PageRequest RESPONSE_PAGE_SIZE = PageRequest.of(0, 50);
+
+	@Autowired
+	private MRCMLoader mrcmLoader;
+
 	@Autowired
 	private QueryService queryService;
 
@@ -35,151 +40,98 @@ public class MRCMService {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
-	private Map<String, MRCM> branchMrcmMap;
-
-	@Value("${validation.mrcm.xml.path}")
-	private String mrcmXmlPath;
-
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
-	public void loadFromFiles() throws ServiceException {
-		this.branchMrcmMap = new MRCMLoader(mrcmXmlPath).loadFromFiles();
-	}
+	// Hardcoded Is a (attribute)
+	// 'Is a' is not really an attribute at all but it's convenient for implementations to have this.
+	private static final AttributeDomain IS_A_ATTRIBUTE_DOMAIN = new AttributeDomain(null, null, true, Concepts.ISA, Concepts.SNOMEDCT_ROOT, false,
+			new Cardinality(1, null), new Cardinality(0, 0), RuleStrength.MANDATORY, ContentType.ALL);
+	private static final AttributeRange IS_A_ATTRIBUTE_RANGE = new AttributeRange(null, null, true, Concepts.ISA, "*", "*", RuleStrength.MANDATORY, ContentType.ALL);
 
-	public Collection<ConceptMini> retrieveDomainAttributes(String branchPath, Set<Long> parentIds, List<LanguageDialect> languageDialects) {
+	public Collection<ConceptMini> retrieveDomainAttributes(ContentType contentType, boolean proximalPrimitiveModeling, Set<Long> parentIds, String branchPath,
+			List<LanguageDialect> languageDialects) throws ServiceException {
+
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		Set<Long> allMatchedAttributeIds; 
+
+		List<AttributeDomain> attributeDomains = new ArrayList<>();
+
+		// Start with 'Is a' relationship which is applicable to all concept types and domains
+		attributeDomains.add(IS_A_ATTRIBUTE_DOMAIN);
 		
-		//If no parents are specified, we can always at least return ISA as a valid option
-		if (parentIds == null || parentIds.isEmpty()) {
-			allMatchedAttributeIds = Collections.singleton(Concepts.IS_A_LONG);
-		} else {
+		if (!CollectionUtils.isEmpty(parentIds)) {
+			// Lookup ancestors using stated parents
 			Set<Long> allAncestors = queryService.findAncestorIdsAsUnion(branchCriteria, false, parentIds);
 			allAncestors.addAll(parentIds);
-	
-			Set<Domain> matchedDomains = getClosestMrcm(branchPath).getDomainMap().values().stream().filter(d -> {
-				Long domainConceptId = d.getConceptId();
-				InclusionType inclusionType = d.getInclusionType();
-				if ((inclusionType == InclusionType.SELF || inclusionType == InclusionType.SELF_OR_DESCENDANT)
+
+			// Load MRCM using active records applicable to this branch
+			MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+
+			// Find matching domains
+			Set<Domain> matchedDomains = branchMRCM.getDomains().stream().filter(domain -> {
+				Constraint constraint = proximalPrimitiveModeling ? domain.getProximalPrimitiveConstraint() : domain.getDomainConstraint();
+				Long domainConceptId = parseLong(constraint.getConceptId());
+				Operator operator = constraint.getOperator();
+				if ((operator == null || operator == Operator.descendantorselfof)
 						&& parentIds.contains(domainConceptId)) {
 					return true;
 				}
-				if ((inclusionType == InclusionType.DESCENDANT || inclusionType == InclusionType.SELF_OR_DESCENDANT)
-						&& allAncestors.contains(domainConceptId)) {
-					return true;
-				}
-				return false;
+				return (operator == Operator.descendantof || operator == Operator.descendantorselfof)
+						&& allAncestors.contains(domainConceptId);
 			}).collect(Collectors.toSet());
-	
-			Set<Attribute> matchedAttributes = matchedDomains.stream().map(Domain::getAttributes).flatMap(Collection::stream).collect(Collectors.toSet());
-	
-			allMatchedAttributeIds = matchedAttributes.stream().map(Attribute::getConceptId).collect(Collectors.toSet());
-			Set<Long> descendantTypeAttributes = matchedAttributes.stream().filter(attribute -> attribute.getInclusionType() == InclusionType.DESCENDANT).map(Attribute::getConceptId).collect(Collectors.toSet());
-			Set<Long> selfOrDescendantTypeAttributes = matchedAttributes.stream().filter(attribute -> attribute.getInclusionType() == InclusionType.SELF_OR_DESCENDANT).map(Attribute::getConceptId).collect(Collectors.toSet());
-	
-			List<Long> descendantAttributes = queryService.findDescendantIdsAsUnion(branchCriteria, false, Sets.union(descendantTypeAttributes, selfOrDescendantTypeAttributes));
-	
-			allMatchedAttributeIds.removeAll(descendantAttributes);
-			allMatchedAttributeIds.addAll(descendantAttributes);
+			Set<String> domainReferenceComponents = matchedDomains.stream().map(Domain::getReferencedComponentId).collect(Collectors.toSet());
+
+			// Find applicable attributes
+			attributeDomains.addAll(branchMRCM.getAttributeDomains().stream()
+					.filter(attributeDomain -> attributeDomain.getContentType().ruleAppliesToContentType(contentType)
+							&& domainReferenceComponents.contains(attributeDomain.getDomainId())).collect(Collectors.toList()));
 		}
 
-		return conceptService.findConceptMinis(branchCriteria, allMatchedAttributeIds, languageDialects).getResultsMap().values();
+		Set<String> attributeIds = attributeDomains.stream().map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
+		Collection<ConceptMini> attributeConceptMinis = conceptService.findConceptMinis(branchCriteria, attributeIds, languageDialects).getResultsMap().values();
+		for (ConceptMini attributeConceptMini : attributeConceptMinis) {
+			attributeConceptMini.addExtraField("attributeDomain",
+					attributeDomains.stream().filter(attributeDomain -> attributeConceptMini.getId().equals(attributeDomain.getReferencedComponentId()))
+							.collect(Collectors.toSet()));
+		}
+
+		return attributeConceptMinis;
 	}
 
-	public Collection<ConceptMini> retrieveAttributeValues(String branchPath, String attributeId, String termPrefix, List<LanguageDialect> languageDialects) {
+	public Collection<ConceptMini> retrieveAttributeValues(ContentType contentType, String attributeId, String termPrefix, String branchPath, List<LanguageDialect> languageDialects) throws ServiceException {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		Attribute attribute = findSelfOrFirstAncestorAttribute(branchPath, branchCriteria, attributeId);
-		if (attribute == null) {
-			throw new IllegalArgumentException("MRCM Attribute " + attributeId + " not found.");
-		}
-		
-		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false).resultLanguageDialects(languageDialects);
-		if (IdentifierService.isConceptId(termPrefix)) {
-			queryBuilder.conceptIds(Collections.singleton(termPrefix));
+
+		MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+
+		Set<AttributeRange> attributeRanges;
+		if (Concepts.ISA.equals(attributeId)) {
+			attributeRanges = Collections.singleton(IS_A_ATTRIBUTE_RANGE);
 		} else {
-			queryBuilder.descriptionCriteria(descriptionCriteria -> descriptionCriteria
-					.term(termPrefix)
-					.active(true)
-					.searchLanguageCodes(languageDialects.stream().map(LanguageDialect::getLanguageCode).collect(Collectors.toSet())));
+			attributeRanges = branchMRCM.getAttributeRanges().stream()
+					.filter(attributeRange -> attributeRange.getContentType().ruleAppliesToContentType(contentType)
+							&& attributeRange.getRuleStrength() == RuleStrength.MANDATORY
+							&& attributeRange.getReferencedComponentId().equals(attributeId)).collect(Collectors.toSet());
 		}
 
-		StringBuilder ecl = new StringBuilder();
-		for (Range range : attribute.getRangeSet()) {
-			String conceptId = range.getConceptId().toString();
-			InclusionType inclusionType = range.getInclusionType();
-			switch (inclusionType) {
-				case SELF:
-					ifNotEmptyAppendOr(ecl);
-					ecl.append(conceptId);
-					break;
-				case DESCENDANT:
-					ifNotEmptyAppendOr(ecl);
-					ecl.append("<");
-					ecl.append(conceptId);
-					break;
-				case SELF_OR_DESCENDANT:
-					ifNotEmptyAppendOr(ecl);
-					if (!conceptId.equals(Concepts.SNOMEDCT_ROOT)) {
-						ecl.append("<<");
-						ecl.append(conceptId);
-					}
-					break;
-			}
-		}
-		if (ecl.length() != 0) {
-			queryBuilder.ecl(ecl.toString());
+		if (attributeRanges.isEmpty()) {
+			throw new IllegalArgumentException("No MRCM Attribute Range found with Mandatory rule strength for given content type and attributeId.");
+		} else if (attributeRanges.size() > 1) {
+			logger.warn("Multiple Attribute Ranges found with Mandatory rule strength for content type {} and attribute {} : {}.",
+					contentType, attributeId, attributeRanges.stream().map(AttributeRange::getId).collect(Collectors.toSet()));
 		}
 
-		return queryService.search(queryBuilder, branchPath, PageRequest.of(0, 50)).getContent();
+		AttributeRange attributeRange = attributeRanges.iterator().next();
+
+		QueryService.ConceptQueryBuilder conceptQuery = queryService.createQueryBuilder(true)
+				.ecl(attributeRange.getRangeConstraint())
+				.resultLanguageDialects(languageDialects);
+
+		if (IdentifierService.isConceptId(termPrefix)) {
+			conceptQuery.conceptIds(Collections.singleton(termPrefix));
+		} else {
+			conceptQuery.descriptionCriteria(d -> d.term(termPrefix));
+		}
+
+		return queryService.search(conceptQuery, branchPath, RESPONSE_PAGE_SIZE).getContent();
 	}
 
-	public void ifNotEmptyAppendOr(StringBuilder ecl) {
-		if (ecl.length() != 0) {
-			ecl.append(" OR ");
-		}
-	}
-
-	private Attribute findSelfOrFirstAncestorAttribute(String branchPath, BranchCriteria branchCriteria, String attributeIdStr) {
-		//Breadth first scan of ancestors requires use of Queue
-		Queue<Long> ancestorIds = new LinkedBlockingQueue<>(); 
-		ancestorIds.add(Long.parseLong(attributeIdStr));
-		
-		Attribute attribute = null;
-		while (!ancestorIds.isEmpty()) {
-			Long attributeId = ancestorIds.poll();
-			attribute = getClosestMrcm(branchPath).getAttributeMap().get(attributeId);
-			if (attribute != null) {
-				break;
-			}
-			//If we haven't found an attribute, then add all immediate inferred parents to the queue.
-			//But we'll check the same level parents first, since they'll be earlier in the queue
-			ancestorIds.addAll(queryService.findParentIds(branchCriteria, false, attributeId.toString()));
-		}
-		return attribute;
-	}
-
-	private MRCM getClosestMrcm(final String branchPath) {
-		String searchPath = branchPath;
-		boolean searchedRoot = false;
-		while (!searchedRoot) {
-			MRCM mrcm = branchMrcmMap.get(searchPath);
-			if (mrcm != null) {
-				if (searchPath.contains("/")) {
-					logger.debug("MRCM branch match {}", searchPath);
-				}
-				return mrcm;
-			}
-			if (searchPath.contains("/")) {
-				searchPath = searchPath.substring(0, searchPath.lastIndexOf("/"));
-			} else {
-				searchedRoot = true;
-			}
-		}
-		throw new RuntimeServiceException("Failed to find any relevant MRCM for branch path " + branchPath);
-	}
-
-	// Test method
-	public static void main(String[] args) throws ServiceException {
-		new MRCMService().loadFromFiles();
-	}
 }

@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
@@ -556,9 +557,11 @@ public class ConceptService extends ComponentService {
 				concept.getGciAxioms().clear();
 			}
 		}
+		Map<String, Description> descriptionMap = new HashMap<>();
 		for (Description description : persistedDescriptions) {
 			if (!description.isDeleted()) {
 				conceptMap.get(description.getConceptId()).addDescription(description);
+				descriptionMap.put(description.getId(), description);
 			}
 		}
 		for (Relationship relationship : persistedRelationships) {
@@ -570,10 +573,23 @@ public class ConceptService extends ComponentService {
 				}
 			}
 		}
-		StreamSupport.stream(persistedReferenceSetMembers.spliterator(), false)
-				.filter(member -> !member.isDeleted())
-				.filter(member -> Concepts.OWL_AXIOM_REFERENCE_SET.equals(member.getRefsetId()))
-				.forEach(member -> joinAxiom(member, conceptMap, conceptMiniMap, languageDialects));
+		for (ReferenceSetMember member : persistedReferenceSetMembers) {
+			if (!member.isDeleted()) {
+				if (Concepts.OWL_AXIOM_REFERENCE_SET.equals(member.getRefsetId())) {
+					joinAxiom(member, conceptMap, conceptMiniMap, languageDialects);
+				} else {
+					Set<String> strings = member.getAdditionalFields().keySet();
+					if (IdentifierService.isDescriptionId(member.getReferencedComponentId())
+							&& strings.contains(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID)) {
+
+						Description description = descriptionMap.get(member.getReferencedComponentId());
+						if (description != null) {
+							description.addLanguageRefsetMember(member);
+						}
+					}
+				}
+			}
+		}
 	}
 
 	<T extends DomainEntity> void doSaveBatchComponents(List<T> componentsToSave, Class<T> componentType, Commit commit) {

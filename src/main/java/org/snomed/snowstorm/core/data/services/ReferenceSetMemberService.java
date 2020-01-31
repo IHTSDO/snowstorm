@@ -100,6 +100,12 @@ public class ReferenceSetMemberService extends ComponentService {
 				.withQuery(query).withPageable(pageRequest).build(), ReferenceSetMember.class);
 	}
 
+	public Page<ReferenceSetMember> findMembers(String branch, BranchCriteria branchCriteria, MemberSearchRequest searchRequest, PageRequest pageRequest) {
+		BoolQueryBuilder query = buildMemberQuery(searchRequest, branch, branchCriteria);
+		return elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+				.withQuery(query).withPageable(pageRequest).build(), ReferenceSetMember.class);
+	}
+
 	private BoolQueryBuilder buildMemberQuery(MemberSearchRequest searchRequest, String branch, BranchCriteria branchCriteria) {
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class));
 

@@ -7,10 +7,12 @@ import java.util.*;
 
 public class IdentifierReservedBlock {
 
+	int namespace;
 	private Map<ComponentType, Queue<Long>> idsReserved = new HashMap<>();
 	private Map<ComponentType, Queue<Long>> idsAssigned = new HashMap<>();
 	
-	IdentifierReservedBlock() {
+	IdentifierReservedBlock(int namespace) {
+		this.namespace = namespace;
 		for (ComponentType componentType : ComponentType.values()) {
 			idsReserved.put(componentType, new LinkedList<>());
 			idsAssigned.put(componentType, new LinkedList<>());
@@ -41,5 +43,9 @@ public class IdentifierReservedBlock {
 	
 	public int size(ComponentType componentType) {
 		return idsReserved.get(componentType).size();
+	}
+
+	public int getNamespace() {
+		return namespace;
 	}
 }

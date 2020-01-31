@@ -1,25 +1,19 @@
 package org.snomed.snowstorm.core.data.services.identifier;
 
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.ComponentType;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.jobs.IdentifiersForRegistration;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -52,6 +46,15 @@ public class IdentifierServiceTest extends AbstractTest {
 	public static void tearDown() {
 		//And set it going again.
 		IdentifierService.suspendRegistrationProcess(false);
+	}
+	
+	@Test
+	public void testNamespaceIdentifierMap() {
+		List<IdentifiersForRegistration> ifr = new ArrayList<>();
+		ifr.add(new IdentifiersForRegistration(0, Collections.singletonList(123456L)));
+		ifr.add(new IdentifiersForRegistration(1000003, Collections.singletonList(336331000003125L)));
+		Map<Integer, Set<Long>> namespaceIdentifierMap = identifierService.getNamespaceIdentifierMap(ifr);
+		Assert.assertEquals(2, namespaceIdentifierMap.size());
 	}
 	
 	/**
