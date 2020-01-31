@@ -17,7 +17,10 @@ You can also find a description of the capabilities here - https://documenter.ge
 In a default installation, the FHIR endpoints can be found at: http://localhost:8080/fhir  although there is no operation there, so you could try one of these calls:
 
 ### Server Capabilities
-http://localhost:8080/fhir/metadata?_format=json
+http://localhost:8080/fhir/metadata
+
+### Terminology Capabilities
+http://localhost:8080/fhir/metadata?mode=terminology
 
 ### Code System Lookups
 

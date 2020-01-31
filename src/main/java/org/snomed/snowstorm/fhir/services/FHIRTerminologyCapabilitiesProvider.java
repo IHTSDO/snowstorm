@@ -2,11 +2,8 @@ package org.snomed.snowstorm.fhir.services;
 
 import javax.servlet.http.HttpServletRequest;
 
+import org.hl7.fhir.instance.model.api.IBaseConformance;
 import org.hl7.fhir.r4.hapi.rest.server.ServerCapabilityStatementProvider;
-import org.hl7.fhir.r4.model.CapabilityStatement;
-import org.hl7.fhir.r4.model.MetadataResource;
-import org.hl7.fhir.r4.model.TerminologyCapabilities;
-import org.slf4j.*;
 import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.rest.annotation.Metadata;
@@ -22,17 +19,11 @@ import ca.uhn.fhir.rest.api.server.RequestDetails;
 public class FHIRTerminologyCapabilitiesProvider extends ServerCapabilityStatementProvider {
 	
 	@Metadata
-	public CapabilityStatement getMetadataResource(HttpServletRequest request, RequestDetails requestDetails) {
+	public IBaseConformance getMetadataResource(HttpServletRequest request, RequestDetails requestDetails) {
 		if (request.getParameter("mode") != null && request.getParameter("mode").equals("terminology")) {
-			//return getTerminologyCapabilities();
-			throw new UnsupportedOperationException();
+			return new FHIRTerminologyCapabilities().withDefaults();
 		} else {
 			return super.getServerConformance(request, requestDetails);
 		}
-	}
-
-	private TerminologyCapabilities getTerminologyCapabilities() {
-		TerminologyCapabilities tc = new TerminologyCapabilities();
-		return tc;
 	}
 }
