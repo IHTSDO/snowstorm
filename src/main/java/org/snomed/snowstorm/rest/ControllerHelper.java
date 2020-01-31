@@ -2,8 +2,8 @@ package org.snomed.snowstorm.rest;
 
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.elasticsearch.common.Strings;
-import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
@@ -12,20 +12,15 @@ import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.ConceptMiniNestedFsn;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
-import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 public class ControllerHelper {
 
@@ -95,6 +90,8 @@ public class ControllerHelper {
 		return PageRequest.of(page, size);
 	}
 
+	//use parseAcceptLanguageHeader and work with LanguageDialects instead
+	@Deprecated
 	public static List<String> getLanguageCodes(String acceptLanguageHeader) {
 		return parseAcceptLanguageHeader(acceptLanguageHeader).stream().map(LanguageDialect::getLanguageCode).collect(Collectors.toList());
 	}
@@ -109,7 +106,6 @@ public class ControllerHelper {
 
 		String[] acceptLanguageList = acceptLanguageHeader.toLowerCase().split(",");
 		for (String acceptLanguage : acceptLanguageList) {
-
 			if (acceptLanguage.isEmpty()) {
 				continue;
 			}
@@ -130,6 +126,7 @@ public class ControllerHelper {
 			} else if ((matcher = LANGUAGE_AND_DIALECT_PATTERN.matcher(value)).matches()) {
 				// We can't currently do anything with the dialect code.
 				// These could be mapped to a language reference set in the future.
+				// We can't for example, map en-US to Concepts.US_EN_LANG_REFSET
 				languageCode = matcher.group(1);
 			} else if ((matcher = LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN.matcher(value)).matches()) {
 				languageCode = matcher.group(1);
@@ -139,10 +136,6 @@ public class ControllerHelper {
 			}
 			languageDialects.add(new LanguageDialect(languageCode, languageReferenceSet));
 		}
-
-		// Add the defaults at the end
-		languageDialects.addAll(DEFAULT_LANGUAGE_DIALECTS);
-
 		return languageDialects;
 	}
 

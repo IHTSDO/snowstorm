@@ -86,8 +86,8 @@ public class QueryService implements ApplicationContextAware {
 		if (conceptIdPageOptional.isPresent()) {
 			SearchAfterPage<Long> conceptIdPage = conceptIdPageOptional.get();
 			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptIdPage.getContent(), conceptQuery.getResultLanguageDialects());
-			List<ConceptMini> conceptMinis1 = sortConceptMinisByTermOrder(conceptIdPage.getContent(), conceptMinis.getResultsMap());
-			return PageHelper.toSearchAfterPage(conceptMinis1, conceptIdPage);
+			List<ConceptMini> conceptMinisSorted = sortConceptMinisByTermOrder(conceptIdPage.getContent(), conceptMinis.getResultsMap());
+			return PageHelper.toSearchAfterPage(conceptMinisSorted, conceptIdPage);
 		} else {
 			// No ids - return page of all concepts
 			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptQuery.getResultLanguageDialects(), pageRequest);
