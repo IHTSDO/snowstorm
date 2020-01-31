@@ -55,14 +55,11 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			throw new FHIROperationException(IssueType.VALUE, "'system' parameter must be present, and currently only '" + SNOMED_URI + "' is supported." + detail);
 		}
 
-		List<String> languageCodes = fhirHelper.getLanguageCodes(null, request);
+		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
-		if (displayLanguage != null && !languageCodes.contains(displayLanguage)) {
-			languageCodes.add(displayLanguage);
-		}
+		fhirHelper.ensurePresent(displayLanguage, languageDialects);
 		
 		String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
-		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(languageCodes);
 		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), languageDialects, branchPath));
 		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + code.getValue()), branchPath, LARGE_PAGE);
 		Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
