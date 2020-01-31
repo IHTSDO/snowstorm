@@ -8,15 +8,16 @@ import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceDesignationComponent;
 import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionComponent;
 import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionContainsComponent;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 
 public class HapiValueSetMapper implements FHIRConstants {
 	
-	public ValueSet mapToFHIR(ValueSet vs, List<ConceptMini> concepts, String url, Map<String, Concept> conceptDetails, List<String> languageCodes, String displayLanguage, Boolean includeDesignations) {
+	public ValueSet mapToFHIR(ValueSet vs, List<ConceptMini> concepts, String url, Map<String, Concept> conceptDetails, List<LanguageDialect> designations, Boolean includeDesignations) {
 		if (vs == null) {
 			vs = getStandardValueSet(url);
 		}
-		addExpansion(vs, concepts, conceptDetails, languageCodes, displayLanguage, includeDesignations);
+		addExpansion(vs, concepts, conceptDetails, designations, includeDesignations);
 		return vs;
 	}
 	
@@ -26,7 +27,7 @@ public class HapiValueSetMapper implements FHIRConstants {
 		return v;
 	}
 
-	private void addExpansion(ValueSet vs, List<ConceptMini> concepts, Map<String, Concept> conceptDetails, List<String> languageCodes, String displayLanguage, Boolean includeDesignations) {
+	private void addExpansion(ValueSet vs, List<ConceptMini> concepts, Map<String, Concept> conceptDetails, List<LanguageDialect> designations, Boolean includeDesignations) {
 		ValueSetExpansionComponent expansion = vs.getExpansion();  //Will autocreate
 		for (ConceptMini concept : concepts) {
 			ValueSetExpansionContainsComponent component = expansion.addContains()
@@ -36,13 +37,12 @@ public class HapiValueSetMapper implements FHIRConstants {
 			if (conceptDetails != null && conceptDetails.containsKey(concept.getConceptId())) {
 				Concept c = conceptDetails.get(concept.getConceptId());
 				for (Description d : c.getActiveDescriptions()) {
-					if (includeDesignations && languageCodes.contains(d.getLanguageCode())) {
+					if (includeDesignations && d.hasAcceptability(designations)) {
 						component.addDesignation(asDesignation(d));
 					}
 					
 					//Use the preferred term in the specified display language.
-					if (d.getLanguageCode().equalsIgnoreCase(displayLanguage) &&
-							d.hasAcceptability(Concepts.PREFERRED) &&
+					if (d.hasAcceptability(Concepts.PREFERRED, designations.get(0)) &&
 							d.getTypeId().equals(Concepts.SYNONYM)) {
 						component.setDisplay(d.getTerm());
 					}
