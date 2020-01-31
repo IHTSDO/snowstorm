@@ -7,7 +7,7 @@
 
 	<groupId>org.snomed</groupId>
 	<artifactId>snowstorm</artifactId>
-	<version>4.6.1-SNAPSHOT</version>
+	<version>4.7.1-SNAPSHOT</version>
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>
@@ -24,14 +24,14 @@
 		<packageName>${project.artifactId}</packageName>
 
 		<!--
-		ElasticVC 2.6.3-SNAPSHOT
+		ElasticVC 2.6.3
 		- uses Snomed International's Fork of Spring Data Elasticsearch
 		- uses Elasticsearch Client version 6.0.1
 
 		Current recommended Elasticsearch _Server_ version is 6.8.0
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
 		-->
-		<elasticvc.version>2.6.3-SNAPSHOT</elasticvc.version>
+		<elasticvc.version>2.6.3</elasticvc.version>
 
 		<!-- Elasticsearch Client version -->
 		<!-- Can not be changed without code changes in ElasticVC and Spring Data Elasticsearch -->

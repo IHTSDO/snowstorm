@@ -26,6 +26,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.io.*;
 import java.util.*;
@@ -96,7 +97,7 @@ public class ExportService {
 
 		File exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
 				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(),
-				exportConfiguration.getTransientEffectiveTime(), exportConfiguration.getStartEffectiveTime());
+				exportConfiguration.getTransientEffectiveTime(), exportConfiguration.getStartEffectiveTime(), exportConfiguration.getModuleIds());
 		try (FileInputStream inputStream = new FileInputStream(exportFile)) {
 			Streams.copy(inputStream, outputStream, false);
 		} catch (IOException e) {
@@ -107,11 +108,11 @@ public class ExportService {
 	}
 
 	public File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification) throws ExportException {
-		return exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, forClassification, null, null);
+		return exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, forClassification, null, null, null);
 	}
 
 	private File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification,
-			String transientEffectiveTime, String startEffectiveTime) throws ExportException {
+			String transientEffectiveTime, String startEffectiveTime, Set<String> moduleIds) throws ExportException {
 		if (exportType == RF2Type.FULL) {
 			throw new IllegalArgumentException("FULL RF2 export is not implemented.");
 		}
@@ -127,20 +128,20 @@ public class ExportService {
 			try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
 				// Write Concepts
 				int conceptLines = exportComponents(Concept.class, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream,
-						getContentQuery(exportType, startEffectiveTime, branchCriteria.getEntityBranchCriteria(Concept.class)), transientEffectiveTime, null);
+						getContentQuery(exportType, moduleIds, startEffectiveTime, branchCriteria.getEntityBranchCriteria(Concept.class)), transientEffectiveTime, null);
 				logger.info("{} concept states exported", conceptLines);
 
 				if (!forClassification) {
 					// Write Descriptions
 					BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
-					BoolQueryBuilder descriptionContentQuery = getContentQuery(exportType, startEffectiveTime, descriptionBranchCriteria);
+					BoolQueryBuilder descriptionContentQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, descriptionBranchCriteria);
 					descriptionContentQuery.mustNot(termQuery(Description.Fields.TYPE_ID, Concepts.TEXT_DEFINITION));
 					int descriptionLines = exportComponents(Description.class, "Terminology/", "sct2_Description_", filenameEffectiveDate, exportType, zipOutputStream,
 							descriptionContentQuery, transientEffectiveTime,null);
 					logger.info("{} description states exported", descriptionLines);
 
 					// Write Text Definitions
-					BoolQueryBuilder textDefinitionContentQuery = getContentQuery(exportType, startEffectiveTime, descriptionBranchCriteria);
+					BoolQueryBuilder textDefinitionContentQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, descriptionBranchCriteria);
 					textDefinitionContentQuery.must(termQuery(Description.Fields.TYPE_ID, Concepts.TEXT_DEFINITION));
 					int textDefinitionLines = exportComponents(Description.class, "Terminology/", "sct2_TextDefinition_", filenameEffectiveDate, exportType, zipOutputStream,
 							textDefinitionContentQuery, transientEffectiveTime, null);
@@ -149,14 +150,14 @@ public class ExportService {
 
 				// Write Stated Relationships
 				BoolQueryBuilder relationshipBranchCritera = branchCriteria.getEntityBranchCriteria(Relationship.class);
-				BoolQueryBuilder relationshipQuery = getContentQuery(exportType, startEffectiveTime, relationshipBranchCritera);
+				BoolQueryBuilder relationshipQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, relationshipBranchCritera);
 				relationshipQuery.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
 				int statedRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_StatedRelationship_", filenameEffectiveDate, exportType, zipOutputStream,
 						relationshipQuery, transientEffectiveTime, null);
 				logger.info("{} stated relationship states exported", statedRelationshipLines);
 
 				// Write Inferred Relationships
-				relationshipQuery = getContentQuery(exportType, startEffectiveTime, relationshipBranchCritera);
+				relationshipQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, relationshipBranchCritera);
 				// Not 'stated' will include inferred and additional
 				relationshipQuery.mustNot(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
 				int inferredRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_Relationship_", filenameEffectiveDate, exportType, zipOutputStream,
@@ -175,7 +176,7 @@ public class ExportService {
 					List<Long> refsetsOfThisType = new ArrayList<>(queryService.findDescendantIdsAsUnion(branchCriteria, true, Collections.singleton(Long.parseLong(referenceSetType.getConceptId()))));
 					refsetsOfThisType.add(Long.parseLong(referenceSetType.getConceptId()));
 					for (Long refsetToExport : refsetsOfThisType) {
-						BoolQueryBuilder memberQuery = getContentQuery(exportType, startEffectiveTime, memberBranchCriteria);
+						BoolQueryBuilder memberQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, memberBranchCriteria);
 						memberQuery.must(QueryBuilders.termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetToExport));
 						long memberCount = elasticsearchTemplate.count(getNativeSearchQuery(memberQuery), ReferenceSetMember.class);
 						if (memberCount > 0) {
@@ -213,10 +214,13 @@ public class ExportService {
 				exportConfiguration.getType().getName());
 	}
 
-	private BoolQueryBuilder getContentQuery(RF2Type exportType, String startEffectiveTime, QueryBuilder branchCriteria) {
+	private BoolQueryBuilder getContentQuery(RF2Type exportType, Set<String> moduleIds, String startEffectiveTime, QueryBuilder branchCriteria) {
 		BoolQueryBuilder contentQuery = boolQuery().must(branchCriteria);
 		if (exportType == RF2Type.DELTA) {
 			contentQuery.mustNot(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME));
+		}
+		if (!CollectionUtils.isEmpty(moduleIds)) {
+			contentQuery.must(termsQuery(SnomedComponent.Fields.MODULE_ID, moduleIds));
 		}
 		if (startEffectiveTime != null) {
 			contentQuery.must(boolQuery()
@@ -270,7 +274,7 @@ public class ExportService {
 	}
 
 	private List<ReferenceSetType> getReferenceSetTypes(QueryBuilder branchCriteria) {
-		BoolQueryBuilder contentQuery = getContentQuery(RF2Type.SNAPSHOT, null, branchCriteria);
+		BoolQueryBuilder contentQuery = getContentQuery(RF2Type.SNAPSHOT, null, null, branchCriteria);
 		return elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
 				.withQuery(contentQuery)
 				.withSort(SortBuilders.fieldSort(ReferenceSetType.Fields.NAME))
