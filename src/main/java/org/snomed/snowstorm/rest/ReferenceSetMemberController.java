@@ -64,7 +64,7 @@ public class ReferenceSetMemberController {
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader);
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 
 		TimerUtil timer = new TimerUtil("Member aggregation debug " + branch);
@@ -142,7 +142,7 @@ public class ReferenceSetMemberController {
 				,
 				ControllerHelper.getPageRequest(offset, limit)
 		);
-		joinReferencedComponents(members.getContent(), ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), branch);
+		joinReferencedComponents(members.getContent(), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch);
 		return new ItemsPage<>(members);
 	}
 
@@ -167,7 +167,7 @@ public class ReferenceSetMemberController {
 
 		ReferenceSetMember member = memberService.findMember(BranchPathUriUtil.decodePath(branch), uuid);
 		ControllerHelper.throwIfNotFound("Member", member);
-		joinReferencedComponents(Collections.singletonList(member), ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), branch);
+		joinReferencedComponents(Collections.singletonList(member), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch);
 		return member;
 	}
 

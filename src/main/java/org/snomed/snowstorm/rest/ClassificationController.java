@@ -61,7 +61,7 @@ public class ClassificationController {
 
 		try {
 			return new ItemsPage<>(classificationService.getRelationshipChanges(BranchPathUriUtil.decodePath(branch), classificationId,
-					ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
+					ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
 		} catch (IllegalStateException e) {
 			return null;
 		}
@@ -77,7 +77,7 @@ public class ClassificationController {
 			@PathVariable String conceptId,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
-		return classificationService.getConceptPreview(BranchPathUriUtil.decodePath(branch), classificationId, conceptId, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
+		return classificationService.getConceptPreview(BranchPathUriUtil.decodePath(branch), classificationId, conceptId, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
 	@ApiOperation("Retrieve equivalent concepts from a classification run on a branch")
@@ -91,7 +91,7 @@ public class ClassificationController {
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		return new ItemsPage<>(classificationService.getEquivalentConcepts(BranchPathUriUtil.decodePath(branch), classificationId,
-				ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
+				ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), ControllerHelper.getPageRequest(offset, limit)));
 	}
 
 	@ApiOperation("Create a classification on a branch")

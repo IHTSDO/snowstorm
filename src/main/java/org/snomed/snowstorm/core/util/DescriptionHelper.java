@@ -6,10 +6,7 @@ import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 
 public class DescriptionHelper {
 

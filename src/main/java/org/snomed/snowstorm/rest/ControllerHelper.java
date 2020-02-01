@@ -21,6 +21,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 public class ControllerHelper {
 
@@ -93,7 +94,13 @@ public class ControllerHelper {
 	//use parseAcceptLanguageHeader and work with LanguageDialects instead
 	@Deprecated
 	public static List<String> getLanguageCodes(String acceptLanguageHeader) {
-		return parseAcceptLanguageHeader(acceptLanguageHeader).stream().map(LanguageDialect::getLanguageCode).collect(Collectors.toList());
+		return parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader).stream().map(LanguageDialect::getLanguageCode).collect(Collectors.toList());
+	}
+	
+	public static List<LanguageDialect> parseAcceptLanguageHeaderWithDefaultFallback(String acceptLanguageHeader) {
+		List<LanguageDialect> languageDialects = parseAcceptLanguageHeader(acceptLanguageHeader);
+		languageDialects.addAll(DEFAULT_LANGUAGE_DIALECTS);
+		return languageDialects;
 	}
 
 	public static List<LanguageDialect> parseAcceptLanguageHeader(String acceptLanguageHeader) {

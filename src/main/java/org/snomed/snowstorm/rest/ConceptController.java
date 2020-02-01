@@ -129,7 +129,7 @@ public class ConceptController {
 			ecl = statedEcl;
 		}
 
-		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader);
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader);
 
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(stated)
 				.activeFilter(activeFilter)
@@ -158,7 +158,7 @@ public class ConceptController {
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(BranchPathUriUtil.decodePath(branch), Collections.singleton(conceptId),
-				ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
+				ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 
 		ConceptMini concept = conceptMinis.getTotalElements() > 0 ? conceptMinis.getResultsMap().values().iterator().next() : null;
 		return ControllerHelper.throwIfNotFound("Concept", concept);
@@ -217,7 +217,7 @@ public class ConceptController {
 			conceptIds = PageHelper.subList(conceptIds, number, size);
 		}
 
-		Page<Concept> page = conceptService.find(conceptIds, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch), pageRequest);
+		Page<Concept> page = conceptService.find(conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch), pageRequest);
 		SearchAfterPage<Concept> concepts = PageHelper.toSearchAfterPage(page, concept -> SearchAfterHelper.convertToTokenAndBack(new Object[]{concept.getId()}), conceptIdsSize);
 		return new ItemsPage<>(concepts);
 	}
@@ -230,7 +230,7 @@ public class ConceptController {
 			@RequestBody ConceptIdsPojo request,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return conceptService.find(BranchPathUriUtil.decodePath(branch), request.getConceptIds(), ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
+		return conceptService.find(BranchPathUriUtil.decodePath(branch), request.getConceptIds(), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
 	@ApiOperation(value = "Load a concept in the browser format.",
@@ -247,7 +247,7 @@ public class ConceptController {
 			@RequestParam(required = false) Relationship.CharacteristicType descendantCountForm,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader);
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader);
 		BranchTimepoint branchTimepoint = parseBranchTimepoint(branch);
 		Concept concept = conceptService.find(conceptId, languageDialects, branchTimepoint);
 		if (descendantCountForm != null) {
@@ -264,7 +264,7 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch)));
+		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch)));
 		return new ConceptDescriptionsResult(concept.getDescriptions());
 	}
 
@@ -317,7 +317,7 @@ public class ConceptController {
 			allConceptIds.add(typeId);
 			allConceptIds.addAll(conceptReferences.get(typeId));
 		}
-		Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branch, allConceptIds, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader)).getResultsMap();
+		Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branch, allConceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)).getResultsMap();
 		Set<TypeReferences> typeSets = new TreeSet<>(Comparator.comparing((type) -> type.getReferenceType().getFsnTerm()));
 		for (Long typeId : conceptReferences.keySet()) {
 			ArrayList<ConceptMini> referencingConcepts = new ArrayList<>();
@@ -340,7 +340,7 @@ public class ConceptController {
 
 		Assert.isTrue(concept.getConceptId() != null && conceptId != null && concept.getConceptId().equals(conceptId), "The conceptId in the " +
 				"path must match the one in the request body.");
-		return conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
+		return conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
 	}
 
 	@ResponseBody
@@ -351,7 +351,7 @@ public class ConceptController {
 			@RequestBody @Valid ConceptView concept,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
-		return conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
+		return conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.DELETE)
@@ -446,7 +446,7 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return expressionService.getConceptAuthoringForm(conceptId, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
+		return expressionService.getConceptAuthoringForm(conceptId, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
 	}
 	
 	@ResponseBody
@@ -458,7 +458,7 @@ public class ConceptController {
 			@RequestParam(defaultValue="false") boolean includeTerms,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		Expression expression =  expressionService.getConceptNormalForm(conceptId, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader),
+		Expression expression =  expressionService.getConceptNormalForm(conceptId, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 				BranchPathUriUtil.decodePath(branch), statedView);
 
 		return new ExpressionStringPojo(expression.toString(includeTerms));
