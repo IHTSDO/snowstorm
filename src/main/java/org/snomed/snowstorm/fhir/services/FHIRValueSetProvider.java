@@ -19,6 +19,7 @@ import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
+import org.snomed.snowstorm.fhir.domain.ValueSetFilter;
 import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
 import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,11 +28,11 @@ import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
-import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
 
 @Component
 public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
@@ -78,7 +79,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		//Attempt to expand the valueset in lieu of full validation
 		if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
 			obtainConsistentCodeSystemVersionFromCompose(vs.getCompose());
-			covertComposeToECL(vs.getCompose());
+			covertComposeToEcl(vs.getCompose());
 		}
 		
 		ValueSetWrapper savedVs = valuesetRepository.save(new ValueSetWrapper(id, vs));
@@ -104,12 +105,50 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		valuesetRepository.deleteById(id.getIdPart());
 	}
 	
+	
+	//See https://www.hl7.org/fhir/valueset.html#search
 	@Search
 	public List<ValueSet> findValuesets(
 			HttpServletRequest theRequest, 
-			HttpServletResponse theResponse) {
+			HttpServletResponse theResponse,
+			@OptionalParam(name="code") String code,
+			@OptionalParam(name="context") String context,
+			@OptionalParam(name="context-quantity") QuantityParam contextQuantity,
+			@OptionalParam(name="context-type") String contextType,
+			@OptionalParam(name="date") String date,
+			@OptionalParam(name="description") String description,
+			@OptionalParam(name="expansion") String expansion,
+			@OptionalParam(name="identifier") String identifier,
+			@OptionalParam(name="jurisdiction") String jurisdiction,
+			@OptionalParam(name="name") String name,
+			@OptionalParam(name="publisher") String publisher,
+			@OptionalParam(name="reference") String reference,
+			@OptionalParam(name="status") String status,
+			@OptionalParam(name="title") String title,
+			@OptionalParam(name="url") String url,
+			@OptionalParam(name="version") String version) {
+		ValueSetFilter vsFilter = new ValueSetFilter()
+									.withCode(code)
+									.withContext(context)
+									.withContextQuantity(contextQuantity)
+									.withContextType(contextType)
+									.withDate(date)
+									.withDescription(description)
+									.withExpansion(expansion)
+									.withIdentifier(identifier)
+									.withJurisdiction(jurisdiction)
+									.withName(name)
+									.withPublisher(publisher)
+									.withReference(reference)
+									.withStatus(status)
+									.withTitle(title)
+									.withUrl(url)
+									.withVersion(version);
+		//logger.info("Filtering {} valueSets", valuesetRepository.count());
+		
 		return StreamSupport.stream(valuesetRepository.findAll().spliterator(), false)
 				.map(vs -> vs.getValueset())
+				.filter(vs -> ValueSetFilter.apply(vsFilter, vs, fhirHelper))
 				.collect(Collectors.toList());
 	}
 	
@@ -175,8 +214,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
 		int pageSize = (countStr == null || countStr.isEmpty()) ? DEFAULT_PAGESIZE : Integer.parseInt(countStr);
 		Boolean active = activeType == null ? null : activeType.booleanValue();
-		Page<ConceptMini> conceptMiniPage = new PageImpl<>(new ArrayList<>());
-
+		
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		if (displayLanguageStr != null) {
 			//If we don't already have the display language specified, add it
@@ -194,13 +232,19 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			includeDesignations = false;
 		}
 		
+		return expand(vs, url, offset, pageSize, designations, includeDesignations, active, filter);
+	}
+
+	private ValueSet expand(ValueSet vs, String url, int offset, int pageSize, List<LanguageDialect> designations, boolean includeDesignations, Boolean active, String filter) throws FHIROperationException {
 		String branchPath = null;
+		Page<ConceptMini> conceptMiniPage = new PageImpl<>(new ArrayList<>());
+
 		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
 		int cutPoint = url == null ? -1 : url.indexOf("?");
 		if (cutPoint == NOT_SET) {
 			if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
 				branchPath = obtainConsistentCodeSystemVersionFromCompose(vs.getCompose());
-				String ecl = covertComposeToECL(vs.getCompose());
+				String ecl = covertComposeToEcl(vs.getCompose());
 				conceptMiniPage = eclSearch(ecl, active, filter, designations, branchPath, offset, pageSize);
 				logger.info("Recovered: {} concepts from branch: {} with ecl from compose: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
 			} else {
@@ -238,7 +282,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		.anyMatch(ld -> ld.getLanguageCode().equals(displayLanguage));
 	}
 
-	private Page<ConceptMini> eclSearch(String ecl, Boolean active, String termFilter, List<LanguageDialect> languageDialects, String branchPath, int offset, int pageSize) {
+	public Page<ConceptMini> eclSearch(String ecl, Boolean active, String termFilter, List<LanguageDialect> languageDialects, String branchPath, int offset, int pageSize) {
 		Page<ConceptMini> conceptMiniPage;
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		queryBuilder.ecl(ecl)
@@ -280,7 +324,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 	
 	
-	private String covertComposeToECL(ValueSetComposeComponent compose) throws FHIROperationException {
+	public String covertComposeToEcl(ValueSetComposeComponent compose) throws FHIROperationException {
 		//Successive include elements will be added using 'OR'
 		//While the excludes will be added using 'MINUS'
 		String ecl = "";

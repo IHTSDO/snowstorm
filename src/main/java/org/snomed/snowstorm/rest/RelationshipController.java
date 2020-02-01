@@ -60,7 +60,7 @@ public class RelationshipController {
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader);
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader);
 		Page<Relationship> relationshipPage = relationshipService.findRelationships(
 				branch,
 				null,
@@ -106,7 +106,7 @@ public class RelationshipController {
 		branch = BranchPathUriUtil.decodePath(branch);
 		Relationship relationship = relationshipService.findRelationship(BranchPathUriUtil.decodePath(branch), relationshipId);
 		if (relationship != null) {
-			expandSourceTypeAndDestination(branch, Collections.singletonList(relationship), ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
+			expandSourceTypeAndDestination(branch, Collections.singletonList(relationship), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 		}
 		return ControllerHelper.throwIfNotFound("Relationship", relationship);
 	}

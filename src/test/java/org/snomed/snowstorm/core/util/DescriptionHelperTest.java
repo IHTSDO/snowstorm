@@ -76,7 +76,7 @@ public class DescriptionHelperTest {
 	}
 
 	private String getPtTerm(String acceptLanguageHeader, Set<Description> descriptions) {
-		return DescriptionHelper.getPtDescription(descriptions, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader)).orElseGet(Description::new).getTerm();
+		return DescriptionHelper.getPtDescription(descriptions, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)).orElseGet(Description::new).getTerm();
 	}
 
 	private String getFSNTerm(String acceptLanguageHeader, Set<Description> descriptions) {

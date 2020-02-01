@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
 
-import static org.snomed.snowstorm.rest.ControllerHelper.parseAcceptLanguageHeader;
+import static org.snomed.snowstorm.rest.ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback;
 
 @RestController
 @Api(tags = "MRCM", description = "-")
@@ -36,7 +36,7 @@ public class MRCMController {
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-		return new ItemsPage<>(mrcmService.retrieveDomainAttributes(contentType, proximalPrimitiveModeling, parentIds, branch, parseAcceptLanguageHeader(acceptLanguageHeader)));
+		return new ItemsPage<>(mrcmService.retrieveDomainAttributes(contentType, proximalPrimitiveModeling, parentIds, branch, parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)));
 	}
 
 	@ApiOperation("Retrieve valid values for the given attribute and term prefix.")
@@ -50,7 +50,7 @@ public class MRCMController {
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-		return new ItemsPage<>(mrcmService.retrieveAttributeValues(contentType, attributeId, termPrefix, branch, parseAcceptLanguageHeader(acceptLanguageHeader)));
+		return new ItemsPage<>(mrcmService.retrieveAttributeValues(contentType, attributeId, termPrefix, branch, parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)));
 	}
 
 }
