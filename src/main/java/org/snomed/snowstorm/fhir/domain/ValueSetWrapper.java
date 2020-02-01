@@ -1,7 +1,5 @@
 package org.snomed.snowstorm.fhir.domain;
 
-import com.fasterxml.jackson.annotation.*;
-
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 

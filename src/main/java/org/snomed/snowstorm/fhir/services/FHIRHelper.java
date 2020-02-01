@@ -6,12 +6,14 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 
 import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.ValueSet;
 import org.hl7.fhir.r4.model.ValueSet.*;
 import org.apache.commons.lang.StringUtils;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -19,15 +21,19 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
 
 @Component
-class FHIRHelper implements FHIRConstants {
+public class FHIRHelper implements FHIRConstants {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+	
+	@Autowired
+	private FHIRValueSetProvider vsService;
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -187,5 +193,13 @@ class FHIRHelper implements FHIRConstants {
 			}
 		}
 		return null;
+	}
+
+	public boolean expansionContainsCode(ValueSet vs, String code) throws FHIROperationException {
+		String vsEcl = vsService.covertComposeToEcl(vs.getCompose());
+		String filteredEcl = code + " AND (" + vsEcl + ")";
+		String branchPath = getBranchPathForCodeSystemVersion(null);
+		Page<ConceptMini> concepts = vsService.eclSearch(filteredEcl, true, null, null, branchPath, 0, NOT_SET);
+		return concepts.getSize() > 0;
 	}
 }

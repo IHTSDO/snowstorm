@@ -462,7 +462,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		ReferenceSetMember entry = langRefsetMembers.get(refsetId.toString());
 		return (entry != null 
 				&& entry.isActive() 
-				&& acceptability == null || entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability));
+				&& (acceptability == null || entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability)));
 	}
 	
 	/**
