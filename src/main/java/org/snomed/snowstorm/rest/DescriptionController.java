@@ -83,7 +83,7 @@ public class DescriptionController {
 		branch = BranchPathUriUtil.decodePath(branch);
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
 
-		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader);
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader);
 
 		PageWithBucketAggregations<Description> page = descriptionService.findDescriptionsWithAggregations(
 				branch, new DescriptionCriteria()

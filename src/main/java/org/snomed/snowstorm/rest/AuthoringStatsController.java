@@ -34,7 +34,7 @@ public class AuthoringStatsController {
 			@PathVariable String branch,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return authoringStatsService.getNewConcepts(BranchPathUriUtil.decodePath(branch), ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
+		return authoringStatsService.getNewConcepts(BranchPathUriUtil.decodePath(branch), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/inactivated-concepts", method = RequestMethod.GET, produces = "application/json")
@@ -43,7 +43,7 @@ public class AuthoringStatsController {
 			@PathVariable String branch,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return authoringStatsService.getInactivatedConcepts(BranchPathUriUtil.decodePath(branch), ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
+		return authoringStatsService.getInactivatedConcepts(BranchPathUriUtil.decodePath(branch), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/reactivated-concepts", method = RequestMethod.GET, produces = "application/json")
@@ -52,7 +52,7 @@ public class AuthoringStatsController {
 			@PathVariable String branch,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return authoringStatsService.getReactivatedConcepts(BranchPathUriUtil.decodePath(branch), ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
+		return authoringStatsService.getReactivatedConcepts(BranchPathUriUtil.decodePath(branch), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/changed-fully-specified-names", method = RequestMethod.GET, produces = "application/json")
@@ -61,7 +61,7 @@ public class AuthoringStatsController {
 			@PathVariable String branch,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return authoringStatsService.getChangedFSNs(BranchPathUriUtil.decodePath(branch), ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
+		return authoringStatsService.getChangedFSNs(BranchPathUriUtil.decodePath(branch), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/inactivated-synonyms", method = RequestMethod.GET, produces = "application/json")
