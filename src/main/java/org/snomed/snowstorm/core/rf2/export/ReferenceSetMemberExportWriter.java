@@ -49,7 +49,7 @@ class ReferenceSetMemberExportWriter extends ExportWriter<ReferenceSetMember> {
 					bufferedWriter.write(TAB);
 					String value = member.getAdditionalField(extraField);
 					if (value == null) {
-						throw new IllegalStateException(String.format("Additional field '%s' value is null for member %s", extraField, member.getMemberId()));
+						value = "";
 					}
 					bufferedWriter.write(value);
 				}

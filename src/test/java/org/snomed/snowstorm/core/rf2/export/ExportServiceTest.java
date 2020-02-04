@@ -73,6 +73,9 @@ public class ExportServiceTest extends AbstractTest {
 		Concept descriptionFormatRefsetConcept = new Concept(DESCRIPTION_TYPE_REFERENCE_SET);
 		concepts.add(descriptionFormatRefsetConcept);
 
+		Concept mrcmDomainRefsetConcept = new Concept(Concepts.REFSET_MRCM_DOMAIN);
+		concepts.add(mrcmDomainRefsetConcept);
+
 		// Version first few concepts
 		String path = "MAIN";
 		conceptService.batchCreate(concepts, path);
@@ -316,7 +319,7 @@ public class ExportServiceTest extends AbstractTest {
 			ZipEntry concepts = zipInputStream.getNextEntry();
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Snapshot_INT_20190904.txt", concepts.getName());
 			List<String> lines = getLines(zipInputStream);
-			assertEquals(8, lines.size());
+			assertEquals(9, lines.size());
 			int line = 0;
 			printLines(lines);
 
@@ -326,6 +329,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("762676003\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
 			assertEquals("446609009\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
 			assertEquals("900000000000538005\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
+			assertEquals("723589008\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
 			assertEquals("733073007\t20190131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
 			assertEquals("123001\t\t1\t900000000000207008\t900000000000074008", lines.get(line++));
 
@@ -388,6 +392,50 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("124011\t\t1\t900000000000207008\t123001\ten\t900000000000003001\tBleeding (finding)\t900000000000448009", lines.get(line++));
 		}
 
+	}
+
+	@Test
+	public void testExportRefsetMemberWithBlankFields() throws IOException {
+		String path = "MAIN";
+		owlMember = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN, "433590000");
+		owlMember.setAdditionalField("domainConstraint", "<< 433590000 |Administration of substance via specific route (procedure)|");
+		owlMember.setAdditionalField("parentDomain", "<< 71388002 |Procedure (procedure)|");
+		owlMember.setAdditionalField("proximalPrimitiveConstraint", "something here");
+		owlMember.setAdditionalField("proximalPrimitiveRefinement", "something here");
+		owlMember.setAdditionalField("domainTemplateForPrecoordination", "something here");
+		owlMember.setAdditionalField("domainTemplateForPostcoordination", "something here");
+
+		// Not setting the 'guideURL' field..
+
+		referenceSetMemberService.createMember(path, owlMember);
+
+		File exportFile = getTempFile("export", ".zip");
+		exportFile.deleteOnExit();
+
+		// Run export
+		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
+			ExportConfiguration exportConfiguration = new ExportConfiguration("MAIN", RF2Type.SNAPSHOT);
+
+			exportConfiguration.setConceptsAndRelationshipsOnly(false);
+			exportConfiguration.setFilenameEffectiveDate("20190904");
+			exportConfiguration.setStartEffectiveTime("20190131");
+			exportService.createJob(exportConfiguration);
+			exportService.exportRF2Archive(exportConfiguration, outputStream);
+		}
+
+		// Test export
+		try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(exportFile))) {
+			ZipEntry zipEntry;
+			while ((zipEntry = zipInputStream.getNextEntry()) != null) {
+				if (zipEntry.getName().contains("der2_sssssssRefset_MRCMDomainSnapshot")) {
+					List<String> lines = getLines(zipInputStream);
+					assertEquals(2, lines.size());
+					printLines(lines);
+					assertEquals("id\teffectiveTime\tactive\tmoduleId\trefsetId\treferencedComponentId\tdomainConstraint\tparentDomain\tproximalPrimitiveConstraint\tproximalPrimitiveRefinement\tdomainTemplateForPrecoordination\tdomainTemplateForPostcoordination\tguideURL", lines.get(0));
+					assertTrue(lines.get(1).endsWith("\t\t1\t900000000000207008\t723589008\t433590000\t<< 433590000 |Administration of substance via specific route (procedure)|\t<< 71388002 |Procedure (procedure)|\tsomething here\tsomething here\tsomething here\tsomething here\t"));
+				}
+			}
+		}
 	}
 
 	public void printLines(List<String> lines) {
