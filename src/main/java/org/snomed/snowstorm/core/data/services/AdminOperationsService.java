@@ -9,6 +9,7 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -18,14 +19,20 @@ import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.*;
 import org.springframework.data.util.CloseableIterator;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -244,4 +251,77 @@ public class AdminOperationsService {
 		elasticsearchTemplate.refresh(Branch.class);
 	}
 
+	public void deleteExtraInferredRelationships(String branchPath, InputStream relationshipsToKeepInputStream, int effectiveTime) throws IOException {
+		logger.info("Starting process for deleteExtraInferredRelationships");
+
+		Set<Long> relationshipIdsToKeep = new LongOpenHashSet();
+		String effectiveTimeString = effectiveTime + "";
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(relationshipsToKeepInputStream))) {
+			String line;
+			String header = reader.readLine();
+			if (header == null || !header.equals(RF2Constants.RELATIONSHIP_HEADER)) {
+				throw new IllegalArgumentException("First line of file does not match the RF2 relationship header.");
+			}
+			long lineNumber = 0;
+			while ((line = reader.readLine()) != null && !line.isEmpty()) {
+				lineNumber++;
+				String[] rows = line.split("\t");
+				if (rows.length != 10) {
+					throw new IllegalArgumentException(String.format("Line %s does not have the expected 10 columns.", lineNumber));
+				}
+				if (rows[1].equals(effectiveTimeString)) {
+					relationshipIdsToKeep.add(Long.parseLong(rows[0]));
+				}
+			}
+		}
+
+		// Move with caution
+		if (relationshipIdsToKeep.isEmpty()) {
+			throw new IllegalStateException("Relationship snapshot has no rows at the given effectiveTime.");
+		}
+
+		logger.info("Read {} relationship ids to keep. Starting search for other relationships to delete on branch {}.", relationshipIdsToKeep.size(), branchPath);
+
+		Set<Long> relationshipIdsToDelete = new LongOpenHashSet();
+		Set<Long> relationshipIdsExpected = new LongOpenHashSet();
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(branchCriteria.getEntityBranchCriteria(Relationship.class)
+						.must(termQuery(Relationship.Fields.EFFECTIVE_TIME, effectiveTime)))
+				.withFields(Relationship.Fields.RELATIONSHIP_ID)
+				.withPageable(LARGE_PAGE);
+		try (CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
+			stream.forEachRemaining(relationship -> {
+				Long relationshipId = Long.parseLong(relationship.getRelationshipId());
+				if (!relationshipIdsToKeep.contains(relationshipId)) {
+					relationshipIdsToDelete.add(relationshipId);
+				} else {
+					relationshipIdsExpected.add(relationshipId);
+				}
+			});
+		}
+
+		logger.info("Found {} of {} expected relationship IDs at this effectiveTime.", relationshipIdsExpected.size(), relationshipIdsToKeep.size());
+
+		if (relationshipIdsToDelete.isEmpty()) {
+			logger.info("No relationships found for deletion.");
+			return;
+		}
+
+		logger.info("Found {} relationships to delete on branch {}, for example {}.", relationshipIdsToDelete.size(), branchPath, relationshipIdsToDelete.iterator().next());
+
+		List<Relationship> relationshipObjectsToDelete = relationshipIdsToDelete.stream().map(id -> {
+			Relationship relationship = new Relationship(id.toString());
+			relationship.markDeleted();
+			return relationship;
+		}).collect(Collectors.toList());
+		try (Commit commit = branchService.openCommit(branchPath, "Deleting batch of extra relationships.")) {
+			for (List<Relationship> relationshipBatch : Lists.partition(relationshipObjectsToDelete, 1_000)) {
+				conceptUpdateHelper.doSaveBatchRelationships(relationshipBatch, commit);
+			}
+			commit.markSuccessful();
+		}
+
+		logger.info("Extra relationships successfully deleted on {}.", branchPath);
+	}
 }
