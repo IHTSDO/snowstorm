@@ -11,6 +11,7 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ReleaseService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.util.StreamUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -143,7 +144,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Delta_INT_20180131.txt", concepts.getName());
 			List<String> lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
-			assertEquals(ConceptExportWriter.HEADER, lines.get(0));
+			assertEquals(RF2Constants.CONCEPT_HEADER, lines.get(0));
 			assertEquals("123001\t\t1\t900000000000207008\t900000000000074008", lines.get(1));
 
 			// Descriptions
@@ -151,7 +152,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Description_Delta_INT_20180131.txt", descriptions.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
-			assertEquals(DescriptionExportWriter.HEADER, lines.get(0));
+			assertEquals(RF2Constants.DESCRIPTION_HEADER, lines.get(0));
 			assertEquals("124011\t\t1\t900000000000207008\t123001\ten\t" + Concepts.FSN + "\tBleeding (finding)\t900000000000448009", lines.get(1));
 
 			// Text Definitions
@@ -159,7 +160,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_TextDefinition_Delta_INT_20180131.txt", textDefinitions.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
-			assertEquals(DescriptionExportWriter.HEADER, lines.get(0));
+			assertEquals(RF2Constants.DESCRIPTION_HEADER, lines.get(0));
 			assertEquals("124012\t\t1\t900000000000207008\t123001\ten\t" + Concepts.TEXT_DEFINITION + "\tBleeding Text Def\t900000000000448009", lines.get(1));
 
 			// Stated Relationships
@@ -167,7 +168,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_StatedRelationship_Delta_INT_20180131.txt", statedRelationships.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
-			assertEquals(RelationshipExportWriter.HEADER, lines.get(0));
+			assertEquals(RF2Constants.RELATIONSHIP_HEADER, lines.get(0));
 			assertEquals("125021\t\t1\t900000000000207008\t123001\t100001\t0\t116680003\t900000000000010007\t900000000000451002", lines.get(1));
 
 			// Inferred Relationships
@@ -175,7 +176,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Relationship_Delta_INT_20180131.txt", relationships.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(3, lines.size());
-			assertEquals(RelationshipExportWriter.HEADER, lines.get(0));
+			assertEquals(RF2Constants.RELATIONSHIP_HEADER, lines.get(0));
 			assertTrue(lines.contains("125022\t\t1\t900000000000207008\t123001\t100002\t0\t116680003\t900000000000011006\t900000000000451002"));
 			assertTrue(lines.contains("125023\t\t1\t900000000000207008\t123001\t100003\t0\t116680003\t900000000000227009\t900000000000451002"));
 
@@ -184,7 +185,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Refset/Metadata/der2_ciRefset_DescriptionTypeDelta_INT_20180131.txt", descriptionTypes.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
-			assertEquals(ReferenceSetMemberExportWriter.HEADER + "\tdescriptionFormat\tdescriptionLength", lines.get(0));
+			assertEquals(RF2Constants.SIMPLE_REFSET_HEADER + "\tdescriptionFormat\tdescriptionLength", lines.get(0));
 			assertEquals(descriptionTypeRefsetMemberId + "\t\t1\t900000000000207008\t900000000000538005\t900000000000003001\t900000000000540000\t255", lines.get(1));
 
 			// Language Refset
@@ -192,7 +193,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Refset/Language/der2_cRefset_Language900000000000508004Delta_INT_20180131.txt", langRefset.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(3, lines.size());
-			assertEquals(ReferenceSetMemberExportWriter.HEADER + "\tacceptabilityId", lines.get(0));
+			assertEquals(RF2Constants.SIMPLE_REFSET_HEADER + "\tacceptabilityId", lines.get(0));
 			assertTrue(lines.contains(descriptionLanguageRefsetMemberId + "\t\t1\t900000000000207008\t900000000000508004\t124011\t900000000000548007"));
 			assertTrue(lines.contains(textDefLanguageRefsetMemberId + "\t\t1\t900000000000207008\t900000000000508004\t124012\t900000000000548007"));
 
@@ -201,7 +202,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OWLExpression733073007Delta_INT_20180131.txt", axioms.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
-			assertEquals(ReferenceSetMemberExportWriter.HEADER + "\towlExpression", lines.get(0));
+			assertEquals(RF2Constants.SIMPLE_REFSET_HEADER + "\towlExpression", lines.get(0));
 			assertEquals(owlMember.getId() + "\t\t1\t900000000000207008\t733073007\t123005000\tTransitiveObjectProperty(:123005000)", lines.get(1));
 		}
 	}
@@ -230,7 +231,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Delta_INT_20180131.txt", concepts.getName());
 			List<String> lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
-			assertEquals(ConceptExportWriter.HEADER, lines.get(0));
+			assertEquals(RF2Constants.CONCEPT_HEADER, lines.get(0));
 			assertEquals("123001\t\t1\t900000000000207008\t900000000000074008", lines.get(1));
 
 			// Stated Relationships
@@ -238,7 +239,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_StatedRelationship_Delta_INT_20180131.txt", statedRelationships.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
-			assertEquals(RelationshipExportWriter.HEADER, lines.get(0));
+			assertEquals(RF2Constants.RELATIONSHIP_HEADER, lines.get(0));
 			assertEquals("125021\t\t1\t900000000000207008\t123001\t100001\t0\t116680003\t900000000000010007\t900000000000451002", lines.get(1));
 
 			// Inferred Relationships
@@ -246,7 +247,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Relationship_Delta_INT_20180131.txt", relationships.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(3, lines.size());
-			assertEquals(RelationshipExportWriter.HEADER, lines.get(0));
+			assertEquals(RF2Constants.RELATIONSHIP_HEADER, lines.get(0));
 			assertTrue(lines.contains("125022\t\t1\t900000000000207008\t123001\t100002\t0\t116680003\t900000000000011006\t900000000000451002"));
 			assertTrue(lines.contains("125023\t\t1\t900000000000207008\t123001\t100003\t0\t116680003\t900000000000227009\t900000000000451002"));
 
@@ -255,7 +256,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_sRefset_OWLExpression733073007Delta_INT_20180131.txt", axioms.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
-			assertEquals(ReferenceSetMemberExportWriter.HEADER + "\towlExpression", lines.get(0));
+			assertEquals(RF2Constants.SIMPLE_REFSET_HEADER + "\towlExpression", lines.get(0));
 			assertEquals(owlMember.getId() + "\t\t1\t900000000000207008\t733073007\t123005000\tTransitiveObjectProperty(:123005000)", lines.get(1));
 		}
 	}
@@ -284,7 +285,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Delta_INT_20190416.txt", concepts.getName());
 			List<String> lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
-			assertEquals(ConceptExportWriter.HEADER, lines.get(0));
+			assertEquals(RF2Constants.CONCEPT_HEADER, lines.get(0));
 			assertEquals("123001\t20190731\t1\t900000000000207008\t900000000000074008", lines.get(1));
 
 			// Descriptions
@@ -292,7 +293,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Description_Delta_INT_20190416.txt", descriptions.getName());
 			lines = getLines(zipInputStream);
 			assertEquals(2, lines.size());
-			assertEquals(DescriptionExportWriter.HEADER, lines.get(0));
+			assertEquals(RF2Constants.DESCRIPTION_HEADER, lines.get(0));
 			assertEquals("124011\t20190731\t1\t900000000000207008\t123001\ten\t" + Concepts.FSN + "\tBleeding (finding)\t900000000000448009", lines.get(1));
 		}
 
@@ -323,7 +324,7 @@ public class ExportServiceTest extends AbstractTest {
 			int line = 0;
 			printLines(lines);
 
-			assertEquals(ConceptExportWriter.HEADER, lines.get(line++));
+			assertEquals(RF2Constants.CONCEPT_HEADER, lines.get(line++));
 			assertEquals("900000000000506000\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
 			assertEquals("900000000000508004\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
 			assertEquals("762676003\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
@@ -341,7 +342,7 @@ public class ExportServiceTest extends AbstractTest {
 
 			assertEquals(4, lines.size());
 			line = 0;
-			assertEquals(DescriptionExportWriter.HEADER, lines.get(line++));
+			assertEquals(RF2Constants.DESCRIPTION_HEADER, lines.get(line++));
 			assertEquals("640588126141710019\t20100131\t1\t900000000000207008\t900000000000506000\ten\t900000000000013009\tLanguage refset\t900000000000448009", lines.get(line++));
 			assertEquals("3494181019\t20190131\t1\t900000000000207008\t733073007\ten\t900000000000013009\tOWL axiom reference set\t900000000000448009", lines.get(line++));
 			assertEquals("124011\t\t1\t900000000000207008\t123001\ten\t900000000000003001\tBleeding (finding)\t900000000000448009", lines.get(line++));
@@ -375,7 +376,7 @@ public class ExportServiceTest extends AbstractTest {
 			assertEquals(3, lines.size());
 			int line = 0;
 
-			assertEquals(ConceptExportWriter.HEADER, lines.get(line++));
+			assertEquals(RF2Constants.CONCEPT_HEADER, lines.get(line++));
 			assertEquals("733073007\t20190131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
 			assertEquals("123001\t\t1\t900000000000207008\t900000000000074008", lines.get(line++));
 
@@ -387,7 +388,7 @@ public class ExportServiceTest extends AbstractTest {
 
 			assertEquals(3, lines.size());
 			line = 0;
-			assertEquals(DescriptionExportWriter.HEADER, lines.get(line++));
+			assertEquals(RF2Constants.DESCRIPTION_HEADER, lines.get(line++));
 			assertEquals("3494181019\t20190131\t1\t900000000000207008\t733073007\ten\t900000000000013009\tOWL axiom reference set\t900000000000448009", lines.get(line++));
 			assertEquals("124011\t\t1\t900000000000207008\t123001\ten\t900000000000003001\tBleeding (finding)\t900000000000448009", lines.get(line++));
 		}

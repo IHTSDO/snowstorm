@@ -1,13 +1,12 @@
 package org.snomed.snowstorm.core.rf2.export;
 
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.rf2.RF2Constants;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 
 class RelationshipExportWriter extends ExportWriter<Relationship> {
-
-	static final String HEADER = "id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId";
 
 	RelationshipExportWriter(BufferedWriter bufferedWriter) {
 		super(bufferedWriter);
@@ -15,7 +14,7 @@ class RelationshipExportWriter extends ExportWriter<Relationship> {
 
 	@Override
 	void writeHeader() throws IOException {
-		bufferedWriter.write(HEADER);
+		bufferedWriter.write(RF2Constants.RELATIONSHIP_HEADER);
 		writeNewLine();
 	}
 
