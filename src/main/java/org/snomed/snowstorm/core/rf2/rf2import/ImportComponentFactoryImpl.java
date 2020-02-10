@@ -264,7 +264,11 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
 		ReferenceSetMember member = new ReferenceSetMember(id, effectiveTimeI, isActive(active), moduleId, refsetId, referencedComponentId);
 		for (int i = RF2Constants.MEMBER_ADDITIONAL_FIELD_OFFSET; i < fieldNames.length; i++) {
-			member.setAdditionalField(fieldNames[i], otherValues[i - RF2Constants.MEMBER_ADDITIONAL_FIELD_OFFSET]);
+			if (i - RF2Constants.MEMBER_ADDITIONAL_FIELD_OFFSET < otherValues.length) {
+				member.setAdditionalField(fieldNames[i], otherValues[i - RF2Constants.MEMBER_ADDITIONAL_FIELD_OFFSET]);
+			} else {
+				member.setAdditionalField(fieldNames[i], "");
+			}
 		}
 		if (effectiveTimeI != null) {
 			member.release(effectiveTimeI);
