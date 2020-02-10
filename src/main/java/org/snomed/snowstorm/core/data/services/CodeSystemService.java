@@ -159,7 +159,7 @@ public class CodeSystemService {
 		logger.info("Code System '{}' created.", codeSystem.getShortName());
 	}
 
-	private Optional<CodeSystem> findByBranchPath(String branchPath) {
+	public Optional<CodeSystem> findByBranchPath(String branchPath) {
 		List<CodeSystem> codeSystems = elasticsearchOperations.queryForList(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery().must(termsQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)))

@@ -13,13 +13,13 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.DomainEntityConfiguration;
+import org.snomed.snowstorm.core.data.services.SBranchService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.ResourcePatternResolver;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
@@ -29,10 +29,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class DailyBuildService {
@@ -45,6 +43,9 @@ public class DailyBuildService {
 
 	@Autowired
 	private BranchService branchService;
+
+	@Autowired
+	private SBranchService sBranchService;
 
 	@Autowired
 	private ImportService importService;
@@ -88,36 +89,65 @@ public class DailyBuildService {
 			return;
 		}
 		logger.info("New daily build {} found for {} ", dailyBuildFilename, codeSystem.getShortName());
+		// Lock branch immediately to stop other instances performing daily build.
+		branchService.lockBranch(codeSystem.getBranchPath(), LOCK_MESSAGE);
+
 		rollbackDailyBuildContent(codeSystem);
 
 		logger.info("start daily build delta import for code system " +  codeSystem.getShortName());
 		String importId = importService.createJob(RF2Type.DELTA, codeSystem.getBranchPath(), false, true);
 		InputStream dailyBuildStream = resourceManager.readResourceStreamOrNullIfNotExists(codeSystem.getShortName() + "/" + dailyBuildFilename);
+		// Unlock branch so that delta import can be executed
+		branchService.unlock(codeSystem.getBranchPath());
 		importService.importArchive(importId, dailyBuildStream);
 		logger.info("Daily build delta import completed for code system " +  codeSystem.getShortName());
 	}
 
 	public void rollbackDailyBuildContent(CodeSystem codeSystem) {
-		// Lock branch immediately to stop other instances performing daily build.
-		branchService.lockBranch(codeSystem.getBranchPath(), LOCK_MESSAGE);
-		// Roll back commits on Code System branch which were made after latest release branch base timepoint.
+		// Roll back commits on Code System branch if commit starts after latest release commit
+		// AND new base timestamp does not match one of the parent codesystem release branch timepoints.
+
 		CodeSystemVersion latestVersion = codeSystemService.findLatestImportedVersion(codeSystem.getShortName());
-		Branch latestReleaseBranch = branchService.findLatest(latestVersion.getBranchPath());
-		rollbackCommitsAfterTimepoint(codeSystem.getBranchPath(), latestReleaseBranch.getBase());
-		// unlock branch so that delta import can be executed
-		branchService.unlock(codeSystem.getBranchPath());
-	}
+		Date releaseCommitHead = null;
+		if (latestVersion != null) {
+			// Release branch base timestamp is the same as the head timestamp on the MAIN branch for the commit containing the release.
+			releaseCommitHead = branchService.findLatest(latestVersion.getBranchPath()).getBase();
+		}
 
-	private void rollbackCommitsAfterTimepoint(String path, Date timepoint) {
-		// Find all versions after base timestamp
-		Page<Branch> branchPage = branchService.findAllVersionsAfterTimestamp(path, timepoint, Pageable.unpaged());
+		List<Branch> commitsToRollback = new ArrayList<>();
+		String branchPath = codeSystem.getBranchPath();
 
-		logger.info("{} branch commits found to roll back on {} after timepoint {}.", branchPage.getTotalElements(), path, timepoint);
+		// Find commit of latest release and any after that
+		Date baseForReleaseCommit = null;
+		if (releaseCommitHead != null) {
+			List<Branch> commits = sBranchService.findAllVersionsAfterOrEqualToTimestamp(branchPath, releaseCommitHead, Pageable.unpaged()).getContent();
+			for (Branch commit : commits) {
+				// Don't rollback the release commit
+				if (commit.getHead().equals(releaseCommitHead)) {
+					baseForReleaseCommit = commit.getBase();
+					commitsToRollback.clear();
+					continue;
+				}
+				// Don't rollback rebase commits - these are most likely code system upgrades
+				if (baseForReleaseCommit != null && !commit.getBase().equals(baseForReleaseCommit)) {
+					commitsToRollback.clear();
+					logger.info("Keeping rebase commit {} on {}", commit.getHeadTimestamp(), branchPath);
+					continue;
+				}
+				commitsToRollback.add(commit);
+			}
+		} else {
+			// If never released roll back all versions
+			commitsToRollback = branchService.findAllVersions(branchPath, Pageable.unpaged()).stream().sorted(Comparator.comparing(Branch::getStart)).collect(Collectors.toList());
+		}
 
 		// Roll back in reverse order (i.e the most recent first)
-		List<Branch> rollbackList = new ArrayList<>(branchPage.getContent());
-		Collections.reverse(rollbackList);
+		Collections.reverse(commitsToRollback);
+		rollbackCommits(branchPath, commitsToRollback);
+	}
 
+	private void rollbackCommits(String path, List<Branch> rollbackList) {
+		logger.info("{} branch commits found to roll back on {}.", rollbackList.size(), path);
 		List<Class<? extends DomainEntity>> domainTypes = new ArrayList<>(domainEntityConfiguration.getAllDomainEntityTypes());
 		for (Branch branchVersion : rollbackList) {
 			branchService.rollbackCompletedCommit(branchVersion, domainTypes);
