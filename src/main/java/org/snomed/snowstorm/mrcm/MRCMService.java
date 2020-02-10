@@ -88,6 +88,15 @@ public class MRCMService {
 
 		Set<String> attributeIds = attributeDomains.stream().map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
 		Collection<ConceptMini> attributeConceptMinis = conceptService.findConceptMinis(branchCriteria, attributeIds, languageDialects).getResultsMap().values();
+		if (attributeConceptMinis.size() < attributeIds.size()) {
+			Set<String> foundConceptIds = attributeConceptMinis.stream().map(ConceptMini::getConceptId).collect(Collectors.toSet());
+			for (String attributeId : attributeIds) {
+				if (!foundConceptIds.contains(attributeId)) {
+					logger.warn("The concept to represent attribute {} is in the MRCM Attribute Domain reference set but is missing from branch {}.",
+							attributeId, branchPath);
+				}
+			}
+		}
 		for (ConceptMini attributeConceptMini : attributeConceptMinis) {
 			attributeConceptMini.addExtraField("attributeDomain",
 					attributeDomains.stream().filter(attributeDomain -> attributeConceptMini.getId().equals(attributeDomain.getReferencedComponentId()))
