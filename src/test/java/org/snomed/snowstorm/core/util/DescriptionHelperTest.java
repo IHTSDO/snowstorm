@@ -57,7 +57,7 @@ public class DescriptionHelperTest {
 				new Description("jetfly").setTypeId(Concepts.SYNONYM).setLang("da").addLanguageRefsetMember(danishLanguageReferenceSet, Concepts.PREFERRED)
 		);
 
-		assertEquals("en-X-900000000000509007,en-X-900000000000509007,en", Config.DEFAULT_ACCEPT_LANG_HEADER);
+		assertEquals("en-X-900000000000509007,en-X-900000000000508004,en", Config.DEFAULT_ACCEPT_LANG_HEADER);
 		assertEquals("Jet airplane", getPtTerm(null, descriptions));
 		assertEquals("Jet airplane", getPtTerm(Config.DEFAULT_ACCEPT_LANG_HEADER, descriptions));
 		assertEquals("Jet aeroplane", getPtTerm("en-X-" + GB_EN_LANG_REFSET, descriptions));
