@@ -98,7 +98,7 @@ public abstract class Config {
 	public static final String DEFAULT_LANGUAGE_CODE = "en";
 	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList(DEFAULT_LANGUAGE_CODE);
 
-	public static final String DEFAULT_ACCEPT_LANG_HEADER = "en-X-" + Concepts.US_EN_LANG_REFSET + ",en-X-" + Concepts.US_EN_LANG_REFSET + ",en";
+	public static final String DEFAULT_ACCEPT_LANG_HEADER = "en-X-" + Concepts.US_EN_LANG_REFSET + ",en-X-" + Concepts.GB_EN_LANG_REFSET + ",en";
 	public static final List<LanguageDialect> DEFAULT_LANGUAGE_DIALECTS = Lists.newArrayList(
 			new LanguageDialect("en", parseLong(Concepts.US_EN_LANG_REFSET)),
 			new LanguageDialect("en", parseLong(Concepts.GB_EN_LANG_REFSET)),
