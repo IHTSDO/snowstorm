@@ -40,7 +40,7 @@ public class MultiSearchController {
 	}
 
 	@ApiOperation("Search across multiple Code Systems.")
-	@RequestMapping(value = "mutisearch/descriptions", method = RequestMethod.GET)
+	@RequestMapping(value = "multisearch/descriptions", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<BrowserDescriptionSearchResult> findDescriptions(
