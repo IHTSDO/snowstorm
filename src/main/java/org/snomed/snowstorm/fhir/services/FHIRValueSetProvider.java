@@ -32,6 +32,7 @@ import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 
 @Component
@@ -228,6 +229,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		boolean includeDesignations = true;
 		if (includeDesignationsType != null) {
 			includeDesignations = includeDesignationsType.booleanValue();
+			//If we're including designations but not specified which ones, use the default
+			if (includeDesignations && designations.isEmpty()) {
+				designations.addAll(DEFAULT_LANGUAGE_DIALECTS);
+			}
 		} else if (designationsStr == null) {
 			includeDesignations = false;
 		}
