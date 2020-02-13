@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(SpringRunner.class)
@@ -45,6 +46,7 @@ public class ValueSetProviderEclTest extends AbstractFHIRTest {
 		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/" + sampleSCTID +"&includeDesignations=true&_format=json";
 		ValueSet v = get(url);
 		assertEquals(1,v.getExpansion().getContains().size());
+		assertFalse(v.getExpansion().getContains().get(0).getDesignation().isEmpty());
 		assertTrue(v.getExpansion().getContains().get(0).getDesignation().get(0).getValue().contains("potato"));
 	}
 	

@@ -42,7 +42,7 @@ public class HapiValueSetMapper implements FHIRConstants {
 					}
 					
 					//Use the preferred term in the specified display language.
-					if (d.hasAcceptability(Concepts.PREFERRED, designations.get(0)) &&
+					if (!designations.isEmpty() && d.hasAcceptability(Concepts.PREFERRED, designations.get(0)) &&
 							d.getTypeId().equals(Concepts.SYNONYM)) {
 						component.setDisplay(d.getTerm());
 					}
