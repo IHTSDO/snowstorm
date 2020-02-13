@@ -1,0 +1,3 @@
+id	effectiveTime	active	moduleId	refsetId	referencedComponentId	domainConstraint	parentDomain	proximalPrimitiveConstraint	proximalPrimitiveRefinement	domainTemplateForPrecoordination	domainTemplateForPostcoordination	guideURL
+3afa8ba9-6196-4792-afd0-224450e79166		1	900000000000012004	723560006	363787002	<< 363787002 |Observable entity (observable entity)|		<< 363787002 |Observable entity (observable entity)|				
+

@@ -549,7 +549,17 @@ public class ImportServiceTest extends AbstractTest {
 
 	}
 
-		private void collectContentCounts(List<Concept> concepts, Map<String, AtomicInteger> conceptDefinitionStatuses, Map<String, AtomicInteger> descriptionCaseSignificance, Map<String, AtomicInteger> descriptionAcceptability, Map<Integer, AtomicInteger> relationshipGroups) {
+	@Test
+	public void testImportMemberWithMultipleBlankTrailingFields() throws IOException, ReleaseImportException {
+		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/multipleTrailingBlankFields");
+		String importId = importService.createJob(RF2Type.DELTA, "MAIN", false, false);
+		importService.importArchive(importId, new FileInputStream(zipFile));
+
+		ReferenceSetMember member = referenceSetMemberService.findMember("MAIN", "3afa8ba9-6196-4792-afd0-224450e79166");
+		assertNotNull(member);
+	}
+
+	private void collectContentCounts(List<Concept> concepts, Map<String, AtomicInteger> conceptDefinitionStatuses, Map<String, AtomicInteger> descriptionCaseSignificance, Map<String, AtomicInteger> descriptionAcceptability, Map<Integer, AtomicInteger> relationshipGroups) {
 		conceptDefinitionStatuses.clear();
 		descriptionCaseSignificance.clear();
 		descriptionAcceptability.clear();

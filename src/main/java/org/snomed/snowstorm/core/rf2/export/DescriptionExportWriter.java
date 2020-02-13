@@ -1,20 +1,19 @@
 package org.snomed.snowstorm.core.rf2.export;
 
 import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.rf2.RF2Constants;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 
 class DescriptionExportWriter extends ExportWriter<Description> {
 
-	static final String HEADER = "id\teffectiveTime\tactive\tmoduleId\tconceptId\tlanguageCode\ttypeId\tterm\tcaseSignificanceId";
-
 	DescriptionExportWriter(BufferedWriter bufferedWriter) {
 		super(bufferedWriter);
 	}
 
 	void writeHeader() throws IOException {
-		bufferedWriter.write(HEADER);
+		bufferedWriter.write(RF2Constants.DESCRIPTION_HEADER);
 		writeNewLine();
 	}
 

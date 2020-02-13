@@ -1,20 +1,19 @@
 package org.snomed.snowstorm.core.rf2.export;
 
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.rf2.RF2Constants;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 
 class ConceptExportWriter extends ExportWriter<Concept> {
 
-	static final String HEADER = "id\teffectiveTime\tactive\tmoduleId\tdefinitionStatusId";
-
 	ConceptExportWriter(BufferedWriter bufferedWriter) {
 		super(bufferedWriter);
 	}
 
 	void writeHeader() throws IOException {
-		bufferedWriter.write(HEADER);
+		bufferedWriter.write(RF2Constants.CONCEPT_HEADER);
 		writeNewLine();
 	}
 

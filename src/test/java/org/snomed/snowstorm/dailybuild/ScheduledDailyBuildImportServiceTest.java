@@ -4,6 +4,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.otf.resourcemanager.ResourceConfiguration;
 import org.ihtsdo.otf.resourcemanager.ResourceManager;
+import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -11,7 +12,9 @@ import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.services.AdminOperationsService;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
@@ -25,6 +28,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.io.*;
+import java.util.List;
+
 import static junit.framework.TestCase.assertNull;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
@@ -34,6 +39,7 @@ import static org.junit.Assert.assertNotNull;
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
 public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
+
 	@Autowired
 	private DailyBuildService dailyBuildImportService;
 
@@ -48,6 +54,9 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private AdminOperationsService adminOperationsService;
 
 	private File baseLineRelease;
 
@@ -117,8 +126,6 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 
 		// scheduled daily build import with changes to revert previous day's authoring and add a brand new concept
 		dailyBuildImportService.dailyBuildDeltaImport(snomedct, rf2Archive2.getAbsolutePath());
-		Thread.sleep(2000);
-		elasticsearchTemplate.refresh(Branch.class);
 		branchPage = branchService.findAllVersions(branchPath, Pageable.unpaged());
 
 		assertEquals(4, branchPage.getTotalElements());
@@ -140,32 +147,77 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		// newly added
 		concept = conceptService.find("131148009", branchPath);
 		assertNull(concept);
+	}
 
+	@Test
+	public void testExtensionDailyBuildImport() throws IOException, ReleaseImportException {
+		String shortName = "SNOMEDCT-LAND";
+		String branchPath = "MAIN/SNOMEDCT-LAND";
+		CodeSystem snomedExtensionCodeSystem = new CodeSystem(shortName, branchPath);
+		codeSystemService.createCodeSystem(snomedExtensionCodeSystem);
+
+		String importId = importService.createJob(RF2Type.SNAPSHOT, snomedExtensionCodeSystem.getBranchPath(), true, false);
+		File extensionRelease = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Extension_snapshot");
+		importService.importArchive(importId, new FileInputStream(extensionRelease));
+
+		List<CodeSystemVersion> allVersions = codeSystemService.findAllVersions(shortName, false);
+		assertEquals(1, allVersions.size());
+
+		String dailyBuild1Concept = "131148009";
+		String dailyBuild2Concept = "131148010";
+		assertNull("Concept not yet imported", conceptService.find(dailyBuild1Concept, branchPath));
+		assertNull("Concept not yet imported", conceptService.find(dailyBuild2Concept, branchPath));
+
+		// Trigger #1 daily build import manually
+		dailyBuildImportService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive1.getAbsolutePath());
+		assertNotNull("Concept imported in daily build #1", conceptService.find(dailyBuild1Concept, branchPath));
+		assertNull("Concept not yet imported", conceptService.find(dailyBuild2Concept, branchPath));
+
+		// Trigger #2 daily build import manually
+		dailyBuildImportService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive2.getAbsolutePath());
+		assertNull("Daily build #1 import reverted and concept not present in daily build #2", conceptService.find(dailyBuild1Concept, branchPath));
+		assertNotNull("Concept imported in daily build #2", conceptService.find(dailyBuild2Concept, branchPath));
+
+
+		// Create fake international release using dailybuild 1
+		String importIdA = importService.createJob(RF2Type.DELTA, "MAIN", false, false);
+		importService.importArchive(importIdA, new FileInputStream(rf2Archive1));
+		codeSystemService.createVersion(snomedct, 20200131, "");
+
+		// Upgrade the extension
+		Branch latest = branchService.findLatest(branchPath);
+		// First rollback the dailybuild 2 archive
+		adminOperationsService.rollbackCommit(branchPath, latest.getHeadTimestamp());
+		codeSystemService.upgrade(shortName, 20200131);
+
+		assertNotNull("Daily build 1 Concept now visible via extension upgrade", conceptService.find(dailyBuild1Concept, branchPath));
+
+		// Import daily build #2 again
+		dailyBuildImportService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive2.getAbsolutePath());
+		assertNotNull("Daily build 1 Concept should still be visible because of upgrade.", conceptService.find(dailyBuild1Concept, branchPath));
+		assertNotNull("Other concept imported in extension daily build #2", conceptService.find(dailyBuild2Concept, branchPath));
 	}
 
 	private static class MockResourceManager extends ResourceManager {
-
-		public static final String SNOMEDCT = "SNOMEDCT";
 
 		public MockResourceManager(ResourceConfiguration resourceConfiguration, ResourceLoader cloudResourceLoader) {
 			super(resourceConfiguration, cloudResourceLoader);
 		}
 
 		public InputStream readResourceStream(String fullPath) throws IOException {
-			if (fullPath.startsWith(SNOMEDCT)) {
-				fullPath = fullPath.replace(SNOMEDCT, "");
-			}
+			fullPath = fullPath.substring(fullPath.indexOf("/"));
+			System.out.println("Full path: '" + fullPath + "'");
 			File file = new File(fullPath);
 			if (file.exists() && file.canRead()) {
 				return new FileInputStream(fullPath);
 			} else {
+				System.err.println("Returning null");
 				return null;
 			}
 		}
 
 		public InputStream readResourceStreamOrNullIfNotExists(String fullPath) throws IOException {
-			return  this.readResourceStream(fullPath);
+			return this.readResourceStream(fullPath);
 		}
 	}
 }
-

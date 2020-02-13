@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.services.SemanticIndexUpdateService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -97,6 +98,18 @@ public class AdminController {
 	@RequestMapping(value = "/{branch}/actions/inactive-relationships-restore-group-number", method = RequestMethod.POST)
 	public void restoreGroupNumberOfInactiveRelationships(@PathVariable String branch, @RequestParam String currentEffectiveTime, @RequestParam String previousReleaseBranch) {
 		adminOperationsService.restoreGroupNumberOfInactiveRelationships(BranchPathUriUtil.decodePath(branch), currentEffectiveTime, previousReleaseBranch);
+	}
+
+	@ApiOperation(value = "Delete inferred relationships which are NOT in the provided file.",
+			notes = "This function will delete all inferred relationships found on the specified branch where the id is NOT in the snapshot RF2 relationship file provided. " +
+					"This can be useful to help clean up differences between an Alpha/Beta/Member extension release and the final release if both have been imported.")
+	@RequestMapping(value = "/{branch}/actions/delete-extra-inferred-relationships", method = RequestMethod.POST, consumes = "multipart/form-data")
+	public void deleteExtraInferredRelationships(@PathVariable String branch, @RequestParam int effectiveTime, @RequestParam MultipartFile relationshipsToKeep) {
+		try {
+			adminOperationsService.deleteExtraInferredRelationships(BranchPathUriUtil.decodePath(branch), relationshipsToKeep.getInputStream(), effectiveTime);
+		} catch (IOException e) {
+			throw new IllegalArgumentException("Failed to read/process the file provided.");
+		}
 	}
 
 }

@@ -2,14 +2,13 @@ package org.snomed.snowstorm.core.rf2.export;
 
 import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.rf2.RF2Constants;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.util.List;
 
 class ReferenceSetMemberExportWriter extends ExportWriter<ReferenceSetMember> {
-
-	static final String HEADER = "id\teffectiveTime\tactive\tmoduleId\trefsetId\treferencedComponentId";
 
 	private final List<String> extraFieldNames;
 
@@ -21,7 +20,7 @@ class ReferenceSetMemberExportWriter extends ExportWriter<ReferenceSetMember> {
 	@Override
 	void writeHeader() throws IOException {
 		String extraFields = Strings.collectionToDelimitedString(extraFieldNames, TAB);
-		bufferedWriter.write(HEADER);
+		bufferedWriter.write(RF2Constants.SIMPLE_REFSET_HEADER);
 		if (!extraFields.isEmpty()) {
 			bufferedWriter.write(TAB);
 			bufferedWriter.write(extraFields);
@@ -49,7 +48,7 @@ class ReferenceSetMemberExportWriter extends ExportWriter<ReferenceSetMember> {
 					bufferedWriter.write(TAB);
 					String value = member.getAdditionalField(extraField);
 					if (value == null) {
-						throw new IllegalStateException(String.format("Additional field '%s' value is null for member %s", extraField, member.getMemberId()));
+						value = "";
 					}
 					bufferedWriter.write(value);
 				}

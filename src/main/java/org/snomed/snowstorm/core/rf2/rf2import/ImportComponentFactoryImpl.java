@@ -13,6 +13,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.snomed.snowstorm.core.data.services.ConceptUpdateHelper;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
@@ -21,7 +22,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
@@ -32,8 +32,6 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	private static Logger logger = LoggerFactory.getLogger(ImportComponentFactoryImpl.class);
 	private static final int FLUSH_INTERVAL = 5000;
-	private static final int MEMBER_ADDITIONAL_FIELD_OFFSET = 6;
-	private static final Pattern EFFECTIVE_DATE_PATTERN = Pattern.compile("\\d{8}");
 
 	private final BranchService branchService;
 	private final BranchMetadataHelper branchMetadataHelper;
@@ -265,8 +263,12 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
 		ReferenceSetMember member = new ReferenceSetMember(id, effectiveTimeI, isActive(active), moduleId, refsetId, referencedComponentId);
-		for (int i = MEMBER_ADDITIONAL_FIELD_OFFSET; i < fieldNames.length; i++) {
-			member.setAdditionalField(fieldNames[i], otherValues[i - MEMBER_ADDITIONAL_FIELD_OFFSET]);
+		for (int i = RF2Constants.MEMBER_ADDITIONAL_FIELD_OFFSET; i < fieldNames.length; i++) {
+			if (i - RF2Constants.MEMBER_ADDITIONAL_FIELD_OFFSET < otherValues.length) {
+				member.setAdditionalField(fieldNames[i], otherValues[i - RF2Constants.MEMBER_ADDITIONAL_FIELD_OFFSET]);
+			} else {
+				member.setAdditionalField(fieldNames[i], "");
+			}
 		}
 		if (effectiveTimeI != null) {
 			member.release(effectiveTimeI);
@@ -275,7 +277,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	}
 
 	private Integer getEffectiveTimeI(String effectiveTime) {
-		return effectiveTime != null && !effectiveTime.isEmpty() && EFFECTIVE_DATE_PATTERN.matcher(effectiveTime).matches() ? Integer.parseInt(effectiveTime) : null;
+		return effectiveTime != null && !effectiveTime.isEmpty() && RF2Constants.EFFECTIVE_DATE_PATTERN.matcher(effectiveTime).matches() ? Integer.parseInt(effectiveTime) : null;
 	}
 
 	Integer getMaxEffectiveTime() {
