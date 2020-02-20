@@ -1,0 +1,80 @@
+<!doctype html>
+<!--
+	Quick and dirty way to format OWL Axiom expressions and insert FSNs.
+-->
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>OWL Axiom Parser</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+	<style>
+		html, body {
+			height:95%;
+		}
+	</style>
+	<script>
+		function getIndentation(indentSize) {
+			var indentation = '';
+			for (var i = 0; i < indentSize; i++) {
+				indentation += '\t';
+			}
+			return indentation;
+		}
+		function convert() {
+			var text = $('textarea').val();
+			if (text.indexOf('|') != -1) {
+				alert('Axiom expression already contains terms.');
+				return;
+			}
+			// Strip newlines and tabs
+			text = text.replace('\n', '').replace('\t', '')
+			// Insert indentation
+			var indentSize = 0;
+			var indentedText = '';
+			for (var i = 0; i < text.length; i++) {
+				var char = text[i];
+				if (char == '(') {
+					indentSize++;
+					indentedText += char;
+					indentedText += '\n' + getIndentation(indentSize);
+				} else if (char == ' ') {
+					indentedText += '\n' + getIndentation(indentSize);
+				} else if (char == ')') {
+					indentSize--;
+					indentedText += '\n' + getIndentation(indentSize);
+					indentedText += char;
+				} else {
+					indentedText += char;
+				}
+			}
+			var ids = text.match(/[0-9]+/gm);
+			var contentBranch = $('input[name="contentBranch"]').val();
+			if (ids != null) {
+				// Lookup term
+				$.ajax({
+					method: 'GET',
+					url: contentBranch + '/concepts',
+					data: {
+						conceptIds: ids.join(","),
+						limit: 100
+					},
+					success: function(data) {
+						var concepts = data.items;
+						console.log(concepts.length);
+						$(concepts).each(function(index, concept) {
+							indentedText = indentedText.replace(new RegExp(concept.conceptId, 'gm'), concept.conceptId + " | " + concept.fsn.term + " |")
+						});
+						$('textarea').val(indentedText);
+					}
+				});
+			}
+		}
+	</script>
+</head>
+<body>
+<h2>Basic OWL Axiom Formatter</h2>
+<p>Quick and dirty way to format OWL Axiom expressions and insert Fully Specified Names.</p>
+<p>Content branch: <input style="width: 50em;" type="text" name="contentBranch" value="MAIN"/></p>
+<textarea name="axiom" style="display:block;width:90%;height:80%;">SubClassOf(:404684003 :138875005)</textarea>
+<button onclick="convert()">Convert</button>
+</body>
