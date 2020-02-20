@@ -19,6 +19,7 @@ import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
+import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.fhir.domain.ValueSetFilter;
 import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
 import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
@@ -237,37 +238,16 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			includeDesignations = false;
 		}
 		
-		String branchPath = null;
-		Page<ConceptMini> conceptMiniPage = new PageImpl<>(new ArrayList<>());
+		BranchPath branchPath = new BranchPath();
+		Page<ConceptMini> conceptMiniPage;
 
 		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
+		//These calls will also set the branchPath
 		int cutPoint = url == null ? -1 : url.indexOf("?");
 		if (cutPoint == NOT_SET) {
-			if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
-				branchPath = obtainConsistentCodeSystemVersionFromCompose(vs.getCompose());
-				String ecl = covertComposeToEcl(vs.getCompose());
-				conceptMiniPage = eclSearch(ecl, active, filter, designations, branchPath, offset, pageSize);
-				logger.info("Recovered: {} concepts from branch: {} with ecl from compose: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
-			} else {
-				String msg = "Compose element(s) or 'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ";
-				//We don't need ECL if we're expanding a named valueset
-				if (vs != null) {
-					logger.warn(msg + " when expanding " + vs.getId());
-				} else {
-					throw new FHIROperationException(IssueType.VALUE, msg);
-				}
-			}
+			conceptMiniPage = doExplicitExpansion(vs, active, filter, branchPath, designations, offset, pageSize);
 		} else {
-			StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
-			branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
-			//Are we looking for all known refsets?  Special case.
-			if (url.endsWith("?fhir_vs=refset")) {
-				conceptMiniPage = findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
-			} else {
-				String ecl = determineEcl(url);
-				conceptMiniPage = eclSearch(ecl, active, filter, designations, branchPath, offset, pageSize);
-				logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
-			}
+			conceptMiniPage = doImplcitExpansion(cutPoint, url, active, filter, branchPath, designations, offset, pageSize);
 		}
 		
 		//We will always need the PT, so recover further details
@@ -278,23 +258,66 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		return valueSet;
 	}
 
+	/**
+	 * An implicit ValueSet is one that hasn't been saved on the server, but is being 
+	 * defined at expansion time by use of a URL containing a definition of the content
+	 */
+	private Page<ConceptMini> doImplcitExpansion(int cutPoint, String url, Boolean active, String filter,
+			BranchPath branchPath, List<LanguageDialect> designations, int offset, int pageSize) throws FHIROperationException {
+		StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
+		branchPath.set(fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri));
+		//Are we looking for all known refsets?  Special case.
+		if (url.endsWith("?fhir_vs=refset")) {
+			return findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
+		} else {
+			String ecl = determineEcl(url);
+			Page<ConceptMini> conceptMiniPage = eclSearch(ecl, active, filter, designations, branchPath, offset, pageSize);
+			logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
+			return conceptMiniPage;
+		}
+	}
+
+	/**
+	 * An explicit ValueSet has been saved on the server with a name and id, and 
+	 * is defined by use of the "compose" element within the valueset resource.
+	 */
+	private Page<ConceptMini> doExplicitExpansion(ValueSet vs, Boolean active, String filter,
+			BranchPath branchPath, List<LanguageDialect> designations, int offset, int pageSize) throws FHIROperationException {
+		Page<ConceptMini> conceptMiniPage = new PageImpl<>(new ArrayList<>());
+		if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
+			branchPath.set(obtainConsistentCodeSystemVersionFromCompose(vs.getCompose()));
+			String ecl = covertComposeToEcl(vs.getCompose());
+			conceptMiniPage = eclSearch(ecl, active, filter, designations, branchPath, offset, pageSize);
+			logger.info("Recovered: {} concepts from branch: {} with ecl from compose: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
+		} else {
+			String msg = "Compose element(s) or 'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ";
+			//We don't need ECL if we're expanding a named valueset
+			if (vs != null) {
+				logger.warn(msg + " when expanding " + vs.getId());
+			} else {
+				throw new FHIROperationException(IssueType.VALUE, msg);
+			}
+		}
+		return conceptMiniPage;
+	}
+
 	private boolean contains(List<LanguageDialect> languageDialects, String displayLanguage) {
 		return languageDialects.stream()
 		.anyMatch(ld -> ld.getLanguageCode().equals(displayLanguage));
 	}
 
-	public Page<ConceptMini> eclSearch(String ecl, Boolean active, String termFilter, List<LanguageDialect> languageDialects, String branchPath, int offset, int pageSize) {
+	public Page<ConceptMini> eclSearch(String ecl, Boolean active, String termFilter, List<LanguageDialect> languageDialects, BranchPath branchPath, int offset, int pageSize) {
 		Page<ConceptMini> conceptMiniPage;
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		queryBuilder.ecl(ecl)
 				.descriptionCriteria(descriptionCriteria -> descriptionCriteria.term(termFilter))
 				.resultLanguageDialects(languageDialects)
 				.activeFilter(active);
-		conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath), PageRequest.of(offset, pageSize));
+		conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath.toString()), PageRequest.of(offset, pageSize));
 		return conceptMiniPage;
 	}
 
-	private String obtainConsistentCodeSystemVersionFromCompose(ValueSetComposeComponent compose) throws FHIROperationException {
+	private BranchPath obtainConsistentCodeSystemVersionFromCompose(ValueSetComposeComponent compose) throws FHIROperationException {
 		String system = null;
 		String version = null;
 		
@@ -360,8 +383,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		}
 	}
 	
-	private Page<ConceptMini> findAllRefsets(String branchPath, PageRequest pageRequest) {
-		PageWithBucketAggregations<ReferenceSetMember> bucketPage = refsetService.findReferenceSetMembersWithAggregations(branchPath, pageRequest, new MemberSearchRequest().active(true));
+	private Page<ConceptMini> findAllRefsets(BranchPath branchPath, PageRequest pageRequest) {
+		PageWithBucketAggregations<ReferenceSetMember> bucketPage = refsetService.findReferenceSetMembersWithAggregations(branchPath.toString(), pageRequest, new MemberSearchRequest().active(true));
 		List<ConceptMini> refsets = new ArrayList<>();
 		if (bucketPage.getBuckets() != null && bucketPage.getBuckets().containsKey(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET)) {
 			refsets = bucketPage.getBuckets().get(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET).keySet().stream()
@@ -371,14 +394,14 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		return new PageImpl<>(refsets, pageRequest, refsets.size());
 	}
 
-	private Map<String, Concept> getConceptDetailsMap(String branchPath, Page<ConceptMini> page, List<LanguageDialect> languageDialects) {
+	private Map<String, Concept> getConceptDetailsMap(BranchPath branchPath, Page<ConceptMini> page, List<LanguageDialect> languageDialects) {
 		if (!page.hasContent()) {
 			return null;
 		}
 		List<String> ids = page.getContent().stream()
 				.map(ConceptMini::getConceptId)
 				.collect(Collectors.toList());
-		return conceptService.find(branchPath, ids, languageDialects).stream()
+		return conceptService.find(branchPath.toString(), ids, languageDialects).stream()
 			.collect(Collectors.toMap(Concept::getConceptId, c -> c));
 	}
 
