@@ -19,6 +19,7 @@ import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
+import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -66,8 +67,8 @@ public class FHIRHelper implements FHIRConstants {
 				: versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1, versionStr.indexOf("/" + FHIRConstants.VERSION + "/"));
 	}
 
-	public String getBranchPathForCodeSystemVersion(StringType codeSystemVersionUri) {
-		String branchPath;
+	public BranchPath getBranchPathForCodeSystemVersion(StringType codeSystemVersionUri) {
+		String branchPathStr;
 		String defaultModule = getSnomedEditionModule(codeSystemVersionUri);
 		Integer editionVersionString = null;
 		if (codeSystemVersionUri != null) {
@@ -79,7 +80,7 @@ public class FHIRHelper implements FHIRConstants {
 			String msg = String.format("No code system with default module %s.", defaultModule);
 			//throw new NotFoundException());
 			logger.error(msg + " Using MAIN.");
-			return "MAIN";
+			return new BranchPath("MAIN");
 		}
 
 		CodeSystemVersion codeSystemVersion;
@@ -87,15 +88,15 @@ public class FHIRHelper implements FHIRConstants {
 		if (editionVersionString != null) {
 			// Lookup specific version
 			codeSystemVersion = codeSystemService.findVersion(shortName, editionVersionString);
-			branchPath = codeSystemVersion.getBranchPath();
+			branchPathStr = codeSystemVersion.getBranchPath();
 		} else {
 			// Lookup latest effective version (future versions will not be used until publication date)
-			branchPath = codeSystem.getLatestVersion().getBranchPath();
+			branchPathStr = codeSystem.getLatestVersion().getBranchPath();
 		}
-		if (branchPath == null) {
+		if (branchPathStr == null) {
 			throw new NotFoundException(String.format("No branch found for Code system %s with default module %s.", shortName, defaultModule));
 		}
-		return branchPath;
+		return new BranchPath(branchPathStr);
 	}
 
 	public List<LanguageDialect> getLanguageDialects(List<String> designations, HttpServletRequest request) throws FHIROperationException {
@@ -198,7 +199,7 @@ public class FHIRHelper implements FHIRConstants {
 	public boolean expansionContainsCode(ValueSet vs, String code) throws FHIROperationException {
 		String vsEcl = vsService.covertComposeToEcl(vs.getCompose());
 		String filteredEcl = code + " AND (" + vsEcl + ")";
-		String branchPath = getBranchPathForCodeSystemVersion(null);
+		BranchPath branchPath = getBranchPathForCodeSystemVersion(null);
 		Page<ConceptMini> concepts = vsService.eclSearch(filteredEcl, true, null, null, branchPath, 0, NOT_SET);
 		return concepts.getSize() > 0;
 	}
