@@ -12,6 +12,7 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
+import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -59,9 +60,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		fhirHelper.ensurePresent(displayLanguage, languageDialects);
 		
-		String branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
-		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), languageDialects, branchPath));
-		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + code.getValue()), branchPath, LARGE_PAGE);
+		BranchPath branchPath = fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
+		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), languageDialects, branchPath.toString()));
+		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + code.getValue()), branchPath.toString(), LARGE_PAGE);
 		Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
 		return mapper.mapToFHIR(concept, childIds.getContent(), properties, displayLanguage);
 	}
