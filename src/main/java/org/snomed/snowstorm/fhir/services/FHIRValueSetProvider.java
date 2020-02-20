@@ -237,10 +237,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			includeDesignations = false;
 		}
 		
-		return expand(vs, url, offset, pageSize, designations, includeDesignations, active, filter);
-	}
-
-	private ValueSet expand(ValueSet vs, String url, int offset, int pageSize, List<LanguageDialect> designations, boolean includeDesignations, Boolean active, String filter) throws FHIROperationException {
 		String branchPath = null;
 		Page<ConceptMini> conceptMiniPage = new PageImpl<>(new ArrayList<>());
 
