@@ -212,34 +212,13 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			url = vs.getUrl();
 		}
 		
-		List<LanguageDialect> designations = fhirHelper.getLanguageDialects(designationsStr, request);
 		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
 		int pageSize = (countStr == null || countStr.isEmpty()) ? DEFAULT_PAGESIZE : Integer.parseInt(countStr);
 		Boolean active = activeType == null ? null : activeType.booleanValue();
-		
-		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
-		if (displayLanguageStr != null) {
-			//If we don't already have the display language specified, add it
-			if (!contains(designations, displayLanguageStr)) {
-				designations.add(new LanguageDialect(displayLanguageStr));
-			}
-		} 
-
-		//If someone specified designations, then include them unless specified not to, in which 
-		//case use only for the displayLanguage because that's the only way to get a langRefsetId specified
-		boolean includeDesignations = true;
-		if (includeDesignationsType != null) {
-			includeDesignations = includeDesignationsType.booleanValue();
-			//If we're including designations but not specified which ones, use the default
-			if (includeDesignations && designations.isEmpty()) {
-				designations.addAll(DEFAULT_LANGUAGE_DIALECTS);
-			}
-		} else if (designationsStr == null) {
-			includeDesignations = false;
-		}
-		
 		BranchPath branchPath = new BranchPath();
 		Page<ConceptMini> conceptMiniPage;
+		List<LanguageDialect> designations = new ArrayList<>();
+		boolean includeDesignations = setLanguageOptions(designations, designationsStr, displayLanguageStr, includeDesignationsType, request);
 
 		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
 		//These calls will also set the branchPath
@@ -256,6 +235,35 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		valueSet.getExpansion().setTotal((int)conceptMiniPage.getTotalElements());
 		valueSet.getExpansion().setOffset(offset);
 		return valueSet;
+	}
+
+	private boolean setLanguageOptions(List<LanguageDialect> designations, List<String> designationsStr,
+			String displayLanguageStr, BooleanType includeDesignationsType, HttpServletRequest request) throws FHIROperationException {
+		boolean includeDesignations = false;
+		designations.addAll(fhirHelper.getLanguageDialects(designationsStr, request));
+		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
+		if (displayLanguageStr != null) {
+			LanguageDialect displayDialect = new LanguageDialect(displayLanguageStr);
+			//Ensure the display language is first in our list
+			if (contains(designations, displayLanguageStr)) {
+				designations.remove(displayDialect);
+			}
+			designations.add(0, displayDialect);
+		} 
+
+		//If someone specified designations, then include them unless specified not to, in which 
+		//case use only for the displayLanguage because that's the only way to get a langRefsetId specified
+		if (includeDesignationsType != null) {
+			includeDesignations = includeDesignationsType.booleanValue();
+			//If we're including designations but not specified which ones, use the default
+			if (includeDesignations && designations.isEmpty()) {
+				designations.addAll(DEFAULT_LANGUAGE_DIALECTS);
+			}
+		} else {
+			//Otherwise include designations if we've specified some
+			includeDesignations = designationsStr != null;
+		}
+		return includeDesignations;
 	}
 
 	/**
@@ -310,7 +318,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		Page<ConceptMini> conceptMiniPage;
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		queryBuilder.ecl(ecl)
-				.descriptionCriteria(descriptionCriteria -> descriptionCriteria.term(termFilter))
+				.descriptionCriteria(descriptionCriteria -> descriptionCriteria
+						.term(termFilter)
+						.searchLanguageCodes(LanguageDialect.toLanguageCodes(languageDialects)))
 				.resultLanguageDialects(languageDialects)
 				.activeFilter(active);
 		conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath.toString()), PageRequest.of(offset, pageSize));
