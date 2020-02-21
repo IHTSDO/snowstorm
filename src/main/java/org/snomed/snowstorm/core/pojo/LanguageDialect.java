@@ -1,10 +1,13 @@
 package org.snomed.snowstorm.core.pojo;
 
 import java.io.Serializable;
-import java.util.Objects;
+import java.util.*;
+
+import org.drools.core.util.StringUtils;
 
 public class LanguageDialect implements Serializable {
 
+	private static final long serialVersionUID = -2108861640664721439L;
 	private String languageCode;
 	private Long languageReferenceSet;
 
@@ -37,5 +40,15 @@ public class LanguageDialect implements Serializable {
 	@Override
 	public int hashCode() {
 		return Objects.hash(languageCode, languageReferenceSet);
+	}
+
+	public static List<String> toLanguageCodes(List<LanguageDialect> languageDialects) {
+		List<String> languageCodes = new ArrayList<>();
+		for (LanguageDialect languageDialect : languageDialects) {
+			if (StringUtils.isEmpty(languageDialect.getLanguageCode())) {
+				languageCodes.add(languageDialect.languageCode);
+			}
+		}
+		return languageCodes;
 	}
 }
