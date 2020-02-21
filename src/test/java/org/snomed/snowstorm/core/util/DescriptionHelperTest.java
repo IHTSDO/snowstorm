@@ -66,7 +66,20 @@ public class DescriptionHelperTest {
 		assertEquals("jetfly", getPtTerm("da-X-" + danishLanguageReferenceSet, descriptions));
 	}
 
+	@Test
+	public void testPickFSNUsingLangOnlyWhenNoLangRefset() {
+		final HashSet<Description> descriptionWithNoAcceptability = Sets.newHashSet(new Description("Neoplasm and/or hamartoma reference set (foundation metadata concept)").setTypeId(Concepts.FSN));
+		assertEquals("Pick FSN with correct language when only language requested.",
+				"Neoplasm and/or hamartoma reference set (foundation metadata concept)", getFSNTerm("en", descriptionWithNoAcceptability));
+		assertEquals("Pick FSN with correct language when language dialect requested because 'en' is always included as fallback.",
+				"Neoplasm and/or hamartoma reference set (foundation metadata concept)", getFSNTerm("en-X-900000000000509007", descriptionWithNoAcceptability));
+	}
+
 	private String getPtTerm(String acceptLanguageHeader, Set<Description> descriptions) {
 		return DescriptionHelper.getPtDescription(descriptions, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader)).orElseGet(Description::new).getTerm();
+	}
+
+	private String getFSNTerm(String acceptLanguageHeader, Set<Description> descriptions) {
+		return DescriptionHelper.getFsnDescription(descriptions, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader)).orElseGet(Description::new).getTerm();
 	}
 }
