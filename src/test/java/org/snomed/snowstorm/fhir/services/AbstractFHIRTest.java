@@ -86,7 +86,7 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		// Version content to fill effectiveTime fields
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", MAIN);
 		codeSystemService.createCodeSystem(codeSystem);
-		codeSystemService.createVersion(codeSystem, 20190731, "");
+		codeSystemService.createVersion(codeSystem, Integer.parseInt(sampleVersion), "");
 		
 		//Now create a new branch to hold a new edition
 		String releaseBranch = MAIN + "/" + sampleVersion;
