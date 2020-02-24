@@ -80,6 +80,6 @@ public class DescriptionHelperTest {
 	}
 
 	private String getFSNTerm(String acceptLanguageHeader, Set<Description> descriptions) {
-		return DescriptionHelper.getFsnDescription(descriptions, ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader)).orElseGet(Description::new).getTerm();
+		return DescriptionHelper.getFsnDescription(descriptions, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)).orElseGet(Description::new).getTerm();
 	}
 }
