@@ -28,7 +28,7 @@ public class RootInterceptor extends InterceptorAdapter {
 		try {
 			//If we detect headers that imply a browser client, then we'll tweak
 			//that to return json by default, since we don't have an html response available
-			if (request.getHeader("Accept").contains("text/html")) {
+			if (request.getHeader("Accept") != null && request.getHeader("Accept").contains("text/html")) {
 				if (request instanceof SecurityContextHolderAwareRequestWrapper) {
 					HttpServletRequest unwrappedRequest = (HttpServletRequest)((SecurityContextHolderAwareRequestWrapper)request).getRequest();
 					MutableServletRequest mutableRequest = new MutableServletRequest(unwrappedRequest);
