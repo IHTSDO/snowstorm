@@ -260,7 +260,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				designations.addAll(DEFAULT_LANGUAGE_DIALECTS);
 			}
 		} else {
-			//Otherwise include designations if we've specified some
+			//Otherwise include designations if we've specified one or more
 			includeDesignations = designationsStr != null;
 		}
 		return includeDesignations;
