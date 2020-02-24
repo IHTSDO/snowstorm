@@ -37,7 +37,7 @@ http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code
 ####  Curl example allows use of language headers to specify Swedish language. NB Ensure use of single quotes in URL to avoid $lookup being treated as a variable by Unix shell
 curl -i -H 'Accept-Language: sv' 'http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&version=http://snomed.info/sct/45991000052106&code=427623005&_format=json'
 
-## ValueSet create, update and delete
+## ValueSet search, create, replace, update and delete
 
 #### Upload or update a valueset json file:
 curl -i --request PUT "http://localhost:8080/fhir/ValueSet/address-use" \
@@ -51,8 +51,14 @@ http://localhost:8080/fhir/ValueSet/chronic-disease/$expand?includeDesignations=
 http://localhost:8080/fhir/ValueSet/address-use?_format=json
 
 #### Delete a valueset
-curl --request DELETE "http://localhost:8080/fhir/ValueSet/address-use" 
+curl --request DELETE "http://localhost:8080/fhir/ValueSet/address-use"
 
+#### Recover all stored ValueSets
+http://localhost:8080/fhir/ValueSet
+
+#### Search for ValueSets meeting specified criteria
+http://localhost:8080/fhir/ValueSet?&lt;name&gt;=&lt;value&gt;
+Note that the "code" parameter is not supported.  It is considered "TooCostly" as it would requiring expanding (or caching the expansion of) all known ValueSets to see if the specified code was included.
 
 ## ValueSet Expansion
 ### Implicit ValueSets (ie intensionally defined). 

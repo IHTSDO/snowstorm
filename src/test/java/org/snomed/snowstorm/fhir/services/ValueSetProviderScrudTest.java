@@ -20,6 +20,7 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.MethodOutcome;
+import ca.uhn.fhir.rest.server.exceptions.InternalErrorException;
 import io.kaicode.elasticvc.api.BranchService;
 
 import static org.junit.Assert.assertEquals;
@@ -162,6 +163,14 @@ public class ValueSetProviderScrudTest {
 		ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response2.getBody());
 		restTemplate.delete(url );
 		assertNotNull(savedVS);
+	}
+	
+	@Test
+	public void testValueSetSearchWithCode() {
+		//We do not allow expanding all ValueSets to search for a concept - too costly
+		String url = baseUrl + "?code=foo";
+		ResponseEntity<String> response = restTemplate.exchange(url,HttpMethod.GET, null, String.class);
+		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
 	}
 	
 }

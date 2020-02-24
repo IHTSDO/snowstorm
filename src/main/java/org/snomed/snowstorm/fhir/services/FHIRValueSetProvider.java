@@ -10,7 +10,6 @@ import javax.servlet.http.HttpServletResponse;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.ValueSet.*;
-import org.drools.core.util.StringUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +19,7 @@ import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
-import org.snomed.snowstorm.fhir.domain.BranchPath;
-import org.snomed.snowstorm.fhir.domain.ValueSetFilter;
-import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
+import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
@@ -129,7 +126,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OptionalParam(name="status") String status,
 			@OptionalParam(name="title") String title,
 			@OptionalParam(name="url") String url,
-			@OptionalParam(name="version") String version) {
+			@OptionalParam(name="version") String version) throws FHIROperationException {
 		ValueSetFilter vsFilter = new ValueSetFilter()
 									.withCode(code)
 									.withContext(context)
