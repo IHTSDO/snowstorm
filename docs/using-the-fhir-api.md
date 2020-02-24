@@ -61,6 +61,9 @@ See  [https://www.hl7.org/fhir/snomedct.html#implicit]
 #### Expansion of an intensionally defined value set using ECL
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&_format=json
 
+#### Expansion of an intensionally defined value set using ECL against a specific edition/version
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&system-version=system-version=http://snomed.info/sct/900000000000207008/version/20190731
+
 #### Expansion of an intensionally defined value set using ISA
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=isa/27624003&_format=json
 

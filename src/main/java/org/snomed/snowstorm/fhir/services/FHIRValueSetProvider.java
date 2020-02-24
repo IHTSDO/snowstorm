@@ -10,6 +10,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.ValueSet.*;
+import org.drools.core.util.StringUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -158,16 +159,17 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	public ValueSet expandInstance(@IdParam IdType id,
 			HttpServletRequest request,
 			HttpServletResponse response,
-			@OperationParam(name="url") String url,
+			@OperationParam(name="url") String url,  //TODO Check how URL gets used with an Id
 			@OperationParam(name="filter") String filter,
 			@OperationParam(name="activeOnly") BooleanType activeType,
 			@OperationParam(name="includeDesignations") BooleanType includeDesignationsType,
 			@OperationParam(name="designation") List<String> designations,
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="offset") String offsetStr,
-			@OperationParam(name="count") String countStr) throws FHIROperationException {
+			@OperationParam(name="count") String countStr,
+			@OperationParam(name="system-version") StringType systemVersion) throws FHIROperationException {
 		return expand (id, request, response, url, filter, activeType, includeDesignationsType,
-				designations, displayLanguage, offsetStr, countStr);
+				designations, displayLanguage, offsetStr, countStr, systemVersion);
 	}
 	
 	@Operation(name="$expand", idempotent=true)
@@ -181,9 +183,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="designation") List<String> designations,
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="offset") String offsetStr,
-			@OperationParam(name="count") String countStr) throws FHIROperationException {
+			@OperationParam(name="count") String countStr,
+			@OperationParam(name="system-version") StringType systemVersion) throws FHIROperationException {
 		return expand(null, request, response, url, filter, activeType, includeDesignationsType,
-				designations, displayLanguage, offsetStr, countStr);
+				designations, displayLanguage, offsetStr, countStr, systemVersion);
 	}
 	
 	private ValueSet expand(@IdParam IdType id,
@@ -196,7 +199,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			List<String> designationsStr,
 			String displayLanguageStr,
 			String offsetStr,
-			String countStr) throws FHIROperationException {
+			String countStr,
+			StringType systemVersion) throws FHIROperationException {
 		// Are we expanding a specific named Valueset?
 		ValueSet vs = null;
 		if (id != null) {
@@ -227,6 +231,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			conceptMiniPage = doExplicitExpansion(vs, active, filter, branchPath, designations, offset, pageSize);
 		} else {
 			conceptMiniPage = doImplcitExpansion(cutPoint, url, active, filter, branchPath, designations, offset, pageSize);
+		}
+		
+		//If we've specified a system version as part of the call, then that overrides whatever is in the compose element or URL
+		if (systemVersion != null && !systemVersion.asStringValue().isEmpty()) {
+			branchPath.set(fhirHelper.getBranchPathForCodeSystemVersion(systemVersion));
 		}
 		
 		//We will always need the PT, so recover further details

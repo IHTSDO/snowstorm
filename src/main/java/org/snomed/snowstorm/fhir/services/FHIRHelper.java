@@ -62,6 +62,9 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	private String getSnomedEditionModule(String versionStr) {
+		if (!versionStr.startsWith(FHIRConstants.SNOMED_URI)) {
+			throw new NotFoundException("Unknown system URI: " + versionStr + ", expected " + FHIRConstants.SNOMED_URI + "...");
+		}
 		return !versionStr.contains("/" + FHIRConstants.VERSION + "/")
 				? versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1,  FHIRConstants.SNOMED_URI.length() + versionStr.length() - FHIRConstants.SNOMED_URI.length())
 				: versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1, versionStr.indexOf("/" + FHIRConstants.VERSION + "/"));
@@ -88,6 +91,9 @@ public class FHIRHelper implements FHIRConstants {
 		if (editionVersionString != null) {
 			// Lookup specific version
 			codeSystemVersion = codeSystemService.findVersion(shortName, editionVersionString);
+			if (codeSystemVersion == null) {
+				throw new NotFoundException(String.format("No branch found for Code system %s with edition version %s.", shortName, editionVersionString));
+			}
 			branchPathStr = codeSystemVersion.getBranchPath();
 		} else {
 			// Lookup latest effective version (future versions will not be used until publication date)
