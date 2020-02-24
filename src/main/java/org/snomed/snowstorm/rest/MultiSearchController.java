@@ -83,7 +83,7 @@ public class MultiSearchController {
 			branchConceptIds.computeIfAbsent(description.getPath(), s -> new ArrayList<>()).add(description.getConceptId());
 		}
 
-		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader);
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader);
 		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
 		for (String branchPath : branchConceptIds.keySet()) {
 			conceptMiniMap.putAll(conceptService.findConceptMinis(branchPath, branchConceptIds.get(branchPath), languageDialects).getResultsMap());
