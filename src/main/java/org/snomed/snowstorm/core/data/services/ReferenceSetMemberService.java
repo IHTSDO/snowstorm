@@ -156,13 +156,19 @@ public class ReferenceSetMemberService extends ComponentService {
 
 	public ReferenceSetMember findMember(String branch, String uuid) {
 		List<ReferenceSetMember> result = findMembers(branch, Arrays.asList(uuid));
-		if (result != null && result.size() > 1) {
-			throw new IllegalStateException(String.format("Found more than one referenceSetMembers with uuid %s on branch %s", uuid, branch));
-		}
 		if (!result.isEmpty()) {
 			return result.get(0);
 		}
 		return null;
+	}
+
+	public List<ReferenceSetMember> findMembers(String branch, Collection<String> uuids) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+				.must(termQuery(ReferenceSetMember.Fields.MEMBER_ID, uuids));
+		List<ReferenceSetMember> results = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+				.withQuery(query).build(), ReferenceSetMember.class);
+		return results;
 	}
 
 	public List<ReferenceSetMember> findMembers(BranchCriteria branchCriteria, Collection<String> uuids) {
