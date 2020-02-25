@@ -3,11 +3,11 @@ package org.snomed.snowstorm.rest;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.core.data.services.AdminOperationsService;
 import org.snomed.snowstorm.core.data.services.ConceptDefinitionStatusUpdateService;
 import org.snomed.snowstorm.core.data.services.SemanticIndexUpdateService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,6 +30,9 @@ public class AdminController {
 
 	@Autowired
 	private AdminOperationsService adminOperationsService;
+
+	@Autowired
+	private MRCMUpdateService mrcmUpdateService;
 
 	@ApiOperation(value = "Rebuild the description index.",
 			notes = "Use this if the search configuration for international character handling of a language has been " +
@@ -142,6 +145,16 @@ public class AdminController {
 	@ResponseBody
 	public void cloneChildBranch(@PathVariable String branch, @RequestParam String newBranch) {
 		adminOperationsService.cloneChildBranch(BranchPathUriUtil.decodePath(branch), newBranch);
+	}
+
+	@ApiOperation(value = "Force update of MRCM domain templates and MRCM attribute rules.",
+			notes = "You are unlikely to need this action. " +
+					"If something has gone wrong when editing MRCM reference sets you can use this function to force updating the domain templates and attribute rules " +
+					"for all MRCM reference components.")
+	@RequestMapping(value = "/{branch}/actions/update-mrcm-domain-templates-and-attribute-rules", method = RequestMethod.POST)
+	@ResponseBody
+	public void updateMRCMDomainTemplatesAndAttributeRules(@PathVariable String branch) throws ServiceException {
+		mrcmUpdateService.updateAllDomainTemplatesAndAttributeRules(BranchPathUriUtil.decodePath(branch));
 	}
 
 }
