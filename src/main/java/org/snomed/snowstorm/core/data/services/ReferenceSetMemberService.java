@@ -155,15 +155,20 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	public ReferenceSetMember findMember(String branch, String uuid) {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
-		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-				.must(termQuery(ReferenceSetMember.Fields.MEMBER_ID, uuid));
-		List<ReferenceSetMember> referenceSetMembers = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
-				.withQuery(query).build(), ReferenceSetMember.class);
-		if (!referenceSetMembers.isEmpty()) {
-			return referenceSetMembers.get(0);
+		List<ReferenceSetMember> result = findMembers(branch, Arrays.asList(uuid));
+		if (!result.isEmpty()) {
+			return result.get(0);
 		}
 		return null;
+	}
+
+	public List<ReferenceSetMember> findMembers(String branch, Collection<String> uuids) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+				.must(termQuery(ReferenceSetMember.Fields.MEMBER_ID, uuids));
+		List<ReferenceSetMember> results = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+				.withQuery(query).build(), ReferenceSetMember.class);
+		return results;
 	}
 
 	public ReferenceSetMember createMember(String branch, ReferenceSetMember member) {

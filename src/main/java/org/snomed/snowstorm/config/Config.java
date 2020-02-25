@@ -46,6 +46,7 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
 import org.snomed.snowstorm.fhir.domain.ValueSetDeserializer;
 import org.snomed.snowstorm.fhir.domain.ValueSetSerializer;
+import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -143,6 +144,9 @@ public abstract class Config {
 	private SemanticIndexUpdateService semanticIndexUpdateService;
 
 	@Autowired
+	private MRCMUpdateService mrcmUpdateService;
+
+	@Autowired
 	private TraceabilityLogService traceabilityLogService;
 
 	@Autowired
@@ -155,6 +159,7 @@ public abstract class Config {
 		// Commit listeners will be called in this order
 		branchService.addCommitListener(conceptDefinitionStatusUpdateService);
 		branchService.addCommitListener(semanticIndexUpdateService);
+		branchService.addCommitListener(mrcmUpdateService);
 		branchService.addCommitListener(traceabilityLogService);
 		branchService.addCommitListener(commit -> {
 			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint()));
