@@ -3,6 +3,7 @@ package org.snomed.snowstorm.rest;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.core.data.services.AdminOperationsService;
 import org.snomed.snowstorm.core.data.services.ConceptDefinitionStatusUpdateService;
 import org.snomed.snowstorm.core.data.services.SemanticIndexUpdateService;
@@ -110,6 +111,21 @@ public class AdminController {
 		} catch (IOException e) {
 			throw new IllegalArgumentException("Failed to read/process the file provided.");
 		}
+	}
+
+	@ApiOperation(value = "Promote release fix to Code System branch.",
+			notes = "In an authoring terminology server; if small content changes have to be made to a code system version after it's been created " +
+					"the changes can be applied to the release branch and then merged back to the main code system branch using this function. " +
+					"This function performs the following steps: " +
+					"1. The changes are merged to the parent branch at a point in time immediately after the latest version was created. " +
+					"2. The version branch is rebased to this new commit. " +
+					"3. A second commit is made at a point in time immediately after the fix commit to revert the changes. " +
+					"This is necessary to preserve the integrity of more recent commits on the code system branch made during the new ongoing authoring cycle. " +
+					"The fixes should be applied to head timepoint of the code system branch using an alternative method. "
+	)
+	@RequestMapping(value = "/{releaseFixBranch}/actions/promote-release-fix", method = RequestMethod.POST)
+	public void promoteReleaseFix(@PathVariable String releaseFixBranch) {
+		adminOperationsService.promoteReleaseFix(BranchPathUriUtil.decodePath(releaseFixBranch));
 	}
 
 }
