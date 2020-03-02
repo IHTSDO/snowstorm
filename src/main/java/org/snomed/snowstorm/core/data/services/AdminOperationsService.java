@@ -374,7 +374,7 @@ public class AdminOperationsService {
 		// by insertion of content back in time. The version control system was not designed to be able to deal with this.
 
 		// Find commit on parent branch matching head of version branch
-		final Branch codeSystemVersionCommit = branchService.findAtTimepointOrThrow(codeSystemPath, releaseFixBranch.getHead());
+		final Branch codeSystemVersionCommit = branchService.findAtTimepointOrThrow(codeSystemPath, releaseFixBranch.getBase());
 		final BranchCriteria codeSystemVersionCommitBranchCriteria = versionControlHelper.getBranchCriteriaAtTimepoint(codeSystemPath, codeSystemVersionCommit.getHead());
 
 		// Promotion commit will be ten seconds after original version commit.
@@ -430,7 +430,7 @@ public class AdminOperationsService {
 						logger.info("{} existing {} found on the code system path for this batch, for example {} {}.",
 								existingEntitiesBatch.size(), type.getSimpleName(), type.getSimpleName(), existingEntitiesBatch.iterator().next().getId());
 
-						// Update start date of existing entities to the promotion commit.
+						// Update start date of existing entities to the revert commit.
 						for (DomainEntity existingEntity : existingEntitiesBatch) {
 							existingEntitiesOriginalStartDate.put(existingEntity.getId(), existingEntity.getStart());
 							existingEntity.setStart(revertCommitTime);
