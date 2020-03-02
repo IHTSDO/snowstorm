@@ -322,7 +322,9 @@ public class BranchMergeService {
 		findAndEndDonatedComponents(branch, branchCriteria, ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID, referenceSetMemberRepository, fixesApplied);
 	}
 
-	private void findAndEndDonatedComponents(String branch, BranchCriteria branchCriteria, Class<? extends SnomedComponent> clazz, String idField, ElasticsearchCrudRepository repository, Map<Class, Set<String>> fixesApplied) {
+	private void findAndEndDonatedComponents(String branch, BranchCriteria branchCriteria, Class<? extends SnomedComponent> clazz, String idField,
+			ElasticsearchCrudRepository repository, Map<Class, Set<String>> fixesApplied) {
+
 		logger.info("Searching for duplicate {} records on {}", clazz.getSimpleName(), branch);
 		BoolQueryBuilder entityBranchCriteria = branchCriteria.getEntityBranchCriteria(clazz);
 
@@ -338,17 +340,19 @@ public class BranchMergeService {
 
 		// Find donated components where the extension version is not ended
 		Set<String> duplicateIds = new HashSet<>();
-		try (CloseableIterator<? extends SnomedComponent> conceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery().must(entityBranchCriteria)
-						.mustNot(termQuery("path", branch)))
-				.withFilter(termsQuery(idField, ids))
-				.withPageable(ComponentService.LARGE_PAGE)
-				.withFields(idField).build(), clazz)) {
-			conceptStream.forEachRemaining(c -> {
-				if(ids.contains(c.getId())) {
-					duplicateIds.add(c.getId());
-				}
-			});
+		for (List<String> idsBatch : Iterables.partition(ids, 10_000)) {
+			try (CloseableIterator<? extends SnomedComponent> conceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery().must(entityBranchCriteria)
+							.mustNot(termQuery("path", branch)))
+					.withFilter(termsQuery(idField, idsBatch))
+					.withPageable(ComponentService.LARGE_PAGE)
+					.withFields(idField).build(), clazz)) {
+				conceptStream.forEachRemaining(c -> {
+					if(ids.contains(c.getId())) {
+						duplicateIds.add(c.getId());
+					}
+				});
+			}
 		}
 
 		logger.info("Found {} duplicate {} records: {}", duplicateIds.size(), clazz.getSimpleName(), duplicateIds);
