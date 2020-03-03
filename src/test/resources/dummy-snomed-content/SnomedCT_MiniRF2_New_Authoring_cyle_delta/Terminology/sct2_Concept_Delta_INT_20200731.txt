@@ -1,0 +1,9 @@
+#
+# Comments are removed by unit test
+#
+id	effectiveTime	active	moduleId	definitionStatusId
+# new concept
+131148009	20200731	1	900000000000207008	900000000000074008
+
+# Inactivation published concept
+12481008	20200731	0	900000000000207008	900000000000073002
