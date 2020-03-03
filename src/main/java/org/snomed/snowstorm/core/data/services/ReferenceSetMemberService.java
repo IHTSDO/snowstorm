@@ -165,9 +165,9 @@ public class ReferenceSetMemberService extends ComponentService {
 	public List<ReferenceSetMember> findMembers(String branch, Collection<String> uuids) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-				.must(termQuery(ReferenceSetMember.Fields.MEMBER_ID, uuids));
+				.must(termsQuery(ReferenceSetMember.Fields.MEMBER_ID, uuids));
 		List<ReferenceSetMember> results = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
-				.withQuery(query).build(), ReferenceSetMember.class);
+				.withQuery(query).withPageable(LARGE_PAGE).build(), ReferenceSetMember.class);
 		return results;
 	}
 

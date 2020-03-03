@@ -16,6 +16,7 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -63,10 +64,11 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	@Test
 	public void testCommitListenerOrderingConfig() {
 		List<CommitListener> commitListeners = branchService.getCommitListeners();
-		assertEquals(4, commitListeners.size());
+		assertEquals(5, commitListeners.size());
 		assertEquals(ConceptDefinitionStatusUpdateService.class, commitListeners.get(0).getClass());
 		assertEquals(SemanticIndexUpdateService.class, commitListeners.get(1).getClass());
-		assertEquals(TraceabilityLogService.class, commitListeners.get(2).getClass());
+		assertEquals(MRCMUpdateService.class, commitListeners.get(2).getClass());
+		assertEquals(TraceabilityLogService.class, commitListeners.get(3).getClass());
 	}
 
 	@Test

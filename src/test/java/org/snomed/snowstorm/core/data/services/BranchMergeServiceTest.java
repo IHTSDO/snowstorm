@@ -689,7 +689,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	public void testAutomaticMergeOfRefsetMemberChange() throws ServiceException {
 		String referencedComponent = Concepts.CLINICAL_FINDING;
 		ReferenceSetMember member = memberService.createMember("MAIN",
-				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL, referencedComponent));
+				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_SIMPLE, referencedComponent));
 
 		String memberId = member.getMemberId();
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
