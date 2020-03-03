@@ -2,8 +2,6 @@ package org.snomed.snowstorm.mrcm;
 
 import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.elasticsearch.action.update.UpdateRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
@@ -18,8 +16,6 @@ import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.core.query.UpdateQuery;
-import org.springframework.data.elasticsearch.core.query.UpdateQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
@@ -28,7 +24,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
@@ -57,8 +52,11 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 
 	private Logger logger = LoggerFactory.getLogger(MRCMUpdateService.class);
 
-	static final Comparator<AttributeDomain> ATTRIBUTE_DOMAIN_COMPARATOR = Comparator
-			.comparing(AttributeDomain::getDomainId, Comparator.nullsFirst(String::compareTo).reversed());
+	static final Comparator<AttributeDomain> ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID = Comparator
+			.comparing(AttributeDomain::getDomainId, Comparator.nullsFirst(String::compareTo));
+
+	static final Comparator<AttributeDomain> ATTRIBUTE_DOMAIN_COMPARATOR_BY_ATTRIBUTE_ID = Comparator
+			.comparing(AttributeDomain::getReferencedComponentId, Comparator.nullsFirst(String::compareTo));
 
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
@@ -84,15 +82,174 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		logger.info("Completed updating MRCM domain templates and attribute rules for all components on branch {}.", path);
 	}
 
-	List<Domain> updateDomainTemplates(String branchpath) {
-		// TODO
-		return new ArrayList<>();
+	private List<ReferenceSetMember> updateDomainTemplates(String branchPath, Map<String, Domain> domainMapByDomainId,
+												   Map<String, List<AttributeDomain>> domainToAttributesMap,
+												   Map<String, List<AttributeRange>> domainToRangesMap,
+												   Map<String, String> conceptToTermMap) {
+
+		List<Domain> updatedDomains = generateDomainTemplates(domainMapByDomainId, domainToAttributesMap, domainToRangesMap, conceptToTermMap);
+		// run diff report
+		runPrecoordinationDiffReport(updatedDomains, domainMapByDomainId);
+		runPostcoordinationDiffReport(updatedDomains, domainMapByDomainId);
+
+		Set<String> rangeMemberIds = updatedDomains.stream().map(r -> r.getId()).collect(Collectors.toSet());
+		List<ReferenceSetMember> rangeMembers = referenceSetMemberService.findMembers(branchPath, rangeMemberIds);
+		Map<String, Domain> memberIdToDomainMap = new HashMap<>();
+		List<ReferenceSetMember> toSave = new ArrayList<>();
+		for (Domain domain : updatedDomains) {
+			memberIdToDomainMap.put(domain.getId(), domain);
+		}
+		for (ReferenceSetMember member : rangeMembers) {
+			member.setAdditionalField("domainTemplateForPrecoordination", memberIdToDomainMap.get(member.getMemberId()).getDomainTemplateForPrecoordination());
+			member.setAdditionalField("domainTemplateForPostcoordination", memberIdToDomainMap.get(member.getMemberId()).getDomainTemplateForPostcoordination());
+			member.markChanged();
+		}
+		toSave.addAll(rangeMembers);
+		return toSave;
+
 	}
 
-	List<AttributeRange> updateAttributeRules(String branchPath, Collection<Long> components) throws ServiceException {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+	private void runPrecoordinationDiffReport(List<Domain> updatedDomains, Map<String,Domain> domainMapByDomainId) {
+		int sameCounter = 0;
+		int sameWhenSortingIngored = 0;
+		int diffCounter = 0;
+		for (Domain domain : updatedDomains) {
+			String domainId = domain.getReferencedComponentId();
+			String published = domainMapByDomainId.get(domainId).getDomainTemplateForPrecoordination();
+			String actual = domain.getDomainTemplateForPrecoordination();
+			if (!published.equals(actual)) {
+				logger.info("Analyzing precoordinationdomain template for domain id " + domainId);
+				if (hasDiff(published, actual, false)) {
+					diffCounter++;
+					logger.info("before = " + published);
+					logger.info("after = " + actual);
+				} else {
+					logger.info("domain template is the same when cardinality and sorting is ignored " + domain.getReferencedComponentId());
+					sameWhenSortingIngored++;
+				}
+			} else {
+				sameCounter++;
+				logger.info("domain template is the same for " + domainId);
+			}
+		}
+		logger.info("Total templates updated = " + updatedDomains.size());
+		logger.info("Total templates are the same without change = " + sameCounter);
+		logger.info("Total templates are the same when cardinality and sorting is ignored = " + sameWhenSortingIngored);
+		logger.info("Total templates found with diffs = " + diffCounter);
+
+	}
+
+	private void runPostcoordinationDiffReport(List<Domain> updatedDomains, Map<String,Domain> domainMapByDomainId) {
+		int sameCounter = 0;
+		int sameWhenSortingIngored = 0;
+		int diffCounter = 0;
+		for (Domain domain : updatedDomains) {
+			String domainId = domain.getReferencedComponentId();
+			String published = domainMapByDomainId.get(domainId).getDomainTemplateForPostcoordination();
+			String actual = domain.getDomainTemplateForPostcoordination();
+			if (!published.equals(actual)) {
+				logger.info("Analyzing postcoordination domain template for domain id " + domainId);
+				if (hasDiff(published, actual, false)) {
+					diffCounter++;
+					logger.info("before = " + published);
+					logger.info("after = " + actual);
+				} else {
+					logger.info("domain template is the same when cardinality and sorting is ignored " + domain.getReferencedComponentId());
+					sameWhenSortingIngored++;
+				}
+			} else {
+				sameCounter++;
+				logger.info("domain template is the same for " + domainId);
+			}
+		}
+		logger.info("Total templates updated = " + updatedDomains.size());
+		logger.info("Total templates are the same without change = " + sameCounter);
+		logger.info("Total templates are the same when cardinality and sorting is ignored = " + sameWhenSortingIngored);
+		logger.info("Total templates found with diffs = " + diffCounter);
+	}
+
+	List<AttributeRange> generateAttributeRule(Map<String, Domain> domainMapByDomainId, Map<String, List<AttributeDomain>> attributeToDomainsMap,
+											   Map<String, List<AttributeRange>> attributeToRangesMap,
+											   Map<String, String> conceptToFsnMap) {
+		List<AttributeRange> updatedRanges = new ArrayList<>();
+		// generate attribute rule
+		for (String attributeId : attributeToDomainsMap.keySet()) {
+			// domain
+			List<AttributeDomain> sorted = attributeToDomainsMap.get(attributeId);
+			Collections.sort(sorted, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
+			for (AttributeRange range : attributeToRangesMap.get(attributeId)) {
+				int counter = 0;
+				StringBuilder ruleBuilder = new StringBuilder();
+				for (AttributeDomain attributeDomain : sorted) {
+					if (RuleStrength.MANDATORY != attributeDomain.getRuleStrength()) {
+						continue;
+					}
+					if (ContentType.ALL != attributeDomain.getContentType() && range.getContentType() != attributeDomain.getContentType()) {
+						continue;
+					}
+					// TODO to make the following code better
+					if (counter++ > 0) {
+						ruleBuilder.insert(0, "(");
+						ruleBuilder.append(")");
+						ruleBuilder.append(" OR (");
+					}
+					String domainConstraint = domainMapByDomainId.get(attributeDomain.getDomainId()).getDomainConstraint().getExpression();
+					ruleBuilder.append(domainConstraint);
+					if (domainConstraint.contains(":")) {
+						ruleBuilder.append(",");
+					} else {
+						ruleBuilder.append(":");
+					}
+					// attribute group and attribute cardinality
+					if (attributeDomain.isGrouped()) {
+						ruleBuilder.append(" [" + attributeDomain.getAttributeCardinality().getValue() + "]" + " {");
+						ruleBuilder.append(" [" + attributeDomain.getAttributeInGroupCardinality().getValue() + "]");
+					} else {
+						ruleBuilder.append(" [" + attributeDomain.getAttributeCardinality().getValue() + "]");
+					}
+
+					ruleBuilder.append(" " + attributeId + " |" + conceptToFsnMap.get(attributeId) + "|" + " = ");
+					// range constraint
+					if (range.getRangeConstraint().contains("OR")) {
+						ruleBuilder.append("(" + range.getRangeConstraint() + ")");
+					} else {
+						ruleBuilder.append(range.getRangeConstraint());
+					}
+					if (attributeDomain.isGrouped()) {
+						ruleBuilder.append(" }");
+					}
+					if (counter > 1) {
+						ruleBuilder.append(")");
+					}
+				}
+				if (!range.getAttributeRule().equals(ruleBuilder.toString())) {
+					logger.info("before = " + range.getAttributeRule());
+					logger.info("after = " + ruleBuilder.toString());
+					AttributeRange updated = new AttributeRange(range);
+					updated.setAttributeRule(ruleBuilder.toString());
+					updatedRanges.add(updated);
+				}
+			}
+		}
+		return updatedRanges;
+	}
+
+	private void performUpdate(boolean allComponents, Commit commit) throws IOException, ServiceException {
+		String branchPath = commit.getBranch().getPath();
+		if (!allComponents) {
+			Set<String> mrcmComponentsChangedOnTask =  getMRCMRefsetComponentsChanged(commit);
+			if (mrcmComponentsChangedOnTask.isEmpty()) {
+				logger.info("No MRCM refset component changes found on branch {}", branchPath);
+				return;
+			} else {
+				logger.info("{} MRCM component changes found on branch {}", mrcmComponentsChangedOnTask.size(), branchPath);
+			}
+		}
+
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 		MRCM mrcm = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
 		Map<String, List<AttributeDomain>> attributeToDomainsMap = new HashMap<>();
+		Map<String, List<AttributeDomain>> domainToAttributesMap = new HashMap<>();
 		Set<Long> domainIds = new HashSet<>();
 		Set<Long> conceptIds = new HashSet<>();
 		// map domains by domain id
@@ -104,12 +261,13 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		for (AttributeDomain attributeDomain : mrcm.getAttributeDomains()) {
 			domainIds.add(new Long(attributeDomain.getDomainId()));
 			attributeToDomainsMap.computeIfAbsent(attributeDomain.getReferencedComponentId(), v -> new ArrayList<>()).add(attributeDomain);
+			domainToAttributesMap.computeIfAbsent(attributeDomain.getDomainId(), v ->  new ArrayList<>()).add(attributeDomain);
 		}
 		conceptIds.addAll(domainIds);
-		Map<String, AttributeRange> attributeToRangeMap = new HashMap<>();
+		Map<String, List<AttributeRange>> attributeToRangesMap = new HashMap<>();
 		for (AttributeRange range : mrcm.getAttributeRanges()) {
 			conceptIds.add(new Long(range.getReferencedComponentId()));
-			attributeToRangeMap.put(range.getReferencedComponentId(), range);
+			attributeToRangesMap.computeIfAbsent(range.getReferencedComponentId(), ranges -> new ArrayList<>()).add(range);
 		}
 		// fetch FSN for concepts
 		Collection<ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, conceptIds, Config.DEFAULT_LANGUAGE_DIALECTS).getResultsMap().values();
@@ -123,110 +281,80 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			}
 		}
 
-		return generateAttributeRule(domainMapByDomainId, attributeToDomainsMap, attributeToRangeMap, conceptToTermMap);
+		List<ReferenceSetMember>  toSave = new ArrayList<>();
+		// Attribute rule
+		toSave.addAll(updateAttributeRules(branchPath, domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap));
+		// domain templates
+		toSave.addAll(updateDomainTemplates(branchPath, domainMapByDomainId, domainToAttributesMap, attributeToRangesMap, conceptToTermMap));
+		// saving in batch
+		logger.info("updating total reference set members " + toSave.size());
+		referenceSetMemberService.doSaveBatchMembers(toSave, commit);
 	}
 
-	List<AttributeRange> generateAttributeRule(Map<String, Domain> domainMapByDomainId, Map<String, List<AttributeDomain>> attributeToDomainsMap, Map<String, AttributeRange> attributeToRangeMap, Map<String, String> conceptToFsnMap) {
-		List<AttributeRange> updatedRanges = new ArrayList<>();
-		// generate attribute rule
-		for (String attributeId : attributeToDomainsMap.keySet()) {
-			// domain
-			int counter = 0;
-			StringBuilder ruleBuilder = new StringBuilder();
-			List<AttributeDomain> sorted = attributeToDomainsMap.get(attributeId);
-			Collections.sort(sorted, ATTRIBUTE_DOMAIN_COMPARATOR);
-			for (AttributeDomain attributeDomain : sorted) {
-				if (RuleStrength.MANDATORY != attributeDomain.getRuleStrength()) {
-					continue;
-				}
-				// TODO
-				if (ContentType.ALL != attributeDomain.getContentType() && attributeToRangeMap.get(attributeId).getContentType() != attributeDomain.getContentType()) {
-					logger.debug("Content type defined in attribute range is " + attributeToRangeMap.get(attributeId).getContentType().name()
-							+ " but attribute domain content type is " +  attributeDomain.getContentType().name()
-							+ " for domain " + attributeDomain.getDomainId() + " and attribute " + attributeDomain.getReferencedComponentId());
-					continue;
-				}
-				// TODO to make the following code better
-				if (counter++ > 0) {
-					ruleBuilder.insert(0, "(");
-					ruleBuilder.append(")");
-					ruleBuilder.append(" OR (");
-				}
-				ruleBuilder.append(domainMapByDomainId.get(attributeDomain.getDomainId()).getDomainConstraint().getExpression());
-				ruleBuilder.append(":");
-				// attribute group and attribute cardinality
-				if (attributeDomain.isGrouped()) {
-					ruleBuilder.append(" [" + attributeDomain.getAttributeCardinality().getValue() + "]" + " {");
-					ruleBuilder.append(" [" + attributeDomain.getAttributeInGroupCardinality().getValue() + "]");
-				} else {
-					ruleBuilder.append(" [" + attributeDomain.getAttributeCardinality().getValue() + "]");
-				}
+	private List<ReferenceSetMember> updateAttributeRules(String branchPath, Map<String,Domain> domainMapByDomainId,
+														  Map<String,List<AttributeDomain>> attributeToDomainsMap,
+														  Map<String, List<AttributeRange>> attributeToRangesMap,
+														  Map<String,String> conceptToTermMap) {
 
-				ruleBuilder.append(" " + attributeId + " |" + conceptToFsnMap.get(attributeId) + "|" +  " = ");
-				// range constraint
-				AttributeRange range = attributeToRangeMap.get(attributeId);
-				if (range.getRangeConstraint().contains("OR")) {
-					ruleBuilder.append("(" + range.getRangeConstraint() + ")");
-				} else {
-					ruleBuilder.append(range.getRangeConstraint());
-				}
-				if (attributeDomain.isGrouped()) {
-					ruleBuilder.append( " }");
-				}
-				if (counter > 1) {
-					ruleBuilder.append(")");
+		List<AttributeRange> attributeRanges = generateAttributeRule(domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap);
+		logger.info("Total attribute rules updated " + attributeRanges.size());
+//		runAttributeRulesDiffReport(attributeRanges, attributeToRangesMap);
+		Set<String> rangeMemberIds = attributeRanges.stream().map(r -> r.getId()).collect(Collectors.toSet());
+		List<ReferenceSetMember> rangeMembers = referenceSetMemberService.findMembers(branchPath, rangeMemberIds);
+		logger.info("Total refset members found " + rangeMembers.size());
+		logger.info("refset members found " + rangeMemberIds);
+		Map<String, AttributeRange> memberIdToRangeMap = new HashMap<>();
+		for (AttributeRange range : attributeRanges) {
+			memberIdToRangeMap.put(range.getId(), range);
+		}
+		List<ReferenceSetMember> updated = new ArrayList<>();
+		for (ReferenceSetMember rangeMember : rangeMembers) {
+			logger.info("updating member id " + rangeMember.getMemberId());
+			logger.info(" rule="  + memberIdToRangeMap.get(rangeMember.getMemberId()).getAttributeRule());
+			rangeMember.markChanged();
+			updated.add(rangeMember.setAdditionalField("attributeRule", memberIdToRangeMap.get(rangeMember.getMemberId()).getAttributeRule()));
+		}
+		return updated;
+	}
+
+	private void runAttributeRulesDiffReport(List<AttributeRange> attributeRanges, Map<String, List<AttributeRange>> attributeToRangesMap) {
+		int sameCounter = 0;
+		int sameWhenSortingIngored = 0;
+		int diffCounter = 0;
+		for (AttributeRange range : attributeRanges) {
+			String attributeId = range.getReferencedComponentId();
+			String publishedRule = null;
+			for (AttributeRange published : attributeToRangesMap.get(attributeId)) {
+				if (range.getId().equals(published.getId())) {
+					publishedRule = published.getAttributeRule();
+					break;
 				}
 			}
-
-			AttributeRange range = attributeToRangeMap.get(attributeId);
-			if (!range.getAttributeRule().equals(ruleBuilder.toString())) {
-				logger.info("before = " + range.getAttributeRule());
-				logger.info("after = " + ruleBuilder.toString());
-
-				updatedRanges.add(new AttributeRange(range.getId(), null, range.isActive(), range.getReferencedComponentId(),
-						range.getRangeConstraint(), ruleBuilder.toString(), range.getRuleStrength(), range.getContentType()));
+			String actual = range.getAttributeRule();
+			if (!actual.equals(publishedRule)) {
+				logger.info("Analyzing attribute rule for attribute " + attributeId + " with id = " + range.getId());
+				if (hasDiff(publishedRule, actual, true)) {
+					diffCounter++;
+					logger.info("before = " + publishedRule);
+					logger.info("after = " + actual);
+				} else {
+					logger.info("Attribute rules are the same when cardinality and sorting are ignored " + attributeId);
+					sameWhenSortingIngored++;
+				}
+			} else {
+				sameCounter++;
+				logger.info("Attribute rule is the same for " + attributeId);
 			}
 		}
-		return updatedRanges;
+		logger.info("Total templates updated = " + attributeRanges.size());
+		logger.info("Total templates are the same without change = " + sameCounter);
+		logger.info("Total templates are the same when cardinality and sorting is ignored = " + sameWhenSortingIngored);
+		logger.info("Total templates found with diffs = " + diffCounter);
 	}
 
-	private void performUpdate(boolean allComponents, Commit commit) throws IOException, ServiceException {
-		String branchPath = commit.getBranch().getPath();
-		if (allComponents) {
-			List<AttributeRange> attributeRanges = updateAttributeRules(branchPath, null);
-			Set<String> rangeMemberIds = attributeRanges.stream().map(r -> r.getId()).collect(Collectors.toSet());
-			List<ReferenceSetMember> rangeMembers = referenceSetMemberService.findMembers(branchPath, rangeMemberIds);
-			Map<String, AttributeRange> memberIdToRangeMap = new HashMap<>();
-			List<ReferenceSetMember> toSave = new ArrayList<>();
-			for (AttributeRange range : attributeRanges) {
-				memberIdToRangeMap.put(range.getId(), range);
-			}
-			for (ReferenceSetMember rangeMember : rangeMembers) {
-				rangeMember.setAdditionalField("attributeRule", memberIdToRangeMap.get(rangeMember.getMemberId()).getAttributeRule());
-			}
-			toSave.addAll(rangeMembers);
-			List<Domain> domains = updateDomainTemplates(branchPath);
-			Set<String> domainMemberIds = domains.stream().map(d -> d.getId()).collect(Collectors.toSet());
-			List<ReferenceSetMember> domainMembers = referenceSetMemberService.findMembers(branchPath, domainMemberIds);
-			Map<String, Domain> memberIdToDomainMap = new HashMap<>();
-			for (Domain domain : domains) {
-				memberIdToDomainMap.put(domain.getId(), domain);
-			}
-			referenceSetMemberService.doSaveBatchMembers(toSave, commit);
-		} else {
-			Set<Long> componentsToUpdate =  getComponentsChanged(commit);
-			if (!componentsToUpdate.isEmpty()) {
-				logger.info("Checking {} MRCM components.", componentsToUpdate.size());
-				if (!componentsToUpdate.isEmpty()) {
-					saveChanges(componentsToUpdate, commit);
-				}
-			}
-		}
-	}
-
-	private Set<Long> getComponentsChanged(Commit commit) {
+	private Set<String> getMRCMRefsetComponentsChanged(Commit commit) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
-		Set<Long> result = new LongOpenHashSet();
+		Set<String> result = new HashSet<>();
 		try (final CloseableIterator<ReferenceSetMember> mrcms = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
@@ -235,63 +363,241 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 						.should(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL))
 				)
 				.withPageable(ConceptService.LARGE_PAGE)
-				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+				.withFields(ReferenceSetMember.Fields.MEMBER_ID)
 				.build(), ReferenceSetMember.class)) {
 			while (mrcms.hasNext()) {
-				result.add(Long.parseLong(mrcms.next().getReferencedComponentId()));
+				result.add(mrcms.next().getMemberId());
 			}
 		}
 		return result;
 	}
 
+	List<Domain> generateDomainTemplates(Map<String, Domain> domainsByDomainIdMap, Map<String, List<AttributeDomain>> domainToAttributesMap,
+												Map<String, List<AttributeRange>> attributeToRangesMap, Map<String, String> conceptToFsnMap) {
 
-	private void saveChanges(Collection<Long> componentsToUpdate, Commit commit) throws IllegalStateException, IOException, ServiceException {
-		if (!componentsToUpdate.isEmpty()) {
-			List<AttributeRange> rangeRulesUpdated = updateAttributeRules(commit.getBranch().getPath(), componentsToUpdate);
-			Set<String> rangeMemberIds = rangeRulesUpdated.stream().map(r -> r.getId()).collect(Collectors.toSet());
-			List<ReferenceSetMember> rangeMembersToUpdate = referenceSetMemberService.findMembers(commit.getBranch().getPath(), rangeMemberIds);
-
-			// Find refset components where new versions have already been created in the current commit.
-			// Update these documents to avoid having two versions of the same concepts in the commit.
-			Set<ReferenceSetMember> editedMembers = rangeMembersToUpdate.stream()
-					.filter(member -> member.getStart().equals(commit.getTimepoint()))
-					.collect(Collectors.toSet());
-			Map<String, String> memberIdToRuleValueMap = new HashMap<>();
-			for (AttributeRange range : rangeRulesUpdated) {
-				memberIdToRuleValueMap.put(range.getId(), range.getAttributeRule());
+		List<Domain> updatedDomains = new ArrayList<>();
+		logger.info(("Checking and updating domain templates for " + domainsByDomainIdMap.keySet()));
+		for (String domainId : domainsByDomainIdMap.keySet()) {
+			Domain domain = new Domain(domainsByDomainIdMap.get(domainId));
+			List<String> parentDomainIds = findParentDomains(domain, domainsByDomainIdMap);
+			String precoordinated = generateDomainTemplate(domain, domainsByDomainIdMap, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, ContentType.PRECOORDINATED);
+			boolean isChanged = false;
+			if (!domain.getDomainTemplateForPrecoordination().equals(precoordinated)) {
+				domain.setDomainTemplateForPrecoordination(precoordinated);
+				isChanged = true;
 			}
-			updateRefsetMembersViaUpdateQuery(editedMembers, "attributeRule", memberIdToRuleValueMap);
-
-			// refset members which were not just saved/updated in the commit can go through the normal commit process.
-			Set<ReferenceSetMember> toSave = rangeMembersToUpdate.stream()
-					.filter(member -> !rangeMembersToUpdate.contains(member))
-					.collect(Collectors.toSet());
-			for (ReferenceSetMember rangeMember : toSave) {
-				rangeMember.setAdditionalField("attributeRule", memberIdToRuleValueMap.get(rangeMember.getMemberId()));
+			String postoordinated = generateDomainTemplate(domain, domainsByDomainIdMap, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, ContentType.POSTCOORDINATED);
+			if (!domain.getDomainTemplateForPostcoordination().equals(postoordinated)) {
+				domain.setDomainTemplateForPostcoordination(postoordinated);
+				isChanged = true;
 			}
-			// TODO add domain template changes
-			referenceSetMemberService.doSaveBatchMembers(toSave, commit);
+			if (isChanged) {
+				updatedDomains.add(domain);
+			}
 		}
+		return updatedDomains;
 	}
 
-	private void updateRefsetMembersViaUpdateQuery(Set<ReferenceSetMember> editedMembers, String additionalField, Map<String, String> memberIdToValueMap) throws IOException {
-		List<UpdateQuery> updateQueries = new ArrayList<>();
-		for (ReferenceSetMember refsetMember : editedMembers) {
-			UpdateRequest updateRequest = new UpdateRequest();
-			updateRequest.doc(jsonBuilder()
-					.startObject()
-					.field(additionalField, memberIdToValueMap.get(refsetMember.getMemberId()))
-					.endObject());
+	private List<String> findParentDomains(Domain domain, Map<String, Domain> domainsByDomainIdMap) {
+		List<String> result = new ArrayList<>();
+		Domain current = domain;
+		while (current != null && current.getParentDomain() != null && !current.getParentDomain().isEmpty()) {
+			String parentDomain = current.getParentDomain();
+			parentDomain = parentDomain.substring(0, parentDomain.indexOf("|")).trim();
+			Domain parent = domainsByDomainIdMap.get(parentDomain);
+			if (parent == null) {
+				throw new IllegalStateException("No domain object found for for " + parentDomain);
+			}
+			result.add(parent.getReferencedComponentId());
+			current = parent;
+		}
+		return result;
+	}
 
-			updateQueries.add(new UpdateQueryBuilder()
-					.withClass(ReferenceSetMember.class)
-					.withId(refsetMember.getInternalId())
-					.withUpdateRequest(updateRequest)
-					.build());
+
+	private String generatePostcoodinateDomainTemplate(Domain domain, Map<String, Domain> domainsByDomainIdMap, Map<String, List<AttributeDomain>> domainToAttributesMap,
+										  Map<String, List<AttributeRange>> attributeToRangesMap, Map<String, String> conceptToFsnMap, List<String> parentDomainIds) {
+
+		StringBuilder templateBuilder = new StringBuilder();
+		// proximal primitive domain constraint
+		if (domain.getProximalPrimitiveConstraint() != null) {
+			templateBuilder.append("[[+scg(");
+			templateBuilder.append(domain.getProximalPrimitiveConstraint().getExpression());
+			templateBuilder.append(")]]:");
 		}
-		if (!updateQueries.isEmpty()) {
-			elasticsearchTemplate.bulkUpdate(updateQueries);
-			elasticsearchTemplate.refresh(ReferenceSetMember.class);
+		// proximal primitive domain refinement
+		if (domain.getProximalPrimitiveRefinement() != null && !domain.getProximalPrimitiveRefinement().isEmpty()) {
+			templateBuilder.append(" " + domain.getProximalPrimitiveRefinement() + ", ");
 		}
+		// Filter for mandatory and all content or all postCoordinated content
+		List<String> domainIdsToInclude = new ArrayList<>(parentDomainIds);
+		domainIdsToInclude.add(domain.getReferencedComponentId());
+		List<AttributeDomain> postCoordinated = new ArrayList<>();
+		for (String domainId : domainIdsToInclude) {
+			if (domainToAttributesMap.containsKey(domainId)) {
+				postCoordinated.addAll(domainToAttributesMap.get(domainId).stream()
+						.filter(d -> (RuleStrength.MANDATORY == d.getRuleStrength()) && (ContentType.ALL == d.getContentType() || ContentType.POSTCOORDINATED == d.getContentType()))
+						.collect(Collectors.toList()));
+			}
+		}
+		Collections.sort(postCoordinated, ATTRIBUTE_DOMAIN_COMPARATOR_BY_ATTRIBUTE_ID);
+		int counter = 0;
+		for (AttributeDomain attributeDomain : postCoordinated) {
+			if (counter++ > 0) {
+				templateBuilder.append(",");
+			}
+			List<AttributeRange> ranges = attributeToRangesMap.get(attributeDomain.getReferencedComponentId());
+			AttributeRange postCoordinatedRange = null;
+			for (AttributeRange range : ranges) {
+				if (RuleStrength.MANDATORY == range.getRuleStrength()
+					&& (ContentType.ALL == range.getContentType() || ContentType.POSTCOORDINATED == range.getContentType())) {
+					postCoordinatedRange = range;
+					break;
+				}
+			}
+			if (postCoordinatedRange == null) {
+				throw new IllegalStateException("No attribute range found for postcoordinated content type");
+			}
+			templateBuilder.append(" [[");
+			templateBuilder.append(attributeDomain.getAttributeCardinality().getValue());
+			templateBuilder.append("]] ");
+			if (attributeDomain.isGrouped()) {
+				templateBuilder.append("{");
+				templateBuilder.append(" [[");
+				templateBuilder.append(attributeDomain.getAttributeInGroupCardinality().getValue());
+				templateBuilder.append("]] ");
+			}
+
+			templateBuilder.append(attributeDomain.getReferencedComponentId() + " |" + conceptToFsnMap.get(attributeDomain.getReferencedComponentId()) + "|");
+			templateBuilder.append(" = [[+scg(");
+			templateBuilder.append(postCoordinatedRange.getRangeConstraint());
+			templateBuilder.append(")]]");
+			if (attributeDomain.isGrouped()) {
+				templateBuilder.append("}");
+			}
+		}
+		return templateBuilder.toString();
+	}
+
+	private String generateDomainTemplate(Domain domain, Map<String, Domain> domainsByDomainIdMap, Map<String, List<AttributeDomain>> domainToAttributesMap,
+										  Map<String, List<AttributeRange>> attributeToRangesMap, Map<String, String> conceptToFsnMap, List<String> parentDomainIds, ContentType type) {
+
+		StringBuilder templateBuilder = new StringBuilder();
+		// proximal primitive domain constraint
+		if (domain.getProximalPrimitiveConstraint() != null) {
+			if ( ContentType.PRECOORDINATED == type) {
+				templateBuilder.append("[[+id(");
+			} else {
+				templateBuilder.append("[[+scg(");
+			}
+			templateBuilder.append(domain.getProximalPrimitiveConstraint().getExpression());
+			templateBuilder.append(")]]:");
+		}
+		// proximal primitive domain refinement
+		if (domain.getProximalPrimitiveRefinement() != null && !domain.getProximalPrimitiveRefinement().isEmpty()) {
+			logger.info("Found domain having ProximalPrimitiveRefinement " + domain.getReferencedComponentId());
+			templateBuilder.append(" " + domain.getProximalPrimitiveRefinement() + ", ");
+		}
+		// Filter for mandatory and all content type or given type
+		List<String> domainIdsToInclude = new ArrayList<>(parentDomainIds);
+		domainIdsToInclude.add(domain.getReferencedComponentId());
+		List<AttributeDomain> attributeDomains = new ArrayList<>();
+		for (String domainId : domainIdsToInclude) {
+			 if (domainToAttributesMap.containsKey(domainId)) {
+				 attributeDomains.addAll(domainToAttributesMap.get(domainId).stream()
+						 .filter(d -> (RuleStrength.MANDATORY == d.getRuleStrength()) && (ContentType.ALL == d.getContentType() || type == d.getContentType()))
+						 .collect(Collectors.toList()));
+			 }
+		}
+		Collections.sort(attributeDomains, ATTRIBUTE_DOMAIN_COMPARATOR_BY_ATTRIBUTE_ID);
+		int counter = 0;
+		for (AttributeDomain attributeDomain : attributeDomains) {
+			if (counter++ > 0) {
+				templateBuilder.append(",");
+			}
+			List<AttributeRange> ranges = attributeToRangesMap.get(attributeDomain.getReferencedComponentId());
+			AttributeRange attributeRange = null;
+			for (AttributeRange range : ranges) {
+				if (RuleStrength.MANDATORY == range.getRuleStrength()
+						&& (ContentType.ALL == range.getContentType() ||  type == range.getContentType())) {
+					attributeRange = range;
+					break;
+				}
+			}
+			if (attributeRange == null) {
+				throw new IllegalStateException("No attribute range found for attribute " + attributeDomain.getReferencedComponentId()
+						+ " with content type " + type.getName() + " or " + ContentType.ALL.name());
+			}
+			templateBuilder.append(" [[");
+			templateBuilder.append(attributeDomain.getAttributeCardinality().getValue());
+			templateBuilder.append("]] ");
+			if (attributeDomain.isGrouped()) {
+				templateBuilder.append("{");
+				templateBuilder.append(" [[");
+				templateBuilder.append(attributeDomain.getAttributeInGroupCardinality().getValue());
+				templateBuilder.append("]] ");
+			}
+
+			templateBuilder.append(attributeDomain.getReferencedComponentId() + " |" + conceptToFsnMap.get(attributeDomain.getReferencedComponentId()) + "|");
+			if (ContentType.PRECOORDINATED == type) {
+				templateBuilder.append(" = [[+id(");
+			} else {
+				templateBuilder.append(" = [[+scg(");
+			}
+			templateBuilder.append(attributeRange.getRangeConstraint());
+			templateBuilder.append(")]]");
+			if (attributeDomain.isGrouped()) {
+				templateBuilder.append("}");
+			}
+		}
+		return templateBuilder.toString();
+	}
+
+	private boolean hasDiff(String published, String actual, boolean ignoreCardinality) {
+		boolean hasDiff = false;
+		List<String> publishedSorted = split(published, ignoreCardinality);
+		List<String> actualSorted = split(actual, ignoreCardinality);
+
+		System.out.println("Published but missing in the new generated");
+		for (String token : publishedSorted) {
+			if (!actualSorted.contains(token)) {
+				System.out.println(token);
+				hasDiff = true;
+			}
+		}
+
+		System.out.println("In the new generated but missing from the published");
+		for (String token : actualSorted) {
+			if (!publishedSorted.contains(token)) {
+				System.out.println(token);
+				hasDiff = true;
+			}
+		}
+		return hasDiff;
+	}
+
+	private List<String> split(String expression, boolean ignoreCardinality) {
+		List<String> result = new ArrayList<>();
+		for (String part : expression.split(",", -1)) {
+			if (part.contains(":")) {
+				result.addAll(Arrays.asList(part.split(":", -1)));
+			} else {
+				result.add(part.trim());
+			}
+		}
+		if (ignoreCardinality) {
+			List<String> updated = new ArrayList<>();
+			for (String token : result) {
+				if (token.contains("..")) {
+					if (token.endsWith("}")) {
+						token = token.replace("}", "");
+					}
+					updated.add(token.substring(token.lastIndexOf("..") + 5, token.length()).trim());
+				}
+			}
+			result = updated;
+		}
+		Collections.sort(result);
+		return result;
 	}
 }
