@@ -10,9 +10,12 @@ public class Domain {
 	private String parentDomain;
 	private Constraint proximalPrimitiveConstraint;
 	private String proximalPrimitiveRefinement;
+	private String domainTemplateForPrecoordination;
+	private String domainTemplateForPostcoordination;
 
 	public Domain(String id, String effectiveTime, boolean active, String referencedComponentId, Constraint domainConstraint, String parentDomain,
-			Constraint proximalPrimitiveConstraint, String proximalPrimitiveRefinement) {
+			Constraint proximalPrimitiveConstraint, String proximalPrimitiveRefinement,
+				  String domainTemplateForPrecoordination, String domainTemplateForPostcoordination) {
 
 		this.id = id;
 		this.effectiveTime = effectiveTime;
@@ -22,6 +25,21 @@ public class Domain {
 		this.parentDomain = parentDomain;
 		this.proximalPrimitiveConstraint = proximalPrimitiveConstraint;
 		this.proximalPrimitiveRefinement = proximalPrimitiveRefinement;
+		this.domainTemplateForPrecoordination = domainTemplateForPrecoordination;
+		this.domainTemplateForPostcoordination = domainTemplateForPostcoordination;
+	}
+
+	public Domain (Domain domain) {
+		this.id = domain.getId();
+		this.effectiveTime = domain.getEffectiveTime();
+		this.active = domain.isActive();
+		this.referencedComponentId = domain.getReferencedComponentId();
+		this.domainConstraint = domain.getDomainConstraint();
+		this.parentDomain = domain.getParentDomain();
+		this.proximalPrimitiveConstraint = domain.getProximalPrimitiveConstraint();
+		this.proximalPrimitiveRefinement = domain.getProximalPrimitiveRefinement();
+		this.domainTemplateForPrecoordination = domain.getDomainTemplateForPrecoordination();
+		this.domainTemplateForPostcoordination = domain.getDomainTemplateForPostcoordination();
 	}
 
 	public String getId() {
@@ -44,9 +62,7 @@ public class Domain {
 		return domainConstraint;
 	}
 
-	public String getParentDomain() {
-		return parentDomain;
-	}
+	public String getParentDomain() { return parentDomain; }
 
 	public Constraint getProximalPrimitiveConstraint() {
 		return proximalPrimitiveConstraint;
@@ -56,4 +72,15 @@ public class Domain {
 		return proximalPrimitiveRefinement;
 	}
 
+	public String getDomainTemplateForPostcoordination() { return domainTemplateForPostcoordination; }
+
+	public String getDomainTemplateForPrecoordination() { return domainTemplateForPrecoordination; }
+
+	public void setDomainTemplateForPrecoordination(String domainTemplateForPrecoordination) {
+		this.domainTemplateForPrecoordination = domainTemplateForPrecoordination;
+	}
+
+	public void setDomainTemplateForPostcoordination(String domainTemplateForPostcoordination) {
+		this.domainTemplateForPostcoordination = domainTemplateForPostcoordination;
+	}
 }
