@@ -374,16 +374,20 @@ public class AdminOperationsService {
 		// by insertion of content back in time. The version control system was not designed to be able to deal with this.
 
 		// Find commit on parent branch matching head of version branch
+		logger.info("Release fix branch base " + releaseFixBranch.getBase().getTime());
+		logger.info("Release fix branch head " + releaseFixBranch.getHead().getTime());
 		final Branch codeSystemVersionCommit = branchService.findAtTimepointOrThrow(codeSystemPath, releaseFixBranch.getBase());
 		final BranchCriteria codeSystemVersionCommitBranchCriteria = versionControlHelper.getBranchCriteriaAtTimepoint(codeSystemPath, codeSystemVersionCommit.getHead());
 
 		// Promotion commit will be ten seconds after original version commit.
+		logger.info("Code system version branch head " + codeSystemVersionCommit.getHead().getTime());
+		logger.info("Code system version branch base " + codeSystemVersionCommit.getBase().getTime());
 		Date promotionCommitTime = new Date(codeSystemVersionCommit.getHeadTimestamp() + TEN_SECONDS_IN_MILLIS);
 
 		// Revert commit will be ten seconds after promotion commit.
 		Date revertCommitTime = new Date(promotionCommitTime.getTime() + TEN_SECONDS_IN_MILLIS);
 
-		logger.info("Promoting fixes from release branch into code system branch back in time.");
+		logger.info("Promoting fixes from release branch into code system branch back in time " + promotionCommitTime);
 		logger.info("Fixes from branch {} will be applied to branch {} at timepoint {} and then reverted at timepoint {}.",
 				releaseFixBranchPath, codeSystemPath, promotionCommitTime.getTime(), revertCommitTime.getTime());
 
