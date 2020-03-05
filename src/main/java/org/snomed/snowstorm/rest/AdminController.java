@@ -75,6 +75,16 @@ public class AdminController {
 		return response;
 	}
 
+	@ApiOperation(value = "Hide parent version of duplicate versions of components in version control.")
+	@RequestMapping(value = "/{branch}/actions/find-duplicate-hide-parent-version", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> findDuplicateAndHideParentVersion(@PathVariable String branch) {
+		Map<String, Object> response = new HashMap<>();
+		Map<Class, Set<String>> fixes = adminOperationsService.findDuplicateAndHideParentVersion(BranchPathUriUtil.decodePath(branch));
+		response.put("fixesApplied", fixes);
+		return response;
+	}
+
 	@ApiOperation(value = "Rollback a commit on a branch.",
 			notes = "Use with extreme caution! Only rollback a commit which you know is the latest commit on the branch " +
 					"and that there are no child branches created or rebased since the commit otherwise version control will break."
