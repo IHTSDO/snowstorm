@@ -6,6 +6,7 @@ import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Entity;
+import io.kaicode.elasticvc.repositories.BranchRepository;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
@@ -76,6 +77,9 @@ public class BranchMergeService {
 
 	@Autowired
 	private ReferenceSetMemberRepository referenceSetMemberRepository;
+
+	@Autowired
+	private BranchRepository branchRepository;
 
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
 	private static final String USE_BRANCH_REVIEW = "The target branch is diverged, please use the branch review endpoint instead.";
@@ -310,20 +314,20 @@ public class BranchMergeService {
 		}
 		try (Commit commit = branchService.openRebaseToSpecificParentTimepointCommit(targetBranch, sourceTimepoint, branchMetadataHelper.getBranchLockMetadata(targetLockMessage))) {
 			BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-			findAndEndDonatedComponentsOfAllTypes(targetBranch, branchCriteriaIncludingOpenCommit, new HashMap<>());
+			fixDuplicateComponents(targetBranch, branchCriteriaIncludingOpenCommit, true, new HashMap<>());
 			commit.markSuccessful();
 		}
 	}
 
-	void findAndEndDonatedComponentsOfAllTypes(String branch, BranchCriteria branchCriteria, Map<Class, Set<String>> fixesApplied) {
-		findAndEndDonatedComponents(branch, branchCriteria, Concept.class, Concept.Fields.CONCEPT_ID, conceptRepository, fixesApplied);
-		findAndEndDonatedComponents(branch, branchCriteria, Description.class, Description.Fields.DESCRIPTION_ID, descriptionRepository, fixesApplied);
-		findAndEndDonatedComponents(branch, branchCriteria, Relationship.class, Relationship.Fields.RELATIONSHIP_ID, relationshipRepository, fixesApplied);
-		findAndEndDonatedComponents(branch, branchCriteria, ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID, referenceSetMemberRepository, fixesApplied);
+	void fixDuplicateComponents(String branch, BranchCriteria branchCriteria, boolean endThisVersion, Map<Class, Set<String>> fixesApplied) {
+		fixDuplicateComponentsOfType(branch, branchCriteria, Concept.class, Concept.Fields.CONCEPT_ID, conceptRepository, endThisVersion, fixesApplied);
+		fixDuplicateComponentsOfType(branch, branchCriteria, Description.class, Description.Fields.DESCRIPTION_ID, descriptionRepository, endThisVersion, fixesApplied);
+		fixDuplicateComponentsOfType(branch, branchCriteria, Relationship.class, Relationship.Fields.RELATIONSHIP_ID, relationshipRepository, endThisVersion, fixesApplied);
+		fixDuplicateComponentsOfType(branch, branchCriteria, ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID, referenceSetMemberRepository, endThisVersion, fixesApplied);
 	}
 
-	private void findAndEndDonatedComponents(String branch, BranchCriteria branchCriteria, Class<? extends SnomedComponent> clazz, String idField,
-			ElasticsearchCrudRepository repository, Map<Class, Set<String>> fixesApplied) {
+	private void fixDuplicateComponentsOfType(String branch, BranchCriteria branchCriteria, Class<? extends SnomedComponent> clazz, String idField,
+			ElasticsearchCrudRepository repository, boolean endThisVersion, Map<Class, Set<String>> fixesApplied) {
 
 		logger.info("Searching for duplicate {} records on {}", clazz.getSimpleName(), branch);
 		BoolQueryBuilder entityBranchCriteria = branchCriteria.getEntityBranchCriteria(clazz);
@@ -358,6 +362,7 @@ public class BranchMergeService {
 		logger.info("Found {} duplicate {} records: {}", duplicateIds.size(), clazz.getSimpleName(), duplicateIds);
 
 		// End duplicate components using the commit timestamp of the donated content
+		List<String> internalIdsToHide = new ArrayList<>();
 		for (String duplicateId : duplicateIds) {
 			List<? extends SnomedComponent> intVersionList = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(entityBranchCriteria)
@@ -368,25 +373,38 @@ public class BranchMergeService {
 				throw new IllegalStateException(String.format("During fix stage expecting 1 int version but found %s for id %s", intVersionList.size(), clazz));
 			}
 			SnomedComponent intVersion = intVersionList.get(0);
-			Date donatedVersionCommitTimepoint = intVersion.getStart();
 
-			List<? extends SnomedComponent> extensionVersionList = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery().must(entityBranchCriteria)
-							.must(termQuery(idField, duplicateId))
-							.must(termQuery("path", branch)))
-					.build(), clazz);
-			if (extensionVersionList.size() != 1) {
-				throw new IllegalStateException(String.format("During fix stage expecting 1 extension version but found %s for id %s", extensionVersionList.size(), clazz));
+			if (endThisVersion) {
+				Date donatedVersionCommitTimepoint = intVersion.getStart();
+
+				List<? extends SnomedComponent> extensionVersionList = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+						.withQuery(boolQuery().must(entityBranchCriteria)
+								.must(termQuery(idField, duplicateId))
+								.must(termQuery("path", branch)))
+						.build(), clazz);
+				if (extensionVersionList.size() != 1) {
+					throw new IllegalStateException(String.format("During fix stage expecting 1 extension version but found %s for id %s", extensionVersionList.size(), clazz));
+				}
+				SnomedComponent extensionVersion = extensionVersionList.get(0);
+				extensionVersion.setEnd(donatedVersionCommitTimepoint);
+				repository.save(extensionVersion);
+				logger.info("Ended {} on {} at timepoint {} to match {} version start date.", duplicateId, branch, donatedVersionCommitTimepoint, intVersion.getPath());
+			} else {
+				// Hide parent version
+				internalIdsToHide.add(intVersion.getInternalId());
 			}
-			SnomedComponent extensionVersion = extensionVersionList.get(0);
-			extensionVersion.setEnd(donatedVersionCommitTimepoint);
-			repository.save(extensionVersion);
-			logger.info("Ended {} on {} at timepoint {} to match {} version start date.", duplicateId, branch, donatedVersionCommitTimepoint, intVersion.getPath());
-
-			fixesApplied.put(clazz, duplicateIds);
 		}
-	}
 
+		if (!endThisVersion && !internalIdsToHide.isEmpty()) {
+			// Hide parent version using version replaced map on branch
+			Branch latestBranch = branchService.findLatest(branch);
+			latestBranch.addVersionsReplaced(Collections.singletonMap(clazz.getSimpleName(), new HashSet<>(internalIdsToHide)));
+			branchRepository.save(latestBranch);
+			logger.info("Updated branch with an additional {} {} versions to hide on ancestor branch.", internalIdsToHide.size(), clazz.getSimpleName());
+		}
+
+		fixesApplied.put(clazz, duplicateIds);
+	}
 
 	private <T extends DomainEntity> void promoteEntities(String source, Commit commit, Class<T> entityClass,
 			ElasticsearchCrudRepository<T, String> entityRepository, Map<String, Set<String>> versionsReplaced) {

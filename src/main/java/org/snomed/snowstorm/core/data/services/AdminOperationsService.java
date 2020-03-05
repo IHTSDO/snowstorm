@@ -141,12 +141,24 @@ public class AdminOperationsService {
 
 		logger.info("Finding and fixing donated content on {}.", branch);
 
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
-
 		Map<Class, Set<String>> fixesApplied = new HashMap<>();
-		branchMergeService.findAndEndDonatedComponentsOfAllTypes(branch, branchCriteria, fixesApplied);
+		branchMergeService.fixDuplicateComponents(branch, versionControlHelper.getBranchCriteria(branch), true, fixesApplied);
 
 		logger.info("Completed donated content fixing on {}.", branch);
+		return fixesApplied;
+	}
+
+	public Map<Class, Set<String>> findDuplicateAndHideParentVersion(String branch) {
+		if (PathUtil.isRoot(branch)) {
+			throw new IllegalArgumentException("This fixed can not be used on MAIN because there are no ancestor branches.");
+		}
+
+		logger.info("Finding duplicate content on {} and hiding parent version.", branch);
+
+		Map<Class, Set<String>> fixesApplied = new HashMap<>();
+		branchMergeService.fixDuplicateComponents(branch, versionControlHelper.getBranchCriteria(branch), false, fixesApplied);
+
+		logger.info("Completed hiding parent version of duplicate content on {}.", branch);
 		return fixesApplied;
 	}
 
