@@ -363,35 +363,35 @@ public class BranchMergeService {
 
 		// End duplicate components using the commit timestamp of the donated content
 		List<String> internalIdsToHide = new ArrayList<>();
-		for (String duplicateId : duplicateIds) {
-			List<? extends SnomedComponent> intVersionList = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+		for (List<String> duplicateIdsBatch : Iterables.partition(duplicateIds, 10_000)) {
+			List<? extends SnomedComponent> intVersions = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(entityBranchCriteria)
-							.must(termQuery(idField, duplicateId))
+							.must(termsQuery(idField, duplicateIdsBatch))
 							.mustNot(termQuery("path", branch)))
+					.withPageable(LARGE_PAGE)
 					.build(), clazz);
-			if (intVersionList.size() != 1) {
-				throw new IllegalStateException(String.format("During fix stage expecting 1 int version but found %s for id %s", intVersionList.size(), clazz));
-			}
-			SnomedComponent intVersion = intVersionList.get(0);
 
-			if (endThisVersion) {
-				Date donatedVersionCommitTimepoint = intVersion.getStart();
+			for (SnomedComponent intVersion : intVersions) {
+				if (endThisVersion) {
+					Date donatedVersionCommitTimepoint = intVersion.getStart();
 
-				List<? extends SnomedComponent> extensionVersionList = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
-						.withQuery(boolQuery().must(entityBranchCriteria)
-								.must(termQuery(idField, duplicateId))
-								.must(termQuery("path", branch)))
-						.build(), clazz);
-				if (extensionVersionList.size() != 1) {
-					throw new IllegalStateException(String.format("During fix stage expecting 1 extension version but found %s for id %s", extensionVersionList.size(), clazz));
+					String duplicateId = intVersion.getId();
+					List<? extends SnomedComponent> extensionVersionList = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+							.withQuery(boolQuery().must(entityBranchCriteria)
+									.must(termQuery(idField, duplicateId))
+									.must(termQuery("path", branch)))
+							.build(), clazz);
+					if (extensionVersionList.size() != 1) {
+						throw new IllegalStateException(String.format("During fix stage expecting 1 extension version but found %s for id %s", extensionVersionList.size(), clazz));
+					}
+					SnomedComponent extensionVersion = extensionVersionList.get(0);
+					extensionVersion.setEnd(donatedVersionCommitTimepoint);
+					repository.save(extensionVersion);
+					logger.info("Ended {} on {} at timepoint {} to match {} version start date.", duplicateId, branch, donatedVersionCommitTimepoint, intVersion.getPath());
+				} else {
+					// Hide parent version
+					internalIdsToHide.add(intVersion.getInternalId());
 				}
-				SnomedComponent extensionVersion = extensionVersionList.get(0);
-				extensionVersion.setEnd(donatedVersionCommitTimepoint);
-				repository.save(extensionVersion);
-				logger.info("Ended {} on {} at timepoint {} to match {} version start date.", duplicateId, branch, donatedVersionCommitTimepoint, intVersion.getPath());
-			} else {
-				// Hide parent version
-				internalIdsToHide.add(intVersion.getInternalId());
 			}
 		}
 
