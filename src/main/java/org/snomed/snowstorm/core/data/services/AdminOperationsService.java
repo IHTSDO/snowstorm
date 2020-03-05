@@ -12,7 +12,6 @@ import io.kaicode.elasticvc.repositories.BranchRepository;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
@@ -441,7 +440,12 @@ public class AdminOperationsService {
 					try (CloseableIterator<? extends DomainEntity> existingEntityStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
 							.withQuery(boolQuery()
 									.must(codeSystemVersionCommitBranchCriteria.getEntityBranchCriteria(type))
-									.must(termsQuery(typeIdField, entitiesToPromoteBatch.stream().map(DomainEntity::getId).collect(Collectors.toList())))
+									.must(boolQuery()
+											// New version of component on fix branch
+											.should(termsQuery(typeIdField, entitiesToPromoteBatch.stream().map(DomainEntity::getId).collect(Collectors.toList())))
+											// Deleted component on fix branch
+											.should(termsQuery("internalId", releaseFixBranch.getVersionsReplaced(type)))
+									)
 							).withPageable(LARGE_PAGE).build(), type)) {
 						existingEntityStream.forEachRemaining(existingEntity -> {
 							if (existingEntity.getPath().equals(codeSystemPath)) {
