@@ -22,7 +22,7 @@ import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class AdminOperationServiceTest extends AbstractTest {
+public class AdminOperationsServiceTest extends AbstractTest {
 	@Autowired
 	private AdminOperationsService operationsService;
 
