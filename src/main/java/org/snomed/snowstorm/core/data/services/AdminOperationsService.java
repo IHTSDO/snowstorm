@@ -379,9 +379,11 @@ public class AdminOperationsService {
 		final Branch codeSystemVersionCommit = branchService.findAtTimepointOrThrow(codeSystemPath, releaseFixBranch.getBase());
 		final BranchCriteria codeSystemVersionCommitBranchCriteria = versionControlHelper.getBranchCriteriaAtTimepoint(codeSystemPath, codeSystemVersionCommit.getHead());
 
+		// Date of now used to end components on the release branch
+		Date now = new Date();
+
 		// Promotion commit will be ten seconds after original version commit.
-		logger.info("Code system version branch head " + codeSystemVersionCommit.getHead().getTime());
-		logger.info("Code system version branch base " + codeSystemVersionCommit.getBase().getTime());
+		logger.info("Code system version commit head " + codeSystemVersionCommit.getHead().getTime());
 		Date promotionCommitTime = new Date(codeSystemVersionCommit.getHeadTimestamp() + TEN_SECONDS_IN_MILLIS);
 
 		// Revert commit will be ten seconds after promotion commit.
@@ -458,9 +460,9 @@ public class AdminOperationsService {
 					// End versions on the version branch
 					for (DomainEntity entity : entitiesToPromoteBatch) {
 						// End after set time period
-						entity.setEnd(promotionCommitTime);
+						entity.setEnd(now);
 					}
-					logger.info("Ending {} {} on source branch at promotion commit.", existingEntitiesBatch.size(), type.getSimpleName());
+					logger.info("Ending {} {} on source branch with now {} end date.", existingEntitiesBatch.size(), type.getSimpleName(), now.getTime());
 					typeRepository.saveAll(entitiesToPromoteBatch);
 
 					// Copy the entities to the parent branch
@@ -509,14 +511,14 @@ public class AdminOperationsService {
 		revertCommit.setCreation(codeSystemVersionCommit.getCreation());
 		revertCommit.setLastPromotion(codeSystemVersionCommit.getLastPromotion());
 
-		releaseFixBranch.setEnd(promotionCommitTime);
+		releaseFixBranch.setEnd(now);
 		Branch releaseBranchPromotionCommit = new Branch(releaseFixBranch.getPath());
 		releaseBranchPromotionCommit.setMetadata(releaseFixBranch.getMetadata());
 		releaseBranchPromotionCommit.setCreation(releaseFixBranch.getCreation());
 		releaseBranchPromotionCommit.setLastPromotion(promotionCommitTime);
-		releaseBranchPromotionCommit.setStart(promotionCommitTime);
+		releaseBranchPromotionCommit.setStart(now);
 		releaseBranchPromotionCommit.setBase(promotionCommitTime);
-		releaseBranchPromotionCommit.setHead(promotionCommitTime);
+		releaseBranchPromotionCommit.setHead(now);
 		releaseBranchPromotionCommit.setContainsContent(false);
 
 		branchRepository.saveAll(Lists.newArrayList(codeSystemVersionCommit, promotionCommit, revertCommit, releaseFixBranch, releaseBranchPromotionCommit));
