@@ -401,6 +401,12 @@ public class AdminOperationsService {
 		// Revert commit will be ten seconds after promotion commit.
 		Date revertCommitTime = new Date(promotionCommitTime.getTime() + TEN_SECONDS_IN_MILLIS);
 
+		// Check there are no commits on the timeline where we are trying to write
+		Branch existingBranchAtRevertCommit = branchService.findAtTimepointOrThrow(codeSystemPath, revertCommitTime);
+		if (!codeSystemVersionCommit.getInternalId().equals(existingBranchAtRevertCommit.getInternalId())) {
+			throw new IllegalStateException(String.format("There is already a commit on %s at or before %s, can not proceed.", codeSystemPath, revertCommitTime.getTime()));
+		}
+
 		logger.info("Promoting fixes from release branch into code system branch back in time " + promotionCommitTime);
 		logger.info("Fixes from branch {} will be applied to branch {} at timepoint {} and then reverted at timepoint {}.",
 				releaseFixBranchPath, codeSystemPath, promotionCommitTime.getTime(), revertCommitTime.getTime());
