@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.junit.Test;

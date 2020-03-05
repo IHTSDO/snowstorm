@@ -1,1 +1,2 @@
 id	effectiveTime	active	moduleId	conceptId	languageCode	typeId	term	caseSignificanceId
+728558011		1	900000000000207008	12481008	en	900000000000003001	Incision of middle ear (procedure)	900000000000017005

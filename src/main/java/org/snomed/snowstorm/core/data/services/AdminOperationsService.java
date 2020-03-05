@@ -12,6 +12,7 @@ import io.kaicode.elasticvc.repositories.BranchRepository;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
@@ -73,7 +74,7 @@ public class AdminOperationsService {
 	private BranchRepository branchRepository;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
-	public static final int TEN_SECONDS_IN_MILLIS = 1000 * 10;
+	public static final int ONE_SECOND_IN_MILLIS = 1000;
 
 	public void reindexDescriptionsForLanguage(String languageCode) throws IOException {
 		Map<String, Set<Character>> charactersNotFoldedSets = searchLanguagesConfiguration.getCharactersNotFoldedSets();
@@ -394,17 +395,20 @@ public class AdminOperationsService {
 		// Date of now used to end components on the release branch
 		Date now = new Date();
 
-		// Promotion commit will be ten seconds after original version commit.
+		// Promotion commit will be one second after original version commit.
 		logger.info("Code system version commit head " + codeSystemVersionCommit.getHead().getTime());
-		Date promotionCommitTime = new Date(codeSystemVersionCommit.getHeadTimestamp() + TEN_SECONDS_IN_MILLIS);
+		Date promotionCommitTime = new Date(codeSystemVersionCommit.getHeadTimestamp() + (ONE_SECOND_IN_MILLIS));
 
-		// Revert commit will be ten seconds after promotion commit.
-		Date revertCommitTime = new Date(promotionCommitTime.getTime() + TEN_SECONDS_IN_MILLIS);
+		// Revert commit will be one second after promotion commit.
+		Date revertCommitTime = new Date(promotionCommitTime.getTime() + ONE_SECOND_IN_MILLIS);
 
 		// Check there are no commits on the timeline where we are trying to write
 		Branch existingBranchAtRevertCommit = branchService.findAtTimepointOrThrow(codeSystemPath, revertCommitTime);
-		if (!codeSystemVersionCommit.getInternalId().equals(existingBranchAtRevertCommit.getInternalId())) {
-			throw new IllegalStateException(String.format("There is already a commit on %s at or before %s, can not proceed.", codeSystemPath, revertCommitTime.getTime()));
+		if (existingBranchAtRevertCommit.getHead().equals(promotionCommitTime)) {
+			throw new IllegalStateException(String.format("There is already a commit on %s at %s, can not proceed.", codeSystemPath, promotionCommitTime.getTime()));
+		}
+		if (existingBranchAtRevertCommit.getHead().equals(revertCommitTime)) {
+			throw new IllegalStateException(String.format("There is already a commit on %s at %s, can not proceed.", codeSystemPath, revertCommitTime.getTime()));
 		}
 
 		logger.info("Promoting fixes from release branch into code system branch back in time " + promotionCommitTime);
