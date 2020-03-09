@@ -138,4 +138,10 @@ public class AdminController {
 		adminOperationsService.promoteReleaseFix(BranchPathUriUtil.decodePath(releaseFixBranch));
 	}
 
+	@RequestMapping(value = "/{branch}/actions/clone-child-branch", method = RequestMethod.POST)
+	@ResponseBody
+	public void cloneChildBranch(@PathVariable String branch, @RequestParam String newBranch) {
+		adminOperationsService.cloneChildBranch(BranchPathUriUtil.decodePath(branch), newBranch);
+	}
+
 }

@@ -21,6 +21,8 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.*;
 import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
@@ -551,4 +553,55 @@ public class AdminOperationsService {
 		logger.info("All content promoted and commits made. Fix promotion complete.");
 	}
 
+	public void cloneChildBranch(String sourceBranchPath, String destinationBranchPath) {
+		String parentPath = PathUtil.getParentPath(sourceBranchPath);
+		if (parentPath == null || !parentPath.equals(PathUtil.getParentPath(destinationBranchPath))) {
+			throw new IllegalArgumentException("Source and destination branches must have a common parent branch.");
+		}
+		if (!branchService.findChildren(sourceBranchPath).isEmpty()) {
+			throw new IllegalArgumentException("This operation only works on branches without children. The specified branch has children.");
+		}
+		if (branchService.exists(destinationBranchPath)) {
+			throw new IllegalArgumentException("Destination branch already exists.");
+		}
+
+		List<Branch> sourceBranchCommits = branchService.findAllVersions(sourceBranchPath, LARGE_PAGE).getContent();
+		int commitNumber = 0;
+		PageRequest pageSize = PageRequest.of(0, 1_000);
+		for (Branch sourceBranchCommit : sourceBranchCommits) {
+			commitNumber++;
+			logger.info("Cloning branch {} to {}, commit {} of {}, timepoint {}:{}.", sourceBranchPath, destinationBranchPath, commitNumber, sourceBranchCommits.size(),
+					sourceBranchCommit.getStart().getTime(), sourceBranchCommit.getStartDebugFormat());
+
+			// Clone commit into new path
+			sourceBranchCommit.setPath(destinationBranchPath);
+			sourceBranchCommit.clearInternalId();
+			branchRepository.save(sourceBranchCommit);
+
+			// Clone commit content into new path
+			Map<Class<? extends DomainEntity>, ElasticsearchCrudRepository> allTypeRepositoryMap = domainEntityConfiguration.getAllTypeRepositoryMap();
+			for (Class<? extends DomainEntity> type : allTypeRepositoryMap.keySet()) {
+				ElasticsearchCrudRepository elasticsearchCrudRepository = domainEntityConfiguration.getAllTypeRepositoryMap().get(type);
+				Page<? extends DomainEntity> page;
+				do {
+					page = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+							.withQuery(boolQuery()
+									.must(termQuery("path", sourceBranchPath))
+									.must(termQuery("start", sourceBranchCommit.getStart()))
+							)
+							.withPageable(pageSize)
+							.build(), type);
+					List<? extends DomainEntity> content = page.getContent();
+					if (!content.isEmpty()) {
+						logger.info("Cloning {} {}s", content.size(), type.getSimpleName());
+						content.forEach(domainEntity -> {
+							domainEntity.setPath(destinationBranchPath);
+							domainEntity.clearInternalId();// ES will create a new document rather than updating.
+						});
+						elasticsearchCrudRepository.saveAll(content);
+					}
+				} while (!page.isLast());
+			}
+		}
+	}
 }
