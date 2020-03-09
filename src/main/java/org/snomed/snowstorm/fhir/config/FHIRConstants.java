@@ -36,6 +36,8 @@ public interface FHIRConstants {
 	String SNOMED_URI_DEFAULT_MODULE = "http://snomed.info/sct/900000000000207008";
 	String ICD10 = "ICD-10";
 	String ICD10_URI = "http://hl7.org/fhir/sid/icd-10";
+	String ICDO = "ICD-O";
+	String ICDO_URI = "http://hl7.org/fhir/sid/icd-o";
 	String SNOMED_CONCEPTMAP = SNOMED_URI + "?fhir_cm=";
 	
 	enum Validation { EQUALS, STARTS_WITH }

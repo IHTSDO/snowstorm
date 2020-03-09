@@ -52,13 +52,8 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		validate("Source", source.asStringValue(), Validation.STARTS_WITH, getValidMapSources(), true);
 		validate("Target", target.asStringValue(), Validation.EQUALS, getValidMapTargets(), true);
 		
-		//Allow "ICD-10", but swap with the real URI
-		if (target.asStringValue().equals(ICD10)) {
-			target = new UriType(ICD10_URI);
-		}
-		if (source.asStringValue().equals(ICD10) ) {
-			source = new UriType(ICD10_URI);
-		}
+		normaliseURIs(source, target, ICD10, ICD10_URI);
+		normaliseURIs(source, target, ICDO, ICDO_URI);
 		
 		if (!source.asStringValue().startsWith(SNOMED_URI) && source.asStringValue().equals(target.asStringValue())) {
 			throw new FHIROperationException (null, "Source and target cannot be the same: '" + source.asStringValue() + "'");
@@ -97,17 +92,31 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 
 	}
 	
+	private void normaliseURIs(UriType source, UriType target, String shortName, String uri) {
+		//Allow shortNames to be input, but swap with the real URI
+		if (target.asStringValue().equals(shortName)) {
+			target = new UriType(uri);
+		}
+		if (source.asStringValue().equals(shortName) ) {
+			source = new UriType(uri);
+		}
+		
+	}
+
 	private String[] getValidMapTargets() {
 		if (validMapTargets == null) {
-			validMapTargets = new String[4];
+			validMapTargets = new String[6];
 			validMapTargets[0] = SNOMED_URI + "?fhir_vs";
-			validMapTargets[1] = "ICD-10";
+			validMapTargets[1] = ICD10;
 			validMapTargets[2] = ICD10_URI;
 			validMapTargets[3] = SNOMED_URI;
+			validMapTargets[4] = ICDO;
+			validMapTargets[5] = ICDO_URI;
 			
 			//This hardcoding will be replaced by machine readable Refset metadata
 			knownUriMap = new ImmutableBiMap.Builder<String, String>()
 			.put(ICD10_URI, "447562003")
+			.put(ICDO_URI, "446608001")
 			.put("CTV-3","900000000000497000")
 			.build();
 		}
