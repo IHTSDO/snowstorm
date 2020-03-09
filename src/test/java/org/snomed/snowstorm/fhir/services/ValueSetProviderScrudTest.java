@@ -20,7 +20,6 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.MethodOutcome;
-import ca.uhn.fhir.rest.server.exceptions.InternalErrorException;
 import io.kaicode.elasticvc.api.BranchService;
 
 import static org.junit.Assert.assertEquals;
