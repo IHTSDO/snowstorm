@@ -227,7 +227,7 @@ public class DailyBuildService {
 				return "s3://" + resourceConfiguration.getCloud().getBucketName()
 						+ "/" + getPathAndRelative(resourceConfiguration.getCloud().getPath(), relativePath);
 			} else {
-				return getPathAndRelative(resourceConfiguration.getLocal().getPath(), relativePath);
+				return "file:" + getPathAndRelative(resourceConfiguration.getLocal().getPath(), relativePath);
 			}
 		}
 		private static String getPathAndRelative(String path, String relativePath) {
