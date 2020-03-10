@@ -156,6 +156,9 @@ public class ReferenceSetMemberService extends ComponentService {
 
 	public ReferenceSetMember findMember(String branch, String uuid) {
 		List<ReferenceSetMember> result = findMembers(branch, Arrays.asList(uuid));
+		if (result != null && result.size() > 1) {
+			throw new IllegalStateException(String.format("Found more than one referenceSetMembers with uuid %s on branch %s", uuid, branch));
+		}
 		if (!result.isEmpty()) {
 			return result.get(0);
 		}
