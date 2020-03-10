@@ -101,21 +101,22 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 												   Map<String, String> conceptToTermMap) {
 
 		List<Domain> updatedDomains = generateDomainTemplates(domainMapByDomainId, domainToAttributesMap, domainToRangesMap, conceptToTermMap);
+		if (updatedDomains.size() > 0) {
+			logger.info("{} domain templates updated.", updatedDomains.size());
+		}
 		// add diff report if required
-		Set<String> rangeMemberIds = updatedDomains.stream().map(r -> r.getId()).collect(Collectors.toSet());
-		List<ReferenceSetMember> rangeMembers = referenceSetMemberService.findMembers(branchPath, rangeMemberIds);
+		Set<String> domainMemberIds = updatedDomains.stream().map(Domain::getId).collect(Collectors.toSet());
+		List<ReferenceSetMember> domainMembers = referenceSetMemberService.findMembers(branchPath, domainMemberIds);
 		Map<String, Domain> memberIdToDomainMap = new HashMap<>();
-		List<ReferenceSetMember> toSave = new ArrayList<>();
 		for (Domain domain : updatedDomains) {
 			memberIdToDomainMap.put(domain.getId(), domain);
 		}
-		for (ReferenceSetMember member : rangeMembers) {
+		for (ReferenceSetMember member : domainMembers) {
 			member.setAdditionalField("domainTemplateForPrecoordination", memberIdToDomainMap.get(member.getMemberId()).getDomainTemplateForPrecoordination());
 			member.setAdditionalField("domainTemplateForPostcoordination", memberIdToDomainMap.get(member.getMemberId()).getDomainTemplateForPostcoordination());
 			member.markChanged();
 		}
-		toSave.addAll(rangeMembers);
-		return toSave;
+		return domainMembers;
 	}
 
 	List<AttributeRange> generateAttributeRule(Map<String, Domain> domainMapByDomainId, Map<String, List<AttributeDomain>> attributeToDomainsMap,
@@ -128,7 +129,12 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			List<AttributeDomain> sorted = attributeToDomainsMap.get(attributeId);
 			Collections.sort(sorted, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
 			for (AttributeRange range : attributeToRangesMap.get(attributeId)) {
-				range.setRangeConstraint(sortExpressionConstraintByConceptId(range.getRangeConstraint()));
+				String sortedConstraint = sortExpressionConstraintByConceptId(range.getRangeConstraint());
+				boolean isRangeConstraintChanged = false;
+				if (!range.getRangeConstraint().equals(sortedConstraint)) {
+					isRangeConstraintChanged = true;
+					range.setRangeConstraint(sortedConstraint);
+				}
 				int counter = 0;
 				StringBuilder ruleBuilder = new StringBuilder();
 				for (AttributeDomain attributeDomain : sorted) {
@@ -138,7 +144,6 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 					if (ContentType.ALL != attributeDomain.getContentType() && range.getContentType() != attributeDomain.getContentType()) {
 						continue;
 					}
-					// TODO to make the following code better
 					if (counter++ > 0) {
 						ruleBuilder.insert(0, "(");
 						ruleBuilder.append(")");
@@ -173,7 +178,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 						ruleBuilder.append(")");
 					}
 				}
-				if (!range.getAttributeRule().equals(ruleBuilder.toString())) {
+				if (!range.getAttributeRule().equals(ruleBuilder.toString()) || isRangeConstraintChanged) {
 					logger.debug("before = " + range.getAttributeRule());
 					logger.debug("after = " + ruleBuilder.toString());
 					AttributeRange updated = new AttributeRange(range);
@@ -232,7 +237,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			}
 		}
 
-		List<ReferenceSetMember>  toSave = new ArrayList<>();
+		List<ReferenceSetMember> toSave = new ArrayList<>();
 		// Attribute rule
 		toSave.addAll(updateAttributeRules(branchPath, domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap));
 		// domain templates
@@ -252,8 +257,6 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		List<AttributeRange> attributeRanges = generateAttributeRule(domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap);
 		if (attributeRanges.size() > 0) {
 			logger.info("{} attribute rules updated.", attributeRanges.size());
-			// TODO
-			//		runAttributeRulesDiffReport(attributeRanges, attributeToRangesMap);
 		}
 
 		Set<String> rangeMemberIds = attributeRanges.stream().map(AttributeRange::getId).collect(Collectors.toSet());
@@ -262,15 +265,13 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		for (AttributeRange range : attributeRanges) {
 			memberIdToRangeMap.put(range.getId(), range);
 		}
-		List<ReferenceSetMember> updated = new ArrayList<>();
 		for (ReferenceSetMember rangeMember : rangeMembers) {
 			rangeMember.markChanged();
-			updated.add(rangeMember.setAdditionalField("attributeRule", memberIdToRangeMap.get(rangeMember.getMemberId()).getAttributeRule()));
+			rangeMember.setAdditionalField("attributeRule", memberIdToRangeMap.get(rangeMember.getMemberId()).getAttributeRule());
+			rangeMember.setAdditionalField("rangeConstraint", memberIdToRangeMap.get(rangeMember.getMemberId()).getRangeConstraint());
 		}
-		return updated;
+		return rangeMembers;
 	}
-
-
 
 	private Set<String> getMRCMRefsetComponentsChanged(Commit commit) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
