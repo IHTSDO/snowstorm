@@ -5,6 +5,8 @@ import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.domain.refinement.Operator;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.mrcm.model.*;
@@ -20,9 +22,12 @@ import java.util.stream.Collectors;
 public class MRCMUpdateServiceTest {
 	@Autowired
 	private MRCMUpdateService mrcmUpdateService;
+
 	private Map<String, List<AttributeDomain>> attributeToDomainsMap;
 	private Map<String, List<AttributeRange>> attributeToRangesMap;
 	private Map<String, String> conceptToPtMap;
+
+	private Logger logger = LoggerFactory.getLogger(MRCMUpdateServiceTest.class);
 
 	@Before
 	public void setUp() {
@@ -63,11 +68,10 @@ public class MRCMUpdateServiceTest {
 		List<AttributeRange> attributeRanges = mrcmUpdateService.generateAttributeRule(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap);
 		assertEquals(1, attributeRanges.size());
 		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
-		String published = "(<< 404684003 |Clinical finding (finding)| OR << 272379006 |Event (event)|): [0..*] { [0..*] 47429007 |Associated with| = (<< 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)| OR << 272379006 |Event (event)| OR << 410607006 |Organism (organism)| OR << 105590001 |Substance (substance)| OR << 260787004 |Physical object (physical object)| OR << 78621006 |Physical force (physical force)|) }";
-		assertEquals("(<< 272379006 |Event (event)|: [0..*] { [0..1] 255234002 |After| = (<< 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)| " +
-						"OR << 272379006 |Event (event)|) }) OR (<< 404684003 |Clinical finding (finding)|: [0..*] { [0..1] 255234002 |After| = (<< 404684003 |Clinical finding (finding)| " +
-						"OR << 71388002 |Procedure (procedure)| OR << 272379006 |Event (event)|) })",
-				attributeRanges.get(0).getAttributeRule());
+		String expected = "(<< 272379006 |Event (event)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })" +
+				" OR (<< 404684003 |Clinical finding (finding)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })";
+
+		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
 	}
 
 	@Test
@@ -145,7 +149,7 @@ public class MRCMUpdateServiceTest {
 	}
 
 	@Test
-	public void testPrecoodinationDomainTemplateWithParentDoamin() throws Exception {
+	public void testPrecoodinationDomainTemplateWithParentDomain() throws Exception {
 		Domain bodyStructure = new Domain("273f1341-03c9-44a1-9797-9b5106c07e8", "", true, "123037004",
 				new Constraint("<< 123037004 |Body structure (body structure)|", "123037004", Operator.descendantorselfof),
 				"",
@@ -251,6 +255,20 @@ public class MRCMUpdateServiceTest {
 
 	}
 
+
+	@Test
+	public void testSortExpressionConstraintByConceptId() {
+		String rangeConstraint = "<< 420158005 |Performer of method (person)|" +
+				" OR << 419358007 |Subject of record or other provider of history (person)|" +
+				" OR << 444018008 |Person with characteristic related to subject of record (person)|";
+		String expected = "<< 419358007 |Subject of record or other provider of history (person)|" +
+				" OR << 420158005 |Performer of method (person)|" +
+				" OR << 444018008 |Person with characteristic related to subject of record (person)|";
+		assertEquals(expected,
+				mrcmUpdateService.sortExpressionConstraintByConceptId(rangeConstraint));
+	}
+
+
 	private void diff(String published, String actual) {
 		List<String> publsihedSorted = split(published);
 		List<String> actualSorted = split(actual);
@@ -270,6 +288,153 @@ public class MRCMUpdateServiceTest {
 			} else {
 				result.add(part);
 			}
+		}
+		Collections.sort(result);
+		return result;
+	}
+
+
+	private void runPostcoordinationDiffReport(List<Domain> updatedDomains, Map<String,Domain> domainMapByDomainId) {
+		if (updatedDomains == null || updatedDomains.isEmpty()) {
+			return;
+		}
+		int sameCounter = 0;
+		int sameWhenSortingIngored = 0;
+		int diffCounter = 0;
+		for (Domain domain : updatedDomains) {
+			String domainId = domain.getReferencedComponentId();
+			String published = domainMapByDomainId.get(domainId).getDomainTemplateForPostcoordination();
+			String actual = domain.getDomainTemplateForPostcoordination();
+			if (!published.equals(actual)) {
+				logger.info("Analyzing postcoordination domain template for domain id " + domainId);
+				if (hasDiff(published, actual, false)) {
+					diffCounter++;
+					logger.info("before = " + published);
+					logger.info("after = " + actual);
+				} else {
+					logger.info("domain template is the same when cardinality and sorting is ignored " + domain.getReferencedComponentId());
+					sameWhenSortingIngored++;
+				}
+			} else {
+				sameCounter++;
+				logger.info("domain template is the same for " + domainId);
+			}
+		}
+		logger.info("Total templates updated = " + updatedDomains.size());
+		logger.info("Total templates are the same without change = " + sameCounter);
+		logger.info("Total templates are the same when cardinality and sorting is ignored = " + sameWhenSortingIngored);
+		logger.info("Total templates found with diffs = " + diffCounter);
+	}
+
+	private void runAttributeRulesDiffReport(List<AttributeRange> attributeRanges, Map<String, List<AttributeRange>> attributeToRangesMap) {
+		int sameCounter = 0;
+		int sameWhenSortingIngored = 0;
+		int diffCounter = 0;
+		for (AttributeRange range : attributeRanges) {
+			String attributeId = range.getReferencedComponentId();
+			String publishedRule = null;
+			for (AttributeRange published : attributeToRangesMap.get(attributeId)) {
+				if (range.getId().equals(published.getId())) {
+					publishedRule = published.getAttributeRule();
+					break;
+				}
+			}
+			String actual = range.getAttributeRule();
+			if (!actual.equals(publishedRule)) {
+				logger.info("Analyzing attribute rule for attribute " + attributeId + " with id = " + range.getId());
+				if (hasDiff(publishedRule, actual, true)) {
+					diffCounter++;
+					logger.info("before = " + publishedRule);
+					logger.info("after = " + actual);
+				} else {
+					logger.info("Attribute rules are the same when cardinality and sorting are ignored " + attributeId);
+					sameWhenSortingIngored++;
+				}
+			} else {
+				sameCounter++;
+				logger.info("Attribute rule is the same for " + attributeId);
+			}
+		}
+		logger.info("Total templates updated = " + attributeRanges.size());
+		logger.info("Total templates are the same without change = " + sameCounter);
+		logger.info("Total templates are the same when cardinality and sorting is ignored = " + sameWhenSortingIngored);
+		logger.info("Total templates found with diffs = " + diffCounter);
+	}
+
+	private void runPrecoordinationDiffReport(List<Domain> updatedDomains, Map<String,Domain> domainMapByDomainId) {
+		if (updatedDomains == null || updatedDomains.isEmpty()) {
+			return;
+		}
+		int sameCounter = 0;
+		int sameWhenSortingIngored = 0;
+		int diffCounter = 0;
+		for (Domain domain : updatedDomains) {
+			String domainId = domain.getReferencedComponentId();
+			String published = domainMapByDomainId.get(domainId).getDomainTemplateForPrecoordination();
+			String actual = domain.getDomainTemplateForPrecoordination();
+			if (!published.equals(actual)) {
+				logger.info("Analyzing precoordinationdomain template for domain id " + domainId);
+				if (hasDiff(published, actual, false)) {
+					diffCounter++;
+					logger.info("before = " + published);
+					logger.info("after = " + actual);
+				} else {
+					logger.info("domain template is the same when cardinality and sorting is ignored " + domain.getReferencedComponentId());
+					sameWhenSortingIngored++;
+				}
+			} else {
+				sameCounter++;
+				logger.info("domain template is the same for " + domainId);
+			}
+		}
+		logger.info("Total templates updated = " + updatedDomains.size());
+		logger.info("Total templates are the same without change = " + sameCounter);
+		logger.info("Total templates are the same when cardinality and sorting is ignored = " + sameWhenSortingIngored);
+		logger.info("Total templates found with diffs = " + diffCounter);
+	}
+
+	private boolean hasDiff(String published, String actual, boolean ignoreCardinality) {
+		boolean hasDiff = false;
+		List<String> publishedSorted = split(published, ignoreCardinality);
+		List<String> actualSorted = split(actual, ignoreCardinality);
+
+		logger.info("Published but missing in the new generated");
+		for (String token : publishedSorted) {
+			if (!actualSorted.contains(token)) {
+				System.out.println(token);
+				hasDiff = true;
+			}
+		}
+
+		logger.info("In the new generated but missing from the published");
+		for (String token : actualSorted) {
+			if (!publishedSorted.contains(token)) {
+				hasDiff = true;
+			}
+		}
+		return hasDiff;
+	}
+
+	private List<String> split(String expression, boolean ignoreCardinality) {
+		List<String> result = new ArrayList<>();
+		for (String part : expression.split(",", -1)) {
+			if (part.contains(":")) {
+				result.addAll(Arrays.asList(part.split(":", -1)));
+			} else {
+				result.add(part.trim());
+			}
+		}
+		if (ignoreCardinality) {
+			List<String> updated = new ArrayList<>();
+			for (String token : result) {
+				if (token.contains("..")) {
+					if (token.endsWith("}")) {
+						token = token.replace("}", "");
+					}
+					updated.add(token.substring(token.lastIndexOf("..") + 5, token.length()).trim());
+				}
+			}
+			result = updated;
 		}
 		Collections.sort(result);
 		return result;
