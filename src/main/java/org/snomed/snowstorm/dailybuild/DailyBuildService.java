@@ -146,8 +146,10 @@ public class DailyBuildService {
 			}
 		} else {
 			// If never released roll back all versions
-			logger.info("No release versions found on {}, all commits will be rolled back.", codeSystem.getBranchPath());
-			commitsToRollback = branchService.findAllVersions(branchPath, Pageable.unpaged()).stream().sorted(Comparator.comparing(Branch::getStart)).collect(Collectors.toList());
+			logger.info("No release versions found on {}, all commit appart from branch creation will be rolled back.", codeSystem.getBranchPath());
+			List<Branch> allCommits = branchService.findAllVersions(branchPath, Pageable.unpaged()).stream().sorted(Comparator.comparing(Branch::getStart)).collect(Collectors.toList());
+			allCommits.remove(0);// Don't rollback the commit which creates the branch.
+			commitsToRollback = allCommits;
 		}
 
 		// Roll back in reverse order (i.e the most recent first)
