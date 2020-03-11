@@ -4,6 +4,7 @@ import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.ECLException;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.CompoundExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
@@ -129,7 +130,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			List<AttributeDomain> sorted = attributeToDomainsMap.get(attributeId);
 			Collections.sort(sorted, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
 			for (AttributeRange range : attributeToRangesMap.get(attributeId)) {
-				String sortedConstraint = sortExpressionConstraintByConceptId(range.getRangeConstraint());
+				String sortedConstraint = sortExpressionConstraintByConceptId(range.getRangeConstraint(), range.getId());
 				boolean isRangeConstraintChanged = false;
 				if (!range.getRangeConstraint().equals(sortedConstraint)) {
 					isRangeConstraintChanged = true;
@@ -319,11 +320,20 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		return updatedDomains;
 	}
 
-	String sortExpressionConstraintByConceptId(String rangeConstraint) {
-		ExpressionConstraint constraint = eclQueryBuilder.createQuery(rangeConstraint);
-		StringBuilder expressionBuilder = new StringBuilder();
+	String sortExpressionConstraintByConceptId(String rangeConstraint, String memberId) {
+		if (rangeConstraint == null || rangeConstraint.trim().isEmpty()) {
+			return rangeConstraint;
+		}
+		ExpressionConstraint constraint = null;
+		try {
+			constraint = eclQueryBuilder.createQuery(rangeConstraint);
+		} catch(ECLException e) {
+			logger.error("Invalid range constraint {} found in member {}.", rangeConstraint, memberId);
+			return rangeConstraint;
+		}
 
 		if (constraint instanceof CompoundExpressionConstraint) {
+			StringBuilder expressionBuilder = new StringBuilder();
 			CompoundExpressionConstraint compound = (CompoundExpressionConstraint) constraint;
 			if (compound.getConjunctionExpressionConstraints() != null) {
 				List<SubExpressionConstraint> conJunctions = compound.getConjunctionExpressionConstraints();
