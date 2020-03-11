@@ -87,6 +87,7 @@ public class BranchReviewService {
 		final MergeReview mergeReview = new MergeReview(UUID.randomUUID().toString(), source, target,
 				sourceToTarget.getId(), targetToSource.getId());
 		mergeReview.setStatus(ReviewStatus.PENDING);
+
 		executorService.submit(() -> {
 			try {
 				lookupBranchReviewConceptChanges(sourceToTarget);
@@ -261,7 +262,19 @@ public class BranchReviewService {
 	public BranchReview getCreateReview(String source, String target) {
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
 		final Branch targetBranch = branchService.findBranchOrThrow(target);
-		return getCreateReview(sourceBranch, targetBranch);
+		BranchReview review = getCreateReview(sourceBranch, targetBranch);
+
+		if (review.getStatus() == ReviewStatus.PENDING) {
+			executorService.submit(() -> {
+				try {
+					lookupBranchReviewConceptChanges(review);
+				} catch (Exception e) {
+					logger.error("Branch review failed.", e);
+				}
+			});
+		}
+
+		return review;
 	}
 
 	private BranchReview getCreateReview(Branch sourceBranch, Branch targetBranch) {
@@ -322,7 +335,7 @@ public class BranchReviewService {
 		// start = source lastPromotion or base
 
 		Date start;
-		if (branchReview.isSourceIsParent()) {
+		if (branchReview.isSourceParent()) {
 			start = target.getBase();
 		} else {
 			start = source.getLastPromotion();
@@ -334,7 +347,7 @@ public class BranchReviewService {
 		// Look for changes in the range starting a millisecond after
 		start.setTime(start.getTime() + 1);
 
-		Set<Long> changedConcepts = createConceptChangeReportOnBranchForTimeRange(source.getPath(), start, source.getHead(), branchReview.isSourceIsParent());
+		Set<Long> changedConcepts = createConceptChangeReportOnBranchForTimeRange(source.getPath(), start, source.getHead(), branchReview.isSourceParent());
 		branchReview.setStatus(ReviewStatus.CURRENT);
 		branchReview.setChangedConcepts(changedConcepts);
 		branchReviewRepository.save(branchReview);
@@ -342,7 +355,7 @@ public class BranchReviewService {
 
 	Set<Long> createConceptChangeReportOnBranchForTimeRange(String path, Date start, Date end, boolean sourceIsParent) {
 
-		logger.info("Creating change report: branch {} time range {} to {}", path, start, end);
+		logger.info("Creating change report: branch {} time range {} ({}) to {} ({})", path, start.getTime(), start, end.getTime(), end);
 
 		List<Branch> startTimeSlice;
 		List<Branch> endTimeSlice;

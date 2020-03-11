@@ -159,16 +159,9 @@ public class BranchReviewServiceTest extends AbstractTest {
 		assertEquals(0, versionsReplaced.getOrDefault(Concept.class.getSimpleName(), Collections.emptySet()).size());
 		assertEquals(1, versionsReplaced.getOrDefault(Description.class.getSimpleName(), Collections.emptySet()).size());
 
-		MergeReview review = reviewService.createMergeReview("MAIN", "MAIN/A");
+		MergeReview review = createMergeReviewAndWaitUntilCurrent("MAIN", "MAIN/A");
 
-		long maxWait = 10;
-		long cumulativeWait = 0;
-		while (review.getStatus() == ReviewStatus.PENDING && cumulativeWait < maxWait) {
-			Thread.sleep(1_000);
-			cumulativeWait++;
-		}
 
-		assertEquals(ReviewStatus.CURRENT, review.getStatus());
 		BranchReview sourceToTargetReview = reviewService.getBranchReview(review.getSourceToTargetReviewId());
 		assertReportEquals(sourceToTargetReview.getChangedConcepts(), new Long[]{10000100L, 10000200L, 10000300L, 10000400L, 10000500L, 10000600L, 700000000L, 800000000L, 900000000L});
 		BranchReview targetToSourceReview = reviewService.getBranchReview(review.getTargetToSourceReviewId());
@@ -222,16 +215,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 		mergeService.mergeBranchSync("MAIN/B/B1", "MAIN/B", Collections.emptySet());
 		mergeService.mergeBranchSync("MAIN/B", "MAIN", Collections.emptySet());
 
-		MergeReview review = reviewService.createMergeReview("MAIN", "MAIN/A");
-
-		long maxWait = 10;
-		long cumulativeWait = 0;
-		while (review.getStatus() == ReviewStatus.PENDING && cumulativeWait < maxWait) {
-			Thread.sleep(1_000);
-			cumulativeWait++;
-		}
-
-		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+		MergeReview review = createMergeReviewAndWaitUntilCurrent("MAIN", "MAIN/A");
 		BranchReview sourceToTargetReview = reviewService.getBranchReview(review.getSourceToTargetReviewId());
 		assertReportEquals(sourceToTargetReview.getChangedConcepts(), new Long[]{10000100L});
 		BranchReview targetToSourceReview = reviewService.getBranchReview(review.getTargetToSourceReviewId());
@@ -252,16 +236,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 		// Delete concept 10000100 on MAIN
 		conceptService.deleteConceptAndComponents("10000100", "MAIN", false);
 
-		MergeReview review = reviewService.createMergeReview("MAIN", "MAIN/A");
-
-		long maxWait = 10;
-		long cumulativeWait = 0;
-		while (review.getStatus() == ReviewStatus.PENDING && cumulativeWait < maxWait) {
-			Thread.sleep(1_000);
-			cumulativeWait++;
-		}
-
-		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+		MergeReview review = createMergeReviewAndWaitUntilCurrent("MAIN", "MAIN/A");
 
 		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
 		assertEquals(1, mergeReviewConflictingConcepts.size());
@@ -279,16 +254,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 		// Delete concept 10000100 on MAIN
 		conceptService.deleteConceptAndComponents("10000100", "MAIN", false);
 
-		MergeReview review = reviewService.createMergeReview("MAIN", "MAIN/A");
-
-		long maxWait = 10;
-		long cumulativeWait = 0;
-		while (review.getStatus() == ReviewStatus.PENDING && cumulativeWait < maxWait) {
-			Thread.sleep(1_000);
-			cumulativeWait++;
-		}
-
-		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+		MergeReview review = createMergeReviewAndWaitUntilCurrent("MAIN", "MAIN/A");
 
 		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
 		assertEquals(0, mergeReviewConflictingConcepts.size());
@@ -304,16 +270,7 @@ public class BranchReviewServiceTest extends AbstractTest {
 		// Delete concept 10000100 on MAIN
 		conceptService.deleteConceptAndComponents("10000100", "MAIN/A", false);
 
-		MergeReview review = reviewService.createMergeReview("MAIN", "MAIN/A");
-
-		long maxWait = 10;
-		long cumulativeWait = 0;
-		while (review.getStatus() == ReviewStatus.PENDING && cumulativeWait < maxWait) {
-			Thread.sleep(1_000);
-			cumulativeWait++;
-		}
-
-		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+		MergeReview review = createMergeReviewAndWaitUntilCurrent("MAIN", "MAIN/A");
 
 		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
 		assertEquals(1, mergeReviewConflictingConcepts.size());
@@ -532,6 +489,20 @@ public class BranchReviewServiceTest extends AbstractTest {
 
 		// Concept updated from lang refset change
 		assertReportEquals(reviewService.createConceptChangeReportOnBranchForTimeRange(path, start, now(), true), new Long[] {10000100L});
+	}
+
+	private MergeReview createMergeReviewAndWaitUntilCurrent(String sourceBranch, String targetBranch) throws InterruptedException {
+		MergeReview review = reviewService.createMergeReview(sourceBranch, targetBranch);
+
+		long maxWait = 10;
+		long cumulativeWait = 0;
+		while (review.getStatus() == ReviewStatus.PENDING && cumulativeWait < maxWait) {
+			Thread.sleep(1_000);
+			cumulativeWait++;
+		}
+
+		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+		return review;
 	}
 
 	private Date now() {

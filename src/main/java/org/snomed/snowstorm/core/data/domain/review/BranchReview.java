@@ -70,7 +70,7 @@ public class BranchReview {
 		return target;
 	}
 
-	public boolean isSourceIsParent() {
+	public boolean isSourceParent() {
 		return sourceIsParent;
 	}
 
