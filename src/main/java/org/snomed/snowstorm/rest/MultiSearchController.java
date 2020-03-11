@@ -11,6 +11,7 @@ import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
+import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
@@ -39,7 +40,7 @@ public class MultiSearchController {
 		ALL_PUBLISHED_CONTENT
 	}
 
-	@ApiOperation("Search across multiple Code Systems.")
+	@ApiOperation("Search descriptions across multiple Code Systems.")
 	@RequestMapping(value = "multisearch/descriptions", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
@@ -62,7 +63,7 @@ public class MultiSearchController {
 			@RequestParam(defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws TooCostlyException {
 
-		TimerUtil timer = new TimerUtil("MultiSearch");
+		TimerUtil timer = new TimerUtil("MultiSearch - Descriptions");
 
 		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
 				.term(term)
@@ -100,6 +101,29 @@ public class MultiSearchController {
 		timer.finish();
 
 		return new ItemsPage<>(new PageImpl<>(results, pageRequest, descriptions.getTotalElements()));
+	}
+	
+	@ApiOperation("Search concepts across multiple Code Systems.")
+	@RequestMapping(value = "multisearch/concepts", method = RequestMethod.GET)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public ItemsPage<ConceptMini> findConcepts(
+			@RequestParam(required = false) Set<String> conceptIds,
+			@RequestParam(required = false) Boolean active,
+			@RequestParam(defaultValue = "0") int offset,
+			@RequestParam(defaultValue = "50") int limit,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws TooCostlyException {
+
+		TimerUtil timer = new TimerUtil("MultiSearch - Concepts");
+		ConceptCriteria conceptCriteria = new ConceptCriteria()
+				.conceptIds(conceptIds)
+				.active(active);
+
+		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
+		Page<ConceptMini> concepts = multiSearchService.findConcepts(conceptCriteria, pageRequest);
+		timer.finish();
+
+		return new ItemsPage<>(new PageImpl<>(concepts.getContent(), pageRequest, concepts.getTotalElements()));
 	}
 
 }
