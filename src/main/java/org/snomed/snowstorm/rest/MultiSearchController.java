@@ -1,11 +1,11 @@
 package org.snomed.snowstorm.rest;
 
-import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.config.Config;
+import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -24,6 +24,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @Api(tags = "MultiSearch", description = "-")
@@ -120,10 +121,15 @@ public class MultiSearchController {
 				.active(active);
 
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
-		Page<ConceptMini> concepts = multiSearchService.findConcepts(conceptCriteria, pageRequest);
+		Page<Concept> concepts = multiSearchService.findConcepts(conceptCriteria, pageRequest);
+		List<ConceptMini> minis = concepts.getContent().stream().map(concept -> {
+			ConceptMini mini = new ConceptMini(concept, null);
+			mini.addExtraField("branch", concept.getPath());
+			return mini;
+		}).collect(Collectors.toList());
 		timer.finish();
 
-		return new ItemsPage<>(new PageImpl<>(concepts.getContent(), pageRequest, concepts.getTotalElements()));
+		return new ItemsPage<>(new PageImpl<>(minis, pageRequest, concepts.getTotalElements()));
 	}
 
 }

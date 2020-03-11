@@ -113,7 +113,7 @@ public class MultiSearchService {
 		}
 		for (String branchPath : branchPaths) {
 			BoolQueryBuilder branchQuery = boolQuery();
-			if (!PathUtil.getParentPath(branchPath).equals(Branch.MAIN)) {
+			if (!Branch.MAIN.equals(PathUtil.getParentPath(branchPath))) {
 				// Prevent content on MAIN being found in every other code system
 				branchQuery.mustNot(termQuery("path", Branch.MAIN));
 			}
@@ -134,16 +134,13 @@ public class MultiSearchService {
 		return branchPaths;
 	}
 
-	public Page<ConceptMini> findConcepts(ConceptCriteria criteria, PageRequest pageRequest) {
-
+	public Page<Concept> findConcepts(ConceptCriteria criteria, PageRequest pageRequest) {
 		final BoolQueryBuilder conceptQuery = boolQuery().must(getBranchesQuery());
-
 		conceptService.addClauses(criteria.getConceptIds(), criteria.getActive(), conceptQuery);
-
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(conceptQuery)
 				.withPageable(pageRequest)
 				.build();
-		return elasticsearchTemplate.queryForPage(query, ConceptMini.class);
+		return elasticsearchTemplate.queryForPage(query, Concept.class);
 	}
 }
