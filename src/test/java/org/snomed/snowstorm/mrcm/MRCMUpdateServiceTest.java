@@ -269,10 +269,10 @@ public class MRCMUpdateServiceTest {
 	}
 
 	private void diff(String published, String actual) {
-		List<String> publsihedSorted = split(published);
+		List<String> publishedSorted = split(published);
 		List<String> actualSorted = split(actual);
-		assertEquals(publsihedSorted.size(), actualSorted.size());
-		for (String token : publsihedSorted) {
+		assertEquals(publishedSorted.size(), actualSorted.size());
+		for (String token : publishedSorted) {
 			if (!actualSorted.contains(token)) {
 				System.out.println("expected token " + token + " but not found");
 			}

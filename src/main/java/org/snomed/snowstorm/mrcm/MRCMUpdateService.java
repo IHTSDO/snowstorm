@@ -129,6 +129,10 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			// domain
 			List<AttributeDomain> sorted = attributeToDomainsMap.get(attributeId);
 			Collections.sort(sorted, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
+			if (!attributeToRangesMap.containsKey(attributeId)) {
+				logger.info("No attribute ranges defined for attribute {}." + attributeId);
+				continue;
+			}
 			for (AttributeRange range : attributeToRangesMap.get(attributeId)) {
 				String sortedConstraint = sortExpressionConstraintByConceptId(range.getRangeConstraint(), range.getId());
 				boolean isRangeConstraintChanged = false;
