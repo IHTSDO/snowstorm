@@ -265,9 +265,8 @@ public class MRCMUpdateServiceTest {
 				" OR << 420158005 |Performer of method (person)|" +
 				" OR << 444018008 |Person with characteristic related to subject of record (person)|";
 		assertEquals(expected,
-				mrcmUpdateService.sortExpressionConstraintByConceptId(rangeConstraint));
+				mrcmUpdateService.sortExpressionConstraintByConceptId(rangeConstraint, "1a9b01ce-6385-11ea-9b6e-3c15c2c6e32e"));
 	}
-
 
 	private void diff(String published, String actual) {
 		List<String> publsihedSorted = split(published);
