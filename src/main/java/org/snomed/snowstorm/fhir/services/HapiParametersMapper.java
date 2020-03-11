@@ -12,6 +12,7 @@ import org.hl7.fhir.r4.model.UriType;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.ExpressionService;
+import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -22,13 +23,22 @@ public class HapiParametersMapper implements FHIRConstants {
 	@Autowired
 	private ExpressionService expressionService;
 	
-	public Parameters mapToFHIR(Concept c, Collection<Long> childIds, Set<FhirSctProperty> properties, String displayLanguage) {
+	public Parameters mapToFHIR(Concept concept) {
 		Parameters parameters = getStandardParameters();
 		Parameters.ParametersParameterComponent preferredTerm = new Parameters.ParametersParameterComponent(DISPLAY);
 		parameters.addParameter(preferredTerm);
-		addDesignations(parameters, c, preferredTerm, displayLanguage);
-		addProperties(parameters, c, properties);
-		addParents(parameters,c);
+		TermLangPojo pt = concept.getPt();
+		if (pt != null) {
+			preferredTerm.setValue(new StringType(pt.getTerm()));
+		}
+		return parameters;
+	}
+
+	public Parameters mapToFHIR(Concept concept, Collection<Long> childIds, Set<FhirSctProperty> properties) {
+		Parameters parameters = mapToFHIR(concept);
+		addProperties(parameters, concept, properties);
+		addDesignations(parameters, concept);
+		addParents(parameters, concept);
 		addChildren(parameters, childIds);
 		return parameters;
 	}
@@ -79,6 +89,7 @@ public class HapiParametersMapper implements FHIRConstants {
 		return p;
 	}
 
+	// TODO: Work out what we should be including here
 	private Parameters getStandardParameters() {
 		Parameters parameters = new Parameters();
 		//String copyrightStr = COPYRIGHT.replace("YEAR", Integer.toString(Year.now().getValue()));
@@ -88,26 +99,12 @@ public class HapiParametersMapper implements FHIRConstants {
 		return parameters;
 	}
 
-	private void addDesignations(Parameters parameters, Concept c, Parameters.ParametersParameterComponent preferredTerm, String displayLanguage) {
+	private void addDesignations(Parameters parameters, Concept c) {
 		for (Description d : c.getActiveDescriptions()) {
 			Parameters.ParametersParameterComponent designation = parameters.addParameter().setName(DESIGNATION);
 			designation.addPart().setName(LANGUAGE).setValue(new CodeType(d.getLang()));
 			designation.addPart().setName(USE).setValue(new Coding(SNOMED_URI, d.getTypeId(), FHIRHelper.translateDescType(d.getTypeId())));
 			designation.addPart().setName(VALUE).setValue(new StringType(d.getTerm()));
-
-			//Are we working with a display language or the default?
-			if (displayLanguage == null) {
-				if (d.hasAcceptability(Concepts.PREFERRED, Concepts.US_EN_LANG_REFSET) && 
-						d.getTypeId().equals(Concepts.FSN)) {
-					preferredTerm.setValue(new StringType(d.getTerm()));
-				}
-			} else {
-				if (d.getLang().equals(displayLanguage) && 
-						d.hasAcceptability(Concepts.PREFERRED) &&
-						d.getTypeId().equals(Concepts.SYNONYM)) {
-					preferredTerm.setValue(new StringType(d.getTerm()));
-				}
-			}
 		}
 	}
 
