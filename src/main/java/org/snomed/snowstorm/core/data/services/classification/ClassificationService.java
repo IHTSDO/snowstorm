@@ -48,7 +48,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 
 import javax.annotation.PostConstruct;
@@ -57,6 +56,8 @@ import java.io.*;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -110,6 +111,9 @@ public class ClassificationService {
 
 	private Thread classificationStatusPollingThread;
 	private boolean shutdownRequested;
+
+	public static final int RESULT_PROCESSING_THREADS = 2;// Two threads is a good limit here. The processing is very Elasticsearch heavy while looking up inferred-not-stated values.
+	private final ExecutorService classificationProcessingExecutor = Executors.newFixedThreadPool(RESULT_PROCESSING_THREADS);
 
 	private static final int SECOND = 1000;
 
@@ -176,40 +180,43 @@ public class ClassificationService {
 								latestStatus = ClassificationStatus.FAILED;
 								classification.setErrorMessage("Remote service taking too long.");
 							}
-							if (classification.getStatus() != latestStatus) {
-
-								Boolean inferredRelationshipChangesFound = null;
-								Boolean equivalentConceptsFound = null;
-								if (latestStatus == COMPLETED) {
-									try {
-										downloadRemoteResults(classification);
-
-										inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(),
-												Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1), false, null).getTotalElements() > 0;
-
-										equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(),
-												Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1)).getTotalElements() > 0;
-
-									} catch (IOException | ElasticsearchException e) {
-										latestStatus = ClassificationStatus.FAILED;
-										String message = "Failed to capture remote classification results.";
-										classification.setErrorMessage(message);
-										logger.error(message, e);
-									}
-								}
-
-								classification.setInferredRelationshipChangesFound(inferredRelationshipChangesFound);
-								classification.setEquivalentConceptsFound(equivalentConceptsFound);
-								classification.setStatus(latestStatus);
-								classification.setCompletionDate(new Date());
-								classificationRepository.save(classification);
-								logger.info("Classification {} {}.", classification.getId(), classification.getStatus());
-							}
 							if (latestStatus != ClassificationStatus.SCHEDULED && latestStatus != ClassificationStatus.RUNNING) {
 								synchronized (classificationsInProgress) {
 									classificationsInProgress.remove(classification);
 								}
 							}
+
+							final ClassificationStatus finalStatus = latestStatus;
+							classificationProcessingExecutor.submit(() -> {
+								if (classification.getStatus() != finalStatus) {
+									Boolean inferredRelationshipChangesFound = null;
+									Boolean equivalentConceptsFound = null;
+									if (finalStatus == COMPLETED) {
+										try {
+											downloadRemoteResults(classification);
+
+											inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(),
+													Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1), false, null).getTotalElements() > 0;
+
+											equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(),
+													Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1)).getTotalElements() > 0;
+											classification.setStatus(finalStatus);
+
+										} catch (IOException | ElasticsearchException e) {
+											classification.setStatus(ClassificationStatus.FAILED);
+											String message = "Failed to capture remote classification results.";
+											classification.setErrorMessage(message);
+											logger.error(message, e);
+										}
+									}
+
+									classification.setInferredRelationshipChangesFound(inferredRelationshipChangesFound);
+									classification.setEquivalentConceptsFound(equivalentConceptsFound);
+									classification.setCompletionDate(new Date());
+									classificationRepository.save(classification);
+									logger.info("Classification {} {}.", classification.getId(), classification.getStatus());
+								}
+							});
 							if (shutdownRequested) {
 								break;
 							}
