@@ -99,11 +99,10 @@ public class BranchMergeService {
 			branchReview = checkBranchReview(mergeRequest, source, target);
 		}
 
-		// TODO: The current production authoring platform currently does not pass the review id through
-//		final Branch targetBranch = branchService.findBranchOrThrow(target);
-//		if (targetBranch.getState() == Branch.BranchState.DIVERGED && branchReview == null) {
-//			throw new IllegalArgumentException(USE_BRANCH_REVIEW);
-//		}
+		final Branch targetBranch = branchService.findBranchOrThrow(target);
+		if (targetBranch.getState() == Branch.BranchState.DIVERGED && branchReview == null) {
+			throw new IllegalArgumentException(USE_BRANCH_REVIEW);
+		}
 
 		BranchMergeJob mergeJob = new BranchMergeJob(source, target, JobStatus.SCHEDULED);
 		branchMergeJobRepository.save(mergeJob);
