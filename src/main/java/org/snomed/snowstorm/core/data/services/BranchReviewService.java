@@ -340,7 +340,7 @@ public class BranchReviewService {
 		} else {
 			start = source.getLastPromotion();
 			if (start == null) {
-				start = source.getBase();
+				start = source.getCreation();
 			}
 		}
 
