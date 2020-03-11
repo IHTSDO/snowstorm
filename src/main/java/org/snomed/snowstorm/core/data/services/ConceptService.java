@@ -647,4 +647,12 @@ public class ConceptService extends ComponentService {
 
 		return ids;
 	}
+
+	public void addClauses(Set<String> conceptIds, Boolean active, BoolQueryBuilder conceptQuery) {
+		conceptQuery.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds));
+		
+		if (active != null) {
+			conceptQuery.must(termsQuery(Concept.Fields.ACTIVE, active));
+		}
+	}
 }
