@@ -217,7 +217,7 @@ public class ClassificationService {
 						classificationsToCheck.clear();
 						Thread.sleep(SECOND);
 
-					} catch (HttpClientErrorException e) {
+					} catch (RestClientException e) {
 						int coolOffSeconds = 30;
 						logger.warn("Problem with classification-service communication. Trying again in {} seconds.", coolOffSeconds, e);
 						// Let's wait a while before trying again
@@ -226,6 +226,8 @@ public class ClassificationService {
 				}
 			} catch (InterruptedException e) {
 				logger.info("Classification status polling thread interrupted.");
+			} catch (Exception e) {
+				logger.error("Unexpected exception in classification status polling thread.", e);
 			} finally {
 				logger.info("Classification status polling thread stopped.");
 			}
