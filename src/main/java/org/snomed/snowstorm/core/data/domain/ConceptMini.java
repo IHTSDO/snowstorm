@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
@@ -14,6 +15,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 
+@JsonPropertyOrder({"conceptId", "active", "definitionStatus", "moduleId", "effectiveTime", "fsn", "pt", "descendantCount", "isLeafInferred", "isLeafStated", "id"})
 public class ConceptMini implements Serializable {
 
 	private String conceptId;

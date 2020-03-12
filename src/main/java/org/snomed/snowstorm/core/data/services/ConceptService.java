@@ -332,7 +332,11 @@ public class ConceptService extends ComponentService {
 					.withPageable(LARGE_PAGE);
 			try (final CloseableIterator<Concept> conceptsForMini = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
 				conceptsForMini.forEachRemaining(concept ->
-						conceptMiniMap.get(concept.getConceptId()).setDefinitionStatusId(concept.getDefinitionStatusId()));
+				{
+					ConceptMini conceptMini = conceptMiniMap.get(concept.getConceptId());
+					conceptMini.setDefinitionStatusId(concept.getDefinitionStatusId());
+					conceptMini.setModuleId(concept.getModuleId());
+				});
 			}
 		}
 		timer.checkpoint("get relationship def status " + getFetchCount(conceptMiniMap.size()));
