@@ -3,9 +3,11 @@ package org.snomed.snowstorm.fhir.services;
 import java.io.IOException;
 import java.util.*;
 
+import org.hl7.fhir.r4.model.BooleanType;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.OperationOutcome;
+import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
 import org.hl7.fhir.r4.model.StringType;
@@ -150,6 +152,9 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 	}
 	
 	protected String toString(Type value) {
+		if (value == null) {
+			return null;
+		}
 		if (value instanceof Coding) {
 			Coding codingValue = (Coding)value;
 			return "[ " + codingValue.getSystem() + " : " + codingValue.getCode() + "|" + codingValue.getDisplay()  + "| ]";
@@ -157,6 +162,8 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 			CodeType codeValue = (CodeType)value;
 			return  codeValue.getCode();
 		} else if (value instanceof StringType) {
+			return value.castToString(value).asStringValue();
+		} else if (value instanceof BooleanType) {
 			return value.castToString(value).asStringValue();
 		} else {
 			return value.toString();
@@ -181,6 +188,39 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		} catch (IOException e) {
 			throw new FHIROperationException(IssueType.EXCEPTION, body);
 		}
+	}
+	
+	protected Parameters get(String url) throws FHIROperationException {
+		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
+		checkForError(response);
+		return fhirJsonParser.parseResource(Parameters.class, response.getBody());
+	}
+	
+	protected Type getProperty(Parameters params, String propertyName) {
+		Map<String, Type> propertyMap = new HashMap<>();
+		for (ParametersParameterComponent p : params.getParameter()) {
+			if (p.getName().equals("property")) {
+				populatePropertyMap(propertyMap, p.getPart());
+			}
+			if (p.getName().equals(propertyName)) {
+				return p.getValue();
+			}
+		}
+		return propertyMap.get(propertyName);
+	}
+	
+
+	private void populatePropertyMap(Map<String, Type> propertyMap, List<ParametersParameterComponent> parts) {
+		String key = null;
+		Type value = null;
+		for (ParametersParameterComponent part : parts) {
+			if (part.getName().equals("code")) {
+				key = part.getValue().castToString(part.getValue()).asStringValue();
+			} else {
+				value = part.getValue();
+			}
+		}
+		propertyMap.put(key, value);
 	}
 
 }

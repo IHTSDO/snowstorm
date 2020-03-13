@@ -12,7 +12,6 @@ import org.hl7.fhir.r4.model.UriType;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.ExpressionService;
-import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -23,19 +22,45 @@ public class HapiParametersMapper implements FHIRConstants {
 	@Autowired
 	private ExpressionService expressionService;
 	
-	public Parameters mapToFHIR(Concept concept) {
+	public Parameters mapToFHIR(Concept concept, String display) {
 		Parameters parameters = getStandardParameters();
-		Parameters.ParametersParameterComponent preferredTerm = new Parameters.ParametersParameterComponent(DISPLAY);
-		parameters.addParameter(preferredTerm);
-		TermLangPojo pt = concept.getPt();
-		if (pt != null) {
-			preferredTerm.setValue(new StringType(pt.getTerm()));
+		if (display == null) {
+			parameters.addParameter("result", true);
+		} else {
+			validateTerm(concept, display.toLowerCase(), parameters);
 		}
+		parameters.addParameter("display", concept.getPt().getTerm());
+		return parameters;
+	}
+	
+	private void validateTerm(Concept c, String display, Parameters parameters) {
+		//Did we get it right first time?
+		if (c.getPt().getTerm().toLowerCase().equals(display)) {
+			parameters.addParameter("result", true);
+			return;
+		} else {
+			//TODO Implement case sensitivity checking relative to what is specified for the description
+			for (Description d : c.getActiveDescriptions()) {
+				if (d.getTerm().toLowerCase().equals(display)) {
+					parameters.addParameter("result", true);
+					parameters.addParameter("message", "Display term is acceptable, but not the preferred synonym in the language/dialect specified");
+					return;
+				}
+			}
+		}
+		parameters.addParameter("result", false);
+		parameters.addParameter("message", "Concept identifier exists, but the display term is not recognised");
+		
+	}
+
+	public Parameters conceptNotFound() {
+		Parameters parameters = getStandardParameters();
+		parameters.addParameter("result", false);
 		return parameters;
 	}
 
 	public Parameters mapToFHIR(Concept concept, Collection<Long> childIds, Set<FhirSctProperty> properties) {
-		Parameters parameters = mapToFHIR(concept);
+		Parameters parameters = getStandardParameters();
 		addProperties(parameters, concept, properties);
 		addDesignations(parameters, concept);
 		addParents(parameters, concept);
