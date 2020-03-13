@@ -51,4 +51,19 @@ public class LanguageDialect implements Serializable {
 		}
 		return languageCodes;
 	}
+	
+	public String toString() {
+		String str = "";
+		if (languageCode != null) {
+			str = languageCode;
+			if (languageReferenceSet != null) {
+				str += " - ";
+			}
+		}
+		
+		if (languageReferenceSet != null) {
+			str += languageReferenceSet;
+		}
+		return str;
+	}
 }

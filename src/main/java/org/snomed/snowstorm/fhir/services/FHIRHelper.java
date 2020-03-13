@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import javax.servlet.http.HttpServletRequest;
@@ -70,7 +71,7 @@ public class FHIRHelper implements FHIRConstants {
 				: versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1, versionStr.indexOf("/" + FHIRConstants.VERSION + "/"));
 	}
 
-	public BranchPath getBranchPathForCodeSystemVersion(StringType codeSystemVersionUri) {
+	public BranchPath getBranchPathFromURI(StringType codeSystemVersionUri) {
 		String branchPathStr;
 		String defaultModule = getSnomedEditionModule(codeSystemVersionUri);
 		Integer editionVersionString = null;
@@ -129,6 +130,9 @@ public class FHIRHelper implements FHIRConstants {
 			}
 			return languageDialects;
 		} else {
+			if (request.getHeader(ACCEPT_LANGUAGE_HEADER) == null) {
+				return Collections.singletonList(new LanguageDialect(DEFAULT_LANGUAGE_CODE));
+			}
 			return ControllerHelper.parseAcceptLanguageHeader(request.getHeader(ACCEPT_LANGUAGE_HEADER));
 		}
 	}
@@ -182,8 +186,8 @@ public class FHIRHelper implements FHIRConstants {
 		if (languageDialects == null) {
 			languageDialects = new ArrayList<>();
 		}
-			
-		if (!isPresent(languageDialects, langCode)) {
+		
+		if (langCode != null && !isPresent(languageDialects, langCode)) {
 			languageDialects.add(new LanguageDialect(langCode));
 		}
 	}
@@ -205,8 +209,12 @@ public class FHIRHelper implements FHIRConstants {
 	public boolean expansionContainsCode(ValueSet vs, String code) throws FHIROperationException {
 		String vsEcl = vsService.covertComposeToEcl(vs.getCompose());
 		String filteredEcl = code + " AND (" + vsEcl + ")";
-		BranchPath branchPath = getBranchPathForCodeSystemVersion(null);
+		BranchPath branchPath = getBranchPathFromURI(null);
 		Page<ConceptMini> concepts = vsService.eclSearch(filteredEcl, true, null, null, branchPath, 0, NOT_SET);
 		return concepts.getSize() > 0;
+	}
+
+	public void append(StringType str, String appendMe) {
+		str.setValueAsString(str.toString() + appendMe);
 	}
 }

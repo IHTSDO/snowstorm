@@ -232,7 +232,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		
 		//If we've specified a system version as part of the call, then that overrides whatever is in the compose element or URL
 		if (systemVersion != null && !systemVersion.asStringValue().isEmpty()) {
-			branchPath.set(fhirHelper.getBranchPathForCodeSystemVersion(systemVersion));
+			branchPath.set(fhirHelper.getBranchPathFromURI(systemVersion));
 		}
 		
 		//We will always need the PT, so recover further details
@@ -279,7 +279,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private Page<ConceptMini> doImplcitExpansion(int cutPoint, String url, Boolean active, String filter,
 			BranchPath branchPath, List<LanguageDialect> designations, int offset, int pageSize) throws FHIROperationException {
 		StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
-		branchPath.set(fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri));
+		branchPath.set(fhirHelper.getBranchPathFromURI(codeSystemVersionUri));
 		//Are we looking for all known refsets?  Special case.
 		if (url.endsWith("?fhir_vs=refset")) {
 			return findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
@@ -360,7 +360,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			}
 		}
 		StringType codeSystemVersionUri = new StringType(system + "/" + version);
-		return fhirHelper.getBranchPathForCodeSystemVersion(codeSystemVersionUri);
+		return fhirHelper.getBranchPathFromURI(codeSystemVersionUri);
 	}
 	
 	

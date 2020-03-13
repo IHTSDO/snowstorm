@@ -37,6 +37,12 @@ http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code
 ####  Curl example allows use of language headers to specify Swedish language. NB Ensure use of single quotes in URL to avoid $lookup being treated as a variable by Unix shell
 curl -i -H 'Accept-Language: sv' 'http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&version=http://snomed.info/sct/45991000052106&code=427623005&_format=json'
 
+### Code System Validate Code
+
+#### Code System validate-code
+http://localhost:8080/fhir/CodeSystem/$validate-code?code=http://snomed.info/sct|404684003
+
+
 ## ValueSet search, create, replace, update and delete
 
 #### Upload or update a valueset json file:
