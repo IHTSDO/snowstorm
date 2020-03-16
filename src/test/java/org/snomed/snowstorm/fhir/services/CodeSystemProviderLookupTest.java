@@ -18,7 +18,7 @@ import java.util.Map;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
-public class CodeSystemProviderTest extends AbstractFHIRTest {
+public class CodeSystemProviderLookupTest extends AbstractFHIRTest {
 
 	@Test
 	public void testSingleConceptRecovery() throws FHIROperationException {
@@ -37,30 +37,6 @@ public class CodeSystemProviderTest extends AbstractFHIRTest {
 		String normalFormProperty = toString(getProperty(p, "normalForm"));
 		assertNotNull(normalFormProperty);
 	}
-	
-	private Type getProperty(Parameters params, String propertyName) {
-		Map<String, Type> propertyMap = new HashMap<>();
-		for (ParametersParameterComponent p : params.getParameter()) {
-			if (p.getName().equals("property")) {
-				populatePropertyMap(propertyMap, p.getPart());
-			}
-		}
-		return propertyMap.get(propertyName);
-	}
-	
-
-	private void populatePropertyMap(Map<String, Type> propertyMap, List<ParametersParameterComponent> parts) {
-		String key = null;
-		Type value = null;
-		for (ParametersParameterComponent part : parts) {
-			if (part.getName().equals("code")) {
-				key = part.getValue().castToString(part.getValue()).asStringValue();
-			} else {
-				value = part.getValue();
-			}
-		}
-		propertyMap.put(key, value);
-	}
 
 	@Test
 	public void testMultipeConceptPropertiesRecovery() throws FHIROperationException {
@@ -72,12 +48,6 @@ public class CodeSystemProviderTest extends AbstractFHIRTest {
 		
 		String sdProperty = toString(getProperty(p, "sufficientlyDefined"));
 		assertNotNull(sdProperty);
-	}
-	
-	private Parameters get(String url) throws FHIROperationException {
-		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
-		checkForError(response);
-		return fhirJsonParser.parseResource(Parameters.class, response.getBody());
 	}
 	
 }

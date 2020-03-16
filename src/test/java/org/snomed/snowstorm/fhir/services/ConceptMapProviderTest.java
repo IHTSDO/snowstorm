@@ -25,11 +25,5 @@ public class ConceptMapProviderTest extends AbstractFHIRTest {
 		Type t = parameters.getParameter("result");
 		assertTrue(t.castToBoolean(t).booleanValue());
 	}
-
-	private Parameters get(String url) throws FHIROperationException {
-		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
-		checkForError(response);
-		return fhirJsonParser.parseResource(Parameters.class, response.getBody());
-	}
 	
 }

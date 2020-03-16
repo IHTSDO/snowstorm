@@ -1,16 +1,17 @@
 package org.snomed.snowstorm.rest;
 
-import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.snomed.snowstorm.config.Config;
+import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
+import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
@@ -23,6 +24,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @Api(tags = "MultiSearch", description = "-")
@@ -39,7 +41,7 @@ public class MultiSearchController {
 		ALL_PUBLISHED_CONTENT
 	}
 
-	@ApiOperation("Search across multiple Code Systems.")
+	@ApiOperation("Search descriptions across multiple Code Systems.")
 	@RequestMapping(value = "multisearch/descriptions", method = RequestMethod.GET)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
@@ -62,7 +64,7 @@ public class MultiSearchController {
 			@RequestParam(defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws TooCostlyException {
 
-		TimerUtil timer = new TimerUtil("MultiSearch");
+		TimerUtil timer = new TimerUtil("MultiSearch - Descriptions");
 
 		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
 				.term(term)
@@ -100,6 +102,34 @@ public class MultiSearchController {
 		timer.finish();
 
 		return new ItemsPage<>(new PageImpl<>(results, pageRequest, descriptions.getTotalElements()));
+	}
+	
+	@ApiOperation("Search concepts across multiple Code Systems.")
+	@RequestMapping(value = "multisearch/concepts", method = RequestMethod.GET)
+	@ResponseBody
+	@JsonView(value = View.Component.class)
+	public ItemsPage<ConceptMini> findConcepts(
+			@RequestParam(required = false) Set<String> conceptIds,
+			@RequestParam(required = false) Boolean active,
+			@RequestParam(defaultValue = "0") int offset,
+			@RequestParam(defaultValue = "50") int limit,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws TooCostlyException {
+
+		TimerUtil timer = new TimerUtil("MultiSearch - Concepts");
+		ConceptCriteria conceptCriteria = new ConceptCriteria()
+				.conceptIds(conceptIds)
+				.active(active);
+
+		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
+		Page<Concept> concepts = multiSearchService.findConcepts(conceptCriteria, pageRequest);
+		List<ConceptMini> minis = concepts.getContent().stream().map(concept -> {
+			ConceptMini mini = new ConceptMini(concept, null);
+			mini.addExtraField("branch", concept.getPath());
+			return mini;
+		}).collect(Collectors.toList());
+		timer.finish();
+
+		return new ItemsPage<>(new PageImpl<>(minis, pageRequest, concepts.getTotalElements()));
 	}
 
 }
