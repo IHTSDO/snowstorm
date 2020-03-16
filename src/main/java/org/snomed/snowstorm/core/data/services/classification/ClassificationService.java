@@ -157,50 +157,69 @@ public class ClassificationService {
 		}
 
 		// Start thread to continuously fetch the status of remote classifications
-		// Copy the in-progress list to avoid long synchronized block
 		classificationStatusPollingThread = new Thread(() -> {
-			List<Classification> classificationsToCheck = new ArrayList<>();
 			try {
 				while (!shutdownRequested) {
 					try {
 						// Copy the in-progress list to avoid long synchronized block
+						List<Classification> classificationsToCheck;
 						synchronized (classificationsInProgress) {
-							classificationsToCheck.addAll(classificationsInProgress);
+							classificationsToCheck = new ArrayList<>(classificationsInProgress);
 						}
 						Date remoteClassificationCutoffTime = DateUtil.newDatePlus(Calendar.MINUTE, -abortRemoteClassificationAfterMinutes);
 						for (Classification classification : classificationsToCheck) {
 							ClassificationStatusResponse statusResponse = serviceClient.getStatus(classification.getId());
-							ClassificationStatus latestStatus = statusResponse.getStatus();
-							if (latestStatus == ClassificationStatus.FAILED) {
-								classification.setErrorMessage(statusResponse.getErrorMessage());
-								logger.warn("Remote classification failed with message:{}, developerMessage:{}",
-										statusResponse.getErrorMessage(), statusResponse.getDeveloperMessage());
-							}
-							else if (classification.getCreationDate().before(remoteClassificationCutoffTime)) {
-								latestStatus = ClassificationStatus.FAILED;
-								classification.setErrorMessage("Remote service taking too long.");
-							}
-							if (latestStatus != ClassificationStatus.SCHEDULED && latestStatus != ClassificationStatus.RUNNING) {
-								synchronized (classificationsInProgress) {
-									classificationsInProgress.remove(classification);
+							ClassificationStatus newStatus = statusResponse.getStatus();
+							boolean timeout = false;
+
+							if (classification.getStatus() == newStatus) {
+								// No status change
+								// Check for timeout
+								if (classification.getCreationDate().before(remoteClassificationCutoffTime)) {
+									timeout = true;
+								} else {
+									// Nothing to do
+									continue;
 								}
 							}
 
-							final ClassificationStatus finalStatus = latestStatus;
-							classificationProcessingExecutor.submit(() -> {
-								if (classification.getStatus() != finalStatus) {
-									Boolean inferredRelationshipChangesFound = null;
-									Boolean equivalentConceptsFound = null;
-									if (finalStatus == COMPLETED) {
+							if (timeout || classification.getStatus() != newStatus) {
+								// Status change to process
+
+								// Stop polling if no longer needed
+								if (newStatus != ClassificationStatus.SCHEDULED && newStatus != ClassificationStatus.RUNNING) {
+									synchronized (classificationsInProgress) {
+										classificationsInProgress.remove(classification);
+									}
+								}
+
+								if (newStatus == ClassificationStatus.FAILED) {
+									classification.setErrorMessage(statusResponse.getErrorMessage());
+									logger.warn("Remote classification failed with message:{}, developerMessage:{}",
+											statusResponse.getErrorMessage(), statusResponse.getDeveloperMessage());
+								} else if (timeout) {
+									newStatus = ClassificationStatus.FAILED;
+									classification.setErrorMessage("Remote service taking too long.");
+								}
+
+								final ClassificationStatus newStatusFinal = newStatus;
+								classificationProcessingExecutor.submit(() -> {
+
+									classification.setStatus(newStatusFinal);
+
+									if (newStatusFinal == COMPLETED) {
 										try {
 											downloadRemoteResults(classification);
 
-											inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(),
+											Boolean inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(),
 													Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1), false, null).getTotalElements() > 0;
 
-											equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(),
+											Boolean equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(),
 													Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1)).getTotalElements() > 0;
-											classification.setStatus(finalStatus);
+
+											classification.setInferredRelationshipChangesFound(inferredRelationshipChangesFound);
+											classification.setEquivalentConceptsFound(equivalentConceptsFound);
+											classification.setCompletionDate(new Date());
 
 										} catch (IOException | ElasticsearchException e) {
 											classification.setStatus(ClassificationStatus.FAILED);
@@ -210,13 +229,10 @@ public class ClassificationService {
 										}
 									}
 
-									classification.setInferredRelationshipChangesFound(inferredRelationshipChangesFound);
-									classification.setEquivalentConceptsFound(equivalentConceptsFound);
-									classification.setCompletionDate(new Date());
 									classificationRepository.save(classification);
 									logger.info("Classification {} {}.", classification.getId(), classification.getStatus());
-								}
-							});
+								});
+							}
 							if (shutdownRequested) {
 								break;
 							}
