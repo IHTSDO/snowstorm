@@ -52,6 +52,21 @@ public class DescriptionHelper {
 			}
 		}
 
+		// Lang refset entries may be missing attempt to match against language code only
+		for (LanguageDialect languageDialect : languageDialects) {
+			if (languageDialect.getLanguageReferenceSet() == null) {
+				// Fallback with no specific lang refset - pick description by type only in last ditch attempt.
+				for (Description description : descriptions) {
+					if (description.isActive()
+							&& descriptionType.equals(description.getTypeId())
+							&& description.getLang().equals(languageDialect.getLanguageCode())) {
+
+						return description;
+					}
+				}
+			}
+		}
+
 		return null;
 	}
 

@@ -8,10 +8,7 @@ import org.springframework.data.elasticsearch.repository.ElasticsearchCrudReposi
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class DomainEntityConfiguration {
@@ -38,6 +35,7 @@ public class DomainEntityConfiguration {
 	private Map<Class<? extends DomainEntity>, ElasticsearchCrudRepository> allTypeRepositoryMap;
 
 	private Set<Class<? extends DomainEntity>> allTypes;
+	private Map<Class<? extends DomainEntity>, String> allIdFields;
 
 	@PostConstruct
 	public void init() {
@@ -46,15 +44,27 @@ public class DomainEntityConfiguration {
 		componentTypeRepositoryMap.put(Description.class, descriptionRepository);
 		componentTypeRepositoryMap.put(Relationship.class, relationshipRepository);
 		componentTypeRepositoryMap.put(ReferenceSetMember.class, referenceSetMemberRepository);
+		componentTypeRepositoryMap = Collections.unmodifiableMap(componentTypeRepositoryMap);
 
 		allTypeRepositoryMap = new LinkedHashMap<>(componentTypeRepositoryMap);
 		allTypeRepositoryMap.put(QueryConcept.class, queryConceptRepository);
 		allTypeRepositoryMap.put(ReferenceSetType.class, referenceSetTypeRepository);
+		allTypeRepositoryMap = Collections.unmodifiableMap(allTypeRepositoryMap);
 
 		allTypes = new HashSet<>();
 		allTypes.addAll(componentTypeRepositoryMap.keySet());
 		allTypes.add(QueryConcept.class);
 		allTypes.add(ReferenceSetType.class);
+		allTypes = Collections.unmodifiableSet(allTypes);
+
+		allIdFields = new HashMap<>();
+		allIdFields.put(Concept.class, Concept.Fields.CONCEPT_ID);
+		allIdFields.put(Description.class, Description.Fields.DESCRIPTION_ID);
+		allIdFields.put(Relationship.class, Relationship.Fields.RELATIONSHIP_ID);
+		allIdFields.put(ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID);
+		allIdFields.put(QueryConcept.class, QueryConcept.Fields.CONCEPT_ID_FORM);
+		allIdFields.put(ReferenceSetType.class, ReferenceSetType.Fields.CONCEPT_ID);
+		allIdFields = Collections.unmodifiableMap(allIdFields);
 	}
 
 	public Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> getComponentTypeRepositoryMap() {
@@ -67,5 +77,9 @@ public class DomainEntityConfiguration {
 
 	public Set<Class<? extends DomainEntity>> getAllDomainEntityTypes() {
 		return allTypes;
+	}
+
+	public Map<Class<? extends DomainEntity>, String> getAllIdFields() {
+		return allIdFields;
 	}
 }

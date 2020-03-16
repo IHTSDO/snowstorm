@@ -164,4 +164,12 @@ public class ValueSetProviderScrudTest {
 		assertNotNull(savedVS);
 	}
 	
+	@Test
+	public void testValueSetSearchWithCode() {
+		//We do not allow expanding all ValueSets to search for a concept - too costly
+		String url = baseUrl + "?code=foo";
+		ResponseEntity<String> response = restTemplate.exchange(url,HttpMethod.GET, null, String.class);
+		assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+	}
+	
 }

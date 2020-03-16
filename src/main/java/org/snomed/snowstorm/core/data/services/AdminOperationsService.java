@@ -8,6 +8,7 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
+import io.kaicode.elasticvc.repositories.BranchRepository;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.action.update.UpdateRequest;
@@ -16,18 +17,17 @@ import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.*;
+import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.data.util.CloseableIterator;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.Iterables.partition;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
@@ -67,7 +68,14 @@ public class AdminOperationsService {
 	@Autowired
 	private ConceptUpdateHelper conceptUpdateHelper;
 
+	@Autowired
+	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private BranchRepository branchRepository;
+
 	private Logger logger = LoggerFactory.getLogger(getClass());
+	public static final int ONE_SECOND_IN_MILLIS = 1000;
 
 	public void reindexDescriptionsForLanguage(String languageCode) throws IOException {
 		Map<String, Set<Character>> charactersNotFoldedSets = searchLanguagesConfiguration.getCharactersNotFoldedSets();
@@ -135,12 +143,24 @@ public class AdminOperationsService {
 
 		logger.info("Finding and fixing donated content on {}.", branch);
 
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
-
 		Map<Class, Set<String>> fixesApplied = new HashMap<>();
-		branchMergeService.findAndEndDonatedComponentsOfAllTypes(branch, branchCriteria, fixesApplied);
+		branchMergeService.fixDuplicateComponents(branch, versionControlHelper.getBranchCriteria(branch), true, fixesApplied);
 
 		logger.info("Completed donated content fixing on {}.", branch);
+		return fixesApplied;
+	}
+
+	public Map<Class, Set<String>> findDuplicateAndHideParentVersion(String branch) {
+		if (PathUtil.isRoot(branch)) {
+			throw new IllegalArgumentException("This fixed can not be used on MAIN because there are no ancestor branches.");
+		}
+
+		logger.info("Finding duplicate content on {} and hiding parent version.", branch);
+
+		Map<Class, Set<String>> fixesApplied = new HashMap<>();
+		branchMergeService.fixDuplicateComponents(branch, versionControlHelper.getBranchCriteria(branch), false, fixesApplied);
+
+		logger.info("Completed hiding parent version of duplicate content on {}.", branch);
 		return fixesApplied;
 	}
 
@@ -323,5 +343,265 @@ public class AdminOperationsService {
 		}
 
 		logger.info("Extra relationships successfully deleted on {}.", branchPath);
+	}
+
+	@SuppressWarnings("rawtypes")
+	public void promoteReleaseFix(String releaseFixBranchPath) {
+
+		// Beware! This method takes the version control mechanism into its own hands. Here be dragons.
+
+		final Branch releaseFixBranch = branchService.findLatest(releaseFixBranchPath);
+		if (!branchService.exists(releaseFixBranchPath)) {
+			throw new IllegalArgumentException("Branch given must be a code system version branch. Branch given does not exist.");
+		}
+		final String codeSystemPath = PathUtil.getParentPath(releaseFixBranchPath);
+		if (codeSystemPath == null) {
+			throw new IllegalArgumentException("Branch given must be a code system version branch. Branch given is root.");
+		}
+		final Optional<CodeSystem> codeSystemOptional = codeSystemService.findByBranchPath(codeSystemPath);
+		if (!codeSystemOptional.isPresent()) {
+			throw new IllegalArgumentException("Branch given must be a code system version branch. No code system found on the parent branch.");
+		}
+		CodeSystem codeSystem = codeSystemOptional.get();
+
+		CodeSystemVersion latestImportedVersion = codeSystemService.findLatestImportedVersion(codeSystem.getShortName());
+		if (latestImportedVersion == null) {
+			throw new IllegalStateException("No code system version found on the parent branch.");
+		}
+		if (!latestImportedVersion.getBranchPath().equals(releaseFixBranchPath)) {
+			throw new IllegalArgumentException("The latest code system version does not match the branch given. This fix can only be applied to the latest version.");
+		}
+
+		if (!codeSystemPath.equals("MAIN")) {
+			throw new IllegalArgumentException("This method currently only works for the code system on the MAIN branch.");
+			// To use this method with other code systems further work would be required to identify any branch "version replaced" ids which
+			// should be copied to the promotion commit. This will be required if the version replaced is on a parent code system.
+		}
+
+		// The fix promotion will make a commit which could be back in time in relation to other commits on the code system branch.
+		// I.E. the version of the branch we are committing in front of may not be the head of the branch.
+
+		// The promoted fix will last for 10 seconds on the timeline.
+		// The code system version branch will be rebased onto this commit.
+		// After 10 seconds another commit will be made which will revert the code system branch back to it's previous state
+		// without any trace of the fix. This is so newer commits on the same branch and child branches are not disturbed
+		// by insertion of content back in time. The version control system was not designed to be able to deal with this.
+
+		// Find commit on parent branch matching head of version branch
+		logger.info("Release fix branch base " + releaseFixBranch.getBase().getTime());
+		logger.info("Release fix branch head " + releaseFixBranch.getHead().getTime());
+		final Branch codeSystemVersionCommit = branchService.findAtTimepointOrThrow(codeSystemPath, releaseFixBranch.getBase());
+		final BranchCriteria codeSystemVersionCommitBranchCriteria = versionControlHelper.getBranchCriteriaAtTimepoint(codeSystemPath, codeSystemVersionCommit.getHead());
+
+		// Date of now used to end components on the release branch
+		Date now = new Date();
+
+		// Promotion commit will be one second after original version commit.
+		logger.info("Code system version commit head " + codeSystemVersionCommit.getHead().getTime());
+		Date promotionCommitTime = new Date(codeSystemVersionCommit.getHeadTimestamp() + (ONE_SECOND_IN_MILLIS));
+
+		// Revert commit will be one second after promotion commit.
+		Date revertCommitTime = new Date(promotionCommitTime.getTime() + ONE_SECOND_IN_MILLIS);
+
+		// Check there are no commits on the timeline where we are trying to write
+		Branch existingBranchAtRevertCommit = branchService.findAtTimepointOrThrow(codeSystemPath, revertCommitTime);
+		if (existingBranchAtRevertCommit.getHead().equals(promotionCommitTime)) {
+			throw new IllegalStateException(String.format("There is already a commit on %s at %s, can not proceed.", codeSystemPath, promotionCommitTime.getTime()));
+		}
+		if (existingBranchAtRevertCommit.getHead().equals(revertCommitTime)) {
+			throw new IllegalStateException(String.format("There is already a commit on %s at %s, can not proceed.", codeSystemPath, revertCommitTime.getTime()));
+		}
+
+		logger.info("Promoting fixes from release branch into code system branch back in time " + promotionCommitTime);
+		logger.info("Fixes from branch {} will be applied to branch {} at timepoint {} and then reverted at timepoint {}.",
+				releaseFixBranchPath, codeSystemPath, promotionCommitTime.getTime(), revertCommitTime.getTime());
+
+		// For each entity type
+		final BranchCriteria changesOnFixBranch = versionControlHelper.getChangesOnBranchCriteria(releaseFixBranch);
+		for (Class<? extends DomainEntity> type : domainEntityConfiguration.getAllDomainEntityTypes()) {
+			// Grab all the entities of this type on the fix branch
+			NativeSearchQuery query = new NativeSearchQueryBuilder()
+					.withQuery(boolQuery().must(changesOnFixBranch.getEntityBranchCriteria(type)))
+					.withPageable(LARGE_PAGE).build();
+			Collection<DomainEntity> entitiesToPromote = new ArrayList<>();
+			try (CloseableIterator<? extends DomainEntity> stream = elasticsearchTemplate.stream(query, type)) {
+				stream.forEachRemaining(entitiesToPromote::add);
+			}
+			logger.info("Found {} {} to promote.", entitiesToPromote.size(), type.getSimpleName());
+			if (!entitiesToPromote.isEmpty()) {
+				// Manually promote all entity types including the semantic index.
+				// We do not want any post-commit hooks to run because they will not be able to deal with a new historic commit.
+				// Post-commit hooks will not run because we will not be asking the branch service for a Commit object.
+
+				// Find existing versions of the same entities on the parent branch
+				String typeIdField = domainEntityConfiguration.getAllIdFields().get(type);
+				ElasticsearchCrudRepository typeRepository = domainEntityConfiguration.getAllTypeRepositoryMap().get(type);
+				for (List<DomainEntity> entitiesToPromoteBatch : partition(entitiesToPromote, 1_000)) {
+					List<DomainEntity> existingEntitiesBatch = new ArrayList<>();
+					Map<String, Date> existingEntitiesOriginalStartDate = new HashMap<>();
+					try (CloseableIterator<? extends DomainEntity> existingEntityStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+							.withQuery(boolQuery()
+									.must(codeSystemVersionCommitBranchCriteria.getEntityBranchCriteria(type))
+									.must(boolQuery()
+											// New version of component on fix branch
+											.should(termsQuery(typeIdField, entitiesToPromoteBatch.stream().map(DomainEntity::getId).collect(Collectors.toList())))
+											// Deleted component on fix branch
+											.should(termsQuery("internalId", releaseFixBranch.getVersionsReplaced(type)))
+									)
+							).withPageable(LARGE_PAGE).build(), type)) {
+						existingEntityStream.forEachRemaining(existingEntity -> {
+							if (existingEntity.getPath().equals(codeSystemPath)) {
+								existingEntitiesBatch.add(existingEntity);
+							} else {
+								logger.error("Existing entity exists on a path which must be an ancestor of the codesystem branch. " +
+												"Not promoting entity to avoid duplicate versions of {} {}. {} {}",
+										existingEntity.getClass().getSimpleName(), existingEntity.getId(), existingEntity.getInternalId(), existingEntity.getPath());
+							}
+						});
+					}
+
+					if (!existingEntitiesBatch.isEmpty()) {
+						logger.info("{} existing {} found on the code system path for this batch, for example {} {}.",
+								existingEntitiesBatch.size(), type.getSimpleName(), type.getSimpleName(), existingEntitiesBatch.iterator().next().getId());
+
+						// Update start date of existing entities to the revert commit.
+						for (DomainEntity existingEntity : existingEntitiesBatch) {
+							existingEntitiesOriginalStartDate.put(existingEntity.getId(), existingEntity.getStart());
+							existingEntity.setStart(revertCommitTime);
+						}
+						logger.info("Start later {} {} in revert commit.", existingEntitiesBatch.size(), type.getSimpleName());
+						typeRepository.saveAll(existingEntitiesBatch);
+
+						// Save another version of the existing entities in the timeline before the promotion commit with the original start date.
+						for (DomainEntity existingEntity : existingEntitiesBatch) {
+							existingEntity.setStart(existingEntitiesOriginalStartDate.get(existingEntity.getId()));
+							existingEntity.setEnd(promotionCommitTime);
+							existingEntity.clearInternalId();
+						}
+						logger.info("Restore {} {} before revert commit.", existingEntitiesBatch.size(), type.getSimpleName());
+						typeRepository.saveAll(existingEntitiesBatch);
+
+						// We have created a gap in the timeline to insert the fix version of the component
+						// to prevent having multiple versions of the same entity existing at once.
+					}
+
+					// End versions on the version branch
+					for (DomainEntity entity : entitiesToPromoteBatch) {
+						// End after set time period
+						entity.setEnd(now);
+					}
+					logger.info("Ending {} {} on source branch with now {} end date.", existingEntitiesBatch.size(), type.getSimpleName(), now.getTime());
+					typeRepository.saveAll(entitiesToPromoteBatch);
+
+					// Copy the entities to the parent branch
+					for (DomainEntity entity : entitiesToPromoteBatch) {
+						entity.setPath(codeSystemPath);
+						entity.setStart(promotionCommitTime);
+						// End after set time period
+						entity.setEnd(revertCommitTime);
+						entity.clearInternalId();
+
+						// For Snomed Components (this does not include the semantic index QueryConcept) set the effectiveTime
+						// and related fields to simulate a release
+						if (entity instanceof SnomedComponent) {
+							SnomedComponent component = (SnomedComponent) entity;
+							component.release(latestImportedVersion.getEffectiveDate());
+						}
+					}
+					logger.info("Promoting {} {} before revert commit.", existingEntitiesBatch.size(), type.getSimpleName());
+					typeRepository.saveAll(entitiesToPromoteBatch);
+				}
+			}
+		}
+
+		// End original code system version commit.
+		// The end time of the branch version should be carried forward to the revert commit.
+		final Date versionCommitOriginalEndTime = codeSystemVersionCommit.getEnd();
+		codeSystemVersionCommit.setEnd(promotionCommitTime);
+
+		Branch promotionCommit = new Branch(codeSystemVersionCommit.getPath());
+		promotionCommit.setBase(codeSystemVersionCommit.getBase());
+		promotionCommit.setStart(promotionCommitTime);
+		promotionCommit.setHead(promotionCommitTime);
+		promotionCommit.setEnd(revertCommitTime);
+		promotionCommit.setMetadata(codeSystemVersionCommit.getMetadata());
+		promotionCommit.addVersionsReplaced(codeSystemVersionCommit.getVersionsReplaced());
+		promotionCommit.setCreation(codeSystemVersionCommit.getCreation());
+		promotionCommit.setLastPromotion(codeSystemVersionCommit.getLastPromotion());
+
+		Branch revertCommit = new Branch(codeSystemVersionCommit.getPath());
+		revertCommit.setBase(codeSystemVersionCommit.getBase());
+		revertCommit.setStart(revertCommitTime);
+		revertCommit.setHead(revertCommitTime);
+		revertCommit.setEnd(versionCommitOriginalEndTime);
+		revertCommit.setMetadata(codeSystemVersionCommit.getMetadata());
+		revertCommit.addVersionsReplaced(codeSystemVersionCommit.getVersionsReplaced());
+		revertCommit.setCreation(codeSystemVersionCommit.getCreation());
+		revertCommit.setLastPromotion(codeSystemVersionCommit.getLastPromotion());
+
+		releaseFixBranch.setEnd(now);
+		Branch releaseBranchPromotionCommit = new Branch(releaseFixBranch.getPath());
+		releaseBranchPromotionCommit.setMetadata(releaseFixBranch.getMetadata());
+		releaseBranchPromotionCommit.setCreation(releaseFixBranch.getCreation());
+		releaseBranchPromotionCommit.setLastPromotion(promotionCommitTime);
+		releaseBranchPromotionCommit.setStart(now);
+		releaseBranchPromotionCommit.setBase(promotionCommitTime);
+		releaseBranchPromotionCommit.setHead(now);
+		releaseBranchPromotionCommit.setContainsContent(false);
+
+		branchRepository.saveAll(Lists.newArrayList(codeSystemVersionCommit, promotionCommit, revertCommit, releaseFixBranch, releaseBranchPromotionCommit));
+		logger.info("All content promoted and commits made. Fix promotion complete.");
+	}
+
+	public void cloneChildBranch(String sourceBranchPath, String destinationBranchPath) {
+		String parentPath = PathUtil.getParentPath(sourceBranchPath);
+		if (parentPath == null || !parentPath.equals(PathUtil.getParentPath(destinationBranchPath))) {
+			throw new IllegalArgumentException("Source and destination branches must have a common parent branch.");
+		}
+		if (!branchService.findChildren(sourceBranchPath).isEmpty()) {
+			throw new IllegalArgumentException("This operation only works on branches without children. The specified branch has children.");
+		}
+		if (branchService.exists(destinationBranchPath)) {
+			throw new IllegalArgumentException("Destination branch already exists.");
+		}
+
+		List<Branch> sourceBranchCommits = branchService.findAllVersions(sourceBranchPath, LARGE_PAGE).getContent();
+		int commitNumber = 0;
+		PageRequest pageSize = PageRequest.of(0, 1_000);
+		for (Branch sourceBranchCommit : sourceBranchCommits) {
+			commitNumber++;
+			logger.info("Cloning branch {} to {}, commit {} of {}, timepoint {}:{}.", sourceBranchPath, destinationBranchPath, commitNumber, sourceBranchCommits.size(),
+					sourceBranchCommit.getStart().getTime(), sourceBranchCommit.getStartDebugFormat());
+
+			// Clone commit into new path
+			sourceBranchCommit.setPath(destinationBranchPath);
+			sourceBranchCommit.clearInternalId();
+			branchRepository.save(sourceBranchCommit);
+
+			// Clone commit content into new path
+			Map<Class<? extends DomainEntity>, ElasticsearchCrudRepository> allTypeRepositoryMap = domainEntityConfiguration.getAllTypeRepositoryMap();
+			for (Class<? extends DomainEntity> type : allTypeRepositoryMap.keySet()) {
+				ElasticsearchCrudRepository elasticsearchCrudRepository = domainEntityConfiguration.getAllTypeRepositoryMap().get(type);
+				Page<? extends DomainEntity> page;
+				do {
+					page = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+							.withQuery(boolQuery()
+									.must(termQuery("path", sourceBranchPath))
+									.must(termQuery("start", sourceBranchCommit.getStart()))
+							)
+							.withPageable(pageSize)
+							.build(), type);
+					List<? extends DomainEntity> content = page.getContent();
+					if (!content.isEmpty()) {
+						logger.info("Cloning {} {}s", content.size(), type.getSimpleName());
+						content.forEach(domainEntity -> {
+							domainEntity.setPath(destinationBranchPath);
+							domainEntity.clearInternalId();// ES will create a new document rather than updating.
+						});
+						elasticsearchCrudRepository.saveAll(content);
+					}
+				} while (!page.isLast());
+			}
+		}
 	}
 }

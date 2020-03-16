@@ -37,7 +37,7 @@ http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code
 ####  Curl example allows use of language headers to specify Swedish language. NB Ensure use of single quotes in URL to avoid $lookup being treated as a variable by Unix shell
 curl -i -H 'Accept-Language: sv' 'http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&version=http://snomed.info/sct/45991000052106&code=427623005&_format=json'
 
-## ValueSet create, update and delete
+## ValueSet search, create, replace, update and delete
 
 #### Upload or update a valueset json file:
 curl -i --request PUT "http://localhost:8080/fhir/ValueSet/address-use" \
@@ -51,8 +51,14 @@ http://localhost:8080/fhir/ValueSet/chronic-disease/$expand?includeDesignations=
 http://localhost:8080/fhir/ValueSet/address-use?_format=json
 
 #### Delete a valueset
-curl --request DELETE "http://localhost:8080/fhir/ValueSet/address-use" 
+curl --request DELETE "http://localhost:8080/fhir/ValueSet/address-use"
 
+#### Recover all stored ValueSets
+http://localhost:8080/fhir/ValueSet
+
+#### Search for ValueSets meeting specified criteria
+http://localhost:8080/fhir/ValueSet?&lt;name&gt;=&lt;value&gt;
+Note that the "code" parameter is not supported.  It is considered "TooCostly" as it would requiring expanding (or caching the expansion of) all known ValueSets to see if the specified code was included.
 
 ## ValueSet Expansion
 ### Implicit ValueSets (ie intensionally defined). 
@@ -60,6 +66,9 @@ See  [https://www.hl7.org/fhir/snomedct.html#implicit]
 
 #### Expansion of an intensionally defined value set using ECL
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&_format=json
+
+#### Expansion of an intensionally defined value set using ECL against a specific edition/version
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&system-version=system-version=http://snomed.info/sct/900000000000207008/version/20190731
 
 #### Expansion of an intensionally defined value set using ISA
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=isa/27624003&_format=json
@@ -93,7 +102,10 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=e
 localhost:8080/fhir/ConceptMap/$translate?code=134811001&system=http://snomed.info/sct&source=http://snomed.info/sct?fhir_vs&target=http://snomed.info/sct?fhir_vs&url=http://snomed.info/sct?fhir_cm=900000000000527005&_format=json
 
 #### Find ICD-10 Map target for 254153009 |Familial expansile osteolysis (disorder)|
-http://localhost:8080/fhir/ConceptMap/$translate?code=254153009&system=http://snomed.info/sct&source=http://snomed.info/sct?fhir_vs&target=http://hl7.org/fhir/sid/icd-10&url=http://snomed.info/sct?fhir_cm=447562003&_format=json
+http://localhost:8080/fhir/ConceptMap/$translate?code=254153009&system=http://snomed.info/sct&source=http://snomed.info/sct?fhir_vs&target=http://hl7.org/fhir/sid/icd-10&url=http://snomed.info/sct?fhir_cm=447562003
+
+#### Find ICD-O Map target for 772292003 |High grade glioma (morphologic abnormality)|
+http://localhost:8080/fhir/ConceptMap/$translate?code=772292003&system=http://snomed.info/sct&source=http://snomed.info/sct?fhir_vs&target=http://hl7.org/fhir/sid/icd-o&url=http://snomed.info/sct?fhir_cm=446608001
 
 #### Find SNOMED CT concepts that have a particular ICD-10 code as their map target.  This reverse lookup is not medically safe, as the SI ICD-10 map is unidirectional by design.
 http://localhost:8080/fhir/ConceptMap/$translate?code=Q79.8&system=http://hl7.org/fhir/sid/icd-10&source=http://hl7.org/fhir/sid/icd-10&target=http://snomed.info/sct&_format=json

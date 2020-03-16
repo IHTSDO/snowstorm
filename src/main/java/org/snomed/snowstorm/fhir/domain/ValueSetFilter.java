@@ -2,6 +2,7 @@ package org.snomed.snowstorm.fhir.domain;
 
 import org.hl7.fhir.r4.model.ValueSet;
 import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
+import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
@@ -33,8 +34,11 @@ public class ValueSetFilter {
 	public String getCode() {
 		return code;
 	}
-	public ValueSetFilter withCode(String code) {
-		this.code = code;
+
+	public ValueSetFilter withCode(String code) throws FHIROperationException {
+		if (code != null) {
+			throw new FHIROperationException(IssueType.TOOCOSTLY, "Server is unwilling to expand all known ValueSets to search for inclusion of any code");
+		}
 		return this;
 	}
 	public String getContext() {

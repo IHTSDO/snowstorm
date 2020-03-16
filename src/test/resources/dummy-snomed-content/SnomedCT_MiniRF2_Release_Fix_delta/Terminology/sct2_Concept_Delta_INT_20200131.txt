@@ -1,0 +1,5 @@
+#
+# Comments are removed by unit test
+#
+id	effectiveTime	active	moduleId	definitionStatusId
+840533007		1	900000000000207008	900000000000074008

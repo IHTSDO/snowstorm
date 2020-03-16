@@ -2,6 +2,7 @@ package org.snomed.snowstorm.config;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
 import org.ihtsdo.sso.integration.RequestHeaderAuthenticationDecorator;
@@ -59,12 +60,15 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
 
+	@Value("${json.serialization.indent_output}")
+	private boolean jsonIndentOutput;
+
 	@Autowired
 	private BuildProperties buildProperties;
 
 	@Bean
 	public ObjectMapper getGeneralMapper() {
-		return Jackson2ObjectMapperBuilder
+		Jackson2ObjectMapperBuilder builder = Jackson2ObjectMapperBuilder
 				.json()
 				.defaultViewInclusion(false)
 				.failOnUnknownProperties(false)
@@ -73,8 +77,13 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 				.mixIn(Branch.class, BranchMixIn.class)
 				.mixIn(BranchPojo.class, BranchMixIn.class)
 				.mixIn(Classification.class, ClassificationMixIn.class)
-				.mixIn(CodeSystemVersion.class, CodeSystemVersionMixIn.class)
-				.build();
+				.mixIn(CodeSystemVersion.class, CodeSystemVersionMixIn.class);
+
+		if (jsonIndentOutput) {
+			builder.featuresToEnable(SerializationFeature.INDENT_OUTPUT);
+		}
+
+		return builder.build();
 	}
 
 	@Bean

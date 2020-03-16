@@ -19,9 +19,7 @@ import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
-import org.snomed.snowstorm.fhir.domain.BranchPath;
-import org.snomed.snowstorm.fhir.domain.ValueSetFilter;
-import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
+import org.snomed.snowstorm.fhir.domain.*;
 import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
@@ -128,7 +126,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OptionalParam(name="status") String status,
 			@OptionalParam(name="title") String title,
 			@OptionalParam(name="url") String url,
-			@OptionalParam(name="version") String version) {
+			@OptionalParam(name="version") String version) throws FHIROperationException {
 		ValueSetFilter vsFilter = new ValueSetFilter()
 									.withCode(code)
 									.withContext(context)
@@ -158,16 +156,17 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	public ValueSet expandInstance(@IdParam IdType id,
 			HttpServletRequest request,
 			HttpServletResponse response,
-			@OperationParam(name="url") String url,
+			@OperationParam(name="url") String url,  //TODO Check how URL gets used with an Id
 			@OperationParam(name="filter") String filter,
 			@OperationParam(name="activeOnly") BooleanType activeType,
 			@OperationParam(name="includeDesignations") BooleanType includeDesignationsType,
 			@OperationParam(name="designation") List<String> designations,
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="offset") String offsetStr,
-			@OperationParam(name="count") String countStr) throws FHIROperationException {
+			@OperationParam(name="count") String countStr,
+			@OperationParam(name="system-version") StringType systemVersion) throws FHIROperationException {
 		return expand (id, request, response, url, filter, activeType, includeDesignationsType,
-				designations, displayLanguage, offsetStr, countStr);
+				designations, displayLanguage, offsetStr, countStr, systemVersion);
 	}
 	
 	@Operation(name="$expand", idempotent=true)
@@ -181,9 +180,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="designation") List<String> designations,
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="offset") String offsetStr,
-			@OperationParam(name="count") String countStr) throws FHIROperationException {
+			@OperationParam(name="count") String countStr,
+			@OperationParam(name="system-version") StringType systemVersion) throws FHIROperationException {
 		return expand(null, request, response, url, filter, activeType, includeDesignationsType,
-				designations, displayLanguage, offsetStr, countStr);
+				designations, displayLanguage, offsetStr, countStr, systemVersion);
 	}
 	
 	private ValueSet expand(@IdParam IdType id,
@@ -196,7 +196,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			List<String> designationsStr,
 			String displayLanguageStr,
 			String offsetStr,
-			String countStr) throws FHIROperationException {
+			String countStr,
+			StringType systemVersion) throws FHIROperationException {
 		// Are we expanding a specific named Valueset?
 		ValueSet vs = null;
 		if (id != null) {
@@ -227,6 +228,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			conceptMiniPage = doExplicitExpansion(vs, active, filter, branchPath, designations, offset, pageSize);
 		} else {
 			conceptMiniPage = doImplcitExpansion(cutPoint, url, active, filter, branchPath, designations, offset, pageSize);
+		}
+		
+		//If we've specified a system version as part of the call, then that overrides whatever is in the compose element or URL
+		if (systemVersion != null && !systemVersion.asStringValue().isEmpty()) {
+			branchPath.set(fhirHelper.getBranchPathForCodeSystemVersion(systemVersion));
 		}
 		
 		//We will always need the PT, so recover further details
@@ -260,7 +266,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				designations.addAll(DEFAULT_LANGUAGE_DIALECTS);
 			}
 		} else {
-			//Otherwise include designations if we've specified some
+			//Otherwise include designations if we've specified one or more
 			includeDesignations = designationsStr != null;
 		}
 		return includeDesignations;

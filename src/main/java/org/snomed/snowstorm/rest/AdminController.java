@@ -7,6 +7,7 @@ import org.snomed.snowstorm.core.data.services.AdminOperationsService;
 import org.snomed.snowstorm.core.data.services.ConceptDefinitionStatusUpdateService;
 import org.snomed.snowstorm.core.data.services.SemanticIndexUpdateService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,6 +30,9 @@ public class AdminController {
 
 	@Autowired
 	private AdminOperationsService adminOperationsService;
+
+	@Autowired
+	private MRCMUpdateService mrcmUpdateService;
 
 	@ApiOperation(value = "Rebuild the description index.",
 			notes = "Use this if the search configuration for international character handling of a language has been " +
@@ -74,6 +78,16 @@ public class AdminController {
 		return response;
 	}
 
+	@ApiOperation(value = "Hide parent version of duplicate versions of components in version control.")
+	@RequestMapping(value = "/{branch}/actions/find-duplicate-hide-parent-version", method = RequestMethod.POST)
+	@ResponseBody
+	public Map<String, Object> findDuplicateAndHideParentVersion(@PathVariable String branch) {
+		Map<String, Object> response = new HashMap<>();
+		Map<Class, Set<String>> fixes = adminOperationsService.findDuplicateAndHideParentVersion(BranchPathUriUtil.decodePath(branch));
+		response.put("fixesApplied", fixes);
+		return response;
+	}
+
 	@ApiOperation(value = "Rollback a commit on a branch.",
 			notes = "Use with extreme caution! Only rollback a commit which you know is the latest commit on the branch " +
 					"and that there are no child branches created or rebased since the commit otherwise version control will break."
@@ -112,4 +126,34 @@ public class AdminController {
 		}
 	}
 
+	@ApiOperation(value = "Promote release fix to Code System branch.",
+			notes = "In an authoring terminology server; if small content changes have to be made to a code system version after it's been created " +
+					"the changes can be applied to the release branch and then merged back to the main code system branch using this function. " +
+					"This function performs the following steps: " +
+					"1. The changes are merged to the parent branch at a point in time immediately after the latest version was created. " +
+					"2. The version branch is rebased to this new commit. " +
+					"3. A second commit is made at a point in time immediately after the fix commit to revert the changes. " +
+					"This is necessary to preserve the integrity of more recent commits on the code system branch made during the new ongoing authoring cycle. " +
+					"The fixes should be applied to head timepoint of the code system branch using an alternative method. "
+	)
+	@RequestMapping(value = "/{releaseFixBranch}/actions/promote-release-fix", method = RequestMethod.POST)
+	public void promoteReleaseFix(@PathVariable String releaseFixBranch) {
+		adminOperationsService.promoteReleaseFix(BranchPathUriUtil.decodePath(releaseFixBranch));
+	}
+
+	@ApiOperation(value = "Force update of MRCM domain templates and MRCM attribute rules.",
+			notes = "You are unlikely to need this action. " +
+					"If something has gone wrong when editing MRCM reference sets you can use this function to force updating the domain templates and attribute rules " +
+					"for all MRCM reference components.")
+	@RequestMapping(value = "/{branch}/actions/update-mrcm-domain-templates-and-attribute-rules", method = RequestMethod.POST)
+	@ResponseBody
+	public void updateMRCMDomainTemplatesAndAttributeRules(@PathVariable String branch) throws ServiceException {
+		mrcmUpdateService.updateAllDomainTemplatesAndAttributeRules(BranchPathUriUtil.decodePath(branch));
+	}
+
+	@RequestMapping(value = "/{branch}/actions/clone-child-branch", method = RequestMethod.POST)
+	@ResponseBody
+	public void cloneChildBranch(@PathVariable String branch, @RequestParam String newBranch) {
+		adminOperationsService.cloneChildBranch(BranchPathUriUtil.decodePath(branch), newBranch);
+	}
 }

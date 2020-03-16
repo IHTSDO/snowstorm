@@ -23,6 +23,17 @@ public class AttributeRange {
 		this.contentType = contentType;
 	}
 
+	public AttributeRange(AttributeRange attributeRange)  {
+		this.id = attributeRange.getId();
+		this.effectiveTime = attributeRange.getEffectiveTime();
+		this.active = attributeRange.isActive();
+		this.referencedComponentId = attributeRange.getReferencedComponentId();
+		this.rangeConstraint = attributeRange.getRangeConstraint();
+		this.attributeRule = attributeRange.getAttributeRule();
+		this.ruleStrength = attributeRange.getRuleStrength();
+		this.contentType = attributeRange.getContentType();
+	}
+
 	public String getId() {
 		return id;
 	}
@@ -39,13 +50,11 @@ public class AttributeRange {
 		return referencedComponentId;
 	}
 
-	public String getRangeConstraint() {
-		return rangeConstraint;
-	}
+	public String getRangeConstraint() { return rangeConstraint; }
 
-	public String getAttributeRule() {
-		return attributeRule;
-	}
+	public String getAttributeRule() { return attributeRule; }
+
+	public void setAttributeRule(String attributeRule) { this.attributeRule = attributeRule; }
 
 	public RuleStrength getRuleStrength() {
 		return ruleStrength;

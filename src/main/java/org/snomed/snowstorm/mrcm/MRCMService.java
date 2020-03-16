@@ -137,7 +137,7 @@ public class MRCMService {
 		if (IdentifierService.isConceptId(termPrefix)) {
 			conceptQuery.conceptIds(Collections.singleton(termPrefix));
 		} else {
-			conceptQuery.descriptionCriteria(d -> d.term(termPrefix));
+			conceptQuery.descriptionCriteria(d -> d.term(termPrefix).active(true));
 		}
 
 		return queryService.search(conceptQuery, branchPath, RESPONSE_PAGE_SIZE).getContent();

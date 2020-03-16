@@ -5,6 +5,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -16,7 +17,7 @@ import static org.junit.Assert.assertTrue;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
-public class ValueSetProviderEclTest extends AbstractFHIRTest {
+public class ValueSetProviderEclTest extends AbstractFHIRTest implements FHIRConstants {
 	
 	@Test
 	public void testECLRecovery_DescOrSelf() throws FHIROperationException {
@@ -27,7 +28,9 @@ public class ValueSetProviderEclTest extends AbstractFHIRTest {
 	
 	@Test
 	public void testECLRecovery_DescOrSelf_Edition() throws FHIROperationException {
-		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + "&_format=json";
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?" + 
+				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + 
+				"&_format=json";
 		ValueSet v = get(url);
 		//We'll get the 11 concepts defined on main (Root + 10 potatoes) 
 		//plus the additional two defined for the new Edition
@@ -75,6 +78,25 @@ public class ValueSetProviderEclTest extends AbstractFHIRTest {
 		v = get(url);
 		assertEquals(0,v.getExpansion().getContains().size());
 		assertEquals(10,v.getExpansion().getTotal());
+	}
+	
+	@Test
+	public void testECLWithSpecificVersion() throws FHIROperationException {
+		//Asking for 5 at a time, expect 10 total
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?system-version=http://snomed.info/sct/900000000000207008/version/20190731&" + 
+				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + 
+				"&_format=json";
+		ValueSet v = get(url);
+		assertEquals(13,v.getExpansion().getContains().size());
+	}
+	
+	@Test(expected=FHIROperationException.class)
+	public void testECLWithSpecificVersionFail() throws FHIROperationException {
+		//Asking for 5 at a time, expect 10 total
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?system-version=http://snomed.info/sct/900000000000207008/version/19990731&" + 
+				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + 
+				"&_format=json";
+		get(url);
 	}
 	
 	@Test

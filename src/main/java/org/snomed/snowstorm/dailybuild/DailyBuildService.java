@@ -112,6 +112,7 @@ public class DailyBuildService {
 		if (latestVersion != null) {
 			// Release branch base timestamp is the same as the head timestamp on the MAIN branch for the commit containing the release.
 			releaseCommitHead = branchService.findLatest(latestVersion.getBranchPath()).getBase();
+			logger.info("Latest version found at {} on {}.", releaseCommitHead.getTime(), codeSystem.getBranchPath());
 		}
 
 		List<Branch> commitsToRollback = new ArrayList<>();
@@ -121,24 +122,34 @@ public class DailyBuildService {
 		Date baseForReleaseCommit = null;
 		if (releaseCommitHead != null) {
 			List<Branch> commits = sBranchService.findAllVersionsAfterOrEqualToTimestamp(branchPath, releaseCommitHead, Pageable.unpaged()).getContent();
+			logger.info("{} commits found on {} since latest release.", commits.size() - 1, branchPath);
 			for (Branch commit : commits) {
 				// Don't rollback the release commit
 				if (commit.getHead().equals(releaseCommitHead)) {
 					baseForReleaseCommit = commit.getBase();
 					commitsToRollback.clear();
+					logger.info("Release commit found, base version {} recorded.", baseForReleaseCommit);
 					continue;
 				}
 				// Don't rollback rebase commits - these are most likely code system upgrades
 				if (baseForReleaseCommit != null && !commit.getBase().equals(baseForReleaseCommit)) {
+					logger.info("Commit {} has base {} which is different to the release commit. " +
+									"This rebase/upgrade commit will not be rolled back nor will any commits before this.",
+							commit.getHeadTimestamp(), commit.getBaseTimestamp());
 					commitsToRollback.clear();
-					logger.info("Keeping rebase commit {} on {}", commit.getHeadTimestamp(), branchPath);
 					continue;
+				} else {
+					logger.info("Commit {} does not have a new base ({}) so will be rolled back.",
+							commit.getHeadTimestamp(), commit.getBaseTimestamp());
 				}
 				commitsToRollback.add(commit);
 			}
 		} else {
 			// If never released roll back all versions
-			commitsToRollback = branchService.findAllVersions(branchPath, Pageable.unpaged()).stream().sorted(Comparator.comparing(Branch::getStart)).collect(Collectors.toList());
+			logger.info("No release versions found on {}, all commit appart from branch creation will be rolled back.", codeSystem.getBranchPath());
+			List<Branch> allCommits = branchService.findAllVersions(branchPath, Pageable.unpaged()).stream().sorted(Comparator.comparing(Branch::getStart)).collect(Collectors.toList());
+			allCommits.remove(0);// Don't rollback the commit which creates the branch.
+			commitsToRollback = allCommits;
 		}
 
 		// Roll back in reverse order (i.e the most recent first)
@@ -218,7 +229,7 @@ public class DailyBuildService {
 				return "s3://" + resourceConfiguration.getCloud().getBucketName()
 						+ "/" + getPathAndRelative(resourceConfiguration.getCloud().getPath(), relativePath);
 			} else {
-				return getPathAndRelative(resourceConfiguration.getLocal().getPath(), relativePath);
+				return "file:" + getPathAndRelative(resourceConfiguration.getLocal().getPath(), relativePath);
 			}
 		}
 		private static String getPathAndRelative(String path, String relativePath) {

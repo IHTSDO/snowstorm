@@ -53,7 +53,9 @@ public class MRCMLoader {
 						getConstraint(member.getAdditionalField("domainConstraint"), member.getMemberId()),
 						member.getAdditionalField("parentDomain"),
 						getConstraint(member.getAdditionalField("proximalPrimitiveConstraint"), member.getMemberId()),
-						member.getAdditionalField("proximalPrimitiveRefinement")
+						member.getAdditionalField("proximalPrimitiveRefinement"),
+						member.getAdditionalField("domainTemplateForPrecoordination"),
+						member.getAdditionalField("domainTemplateForPostcoordination")
 				));
 			}
 		}
