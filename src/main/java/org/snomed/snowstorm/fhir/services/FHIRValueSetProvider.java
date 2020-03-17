@@ -29,7 +29,6 @@ import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
-import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
@@ -151,7 +150,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		
 		return StreamSupport.stream(valuesetRepository.findAll().spliterator(), false)
 				.map(vs -> vs.getValueset())
-				.filter(vs -> ValueSetFilter.apply(vsFilter, vs, fhirHelper))
+				.filter(vs -> ValueSetFilter.apply(vsFilter, vs, queryService, fhirHelper))
 				.collect(Collectors.toList());
 	}
 	
@@ -258,7 +257,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			BranchPath branchPath = fhirHelper.getBranchPathFromURI(codeSystem);
 			//Construct ECL to find the intersection of these two sets
 			String intersectionEcl = conceptId + " AND (" + ecl + ")";
-			Page<ConceptMini> result = eclSearch (intersectionEcl, null, null, languageDialects, branchPath, 0, 1);
+			Page<ConceptMini> result = fhirHelper.eclSearch(queryService, intersectionEcl, null, null, languageDialects, branchPath, 0, 1);
 			if (result.getContent().size() == 1) {
 				ConceptMini concept = result.getContent().get(0);
 				if (!concept.getConceptId().equals(conceptId)) {
@@ -417,7 +416,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			return findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
 		} else {
 			String ecl = determineEcl(url, true);
-			Page<ConceptMini> conceptMiniPage = eclSearch(ecl, active, filter, designations, branchPath, offset, pageSize);
+			Page<ConceptMini> conceptMiniPage = fhirHelper.eclSearch(queryService, ecl, active, filter, designations, branchPath, offset, pageSize);
 			logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
 			return conceptMiniPage;
 		}
@@ -433,7 +432,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
 			branchPath.set(obtainConsistentCodeSystemVersionFromCompose(vs.getCompose()));
 			String ecl = covertComposeToEcl(vs.getCompose());
-			conceptMiniPage = eclSearch(ecl, active, filter, designations, branchPath, offset, pageSize);
+			conceptMiniPage = fhirHelper.eclSearch(queryService, ecl, active, filter, designations, branchPath, offset, pageSize);
 			logger.info("Recovered: {} concepts from branch: {} with ecl from compose: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
 		} else {
 			String msg = "Compose element(s) or 'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ";
@@ -450,19 +449,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private boolean contains(List<LanguageDialect> languageDialects, String displayLanguage) {
 		return languageDialects.stream()
 		.anyMatch(ld -> ld.getLanguageCode().equals(displayLanguage));
-	}
-
-	public Page<ConceptMini> eclSearch(String ecl, Boolean active, String termFilter, List<LanguageDialect> languageDialects, BranchPath branchPath, int offset, int pageSize) {
-		Page<ConceptMini> conceptMiniPage;
-		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
-		queryBuilder.ecl(ecl)
-				.descriptionCriteria(descriptionCriteria -> descriptionCriteria
-						.term(termFilter)
-						.searchLanguageCodes(LanguageDialect.toLanguageCodes(languageDialects)))
-				.resultLanguageDialects(languageDialects)
-				.activeFilter(active);
-		conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath.toString()), PageRequest.of(offset, pageSize));
-		return conceptMiniPage;
 	}
 
 	private BranchPath obtainConsistentCodeSystemVersionFromCompose(ValueSetComposeComponent compose) throws FHIROperationException {
