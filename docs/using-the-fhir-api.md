@@ -40,7 +40,7 @@ curl -i -H 'Accept-Language: sv' 'http://localhost:8080/fhir/CodeSystem/$lookup?
 ### Code System Validate Code
 
 #### Code System validate-code
-http://localhost:8080/fhir/CodeSystem/$validate-code?code=http://snomed.info/sct|404684003
+http://localhost:8080/fhir/CodeSystem/$validate-code?coding=http://snomed.info/sct|404684003
 
 
 ## ValueSet search, create, replace, update and delete
@@ -102,6 +102,21 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=e
 
 #### Refset - list all SNOMED concepts mapped to ICD-O  (ECL here is ^446608001 |ICD-O simple map reference set (foundation metadata concept)|)
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/%5E446608001&count=20&_format=json
+
+
+
+### ValueSet validate-code
+#### Validate a code against a known ValueSet expansion
+http://localhost:8080/fhir/ValueSet/gps/$validate-code?coding=http://snomed.info/sct|840539006
+
+#### Validate a code against an implicit valueset, also checking display term
+http://localhost:8080/fhir/ValueSet/$validate-code?url=http://snomed.info/sct?fhir_vs=ecl/<<34014006 |Viral disease|&coding=http://snomed.info/sct|840539006&dsiplay=COVID-19
+
+#### Validate a code against an implicit valueset expanded against a specific SNOMED release
+http://localhost:8080/fhir/ValueSet/$validate-code?url=http://snomed.info/sct/900000000000207008/version/20200309?fhir_vs=ecl/<<34014006 |Viral disease|&coding=http://snomed.info/sct|840539006
+
+#### Validate a code against an implicit valueset expanded against a specific SNOMED release - alternative format
+http://localhost:8080/fhir/ValueSet/$validate-code?codeSystem=http://snomed.info/sct/900000000000207008/version/20190731&url=http://snomed.info/sct?fhir_vs=ecl/%3C%3C34014006%20|Viral%20disease|&code=840539006
 
 ## Concept Maps
 #### Historical Association find the "SAME AS" target for inactivated concept 

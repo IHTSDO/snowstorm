@@ -10,6 +10,8 @@ import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.hl7.fhir.r4.model.ValueSet.*;
 import org.apache.commons.lang.StringUtils;
+import org.hl7.fhir.r4.model.CodeType;
+import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +20,7 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
@@ -216,5 +219,50 @@ public class FHIRHelper implements FHIRConstants {
 
 	public void append(StringType str, String appendMe) {
 		str.setValueAsString(str.toString() + appendMe);
+	}
+	
+	public void mutuallyExclusive(String param1Name, Object param1, String param2Name, Object param2) throws FHIROperationException {
+		if (param1 != null && param2 != null) {
+			throw new FHIROperationException(IssueType.INVARIANT, "Use one of '" + param1Name + "' or '" + param2Name + "' parameters");
+		}
+	}
+
+	public void mutuallyRequired(String param1Name, Object param1, String param2Name, Object param2, String param3Name, Object param3) throws FHIROperationException {
+		if (param1 != null && param2 == null && param3 == null) {
+			throw new FHIROperationException(IssueType.INVARIANT, "Use of '" + param1Name + "' only allowed if '" + param2Name + "' or '" + param3Name + "' is also present");
+		}
+	}
+
+	public void notSupported(String paramName, Object obj) throws FHIROperationException {
+		if (obj != null) {
+			throw new FHIROperationException(IssueType.NOTSUPPORTED, "'" + paramName + "' parameter is not currently supported.");
+		}
+	}
+
+	public String recoverConceptId(CodeType code, Coding coding) throws FHIROperationException {
+		String conceptId = null;
+		if (code == null && coding == null) {
+			throw new FHIROperationException(IssueType.INVARIANT, "Use one of 'code' or 'coding' parameters");
+		} else if (code != null && coding == null) {
+			if (code.getCode().contains("|")) {
+				throw new FHIROperationException(IssueType.NOTSUPPORTED, "Please provide CodeSystem in codeSystem parameter");
+			}
+			conceptId = code.getCode();
+			if (!StringUtils.isNumeric(conceptId)) {
+				throw new FHIROperationException(IssueType.NOTSUPPORTED, "Only numeric SNOMED CT identifiers are currently supported");
+			}
+		} else if (code == null && coding != null) {
+			if (coding.getSystem() != null && !coding.getSystem().startsWith(SNOMED_URI)) {
+				throw new FHIROperationException(IssueType.NOTSUPPORTED, "CodeSystem of 'coding' must be based on" + SNOMED_URI);
+			}
+			conceptId = coding.getCode();
+		} else {
+			//Can only handle one of the two
+			throw new FHIROperationException(IssueType.INVARIANT, "Use either 'code' or 'coding' parameters, not both");
+		}
+		if (!IdentifierService.isConceptId(conceptId)) {
+			throw new FHIROperationException(IssueType.CODEINVALID, conceptId + " is not even a SNOMED CT code.");
+		}
+		return conceptId;
 	}
 }

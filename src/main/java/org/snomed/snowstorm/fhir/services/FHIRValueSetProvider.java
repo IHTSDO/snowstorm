@@ -53,6 +53,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private HapiValueSetMapper mapper;
 	
 	@Autowired
+	private HapiParametersMapper paramMapper;
+	
+	@Autowired
 	private FHIRHelper fhirHelper;
 	
 	private static int DEFAULT_PAGESIZE = 1000;
@@ -153,7 +156,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 	
 	@Operation(name="$expand", idempotent=true)
-	public ValueSet expandInstance(@IdParam IdType id,
+	public ValueSet expandInstance(
+			@IdParam IdType id,
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="url") String url,  //TODO Check how URL gets used with an Id
@@ -185,6 +189,134 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		return expand(null, request, response, url, filter, activeType, includeDesignationsType,
 				designations, displayLanguage, offsetStr, countStr, systemVersion);
 	}
+	
+	@Operation(name="$validate-code", idempotent=true)
+	public Parameters validateCodeExplicit(
+			@IdParam IdType id,
+			HttpServletRequest request,
+			HttpServletResponse response,
+			@OperationParam(name="url") UriType url,
+			@OperationParam(name="codeSystem") StringType codeSystem,
+			@OperationParam(name="code") CodeType code,
+			@OperationParam(name="codeableConcept") Coding codeableConcept,
+			@OperationParam(name="coding") Coding coding,
+			@OperationParam(name="display") String display,
+			@OperationParam(name="version") StringType version,
+			@OperationParam(name="date") DateTimeType date,
+			@OperationParam(name="abstract") BooleanType abstractBool,
+			@OperationParam(name="context") String context,
+			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
+		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
+		return validateCode(id, url, codeSystem, code, display, version, date, coding, codeableConcept, context, abstractBool, displayLanguage, languageDialects);
+	}
+
+	@Operation(name="$validate-code", idempotent=true)
+	public Parameters validateCodeImplicit(
+			HttpServletRequest request,
+			HttpServletResponse response,
+			@OperationParam(name="url") UriType url,
+			@OperationParam(name="codeSystem") StringType codeSystem,
+			@OperationParam(name="code") CodeType code,
+			@OperationParam(name="codeableConcept") Coding codeableConcept,
+			@OperationParam(name="coding") Coding coding,
+			@OperationParam(name="display") String display,
+			@OperationParam(name="version") StringType version,
+			@OperationParam(name="date") DateTimeType date,
+			@OperationParam(name="abstract") BooleanType abstractBool,
+			@OperationParam(name="context") String context,
+			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
+		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
+		return validateCode(null, url, codeSystem, code, display, version, date, coding, codeableConcept, context, abstractBool, displayLanguage, languageDialects);
+	}
+	
+	private Parameters validateCode(IdType id, UriType urlType, StringType codeSystem, CodeType code, String display,
+			StringType version, DateTimeType date, Coding coding, Coding codeableConcept, String context, 
+			BooleanType abstractBool, String displayLanguage, 
+			List<LanguageDialect> languageDialects) throws FHIROperationException {
+		String url = urlType == null ? null : urlType.primitiveValue();
+		doParameterValidation (url, codeSystem, code, coding, codeableConcept, context, display, date, version, abstractBool);
+		//Can we get a codeSystem from the URL?
+		if (url != null && url.startsWith(SNOMED_URI) && 
+				url.indexOf("?") > SNOMED_URI.length()) {
+			if (codeSystem != null) {
+				throw new FHIROperationException (IssueType.INVARIANT, "Cannot handle CodeSystem defined via both url and codeSystem parameter");
+			}
+			codeSystem = new StringType(url.substring(0, url.indexOf("?")));
+		}
+		
+		if (version != null) {
+			if (codeSystem == null) {
+				codeSystem = new StringType(SNOMED_URI + "/version/" + version.toString());
+			} else {
+				fhirHelper.append(codeSystem, "/version/" + version.toString());
+			}
+		}
+		//From either a saved VS instance or some implcit url, can we recover some ECL?
+		String ecl = getECL(id, url == null? null : url);
+		if (ecl != null) { 
+			String conceptId = fhirHelper.recoverConceptId(code, coding);
+			BranchPath branchPath = fhirHelper.getBranchPathFromURI(codeSystem);
+			//Construct ECL to find the intersection of these two sets
+			String intersectionEcl = conceptId + " AND (" + ecl + ")";
+			Page<ConceptMini> result = eclSearch (intersectionEcl, null, null, languageDialects, branchPath, 0, 1);
+			if (result.getContent().size() == 1) {
+				ConceptMini concept = result.getContent().get(0);
+				if (!concept.getConceptId().equals(conceptId)) {
+					throw new FHIROperationException (IssueType.PROCESSING, "ECL recovered an unexpected concept id (" + concept.getConceptId() + ") using " + intersectionEcl);
+				}
+				Concept fullConcept = conceptService.find(conceptId, languageDialects, branchPath.toString());
+				return paramMapper.mapToFHIR(fullConcept, display);
+			} else {
+				return paramMapper.conceptNotFound();
+			}
+		} else {
+			//TODO We have some sort of enumerated valueset saved, we need to just search through the members
+			throw new FHIROperationException (IssueType.NOTSUPPORTED, "Validating code against enumerated ValueSets has still to be implemented");
+		}
+	}
+	
+	private String getECL(IdType id, String url) throws FHIROperationException {
+		ValueSet vs = null;
+		if (id != null) {
+			logger.info("Expanding '{}'",id.getIdPart());
+			vs = getValueSet(id);
+			if (vs == null) {
+				return null; // Will be translated into a 404
+			}
+			// Are we expanding based on the URL of the named ValueSet?  Can't do both!
+			if (url != null && vs.getUrl() != null) {
+				throw new FHIROperationException(IssueType.VALUE, "Cannot expand both '" + vs.getUrl() + "' in " + id.getIdPart() + "' and '" + url + "' in request.");
+			}
+			url = vs.getUrl();
+			String ecl = determineEcl(url, false);
+			if (ecl == null) {
+				ecl = covertComposeToEcl(vs.getCompose());
+			}
+			return ecl;
+		} else {
+			int cutPoint = url == null ? -1 : url.indexOf("?");
+			if (cutPoint == NOT_SET) {
+				throw new FHIROperationException(IssueType.INCOMPLETE, "Require a ValueSet instance, or an implicit ValueSet defined in the 'url' parameter to validate code against");
+			}
+		}
+		return determineEcl(url, false);  //Don't throw exception if we don't find ECL in URL.
+	}
+
+	private void doParameterValidation(String url, StringType codeSystem, CodeType code, Coding coding, Coding codeableConcept, String display, String display2, DateTimeType date, StringType version, BooleanType abstractBool) throws FHIROperationException {
+		fhirHelper.mutuallyExclusive("code", code, "coding", coding);
+		fhirHelper.mutuallyRequired("display", display, "code", code, "coding", coding);
+		if (coding != null && coding.getSystem() != null) {
+			fhirHelper.mutuallyExclusive("version", version, "coding|codeSystem", coding.getSystem());
+			fhirHelper.mutuallyExclusive("codeSystem", codeSystem, "coding|codeSystem", coding.getSystem());
+			codeSystem = new StringType (coding.getSystem());
+		} 
+		
+		fhirHelper.notSupported("date", date);
+		fhirHelper.notSupported("abstract", abstractBool);
+		fhirHelper.notSupported("context", abstractBool);
+		fhirHelper.notSupported("codeableConcept", abstractBool);
+	}
+
 	
 	private ValueSet expand(@IdParam IdType id,
 			HttpServletRequest request,
@@ -284,7 +416,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (url.endsWith("?fhir_vs=refset")) {
 			return findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
 		} else {
-			String ecl = determineEcl(url);
+			String ecl = determineEcl(url, true);
 			Page<ConceptMini> conceptMiniPage = eclSearch(ecl, active, filter, designations, branchPath, offset, pageSize);
 			logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
 			return conceptMiniPage;
@@ -427,8 +559,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	 * @return
 	 * @throws FHIROperationException 
 	 */
-	private String determineEcl(String url) throws FHIROperationException {
-		String ecl;
+	private String determineEcl(String url, boolean validate) throws FHIROperationException {
+		String ecl = null;
 		if (url.endsWith("?fhir_vs")) {
 			// Return all of SNOMED CT in this situation
 			ecl = "*";
@@ -440,7 +572,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			ecl = "^" + sctId;
 		} else if (url.contains(IMPLICIT_ECL)) {
 			ecl = url.substring(url.indexOf(IMPLICIT_ECL) + IMPLICIT_ECL.length());
-		} else {
+		} else if (validate) {
 			throw new FHIROperationException(IssueType.VALUE, "url is expected to include parameter with value: 'fhir_vs=ecl/'");
 		}
 		return ecl;
