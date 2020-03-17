@@ -22,6 +22,8 @@ http://localhost:8080/fhir/metadata
 ### Terminology Capabilities
 http://localhost:8080/fhir/metadata?mode=terminology
 
+## Code System
+
 ### Code System Lookups
 
 #### Code System Lookup of Clinical Finding
@@ -42,6 +44,13 @@ curl -i -H 'Accept-Language: sv' 'http://localhost:8080/fhir/CodeSystem/$lookup?
 #### Code System validate-code
 http://localhost:8080/fhir/CodeSystem/$validate-code?coding=http://snomed.info/sct|404684003
 
+### Code System Subsumes
+
+#### Check if 195967001 |Asthma (disorder)| is a type of 50043002 |Disorder of respiratory system (disorder)|
+http://localhost:8080/fhir/CodeSystem/$subsumes?codingA=http://snomed.info/sct/900000000000207008|50043002&codingB=http://snomed.info/sct/900000000000207008|195967001
+
+#### Alternatively specify the system and (optionally) version separately using code rather than coding
+http://localhost:8080/fhir/CodeSystem/$subsumes?codeA=50043002&codeB=195967001&system=http://snomed.info/sct/900000000000207008&version=20190731
 
 ## ValueSet search, create, replace, update and delete
 

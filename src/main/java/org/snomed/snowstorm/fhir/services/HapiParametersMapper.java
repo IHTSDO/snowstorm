@@ -33,6 +33,12 @@ public class HapiParametersMapper implements FHIRConstants {
 		return parameters;
 	}
 	
+	public Parameters singleOutValue(String key, String value) {
+		Parameters parameters = getStandardParameters();
+		parameters.addParameter(key, value);
+		return parameters;
+	}
+	
 	private void validateTerm(Concept c, String display, Parameters parameters) {
 		//Did we get it right first time?
 		if (c.getPt().getTerm().toLowerCase().equals(display)) {

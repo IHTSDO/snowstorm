@@ -5,6 +5,7 @@ import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
 import org.snomed.snowstorm.fhir.services.FHIROperationException;
 
@@ -170,7 +171,8 @@ public class ValueSetFilter {
 		this.version = version;
 		return this;
 	}
-	public static boolean apply(ValueSetFilter filter, ValueSet vs, FHIRHelper fhirHelper) {
+	public static boolean apply(ValueSetFilter filter, ValueSet vs, 
+			QueryService queryService, FHIRHelper fhirHelper) {
 		try {
 			//Note code will be the last filter to apply because expansion is expensive
 			if (filter.getName() != null && 
@@ -200,7 +202,7 @@ public class ValueSetFilter {
 			}
 			
 			
-			if (filter.getCode() != null && !fhirHelper.expansionContainsCode(vs, filter.getCode())) {
+			if (filter.getCode() != null && !fhirHelper.expansionContainsCode(queryService, vs, filter.getCode())) {
 				return false;
 			}
 		} catch (FHIROperationException e) {

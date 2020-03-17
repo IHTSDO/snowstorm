@@ -30,7 +30,7 @@ public class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 		assertEquals("true", result);
 		
 		//Known not present
-		url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?system=http://snomed.info/sct&code=12345";
+		url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?system=http://snomed.info/sct&code=1234501";
 		p = get(url);
 		result = toString(getProperty(p, "result"));
 		assertEquals("false", result);

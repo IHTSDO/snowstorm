@@ -20,6 +20,7 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
@@ -27,7 +28,10 @@ import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
+
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
 
@@ -209,11 +213,11 @@ public class FHIRHelper implements FHIRConstants {
 		return null;
 	}
 
-	public boolean expansionContainsCode(ValueSet vs, String code) throws FHIROperationException {
+	public boolean expansionContainsCode(QueryService queryService, ValueSet vs, String code) throws FHIROperationException {
 		String vsEcl = vsService.covertComposeToEcl(vs.getCompose());
 		String filteredEcl = code + " AND (" + vsEcl + ")";
 		BranchPath branchPath = getBranchPathFromURI(null);
-		Page<ConceptMini> concepts = vsService.eclSearch(filteredEcl, true, null, null, branchPath, 0, NOT_SET);
+		Page<ConceptMini> concepts = eclSearch(queryService, filteredEcl, true, null, null, branchPath, 0, NOT_SET);
 		return concepts.getSize() > 0;
 	}
 
@@ -226,16 +230,22 @@ public class FHIRHelper implements FHIRConstants {
 			throw new FHIROperationException(IssueType.INVARIANT, "Use one of '" + param1Name + "' or '" + param2Name + "' parameters");
 		}
 	}
+	
+	public void mutuallyRequired(String param1Name, Object param1, String param2Name, Object param2) throws FHIROperationException {
+		if (param1 != null && param2 == null) {
+			throw new FHIROperationException(IssueType.INVARIANT, "Input parameter '" + param1Name + "' can only be used in conjunction with parameter '" + param2Name);
+		}
+	}
 
 	public void mutuallyRequired(String param1Name, Object param1, String param2Name, Object param2, String param3Name, Object param3) throws FHIROperationException {
 		if (param1 != null && param2 == null && param3 == null) {
-			throw new FHIROperationException(IssueType.INVARIANT, "Use of '" + param1Name + "' only allowed if '" + param2Name + "' or '" + param3Name + "' is also present");
+			throw new FHIROperationException(IssueType.INVARIANT, "Use of input parameter '" + param1Name + "' only allowed if '" + param2Name + "' or '" + param3Name + "' is also present");
 		}
 	}
 
 	public void notSupported(String paramName, Object obj) throws FHIROperationException {
 		if (obj != null) {
-			throw new FHIROperationException(IssueType.NOTSUPPORTED, "'" + paramName + "' parameter is not currently supported.");
+			throw new FHIROperationException(IssueType.NOTSUPPORTED, "Input parameter '" + paramName + "' is not currently supported.");
 		}
 	}
 
@@ -264,5 +274,32 @@ public class FHIRHelper implements FHIRConstants {
 			throw new FHIROperationException(IssueType.CODEINVALID, conceptId + " is not even a SNOMED CT code.");
 		}
 		return conceptId;
+	}
+	
+	public StringType enhanceCodeSystem (StringType codeSystem, StringType version) throws FHIROperationException {
+		if (version != null) {
+			if (codeSystem == null) {
+				codeSystem = new StringType(SNOMED_URI_DEFAULT_MODULE + "/version/" + version.toString());
+			} else {
+				if (codeSystem.toString().contains("/version/")) {
+					throw new FHIROperationException(IssueType.CONFLICT, "CodeSystem version supplied in both (code)System and version parameters.  Use one or the other");
+				}
+				append(codeSystem, "/version/" + version.toString());
+			}
+		}
+		return codeSystem;
+	}
+	
+	public Page<ConceptMini> eclSearch(QueryService queryService, String ecl, Boolean active, String termFilter, List<LanguageDialect> languageDialects, BranchPath branchPath, int offset, int pageSize) {
+		Page<ConceptMini> conceptMiniPage;
+		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
+		queryBuilder.ecl(ecl)
+				.descriptionCriteria(descriptionCriteria -> descriptionCriteria
+						.term(termFilter)
+						.searchLanguageCodes(LanguageDialect.toLanguageCodes(languageDialects)))
+				.resultLanguageDialects(languageDialects)
+				.activeFilter(active);
+		conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath.toString()), PageRequest.of(offset, pageSize));
+		return conceptMiniPage;
 	}
 }

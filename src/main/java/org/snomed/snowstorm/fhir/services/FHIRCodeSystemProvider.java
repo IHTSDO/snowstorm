@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.fhir.services;
 
+import ca.uhn.fhir.rest.annotation.IdParam;
 import ca.uhn.fhir.rest.annotation.Operation;
 import ca.uhn.fhir.rest.annotation.OperationParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
@@ -8,6 +9,7 @@ import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -26,6 +28,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.*;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Component
 public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants {
@@ -44,6 +47,13 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	@Autowired
 	private MultiSearchService multiSearchService;
+	
+	List<LanguageDialect> defaultLanguages;
+	
+	FHIRCodeSystemProvider() {
+		defaultLanguages = new ArrayList<>();
+		defaultLanguages.addAll(DEFAULT_LANGUAGE_DIALECTS);
+	}
 
 	@Operation(name="$lookup", idempotent=true)
 	public Parameters lookup(
@@ -122,6 +132,75 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		} else {
 			return mapper.mapToFHIR(fullConcept, display);
 		}
+	}
+	
+	@Operation(name="$subsumes", idempotent=true)
+	public Parameters subsumesInstance(
+			@IdParam IdType id,
+			HttpServletRequest request,
+			HttpServletResponse response,
+			@OperationParam(name="codeA") CodeType codeA,
+			@OperationParam(name="codeB") CodeType codeB,
+			@OperationParam(name="systen") StringType system,
+			@OperationParam(name="version") StringType version,
+			@OperationParam(name="codingA") Coding codingA,
+			@OperationParam(name="codingB") Coding codingB)
+			throws FHIROperationException {
+		
+		//doSubsumptionParameterValidation(codeA, codeB, system, version, codingA, codingB);
+		system = fhirHelper.enhanceCodeSystem(system, version);
+		throw new FHIROperationException(IssueType.NOTSUPPORTED, "Subsumption testing on codeSystem instances not yet supported.  Specify codeSystem in parameters instead");
+	}
+	
+	private void doSubsumptionParameterValidation(CodeType codeA, CodeType codeB, StringType system, StringType version,
+			Coding codingA, Coding codingB) throws FHIROperationException {
+		fhirHelper.mutuallyExclusive("codeA", codeA, "codingA", codingA);
+		fhirHelper.mutuallyExclusive("codeB", codeB, "codingB", codingB);
+		fhirHelper.mutuallyExclusive("codingA", codingA, "system", system);
+		fhirHelper.mutuallyExclusive("codingA", codingA, "version", version);
+		fhirHelper.mutuallyRequired("codeA", codeA, "codeB", codeB);
+		fhirHelper.mutuallyRequired("codingA", codingA, "codingB", codingB);
+		fhirHelper.mutuallyRequired("system", system, "codeA", codeA);
+		fhirHelper.mutuallyRequired("version", version, "codeA", codeA);
+	}
+
+	@Operation(name="$subsumes", idempotent=true)
+	public Parameters subsumes(
+			HttpServletRequest request,
+			HttpServletResponse response,
+			@OperationParam(name="codeA") CodeType codeA,
+			@OperationParam(name="codeB") CodeType codeB,
+			@OperationParam(name="systen") StringType system,
+			@OperationParam(name="version") StringType version,
+			@OperationParam(name="codingA") Coding codingA,
+			@OperationParam(name="codingB") Coding codingB)
+			throws FHIROperationException {
+		
+		doSubsumptionParameterValidation(codeA, codeB, system, version, codingA, codingB);
+		system = fhirHelper.enhanceCodeSystem(system, version);
+		String conceptAId = fhirHelper.recoverConceptId(codeA, codingA);
+		String conceptBId = fhirHelper.recoverConceptId(codeB, codingB);
+		if (conceptAId.equals(conceptBId)) {
+			return mapper.singleOutValue("outcome", "equivalent");
+		}
+		//Test for A subsumes B, then B subsumes A
+		String eclAsubsumesB = conceptAId + " AND > " + conceptBId;
+		String eclBsubsumesA = conceptBId + " AND > " + conceptAId;
+		BranchPath branchPath = fhirHelper.getBranchPathFromURI(system);
+		if (matchesConcept(eclAsubsumesB, branchPath)) {
+			return mapper.singleOutValue("outcome", "subsumes");
+		} else if (matchesConcept(eclBsubsumesA, branchPath)) {
+			return mapper.singleOutValue("outcome", "subsumed-by");
+		} 
+		return mapper.singleOutValue("outcome", "not-subsumed");
+	}
+
+
+	private boolean matchesConcept(String ecl, BranchPath branchPath) {
+		//We don't care about language, use defaults
+		Page<ConceptMini> result = fhirHelper.eclSearch(queryService, ecl, (Boolean)null, 
+				(String)null, defaultLanguages, branchPath, 0, 1);
+		return (result != null && result.hasContent() && result.getContent().size() == 1);
 	}
 
 	@Override
