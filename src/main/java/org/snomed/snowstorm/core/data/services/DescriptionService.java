@@ -397,37 +397,35 @@ public class DescriptionService extends ComponentService {
 			// Join Members
 			try (final CloseableIterator<ReferenceSetMember> members = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
 				members.forEachRemaining(member -> {
-					if (member.isActive()) {
-						String referencedComponentId = member.getReferencedComponentId();
-						switch (member.getRefsetId()) {
-							case Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET:
-								conceptIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
-								break;
-							case Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET:
-								descriptionIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
-								break;
-							default:
-								if (IdentifierService.isConceptId(referencedComponentId)) {
-									Concept concept = conceptIdMap.get(referencedComponentId);
-									if (concept != null) {
-										concept.addAssociationTargetMember(member);
-									} else {
-										logger.warn("Association ReferenceSetMember {} references concept {} " +
-												"which is not in scope.", member.getId(), referencedComponentId);
-									}
-								} else if (IdentifierService.isDescriptionId(referencedComponentId)) {
-									Description description = descriptionIdMap.get(referencedComponentId);
-									if (description != null) {
-										description.addAssociationTargetMember(member);
-									} else {
-										logger.warn("Association ReferenceSetMember {} references description {} " +
-												"which is not in scope.", member.getId(), referencedComponentId);
-									}
+					String referencedComponentId = member.getReferencedComponentId();
+					switch (member.getRefsetId()) {
+						case Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET:
+							conceptIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
+							break;
+						case Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET:
+							descriptionIdMap.get(referencedComponentId).addInactivationIndicatorMember(member);
+							break;
+						default:
+							if (IdentifierService.isConceptId(referencedComponentId)) {
+								Concept concept = conceptIdMap.get(referencedComponentId);
+								if (concept != null) {
+									concept.addAssociationTargetMember(member);
 								} else {
-									logger.error("Association ReferenceSetMember {} references unexpected component type {}", member.getId(), referencedComponentId);
+									logger.warn("Association ReferenceSetMember {} references concept {} " +
+											"which is not in scope.", member.getId(), referencedComponentId);
 								}
-								break;
-						}
+							} else if (IdentifierService.isDescriptionId(referencedComponentId)) {
+								Description description = descriptionIdMap.get(referencedComponentId);
+								if (description != null) {
+									description.addAssociationTargetMember(member);
+								} else {
+									logger.warn("Association ReferenceSetMember {} references description {} " +
+											"which is not in scope.", member.getId(), referencedComponentId);
+								}
+							} else {
+								logger.error("Association ReferenceSetMember {} references unexpected component type {}", member.getId(), referencedComponentId);
+							}
+							break;
 					}
 				});
 			}
