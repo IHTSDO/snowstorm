@@ -16,10 +16,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.rest.View;
@@ -996,6 +996,56 @@ public class ConceptServiceTest extends AbstractTest {
 		assertEquals(2, conceptService.find(conceptId, en, new BranchTimepoint("MAIN/A", "^")).getDescriptions().size());
 		assertEquals("[Heart, Another MAIN]", conceptService.find(conceptId, en, new BranchTimepoint("MAIN/A", "^")).getDescriptions().stream()
 				.sorted(Comparator.comparing(Description::getTermLen)).map(Description::getTerm).collect(Collectors.toList()).toString());
+	}
+
+	@Test
+	public void testUpdateDescriptionInactivationIndicatorRefsetsWithNoChanges() throws ServiceException {
+		String conceptId = "148176006";
+		String descriptionId = "231971010";
+
+		// Concept on MAIN with 1 inactive description
+		final Concept concept = new Concept(conceptId);
+		Description inactiveDescription = new Description(descriptionId,"Menopause: LH, FSH checked");
+		inactiveDescription.setActive(false);
+
+		ReferenceSetMember conceptNonCurrentIndicatorRefset = new ReferenceSetMember();
+		conceptNonCurrentIndicatorRefset.setMemberId("9138e35b-6fed-5c76-a75e-ea7c3061b41e");
+		conceptNonCurrentIndicatorRefset.setAdditionalField("valueId", "900000000000495008");
+		conceptNonCurrentIndicatorRefset.setActive(false);
+		conceptNonCurrentIndicatorRefset.setReleased(true);
+		conceptNonCurrentIndicatorRefset.setModuleId("900000000000207008");
+		conceptNonCurrentIndicatorRefset.setRefsetId("900000000000490003");
+		conceptNonCurrentIndicatorRefset.setReferencedComponentId("231971010");
+		conceptNonCurrentIndicatorRefset.setReleasedEffectiveTime(20150731);
+		conceptNonCurrentIndicatorRefset.release(20150731);
+
+		ReferenceSetMember erroneousIndicatorRefset = new ReferenceSetMember();
+		erroneousIndicatorRefset.setMemberId("9badf4d9-a88e-4118-9883-89ff6219dfe3");
+		erroneousIndicatorRefset.setAdditionalField("valueId", "900000000000485001");
+		erroneousIndicatorRefset.setActive(true);
+		erroneousIndicatorRefset.setReleased(true);
+		erroneousIndicatorRefset.setModuleId("900000000000207008");
+		erroneousIndicatorRefset.setRefsetId("900000000000490003");
+		erroneousIndicatorRefset.setReferencedComponentId("231971010");
+		erroneousIndicatorRefset.setReleasedEffectiveTime(20150731);
+		erroneousIndicatorRefset.release(20150731);
+
+		conceptService.create(concept.addDescription(inactiveDescription), "MAIN");
+
+		// Add 2 Description inactivation indicator member reference sets with 1 active and 1 inactive
+		referenceSetMemberService.createMember("MAIN", conceptNonCurrentIndicatorRefset);
+		referenceSetMemberService.createMember("MAIN", erroneousIndicatorRefset);
+
+
+		List<ReferenceSetMember> inactivationIndicatorMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent();
+		Assert.assertEquals(2, inactivationIndicatorMembers.size());
+		Concept actualConcept = conceptService.find(conceptId, DEFAULT_LANGUAGE_DIALECTS, new BranchTimepoint("MAIN"));
+
+		assertEquals(1, actualConcept.getDescriptions().size());
+		assertEquals(2,actualConcept.getDescriptions().iterator().next().getInactivationIndicatorMembers().size());
+
+		PersistedComponents persistedComponents = conceptService.createUpdate(Arrays.asList(actualConcept), "MAIN");
+		assertEquals(2, persistedComponents.getPersistedDescriptions().iterator().next().getInactivationIndicatorMembers().size());
 	}
 
 	private void printAllDescriptions(String path) throws TooCostlyException {
