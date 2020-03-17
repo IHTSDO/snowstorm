@@ -81,6 +81,8 @@ public class BranchMergeService {
 	@Autowired
 	private BranchRepository branchRepository;
 
+	private BranchReviewService branchReviewService;
+
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
 	private static final String USE_MERGE_REVIEW = "The target branch is diverged, please use the merge review endpoint instead.";
 	private static final Logger logger = LoggerFactory.getLogger(BranchMergeService.class);
@@ -94,7 +96,7 @@ public class BranchMergeService {
 					"Please use the code system upgrade operation for this.");
 		}
 
-		MergeReview mergeReview = null;
+		MergeReview mergeReview;
 		if (mergeRequest.getReviewId() != null) {
 			mergeReview = checkMergeReviewCurrent(mergeRequest.getReviewId());
 
@@ -103,6 +105,8 @@ public class BranchMergeService {
 				throw new IllegalArgumentException("The source and target branches of the specified merge review do not match the " +
 						"source and target branches of this merge.");
 			}
+		} else {
+			mergeReview = null;
 		}
 
 		final Branch targetBranch = branchService.findBranchOrThrow(target);
@@ -117,7 +121,11 @@ public class BranchMergeService {
 		branchMergeJobRepository.save(mergeJob);
 		executorService.submit(() -> {
 			try {
-				mergeBranchSync(source, target, null);
+				if (mergeReview != null) {
+					branchReviewService.applyMergeReview(mergeReview.getId());
+				} else {
+					mergeBranchSync(source, target, null);
+				}
 				mergeJob.setStatus(JobStatus.COMPLETED);
 				mergeJob.setEndDate(new Date());
 				branchMergeJobRepository.save(mergeJob);
@@ -483,4 +491,9 @@ public class BranchMergeService {
 		}
 		return mergeReview;
 	}
+
+	public void setBranchReviewService(BranchReviewService branchReviewService) {
+		this.branchReviewService = branchReviewService;
+	}
+
 }

@@ -29,6 +29,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -75,6 +76,11 @@ public class BranchReviewService {
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	@PostConstruct
+	public void init() {
+		branchMergeService.setBranchReviewService(this);
+	}
 
 	public MergeReview createMergeReview(String source, String target) {
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
