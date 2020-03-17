@@ -120,7 +120,7 @@ public class BranchReviewService {
 		return mergeReview;
 	}
 
-	private MergeReview getMergeReviewOrThrow(String id) {
+	public MergeReview getMergeReviewOrThrow(String id) {
 		final MergeReview mergeReview = getMergeReview(id);
 		if (mergeReview == null) {
 			throw new IllegalArgumentException("Merge review " + id + " does not exist.");
