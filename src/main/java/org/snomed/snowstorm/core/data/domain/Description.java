@@ -275,7 +275,15 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	@JsonIgnore
 	public ReferenceSetMember getInactivationIndicatorMember() {
-		return !inactivationIndicatorMembers.isEmpty() ? inactivationIndicatorMembers.iterator().next() : null;
+		Set<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
+		if (inactivationIndicatorMembers != null) {
+			for (ReferenceSetMember inactivationIndicatorMember : inactivationIndicatorMembers) {
+				if (inactivationIndicatorMember.isActive()) {
+					return inactivationIndicatorMember;
+				}
+			}
+		}
+		return null;
 	}
 
 	/*
