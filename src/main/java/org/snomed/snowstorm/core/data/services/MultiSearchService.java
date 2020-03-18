@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -15,13 +16,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 
 @Service
 /*
@@ -45,8 +47,9 @@ public class MultiSearchService {
 	private ElasticsearchTemplate elasticsearchTemplate;
 
 	public Page<Description> findDescriptions(DescriptionCriteria criteria, PageRequest pageRequest) {
-		final BoolQueryBuilder descriptionQuery = boolQuery()
-				.must(getBranchesQuery());
+
+		final BoolQueryBuilder branchesQuery = getBranchesQuery();
+		final BoolQueryBuilder descriptionQuery = boolQuery().must(branchesQuery);
 
 		descriptionService.addTermClauses(criteria.getTerm(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQuery, criteria.getSearchMode());
 
@@ -60,16 +63,19 @@ public class MultiSearchService {
 			descriptionQuery.must(termQuery(Description.Fields.MODULE_ID, module));
 		}
 
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(descriptionQuery)
-				.withPageable(pageRequest)
-				.build();
+				.withPageable(pageRequest);
+		if (criteria.getConceptActive() != null) {
+			Set<Long> conceptsToFetch = getMatchedConcepts(criteria.getConceptActive(), branchesQuery, descriptionQuery);
+			queryBuilder.withFilter(boolQuery().must(termsQuery(Description.Fields.CONCEPT_ID, conceptsToFetch)));
+		}
+		NativeSearchQuery query = queryBuilder.build();
 		DescriptionService.addTermSort(query);
-
 		return elasticsearchTemplate.queryForPage(query, Description.class);
 	}
 
-	private QueryBuilder getBranchesQuery() {
+	private BoolQueryBuilder getBranchesQuery() {
 		Set<String> branchPaths = getAllPublishedVersionBranchPaths();
 
 		BoolQueryBuilder branchesQuery = boolQuery();
@@ -86,6 +92,36 @@ public class MultiSearchService {
 			branchesQuery.should(branchQuery);
 		}
 		return branchesQuery;
+	}
+
+	private Set<Long> getMatchedConcepts(Boolean conceptActiveFlag, BoolQueryBuilder branchesQuery, BoolQueryBuilder descriptionQuery) {
+		// return description and concept ids
+		Set<Long> conceptIdsMatched = new LongOpenHashSet();
+		try (final CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(descriptionQuery)
+				.withFields(Description.Fields.CONCEPT_ID)
+				.withPageable(ConceptService.LARGE_PAGE).build(), Description.class)) {
+			while (descriptions.hasNext()) {
+				conceptIdsMatched.add(new Long(descriptions.next().getConceptId()));
+			}
+		}
+		// filter description ids based on concept query results using active flag
+		Set<Long> result = new LongOpenHashSet();
+		if (!conceptIdsMatched.isEmpty()) {
+			try (final CloseableIterator<Concept> concepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchesQuery)
+							.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsMatched))
+					)
+					.withFilter(boolQuery().must(termQuery(Concept.Fields.ACTIVE, conceptActiveFlag)))
+					.withFields(Concept.Fields.CONCEPT_ID)
+					.withPageable(ConceptService.LARGE_PAGE).build(), Concept.class)) {
+				while (concepts.hasNext()) {
+					result.add(new Long(concepts.next().getConceptId()));
+				}
+			}
+		}
+		return result;
 	}
 
 	public Set<String> getAllPublishedVersionBranchPaths() {

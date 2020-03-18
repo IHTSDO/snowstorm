@@ -2,11 +2,19 @@ package org.snomed.snowstorm.mrcm;
 
 import static org.junit.Assert.*;
 
+import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.langauges.ecl.domain.refinement.Operator;
+import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.ServiceTestUtil;
 import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
@@ -17,22 +25,126 @@ import java.util.stream.Collectors;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class MRCMUpdateServiceTest {
+public class MRCMUpdateServiceTest extends AbstractTest {
+
 	@Autowired
 	private MRCMUpdateService mrcmUpdateService;
+
+	@Autowired
+	private BranchService branchService;
+
+	@Autowired
+	private ReferenceSetMemberService memberService;
+
+	@Autowired
+	private ConceptService conceptService;
+
 	private Map<String, List<AttributeDomain>> attributeToDomainsMap;
 	private Map<String, List<AttributeRange>> attributeToRangesMap;
 	private Map<String, String> conceptToPtMap;
+
+	private ServiceTestUtil testUtil;
 
 	@Before
 	public void setUp() {
 		attributeToDomainsMap = new HashMap<>();
 		attributeToRangesMap = new HashMap<>();
 		conceptToPtMap = new HashMap<>();
+		testUtil = new ServiceTestUtil(conceptService);
 	}
 
 	@Test
-	public void testAttributeRule() throws Exception{
+	public void testUpdatingMRCMRulesAndTemplates() throws Exception {
+
+		Branch branch = branchService.create("MAIN/MRCM");
+
+		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"255234002", "After");
+		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"272379006", "Event (event)");
+		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"404684003", "Clinical finding (finding)");
+
+		ReferenceSetMember eventDomain = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL,"272379006")
+				.setAdditionalField("domainConstraint", "<< 272379006 |Event (event)|")
+				.setAdditionalField("parentDomain", null)
+				.setAdditionalField("proximalPrimitiveConstraint", "<< 272379006 |Event (event)|")
+				.setAdditionalField("proximalPrimitiveRefinement", null)
+				.setAdditionalField("domainTemplateForPrecoordination", "")
+				.setAdditionalField("domainTemplateForPostcoordination", "")
+				.setAdditionalField("guideURL", "");
+
+		ReferenceSetMember clinicalFindingDomain = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL,"404684003")
+				.setAdditionalField("domainConstraint", "<< 404684003 |Clinical finding (finding)|")
+				.setAdditionalField("parentDomain", null)
+				.setAdditionalField("proximalPrimitiveConstraint", "<< 404684003 |Clinical finding (finding)|")
+				.setAdditionalField("proximalPrimitiveRefinement", null)
+				.setAdditionalField("domainTemplateForPrecoordination", "")
+				.setAdditionalField("domainTemplateForPostcoordination", "")
+				.setAdditionalField("guideURL", "");
+
+		ReferenceSetMember event = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL,"255234002")
+				.setAdditionalField("domainId", "272379006")
+				.setAdditionalField("grouped", "1")
+				.setAdditionalField("attributeCardinality", "0..*")
+				.setAdditionalField("attributeInGroupCardinality", "0..1")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005");
+
+		ReferenceSetMember clinicFinding = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL,"255234002")
+				.setAdditionalField("domainId", "404684003")
+				.setAdditionalField("grouped", "1")
+				.setAdditionalField("attributeCardinality", "0..*")
+				.setAdditionalField("attributeInGroupCardinality", "0..1")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005");
+
+		ReferenceSetMember range = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL,"255234002")
+				.setAdditionalField("rangeConstraint", "<< 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)| OR << 272379006 |Event (event)|")
+				.setAdditionalField("attributeRule", " ")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005");
+
+		Set<ReferenceSetMember> mrcmMembers = new HashSet<>();
+		mrcmMembers.add(eventDomain);
+		mrcmMembers.add(clinicalFindingDomain);
+		mrcmMembers.add(event);
+		mrcmMembers.add(clinicFinding);
+		mrcmMembers.add(range);
+		memberService.createMembers(branch.getPath(), mrcmMembers);
+
+		// verify attribute range
+		range = memberService.findMember(branch.getPath(), range.getMemberId());
+		assertNotNull(range);
+
+		assertEquals("<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|",
+				range.getAdditionalFields().get("rangeConstraint"));
+
+		String expected = "(<< 272379006 |Event (event)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })" +
+				" OR (<< 404684003 |Clinical finding (finding)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })";
+
+		assertEquals(expected, range.getAdditionalField("attributeRule"));
+
+		// verify domain templates
+		eventDomain = memberService.findMember(branch.getPath(), eventDomain.getMemberId());
+		assertNotNull(eventDomain);
+		assertEquals("[[+id(<< 272379006 |Event (event)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+id(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]}",
+				eventDomain.getAdditionalField("domainTemplateForPrecoordination"));
+		assertEquals("[[+scg(<< 272379006 |Event (event)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+scg(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]}",
+				eventDomain.getAdditionalField("domainTemplateForPostcoordination"));
+
+		clinicalFindingDomain = memberService.findMember(branch.getPath(), clinicalFindingDomain.getMemberId());
+		assertNotNull(clinicalFindingDomain);
+		assertEquals("[[+id(<< 404684003 |Clinical finding (finding)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+id(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]}",
+				clinicalFindingDomain.getAdditionalField("domainTemplateForPrecoordination"));
+		assertEquals("[[+scg(<< 404684003 |Clinical finding (finding)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+scg(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]}",
+				clinicalFindingDomain.getAdditionalField("domainTemplateForPostcoordination"));
+	}
+
+	@Test
+	public void testAttributeRuleAndConstaint() throws Exception{
 
 		AttributeDomain event= new AttributeDomain("358fdc09-ed75-43a0-b9ad-d926ed51162d", null,
 				true, "255234002", "272379006", true,
@@ -63,11 +175,13 @@ public class MRCMUpdateServiceTest {
 		List<AttributeRange> attributeRanges = mrcmUpdateService.generateAttributeRule(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap);
 		assertEquals(1, attributeRanges.size());
 		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
-		String published = "(<< 404684003 |Clinical finding (finding)| OR << 272379006 |Event (event)|): [0..*] { [0..*] 47429007 |Associated with| = (<< 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)| OR << 272379006 |Event (event)| OR << 410607006 |Organism (organism)| OR << 105590001 |Substance (substance)| OR << 260787004 |Physical object (physical object)| OR << 78621006 |Physical force (physical force)|) }";
-		assertEquals("(<< 272379006 |Event (event)|: [0..*] { [0..1] 255234002 |After| = (<< 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)| " +
-						"OR << 272379006 |Event (event)|) }) OR (<< 404684003 |Clinical finding (finding)|: [0..*] { [0..1] 255234002 |After| = (<< 404684003 |Clinical finding (finding)| " +
-						"OR << 71388002 |Procedure (procedure)| OR << 272379006 |Event (event)|) })",
-				attributeRanges.get(0).getAttributeRule());
+		String expected = "(<< 272379006 |Event (event)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })" +
+				" OR (<< 404684003 |Clinical finding (finding)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })";
+
+		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
+
+		assertEquals("<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|",
+				attributeRanges.get(0).getRangeConstraint());
 	}
 
 	@Test
@@ -145,7 +259,7 @@ public class MRCMUpdateServiceTest {
 	}
 
 	@Test
-	public void testPrecoodinationDomainTemplateWithParentDoamin() throws Exception {
+	public void testPrecoodinationDomainTemplateWithParentDomain() throws Exception {
 		Domain bodyStructure = new Domain("273f1341-03c9-44a1-9797-9b5106c07e8", "", true, "123037004",
 				new Constraint("<< 123037004 |Body structure (body structure)|", "123037004", Operator.descendantorselfof),
 				"",
@@ -251,11 +365,24 @@ public class MRCMUpdateServiceTest {
 
 	}
 
+
+	@Test
+	public void testSortExpressionConstraintByConceptId() {
+		String rangeConstraint = "<< 420158005 |Performer of method (person)|" +
+				" OR << 419358007 |Subject of record or other provider of history (person)|" +
+				" OR << 444018008 |Person with characteristic related to subject of record (person)|";
+		String expected = "<< 419358007 |Subject of record or other provider of history (person)|" +
+				" OR << 420158005 |Performer of method (person)|" +
+				" OR << 444018008 |Person with characteristic related to subject of record (person)|";
+		assertEquals(expected,
+				mrcmUpdateService.sortExpressionConstraintByConceptId(rangeConstraint, "1a9b01ce-6385-11ea-9b6e-3c15c2c6e32e"));
+	}
+
 	private void diff(String published, String actual) {
-		List<String> publsihedSorted = split(published);
+		List<String> publishedSorted = split(published);
 		List<String> actualSorted = split(actual);
-		assertEquals(publsihedSorted.size(), actualSorted.size());
-		for (String token : publsihedSorted) {
+		assertEquals(publishedSorted.size(), actualSorted.size());
+		for (String token : publishedSorted) {
 			if (!actualSorted.contains(token)) {
 				System.out.println("expected token " + token + " but not found");
 			}
@@ -274,4 +401,5 @@ public class MRCMUpdateServiceTest {
 		Collections.sort(result);
 		return result;
 	}
+
 }

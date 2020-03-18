@@ -12,7 +12,7 @@ import org.elasticsearch.index.query.QueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.domain.review.BranchReview;
+import org.snomed.snowstorm.core.data.domain.review.MergeReview;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
@@ -81,8 +81,10 @@ public class BranchMergeService {
 	@Autowired
 	private BranchRepository branchRepository;
 
+	private BranchReviewService branchReviewService;
+
 	private final ExecutorService executorService = Executors.newCachedThreadPool();
-	private static final String USE_BRANCH_REVIEW = "The target branch is diverged, please use the branch review endpoint instead.";
+	private static final String USE_MERGE_REVIEW = "The target branch is diverged, please use the merge review endpoint instead.";
 	private static final Logger logger = LoggerFactory.getLogger(BranchMergeService.class);
 
 	public BranchMergeJob mergeBranchAsync(MergeRequest mergeRequest) {
@@ -94,16 +96,23 @@ public class BranchMergeService {
 					"Please use the code system upgrade operation for this.");
 		}
 
-		BranchReview branchReview = null;
+		MergeReview mergeReview;
 		if (mergeRequest.getReviewId() != null) {
-			branchReview = checkBranchReview(mergeRequest, source, target);
+			mergeReview = checkMergeReviewCurrent(mergeRequest.getReviewId());
+
+			if (!mergeReview.getSourcePath().equals(source)
+					|| !mergeReview.getTargetPath().equals(target)) {
+				throw new IllegalArgumentException("The source and target branches of the specified merge review do not match the " +
+						"source and target branches of this merge.");
+			}
+		} else {
+			mergeReview = null;
 		}
 
-		// TODO: The current production authoring platform currently does not pass the review id through
-//		final Branch targetBranch = branchService.findBranchOrThrow(target);
-//		if (targetBranch.getState() == Branch.BranchState.DIVERGED && branchReview == null) {
-//			throw new IllegalArgumentException(USE_BRANCH_REVIEW);
-//		}
+		final Branch targetBranch = branchService.findBranchOrThrow(target);
+		if (targetBranch.getState() == Branch.BranchState.DIVERGED && mergeReview == null) {
+			throw new IllegalArgumentException(USE_MERGE_REVIEW);
+		}
 
 		BranchMergeJob mergeJob = new BranchMergeJob(source, target, JobStatus.SCHEDULED);
 		branchMergeJobRepository.save(mergeJob);
@@ -112,7 +121,11 @@ public class BranchMergeService {
 		branchMergeJobRepository.save(mergeJob);
 		executorService.submit(() -> {
 			try {
-				mergeBranchSync(source, target, null);
+				if (mergeReview != null) {
+					branchReviewService.applyMergeReview(mergeReview.getId());
+				} else {
+					mergeBranchSync(source, target, null);
+				}
 				mergeJob.setStatus(JobStatus.COMPLETED);
 				mergeJob.setEndDate(new Date());
 				branchMergeJobRepository.save(mergeJob);
@@ -136,10 +149,6 @@ public class BranchMergeService {
 		return branchMergeJobRepository.findById(id).orElseThrow(() -> new NotFoundException("Branch merge job not found."));
 	}
 
-	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts) throws ServiceException {
-		mergeBranchSync(source, target, manuallyMergedConcepts, false);
-	}
-
 	/**
 	 * Merge content from one branch to another without one being a parent of the other.
 	 * This should probably only be used for code system upgrades/downgrades.
@@ -160,7 +169,7 @@ public class BranchMergeService {
 		}
 	}
 
-	void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts, boolean permissive) throws ServiceException {
+	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts) throws ServiceException {
 		logger.info("Request merge {} -> {}", source, target);
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
 		final Branch targetBranch = branchService.findBranchOrThrow(target);
@@ -174,17 +183,17 @@ public class BranchMergeService {
 		final boolean rebase = sourceBranch.isParent(targetBranch);
 		if (rebase) {
 			// Rebase
-			if (sourceBranch.getHeadTimestamp() == targetBranch.getBaseTimestamp() && !permissive) {
+			if (sourceBranch.getHeadTimestamp() == targetBranch.getBaseTimestamp()) {
 				throw new IllegalStateException("This rebase is not meaningful, the child branch already has the parent's changes.");
-			} else if (targetBranch.getState() == Branch.BranchState.DIVERGED && manuallyMergedConcepts == null && !permissive) {
-//				throw new IllegalArgumentException(USE_BRANCH_REVIEW); // TODO: The current production authoring platform currently does not pass the review id through
+			} else if (targetBranch.getState() == Branch.BranchState.DIVERGED && manuallyMergedConcepts == null) {
+				throw new IllegalArgumentException(USE_MERGE_REVIEW);
 			}
 		} else {
 			// Promotion
-			if (!sourceBranch.isContainsContent() && !permissive) {
+			if (!sourceBranch.isContainsContent()) {
 				throw new IllegalStateException("This promotion is not meaningful, the child branch does not have any unpromoted changes.");
 			}
-			if (sourceBranch.getBaseTimestamp() != targetBranch.getHeadTimestamp() && !permissive) {
+			if (sourceBranch.getBaseTimestamp() != targetBranch.getHeadTimestamp()) {
 				throw new IllegalStateException("Child branch must be rebased before promoted.");
 			}
 		}
@@ -475,16 +484,16 @@ public class BranchMergeService {
 		}
 	}
 
-	private BranchReview checkBranchReview(MergeRequest mergeRequest, String sourceBranchPath, String targetBranchPath) {
-		BranchReview branchReview = reviewService.getBranchReviewOrThrow(mergeRequest.getReviewId());
-		if (!branchReview.getSource().getPath().equals(sourceBranchPath)
-				|| !branchReview.getTarget().getPath().equals(targetBranchPath)) {
-			throw new IllegalArgumentException("The source and target branches of the specified branch review do not match the " +
-					"source and target branches of this merge.");
+	private MergeReview checkMergeReviewCurrent(String mergeReviewId) {
+		MergeReview mergeReview = reviewService.getMergeReviewOrThrow(mergeReviewId);
+		if (mergeReview.getStatus() != ReviewStatus.CURRENT) {
+			throw new IllegalStateException("Merge review is not in CURRENT status.");
 		}
-		if (!branchReview.getStatus().equals(ReviewStatus.CURRENT)) {
-			throw new IllegalStateException("The specified branch review is not in CURRENT status.");
-		}
-		return branchReview;
+		return mergeReview;
 	}
+
+	public void setBranchReviewService(BranchReviewService branchReviewService) {
+		this.branchReviewService = branchReviewService;
+	}
+
 }

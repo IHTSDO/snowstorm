@@ -34,6 +34,8 @@ public class AttributeRange {
 		this.contentType = attributeRange.getContentType();
 	}
 
+	public void setRangeConstraint(String rangeConstraint) { this.rangeConstraint = rangeConstraint; }
+
 	public String getId() {
 		return id;
 	}

@@ -50,9 +50,9 @@ public class MRCMLoader {
 						member.getEffectiveTime(),
 						member.isActive(),
 						member.getReferencedComponentId(),
-						getConstraint(member.getAdditionalField("domainConstraint"), member.getMemberId()),
+						getConstraint(member, "domainConstraint"),
 						member.getAdditionalField("parentDomain"),
-						getConstraint(member.getAdditionalField("proximalPrimitiveConstraint"), member.getMemberId()),
+						getConstraint(member, "proximalPrimitiveConstraint"),
 						member.getAdditionalField("proximalPrimitiveRefinement"),
 						member.getAdditionalField("domainTemplateForPrecoordination"),
 						member.getAdditionalField("domainTemplateForPostcoordination")
@@ -110,7 +110,12 @@ public class MRCMLoader {
 		return new MRCM(domains, attributeDomains, attributeRanges);
 	}
 
-	private Constraint getConstraint(String constraint, String memberId) {
+	private Constraint getConstraint(ReferenceSetMember mrcmMember, String fieldName) {
+		String constraint = mrcmMember.getAdditionalField(fieldName);
+		if (constraint == null || constraint.isEmpty()) {
+			logger.warn("No constraint found for '{}' in member {}.", fieldName, mrcmMember.getMemberId());
+			return null;
+		}
 		ExpressionConstraint ecl = eclQueryBuilder.createQuery(constraint);
 		if (ecl instanceof SubExpressionConstraint) {
 			SubExpressionConstraint sub = (SubExpressionConstraint) ecl;
@@ -120,7 +125,7 @@ public class MRCMLoader {
 			SubExpressionConstraint sub = refined.getSubexpressionConstraint();
 			return new Constraint(constraint, sub.getConceptId(), sub.getOperator());
 		} else {
-			logger.error("Unable to process MRCM constraint '{}' in member {}.", constraint, memberId);
+			logger.error("Unable to process MRCM constraint '{}' in member {}.", constraint, mrcmMember.getMemberId());
 		}
 		return null;
 	}

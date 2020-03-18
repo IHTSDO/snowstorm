@@ -48,7 +48,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 
 import javax.annotation.PostConstruct;
@@ -57,6 +56,8 @@ import java.io.*;
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -111,6 +112,9 @@ public class ClassificationService {
 	private Thread classificationStatusPollingThread;
 	private boolean shutdownRequested;
 
+	public static final int RESULT_PROCESSING_THREADS = 2;// Two threads is a good limit here. The processing is very Elasticsearch heavy while looking up inferred-not-stated values.
+	private final ExecutorService classificationProcessingExecutor = Executors.newFixedThreadPool(RESULT_PROCESSING_THREADS);
+
 	private static final int SECOND = 1000;
 
 	private static final PageRequest PAGE_FIRST_1K = PageRequest.of(0, 1000);
@@ -153,62 +157,81 @@ public class ClassificationService {
 		}
 
 		// Start thread to continuously fetch the status of remote classifications
-		// Copy the in-progress list to avoid long synchronized block
 		classificationStatusPollingThread = new Thread(() -> {
-			List<Classification> classificationsToCheck = new ArrayList<>();
 			try {
 				while (!shutdownRequested) {
 					try {
 						// Copy the in-progress list to avoid long synchronized block
+						List<Classification> classificationsToCheck;
 						synchronized (classificationsInProgress) {
-							classificationsToCheck.addAll(classificationsInProgress);
+							classificationsToCheck = new ArrayList<>(classificationsInProgress);
 						}
 						Date remoteClassificationCutoffTime = DateUtil.newDatePlus(Calendar.MINUTE, -abortRemoteClassificationAfterMinutes);
 						for (Classification classification : classificationsToCheck) {
 							ClassificationStatusResponse statusResponse = serviceClient.getStatus(classification.getId());
-							ClassificationStatus latestStatus = statusResponse.getStatus();
-							if (latestStatus == ClassificationStatus.FAILED) {
-								classification.setErrorMessage(statusResponse.getErrorMessage());
-								logger.warn("Remote classification failed with message:{}, developerMessage:{}",
-										statusResponse.getErrorMessage(), statusResponse.getDeveloperMessage());
+							ClassificationStatus newStatus = statusResponse.getStatus();
+							boolean timeout = false;
+
+							if (classification.getStatus() == newStatus) {
+								// No status change
+								// Check for timeout
+								if (classification.getCreationDate().before(remoteClassificationCutoffTime)) {
+									timeout = true;
+								} else {
+									// Nothing to do
+									continue;
+								}
 							}
-							else if (classification.getCreationDate().before(remoteClassificationCutoffTime)) {
-								latestStatus = ClassificationStatus.FAILED;
-								classification.setErrorMessage("Remote service taking too long.");
-							}
-							if (classification.getStatus() != latestStatus) {
 
-								Boolean inferredRelationshipChangesFound = null;
-								Boolean equivalentConceptsFound = null;
-								if (latestStatus == COMPLETED) {
-									try {
-										downloadRemoteResults(classification);
+							if (timeout || classification.getStatus() != newStatus) {
+								// Status change to process
 
-										inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(),
-												Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1), false, null).getTotalElements() > 0;
-
-										equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(),
-												Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1)).getTotalElements() > 0;
-
-									} catch (IOException | ElasticsearchException e) {
-										latestStatus = ClassificationStatus.FAILED;
-										String message = "Failed to capture remote classification results.";
-										classification.setErrorMessage(message);
-										logger.error(message, e);
+								// Stop polling if no longer needed
+								if (newStatus != ClassificationStatus.SCHEDULED && newStatus != ClassificationStatus.RUNNING) {
+									synchronized (classificationsInProgress) {
+										classificationsInProgress.remove(classification);
 									}
 								}
 
-								classification.setInferredRelationshipChangesFound(inferredRelationshipChangesFound);
-								classification.setEquivalentConceptsFound(equivalentConceptsFound);
-								classification.setStatus(latestStatus);
-								classification.setCompletionDate(new Date());
-								classificationRepository.save(classification);
-								logger.info("Classification {} {}.", classification.getId(), classification.getStatus());
-							}
-							if (latestStatus != ClassificationStatus.SCHEDULED && latestStatus != ClassificationStatus.RUNNING) {
-								synchronized (classificationsInProgress) {
-									classificationsInProgress.remove(classification);
+								if (newStatus == ClassificationStatus.FAILED) {
+									classification.setErrorMessage(statusResponse.getErrorMessage());
+									logger.warn("Remote classification failed with message:{}, developerMessage:{}",
+											statusResponse.getErrorMessage(), statusResponse.getDeveloperMessage());
+								} else if (timeout) {
+									newStatus = ClassificationStatus.FAILED;
+									classification.setErrorMessage("Remote service taking too long.");
 								}
+
+								final ClassificationStatus newStatusFinal = newStatus;
+								classificationProcessingExecutor.submit(() -> {
+
+									classification.setStatus(newStatusFinal);
+
+									if (newStatusFinal == COMPLETED) {
+										try {
+											downloadRemoteResults(classification);
+
+											Boolean inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(),
+													Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1), false, null).getTotalElements() > 0;
+
+											Boolean equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(),
+													Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1)).getTotalElements() > 0;
+
+											classification.setInferredRelationshipChangesFound(inferredRelationshipChangesFound);
+											classification.setEquivalentConceptsFound(equivalentConceptsFound);
+											classification.setCompletionDate(new Date());
+
+										} catch (IOException | ElasticsearchException e) {
+											classification.setStatus(ClassificationStatus.FAILED);
+											String message = "Failed to capture remote classification results.";
+											classification.setErrorMessage(message);
+											logger.error(message, e);
+										}
+									}
+
+									classificationRepository.save(classification);
+									logger.info("Classification {} {}.", classification.getId(), classification.getStatus());
+								});
 							}
 							if (shutdownRequested) {
 								break;
@@ -217,7 +240,7 @@ public class ClassificationService {
 						classificationsToCheck.clear();
 						Thread.sleep(SECOND);
 
-					} catch (HttpClientErrorException e) {
+					} catch (RestClientException e) {
 						int coolOffSeconds = 30;
 						logger.warn("Problem with classification-service communication. Trying again in {} seconds.", coolOffSeconds, e);
 						// Let's wait a while before trying again
@@ -226,6 +249,8 @@ public class ClassificationService {
 				}
 			} catch (InterruptedException e) {
 				logger.info("Classification status polling thread interrupted.");
+			} catch (Exception e) {
+				logger.error("Unexpected exception in classification status polling thread.", e);
 			} finally {
 				logger.info("Classification status polling thread stopped.");
 			}

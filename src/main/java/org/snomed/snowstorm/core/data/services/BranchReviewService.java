@@ -29,6 +29,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
+import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -76,6 +77,11 @@ public class BranchReviewService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
+	@PostConstruct
+	public void init() {
+		branchMergeService.setBranchReviewService(this);
+	}
+
 	public MergeReview createMergeReview(String source, String target) {
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
 		final Branch targetBranch = branchService.findBranchOrThrow(target);
@@ -87,6 +93,7 @@ public class BranchReviewService {
 		final MergeReview mergeReview = new MergeReview(UUID.randomUUID().toString(), source, target,
 				sourceToTarget.getId(), targetToSource.getId());
 		mergeReview.setStatus(ReviewStatus.PENDING);
+
 		executorService.submit(() -> {
 			try {
 				lookupBranchReviewConceptChanges(sourceToTarget);
@@ -119,7 +126,7 @@ public class BranchReviewService {
 		return mergeReview;
 	}
 
-	private MergeReview getMergeReviewOrThrow(String id) {
+	public MergeReview getMergeReviewOrThrow(String id) {
 		final MergeReview mergeReview = getMergeReview(id);
 		if (mergeReview == null) {
 			throw new IllegalArgumentException("Merge review " + id + " does not exist.");
@@ -261,7 +268,19 @@ public class BranchReviewService {
 	public BranchReview getCreateReview(String source, String target) {
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
 		final Branch targetBranch = branchService.findBranchOrThrow(target);
-		return getCreateReview(sourceBranch, targetBranch);
+		BranchReview review = getCreateReview(sourceBranch, targetBranch);
+
+		if (review.getStatus() == ReviewStatus.PENDING) {
+			executorService.submit(() -> {
+				try {
+					lookupBranchReviewConceptChanges(review);
+				} catch (Exception e) {
+					logger.error("Branch review failed.", e);
+				}
+			});
+		}
+
+		return review;
 	}
 
 	private BranchReview getCreateReview(Branch sourceBranch, Branch targetBranch) {
@@ -322,19 +341,19 @@ public class BranchReviewService {
 		// start = source lastPromotion or base
 
 		Date start;
-		if (branchReview.isSourceIsParent()) {
+		if (branchReview.isSourceParent()) {
 			start = target.getBase();
 		} else {
 			start = source.getLastPromotion();
 			if (start == null) {
-				start = source.getBase();
+				start = source.getCreation();
 			}
 		}
 
 		// Look for changes in the range starting a millisecond after
 		start.setTime(start.getTime() + 1);
 
-		Set<Long> changedConcepts = createConceptChangeReportOnBranchForTimeRange(source.getPath(), start, source.getHead(), branchReview.isSourceIsParent());
+		Set<Long> changedConcepts = createConceptChangeReportOnBranchForTimeRange(source.getPath(), start, source.getHead(), branchReview.isSourceParent());
 		branchReview.setStatus(ReviewStatus.CURRENT);
 		branchReview.setChangedConcepts(changedConcepts);
 		branchReviewRepository.save(branchReview);
@@ -342,7 +361,7 @@ public class BranchReviewService {
 
 	Set<Long> createConceptChangeReportOnBranchForTimeRange(String path, Date start, Date end, boolean sourceIsParent) {
 
-		logger.info("Creating change report: branch {} time range {} to {}", path, start, end);
+		logger.info("Creating change report: branch {} time range {} ({}) to {} ({})", path, start.getTime(), start, end.getTime(), end);
 
 		List<Branch> startTimeSlice;
 		List<Branch> endTimeSlice;

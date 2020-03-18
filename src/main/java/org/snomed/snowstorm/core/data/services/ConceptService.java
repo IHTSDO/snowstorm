@@ -211,6 +211,17 @@ public class ConceptService extends ComponentService {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
 		Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, pageRequest, false, false);
+		Map<String, Concept> conceptMap = new HashMap<>();
+		for (Concept concept : concepts.getContent()) {
+			String id = concept.getId();
+			Concept existingValue = conceptMap.put(id, concept);
+			if (existingValue != null) {
+				String error = String.format("Duplicate concept document found with id %s, A:%s:%s:%s B:%s:%s:%s.", id, concept.getPath(), concept.getStart().getTime(), concept.getStart(),
+						existingValue.getPath(), existingValue.getStart().getTime(), existingValue.getStart());
+				logger.error(error);
+				throw new IllegalStateException(error);
+			}
+		}
 		return new ResultMapPage<>(
 				concepts.getContent().stream().map(concept -> new ConceptMini(concept, languageDialects)).collect(Collectors.toMap(ConceptMini::getConceptId, Function.identity())),
 				concepts.getTotalElements());
@@ -321,7 +332,11 @@ public class ConceptService extends ComponentService {
 					.withPageable(LARGE_PAGE);
 			try (final CloseableIterator<Concept> conceptsForMini = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
 				conceptsForMini.forEachRemaining(concept ->
-						conceptMiniMap.get(concept.getConceptId()).setDefinitionStatusId(concept.getDefinitionStatusId()));
+				{
+					ConceptMini conceptMini = conceptMiniMap.get(concept.getConceptId());
+					conceptMini.setDefinitionStatusId(concept.getDefinitionStatusId());
+					conceptMini.setModuleId(concept.getModuleId());
+				});
 			}
 		}
 		timer.checkpoint("get relationship def status " + getFetchCount(conceptMiniMap.size()));
