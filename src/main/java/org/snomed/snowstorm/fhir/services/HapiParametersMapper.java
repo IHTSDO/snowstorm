@@ -65,8 +65,10 @@ public class HapiParametersMapper implements FHIRConstants {
 		return parameters;
 	}
 
-	public Parameters mapToFHIR(Concept concept, Collection<Long> childIds, Set<FhirSctProperty> properties) {
+	public Parameters mapToFHIR(StringType codeSystem, Concept concept, Collection<Long> childIds, Set<FhirSctProperty> properties) {
 		Parameters parameters = getStandardParameters();
+		parameters.addParameter("version", codeSystem.toString());
+		parameters.addParameter("display", concept.getPt().getTerm());
 		addProperties(parameters, concept, properties);
 		addDesignations(parameters, concept);
 		addParents(parameters, concept);

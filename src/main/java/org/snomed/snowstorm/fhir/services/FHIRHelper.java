@@ -225,6 +225,12 @@ public class FHIRHelper implements FHIRConstants {
 		str.setValueAsString(str.toString() + appendMe);
 	}
 	
+	public void requireOneOf(String param1Name, Object param1, String param2Name, Object param2) throws FHIROperationException {
+		if (param1 == null && param2 == null) {
+			throw new FHIROperationException(IssueType.INVARIANT, "One of '" + param1Name + "' or '" + param2Name + "' parameters must be supplied");
+		}
+	}
+	
 	public void mutuallyExclusive(String param1Name, Object param1, String param2Name, Object param2) throws FHIROperationException {
 		if (param1 != null && param2 != null) {
 			throw new FHIROperationException(IssueType.INVARIANT, "Use one of '" + param1Name + "' or '" + param2Name + "' parameters");
@@ -255,7 +261,7 @@ public class FHIRHelper implements FHIRConstants {
 			throw new FHIROperationException(IssueType.INVARIANT, "Use one of 'code' or 'coding' parameters");
 		} else if (code != null && coding == null) {
 			if (code.getCode().contains("|")) {
-				throw new FHIROperationException(IssueType.NOTSUPPORTED, "Please provide CodeSystem in codeSystem parameter");
+				throw new FHIROperationException(IssueType.NOTSUPPORTED, "'code' parameter cannot supply a codeSystem. Use 'coding' or provide CodeSystem in 'system' parameter");
 			}
 			conceptId = code.getCode();
 			if (!StringUtils.isNumeric(conceptId)) {
@@ -276,7 +282,7 @@ public class FHIRHelper implements FHIRConstants {
 		return conceptId;
 	}
 	
-	public StringType enhanceCodeSystem (StringType codeSystem, StringType version) throws FHIROperationException {
+	public StringType enhanceCodeSystem (StringType codeSystem, StringType version, Coding coding) throws FHIROperationException {
 		if (version != null) {
 			if (codeSystem == null) {
 				codeSystem = new StringType(SNOMED_URI_DEFAULT_MODULE + "/version/" + version.toString());
@@ -285,6 +291,15 @@ public class FHIRHelper implements FHIRConstants {
 					throw new FHIROperationException(IssueType.CONFLICT, "CodeSystem version supplied in both (code)System and version parameters.  Use one or the other");
 				}
 				append(codeSystem, "/version/" + version.toString());
+			}
+		}
+		
+		if (coding != null && coding.getSystem() != null) {
+			String codeSystemFromCoding = coding.getSystem();
+			if (codeSystem != null && !codeSystem.toString().equals(codeSystemFromCoding)) {
+				throw new FHIROperationException(IssueType.CONFLICT, "CodeSystem defined in (code)system paramter + version is not identical to that supplied in the coding parameter");
+			} else if (codeSystem == null) {
+				codeSystem = new StringType(codeSystemFromCoding);
 			}
 		}
 		return codeSystem;
