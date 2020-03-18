@@ -60,26 +60,25 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="code") CodeType code,
-			@OperationParam(name="system") UriType system,
-			@OperationParam(name="version") StringType codeSystemVersionUri,
+			@OperationParam(name="system") StringType system,
+			@OperationParam(name="version") StringType version,
 			@OperationParam(name="coding") Coding coding,
+			@OperationParam(name="date") StringType date,
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="property") List<CodeType> propertiesType ) throws FHIROperationException {
-
-		if (system == null || system.isEmpty() || !system.equals(SNOMED_URI)) {
-			String detail = "  Instead received: " + (system == null ? "null" : ("'" + system.asStringValue() + "'"));
-			throw new FHIROperationException(IssueType.VALUE, "'system' parameter must be present, and currently only '" + SNOMED_URI + "' is supported." + detail);
-		}
-
+		fhirHelper.mutuallyExclusive("code", code, "coding", coding);
+		fhirHelper.notSupported("date", date);
+		system = fhirHelper.enhanceCodeSystem(system, version, coding);
+		String conceptId = fhirHelper.recoverConceptId(code, coding);
 		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		fhirHelper.ensurePresent(displayLanguage, languageDialects);
 
-		BranchPath branchPath = fhirHelper.getBranchPathFromURI(codeSystemVersionUri);
-		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(code.getValue(), languageDialects, branchPath.toString()));
-		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + code.getValue()), branchPath.toString(), LARGE_PAGE);
+		BranchPath branchPath = fhirHelper.getBranchPathFromURI(system);
+		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, languageDialects, branchPath.toString()));
+		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + conceptId), branchPath.toString(), LARGE_PAGE);
 		Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
-		return mapper.mapToFHIR(concept, childIds.getContent(), properties);
+		return mapper.mapToFHIR(system, concept, childIds.getContent(), properties);
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
@@ -97,20 +96,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		fhirHelper.mutuallyExclusive("url", url, "codeSystem", codeSystem);
 		fhirHelper.mutuallyExclusive("code", code, "coding", coding);
 		fhirHelper.mutuallyRequired("display", display, "code", code, "coding", coding);
-		if (coding != null && coding.getSystem() != null) {
-			fhirHelper.mutuallyExclusive("version", version, "coding|codeSystem", coding.getSystem());
-			fhirHelper.mutuallyExclusive("codeSystem", codeSystem, "coding|codeSystem", coding.getSystem());
-			codeSystem = new StringType (coding.getSystem());
-		} 
-		
 		fhirHelper.notSupported("date", date);
-		if (version != null) {
-			if (codeSystem == null) {
-				codeSystem = new StringType(SNOMED_URI + "/version/" + version.toString());
-			} else {
-				fhirHelper.append(codeSystem, "/version/" + version.toString());
-			}
-		}
+		codeSystem = fhirHelper.enhanceCodeSystem(codeSystem, version, coding);
 		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
 		String conceptId = fhirHelper.recoverConceptId(code, coding);
 		ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(conceptId));
@@ -148,20 +135,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			throws FHIROperationException {
 		
 		//doSubsumptionParameterValidation(codeA, codeB, system, version, codingA, codingB);
-		system = fhirHelper.enhanceCodeSystem(system, version);
+		//system = fhirHelper.enhanceCodeSystem(system, version, codingA);
 		throw new FHIROperationException(IssueType.NOTSUPPORTED, "Subsumption testing on codeSystem instances not yet supported.  Specify codeSystem in parameters instead");
-	}
-	
-	private void doSubsumptionParameterValidation(CodeType codeA, CodeType codeB, StringType system, StringType version,
-			Coding codingA, Coding codingB) throws FHIROperationException {
-		fhirHelper.mutuallyExclusive("codeA", codeA, "codingA", codingA);
-		fhirHelper.mutuallyExclusive("codeB", codeB, "codingB", codingB);
-		fhirHelper.mutuallyExclusive("codingA", codingA, "system", system);
-		fhirHelper.mutuallyExclusive("codingA", codingA, "version", version);
-		fhirHelper.mutuallyRequired("codeA", codeA, "codeB", codeB);
-		fhirHelper.mutuallyRequired("codingA", codingA, "codingB", codingB);
-		fhirHelper.mutuallyRequired("system", system, "codeA", codeA);
-		fhirHelper.mutuallyRequired("version", version, "codeA", codeA);
 	}
 
 	@Operation(name="$subsumes", idempotent=true)
@@ -177,7 +152,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			throws FHIROperationException {
 		
 		doSubsumptionParameterValidation(codeA, codeB, system, version, codingA, codingB);
-		system = fhirHelper.enhanceCodeSystem(system, version);
+		Coding commonCoding = validateCodings(codingA, codingB);
+		system = fhirHelper.enhanceCodeSystem(system, version, commonCoding);
 		String conceptAId = fhirHelper.recoverConceptId(codeA, codingA);
 		String conceptBId = fhirHelper.recoverConceptId(codeB, codingB);
 		if (conceptAId.equals(conceptBId)) {
@@ -194,7 +170,32 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		} 
 		return mapper.singleOutValue("outcome", "not-subsumed");
 	}
+	
+	private void doSubsumptionParameterValidation(CodeType codeA, CodeType codeB, StringType system, StringType version,
+			Coding codingA, Coding codingB) throws FHIROperationException {
+		fhirHelper.mutuallyExclusive("codeA", codeA, "codingA", codingA);
+		fhirHelper.mutuallyExclusive("codeB", codeB, "codingB", codingB);
+		fhirHelper.mutuallyExclusive("codingA", codingA, "system", system);
+		fhirHelper.mutuallyExclusive("codingA", codingA, "version", version);
+		fhirHelper.mutuallyRequired("codeA", codeA, "codeB", codeB);
+		fhirHelper.mutuallyRequired("codingA", codingA, "codingB", codingB);
+		fhirHelper.mutuallyRequired("system", system, "codeA", codeA);
+		fhirHelper.mutuallyRequired("version", version, "codeA", codeA);
+	}
 
+	private Coding validateCodings(Coding codingA, Coding codingB) throws FHIROperationException {
+		//Return whatever coding has a system, but if they both have one, ensure it's the same
+		if (codingA == null && codingB == null ) {
+			return null;
+		} else if (codingA != null && codingB != null && codingB.getSystem() == null) {
+			return codingA;
+		} else if (codingB != null && codingA != null && codingA.getSystem() == null) {
+			return codingB;
+		} else if (codingA.getSystem().equals(codingB.getSystem())) {
+			throw new FHIROperationException(IssueType.CONFLICT, "CodeSystem defined in codingA must match that in codingB");
+		}
+		return null;
+	}
 
 	private boolean matchesConcept(String ecl, BranchPath branchPath) {
 		//We don't care about language, use defaults
