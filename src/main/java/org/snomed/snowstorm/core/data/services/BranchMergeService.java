@@ -109,9 +109,12 @@ public class BranchMergeService {
 			mergeReview = null;
 		}
 
-		final Branch targetBranch = branchService.findBranchOrThrow(target);
-		if (targetBranch.getState() == Branch.BranchState.DIVERGED && mergeReview == null) {
-			throw new IllegalArgumentException(USE_MERGE_REVIEW);
+		// Rebase
+		if (source.equals(PathUtil.getParentPath(target))) {
+			final Branch targetBranch = branchService.findBranchOrThrow(target);
+			if (targetBranch.getState() == Branch.BranchState.DIVERGED && mergeReview == null) {
+				throw new IllegalArgumentException(USE_MERGE_REVIEW);
+			}
 		}
 
 		BranchMergeJob mergeJob = new BranchMergeJob(source, target, JobStatus.SCHEDULED);
