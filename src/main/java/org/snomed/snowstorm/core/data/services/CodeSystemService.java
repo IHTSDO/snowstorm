@@ -338,12 +338,13 @@ public class CodeSystemService {
 		if (parentPath != null) {
 			CodeSystem parentCodeSystem = findByBranchPath(parentPath).orElse(null);
 			if (parentCodeSystem == null) {
-				throw new IllegalStateException("Parent branch should contain a Code System");
+				logger.error("Parent branch should contain a Code System {}", branchPath);
+				return;
 			}
 
 			List<CodeSystemVersion> allParentVersions = findAllVersions(parentCodeSystem.getShortName(), true);
 			if (allParentVersions.isEmpty()) {
-				logger.warn("Code System {} has a child Code System {} but does not have any versions.", parentCodeSystem, codeSystem);
+				logger.error("Code System {} has a child Code System {} but does not have any versions.", parentCodeSystem, codeSystem);
 				return;
 			}
 			Map<String, CodeSystemVersion> pathToVersionMap = allParentVersions.stream().collect(Collectors.toMap(CodeSystemVersion::getBranchPath, Function.identity()));
