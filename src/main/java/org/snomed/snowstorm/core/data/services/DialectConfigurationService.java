@@ -10,11 +10,17 @@ import java.util.*;
 
 public class DialectConfigurationService {
 	
+	private static DialectConfigurationService singleton;
+	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private Map<String, String> config = new HashMap<>();
 
 	private Map<String, DialectConfiguration> dialects;
+	
+	public static DialectConfigurationService instance() {
+		return singleton;
+	}
 
 	public Map<String, String> getConfig() {
 		return config;
@@ -36,7 +42,9 @@ public class DialectConfigurationService {
 			dialects.put(dialectCode, new DialectConfiguration(dialectCode, languageRefsetId));
 			logger.info("Known dialect " + dialectCode + " - refset: " + languageRefsetId);
 		}
+		singleton = this;
 	}
+	
 
 	public Map<String, DialectConfiguration> getConfigurations() {
 		return dialects;
