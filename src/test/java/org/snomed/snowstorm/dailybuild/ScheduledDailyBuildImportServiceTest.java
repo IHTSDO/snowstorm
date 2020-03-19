@@ -16,6 +16,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.AdminOperationsService;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.CodeSystemUpgradeService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
@@ -54,6 +55,9 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private CodeSystemUpgradeService codeSystemUpgradeService;
 
 	@Autowired
 	private AdminOperationsService adminOperationsService;
@@ -188,7 +192,7 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		Branch latest = branchService.findLatest(branchPath);
 		// First rollback the dailybuild 2 archive
 		adminOperationsService.rollbackCommit(branchPath, latest.getHeadTimestamp());
-		codeSystemService.upgrade(shortName, 20200131);
+		codeSystemUpgradeService.upgrade(shortName, 20200131);
 
 		assertNotNull("Daily build 1 Concept now visible via extension upgrade", conceptService.find(dailyBuild1Concept, branchPath));
 

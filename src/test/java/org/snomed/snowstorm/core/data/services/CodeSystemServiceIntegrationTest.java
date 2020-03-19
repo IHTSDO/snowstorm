@@ -33,6 +33,9 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 	private CodeSystemService codeSystemService;
 
 	@Autowired
+	private CodeSystemUpgradeService codeSystemUpgradeService;
+
+	@Autowired
 	private BranchService branchService;
 
 	@Autowired
@@ -88,7 +91,7 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 		assertEquals("900101001", conceptService.find("18736003", "MAIN/SNOMEDCT-BE").getModuleId());
 
 		// Upgrade the extension to international version 20190131
-		codeSystemService.upgrade("SNOMEDCT-BE", 20190131);
+		codeSystemUpgradeService.upgrade("SNOMEDCT-BE", 20190131);
 
 		extensionCodeSystem = codeSystemService.find("SNOMEDCT-BE");
 		assertEquals("MAIN/SNOMEDCT-BE", extensionCodeSystem.getBranchPath());
@@ -166,7 +169,7 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Upgrade the extension to the new international version
 		assertEquals(20180731, codeSystemService.find(extensionCodeSystem.getShortName()).getDependantVersionEffectiveTime().intValue());
-		codeSystemService.upgrade("SNOMEDCT-BE", 20190131);
+		codeSystemUpgradeService.upgrade("SNOMEDCT-BE", 20190131);
 		assertEquals(20190131, codeSystemService.find(extensionCodeSystem.getShortName()).getDependantVersionEffectiveTime().intValue());
 
 		extensionCodeSystem = codeSystemService.find("SNOMEDCT-BE");

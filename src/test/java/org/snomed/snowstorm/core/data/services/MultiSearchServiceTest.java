@@ -30,6 +30,9 @@ public class MultiSearchServiceTest extends AbstractTest {
 	private CodeSystemService codeSystemService;
 
 	@Autowired
+	private CodeSystemUpgradeService codeSystemUpgradeService;
+
+	@Autowired
 	private ConceptService conceptService;
 
 	private ServiceTestUtil testUtil;
@@ -51,7 +54,7 @@ public class MultiSearchServiceTest extends AbstractTest {
 		CodeSystem codeSystemBE = new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE");
 		codeSystemService.createCodeSystem(codeSystemBE);
 		testUtil.createConceptWithPathIdAndTerm("MAIN/SNOMEDCT-BE", "123123404684003", "Some finding");
-		codeSystemService.upgrade("SNOMEDCT-BE", 20190731);
+		codeSystemUpgradeService.upgrade("SNOMEDCT-BE", 20190731);
 
 		assertEquals("Only one found because SNOMEDCT-BE code system is not versioned yet", 1, runSearch(term).getTotalElements());
 		codeSystemService.createVersion(codeSystemBE, 20190931, "");

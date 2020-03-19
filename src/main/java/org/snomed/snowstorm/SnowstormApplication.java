@@ -66,7 +66,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	}
 
 	@Override
-	public void run(ApplicationArguments applicationArguments) throws Exception {
+	public void run(ApplicationArguments applicationArguments) {
 		try {
 			boolean deleteIndices = applicationArguments.containsOption(DELETE_INDICES_FLAG);
 			if (deleteIndices) logger.warn("Deleting existing Elasticsearch Indices");
@@ -77,7 +77,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 
 			logger.info("--- Snowstorm startup complete ---");
 
-			logger.info("Warming CodeSystem aggregation cache.");
+			logger.info("Warming CodeSystem aggregation cache...");
 			codeSystemService.findAll();
 			logger.info("Caches are hot.");
 

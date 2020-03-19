@@ -174,7 +174,8 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	// Swagger config
 	public Docket api() {
 		Docket docket = new Docket(DocumentationType.SWAGGER_2);
-		docket.apiInfo(new ApiInfo("Snowstorm", "SNOMED CT Terminology Server REST API", buildProperties.getVersion(), null, new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null), "Apache 2.0", "http://www.apache.org/licenses/LICENSE-2.0"));
+		docket.apiInfo(new ApiInfo("Snowstorm", "SNOMED CT Terminology Server REST API", buildProperties.getVersion(), null,
+				new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null), "Apache 2.0", "http://www.apache.org/licenses/LICENSE-2.0"));
 		ApiSelectorBuilder apiSelectorBuilder = docket.select();
 
 		if (restApiReadOnly) {
