@@ -11,7 +11,9 @@ import org.hl7.fhir.r4.model.ValueSet;
 import org.hl7.fhir.r4.model.ValueSet.*;
 import org.apache.commons.lang.StringUtils;
 import org.hl7.fhir.r4.model.CodeType;
+import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -316,5 +318,38 @@ public class FHIRHelper implements FHIRConstants {
 				.activeFilter(active);
 		conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath.toString()), PageRequest.of(offset, pageSize));
 		return conceptMiniPage;
+	}
+
+	public boolean hasUsageContext(ValueSet vs, String context) {
+		if (vs.getUseContext() != null && vs.getUseContext().size() > 0) {
+			return vs.getUseContext().stream()
+				.map(u -> u.toString())
+				.anyMatch(s -> s.toLowerCase().equals(context.toLowerCase()));
+		}
+		return false;
+	}
+
+	public boolean hasJurisdiction(ValueSet vs, String jurisdiction) {
+		if (vs.getJurisdiction() != null && vs.getJurisdiction().size() > 0) {
+			for (CodeableConcept codeableConcept : vs.getJurisdiction()) {
+				for (Coding c : codeableConcept.getCoding()) {
+					if (c.getCode().equals(jurisdiction)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	public boolean hasIdentifier(ValueSet vs, String identifier) {
+		if (vs.getIdentifier() != null && vs.getIdentifier().size() > 0) {
+			for (Identifier i : vs.getIdentifier()) {
+				if (i.getValue().equals(identifier)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 }

@@ -113,6 +113,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	public List<ValueSet> findValuesets(
 			HttpServletRequest theRequest, 
 			HttpServletResponse theResponse,
+			@OptionalParam(name="_id") String id,
 			@OptionalParam(name="code") String code,
 			@OptionalParam(name="context") String context,
 			@OptionalParam(name="context-quantity") QuantityParam contextQuantity,
@@ -130,6 +131,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OptionalParam(name="url") String url,
 			@OptionalParam(name="version") String version) throws FHIROperationException {
 		ValueSetFilter vsFilter = new ValueSetFilter()
+									.withId(id)
 									.withCode(code)
 									.withContext(context)
 									.withContextQuantity(contextQuantity)
