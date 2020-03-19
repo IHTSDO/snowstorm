@@ -12,5 +12,5 @@ public interface CodeSystemCreate {
 	String getDefaultLanguageCode();
 	String[] getDefaultLanguageReferenceSets();
 	String getBranchPath();
-	Integer getDependantVersion();
+	Integer getDependantVersionEffectiveTime();
 }

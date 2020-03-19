@@ -7,10 +7,7 @@ import org.junit.runner.RunWith;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
@@ -23,6 +20,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.Assert.*;
@@ -69,7 +67,7 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 		// Create extension code system under 20180731 int version
 		CodeSystem extensionCodeSystem = new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE", "Belgian Edition", "be");
-		extensionCodeSystem.setDependantVersion(20180731);
+		extensionCodeSystem.setDependantVersionEffectiveTime(20180731);
 		codeSystemService.createCodeSystem(extensionCodeSystem);
 
 		// Extension concept 18736003 should not exist on extension branch
@@ -115,12 +113,17 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 	// We inactivate an international concept then see the extension break when it's upgraded.
 	public void testCodeSystemUpgradeFindBrokenRelationships() throws IOException, ReleaseImportException, ServiceException {
 		// Create international code system
-		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN", "International Edition", ""));
+		String snomedct = "SNOMEDCT";
+		codeSystemService.createCodeSystem(new CodeSystem(snomedct, "MAIN", "International Edition", ""));
 
 		// Import dummy international content
 		File snomedBase = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
 		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true, false);
 		importService.importArchive(importJob, new FileInputStream(snomedBase));
+		List<CodeSystemVersion> intVersions = codeSystemService.findAllVersions(snomedct, true);
+		assertEquals(1, intVersions.size());
+		assertEquals("MAIN/2018-07-31", intVersions.get(0).getBranchPath());
+		assertEquals(20180731, intVersions.get(0).getEffectiveDate().intValue());
 
 		// Check integrity of international dummy content
 		IntegrityIssueReport componentsWithBadIntegrityOnMAIN = integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN"), true);
@@ -130,6 +133,7 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 		// Create extension code system
 		CodeSystem extensionCodeSystem = new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE", "Belgian Edition", "be");
 		codeSystemService.createCodeSystem(extensionCodeSystem);
+		assertEquals(20180731, codeSystemService.find(extensionCodeSystem.getShortName()).getDependantVersionEffectiveTime().intValue());
 
 		// Import dummy extension content
 		File snomedExtension = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Extension_snapshot");
@@ -158,10 +162,12 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 		conceptService.update(incisionOfMiddleEarConcept, "MAIN");
 
 		// Create a new version of International
-		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT"), 20190131, "Dummy 2019-01-31 release.");
+		codeSystemService.createVersion(codeSystemService.find(snomedct), 20190131, "Dummy 2019-01-31 release.");
 
 		// Upgrade the extension to the new international version
+		assertEquals(20180731, codeSystemService.find(extensionCodeSystem.getShortName()).getDependantVersionEffectiveTime().intValue());
 		codeSystemService.upgrade("SNOMEDCT-BE", 20190131);
+		assertEquals(20190131, codeSystemService.find(extensionCodeSystem.getShortName()).getDependantVersionEffectiveTime().intValue());
 
 		extensionCodeSystem = codeSystemService.find("SNOMEDCT-BE");
 		assertEquals("MAIN/SNOMEDCT-BE", extensionCodeSystem.getBranchPath());

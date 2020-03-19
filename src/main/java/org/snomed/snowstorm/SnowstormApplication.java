@@ -79,6 +79,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 
 			logger.info("Warming CodeSystem aggregation cache.");
 			codeSystemService.findAll();
+			logger.info("Caches are hot.");
 
 			if (applicationArguments.containsOption(IMPORT_ARG)) {
 				// Import a single release or 'Snapshot' from an Edition RF2 zip file from disk at startup
