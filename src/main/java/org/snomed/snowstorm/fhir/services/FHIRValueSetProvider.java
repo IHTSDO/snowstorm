@@ -55,6 +55,9 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	private HapiParametersMapper paramMapper;
 	
 	@Autowired
+	private DialectConfigurationService dialectService;
+	
+	@Autowired
 	private FHIRHelper fhirHelper;
 	
 	private static int DEFAULT_PAGESIZE = 1000;
@@ -382,7 +385,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		designations.addAll(fhirHelper.getLanguageDialects(designationsStr, request));
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		if (displayLanguageStr != null) {
-			LanguageDialect displayDialect = new LanguageDialect(displayLanguageStr);
+			LanguageDialect displayDialect = dialectService.getLanguageDialect(displayLanguageStr);
 			//Ensure the display language is first in our list
 			if (contains(designations, displayLanguageStr)) {
 				designations.remove(displayDialect);

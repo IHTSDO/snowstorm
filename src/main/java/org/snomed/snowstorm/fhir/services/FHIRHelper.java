@@ -2,7 +2,9 @@ package org.snomed.snowstorm.fhir.services;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -21,6 +23,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
@@ -42,6 +45,9 @@ public class FHIRHelper implements FHIRConstants {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+	
+	@Autowired
+	private DialectConfigurationService dialectService;
 	
 	@Autowired
 	private FHIRValueSetProvider vsService;
@@ -129,9 +135,12 @@ public class FHIRHelper implements FHIRConstants {
 							!tokenParts[0].equals(SNOMED_URI)) {
 						throw new FHIROperationException(IssueType.VALUE, "Malformed designation token '" + designation + "' expected format http://snomed.info/sct PIPE langrefsetId");
 					}
-					languageDialects.add(new LanguageDialect(null, Long.parseLong(tokenParts[1])));
+					LanguageDialect languageDialect = new LanguageDialect(null, Long.parseLong(tokenParts[1]));
+					if (!languageDialects.contains(languageDialect)) {
+						languageDialects.add(languageDialect);
+					}
 				} else {
-					languageDialects.add(new LanguageDialect(designation));
+					languageDialects.add(dialectService.getLanguageDialect(designation));
 				}
 			}
 			if (languageDialects.isEmpty()) {

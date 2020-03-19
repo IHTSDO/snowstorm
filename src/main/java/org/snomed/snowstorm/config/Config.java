@@ -152,6 +152,9 @@ public abstract class Config {
 	@Autowired
 	private ElasticsearchTemplate elasticsearchTemplate;
 	
+	@Autowired
+	private DialectConfigurationService dialectService;
+	
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
@@ -164,6 +167,11 @@ public abstract class Config {
 		branchService.addCommitListener(commit -> {
 			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint()));
 		});
+	}
+	
+	@PostConstruct
+	public void initialseDialectService() {
+		dialectService.report();
 	}
 
 	private String secondsDuration(Date timepoint) {
@@ -344,6 +352,12 @@ public abstract class Config {
 	@ConfigurationProperties(prefix = "codesystem")
 	public CodeSystemConfigurationService getCodeSystemConfigurationService() {
 		return new CodeSystemConfigurationService();
+	}
+	
+	@Bean
+	@ConfigurationProperties(prefix = "search.dialect")
+	public DialectConfigurationService getDialectConfigurationService() {
+		return new DialectConfigurationService();
 	}
 
 	@Bean
