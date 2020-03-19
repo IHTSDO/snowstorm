@@ -30,7 +30,7 @@ public class ValueSetFilter {
 	String version;
 	
 	public ValueSetFilter withId(String id) throws FHIROperationException {
-		if (!id.startsWith ("ValueSet/")) {
+		if (id != null && !id.startsWith ("ValueSet/")) {
 			id = "ValueSet/" + id;
 		}
 		this.id = id;

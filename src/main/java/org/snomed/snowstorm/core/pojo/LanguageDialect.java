@@ -44,9 +44,11 @@ public class LanguageDialect implements Serializable {
 
 	public static List<String> toLanguageCodes(List<LanguageDialect> languageDialects) {
 		List<String> languageCodes = new ArrayList<>();
-		for (LanguageDialect languageDialect : languageDialects) {
-			if (StringUtils.isEmpty(languageDialect.getLanguageCode())) {
-				languageCodes.add(languageDialect.languageCode);
+		if (languageDialects != null) {
+			for (LanguageDialect languageDialect : languageDialects) {
+				if (StringUtils.isEmpty(languageDialect.getLanguageCode())) {
+					languageCodes.add(languageDialect.languageCode);
+				}
 			}
 		}
 		return languageCodes;

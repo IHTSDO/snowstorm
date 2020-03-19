@@ -507,15 +507,9 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		if (dialect.getLanguageReferenceSet() == null) {
 			return languageCode.equals(dialect.getLanguageCode());
 		} else if (hasLanguageRefset(dialect.getLanguageReferenceSet())) {
-			//If the language hasn't been specified, that's good enough for a match
-			if (dialect.getLanguageCode() == null) {
-				return hasAcceptability(acceptability, dialect.getLanguageReferenceSet());
-			} else {
-				//...but if it has been, check that also
-				return languageCode.equals(dialect.getLanguageCode()); 
-			}
-		}
-		return false;
+			return hasAcceptability(acceptability, dialect.getLanguageReferenceSet());
+		} 
+		return languageCode.equals(dialect.getLanguageCode()); 
 	}
 	
 	/**

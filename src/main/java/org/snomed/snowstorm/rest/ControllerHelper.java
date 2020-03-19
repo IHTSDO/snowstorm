@@ -134,6 +134,7 @@ public class ControllerHelper {
 				// We can't currently do anything with the dialect code.
 				// These could be mapped to a language reference set in the future.
 				// We can't for example, map en-US to Concepts.US_EN_LANG_REFSET
+				// TODO PWI: I needed to do this for FHIR, so I added DialectConfigurationService
 				languageCode = matcher.group(1);
 			} else if ((matcher = LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN.matcher(value)).matches()) {
 				languageCode = matcher.group(1);
@@ -141,7 +142,12 @@ public class ControllerHelper {
 			} else {
 				throw new IllegalArgumentException("Unexpected value within Accept-Language request header '" + value + "'.");
 			}
-			languageDialects.add(new LanguageDialect(languageCode, languageReferenceSet));
+			
+			LanguageDialect languageDialect = new LanguageDialect(languageCode, languageReferenceSet);
+			if (!languageDialects.contains(languageDialect)) {
+				//Would normally use a Set here, but the order may be important
+				languageDialects.add(languageDialect);
+			}
 		}
 		return languageDialects;
 	}
