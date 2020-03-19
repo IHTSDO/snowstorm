@@ -3,8 +3,6 @@ package org.snomed.snowstorm.fhir.domain;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
 import org.snomed.snowstorm.fhir.services.FHIROperationException;
@@ -13,8 +11,7 @@ import ca.uhn.fhir.rest.param.QuantityParam;
 
 public class ValueSetFilter {
 	
-	private static final Logger logger = LoggerFactory.getLogger(ValueSetFilter.class);
-
+	String id;
 	String code;
 	String context;
 	QuantityParam contextQuantity;
@@ -32,10 +29,19 @@ public class ValueSetFilter {
 	String url;
 	String version;
 	
+	public ValueSetFilter withId(String id) throws FHIROperationException {
+		if (!id.startsWith ("ValueSet/")) {
+			id = "ValueSet/" + id;
+		}
+		this.id = id;
+		return this;
+	}
+	public String getId() {
+		return id;
+	}
 	public String getCode() {
 		return code;
 	}
-
 	public ValueSetFilter withCode(String code) throws FHIROperationException {
 		if (code != null) {
 			throw new FHIROperationException(IssueType.TOOCOSTLY, "Server is unwilling to expand all known ValueSets to search for inclusion of any code");
@@ -47,9 +53,6 @@ public class ValueSetFilter {
 	}
 	public ValueSetFilter withContext(String context) {
 		this.context = context;
-		if (context != null) {
-			throw new UnsupportedOperationException();
-		}
 		return this;
 	}
 	public QuantityParam getContextQuantity() {
@@ -104,9 +107,6 @@ public class ValueSetFilter {
 	}
 	public ValueSetFilter withIdentifier(String identifier) {
 		this.identifier = identifier;
-		if (identifier != null) {
-			throw new UnsupportedOperationException();
-		}
 		return this;
 	}
 	public String getJurisdiction() {
@@ -114,9 +114,6 @@ public class ValueSetFilter {
 	}
 	public ValueSetFilter withJurisdiction(String jurisdiction) {
 		this.jurisdiction = jurisdiction;
-		if (jurisdiction != null) {
-			throw new UnsupportedOperationException();
-		}
 		return this;
 	}
 	public String getName() {
@@ -173,43 +170,49 @@ public class ValueSetFilter {
 	}
 	public static boolean apply(ValueSetFilter filter, ValueSet vs, 
 			QueryService queryService, FHIRHelper fhirHelper) {
-		try {
-			//Note code will be the last filter to apply because expansion is expensive
-			if (filter.getName() != null && 
-					(vs.getName() == null || 
-					!vs.getName().toLowerCase().contains(filter.getName().toLowerCase()))) {
-				return false;
-			}
-			
-			if (filter.getPublisher() != null && !filter.getPublisher().equals(vs.getPublisher())) {
-				return false;
-			}
-			
-			if (filter.getStatus() != null && !filter.getStatus().equals(vs.getStatus())) {
-				return false;
-			}
-			
-			if (filter.getTitle() != null && !vs.getTitle().toLowerCase().contains(filter.getTitle().toLowerCase())) {
-				return false;
-			}
-			
-			if (filter.getUrl() != null && !filter.getUrl().equals(vs.getUrl())) {
-				return false;
-			}
-			
-			if (filter.getVersion() != null && !filter.getVersion().equals(vs.getVersion())) {
-				return false;
-			}
-			
-			
-			if (filter.getCode() != null && !fhirHelper.expansionContainsCode(queryService, vs, filter.getCode())) {
-				return false;
-			}
-		} catch (FHIROperationException e) {
-			logger.error("Failure while filtering valueSet " + vs.getName() + ". Not included in result.",e);
+		
+		if (filter.getId() != null && !filter.getId().equals(vs.getId())) {
 			return false;
 		}
 		
+		if (filter.getContext()!= null && ! fhirHelper.hasUsageContext(vs, filter.getContext())) {
+			return false;
+		}
+		
+		if (filter.getIdentifier() != null && !fhirHelper.hasIdentifier(vs, filter.getIdentifier())) {
+			return false;
+		}
+		
+		if (filter.getJurisdiction() != null && !fhirHelper.hasJurisdiction(vs, filter.getJurisdiction())) {
+			return false;
+		}
+		
+		if (filter.getName() != null && 
+				(vs.getName() == null || 
+				!vs.getName().toLowerCase().contains(filter.getName().toLowerCase()))) {
+			return false;
+		}
+		
+		if (filter.getPublisher() != null && !filter.getPublisher().toLowerCase().equals(vs.getPublisher().toLowerCase())) {
+			return false;
+		}
+		
+		if (filter.getStatus() != null && !filter.getStatus().equals(vs.getStatus())) {
+			return false;
+		}
+		
+		if (filter.getTitle() != null && !vs.getTitle().toLowerCase().contains(filter.getTitle().toLowerCase())) {
+			return false;
+		}
+		
+		if (filter.getUrl() != null && !filter.getUrl().equals(vs.getUrl())) {
+			return false;
+		}
+		
+		if (filter.getVersion() != null && !filter.getVersion().equals(vs.getVersion())) {
+			return false;
+		}
+			
 		return true;
 	}
 	
