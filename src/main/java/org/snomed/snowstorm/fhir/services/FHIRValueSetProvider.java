@@ -28,6 +28,7 @@ import org.springframework.stereotype.Component;
 import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.param.QuantityParam;
+import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
@@ -122,15 +123,15 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OptionalParam(name="context-quantity") QuantityParam contextQuantity,
 			@OptionalParam(name="context-type") String contextType,
 			@OptionalParam(name="date") String date,
-			@OptionalParam(name="description") String description,
+			@OptionalParam(name="description") StringParam description,
 			@OptionalParam(name="expansion") String expansion,
-			@OptionalParam(name="identifier") String identifier,
-			@OptionalParam(name="jurisdiction") String jurisdiction,
-			@OptionalParam(name="name") String name,
-			@OptionalParam(name="publisher") String publisher,
-			@OptionalParam(name="reference") String reference,
+			@OptionalParam(name="identifier") StringParam identifier,
+			@OptionalParam(name="jurisdiction") StringParam jurisdiction,
+			@OptionalParam(name="name") StringParam name,
+			@OptionalParam(name="publisher") StringParam publisher,
+			@OptionalParam(name="reference") StringParam reference,
 			@OptionalParam(name="status") String status,
-			@OptionalParam(name="title") String title,
+			@OptionalParam(name="title") StringParam title,
 			@OptionalParam(name="url") String url,
 			@OptionalParam(name="version") String version) throws FHIROperationException {
 		ValueSetFilter vsFilter = new ValueSetFilter()
@@ -151,8 +152,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 									.withTitle(title)
 									.withUrl(url)
 									.withVersion(version);
-		//logger.info("Filtering {} valueSets", valuesetRepository.count());
-		
 		return StreamSupport.stream(valuesetRepository.findAll().spliterator(), false)
 				.map(vs -> vs.getValueset())
 				.filter(vs -> ValueSetFilter.apply(vsFilter, vs, queryService, fhirHelper))

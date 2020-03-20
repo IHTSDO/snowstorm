@@ -1,31 +1,35 @@
 package org.snomed.snowstorm.fhir.domain;
 
 import org.hl7.fhir.r4.model.ValueSet;
+import org.fhir.ucum.TokenType;
+import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.fhir.services.FHIRHelper;
 import org.snomed.snowstorm.fhir.services.FHIROperationException;
 
+import ca.uhn.fhir.rest.param.InternalCodingDt;
 import ca.uhn.fhir.rest.param.QuantityParam;
+import ca.uhn.fhir.rest.param.StringParam;
 
 public class ValueSetFilter {
 	
 	String id;
 	String code;
-	String context;
+	Coding context;
 	QuantityParam contextQuantity;
 	String contextType;
 	String date;
-	String description;
+	StringParam description;
 	String expansion;
-	String identifier;
-	String jurisdiction;
-	String name;
-	String publisher;
-	String reference;
+	StringParam identifier;
+	StringParam jurisdiction;
+	StringParam name;
+	StringParam publisher;
+	StringParam reference;
 	PublicationStatus status;
-	String title;
+	StringParam title;
 	String url;
 	String version;
 	
@@ -48,11 +52,15 @@ public class ValueSetFilter {
 		}
 		return this;
 	}
-	public String getContext() {
+	public Coding getContext() {
 		return context;
 	}
 	public ValueSetFilter withContext(String context) {
-		this.context = context;
+		//TODO Might have to split this myself.  HAPI doesn't seem to be happy with a Coding
+		//says it's an unknown search parameter type
+		this.context = context == null ? null : new Coding(null,
+				context,
+				null);
 		return this;
 	}
 	public QuantityParam getContextQuantity() {
@@ -85,10 +93,10 @@ public class ValueSetFilter {
 		}
 		return this;
 	}
-	public String getDescription() {
+	public StringParam getDescription() {
 		return description;
 	}
-	public ValueSetFilter withDescription(String description) {
+	public ValueSetFilter withDescription(StringParam description) {
 		this.description = description;
 		return this;
 	}
@@ -102,38 +110,38 @@ public class ValueSetFilter {
 		}
 		return this;
 	}
-	public String getIdentifier() {
+	public StringParam getIdentifier() {
 		return identifier;
 	}
-	public ValueSetFilter withIdentifier(String identifier) {
+	public ValueSetFilter withIdentifier(StringParam identifier) {
 		this.identifier = identifier;
 		return this;
 	}
-	public String getJurisdiction() {
+	public StringParam getJurisdiction() {
 		return jurisdiction;
 	}
-	public ValueSetFilter withJurisdiction(String jurisdiction) {
+	public ValueSetFilter withJurisdiction(StringParam jurisdiction) {
 		this.jurisdiction = jurisdiction;
 		return this;
 	}
-	public String getName() {
+	public StringParam getName() {
 		return name;
 	}
-	public ValueSetFilter withName(String name) {
+	public ValueSetFilter withName(StringParam name) {
 		this.name = name;
 		return this;
 	}
-	public String getPublisher() {
+	public StringParam getPublisher() {
 		return publisher;
 	}
-	public ValueSetFilter withPublisher(String publisher) {
+	public ValueSetFilter withPublisher(StringParam publisher) {
 		this.publisher = publisher;
 		return this;
 	}
-	public String getReference() {
+	public StringParam getReference() {
 		return reference;
 	}
-	public ValueSetFilter withReference(String reference) {
+	public ValueSetFilter withReference(StringParam reference) {
 		this.reference = reference;
 		if (reference != null) {
 			throw new UnsupportedOperationException();
@@ -147,10 +155,10 @@ public class ValueSetFilter {
 		this.status = PublicationStatus.fromCode(statusStr);
 		return this;
 	}
-	public String getTitle() {
+	public StringParam getTitle() {
 		return title;
 	}
-	public ValueSetFilter withTitle(String title) {
+	public ValueSetFilter withTitle(StringParam title) {
 		this.title = title;
 		return this;
 	}
@@ -175,7 +183,11 @@ public class ValueSetFilter {
 			return false;
 		}
 		
-		if (filter.getContext()!= null && ! fhirHelper.hasUsageContext(vs, filter.getContext())) {
+		if (filter.getContext() != null && !fhirHelper.hasUsageContext(vs, filter.getContext())) {
+			return false;
+		}
+		
+		if (!fhirHelper.stringMatches(vs.getDescription(), filter.getDescription()))  {
 			return false;
 		}
 		
@@ -187,21 +199,19 @@ public class ValueSetFilter {
 			return false;
 		}
 		
-		if (filter.getName() != null && 
-				(vs.getName() == null || 
-				!vs.getName().toLowerCase().contains(filter.getName().toLowerCase()))) {
+		if (!fhirHelper.stringMatches(vs.getName(), filter.getName())) {
 			return false;
 		}
 		
-		if (filter.getPublisher() != null && !filter.getPublisher().toLowerCase().equals(vs.getPublisher().toLowerCase())) {
+		if (!fhirHelper.stringMatches(vs.getPublisher(), filter.getPublisher())) {
 			return false;
 		}
 		
-		if (filter.getStatus() != null && !filter.getStatus().equals(vs.getStatus())) {
+		if (!fhirHelper.enumerationMatches (vs.getStatus(), filter.getStatus())) {
 			return false;
 		}
 		
-		if (filter.getTitle() != null && !vs.getTitle().toLowerCase().contains(filter.getTitle().toLowerCase())) {
+		if (!fhirHelper.stringMatches(vs.getTitle(), filter.getTitle())) {
 			return false;
 		}
 		
