@@ -9,12 +9,15 @@ import java.util.Set;
 import javax.servlet.http.HttpServletRequest;
 
 import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.UsageContext;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.hl7.fhir.r4.model.ValueSet.*;
 import org.apache.commons.lang.StringUtils;
+import org.fhir.ucum.TokenType;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
@@ -36,6 +39,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
+import ca.uhn.fhir.rest.param.StringParam;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
@@ -329,20 +333,19 @@ public class FHIRHelper implements FHIRConstants {
 		return conceptMiniPage;
 	}
 
-	public boolean hasUsageContext(ValueSet vs, String context) {
+	public boolean hasUsageContext(ValueSet vs, Coding context) {
 		if (vs.getUseContext() != null && vs.getUseContext().size() > 0) {
 			return vs.getUseContext().stream()
-				.map(u -> u.toString())
-				.anyMatch(s -> s.toLowerCase().equals(context.toLowerCase()));
+				.anyMatch(u -> codingMatches(u.getCode(), context.getCode()));
 		}
 		return false;
 	}
 
-	public boolean hasJurisdiction(ValueSet vs, String jurisdiction) {
+	public boolean hasJurisdiction(ValueSet vs, StringParam jurisdiction) {
 		if (vs.getJurisdiction() != null && vs.getJurisdiction().size() > 0) {
 			for (CodeableConcept codeableConcept : vs.getJurisdiction()) {
 				for (Coding c : codeableConcept.getCoding()) {
-					if (c.getCode().equals(jurisdiction)) {
+					if (c.getCode().equals(jurisdiction.getValue())) {
 						return true;
 					}
 				}
@@ -351,14 +354,65 @@ public class FHIRHelper implements FHIRConstants {
 		return false;
 	}
 
-	public boolean hasIdentifier(ValueSet vs, String identifier) {
+	public boolean hasIdentifier(ValueSet vs, StringParam identifier) {
 		if (vs.getIdentifier() != null && vs.getIdentifier().size() > 0) {
 			for (Identifier i : vs.getIdentifier()) {
-				if (i.getValue().equals(identifier)) {
+				if (stringMatches(i.getValue(), identifier)) {
 					return true;
 				}
 			}
 		}
 		return false;
 	}
+
+	public boolean stringMatches(String value, StringParam searchTerm) {
+		//If we've not specified a search term, then we pass through a match
+		if (searchTerm == null || StringUtils.isEmpty(searchTerm.getValue())) {
+			return true;
+		}
+		
+		//If we've specified a search term but the target element is not populated, that's not a match
+		if (searchTerm.getValue() != null && value == null) {
+			return false;
+		}
+		
+		//What sort of matching are we doing?  StartsWith by default
+		if (searchTerm.isExact()) {
+			return value.toLowerCase().equals(searchTerm.getValue().toLowerCase());
+		} else if (searchTerm.isContains()) {
+			return value.toLowerCase().contains(searchTerm.getValue().toLowerCase());
+		} else {
+			return value.toLowerCase().startsWith(searchTerm.getValue().toLowerCase());
+		}
+	}
+
+	public boolean enumerationMatches(Object value, Object search) {
+		//If we've specified a search term but the target element is not populated, that's not a match
+		if (search != null && value == null) {
+			return false;
+		}
+		
+		//If we've not specified a search term, then we pass through a match
+		if (search == null) {
+			return true;
+		}
+		
+		return value.equals(search);
+	}
+	
+
+	private boolean codingMatches(Coding c, String string) {
+		//If we've specified a search but the target element is not populated, that's not a match
+		if (string != null && (c == null || c.getCode() == null)) {
+			return false;
+		}
+		
+		//If we've not specified a search term, then we pass through a match
+		if (string == null) {
+			return true;
+		}
+		
+		return c.getCode().equals(string);
+	}
+
 }
