@@ -50,7 +50,7 @@ public class ReferenceSetMemberController {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
-	@ApiOperation("Search for reference set ids")
+	@ApiOperation("Search for reference set ids.")
 	@RequestMapping(value = "/browser/{branch}/members", method = RequestMethod.GET)
 	@ResponseBody
 	public RefSetMemberPageWithBucketAggregations<ReferenceSetMember> findBrowserReferenceSetMembersWithAggregations(
@@ -171,6 +171,7 @@ public class ReferenceSetMemberController {
 		return member;
 	}
 
+	@ApiOperation("Create a reference set member.")
 	@RequestMapping(value = "/{branch}/members", method = RequestMethod.POST)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
@@ -180,7 +181,7 @@ public class ReferenceSetMemberController {
 		return memberService.createMember(BranchPathUriUtil.decodePath(branch), (ReferenceSetMember) member);
 	}
 
-	@ApiOperation("Update a reference set member")
+	@ApiOperation("Update a reference set member.")
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.PUT)
 	@ResponseBody
 	@JsonView(value = View.Component.class)
@@ -195,6 +196,7 @@ public class ReferenceSetMemberController {
 		return memberService.updateMember(BranchPathUriUtil.decodePath(branch), toUpdate);
 	}
 
+	@ApiOperation("Delete a reference set member.")
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.DELETE)
 	@JsonView(value = View.Component.class)
 	@ResponseStatus(HttpStatus.NO_CONTENT)
@@ -203,5 +205,16 @@ public class ReferenceSetMemberController {
 							 @RequestParam(defaultValue = "false") boolean force) {
 
 		memberService.deleteMember(BranchPathUriUtil.decodePath(branch), uuid, force);
+	}
+
+	@ApiOperation("Batch delete reference set members.")
+	@RequestMapping(value = "/{branch}/members", method = RequestMethod.DELETE)
+	@JsonView(value = View.Component.class)
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void deleteMembers(@PathVariable String branch,
+							 @RequestParam Set<String> uuids,
+							 @RequestParam(defaultValue = "false") boolean force) {
+
+		memberService.deleteMembers(BranchPathUriUtil.decodePath(branch), uuids, force);
 	}
 }

@@ -31,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
@@ -40,6 +41,7 @@ import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -201,23 +203,38 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	public void deleteMember(String branch, String uuid, boolean force) {
+		deleteMembers(branch, Collections.singleton(uuid), force);
+	}
+
+	public void deleteMembers(String branch, Set<String> uuids, boolean force) {
+		if (uuids.isEmpty()) {
+			return;
+		}
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		List<ReferenceSetMember> matches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().withQuery(
 				boolQuery().must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(ReferenceSetMember.Fields.MEMBER_ID, uuid))
-		).build(), ReferenceSetMember.class);
+						.must(termsQuery(ReferenceSetMember.Fields.MEMBER_ID, uuids)))
+				.withPageable(PageRequest.of(0, uuids.size()))
+				.build(), ReferenceSetMember.class);
 
-		if (matches.isEmpty()) {
-			throw new NotFoundException(String.format("Reference set member %s not found on branch %s", uuid, branch));
+		if (matches.size() != uuids.size()) {
+			List<String> matchedIds = matches.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList());
+			Set<String> missingIds = new HashSet<>(uuids);
+			missingIds.removeAll(matchedIds);
+			throw new NotFoundException(String.format("%s reference set members not found on branch %s: %s", missingIds.size(), branch, missingIds));
 		}
 
-		try (Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata("Deleting reference set member " + uuid))) {
-			ReferenceSetMember member = matches.get(0);
+		for (ReferenceSetMember member : matches) {
 			if (member.isReleased() && !force) {
-				throw new IllegalStateException(String.format("Reference set member %s has been released and can't be deleted on branch %s", uuid, branch));
+				throw new IllegalStateException(String.format("Reference set member %s has been released and can't be deleted on branch %s.", member.getMemberId(), branch));
 			}
-			member.markDeleted();
-			doSaveBatchComponents(Collections.singleton(member), commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
+		}
+
+		try (Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata(String.format("Deleting %s reference set members.", matches.size())))) {
+			for (ReferenceSetMember member : matches) {
+				member.markDeleted();
+			}
+			doSaveBatchComponents(matches, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
 			commit.markSuccessful();
 		}
 	}
