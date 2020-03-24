@@ -200,9 +200,11 @@ public class ReferenceSetMemberController {
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.DELETE)
 	@JsonView(value = View.Component.class)
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	public void deleteMember(@PathVariable String branch,
-							 @PathVariable String uuid,
-							 @RequestParam(defaultValue = "false") boolean force) {
+	public void deleteMember(
+			@PathVariable String branch,
+			@PathVariable String uuid,
+			@ApiParam("Force the deletion of a released member.")
+			@RequestParam(defaultValue = "false") boolean force) {
 
 		memberService.deleteMember(BranchPathUriUtil.decodePath(branch), uuid, force);
 	}
@@ -211,9 +213,11 @@ public class ReferenceSetMemberController {
 	@RequestMapping(value = "/{branch}/members", method = RequestMethod.DELETE)
 	@JsonView(value = View.Component.class)
 	@ResponseStatus(HttpStatus.NO_CONTENT)
-	public void deleteMembers(@PathVariable String branch,
-							 @RequestParam Set<String> uuids,
-							 @RequestParam(defaultValue = "false") boolean force) {
+	public void deleteMembers(
+			@PathVariable String branch,
+			@RequestParam Set<String> uuids,
+			@ApiParam("Force the deletion of released members.")
+			@RequestParam(defaultValue = "false") boolean force) {
 
 		memberService.deleteMembers(BranchPathUriUtil.decodePath(branch), uuids, force);
 	}

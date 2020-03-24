@@ -14,6 +14,7 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -114,7 +115,7 @@ public class RelationshipController {
 	@ApiOperation(value = "Delete a relationship.")
 	@RequestMapping(value = "{branch}/relationships/{relationshipId}", method = RequestMethod.DELETE)
 	@ResponseBody
-	@JsonView(value = View.Component.class)
+	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteRelationship(
 			@PathVariable String branch,
 			@PathVariable String relationshipId,
@@ -122,6 +123,19 @@ public class RelationshipController {
 			@RequestParam(defaultValue = "false") boolean force) {
 		branch = BranchPathUriUtil.decodePath(branch);
 		relationshipService.deleteRelationship(relationshipId, branch, force);
+	}
+
+	@ApiOperation(value = "Batch delete relationships.")
+	@RequestMapping(value = "{branch}/relationships", method = RequestMethod.DELETE)
+	@ResponseBody
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void deleteRelationships(
+			@PathVariable String branch,
+			@RequestParam Set<String> relationshipIds,
+			@ApiParam("Force the deletion of released relationships.")
+			@RequestParam(defaultValue = "false") boolean force) {
+		branch = BranchPathUriUtil.decodePath(branch);
+		relationshipService.deleteRelationships(relationshipIds, branch, force);
 	}
 
 }
