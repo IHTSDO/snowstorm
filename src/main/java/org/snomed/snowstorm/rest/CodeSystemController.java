@@ -6,6 +6,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.CodeSystemUpgradeService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.snomed.snowstorm.rest.pojo.*;
@@ -22,6 +23,9 @@ public class CodeSystemController {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private CodeSystemUpgradeService codeSystemUpgradeService;
 
 	@Autowired
 	private DailyBuildService dailyBuildService;
@@ -94,14 +98,17 @@ public class CodeSystemController {
 	}
 
 	@ApiOperation(value = "Upgrade code system to a different dependant version.",
-			notes = "This operation can be used to upgrade an extension. The extension must have been imported on a branch which is a direct child of MAIN. " +
-					"For example: MAIN/SNOMEDCT-BE. " +
-					"newDependantVersion uses the same format as the effectiveTime RF2 field, for example 20190731. " +
+			notes = "This operation can be used to upgrade an extension to a new version of the parent code system. \n\n" +
+					"If daily build is enabled for this code system that will be temporarily disabled and the daily build content will be rolled back automatically. \n\n" +
+					"\n\n" +
+					"The extension must have been imported on a branch which is a direct child of MAIN. \n\n" +
+					"For example: MAIN/SNOMEDCT-BE. \n\n" +
+					"_newDependantVersion_ uses the same format as the effectiveTime RF2 field, for example '20190731'. \n\n" +
 					"An integrity check should be run after this operation to find content that needs fixing. ")
 	@RequestMapping(value = "/{shortName}/upgrade", method = RequestMethod.POST)
 	@ResponseBody
 	public void upgradeCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpgradeRequest request) {
-		codeSystemService.upgrade(shortName, request.getNewDependantVersion());
+		codeSystemUpgradeService.upgrade(shortName, request.getNewDependantVersion());
 	}
 
 	@ApiOperation(value = "DEPRECATED - Migrate code system to a different dependant version.",

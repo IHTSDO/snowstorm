@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;

@@ -120,6 +120,7 @@ public class DailyBuildService {
 
 		// Find commit of latest release and any after that
 		Date baseForReleaseCommit = null;
+		Date baseForUpgradeCommit = null;
 		if (releaseCommitHead != null) {
 			List<Branch> commits = sBranchService.findAllVersionsAfterOrEqualToTimestamp(branchPath, releaseCommitHead, Pageable.unpaged()).getContent();
 			logger.info("{} commits found on {} since latest release.", commits.size() - 1, branchPath);
@@ -128,14 +129,23 @@ public class DailyBuildService {
 				if (commit.getHead().equals(releaseCommitHead)) {
 					baseForReleaseCommit = commit.getBase();
 					commitsToRollback.clear();
-					logger.info("Release commit found, base version {} recorded.", baseForReleaseCommit);
+					logger.info("Release commit found, base version {} recorded.", baseForReleaseCommit.getTime());
 					continue;
 				}
-				// Don't rollback rebase commits - these are most likely code system upgrades
-				if (baseForReleaseCommit != null && !commit.getBase().equals(baseForReleaseCommit)) {
-					logger.info("Commit {} has base {} which is different to the release commit. " +
-									"This rebase/upgrade commit will not be rolled back nor will any commits before this.",
+				// Exclude additional upgrade commits after code system version
+				if (baseForUpgradeCommit != null && !commit.getBase().equals(baseForUpgradeCommit)) {
+					logger.info("Commit {} has base {} which is different to the last upgrade commit. " +
+									"This upgrade commit will not be rolled back nor will any commits before this.",
 							commit.getHeadTimestamp(), commit.getBaseTimestamp());
+					baseForUpgradeCommit = commit.getBase();
+					commitsToRollback.clear();
+					continue;
+				// Exclude first upgrade commit after code system version
+				} else if (baseForUpgradeCommit == null && baseForReleaseCommit != null && !commit.getBase().equals(baseForReleaseCommit)) {
+					logger.info("Commit {} has base {} which is different to the release commit. " +
+									"This upgrade commit will not be rolled back nor will any commits before this.",
+							commit.getHeadTimestamp(), commit.getBaseTimestamp());
+					baseForUpgradeCommit = commit.getBase();
 					commitsToRollback.clear();
 					continue;
 				} else {

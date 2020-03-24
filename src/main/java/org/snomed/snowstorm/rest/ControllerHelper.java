@@ -10,7 +10,6 @@ import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.ConceptMiniNestedFsn;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.http.*;

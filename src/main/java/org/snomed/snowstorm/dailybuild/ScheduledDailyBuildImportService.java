@@ -25,6 +25,8 @@ public class ScheduledDailyBuildImportService {
 
 	private boolean initialised = false;
 
+	private boolean running;
+
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
@@ -38,15 +40,27 @@ public class ScheduledDailyBuildImportService {
 		if (!initialised) {
 			return;
 		}
-		List<CodeSystem> codeSystems = codeSystemService.findAll().stream()
-				.filter(CodeSystem::isDailyBuildAvailable).collect(Collectors.toList());
-
-		for (CodeSystem codeSystem : codeSystems) {
-			try {
-				dailyBuildService.performScheduledImport(codeSystem);
-			} catch (Exception e) {
-				logger.error("Failed to import daily build for code system " + codeSystem.getShortName(), e);
+		if (!running) {
+			synchronized (this) {
+				if (!running) {
+					running = true;
+					try {
+						List<CodeSystem> codeSystems = codeSystemService.findAll().stream()
+								.filter(CodeSystem::isDailyBuildAvailable).collect(Collectors.toList());
+						for (CodeSystem codeSystem : codeSystems) {
+							try {
+								dailyBuildService.performScheduledImport(codeSystem);
+							} catch (Exception e) {
+								logger.error("Failed to import daily build for code system " + codeSystem.getShortName(), e);
+							}
+						}
+					} finally {
+						running = false;
+					}
+				}
 			}
+		} else {
+			logger.info("Daily build already running.");
 		}
 	}
 }

@@ -2,8 +2,6 @@ package org.snomed.snowstorm.mrcm;
 
 import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
-import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.script.Script;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLException;
@@ -23,8 +21,6 @@ import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.core.query.UpdateQuery;
-import org.springframework.data.elasticsearch.core.query.UpdateQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
@@ -33,7 +29,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
@@ -98,7 +94,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		logger.info("Completed updating MRCM domain templates and attribute rules for all components on branch {}.", path);
 	}
 
-	private List<ReferenceSetMember> updateDomainTemplates(Commit commit, Map<String, Domain> domainMapByDomainId,
+	private List<ReferenceSetMember> updateDomainTemplates(String branchPath, Map<String, Domain> domainMapByDomainId,
 												   Map<String, List<AttributeDomain>> domainToAttributesMap,
 												   Map<String, List<AttributeRange>> domainToRangesMap,
 												   Map<String, String> conceptToTermMap) {
@@ -109,8 +105,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		}
 		// add diff report if required
 		Set<String> domainMemberIds = updatedDomains.stream().map(Domain::getId).collect(Collectors.toSet());
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-		List<ReferenceSetMember> domainMembers = referenceSetMemberService.findMembers(branchCriteria, domainMemberIds);
+		List<ReferenceSetMember> domainMembers = referenceSetMemberService.findMembers(branchPath, domainMemberIds);
 		Map<String, Domain> memberIdToDomainMap = new HashMap<>();
 		for (Domain domain : updatedDomains) {
 			memberIdToDomainMap.put(domain.getId(), domain);
@@ -133,7 +128,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			List<AttributeDomain> sorted = attributeToDomainsMap.get(attributeId);
 			Collections.sort(sorted, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
 			if (!attributeToRangesMap.containsKey(attributeId)) {
-				logger.info("No attribute ranges defined for attribute {}.", attributeId);
+				logger.info("No attribute ranges defined for attribute {}." + attributeId);
 				continue;
 			}
 			for (AttributeRange range : attributeToRangesMap.get(attributeId)) {
@@ -200,8 +195,8 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 
 	private void performUpdate(boolean allComponents, Commit commit) throws IOException, ServiceException {
 		String branchPath = commit.getBranch().getPath();
-		Set<String> mrcmComponentsChangedOnTask =  getMRCMRefsetComponentsChanged(commit);
 		if (!allComponents) {
+			Set<String> mrcmComponentsChangedOnTask =  getMRCMRefsetComponentsChanged(commit);
 			if (mrcmComponentsChangedOnTask.isEmpty()) {
 				logger.debug("No MRCM refset component changes found on branch {}", branchPath);
 				return;
@@ -245,55 +240,34 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			}
 		}
 
-		List<ReferenceSetMember> toUpdate = new ArrayList<>();
+		List<ReferenceSetMember> toSave = new ArrayList<>();
 		// Attribute rule
-		toUpdate.addAll(updateAttributeRules(commit, domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap));
+		toSave.addAll(updateAttributeRules(branchPath, domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap));
 		// domain templates
-		toUpdate.addAll(updateDomainTemplates(commit, domainMapByDomainId, domainToAttributesMap, attributeToRangesMap, conceptToTermMap));
-		// update effective time
-		toUpdate.stream().forEach(ReferenceSetMember :: updateEffectiveTime);
-
-		// Find MRCM members where new versions have already been created in the current commit.
-		// Update these documents to avoid having two versions of the same concepts in the commit.
-		Set<ReferenceSetMember> editedMembers = toUpdate.stream()
-				.filter(m -> m.getStart().equals(commit.getTimepoint()))
-				.collect(Collectors.toSet());
-
-		if (!editedMembers.isEmpty()) {
-			logger.info("{} reference set members updated via update query", editedMembers.size());
-			saveRefsetMembersViaUpdateQuery(editedMembers);
-		}
-
+		toSave.addAll(updateDomainTemplates(branchPath, domainMapByDomainId, domainToAttributesMap, attributeToRangesMap, conceptToTermMap));
 		// saving in batch
-		toUpdate.removeAll(editedMembers);
-		if (toUpdate.size() > 0) {
-			logger.info("{} reference set members updated in batch", toUpdate.size());
+		referenceSetMemberService.doSaveBatchMembers(toSave, commit);
+		if (toSave.size() > 0) {
+			logger.info("{} reference set members updated", toSave.size());
 		}
-		referenceSetMemberService.doSaveBatchMembers(toUpdate, commit);
 	}
 
-	private List<ReferenceSetMember> updateAttributeRules(Commit commit, Map<String,Domain> domainMapByDomainId,
+	private List<ReferenceSetMember> updateAttributeRules(String branchPath, Map<String,Domain> domainMapByDomainId,
 														  Map<String,List<AttributeDomain>> attributeToDomainsMap,
 														  Map<String, List<AttributeRange>> attributeToRangesMap,
 														  Map<String,String> conceptToTermMap) {
 
 		List<AttributeRange> attributeRanges = generateAttributeRule(domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap);
 		if (attributeRanges.size() > 0) {
-			logger.info("{} changes generated for attribute rules.", attributeRanges.size());
+			logger.info("{} attribute rules updated.", attributeRanges.size());
 		}
 
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 		Set<String> rangeMemberIds = attributeRanges.stream().map(AttributeRange::getId).collect(Collectors.toSet());
-		List<ReferenceSetMember> rangeMembers = referenceSetMemberService.findMembers(branchCriteria, rangeMemberIds);
-		if (rangeMemberIds.size() != rangeMembers.size()) {
-			throw new IllegalStateException(String.format("Not all attribute range members found as expecting %d but only got %d", rangeMemberIds.size(), rangeMembers.size()));
-		}
-
+		List<ReferenceSetMember> rangeMembers = referenceSetMemberService.findMembers(branchPath, rangeMemberIds);
 		Map<String, AttributeRange> memberIdToRangeMap = new HashMap<>();
 		for (AttributeRange range : attributeRanges) {
 			memberIdToRangeMap.put(range.getId(), range);
 		}
-
 		for (ReferenceSetMember rangeMember : rangeMembers) {
 			rangeMember.markChanged();
 			rangeMember.setAdditionalField("attributeRule", memberIdToRangeMap.get(rangeMember.getMemberId()).getAttributeRule());
@@ -424,56 +398,6 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		return result;
 	}
 
-
-	private void saveRefsetMembersViaUpdateQuery(Collection<ReferenceSetMember> referenceSetMembers) throws IOException {
-		List<UpdateQuery> updateQueries = new ArrayList<>();
-		for (ReferenceSetMember member : referenceSetMembers) {
-			StringBuilder inlineBuilder = new StringBuilder();
-			String rangeConstraint = member.getAdditionalField("rangeConstraint");
-			if (rangeConstraint != null) {
-				inlineBuilder.append("ctx._source.additionalFields.rangeConstraint='" + rangeConstraint + "'");
-			}
-
-			String attributeRule = member.getAdditionalField("attributeRule");
-			if (attributeRule != null) {
-				if (!inlineBuilder.toString().isEmpty()) {
-					inlineBuilder.append(";");
-				}
-				inlineBuilder.append("ctx._source.additionalFields.attributeRule='" + attributeRule + "'");
-			}
-
-			String precoordinate = member.getAdditionalField("domainTemplateForPrecoordination");
-			if (precoordinate != null) {
-				if (!inlineBuilder.toString().isEmpty()) {
-					inlineBuilder.append(";");
-				}
-				inlineBuilder.append("ctx._source.additionalFields.domainTemplateForPrecoordination='"+ precoordinate + "'");
-			}
-
-			String postcoordinate = member.getAdditionalField("domainTemplateForPostcoordination");
-			if (precoordinate != null) {
-				if (!inlineBuilder.toString().isEmpty()) {
-					inlineBuilder.append(";");
-				}
-				inlineBuilder.append("ctx._source.additionalFields.domainTemplateForPostcoordination='"+ postcoordinate + "'");
-			}
-
-			if (!inlineBuilder.toString().isEmpty()) {
-				UpdateRequest updateRequest = new UpdateRequest();
-				updateRequest.script(new Script(inlineBuilder.toString()));
-				updateQueries.add(new UpdateQueryBuilder()
-						.withClass(ReferenceSetMember.class)
-						.withId(member.getInternalId())
-						.withUpdateRequest(updateRequest)
-						.build());
-			}
-		}
-		if (!updateQueries.isEmpty()) {
-			elasticsearchTemplate.bulkUpdate(updateQueries);
-			elasticsearchTemplate.refresh(ReferenceSetMember.class);
-		}
-	}
-
 	private String generateDomainTemplate(Domain domain, Map<String, Domain> domainsByDomainIdMap, Map<String, List<AttributeDomain>> domainToAttributesMap,
 										  Map<String, List<AttributeRange>> attributeToRangesMap, Map<String, String> conceptToFsnMap, List<String> parentDomainIds, ContentType type) {
 
@@ -511,9 +435,6 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 				templateBuilder.append(",");
 			}
 			List<AttributeRange> ranges = attributeToRangesMap.get(attributeDomain.getReferencedComponentId());
-			if (ranges == null) {
-				throw new IllegalStateException("No attribute ranges defined for attribute " + attributeDomain.getReferencedComponentId());
-			}
 			AttributeRange attributeRange = null;
 			for (AttributeRange range : ranges) {
 				if (RuleStrength.MANDATORY == range.getRuleStrength() &&

@@ -120,7 +120,7 @@ public class ClassificationService {
 	private static final PageRequest PAGE_FIRST_1K = PageRequest.of(0, 1000);
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
-	private static final SimpleDateFormat SIMPLE_DATE_FORMAT = new SimpleDateFormat("ddMMyyyy");
+	private static final SimpleDateFormat SIMPLE_DATE_FORMAT = new SimpleDateFormat("yyyyMMdd");
 
 	public ClassificationService() {
 		classificationsInProgress = new ArrayList<>();

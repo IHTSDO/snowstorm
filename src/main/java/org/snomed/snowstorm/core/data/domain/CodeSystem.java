@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.domain;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
@@ -17,6 +18,8 @@ import java.util.Objects;
  * Represents an edition or extension of SNOMED-CT
  */
 @Document(indexName = "codesystem")
+@JsonPropertyOrder({"name", "shortName", "branchPath", "dependantVersionEffectiveTime", "dailyBuildAvailable",
+		"countryCode", "defaultLanguageReferenceSets", "latestVersion", "languages", "modules"})
 public class CodeSystem implements CodeSystemCreate {
 
 	public interface Fields {
@@ -46,11 +49,11 @@ public class CodeSystem implements CodeSystemCreate {
 	@Pattern(regexp = "MAIN.*")
 	private String branchPath;
 
-	@Field(type = FieldType.Integer)
-	private Integer dependantVersion;
-
 	@Field(type = FieldType.Boolean)
 	private boolean dailyBuildAvailable;
+
+	@Transient
+	private Integer dependantVersionEffectiveTime;
 
 	@Transient
 	private Map<String, String> languages;
@@ -124,20 +127,20 @@ public class CodeSystem implements CodeSystemCreate {
 		this.branchPath = branchPath;
 	}
 
-	public Integer getDependantVersion() {
-		return dependantVersion;
-	}
-
-	public void setDependantVersion(Integer dependantVersion) {
-		this.dependantVersion = dependantVersion;
-	}
-
 	public boolean isDailyBuildAvailable() {
 		return dailyBuildAvailable;
 	}
 
 	public void setDailyBuildAvailable(boolean dailyBuildAvailable) {
 		this.dailyBuildAvailable = dailyBuildAvailable;
+	}
+
+	public Integer getDependantVersionEffectiveTime() {
+		return dependantVersionEffectiveTime;
+	}
+
+	public void setDependantVersionEffectiveTime(Integer dependantVersionEffectiveTime) {
+		this.dependantVersionEffectiveTime = dependantVersionEffectiveTime;
 	}
 
 	public Map<String, String> getLanguages() {
@@ -162,6 +165,11 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setLatestVersion(CodeSystemVersion latestVersion) {
 		this.latestVersion = latestVersion;
+	}
+
+	@Override
+	public String toString() {
+		return shortName;
 	}
 
 	@Override

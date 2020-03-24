@@ -6,7 +6,6 @@ import io.kaicode.elasticvc.domain.Branch;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;

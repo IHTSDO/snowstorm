@@ -16,6 +16,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.AdminOperationsService;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.CodeSystemUpgradeService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
@@ -30,8 +31,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import java.io.*;
 import java.util.List;
 
-import static junit.framework.TestCase.assertNull;
-import static junit.framework.TestCase.assertTrue;
+import static junit.framework.TestCase.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
@@ -54,6 +54,9 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private CodeSystemUpgradeService codeSystemUpgradeService;
 
 	@Autowired
 	private AdminOperationsService adminOperationsService;
@@ -110,7 +113,7 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		// inactivation
 		publishedConcept = conceptService.find("12481008", branchPath);
 		assertNotNull(publishedConcept);
-		assertTrue(!publishedConcept.isActive());
+		assertFalse(publishedConcept.isActive());
 		assertTrue(publishedConcept.isReleased());
 		assertNotNull(publishedConcept.getReleasedEffectiveTime());
 		assertNull(publishedConcept.getEffectiveTime());
@@ -153,8 +156,14 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 	public void testExtensionDailyBuildImport() throws IOException, ReleaseImportException {
 		String shortName = "SNOMEDCT-LAND";
 		String branchPath = "MAIN/SNOMEDCT-LAND";
+
+		// Create dummy International version
+		codeSystemService.createVersion(snomedct, 20190731, "");
+
 		CodeSystem snomedExtensionCodeSystem = new CodeSystem(shortName, branchPath);
+		snomedExtensionCodeSystem.setDailyBuildAvailable(true);
 		codeSystemService.createCodeSystem(snomedExtensionCodeSystem);
+		assertEquals(20190731, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue());
 
 		String importId = importService.createJob(RF2Type.SNAPSHOT, snomedExtensionCodeSystem.getBranchPath(), true, false);
 		File extensionRelease = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Extension_snapshot");
@@ -178,24 +187,26 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		assertNull("Daily build #1 import reverted and concept not present in daily build #2", conceptService.find(dailyBuild1Concept, branchPath));
 		assertNotNull("Concept imported in daily build #2", conceptService.find(dailyBuild2Concept, branchPath));
 
-
-		// Create fake international release using dailybuild 1
-		String importIdA = importService.createJob(RF2Type.DELTA, "MAIN", false, false);
-		importService.importArchive(importIdA, new FileInputStream(rf2Archive1));
+		// Create fake international release
 		codeSystemService.createVersion(snomedct, 20200131, "");
 
-		// Upgrade the extension
-		Branch latest = branchService.findLatest(branchPath);
-		// First rollback the dailybuild 2 archive
-		adminOperationsService.rollbackCommit(branchPath, latest.getHeadTimestamp());
-		codeSystemService.upgrade(shortName, 20200131);
+		// Upgrade the extension (rollback of previous daily build is automatic)
+		codeSystemUpgradeService.upgrade(shortName, 20200131);
+		assertEquals("Assert extension upgraded", 20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue());
+		assertNull("Daily build 1 still not there.", conceptService.find(dailyBuild1Concept, branchPath));
+		assertNull("Daily build 2 Concept should have been reverted as part of the upgrade.", conceptService.find(dailyBuild2Concept, branchPath));
 
-		assertNotNull("Daily build 1 Concept now visible via extension upgrade", conceptService.find(dailyBuild1Concept, branchPath));
+		// Import daily build #1
+		dailyBuildImportService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive1.getAbsolutePath());
+		assertEquals("Assert extension is still upgraded", 20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue());
+		assertNotNull("Daily build 1 Concept is now there.", conceptService.find(dailyBuild1Concept, branchPath));
+		assertNull("Daily build 2 Concept should not be there yet.", conceptService.find(dailyBuild2Concept, branchPath));
 
-		// Import daily build #2 again
+		// Import daily build #2
 		dailyBuildImportService.dailyBuildDeltaImport(snomedExtensionCodeSystem, rf2Archive2.getAbsolutePath());
-		assertNotNull("Daily build 1 Concept should still be visible because of upgrade.", conceptService.find(dailyBuild1Concept, branchPath));
-		assertNotNull("Other concept imported in extension daily build #2", conceptService.find(dailyBuild2Concept, branchPath));
+		assertEquals("Assert extension is still upgraded", 20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue());
+		assertNull("Daily build 1 Concept should now have been reverted.", conceptService.find(dailyBuild1Concept, branchPath));
+		assertNotNull("Daily build 2 Concept should now be there.", conceptService.find(dailyBuild2Concept, branchPath));
 	}
 
 	private static class MockResourceManager extends ResourceManager {

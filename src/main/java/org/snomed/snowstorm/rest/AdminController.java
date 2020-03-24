@@ -141,6 +141,12 @@ public class AdminController {
 		adminOperationsService.promoteReleaseFix(BranchPathUriUtil.decodePath(releaseFixBranch));
 	}
 
+	@RequestMapping(value = "/{branch}/actions/clone-child-branch", method = RequestMethod.POST)
+	@ResponseBody
+	public void cloneChildBranch(@PathVariable String branch, @RequestParam String newBranch) {
+		adminOperationsService.cloneChildBranch(BranchPathUriUtil.decodePath(branch), newBranch);
+	}
+
 	@ApiOperation(value = "Force update of MRCM domain templates and MRCM attribute rules.",
 			notes = "You are unlikely to need this action. " +
 					"If something has gone wrong when editing MRCM reference sets you can use this function to force updating the domain templates and attribute rules " +
@@ -151,9 +157,4 @@ public class AdminController {
 		mrcmUpdateService.updateAllDomainTemplatesAndAttributeRules(BranchPathUriUtil.decodePath(branch));
 	}
 
-	@RequestMapping(value = "/{branch}/actions/clone-child-branch", method = RequestMethod.POST)
-	@ResponseBody
-	public void cloneChildBranch(@PathVariable String branch, @RequestParam String newBranch) {
-		adminOperationsService.cloneChildBranch(BranchPathUriUtil.decodePath(branch), newBranch);
-	}
 }
