@@ -140,29 +140,32 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 				maxEffectiveTimeCollector.add(effectiveTimeI);
 			}
 		});
-		for (Integer effectiveTime : new TreeSet<>(effectiveDateMap.keySet())) {
-			// Find component states with an equal or greater effective time
-			boolean replacementOfThisEffectiveTimeAllowed = patchReleaseVersion != null && patchReleaseVersion.equals(effectiveTime);
-			List<T> componentsAtDate = effectiveDateMap.get(effectiveTime);
-			String idField = componentsAtDate.get(0).getIdField();
-			AtomicInteger alreadyExistingComponentCount = new AtomicInteger();
-			try (CloseableIterator<T> componentsWithSameOrLaterEffectiveTime = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
-							.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).collect(Collectors.toList())))
-							.must(replacementOfThisEffectiveTimeAllowed ?
-									rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gt(effectiveTime)
-									: rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gte(effectiveTime)))
-					.withFields(idField)// Only fetch the id
-					.withPageable(LARGE_PAGE)
-					.build(), componentClass)) {
-				componentsWithSameOrLaterEffectiveTime.forEachRemaining(component -> {
-					// Skip component import
-					components.remove(component);// Compared by id only
-					alreadyExistingComponentCount.incrementAndGet();
-				});
+		// patchReleaseVersion=-1 is a special case which allows replacing any effectiveTime
+		if (patchReleaseVersion == null || !patchReleaseVersion.equals(-1)) {
+			for (Integer effectiveTime : new TreeSet<>(effectiveDateMap.keySet())) {
+				// Find component states with an equal or greater effective time
+				boolean replacementOfThisEffectiveTimeAllowed = patchReleaseVersion != null && patchReleaseVersion.equals(effectiveTime);
+				List<T> componentsAtDate = effectiveDateMap.get(effectiveTime);
+				String idField = componentsAtDate.get(0).getIdField();
+				AtomicInteger alreadyExistingComponentCount = new AtomicInteger();
+				try (CloseableIterator<T> componentsWithSameOrLaterEffectiveTime = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
+								.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).collect(Collectors.toList())))
+								.must(replacementOfThisEffectiveTimeAllowed ?
+										rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gt(effectiveTime)
+										: rangeQuery(SnomedComponent.Fields.EFFECTIVE_TIME).gte(effectiveTime)))
+						.withFields(idField)// Only fetch the id
+						.withPageable(LARGE_PAGE)
+						.build(), componentClass)) {
+					componentsWithSameOrLaterEffectiveTime.forEachRemaining(component -> {
+						// Skip component import
+						components.remove(component);// Compared by id only
+						alreadyExistingComponentCount.incrementAndGet();
+					});
+				}
+				componentTypeSkippedMap.computeIfAbsent(componentClass.getSimpleName(), key -> new AtomicLong()).addAndGet(alreadyExistingComponentCount.get());
 			}
-			componentTypeSkippedMap.computeIfAbsent(componentClass.getSimpleName(), key -> new AtomicLong()).addAndGet(alreadyExistingComponentCount.get());
 		}
 		if (copyReleaseFields) {
 			Map<String, T> idToUnreleasedComponentMap = components.stream().filter(component -> component.getEffectiveTime() == null).collect(Collectors.toMap(T::getId, Function.identity()));
