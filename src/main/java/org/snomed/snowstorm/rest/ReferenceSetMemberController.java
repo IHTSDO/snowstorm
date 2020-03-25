@@ -215,10 +215,23 @@ public class ReferenceSetMemberController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteMembers(
 			@PathVariable String branch,
-			@RequestParam Set<String> uuids,
+			@RequestBody MemberIdsPojo memberIdsPojo,
 			@ApiParam("Force the deletion of released members.")
 			@RequestParam(defaultValue = "false") boolean force) {
 
-		memberService.deleteMembers(BranchPathUriUtil.decodePath(branch), uuids, force);
+		memberService.deleteMembers(BranchPathUriUtil.decodePath(branch), memberIdsPojo.getMemberIds(), force);
+	}
+
+	public static class MemberIdsPojo {
+
+		private Set<String> memberIds;
+
+		public Set<String> getMemberIds() {
+			return memberIds;
+		}
+
+		public void setMemberIds(Set<String> memberIds) {
+			this.memberIds = memberIds;
+		}
 	}
 }
