@@ -505,7 +505,9 @@ public class AdminOperationsService {
 						// and related fields to simulate a release
 						if (entity instanceof SnomedComponent) {
 							SnomedComponent component = (SnomedComponent) entity;
-							component.release(latestImportedVersion.getEffectiveDate());
+							if (component.getEffectiveTime() == null) {
+								component.release(latestImportedVersion.getEffectiveDate());
+							}
 						}
 					}
 					logger.info("Promoting {} {} before revert commit.", existingEntitiesBatch.size(), type.getSimpleName());
