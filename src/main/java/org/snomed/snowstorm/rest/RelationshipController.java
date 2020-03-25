@@ -131,11 +131,24 @@ public class RelationshipController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteRelationships(
 			@PathVariable String branch,
-			@RequestParam Set<String> relationshipIds,
+			@RequestBody RelationshipIdPojo relationshipIdPojo,
 			@ApiParam("Force the deletion of released relationships.")
 			@RequestParam(defaultValue = "false") boolean force) {
 		branch = BranchPathUriUtil.decodePath(branch);
-		relationshipService.deleteRelationships(relationshipIds, branch, force);
+		relationshipService.deleteRelationships(relationshipIdPojo.relationshipIds, branch, force);
+	}
+
+	public static class RelationshipIdPojo {
+
+		private Set<String> relationshipIds;
+
+		public Set<String> getRelationshipIds() {
+			return relationshipIds;
+		}
+
+		public void setRelationshipIds(Set<String> relationshipIds) {
+			this.relationshipIds = relationshipIds;
+		}
 	}
 
 }
