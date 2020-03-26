@@ -40,6 +40,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 import ca.uhn.fhir.rest.param.StringParam;
+import ca.uhn.fhir.rest.param.TokenParam;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
@@ -333,10 +334,10 @@ public class FHIRHelper implements FHIRConstants {
 		return conceptMiniPage;
 	}
 
-	public boolean hasUsageContext(ValueSet vs, Coding context) {
+	public boolean hasUsageContext(ValueSet vs, TokenParam context) {
 		if (vs.getUseContext() != null && vs.getUseContext().size() > 0) {
 			return vs.getUseContext().stream()
-				.anyMatch(u -> codingMatches(u.getCode(), context.getCode()));
+				.anyMatch(u -> codingMatches(u.getCode(), context.getValue()));
 		}
 		return false;
 	}

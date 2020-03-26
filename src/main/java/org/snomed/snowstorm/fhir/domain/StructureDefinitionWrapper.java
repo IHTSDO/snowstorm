@@ -7,21 +7,21 @@ import org.hl7.fhir.r4.model.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 
-@Document(indexName = "valueset")
-public class ValueSetWrapper {
+@Document(indexName = "structure-definition")
+public class StructureDefinitionWrapper {
 	
 	private static IParser fhirJsonParser;
 	
 	@Id
 	private String id;
 	
-	private ValueSet valueset;
+	private StructureDefinition structureDefinition;
 	
-	public ValueSetWrapper () {
+	public StructureDefinitionWrapper () {
 	}
 	
-	public ValueSetWrapper (IdType id, ValueSet vs) {
-		this.valueset = vs;
+	public StructureDefinitionWrapper (IdType id, StructureDefinition vs) {
+		this.structureDefinition = vs;
 		this.id = id.getIdPart();
 	}
 
@@ -31,17 +31,17 @@ public class ValueSetWrapper {
 
 	public void setId(String id) {
 		this.id = id;
-		if (valueset != null) {
-			this.valueset.setId(id);
+		if (structureDefinition != null) {
+			this.structureDefinition.setId(id);
 		}
 	}
 
-	public ValueSet getValueset() {
-		return valueset;
+	public StructureDefinition getStructureDefinition() {
+		return structureDefinition;
 	}
 
-	public void setValueset(ValueSet valueset) {
-		this.valueset = valueset;
+	public void setStructureDefinition(StructureDefinition structureDefinition) {
+		this.structureDefinition = structureDefinition;
 	}
 	
 	public static IParser getFhirParser() {

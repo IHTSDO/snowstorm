@@ -29,6 +29,7 @@ import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.param.StringParam;
+import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
@@ -119,7 +120,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			HttpServletResponse theResponse,
 			@OptionalParam(name="_id") String id,
 			@OptionalParam(name="code") String code,
-			@OptionalParam(name="context") String context,
+			@OptionalParam(name="context") TokenParam context,
 			@OptionalParam(name="context-quantity") QuantityParam contextQuantity,
 			@OptionalParam(name="context-type") String contextType,
 			@OptionalParam(name="date") String date,
@@ -134,7 +135,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OptionalParam(name="title") StringParam title,
 			@OptionalParam(name="url") String url,
 			@OptionalParam(name="version") String version) throws FHIROperationException {
-		ValueSetFilter vsFilter = new ValueSetFilter()
+		SearchFilter vsFilter = new SearchFilter()
 									.withId(id)
 									.withCode(code)
 									.withContext(context)
@@ -154,7 +155,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 									.withVersion(version);
 		return StreamSupport.stream(valuesetRepository.findAll().spliterator(), false)
 				.map(vs -> vs.getValueset())
-				.filter(vs -> ValueSetFilter.apply(vsFilter, vs, queryService, fhirHelper))
+				.filter(vs -> vsFilter.apply(vs, queryService, fhirHelper))
 				.collect(Collectors.toList());
 	}
 	
