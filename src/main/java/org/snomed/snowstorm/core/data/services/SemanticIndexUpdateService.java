@@ -85,13 +85,9 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 	}
 
-	public void rebuildStatedAndInferredSemanticIndex(String branch) throws ServiceException {
-		// TODO: Only use on MAIN
-		try (Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata("Rebuilding semantic index."))) {
-			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
-			List<Branch> timeSlice = versionControlHelper.getTimeSlice(commit.getBranch().getPath(), commit.getTimepoint());
-			updateSemanticIndex(Form.STATED, branchCriteria, Collections.emptySet(), commit, timeSlice, true);
-			updateSemanticIndex(Form.INFERRED, branchCriteria, Collections.emptySet(), commit, timeSlice, true);
+	public void rebuildStatedAndInferredSemanticIndex(String branchPath) throws ServiceException {
+		try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata("Rebuilding semantic index."))) {
+			rebuildSemanticIndex(commit);
 			commit.markSuccessful();
 		} catch (ConversionException | GraphBuilderException e) {
 			throw new ServiceException("Failed to update semantic index. " + e.getMessage(), e);
@@ -100,15 +96,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 	private void updateStatedAndInferredSemanticIndex(Commit commit) throws IllegalStateException, ConversionException, GraphBuilderException {
 		if (commit.isRebase()) {
-			// Recreate query index using new parent base point + content on this branch
-			Branch branch = commit.getBranch();
-			removeQConceptChangesOnBranch(commit);
-
-			BranchCriteria changesBranchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch);
-			List<Branch> timeSlice = versionControlHelper.getTimeSlice(branch.getPath(), commit.getTimepoint());
-			Set<String> relationshipAndAxiomDeletionsToProcess = Sets.union(branch.getVersionsReplaced(ReferenceSetMember.class), branch.getVersionsReplaced(Relationship.class));
-			updateSemanticIndex(Form.STATED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, timeSlice, false);
-			updateSemanticIndex(Form.INFERRED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, timeSlice, false);
+			rebuildSemanticIndex(commit);
 		} else if (commit.getCommitType() != Commit.CommitType.PROMOTION) {
 			// Update query index using changes in the current commit
 			BranchCriteria changesBranchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
@@ -121,8 +109,21 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// If promotion the semantic changes will be promoted with the rest of the content.
 	}
 
+	private void rebuildSemanticIndex(Commit commit) throws ConversionException, GraphBuilderException {
+		// Recreate query index using new parent base point + content on this branch
+		Branch branch = commit.getBranch();
+		removeQConceptChangesOnBranch(commit);
+
+		BranchCriteria changesBranchCriteria = versionControlHelper.getChangesOnBranchCriteria(branch);
+		List<Branch> timeSlice = versionControlHelper.getTimeSlice(branch.getPath(), commit.getTimepoint());
+		Set<String> relationshipAndAxiomDeletionsToProcess = Sets.union(branch.getVersionsReplaced(ReferenceSetMember.class), branch.getVersionsReplaced(Relationship.class));
+		boolean completeRebuild = branch.getPath().equals("MAIN");
+		updateSemanticIndex(Form.STATED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, timeSlice, completeRebuild);
+		updateSemanticIndex(Form.INFERRED, changesBranchCriteria, relationshipAndAxiomDeletionsToProcess, commit, timeSlice, completeRebuild);
+	}
+
 	private void updateSemanticIndex(Form form, BranchCriteria changesBranchCriteria, Set<String> internalIdsOfDeletedComponents, Commit commit,
-			List<Branch> timeSlice, boolean rebuild) throws IllegalStateException, ConversionException, GraphBuilderException {
+			List<Branch> timeSlice, boolean completeRebuild) throws IllegalStateException, ConversionException, GraphBuilderException {
 
 		// Note: Searches within this method use a filter clause for collections of identifiers because these
 		//       can become larger than the maximum permitted query criteria.
@@ -135,7 +136,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 		// Identify concepts with modeling changes  and load relevant parts of the existing node graph
 		final GraphBuilder graphBuilder = new GraphBuilder();
-		Set<Long> updatedConceptIds = buildRelevantPartsOfExistingGraph(graphBuilder, rebuild, form,
+		Set<Long> updatedConceptIds = buildRelevantPartsOfExistingGraph(graphBuilder, completeRebuild, form,
 				changesBranchCriteria, branchCriteriaForAlreadyCommittedContent, internalIdsOfDeletedComponents, timer);
 		if (updatedConceptIds.isEmpty()) {
 			// Nothing to do
@@ -218,7 +219,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// Step: Save changes
 		Map<Long, Node> nodesToSave = new Long2ObjectOpenHashMap<>();
 		graphBuilder.getNodes().stream()
-				.filter(node -> newGraph || rebuild || node.isAncestorOrSelfUpdated() || conceptAttributeChanges.containsKey(node.getId()))
+				.filter(node -> newGraph || completeRebuild || node.isAncestorOrSelfUpdated() || conceptAttributeChanges.containsKey(node.getId()))
 				.forEach(node -> nodesToSave.put(node.getId(), node));
 		Set<Long> nodesNotFound = new LongOpenHashSet(nodesToSave.keySet());
 		Set<QueryConcept> queryConceptsToSave = new HashSet<>();
@@ -312,7 +313,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		return false;
 	}
 
-	private Set<Long> buildRelevantPartsOfExistingGraph(GraphBuilder graphBuilder, boolean rebuild, Form form,
+	private Set<Long> buildRelevantPartsOfExistingGraph(GraphBuilder graphBuilder, boolean completeRebuild, Form form,
 			BranchCriteria changesBranchCriteria, BranchCriteria branchCriteriaForAlreadyCommittedContent,
 			Set<String> internalIdsOfDeletedComponents, TimerUtil timer) throws ConversionException {
 
@@ -321,7 +322,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		Set<Long> existingAncestors = new LongOpenHashSet();
 		Set<Long> existingDescendants = new LongOpenHashSet();
 
-		if (rebuild) {
+		if (completeRebuild) {
 			logger.info("Performing rebuild of {} semantic index", form.getName());
 		}
 		else {
@@ -447,7 +448,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 
 		// Step: Build existing graph
-		if (!rebuild) {
+		if (!completeRebuild) {
 			// Iterative update.
 			// Strategy: Load selection of existing nodes and use parents to build graph.
 			Set<Long> nodesToLoad = new LongOpenHashSet();
