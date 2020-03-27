@@ -3,10 +3,7 @@ package org.snomed.snowstorm.rest;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import org.snomed.snowstorm.core.data.services.AdminOperationsService;
-import org.snomed.snowstorm.core.data.services.ConceptDefinitionStatusUpdateService;
-import org.snomed.snowstorm.core.data.services.SemanticIndexUpdateService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -33,6 +30,9 @@ public class AdminController {
 
 	@Autowired
 	private MRCMUpdateService mrcmUpdateService;
+
+	@Autowired
+	private IntegrityService integrityService;
 
 	@ApiOperation(value = "Rebuild the description index.",
 			notes = "Use this if the search configuration for international character handling of a language has been " +
@@ -155,6 +155,13 @@ public class AdminController {
 	@ResponseBody
 	public void updateMRCMDomainTemplatesAndAttributeRules(@PathVariable String branch) throws ServiceException {
 		mrcmUpdateService.updateAllDomainTemplatesAndAttributeRules(BranchPathUriUtil.decodePath(branch));
+	}
+
+	@ApiOperation("Find concepts in the semantic index which should not be there. The concept may be inactive or deleted. To catch and debug rare cases.")
+	@RequestMapping(value = "/{branch}/actions/find-extra-concepts-in-semantic-index", method = RequestMethod.POST)
+	@ResponseBody
+	public IntegrityService.ConceptsInForm findExtraConceptsInSemanticIndex(@PathVariable String branch) {
+		return integrityService.findExtraConceptsInSemanticIndex(BranchPathUriUtil.decodePath(branch));
 	}
 
 }

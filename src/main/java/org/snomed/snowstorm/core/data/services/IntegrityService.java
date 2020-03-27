@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 import ch.qos.logback.classic.Level;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
@@ -39,6 +40,9 @@ public class IntegrityService {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private BranchService branchService;
 
 	@Autowired
 	private AxiomConversionService axiomConversionService;
@@ -342,6 +346,41 @@ public class IntegrityService {
 		}
 	}
 
+	public ConceptsInForm findExtraConceptsInSemanticIndex(String branchPath) {
+		TimerUtil timer = new TimerUtil("Semantic delete check");
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+
+		Set<Long> activeConcepts = new LongOpenHashSet(conceptService.findAllActiveConcepts(branchCriteria));
+		timer.checkpoint("Fetch active concepts: " + activeConcepts.size());
+
+		List<Long> statedIds = new ArrayList<>();
+		List<Long> inferredIds = new ArrayList<>();
+		try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(
+				new NativeSearchQueryBuilder()
+						.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(QueryConcept.class)))
+						.withFilter(boolQuery().mustNot(termsQuery(QueryConcept.Fields.CONCEPT_ID, activeConcepts)))
+						.withPageable(LARGE_PAGE)
+						.build(), QueryConcept.class)) {
+			stream.forEachRemaining(semanticConcept -> {
+				if (semanticConcept.isStated()) {
+					statedIds.add(semanticConcept.getConceptIdL());
+				} else {
+					inferredIds.add(semanticConcept.getConceptIdL());
+				}
+			});
+		}
+		timer.checkpoint("Check whole semantic index for branch.");
+		timer.finish();
+
+		if (!statedIds.isEmpty() || inferredIds.isEmpty()) {
+			logger.error("Found {} stated and {} inferred concepts in semantic index for branch {} which should not be there.", statedIds.size(), inferredIds.size(), branchPath);
+		} else {
+			logger.info("Found {} stated and {} inferred concepts in semantic index for branch {} which should not be there.", statedIds.size(), inferredIds.size(), branchPath);
+		}
+
+		return new ConceptsInForm(statedIds, inferredIds);
+	}
+
 	private Set<Long> findDeletedOrInactivatedConcepts(Branch branch, BranchCriteria branchCriteria) {
 		// Find Concepts changed or deleted on this branch
 		final Set<Long> changedOrDeletedConcepts = new LongOpenHashSet();
@@ -376,5 +415,31 @@ public class IntegrityService {
 		deletedOrInactiveConcepts.removeAll(changedAndActiveConcepts);
 		logger.info("Concepts deleted or inactive on branch {} = {}", branch.getPath(), deletedOrInactiveConcepts.size());
 		return deletedOrInactiveConcepts;
+	}
+
+	public static class ConceptsInForm {
+		private List<Long> statedConceptIds;
+		private List<Long> inferredConceptIds;
+
+		public ConceptsInForm(List<Long> statedIds, List<Long> inferredIds) {
+			this.statedConceptIds = statedIds;
+			this.inferredConceptIds = inferredIds;
+		}
+
+		public List<Long> getStatedConceptIds() {
+			return statedConceptIds;
+		}
+
+		public void setStatedConceptIds(List<Long> statedConceptIds) {
+			this.statedConceptIds = statedConceptIds;
+		}
+
+		public List<Long> getInferredConceptIds() {
+			return inferredConceptIds;
+		}
+
+		public void setInferredConceptIds(List<Long> inferredConceptIds) {
+			this.inferredConceptIds = inferredConceptIds;
+		}
 	}
 }
