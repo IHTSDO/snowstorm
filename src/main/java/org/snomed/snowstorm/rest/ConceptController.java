@@ -104,18 +104,8 @@ public class ConceptController {
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		// Parameter validation
-		int logicalMethods = 0;
-		if (ecl != null) {
-			logicalMethods++;
-		}
-		if (statedEcl != null) {
-			logicalMethods++;
-		}
-		if (conceptIds != null) {
-			logicalMethods++;
-		}
-		if (logicalMethods > 1) {
-			throw new IllegalArgumentException("Parameters ecl, statedEcl and conceptIds can not be combined.");
+		if (ecl != null && statedEcl != null) {
+			throw new IllegalArgumentException("Parameters ecl and statedEcl can not be combined.");
 		}
 
 		if ((ecl != null || statedEcl != null) && activeFilter != null && !activeFilter) {
