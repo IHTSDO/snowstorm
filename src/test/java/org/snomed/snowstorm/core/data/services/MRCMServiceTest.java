@@ -36,9 +36,10 @@ public class MRCMServiceTest extends AbstractTest {
 	@Before
 	public void setup() throws ServiceException {
 		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT).addFSN("SNOMED CT"), "MAIN");
-		conceptService.create(new Concept(Concepts.ISA).addFSN("Term").addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), "MAIN");
-		assertEquals(2, queryService.eclSearch("*", true, "MAIN", LARGE_PAGE).getTotalElements());
-		assertEquals(1, queryService.eclSearch(Concepts.ISA, true, "MAIN", LARGE_PAGE).getTotalElements());
+		conceptService.create(new Concept(Concepts.ISA).addFSN("Term").addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT).setInferred(true)), "MAIN");
+		boolean stated = false;
+		assertEquals(2, queryService.eclSearch("*", stated, "MAIN", LARGE_PAGE).getTotalElements());
+		assertEquals(1, queryService.eclSearch(Concepts.ISA, stated, "MAIN", LARGE_PAGE).getTotalElements());
 	}
 
 	@Test
