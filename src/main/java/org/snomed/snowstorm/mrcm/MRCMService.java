@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.domain.refinement.Operator;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
@@ -130,7 +131,7 @@ public class MRCMService {
 
 		AttributeRange attributeRange = attributeRanges.iterator().next();
 
-		QueryService.ConceptQueryBuilder conceptQuery = queryService.createQueryBuilder(true)
+		QueryService.ConceptQueryBuilder conceptQuery = queryService.createQueryBuilder(Relationship.CharacteristicType.inferred)
 				.ecl(attributeRange.getRangeConstraint())
 				.resultLanguageDialects(languageDialects);
 
