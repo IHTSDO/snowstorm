@@ -559,6 +559,17 @@ public class ImportServiceTest extends AbstractTest {
 		assertNotNull(member);
 	}
 
+	@Test
+	public void testSimplestRefsetImport() throws IOException, ReleaseImportException {
+		assertNull(referenceSetMemberService.findMember("MAIN", "01a78d22-ad0b-5e76-8fd4-9fed481e5de5"));
+
+		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/refset-snapshot-import");
+		String importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN", false, false);
+		importService.importArchive(importId, new FileInputStream(zipFile));
+
+		assertNotNull(referenceSetMemberService.findMember("MAIN", "01a78d22-ad0b-5e76-8fd4-9fed481e5de5"));
+	}
+
 	private void collectContentCounts(List<Concept> concepts, Map<String, AtomicInteger> conceptDefinitionStatuses, Map<String, AtomicInteger> descriptionCaseSignificance, Map<String, AtomicInteger> descriptionAcceptability, Map<Integer, AtomicInteger> relationshipGroups) {
 		conceptDefinitionStatuses.clear();
 		descriptionCaseSignificance.clear();
