@@ -11,6 +11,7 @@ import org.snomed.snowstorm.core.data.domain.jobs.IdentifiersForRegistration;
 import org.snomed.snowstorm.core.data.repositories.jobs.IdentifiersForRegistrationRepository;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -28,8 +29,9 @@ public class IdentifierService {
 	private static final String PARTITION_PART2_CONCEPT = "0";
 	private static final String PARTITION_PART2_DESCRIPTION = "1";
 	private static final String PARTITION_PART2_RELATIONSHIP = "2";
-	
-	private static boolean suspendRegistrationProcess = false;
+
+	@Value("${cis.registration.enabled}")
+	private boolean registrationEnabled;
 	
 	@Autowired
 	private IdentifierCacheManager cacheManager;
@@ -107,7 +109,8 @@ public class IdentifierService {
 
 	@Scheduled(fixedDelay = 30_000)
 	public synchronized void registerIdentifiers() {
-		if (suspendRegistrationProcess) {
+		if (registrationEnabled) {
+			logger.debug("SCTID Registration process disabled.");
 			return;
 		}
 		// Gather sets of identifiers and group by namespace, then register
@@ -163,9 +166,4 @@ public class IdentifierService {
 		return getReservedBlock(namespaceInt, conceptIds, descriptionIds, relationshipIds);
 	}
 
-	public static void suspendRegistrationProcess(boolean suspend) {
-		logger.warn("SCTID Registration process " + (suspend ? " suspended" : "resumed"));
-		suspendRegistrationProcess = suspend;
-	}
-	
 }
