@@ -36,18 +36,6 @@ public class IdentifierServiceTest extends AbstractTest {
 		Assert.assertEquals(3, block.size(ComponentType.Relationship));
 	}
 	
-	@BeforeClass
-	public static void setup() {
-		//Need to suspend this process or it will try and register the ids we're using during testing
-		IdentifierService.suspendRegistrationProcess(true);
-	}
-	
-	@AfterClass
-	public static void tearDown() {
-		//And set it going again.
-		IdentifierService.suspendRegistrationProcess(false);
-	}
-	
 	@Test
 	public void testNamespaceIdentifierMap() {
 		List<IdentifiersForRegistration> ifr = new ArrayList<>();
