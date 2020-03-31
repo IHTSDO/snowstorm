@@ -2,14 +2,21 @@ package org.snomed.snowstorm.mrcm;
 
 import static org.junit.Assert.*;
 
+import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.domain.refinement.Operator;
+import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.ServiceTestUtil;
 import org.snomed.snowstorm.mrcm.model.*;
+import org.snomed.snowstorm.util.ExpressionsDiffUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -19,25 +26,130 @@ import java.util.stream.Collectors;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class MRCMUpdateServiceTest {
+public class MRCMUpdateServiceTest extends AbstractTest {
+
 	@Autowired
 	private MRCMUpdateService mrcmUpdateService;
+
+	@Autowired
+	private BranchService branchService;
+
+	@Autowired
+	private ReferenceSetMemberService memberService;
+
+	@Autowired
+	private ConceptService conceptService;
 
 	private Map<String, List<AttributeDomain>> attributeToDomainsMap;
 	private Map<String, List<AttributeRange>> attributeToRangesMap;
 	private Map<String, String> conceptToPtMap;
 
-	private Logger logger = LoggerFactory.getLogger(MRCMUpdateServiceTest.class);
+	private ServiceTestUtil testUtil;
 
 	@Before
 	public void setUp() {
 		attributeToDomainsMap = new HashMap<>();
 		attributeToRangesMap = new HashMap<>();
 		conceptToPtMap = new HashMap<>();
+		testUtil = new ServiceTestUtil(conceptService);
 	}
 
 	@Test
-	public void testAttributeRule() throws Exception{
+	public void testUpdatingMRCMRulesAndTemplates() throws Exception {
+
+		Branch branch = branchService.create("MAIN/MRCM");
+
+		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"255234002", "After");
+		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"272379006", "Event (event)");
+		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"404684003", "Clinical finding (finding)");
+
+		ReferenceSetMember eventDomain = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL,"272379006")
+				.setAdditionalField("domainConstraint", "<< 272379006 |Event (event)|")
+				.setAdditionalField("parentDomain", null)
+				.setAdditionalField("proximalPrimitiveConstraint", "<< 272379006 |Event (event)|")
+				.setAdditionalField("proximalPrimitiveRefinement", null)
+				.setAdditionalField("domainTemplateForPrecoordination", "")
+				.setAdditionalField("domainTemplateForPostcoordination", "")
+				.setAdditionalField("guideURL", "");
+
+		ReferenceSetMember clinicalFindingDomain = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL,"404684003")
+				.setAdditionalField("domainConstraint", "<< 404684003 |Clinical finding (finding)|")
+				.setAdditionalField("parentDomain", null)
+				.setAdditionalField("proximalPrimitiveConstraint", "<< 404684003 |Clinical finding (finding)|")
+				.setAdditionalField("proximalPrimitiveRefinement", null)
+				.setAdditionalField("domainTemplateForPrecoordination", "")
+				.setAdditionalField("domainTemplateForPostcoordination", "")
+				.setAdditionalField("guideURL", "");
+
+		ReferenceSetMember event = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL,"255234002")
+				.setAdditionalField("domainId", "272379006")
+				.setAdditionalField("grouped", "1")
+				.setAdditionalField("attributeCardinality", "0..*")
+				.setAdditionalField("attributeInGroupCardinality", "0..1")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005");
+
+		ReferenceSetMember clinicFinding = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL,"255234002")
+				.setAdditionalField("domainId", "404684003")
+				.setAdditionalField("grouped", "1")
+				.setAdditionalField("attributeCardinality", "0..*")
+				.setAdditionalField("attributeInGroupCardinality", "0..1")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005");
+
+		ReferenceSetMember range = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL,"255234002")
+				.setAdditionalField("rangeConstraint", "<< 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)| OR << 272379006 |Event (event)|")
+				.setAdditionalField("attributeRule", " ")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005");
+
+		Set<ReferenceSetMember> mrcmMembers = new HashSet<>();
+		mrcmMembers.add(eventDomain);
+		mrcmMembers.add(clinicalFindingDomain);
+		mrcmMembers.add(event);
+		mrcmMembers.add(clinicFinding);
+		mrcmMembers.add(range);
+		memberService.createMembers(branch.getPath(), mrcmMembers);
+
+		// verify attribute range
+		range = memberService.findMember(branch.getPath(), range.getMemberId());
+		assertNotNull(range);
+
+		assertEquals("<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|",
+				range.getAdditionalFields().get("rangeConstraint"));
+
+		String expected = "(<< 272379006 |Event (event)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })" +
+				" OR (<< 404684003 |Clinical finding (finding)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })";
+
+		assertEquals(expected, range.getAdditionalField("attributeRule"));
+
+		//TODO
+//		String published = "";
+//		assertFalse(ExpressionsDiffUtil.diffExpressions("", published, expected, true));
+
+		// verify domain templates
+		eventDomain = memberService.findMember(branch.getPath(), eventDomain.getMemberId());
+		assertNotNull(eventDomain);
+		assertEquals("[[+id(<< 272379006 |Event (event)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+id(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]}",
+				eventDomain.getAdditionalField("domainTemplateForPrecoordination"));
+		assertEquals("[[+scg(<< 272379006 |Event (event)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+scg(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]}",
+				eventDomain.getAdditionalField("domainTemplateForPostcoordination"));
+
+		clinicalFindingDomain = memberService.findMember(branch.getPath(), clinicalFindingDomain.getMemberId());
+		assertNotNull(clinicalFindingDomain);
+		assertEquals("[[+id(<< 404684003 |Clinical finding (finding)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+id(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]}",
+				clinicalFindingDomain.getAdditionalField("domainTemplateForPrecoordination"));
+		assertEquals("[[+scg(<< 404684003 |Clinical finding (finding)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+scg(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]}",
+				clinicalFindingDomain.getAdditionalField("domainTemplateForPostcoordination"));
+	}
+
+	@Test
+	public void testAttributeRuleAndConstaint() throws Exception{
 
 		AttributeDomain event= new AttributeDomain("358fdc09-ed75-43a0-b9ad-d926ed51162d", null,
 				true, "255234002", "272379006", true,
@@ -72,6 +184,9 @@ public class MRCMUpdateServiceTest {
 				" OR (<< 404684003 |Clinical finding (finding)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })";
 
 		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
+
+		assertEquals("<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|",
+				attributeRanges.get(0).getRangeConstraint());
 	}
 
 	@Test
@@ -250,8 +365,19 @@ public class MRCMUpdateServiceTest {
 				" [[0..*]] 733933004 |Lateral half of| = [[+id(<< 123037004|Body structure (body structure)|)]]," +
 				" [[0..*]] 774081006 |Proper part of| = [[+id(<< 123037004|Body structure (body structure)|)]]";
 
-		diff(expected, actual);
+		String published = "[[+id(^ 723264001 |Lateralizable body structure reference set (foundation metadata concept)|)]]:" +
+				" [[0..1]] 272741003 |Laterality| = [[+id(<< 182353008 |Side (qualifier value)|)]]," +
+				" [[0..*]] 733928003 |All or part of| = [[+id(<< 123037004|Body structure (body structure)|)]]," +
+				" [[0..*]] 733931002 |Constitutional part of| = [[+id(<< 123037004|Body structure (body structure)|)]]," +
+				" [[0..*]] 733930001 |Regional part of| = [[+id(<< 123037004|Body structure (body structure)|)]]," +
+				" [[0..*]] 733933004 |Lateral half of| = [[+id(<< 123037004|Body structure (body structure)|)]]," +
+				" [[0..*]] 733932009 |Systemic part of| = [[+id(<< 123037004|Body structure (body structure)|)]]," +
+				" [[0..*]] 774081006 |Proper part of| = [[+id(<< 123037004 |Body structure (body structure)|)]]";
+
 		assertEquals(expected, actual);
+		//TODO
+
+//		assertFalse(ExpressionsDiffUtil.diffTemplates(published, actual, true));
 
 	}
 
@@ -266,176 +392,5 @@ public class MRCMUpdateServiceTest {
 				" OR << 444018008 |Person with characteristic related to subject of record (person)|";
 		assertEquals(expected,
 				mrcmUpdateService.sortExpressionConstraintByConceptId(rangeConstraint, "1a9b01ce-6385-11ea-9b6e-3c15c2c6e32e"));
-	}
-
-	private void diff(String published, String actual) {
-		List<String> publishedSorted = split(published);
-		List<String> actualSorted = split(actual);
-		assertEquals(publishedSorted.size(), actualSorted.size());
-		for (String token : publishedSorted) {
-			if (!actualSorted.contains(token)) {
-				System.out.println("expected token " + token + " but not found");
-			}
-		}
-	}
-
-	private List<String> split(String expression) {
-		List<String> result = new ArrayList<>();
-		for (String part : expression.split(",", -1)) {
-			if (part.contains(":")) {
-				result.addAll(Arrays.asList(part.split(":", -1)));
-			} else {
-				result.add(part);
-			}
-		}
-		Collections.sort(result);
-		return result;
-	}
-
-
-	private void runPostcoordinationDiffReport(List<Domain> updatedDomains, Map<String,Domain> domainMapByDomainId) {
-		if (updatedDomains == null || updatedDomains.isEmpty()) {
-			return;
-		}
-		int sameCounter = 0;
-		int sameWhenSortingIngored = 0;
-		int diffCounter = 0;
-		for (Domain domain : updatedDomains) {
-			String domainId = domain.getReferencedComponentId();
-			String published = domainMapByDomainId.get(domainId).getDomainTemplateForPostcoordination();
-			String actual = domain.getDomainTemplateForPostcoordination();
-			if (!published.equals(actual)) {
-				logger.info("Analyzing postcoordination domain template for domain id " + domainId);
-				if (hasDiff(published, actual, false)) {
-					diffCounter++;
-					logger.info("before = " + published);
-					logger.info("after = " + actual);
-				} else {
-					logger.info("domain template is the same when cardinality and sorting is ignored " + domain.getReferencedComponentId());
-					sameWhenSortingIngored++;
-				}
-			} else {
-				sameCounter++;
-				logger.info("domain template is the same for " + domainId);
-			}
-		}
-		logger.info("Total templates updated = " + updatedDomains.size());
-		logger.info("Total templates are the same without change = " + sameCounter);
-		logger.info("Total templates are the same when cardinality and sorting is ignored = " + sameWhenSortingIngored);
-		logger.info("Total templates found with diffs = " + diffCounter);
-	}
-
-	private void runAttributeRulesDiffReport(List<AttributeRange> attributeRanges, Map<String, List<AttributeRange>> attributeToRangesMap) {
-		int sameCounter = 0;
-		int sameWhenSortingIngored = 0;
-		int diffCounter = 0;
-		for (AttributeRange range : attributeRanges) {
-			String attributeId = range.getReferencedComponentId();
-			String publishedRule = null;
-			for (AttributeRange published : attributeToRangesMap.get(attributeId)) {
-				if (range.getId().equals(published.getId())) {
-					publishedRule = published.getAttributeRule();
-					break;
-				}
-			}
-			String actual = range.getAttributeRule();
-			if (!actual.equals(publishedRule)) {
-				logger.info("Analyzing attribute rule for attribute " + attributeId + " with id = " + range.getId());
-				if (hasDiff(publishedRule, actual, true)) {
-					diffCounter++;
-					logger.info("before = " + publishedRule);
-					logger.info("after = " + actual);
-				} else {
-					logger.info("Attribute rules are the same when cardinality and sorting are ignored " + attributeId);
-					sameWhenSortingIngored++;
-				}
-			} else {
-				sameCounter++;
-				logger.info("Attribute rule is the same for " + attributeId);
-			}
-		}
-		logger.info("Total templates updated = " + attributeRanges.size());
-		logger.info("Total templates are the same without change = " + sameCounter);
-		logger.info("Total templates are the same when cardinality and sorting is ignored = " + sameWhenSortingIngored);
-		logger.info("Total templates found with diffs = " + diffCounter);
-	}
-
-	private void runPrecoordinationDiffReport(List<Domain> updatedDomains, Map<String,Domain> domainMapByDomainId) {
-		if (updatedDomains == null || updatedDomains.isEmpty()) {
-			return;
-		}
-		int sameCounter = 0;
-		int sameWhenSortingIngored = 0;
-		int diffCounter = 0;
-		for (Domain domain : updatedDomains) {
-			String domainId = domain.getReferencedComponentId();
-			String published = domainMapByDomainId.get(domainId).getDomainTemplateForPrecoordination();
-			String actual = domain.getDomainTemplateForPrecoordination();
-			if (!published.equals(actual)) {
-				logger.info("Analyzing precoordinationdomain template for domain id " + domainId);
-				if (hasDiff(published, actual, false)) {
-					diffCounter++;
-					logger.info("before = " + published);
-					logger.info("after = " + actual);
-				} else {
-					logger.info("domain template is the same when cardinality and sorting is ignored " + domain.getReferencedComponentId());
-					sameWhenSortingIngored++;
-				}
-			} else {
-				sameCounter++;
-				logger.info("domain template is the same for " + domainId);
-			}
-		}
-		logger.info("Total templates updated = " + updatedDomains.size());
-		logger.info("Total templates are the same without change = " + sameCounter);
-		logger.info("Total templates are the same when cardinality and sorting is ignored = " + sameWhenSortingIngored);
-		logger.info("Total templates found with diffs = " + diffCounter);
-	}
-
-	private boolean hasDiff(String published, String actual, boolean ignoreCardinality) {
-		boolean hasDiff = false;
-		List<String> publishedSorted = split(published, ignoreCardinality);
-		List<String> actualSorted = split(actual, ignoreCardinality);
-
-		logger.info("Published but missing in the new generated");
-		for (String token : publishedSorted) {
-			if (!actualSorted.contains(token)) {
-				System.out.println(token);
-				hasDiff = true;
-			}
-		}
-
-		logger.info("In the new generated but missing from the published");
-		for (String token : actualSorted) {
-			if (!publishedSorted.contains(token)) {
-				hasDiff = true;
-			}
-		}
-		return hasDiff;
-	}
-
-	private List<String> split(String expression, boolean ignoreCardinality) {
-		List<String> result = new ArrayList<>();
-		for (String part : expression.split(",", -1)) {
-			if (part.contains(":")) {
-				result.addAll(Arrays.asList(part.split(":", -1)));
-			} else {
-				result.add(part.trim());
-			}
-		}
-		if (ignoreCardinality) {
-			List<String> updated = new ArrayList<>();
-			for (String token : result) {
-				if (token.contains("..")) {
-					if (token.endsWith("}")) {
-						token = token.replace("}", "");
-					}
-					updated.add(token.substring(token.lastIndexOf("..") + 5, token.length()).trim());
-				}
-			}
-			result = updated;
-		}
-		Collections.sort(result);
-		return result;
 	}
 }
