@@ -4,8 +4,10 @@ import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
+import org.snomed.snowstorm.core.data.services.IntegrityService;
 import org.snomed.snowstorm.core.data.services.TraceabilityLogService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
@@ -60,7 +62,7 @@ public class TestConfig extends Config {
 	}
 
 	@Bean
-	public ElasticsearchRestClient elasticsearchClient() {
+	public ElasticsearchRestClient elasticsearchClient(@Value("${test.elasticsearch.start-timeout-mins:2}") int unitTestElasticsearchStartTimeoutMins) {
 		// Share the Elasticsearch instance between test contexts
 		if (testElasticsearchSingleton == null) {
 			// Create and start a clean standalone Elasticsearch test instance
@@ -73,9 +75,10 @@ public class TestConfig extends Config {
 					downloadDir = new File(new File(System.getProperty("user.home"), "tmp"), "embedded-elasticsearch-download-cache");
 					downloadDir.mkdirs();
 				}
+				LoggerFactory.getLogger(getClass()).info("Starting Elasticsearch node for unit tests. Timeout is {} minutes.", unitTestElasticsearchStartTimeoutMins);
 				testElasticsearchSingleton = EmbeddedElastic.builder()
 						.withElasticVersion(ELASTIC_SEARCH_SERVER_VERSION)
-						.withStartTimeout(2, TimeUnit.MINUTES)
+						.withStartTimeout(unitTestElasticsearchStartTimeoutMins, TimeUnit.MINUTES)
 						.withSetting(PopularProperties.CLUSTER_NAME, clusterName)
 						.withSetting(PopularProperties.HTTP_PORT, PORT)
 						.withSetting("cluster.routing.allocation.disk.threshold_enabled", false)
