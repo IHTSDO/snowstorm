@@ -135,11 +135,8 @@ public class MultiSearchService {
 	}
 
 	public Page<Concept> findConcepts(ConceptCriteria criteria, PageRequest pageRequest) {
-		
 		final BoolQueryBuilder conceptQuery = boolQuery().must(getBranchesQuery());
-
 		conceptService.addClauses(criteria.getConceptIds(), criteria.getActive(), conceptQuery);
-		
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(conceptQuery)
 				.withPageable(pageRequest)
