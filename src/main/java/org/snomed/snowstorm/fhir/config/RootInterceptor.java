@@ -1,16 +1,19 @@
 package org.snomed.snowstorm.fhir.config;
 
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.Enumeration;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
-import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.*;
 
+import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestWrapper;
 
+import com.amazonaws.util.IOUtils;
+
+import ca.uhn.fhir.context.ConfigurationException;
 import ca.uhn.fhir.rest.server.interceptor.InterceptorAdapter;
 
 public class RootInterceptor extends InterceptorAdapter {
@@ -26,6 +29,17 @@ public class RootInterceptor extends InterceptorAdapter {
 	@Override
 	public boolean incomingRequestPreProcessed(HttpServletRequest request, HttpServletResponse response) {
 		try {
+			//The base URL will return a static HTML page
+			if (StringUtils.isEmpty(request.getPathInfo()) || request.getPathInfo().equals("/")) {
+				response.setContentType("text/html");
+				InputStream ios = this.getClass().getResourceAsStream("/fhir/index.html");
+				if (ios == null) {
+					throw new ConfigurationException("Did not find internal resource file fhir/index.html");
+				}
+				IOUtils.copy(ios, response.getOutputStream());
+				return false;
+			}
+			
 			//If we detect headers that imply a browser client, then we'll tweak
 			//that to return json by default, since we don't have an html response available
 			if (request.getHeader("Accept") != null && request.getHeader("Accept").contains("text/html")) {
@@ -37,15 +51,6 @@ public class RootInterceptor extends InterceptorAdapter {
 				} else {
 					logger.warn("Incomptabile request object received: " + request.getClass().getSimpleName());
 				}
-			}
-			
-			//Anyone attempting to access the root will be redirected to metadata for
-			//the CapabilityStatement
-			if (request.getPathInfo() == null || request.getPathInfo().equals("/")) {
-				logger.info("Attempt to access root context redirected to CapabilityStatement (/metadata)");
-				response.setStatus(HttpServletResponse.SC_FOUND);
-				response.addHeader("Location","metadata");
-				return false;
 			}
 		} catch (Exception e) {
 			logger.error("Failed to intercept request", e);
