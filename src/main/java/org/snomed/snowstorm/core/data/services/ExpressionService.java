@@ -6,6 +6,7 @@ import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 
@@ -87,7 +88,7 @@ public class ExpressionService {
 	private Set<String> getProximalPrimitiveParentIds(Collection<ConceptMini> ancestors, String branchPath) {
 		final Set<String> proximalPrimitiveParentIds = new HashSet<>();
 		for (ConceptMini ancestor : ancestors) {
-			if (ancestor.isPrimitive()) {
+			if (ancestor.isPrimitive() && !isGciAxiomPresent(ancestor.getId(), branchPath)) {
 				final String primitiveAncestorId = ancestor.getId();
 				if (proximalPrimitiveParentIds.isEmpty()) {
 					proximalPrimitiveParentIds.add(primitiveAncestorId);
@@ -128,4 +129,8 @@ public class ExpressionService {
 		return queryService.findAncestorIds(subType, branchPath, false).contains(superType);
 	}
 
+	private boolean isGciAxiomPresent(String conceptId, String branchPath) {
+		Concept concept = conceptService.find(conceptId, branchPath);
+		return !CollectionUtils.isEmpty(concept.getGciAxioms());
+	}
 }
