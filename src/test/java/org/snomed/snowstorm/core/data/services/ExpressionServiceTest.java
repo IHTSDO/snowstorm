@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,9 +12,9 @@ import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.util.CollectionUtils;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -117,6 +118,44 @@ public class ExpressionServiceTest extends AbstractTest {
 			}
 		}
 		assertTrue (concept2Found && concept4Found);
+	}
+
+	@Test
+	public void testConceptAuthoringFormSimpleWithExcludedGciConcept() throws ServiceException {
+
+		Concept concept1 = createConcept("100001", root, PRIMITIVE);
+		Concept concept2 = createConcept("100002", concept1, PRIMITIVE);
+		Concept concept3 = createConcept("100003", concept2, PRIMITIVE);
+
+		// Populate GCI axiom for concept3
+		Axiom gciAxiom = new Axiom();
+		Set <Relationship> relationships = new HashSet <>();
+		Relationship relationship = new Relationship();
+		relationship.setType(new ConceptMini(isa, DEFAULT_LANGUAGE_DIALECTS));
+		relationship.setTarget(new ConceptMini(concept2, DEFAULT_LANGUAGE_DIALECTS));
+
+		Relationship relationship2 = new Relationship();
+		relationship2.setType(new ConceptMini(attribute1, DEFAULT_LANGUAGE_DIALECTS));
+		relationship2.setTarget(new ConceptMini(concept2, DEFAULT_LANGUAGE_DIALECTS));
+
+		relationships.add(relationship);
+		relationships.add(relationship2);
+		gciAxiom.setRelationships(relationships);
+
+		concept3.addGeneralConceptInclusionAxiom(gciAxiom);
+
+		Concept concept4 = createConcept("100004", concept3, FULLY_DEFINED);
+		concept4.addRelationship(createRelationship(attribute1, target1, 0));
+		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
+
+		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), DEFAULT_LANGUAGE_DIALECTS, EXPRESSION_TEST_BRANCH);
+
+		// Expecting one attribute (fully defined), and a single focus concept of concept 2
+		assertEquals(1, exp.getAttributes().size());
+		assertTrue(!exp.getAttributes().get(0).getValue().isPrimitive());
+
+		assertEquals(1, exp.getConcepts().size());
+		assertEquals(new ConceptMicro(concept2), exp.getConcepts().get(0));
 	}
 
 	@Test
