@@ -372,7 +372,7 @@ public class IntegrityService {
 		timer.checkpoint("Check whole semantic index for branch.");
 		timer.finish();
 
-		if (!statedIds.isEmpty() || inferredIds.isEmpty()) {
+		if (!statedIds.isEmpty() || !inferredIds.isEmpty()) {
 			logger.error("Found {} stated and {} inferred concepts in semantic index for branch {} which should not be there.", statedIds.size(), inferredIds.size(), branchPath);
 		} else {
 			logger.info("Found {} stated and {} inferred concepts in semantic index for branch {} which should not be there.", statedIds.size(), inferredIds.size(), branchPath);
