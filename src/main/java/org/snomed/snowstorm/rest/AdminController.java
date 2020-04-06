@@ -34,6 +34,9 @@ public class AdminController {
 	@Autowired
 	private IntegrityService integrityService;
 
+	@Autowired
+	private CodeSystemService codeSystemService;
+
 	@ApiOperation(value = "Rebuild the description index.",
 			notes = "Use this if the search configuration for international character handling of a language has been " +
 					"set or updated after importing content of that language. " +
@@ -163,5 +166,4 @@ public class AdminController {
 	public IntegrityService.ConceptsInForm findExtraConceptsInSemanticIndex(@PathVariable String branch) {
 		return integrityService.findExtraConceptsInSemanticIndex(BranchPathUriUtil.decodePath(branch));
 	}
-
 }

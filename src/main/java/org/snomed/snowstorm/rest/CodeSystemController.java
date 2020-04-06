@@ -2,19 +2,25 @@ package org.snomed.snowstorm.rest;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.CodeSystemUpgradeService;
+import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
+import org.snomed.snowstorm.extension.ExtensionAdditionalLanguageRefsetUpgradeService;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 
 @RestController
 @Api(tags = "Code Systems", description = "-")
@@ -32,6 +38,9 @@ public class CodeSystemController {
 
 	@Value("${daily-build.delta-import.enabled}")
 	private boolean dailyBuildEnabled;
+
+	@Autowired
+	private ExtensionAdditionalLanguageRefsetUpgradeService extensionAdditionalLanguageRefsetUpgradeService;
 
 	@ApiOperation(value = "Create a code system",
 			notes = "Required fields are shortName and branch. " +
@@ -134,5 +143,22 @@ public class CodeSystemController {
 			CodeSystem codeSystem = codeSystemService.find(shortName);
 			dailyBuildService.rollbackDailyBuildContent(codeSystem);
 		}
+	}
+
+
+	@ApiOperation(value = "Generate additional en language refset delta after an extension (currently SNOMEDCT-IE and SNOMEDCT-NZ) is upgraded to the latest international release.",
+			notes = "Before running this service, extensions must be upgraded and the metadata is updated to use the corresponding release packages.")
+	@RequestMapping(value = "/{shortName}/additional-en-language-refset-delta/archive", method = RequestMethod.GET, produces = "application/zip")
+	@ResponseBody
+	public void getAdditionalLanguageRefsetDeltaArchive(@PathVariable String shortName, HttpServletResponse response) throws IOException, ReleaseImportException {
+		ControllerHelper.requiredParam(shortName, "shortName");
+		CodeSystem codeSystem = codeSystemService.find(shortName);
+		if (codeSystem == null) {
+			throw new NotFoundException("No code system found with short name " + shortName);
+		}
+		String filename = shortName + "_" + DateUtil.getTodaysEffectiveTime() + ".zip";
+		response.setHeader("Content-Disposition", "attachment; filename=" + filename );
+		response.setContentType("application/zip");
+		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(codeSystem, response.getOutputStream());
 	}
 }
