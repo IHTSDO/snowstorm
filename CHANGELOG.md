@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## 4.8.0 Release - 2019-03-20
+
+This release includes a new cross-extension term search. Find it under "MultiSearch" in the Swagger docs. The functionality can be used in the [public browser](https://browser.ihtsdotools.org/) under "Go browsing... All Editions".
+
+This release also includes some important stability fixes for extension management, the daily build process and branch merging during authoring.
+
+### Features
+- New API for searching across all loaded code systems (Editions and Extensions).
+### Improvements
+- Fix #102 Add moduleId in relationship target of concept browser format.
+- Code System response now includes `dependantVersionEffectiveTime`.
+- Pretty print for JSON responses.
+- FSN selected using language only when no language refset included in the release (Australian Edition).
+- Snowstorm reconnects automatically if Classification Service is restarted.
+- Classification Service results are processed concurrently.
+- Admin functions for content management and fixes:
+  - Delete inferred relationships which are not present in a provided file.
+  - Patch function to merge fixes to the last release commit, back in time (during an authoring cycle).
+  - Function to find any duplicate component versions and hide the version from the parent branch.
+  - Function to clone a task branch, for debugging authoring content.
+- New Snowstorm logo. SVG included.
+### Fixes
+- Upgrading extensions with 300K+ refset members (e.g. US Edition) no longer fails. Better batch processing.
+- Daily Build fixes
+  - Local filesystem source configuration fixed. 
+  - Process no longer reverts an extension upgrade commit.
+  - Process no longer reverts an extension creation commit.
+- RF2 import no longer fails if reference set member has multiple trailing empty columns.
+- MRCM type-ahead excludes inactive terms.
+- Rebase merge can no longer cause duplicate components. Branch review is now mandatory to rebase a diverged branch and the scope of branch reviews has been corrected.
+- Code System field `dependantVersion` has been removed from responses because it did not function correctly.
+
+
 ## 4.5.0 Release - 2019-11-20
 
 Some small features and enhancements for the community and to support an update to the SNOMED International public browser.
