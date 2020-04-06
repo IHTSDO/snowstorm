@@ -34,6 +34,12 @@ public class AdminController {
 	@Autowired
 	private MRCMUpdateService mrcmUpdateService;
 
+	@Autowired
+	private IntegrityService integrityService;
+
+	@Autowired
+	private CodeSystemService codeSystemService;
+
 	@ApiOperation(value = "Rebuild the description index.",
 			notes = "Use this if the search configuration for international character handling of a language has been " +
 					"set or updated after importing content of that language. " +
@@ -157,4 +163,10 @@ public class AdminController {
 		mrcmUpdateService.updateAllDomainTemplatesAndAttributeRules(BranchPathUriUtil.decodePath(branch));
 	}
 
+	@ApiOperation("Find concepts in the semantic index which should not be there. The concept may be inactive or deleted. To catch and debug rare cases.")
+	@RequestMapping(value = "/{branch}/actions/find-extra-concepts-in-semantic-index", method = RequestMethod.POST)
+	@ResponseBody
+	public IntegrityService.ConceptsInForm findExtraConceptsInSemanticIndex(@PathVariable String branch) {
+		return integrityService.findExtraConceptsInSemanticIndex(BranchPathUriUtil.decodePath(branch));
+	}
 }
