@@ -9,6 +9,7 @@ import io.kaicode.elasticvc.domain.Entity;
 import io.kaicode.elasticvc.repositories.BranchRepository;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
+import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -18,7 +19,9 @@ import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
 import org.springframework.data.util.CloseableIterator;
@@ -416,6 +419,23 @@ public class BranchMergeService {
 		}
 
 		fixesApplied.put(clazz, duplicateIds);
+	}
+
+	public List<Branch> findChildBranches(String path, boolean immediateChildren, PageRequest pageRequest) {
+		// If only immediate children then the path and everything else besides the "/" character (one level only)
+		// OR
+		// Matches the path and everything else
+		String regexp = immediateChildren ? path + "/" + "([^/]*){1}" : path + "/.*";
+
+		NativeSearchQuery build = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.mustNot(existsQuery("end"))
+						.must(regexpQuery("path", regexp))
+				)
+				.withSort(new FieldSortBuilder("path"))
+				.withPageable(pageRequest).build();
+
+		return elasticsearchTemplate.queryForList(build, Branch.class);
 	}
 
 	private <T extends DomainEntity> void promoteEntities(String source, Commit commit, Class<T> entityClass,

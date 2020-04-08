@@ -34,6 +34,7 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
@@ -85,6 +86,8 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 	private List<Activity> activities;
 
+	private Map<String, Branch> childBranches;
+
 	@Autowired
 	private CodeSystemService codeSystemService;
 
@@ -105,6 +108,9 @@ public class BranchMergeServiceTest extends AbstractTest {
 		traceabilityLogService.setEnabled(true);
 		activities = new ArrayList<>();
 		traceabilityLogService.setActivityConsumer(activities::add);
+
+		// set up the branches for testing find children
+		setUpForChildBranchesTest();
 	}
 
 	@After
@@ -1089,6 +1095,52 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertNotNull("Concept should be restored after the merge.", conceptService.find("10000100", "MAIN/A1"));
 	}
 
+	@Test
+	public void testFindChildBranches() {
+		String testRootPath = "MAIN/CHILDREN";
+		List<Branch> expectedBranches = new ArrayList<>(childBranches.values());
+
+		// Assert expected number were returned with immediateChildren=false and they are returned as expected.
+		List<Branch> branches = branchMergeService.findChildBranches(testRootPath, false, PageRequest.of(0, 100));
+		assertTrue("All child branches were not returned correctly.", expectedBranches.containsAll(branches));
+	}
+
+	@Test
+	public void testFindChildBranchesWithImmediateChildren() {
+		String testRootPath = "MAIN/CHILDREN";
+		List<Branch> expectedBranches = new ArrayList<>(childBranches.values());
+		// remove the branches that should not be returned.
+		expectedBranches.remove(childBranches.get(testRootPath + "/CHILD-1/CHILD-1"));
+		expectedBranches.remove(childBranches.get(testRootPath + "/CHILD-1/CHILD-2"));
+
+		// Assert expected number were returned with immediateChildren=true and they are returned as expected.
+		List<Branch> branches = branchMergeService.findChildBranches(testRootPath, true, PageRequest.of(0, 100));
+		assertTrue("All child branches were not returned correctly.", expectedBranches.containsAll(branches));
+	}
+
+	@Test
+	public void testFindChildBranchesWithPaging() {
+		String testRootPath = "MAIN/CHILDREN";
+		List<Branch> expectedBranches = new ArrayList<>(childBranches.values());
+		int pageSize = 5;
+		int totalNumberOfPages = (int) Math.ceil((float) expectedBranches.size() / (float) pageSize);
+		int lastPageSize = expectedBranches.size() % pageSize;
+		IntStream.range(0, totalNumberOfPages).forEach(page -> {
+			// check page
+			int currentPageSize = pageSize;
+			if (page == totalNumberOfPages - 1) {
+				currentPageSize = lastPageSize;
+			}
+			List<Branch> pageBranches = branchMergeService.findChildBranches(
+					testRootPath,
+					false,
+					PageRequest.of(page, pageSize));
+			assertEquals("Page returned incorrect number of branches", currentPageSize, pageBranches.size());
+			expectedBranches.removeAll(pageBranches);
+		});
+		assertEquals("All expected branches not returned by the pages", 0, expectedBranches.size());
+	}
+
 	private MergeReview getMergeReviewInCurrentState(String source, String target) throws InterruptedException {
 		MergeReview review = reviewService.createMergeReview(source, target);
 
@@ -1211,4 +1263,23 @@ public class BranchMergeServiceTest extends AbstractTest {
 		return null;
 	}
 
+	private void setUpForChildBranchesTest() {
+		String testRootPath = "MAIN/CHILDREN";
+		int initialNumberOfChildren = 12; // leave above 10
+		childBranches = new HashMap<>();
+
+		// Create the branches we want to check
+		// MAIN/CHILDREN
+		branchService.create(testRootPath);
+		// MAIN/CHILDREN/1 MAIN/CHILDREN/2 ... initialNumberOfChildren
+		IntStream.rangeClosed(1, initialNumberOfChildren).forEach(i -> {
+			String aPath = testRootPath + "/CHILD-" + i;
+			childBranches.put(aPath, branchService.create(aPath));
+		});
+		// MAIN/CHILDREN/1/1 & MAIN/CHILDREN/1/2
+		String aPath = testRootPath + "/CHILD-1/CHILD-1";
+		childBranches.put(aPath, branchService.create(aPath));
+		aPath = testRootPath + "/CHILD-1/CHILD-2";
+		childBranches.put(aPath, branchService.create(aPath));
+	}
 }
