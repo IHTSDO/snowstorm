@@ -1,8 +1,6 @@
 package org.snomed.snowstorm.extension;
 
 import io.kaicode.elasticvc.api.BranchService;
-import org.ihtsdo.otf.resourcemanager.ResourceConfiguration;
-import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,20 +9,21 @@ import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.rf2.RF2Constants;
-import org.snomed.snowstorm.core.util.DateUtil;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.rf2.RF2Type;
+import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.io.ResourceLoader;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.*;
@@ -43,20 +42,21 @@ public class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends Abstrac
 	private BranchService branchService;
 
 	@Autowired
-	private VersionedContentResourceConfig versionedContentResourceConfig;
+	private ImportService importService;
 
 	@Autowired
-	private ResourceLoader resourceLoader;
+	private ReferenceSetMemberService referenceSetMemberService;
 
 	private File dependencyPackage;
 
 	private File previousPackage;
 
+
+
 	@Before
 	public void setUp() throws Exception {
 		dependencyPackage = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
 		previousPackage = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Extension_snapshot");
-		extensionAdditionalLanguageRefsetUpgradeService.setResourceManager(new MockResourceManager(versionedContentResourceConfig, resourceLoader));
 	}
 
 	@After
@@ -75,9 +75,13 @@ public class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends Abstrac
 
 		CodeSystem snomedct = new CodeSystem("SNOMEDCT", "MAIN");
 		codeSystemService.createCodeSystem(snomedct);
-		codeSystemService.createVersion(snomedct, 20200131, "2020 January release ");
+		String jobId = importService.createJob(RF2Type.SNAPSHOT, snomedct.getBranchPath(), true, false);
+		importService.importArchive(jobId, new FileInputStream(dependencyPackage));
 		CodeSystem snomedctNZ = new CodeSystem("SNOMEDCT-NZ", "MAIN/SNOMEDCT-NZ");
 		codeSystemService.createCodeSystem(snomedctNZ);
+		String importjobId = importService.createJob(RF2Type.SNAPSHOT, snomedct.getBranchPath(), true, false);
+		importService.importArchive(importjobId, new FileInputStream(previousPackage));
+
 		Map<String, String> metaData = new HashMap<>();
 		metaData.put(BranchMetadataKeys.DEPENDENCY_PACKAGE, dependencyPackage.getAbsolutePath());
 		metaData.put(BranchMetadataKeys.PREVIOUS_PACKAGE, previousPackage.getAbsolutePath());
@@ -106,54 +110,42 @@ public class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends Abstrac
 				"      }\n" +
 				"    ]");
 		branchService.updateMetadata("MAIN/SNOMEDCT-NZ", metaData);
-		File tempResult = Files.createTempFile("tempResult", ".zip").toFile();
-		OutputStream rf2DeltaZipResultStream = new FileOutputStream(tempResult);
-		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, rf2DeltaZipResultStream);
 
-		System.out.println(tempResult.getAbsolutePath());
-		// verify results from file
-		try (InputStream inputStream  = ZipUtil.getZipEntryStreamOrThrow(tempResult, "der2_cRefset_LanguageDelta-en_NZ1000210_" + DateUtil.getTodaysEffectiveTime() + ".txt");) {
-			assertNotNull(inputStream);
-			BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-			String line = reader.readLine();
-			assertEquals(RF2Constants.LANGUAGE_REFSET_HEADER, line);
-			List<String> lines = new ArrayList<>();
-			while ((line = reader.readLine()) != null) {
-				lines.add(line);
-			}
-			assertEquals(1, lines.size());
-			String[] fields = lines.get(0).split("\t", -1);
-			assertEquals(7, fields.length);
-			assertNotEquals("", fields[0]);
-			assertNotEquals("9e143c2c-9f5b-462a-ac92-5bebf8a9ca03", fields[0]);
-			assertEquals("", fields[1]);
+		// check extension is upgraded to the dependent release
+		ReferenceSetMember member = referenceSetMemberService.findMember(snomedctNZ.getBranchPath(), "9e143c2c-9f5b-462a-ac92-5bebf8a9ca03");
+		assertNotNull(member);
+		assertEquals("9e143c2c-9f5b-462a-ac92-5bebf8a9ca03", member.getMemberId());
 
-			assertEquals("1", fields[2]);
-			assertEquals("21000210109", fields[3]);
-			assertEquals("271000210107", fields[4]);
-			assertEquals("675173018", fields[5]);
-			assertEquals("900000000000548007", fields[6]);
-		}
-	}
+		MemberSearchRequest searchRequest = new MemberSearchRequest();
+		searchRequest.referenceSet("900000000000508004");
 
-	private static class MockResourceManager extends ResourceManager {
+		Page<ReferenceSetMember> updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), searchRequest, PageRequest.of(0, 10));
+		assertNotNull(updatedResult);
+		assertEquals(1, updatedResult.getContent().size());
 
-		public MockResourceManager(ResourceConfiguration resourceConfiguration, ResourceLoader cloudResourceLoader) {
-			super(resourceConfiguration, cloudResourceLoader);
-		}
+		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), "675173018", PageRequest.of(0, 10));
+		assertNotNull(updatedResult);
+		assertEquals(2, updatedResult.getContent().size());
 
-		public InputStream readResourceStream(String fullPath) throws IOException {
-			fullPath = fullPath.substring(fullPath.indexOf("/"));
-			File file = new File(fullPath);
-			if (file.exists() && file.canRead()) {
-				return new FileInputStream(fullPath);
-			} else {
-				return null;
-			}
-		}
+		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, snomedctNZ.getBranchPath(), true);
 
-		public InputStream readResourceStreamOrNullIfNotExists(String fullPath) throws IOException {
-			return this.readResourceStream(fullPath);
-		}
+		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), searchRequest, PageRequest.of(0, 10));
+		assertNotNull(updatedResult);
+		assertEquals(1, updatedResult.getContent().size());
+		assertEquals("9e143c2c-9f5b-462a-ac92-5bebf8a9ca03", updatedResult.getContent().get(0).getMemberId());
+
+
+		searchRequest = new MemberSearchRequest();
+		searchRequest.referenceSet("271000210107");
+		updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), searchRequest, PageRequest.of(0, 10));
+		assertNotNull(updatedResult);
+		assertEquals(1, updatedResult.getContent().size());
+		assertEquals("675173018", updatedResult.getContent().get(0).getReferencedComponentId());
+		assertEquals("21000210109", updatedResult.getContent().get(0).getModuleId());
+		assertNotEquals("9e143c2c-9f5b-462a-ac92-5bebf8a9ca03", updatedResult.getContent().get(0).getMemberId());
+
+		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), "675173018", PageRequest.of(0, 10));
+		assertNotNull(updatedResult);
+		assertEquals(3, updatedResult.getContent().size());
 	}
 }

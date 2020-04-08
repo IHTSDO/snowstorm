@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
@@ -147,18 +148,21 @@ public class CodeSystemController {
 
 
 	@ApiOperation(value = "Generate additional en language refset delta after an extension (currently SNOMEDCT-IE and SNOMEDCT-NZ) is upgraded to the latest international release.",
-			notes = "Before running this service, extensions must be upgraded and the metadata is updated to use the corresponding release packages.")
-	@RequestMapping(value = "/{shortName}/additional-en-language-refset-delta/archive", method = RequestMethod.GET, produces = "application/zip")
+			notes = "Before running this service, extensions must be upgraded already." +
+					"You must specify the branch path(e.g MAIN/SNOMEDCT-NZ/{project}/{task}) of the task for the delta to be added." +
+					"Set the firstTime flag to true when upgrading extension for the first time. All active en-gb language refsets will be copied into the extension module." +
+					"For subsequent upgrades (i.e firstTime flag is set to true) only the delta from the international release will be copied/updated.")
+	@RequestMapping(value = "/{shortName}/additional-en-language-refset-delta", method = RequestMethod.POST)
 	@ResponseBody
-	public void getAdditionalLanguageRefsetDeltaArchive(@PathVariable String shortName, HttpServletResponse response) throws IOException, ReleaseImportException {
+	public void generateAdditionalLanguageRefsetDelta(@PathVariable String shortName, @RequestParam String branchPath, @RequestParam Boolean firstTime) throws ServiceException {
 		ControllerHelper.requiredParam(shortName, "shortName");
 		CodeSystem codeSystem = codeSystemService.find(shortName);
 		if (codeSystem == null) {
 			throw new NotFoundException("No code system found with short name " + shortName);
 		}
-		String filename = shortName + "_" + DateUtil.getTodaysEffectiveTime() + ".zip";
-		response.setHeader("Content-Disposition", "attachment; filename=" + filename );
-		response.setContentType("application/zip");
-		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(codeSystem, response.getOutputStream());
+		if (!BranchPathUriUtil.decodePath(branchPath).contains(shortName)) {
+			throw new IllegalArgumentException(String.format("Branch path %s should be matching CodeSystem %s", BranchPathUriUtil.decodePath(branchPath), shortName));
+		}
+		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(codeSystem, BranchPathUriUtil.decodePath(branchPath), firstTime);
 	}
 }
