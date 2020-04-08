@@ -17,6 +17,7 @@ import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -50,12 +51,7 @@ public class BranchController {
 	@RequestMapping(value = "/branches", method = RequestMethod.GET)
 	@ResponseBody
 	public List<Branch> retrieveAllBranches() {
-		List<Branch> allBranches = branchService.findAll();
-		// Clear metadata
-		for (Branch branch : allBranches) {
-			branch.setMetadata(null);
-		}
-		return allBranches;
+		return clearMetadata(branchService.findAll());
 	}
 	
 	@ApiOperation("Retrieve branch descendants")
@@ -63,13 +59,12 @@ public class BranchController {
 	@ResponseBody
 	public List<Branch> retrieveBranchDescendants(
 			@PathVariable String path,
-			@RequestParam(required = false, defaultValue = "false") boolean immediateChildren) {
-		List<Branch> descendants = branchService.findChildren(BranchPathUriUtil.decodePath(path), immediateChildren);
-		// Clear metadata
-		for (Branch branch : descendants) {
-			branch.setMetadata(null);
-		}
-		return descendants;
+			@RequestParam(required = false, defaultValue = "false") boolean immediateChildren,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "100") int size) {
+		PageRequest pageRequest = PageRequest.of(page, size);
+		ControllerHelper.validatePageSize(pageRequest.getOffset(), pageRequest.getPageSize());
+		return clearMetadata(branchMergeService.findChildBranches(BranchPathUriUtil.decodePath(path), immediateChildren, pageRequest));
 	}
 
 	@RequestMapping(value = "/branches", method = RequestMethod.POST)
@@ -206,6 +201,13 @@ public class BranchController {
 	public IntegrityIssueReport fullIntegrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) throws ServiceException {
 		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branchPath));
 		return integrityService.findAllComponentsWithBadIntegrity(branch, true);
+	}
+
+	private List<Branch> clearMetadata(List<Branch> allBranches) {
+		for (Branch branch : allBranches) {
+			branch.setMetadata(null);
+		}
+		return allBranches;
 	}
 
 }
