@@ -72,25 +72,50 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService extends ComponentSe
 	public void generateAdditionalLanguageRefsetDelta(CodeSystem codeSystem, String branchPath, Boolean firstTime) {
 		logger.info("Start updating additional language refset on branch {} for {}.", branchPath, codeSystem);
 		AdditionalRefsetExecutionConfig config = createExecutionConfig(codeSystem, firstTime);
-		String lockMsg = String.format("Add or update additional language refset on branch %s ", branchPath);
-		try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata(lockMsg))) {
-			performUpdate(config, branchPath, commit);
-			commit.markSuccessful();
-		}
+		performUpdate(config, branchPath);
 		logger.info("Completed updating additional language refset on branch {}.", branchPath);
 	}
 
-	private void performUpdate(AdditionalRefsetExecutionConfig config, String branchPath, Commit commit) {
-		Integer effectiveTime = null;
-		if (!config.isFirstTimeUpgrade()) {
-			effectiveTime = config.getCodeSystem().getDependantVersionEffectiveTime();
+	private void performUpdate(AdditionalRefsetExecutionConfig config, String branchPath) {
+		List<ReferenceSetMember> toSave = new ArrayList<>();
+		if (config.isFirstTimeUpgrade()) {
+			// copy everything and change module id an refset id
+			toSave = copyAll(branchPath, config);
+			logger.info("{} active components found with en gb language refset id.", toSave.size());
+		} else {
+			// add/update components from dependent release delta
+			Integer effectiveTime = config.getCodeSystem().getDependantVersionEffectiveTime();
+			if (effectiveTime == null) {
+				throw new NotFoundException("No dependent version found in CodeSystem " +  config.getCodeSystem().getShortName());
+			}
+			Map<Long, ReferenceSetMember> enGbComponents = getReferencedComponents(branchPath, GB_ENGLISH_LANGUAGE_REFSET_ID, effectiveTime);
+			logger.info("{} components found with en gb language refset id and effective time {}.", enGbComponents.keySet().size(), effectiveTime);
+			toSave = addOrUpdateLanguageRefsetComponents(branchPath, config, enGbComponents);
+			toSave.stream().forEach(ReferenceSetMember :: markChanged);
 		}
-		Map<Long, ReferenceSetMember> enGbComponents = getReferencedComponents(branchPath, GB_ENGLISH_LANGUAGE_REFSET_ID, effectiveTime);
-		logger.info("{} components found with en gb language refset id.", enGbComponents.keySet().size());
-		List<ReferenceSetMember> toSave = addOrUpdateLanguageRefsetComponents(branchPath, config, enGbComponents);
-		toSave.stream().forEach(ReferenceSetMember :: updateEffectiveTime);
-		toSave.stream().forEach(ReferenceSetMember :: markChanged);
-		doSaveBatchComponents(toSave, commit, MEMBER_ID, memberRepository);
+		String lockMsg = String.format("Add or update additional language refset on branch %s ", branchPath);
+		try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata(lockMsg))) {
+			doSaveBatchComponents(toSave, commit, MEMBER_ID, memberRepository);
+			commit.markSuccessful();
+			logger.info("{} components saved.", toSave.size());
+		}
+	}
+
+	private List<ReferenceSetMember> copyAll(String branchPath, AdditionalRefsetExecutionConfig config) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		List<ReferenceSetMember> result = new ArrayList<>();
+		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+						.must(termQuery(REFSET_ID, GB_ENGLISH_LANGUAGE_REFSET_ID)))
+				.withFilter(termQuery(ACTIVE, true))
+				.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH)
+				.withPageable(LARGE_PAGE);
+
+		try (final CloseableIterator<ReferenceSetMember> referencedComponents = elasticsearchTemplate.stream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
+			referencedComponents.forEachRemaining(referenceSetMember -> result.add(copy(referenceSetMember, config)));
+		}
+		return result;
 	}
 
 	private Map<Long, ReferenceSetMember> getReferencedComponents(String branchPath, String languageRefsetId, Integer effectiveTime) {
@@ -99,18 +124,10 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService extends ComponentSe
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(REFSET_ID, languageRefsetId))
-				);
-
-		if (effectiveTime != null) {
-			searchQueryBuilder.withFilter(termQuery(EFFECTIVE_TIME, effectiveTime));
-		} else {
-			// first time with active only
-			searchQueryBuilder.withFilter(termQuery(ACTIVE, true));
-		}
-		searchQueryBuilder.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH)
+						.must(termQuery(REFSET_ID, languageRefsetId)))
+				.withFilter(termQuery(EFFECTIVE_TIME, effectiveTime))
+				.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH)
 				.withPageable(LARGE_PAGE);
-
 		try (final CloseableIterator<ReferenceSetMember> referencedComponents = elasticsearchTemplate.stream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
 			referencedComponents.forEachRemaining(referenceSetMember ->
 					result.put(new Long(referenceSetMember.getReferencedComponentId()), referenceSetMember));
@@ -122,16 +139,16 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService extends ComponentSe
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		List<ReferenceSetMember> result = new ArrayList<>();
 		// batch here as the max allowed in terms query is 65536
-		for (List<Long> batch : partition(existing.keySet(), CLAUSE_LIMIT)) {
+		for (List<Long> batch : partition(existing.keySet(), 10_000)) {
 			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 							.must(termQuery(REFSET_ID, config.getDefaultEnglishLanguageRefsetId()))
 					).withFilter(termsQuery(REFERENCED_COMPONENT_ID, batch))
-					.withPageable(ConceptService.LARGE_PAGE);
+					.withPageable(LARGE_PAGE);
 
 			try (final CloseableIterator<ReferenceSetMember> componentsToUpdate = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
-				componentsToUpdate.forEachRemaining(referenceSetMember -> update(referenceSetMember, existing, config, result));
+				componentsToUpdate.forEachRemaining(referenceSetMember -> update(referenceSetMember, existing, result));
 			}
 		}
 
@@ -148,12 +165,20 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService extends ComponentSe
 		return result;
 	}
 
-	private void update(ReferenceSetMember member, Map<Long, ReferenceSetMember> existingComponents, AdditionalRefsetExecutionConfig config, List<ReferenceSetMember> result) {
-		if (existingComponents.containsKey(member.getReferencedComponentId())) {
+	private ReferenceSetMember copy(ReferenceSetMember enGbMember, AdditionalRefsetExecutionConfig config) {
+		ReferenceSetMember extensionMember = new ReferenceSetMember(UUID.randomUUID().toString(), null, true,
+				config.getDefaultModuleId(), config.getDefaultEnglishLanguageRefsetId(), enGbMember.getReferencedComponentId());
+		extensionMember.setAdditionalField(ACCEPTABILITY_ID, enGbMember.getAdditionalField(ACCEPTABILITY_ID));
+		extensionMember.markChanged();
+		return extensionMember;
+	}
+
+	private void update(ReferenceSetMember member, Map<Long, ReferenceSetMember> existingComponents, List<ReferenceSetMember> result) {
+		if (existingComponents.containsKey(new Long(member.getReferencedComponentId()))) {
 			// update
 			ReferenceSetMember existing = existingComponents.get(new Long(member.getReferencedComponentId()));
 			member.setActive(existing.isActive());
-			member.setChanged(true);
+			member.setEffectiveTimeI(null);
 			member.setAdditionalField(ACCEPTABILITY_ID, existing.getAdditionalField(ACCEPTABILITY_ID));
 			result.add(member);
 		}

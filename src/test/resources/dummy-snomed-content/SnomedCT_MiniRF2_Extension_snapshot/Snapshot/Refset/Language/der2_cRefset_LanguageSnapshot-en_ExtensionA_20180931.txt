@@ -1,1 +1,0 @@
-id	effectiveTime	active	moduleId	refsetId	referencedComponentId	acceptabilityId
