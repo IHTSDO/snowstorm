@@ -130,7 +130,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends Abstrac
 		assertNotNull(updatedResult);
 		assertEquals(2, updatedResult.getContent().size());
 
-		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, snomedctNZ.getBranchPath(), true);
+		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, snomedctNZ.getBranchPath(), "900000000000508004", true);
 
 		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), searchRequest, PageRequest.of(0, 10));
 		assertNotNull(updatedResult);
@@ -179,7 +179,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends Abstrac
 		enNzLanguageMember = referenceSetMemberService.findMember(snomedctNZ.getBranchPath(), enNzLanguageMember.getMemberId());
 		assertEquals("900000000000549004", enNzLanguageMember.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID));
 
-		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, snomedctNZ.getBranchPath(), false);
+		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, snomedctNZ.getBranchPath(), "900000000000508004",false);
 
 		enNzLanguageMember = referenceSetMemberService.findMember(snomedctNZ.getBranchPath(), enNzLanguageMember.getMemberId());
 		// current implementation always takes the latest version from the international release

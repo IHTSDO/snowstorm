@@ -3,6 +3,7 @@ package org.snomed.snowstorm.rest;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
@@ -146,15 +147,21 @@ public class CodeSystemController {
 		}
 	}
 
-
-	@ApiOperation(value = "Generate additional en language refset delta after an extension (currently SNOMEDCT-IE and SNOMEDCT-NZ) is upgraded to the latest international release.",
-			notes = "Before running this service, extensions must be upgraded already." +
-					"You must specify the branch path(e.g MAIN/SNOMEDCT-NZ/{project}/{task}) of the task for the delta to be added." +
-					"Set the firstTime flag to true when upgrading extension for the first time. All active en-gb language refsets will be copied into the extension module." +
-					"For subsequent upgrades (i.e firstTime flag is set to true) only the delta from the international release will be copied/updated.")
+	@ApiOperation(value = "Generate additional english language refset",
+			notes = "Before running this extensions must be upgraded already. " +
+					"You must specify the branch path(e.g MAIN/SNOMEDCT-NZ/{project}/{task}) of the task for the delta to be added. " +
+					"When completeCopy flag is set to true, all active en-gb language refset components will be copied into the extension module. " +
+					"When completeCopy flag is set to false, only the changes from the latest international release will be copied/updated in the extension module. " +
+					"Currently you only need to run this when upgrading SNOMEDCT-IE and SNOMEDCT-NZ")
 	@RequestMapping(value = "/{shortName}/additional-en-language-refset-delta", method = RequestMethod.POST)
 	@ResponseBody
-	public void generateAdditionalLanguageRefsetDelta(@PathVariable String shortName, @RequestParam String branchPath, @RequestParam Boolean firstTime) throws ServiceException {
+	public void generateAdditionalLanguageRefsetDelta(@PathVariable String shortName,
+													  @RequestParam String branchPath,
+													  @ApiParam("The language refset to copy from e.g 900000000000508004 | Great Britain English language reference set (foundation metadata concept) ")
+													  @RequestParam (defaultValue = "900000000000508004") String languageRefsetToCopyFrom,
+													  @ApiParam("Set completeCopy to true to copy all active components and false to copy only changes from the latest release.")
+													  @RequestParam (defaultValue = "false") Boolean completeCopy) {
+
 		ControllerHelper.requiredParam(shortName, "shortName");
 		CodeSystem codeSystem = codeSystemService.find(shortName);
 		if (codeSystem == null) {
@@ -163,6 +170,6 @@ public class CodeSystemController {
 		if (!BranchPathUriUtil.decodePath(branchPath).contains(shortName)) {
 			throw new IllegalArgumentException(String.format("Branch path %s should be matching CodeSystem %s", BranchPathUriUtil.decodePath(branchPath), shortName));
 		}
-		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(codeSystem, BranchPathUriUtil.decodePath(branchPath), firstTime);
+		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(codeSystem, BranchPathUriUtil.decodePath(branchPath), languageRefsetToCopyFrom, completeCopy);
 	}
 }

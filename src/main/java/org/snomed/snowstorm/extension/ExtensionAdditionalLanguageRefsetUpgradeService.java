@@ -64,40 +64,42 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService extends ComponentSe
 
 	private Gson gson = new GsonBuilder().create();
 
-	private static final String GB_ENGLISH_LANGUAGE_REFSET_ID = "900000000000508004";
-
 	private Logger logger = LoggerFactory.getLogger(ExtensionAdditionalLanguageRefsetUpgradeService.class);
 
 
-	public void generateAdditionalLanguageRefsetDelta(CodeSystem codeSystem, String branchPath, Boolean firstTime) {
+	public void generateAdditionalLanguageRefsetDelta(CodeSystem codeSystem, String branchPath, String languageRefsetId, Boolean completeCopy) {
 		logger.info("Start updating additional language refset on branch {} for {}.", branchPath, codeSystem);
-		AdditionalRefsetExecutionConfig config = createExecutionConfig(codeSystem, firstTime);
+		AdditionalRefsetExecutionConfig config = createExecutionConfig(codeSystem, completeCopy);
+		config.setLanguageRefsetIdToCopyFrom(languageRefsetId);
 		performUpdate(config, branchPath);
 		logger.info("Completed updating additional language refset on branch {}.", branchPath);
 	}
 
 	private void performUpdate(AdditionalRefsetExecutionConfig config, String branchPath) {
-		List<ReferenceSetMember> toSave = new ArrayList<>();
-		if (config.isFirstTimeUpgrade()) {
+		List<ReferenceSetMember> toSave;
+		if (config.isCompleteCopy()) {
 			// copy everything and change module id an refset id
 			toSave = copyAll(branchPath, config);
-			logger.info("{} active components found with en gb language refset id.", toSave.size());
+			logger.info("{} active components found with language refset id {}.", toSave.size(), config.getLanguageRefsetIdToCopyFrom());
 		} else {
 			// add/update components from dependent release delta
 			Integer effectiveTime = config.getCodeSystem().getDependantVersionEffectiveTime();
 			if (effectiveTime == null) {
 				throw new NotFoundException("No dependent version found in CodeSystem " +  config.getCodeSystem().getShortName());
 			}
-			Map<Long, ReferenceSetMember> enGbComponents = getReferencedComponents(branchPath, GB_ENGLISH_LANGUAGE_REFSET_ID, effectiveTime);
-			logger.info("{} components found with en gb language refset id and effective time {}.", enGbComponents.keySet().size(), effectiveTime);
+			Map<Long, ReferenceSetMember> enGbComponents = getReferencedComponents(branchPath, config.getLanguageRefsetIdToCopyFrom(), effectiveTime);
+			logger.info("{} components found with language refset id {} and effective time {}.", enGbComponents.keySet().size(),
+					config.getLanguageRefsetIdToCopyFrom(), effectiveTime);
 			toSave = addOrUpdateLanguageRefsetComponents(branchPath, config, enGbComponents);
 			toSave.stream().forEach(ReferenceSetMember :: markChanged);
 		}
-		String lockMsg = String.format("Add or update additional language refset on branch %s ", branchPath);
-		try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata(lockMsg))) {
-			doSaveBatchComponents(toSave, commit, MEMBER_ID, memberRepository);
-			commit.markSuccessful();
-			logger.info("{} components saved.", toSave.size());
+		if (toSave != null && !toSave.isEmpty()) {
+			String lockMsg = String.format("Add or update additional language refset on branch %s ", branchPath);
+			try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata(lockMsg))) {
+				doSaveBatchComponents(toSave, commit, MEMBER_ID, memberRepository);
+				commit.markSuccessful();
+				logger.info("{} components saved.", toSave.size());
+			}
 		}
 	}
 
@@ -107,7 +109,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService extends ComponentSe
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(REFSET_ID, GB_ENGLISH_LANGUAGE_REFSET_ID)))
+						.must(termQuery(REFSET_ID, config.getLanguageRefsetIdToCopyFrom())))
 				.withFilter(termQuery(ACTIVE, true))
 				.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH)
 				.withPageable(LARGE_PAGE);
@@ -184,8 +186,8 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService extends ComponentSe
 		}
 	}
 
-	private AdditionalRefsetExecutionConfig createExecutionConfig(CodeSystem codeSystem, Boolean firstTime) {
-		AdditionalRefsetExecutionConfig config = new AdditionalRefsetExecutionConfig(codeSystem, firstTime);
+	private AdditionalRefsetExecutionConfig createExecutionConfig(CodeSystem codeSystem, Boolean completeCopy) {
+		AdditionalRefsetExecutionConfig config = new AdditionalRefsetExecutionConfig(codeSystem, completeCopy);
 		Branch branch = branchService.findLatest(codeSystem.getBranchPath());
 		Map<String, Object> expandedMetadata = branchMetadataHelper.expandObjectValues(branch.getMetadata());
 		Object jsonObject = expandedMetadata.get(REQUIRED_LANGUAGE_REFSETS);
@@ -214,11 +216,12 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService extends ComponentSe
 		private CodeSystem codeSystem;
 		private String defaultModuleId;
 		private String defaultEnglishLanguageRefsetId;
-		private boolean firstTimeUpgrade;
+		private boolean completeCopy;
+		private String languageRefsetIdToCopyFrom;
 
-		public AdditionalRefsetExecutionConfig(CodeSystem codeSystem, Boolean firstTime) {
+		public AdditionalRefsetExecutionConfig(CodeSystem codeSystem, Boolean completeCopy) {
 			this.codeSystem = codeSystem;
-			firstTimeUpgrade = firstTime == null ? false : firstTime;
+			this.completeCopy = completeCopy == null ? false : completeCopy;
 		}
 
 		public void setDefaultEnglishLanguageRefsetId(String defaultEnglishLanguageRefsetId) {
@@ -241,8 +244,15 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService extends ComponentSe
 			this.defaultModuleId = defaultModuleId;
 		}
 
-		public boolean isFirstTimeUpgrade() { return this.firstTimeUpgrade; }
-	}
+		public boolean isCompleteCopy() { return this.completeCopy; }
+
+		 public void setLanguageRefsetIdToCopyFrom(String languageRefsetIdToCopyFrom) {
+			this.languageRefsetIdToCopyFrom = languageRefsetIdToCopyFrom;
+		 }
+		 public String getLanguageRefsetIdToCopyFrom() {
+			return this.languageRefsetIdToCopyFrom;
+		 }
+	 }
 
 	private static class LanguageRefsetMetadataConfig {
 
