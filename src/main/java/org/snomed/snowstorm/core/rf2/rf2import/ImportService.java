@@ -88,6 +88,9 @@ public class ImportService {
 		String branchPath = job.getBranchPath();
 		Integer patchReleaseVersion = job.getPatchReleaseVersion();
 		Map<String, String> metaData = branchService.findLatest(branchPath).getMetadata();
+		if (metaData == null) {
+			metaData = new HashMap<>();
+		}
 		metaData.put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
 		branchService.updateMetadata(branchPath, metaData);
 		try {
@@ -137,8 +140,10 @@ public class ImportService {
 			throw e;
 		} finally {
 			metaData = branchService.findLatest(branchPath).getMetadata();
-			metaData.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
-			branchService.updateMetadata(branchPath, metaData);
+			if (metaData != null) {
+				metaData.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
+				branchService.updateMetadata(branchPath, metaData);
+			}
 		}
 	}
 
