@@ -16,7 +16,6 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceTestUtil;
 import org.snomed.snowstorm.mrcm.model.*;
-import org.snomed.snowstorm.util.ExpressionsDiffUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
@@ -128,10 +127,6 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 
 		assertEquals(expected, range.getAdditionalField("attributeRule"));
 
-		//TODO
-//		String published = "";
-//		assertFalse(ExpressionsDiffUtil.diffExpressions("", published, expected, true));
-
 		// verify domain templates
 		eventDomain = memberService.findMember(branch.getPath(), eventDomain.getMemberId());
 		assertNotNull(eventDomain);
@@ -149,7 +144,7 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testAttributeRuleAndConstaint() throws Exception{
+	public void testAttributeRuleAndConstraint() throws Exception{
 
 		AttributeDomain event= new AttributeDomain("358fdc09-ed75-43a0-b9ad-d926ed51162d", null,
 				true, "255234002", "272379006", true,
@@ -375,12 +370,7 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 				" [[0..*]] 774081006 |Proper part of| = [[+id(<< 123037004 |Body structure (body structure)|)]]";
 
 		assertEquals(expected, actual);
-		//TODO
-
-//		assertFalse(ExpressionsDiffUtil.diffTemplates(published, actual, true));
-
 	}
-
 
 	@Test
 	public void testSortExpressionConstraintByConceptId() {

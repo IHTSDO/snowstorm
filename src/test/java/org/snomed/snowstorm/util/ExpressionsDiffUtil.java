@@ -1,11 +1,10 @@
 package org.snomed.snowstorm.util;
 
+import com.google.common.base.Strings;
 import org.ihtsdo.otf.snomedboot.ReleaseImporter;
 import org.ihtsdo.otf.snomedboot.factory.ComponentFactory;
 import org.ihtsdo.otf.snomedboot.factory.ImpotentComponentFactory;
 import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLException;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.CompoundExpressionConstraint;
@@ -15,14 +14,12 @@ import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
 
-import java.io.FileInputStream;
+import java.io.*;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class ExpressionsDiffUtil {
-
-	private static Logger logger = LoggerFactory.getLogger(ExpressionsDiffUtil.class);
 
 	public static ECLQueryBuilder eclQueryBuilder = new ECLQueryBuilder(new SECLObjectFactory());
 
@@ -35,21 +32,35 @@ public class ExpressionsDiffUtil {
 
 	private static boolean outputBeforeAndAfter = false;
 
-	private static boolean outputDifferences = true;
+	private static final String RELEASE_FILES_ARG = "-releaseFiles";
 
+	private static final String IGNORE_CARDINALITY_ARG = "-ignoreCardinality";
+
+	/**
+	 *
+	 * @param args -releaseFiles [previous, current] -ignoreCardinality [true]
+	 * @throws Exception
+	 */
 	public static void  main(String[] args) throws Exception {
-		if (args == null || args.length !=2) {
-			System.out.println("Please enter two versions of MRCM to compare");
+		if (args == null || args.length < 3 || !RELEASE_FILES_ARG.equals(args[0])) {
+			System.out.println("Usage:-releaseFiles [previous, current] -ignoreCardinality [true]");
+			return;
 		}
-		String published = args[0];
-		String actual = args[1];
+		String published = args[1];
+		String actual = args[2];
+		if (args.length == 5 && IGNORE_CARDINALITY_ARG.equals(args[3])) {
+			ignoreCardinality = Boolean.valueOf(args[4]);
+		}
+
 		// load MRCM refsets
 		LoadingProfile mrcmLoadingProfile = LoadingProfile.complete.withJustRefsets().withRefsets("723560006", "723562003");
 		ComponentFactory publishedMRCMs = new MRCMRefsetComponentsLoader();
 		ComponentFactory actualMRCMs = new MRCMRefsetComponentsLoader();
 		if (published.endsWith(".zip") && actual.endsWith(".zip")) {
-			new ReleaseImporter().loadDeltaReleaseFiles(new FileInputStream(published), mrcmLoadingProfile, publishedMRCMs);
-			new ReleaseImporter().loadDeltaReleaseFiles(new FileInputStream(actual), mrcmLoadingProfile, actualMRCMs);
+			new ReleaseImporter().loadSnapshotReleaseFiles(new FileInputStream(published), mrcmLoadingProfile, publishedMRCMs);
+			new ReleaseImporter().loadSnapshotReleaseFiles(new FileInputStream(actual), mrcmLoadingProfile, actualMRCMs);
+		} else {
+			System.out.println("Please specify release packages with .zip file names");
 		}
 
 		List<ReferenceSetMember> publishedMembers = ((MRCMRefsetComponentsLoader) publishedMRCMs).getAllMembers();
@@ -60,34 +71,22 @@ public class ExpressionsDiffUtil {
 			System.out.println(String.format("%d mrcm refset members found in %s", publishedMembers.size(), published));
 			System.out.println(String.format("%d mrcm refset members found in %s", actualMembers.size(), actual));
 		} else {
+			if (publishedMembers.size() == 0) {
+				System.out.println("No MRCM refset members found please upload Snapshot files not delta files");
+			}
 			System.out.println(String.format("%d mrcm refset members found in %s and %s", publishedMembers.size(), published, actual));
 		}
 
+		File reportDir = new File(published).getParentFile();
 		// diff after parsing attribute rule and range constraint
-		diffAttributeRangeConctraintAndRules(publishedMembers, actualMembers);
+		performDiffAttributeRangeConstraintAndRules(publishedMembers, actualMembers, reportDir);
 
 		// diff domain templates
-//		diffDomainTemplates(publishedMembers, actualMembers);
+		peformDiffDomainTemplates(publishedMembers, actualMembers, reportDir);
+		System.out.println("Please find the diff reports in folder " + reportDir);
 	}
 
-	public static boolean diffTemplates(String published, String actual, boolean ignoreCardinality) {
-		return hasDiff(published, actual, ignoreCardinality);
-	}
-
-	public static boolean diffExpressions(String memberId, String published, String actual, boolean ignoreCardinality) {
-		String publishedSorted = sortExpressionConstraintByConceptId(published, memberId);
-		if (publishedSorted.equals(actual)) {
-			return false;
-		}
-		if (outputDifferences) {
-			System.out.println("Published sorted vs Actual for member " + memberId);
-			System.out.println(publishedSorted);
-			System.out.println(actual);
-		}
-		return true;
-	}
-
-	private static void diffDomainTemplates(List<ReferenceSetMember> published, List<ReferenceSetMember> actual) {
+	private static void peformDiffDomainTemplates(List<ReferenceSetMember> published, List<ReferenceSetMember> actual, File reportDir) throws  IOException {
 		Map<String, ReferenceSetMember> actualDomainMapById = actual.stream()
 				.filter(ReferenceSetMember :: isActive)
 				.filter(domain ->  "723560006".equals(domain.getRefsetId()))
@@ -102,14 +101,13 @@ public class ExpressionsDiffUtil {
 			System.out.println(String.format("%d found in the published and %d found in the actual", publishedDomainMapById.keySet().size(), actualDomainMapById.keySet().size()));
 		} else {
 			System.out.println(String.format("%d found", publishedDomainMapById.keySet().size()));
-
 		}
 
-		diffPrecoordinationTemplates(publishedDomainMapById, actualDomainMapById);
-		diffPostcoordinationTemplates(publishedDomainMapById, actualDomainMapById);
+		diffDomainTemplates(publishedDomainMapById, actualDomainMapById, reportDir, "domainTemplateForPrecoordination");
+		diffDomainTemplates(publishedDomainMapById, actualDomainMapById, reportDir, "domainTemplateForPostcoordination");
 	}
 
-	private static void diffAttributeRangeConctraintAndRules(List<ReferenceSetMember> publishedRanges, List<ReferenceSetMember> actualRanges) {
+	private static void performDiffAttributeRangeConstraintAndRules(List<ReferenceSetMember> publishedRanges, List<ReferenceSetMember> actualRanges, File reportDir) throws IOException {
 
 		Map<String, ReferenceSetMember> actualRangeMapById = actualRanges.stream()
 				.filter(ReferenceSetMember :: isActive)
@@ -121,51 +119,96 @@ public class ExpressionsDiffUtil {
 				.filter(range ->  "723562003".equals(range.getRefsetId()))
 				.collect(Collectors.toMap(ReferenceSetMember :: getMemberId, Function.identity()));
 
-		diffRangeConstraints(actualRangeMapById, publishedRangeMapById);
-		diffAttributeRules(actualRangeMapById, publishedRangeMapById);
+		diffRangeConstraints(actualRangeMapById, publishedRangeMapById, reportDir);
+		diffAttributeRules(actualRangeMapById, publishedRangeMapById, reportDir);
 	}
 
-	private static void diffAttributeRules(Map<String,ReferenceSetMember> actualRangeMapById, Map<String,ReferenceSetMember> publishedRangeMapById) {
-
+	private static void diffAttributeRules(Map<String,ReferenceSetMember> actualRangeMapById, Map<String,ReferenceSetMember> publishedRangeMapById, File reportDir) throws IOException {
 		List<String> matchedExactly = new ArrayList<>();
-		List<String> matchedWhenIngoringCardinality = new ArrayList<>();
+		List<String> matchedWhenIgnoringSorting = new ArrayList<>();
 		List<String> newMembers = new ArrayList<>();
 		List<String> diffMembers = new ArrayList<>();
+		Map<String, String> publishedSortedMapByMemberId = new HashMap<>();
 
 		for (String memberId : actualRangeMapById.keySet()) {
 			if (!publishedRangeMapById.keySet().contains(memberId)) {
 				// new member
 				newMembers.add(memberId);
 				continue;
+			}
+			ReferenceSetMember published = publishedRangeMapById.get(memberId);
+			ReferenceSetMember actual = actualRangeMapById.get(memberId);
+			if (!published.getReferencedComponentId().equals(actual.getReferencedComponentId())) {
+				throw new IllegalStateException(String.format("%s has different referencedComponentIds", memberId));
 			}
 			String publishedRule = publishedRangeMapById.get(memberId).getAdditionalField("attributeRule");
 			String actualRule = actualRangeMapById.get(memberId).getAdditionalField("attributeRule");
-
-			if (!actualRule.equals(publishedRule)) {
-				if (diffExpressions(memberId, publishedRule, actualRule, true)) {
+			if (publishedRule.equals(actualRule)) {
+				matchedExactly.add(memberId);
+			} else {
+				if (ignoreSorting) {
+					String publishedSorted = sortExpressionConstraintByConceptId(publishedRule, memberId);
+					publishedSortedMapByMemberId.put(memberId, publishedSorted);
+					if (publishedSorted.equals(actualRule)) {
+						matchedWhenIgnoringSorting.add(memberId);
+					} else {
+						outputBeforeAndAfter(publishedRule, actualRule);
+						diffMembers.add(memberId);
+					}
+				} else {
 					outputBeforeAndAfter(publishedRule, actualRule);
 					diffMembers.add(memberId);
-				} else {
-					matchedWhenIngoringCardinality.add(memberId);
 				}
-			} else {
-				matchedExactly.add(memberId);
 			}
 		}
 
-		System.out.println("Total attribute rules updated = " + actualRangeMapById.size());
-		System.out.println("Total new components created = " + newMembers.size());
-		System.out.println("Total attribute rules are the same without change = " + matchedExactly.size());
-		System.out.println("Total attribute rules are the same when cardinality and sorting are ignored = " + matchedWhenIngoringCardinality.size());
-		System.out.println("Total attribute rules found with diffs = " + diffMembers.size());
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(reportDir, "MRCMAttributeRulesDiff.txt")))) {
+			writer.append("Total attribute rules updated = " + actualRangeMapById.keySet().size());
+			writer.newLine();
+			writer.append("Total new components created = " + newMembers.size());
+			writer.newLine();
+			writer.append(newMembers.toString());
+			writer.newLine();
+			writer.append("Total attribute rules are the same without change = " + matchedExactly.size());
+			writer.newLine();
+			writer.append(matchedExactly.toString());
+			writer.newLine();
+			writer.append("Total attribute rules are the same when cardinality and sorting are ignored = " + matchedWhenIgnoringSorting.size());
+			writer.newLine();
+			writer.append(matchedWhenIgnoringSorting.toString());
+			writer.newLine();
+			writer.append("Total attribute rules found with diffs = " + diffMembers.size());
+			writer.newLine();
+			for (int i = 0; i < diffMembers.size(); i++) {
+				String memberId = diffMembers.get(i);
+				writer.append("Diff " + i + ": " + memberId);
+				writer.newLine();
+				writer.append("Published original:");
+				writer.newLine();
+				writer.append(publishedRangeMapById.get(memberId).getAdditionalField("attributeRule"));
+				writer.newLine();
+				if (publishedSortedMapByMemberId.containsKey(memberId)) {
+					writer.append("Published and sorted:");
+					writer.newLine();
+					writer.append(publishedSortedMapByMemberId.get(memberId));
+					writer.newLine();
+				}
+				writer.append("Actual:");
+				writer.newLine();
+				writer.append( actualRangeMapById.get(memberId).getAdditionalField("attributeRule"));
+				writer.newLine();
+			}
+		}
 	}
 
-	private static void diffRangeConstraints(Map<String,ReferenceSetMember> actualRangeMapById, Map<String,ReferenceSetMember> publishedRangeMapById) {
+	private static void diffRangeConstraints(Map<String,ReferenceSetMember> actualRangeMapById, Map<String,ReferenceSetMember> publishedRangeMapById,
+											 File reportDir) throws IOException {
 
 		List<String> matchedExactly = new ArrayList<>();
-		List<String> matchedWhenIngoringCardinality = new ArrayList<>();
+		List<String> matchedWhenIgnoringSorting = new ArrayList<>();
 		List<String> newMembers = new ArrayList<>();
 		List<String> diffMembers = new ArrayList<>();
+		Map<String, String> publishedSortedMapByMemberId = new HashMap<>();
 
 		for (String memberId : actualRangeMapById.keySet()) {
 			if (!publishedRangeMapById.keySet().contains(memberId)) {
@@ -173,10 +216,8 @@ public class ExpressionsDiffUtil {
 				newMembers.add(memberId);
 				continue;
 			}
-
 			ReferenceSetMember published = publishedRangeMapById.get(memberId);
 			ReferenceSetMember actual = actualRangeMapById.get(memberId);
-
 			if (!published.getReferencedComponentId().equals(actual.getReferencedComponentId())) {
 				throw new IllegalStateException(String.format("%s has different referencedComponentIds", memberId));
 			}
@@ -185,19 +226,59 @@ public class ExpressionsDiffUtil {
 			if (publishedConstraint.equals(actualConstraint)) {
 				matchedExactly.add(memberId);
 			} else {
-				if (diffExpressions(memberId, publishedConstraint, actualConstraint, ignoreCardinality)) {
+				if (ignoreSorting) {
+					String publishedSorted = sortExpressionConstraintByConceptId(publishedConstraint, memberId);
+					publishedSortedMapByMemberId.put(memberId, publishedSorted);
+					if (publishedSorted.equals(actualConstraint)) {
+						matchedWhenIgnoringSorting.add(memberId);
+					} else {
+						outputBeforeAndAfter(publishedConstraint, actualConstraint);
+						diffMembers.add(memberId);
+					}
+				} else {
 					outputBeforeAndAfter(publishedConstraint, actualConstraint);
 					diffMembers.add(memberId);
-				} else {
-					matchedWhenIngoringCardinality.add(memberId);
 				}
 			}
 		}
-		System.out.println("Total range constraints updated = " + actualRangeMapById.keySet().size());
-		System.out.println("Total new components created = " + newMembers.size());
-		System.out.println("Total range constraints are the same without change = " + matchedExactly.size());
-		System.out.println("Total range constraints are the same when cardinality and sorting are ignored = " + matchedWhenIngoringCardinality.size() );
-		System.out.println("Total range constraints found with diffs = " + diffMembers.size());
+
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(reportDir, "MRCMRangeConstraintDiff.txt")))) {
+			writer.append("Total range constraints updated = " + actualRangeMapById.keySet().size());
+			writer.newLine();
+			writer.append("Total new components created = " + newMembers.size());
+			writer.newLine();
+			writer.append(newMembers.toString());
+			writer.newLine();
+			writer.append("Total range constraints are the same without change = " + matchedExactly.size());
+			writer.newLine();
+			writer.append(matchedExactly.toString());
+			writer.newLine();
+			writer.append("Total range constraints are the same when cardinality and sorting are ignored = " + matchedWhenIgnoringSorting.size());
+			writer.newLine();
+			writer.append(matchedWhenIgnoringSorting.toString());
+			writer.newLine();
+			writer.append("Total range constraints found with diffs = " + diffMembers.size());
+			writer.newLine();
+			for (int i = 0; i < diffMembers.size(); i++) {
+				String memberId = diffMembers.get(i);
+				writer.append("Diff " + i + ": " + memberId);
+				writer.newLine();
+				writer.append("Published original:");
+				writer.newLine();
+				writer.append(publishedRangeMapById.get(memberId).getAdditionalField("rangeConstraint"));
+				writer.newLine();
+				if (publishedSortedMapByMemberId.containsKey(memberId)) {
+					writer.append("Published and sorted:");
+					writer.newLine();
+					writer.append(publishedSortedMapByMemberId.get(memberId));
+					writer.newLine();
+				}
+				writer.append("Actual:");
+				writer.newLine();
+				writer.append( actualRangeMapById.get(memberId).getAdditionalField("rangeConstraint"));
+				writer.newLine();
+			}
+		}
 	}
 
 
@@ -208,109 +289,89 @@ public class ExpressionsDiffUtil {
 		}
 	}
 
-	public static void diffPrecoordinationTemplates(Map<String, ReferenceSetMember> publishedDomains, Map<String, ReferenceSetMember> actualDomains) {
-		int matched = 0;
-		int diffOnlyInSorting = 0;
-		int diffCounter = 0;
+	public static void diffDomainTemplates(Map<String, ReferenceSetMember> publishedDomains,
+										   Map<String, ReferenceSetMember> actualDomains,
+										   File reportDir, String domainTempalteFieldName) throws IOException {
+		List<String> matchedExactly = new ArrayList<>();
+		List<String> matchedWhenSortingIgnored = new ArrayList<>();
 		List<String> newMembers = new ArrayList<>();
+		List<String> diffMembers = new ArrayList<>();
+		Map<String, String> messagesMappedByMemberId = new HashMap<>();
 		for (String memberId : actualDomains.keySet()) {
 			if (!publishedDomains.keySet().contains(memberId)) {
 				newMembers.add(memberId);
 				continue;
 			}
-			String published = publishedDomains.get(memberId).getAdditionalField("domainTemplateForPrecoordination");
-			String actual = actualDomains.get(memberId).getAdditionalField("domainTemplateForPrecoordination");
+			String published = publishedDomains.get(memberId).getAdditionalField(domainTempalteFieldName);
+			String actual = actualDomains.get(memberId).getAdditionalField(domainTempalteFieldName);
 			if (!published.equals(actual)) {
-				System.out.println("Analyzing precoordinationdomain template for domain id " + publishedDomains.get(memberId).getReferencedComponentId());
-				if (hasDiff(published, actual, true)) {
-					diffCounter++;
+				String diffMsg = hasDiff(published, actual, ignoreCardinality);
+				if (!Strings.isNullOrEmpty(diffMsg)) {
+					diffMembers.add(memberId);
 					outputBeforeAndAfter(published, actual);
+					StringBuilder msgBuilder = new StringBuilder();
+					msgBuilder.append("Domain id " + publishedDomains.get(memberId).getReferencedComponentId());
+					msgBuilder.append("\n");
+					msgBuilder.append("Member id:" + memberId);
+					msgBuilder.append("\n");
+					msgBuilder.append(diffMsg);
+					messagesMappedByMemberId.put(memberId, msgBuilder.toString());
 				} else {
-					System.out.println("domain template is the same when cardinality and sorting are ignored " + memberId);
-					diffOnlyInSorting++;
+					matchedWhenSortingIgnored.add(memberId);
 				}
 			} else {
-				matched++;
-				System.out.println("domain template is the same for " + memberId);
+				matchedExactly.add(memberId);
 			}
 		}
-		System.out.println("Total templates updated = " + actualDomains.keySet().size());
-		System.out.println("Total new members = " + newMembers.size());
-		System.out.println("Total templates are the same without change = " + matched);
-		System.out.println("Total templates are the same when cardinality and sorting is ignored = " + diffOnlyInSorting);
-		System.out.println("Total templates found with diffs = " + diffCounter);
-	}
-
-
-	public static void diffPostcoordinationTemplates(Map<String, ReferenceSetMember> publishedDomains, Map<String, ReferenceSetMember> actualDomains) {
-		int sameCounter = 0;
-		int sameWhenSortingIngored = 0;
-		int diffCounter = 0;
-		List<String> newMembers = new ArrayList<>();
-		for (String memberId : actualDomains.keySet()) {
-			if (!publishedDomains.keySet().contains(memberId)) {
-				newMembers.add(memberId);
-				continue;
-			}
-			String published = publishedDomains.get(memberId).getAdditionalField("domainTemplateForPostcoordination");
-			String actual = actualDomains.get(memberId).getAdditionalField("domainTemplateForPostcoordination");
-			if (!published.equals(actual)) {
-				System.out.println("Analyzing postcoordinationdomain template for domain id " + publishedDomains.get(memberId).getReferencedComponentId());
-				if (hasDiff(published, actual, true)) {
-					diffCounter++;
-					System.out.println("before = " + published);
-					System.out.println("after = " + actual);
-				} else {
-					System.out.println("domain template is the same when cardinality and sorting is ignored " + memberId);
-					sameWhenSortingIngored++;
-				}
-			} else {
-				sameCounter++;
-				System.out.println("domain template is the same for " + memberId);
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(reportDir, "MRCM" + domainTempalteFieldName + "Diff.txt")))) {
+			writer.append("Summary for " + domainTempalteFieldName);
+			writer.newLine();
+			writer.append("Total templates updated = " + actualDomains.keySet().size());
+			writer.newLine();
+			writer.append("Total new members = " + newMembers.size());
+			writer.newLine();
+			writer.append("Total templates are the same without change = " + matchedExactly.size());
+			writer.newLine();
+			writer.append("Total templates are the same when cardinality and sorting is ignored = " + matchedWhenSortingIgnored.size());
+			writer.newLine();
+			writer.append("Total templates found with diffs = " + diffMembers.size());
+			writer.newLine();
+			for (String memberId : messagesMappedByMemberId.keySet()) {
+				writer.append(messagesMappedByMemberId.get(memberId));
+				writer.newLine();
 			}
 		}
-		System.out.println("Total templates updated = " + actualDomains.keySet().size());
-		System.out.println("Total new members = " + newMembers.size());
-		System.out.println("Total templates are the same without change = " + sameCounter);
-		System.out.println("Total templates are the same when cardinality and sorting are ignored = " + sameWhenSortingIngored);
-		System.out.println("Total templates found with diffs = " + diffCounter);
+
 	}
 
-
-	public static boolean hasDiff(String published, String actual, boolean ignoreCardinality) {
+	public static String hasDiff(String published, String actual, boolean ignoreCardinality) {
 		boolean hasDiff = false;
 		List<String> publishedSorted = split(published, ignoreCardinality);
 		List<String> actualSorted = split(actual, ignoreCardinality);
-
-		StringBuilder msgBuilder = null;
-		if (outputDifferences) {
-			msgBuilder = new StringBuilder();
-			msgBuilder.append("Token is in the published version but is missing in the new generated:");
-		}
+		StringBuilder msgBuilder = new StringBuilder();;
+		msgBuilder.append("Token is in the published version but is missing in the newly generated:\n");
 		for (String token : publishedSorted) {
 			if (!actualSorted.contains(token)) {
-				if (outputDifferences) {
-					msgBuilder.append(token);
-					msgBuilder.append("/n");
-				}
+				msgBuilder.append(token);
+				msgBuilder.append("\n");
 				hasDiff = true;
 			}
 		}
-
 		if (msgBuilder != null) {
-			msgBuilder.append("/n");
-			msgBuilder.append("Token is in the new generated but is missing from the published");
+			msgBuilder.append("\n");
+			msgBuilder.append("Token is in the newly generated but is missing from the published:\n");
 		}
 		for (String token : actualSorted) {
 			if (!publishedSorted.contains(token)) {
-				if (outputDifferences) {
-					msgBuilder.append(token);
-					msgBuilder.append("/n");
-				}
+				msgBuilder.append(token);
+				msgBuilder.append("\n");
 				hasDiff = true;
 			}
 		}
-		return hasDiff;
+		if (hasDiff) {
+			return msgBuilder.toString();
+		}
+		return null;
 	}
 
 	private static List<String> split(String expression, boolean ignoreCardinality) {
@@ -420,10 +481,8 @@ public class ExpressionsDiffUtil {
 			}
 			mrcmRefsetMembers.add(member);
 		}
-
 		List<ReferenceSetMember> getAllMembers() {
 			return this.mrcmRefsetMembers;
 		}
-
 	}
 }
