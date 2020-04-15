@@ -1,4 +1,14 @@
 language: java
 
+addons:
+  sonarcloud:
+    organization: "ihtsdo"
+    token:
+      secure: "mHDugzHn9EBelg1fqzhqcKT04GkX1DLgR78of1hngMc/8wsGmlpUwa6HR/DDiBPaCEQozUGI1FbK4/ZC/xkIaEv9LfXtRTyOhBcaMF3MtTIzrhpOpVxhLcoKUV+4hyrMEC08/cOEUnWyyZf43Xy+INThT+cnpBMtk6PSiDd1Kym6ocseCSohpEtKWCHuuSZ0mr6Czk4pEIj+7JTlSRFresMNkuIVGM/aZAgoZ/8SykGc+AUHzpqnSSOOd1gIT/Jt+DdJo2NsUqCbzKtlLUviqNyX8AOEBHh05k/t74xGBnzb+kR+SHov2VVgMNMf/ZDZNZUaTiBWXj8Sv1nZNZDafCqFXeWCgUT/XQE723XkUHBGAG/dqelZXzgAGlS1B17cAw6W+21KG900zu26qdtIdKDMUE/cEXC4C6//RzDljTEDu39iVimHb+dSUA3zZHtB7Nr65H947p9UteaMzS2GfiRK1Ega8XvjQ+RvORLvwf0vodr/0m0IuztoFfXs3UsTUOoNGHfaWCbAeGqy0QJpZ9Ldv0tf5HcHXX5532zrEOYluiNNun1z4I5Uyju4ayTlPae/A/mavQK5c1ON1cCwqM6tp/yF5LrGKI2t8LuD6kJIbRfkkaDIUIP/3Ksoo5pwLOekISU4onk4Fk8srxDPZ1F9BRmrcLmZU65n4ijnDx8="
+
+script:
+  # the following command line builds the project, runs the tests with coverage and then execute the SonarCloud analysis
+  - mvn clean org.jacoco:jacoco-maven-plugin:prepare-agent install sonar:sonar -Dsonar.projectKey=IHTSDO_snowstorm
+
 after_success:
   - bash <(curl -s https://codecov.io/bash)
