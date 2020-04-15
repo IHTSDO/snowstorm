@@ -19,6 +19,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 
 import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
+import static org.snomed.snowstorm.mrcm.MRCMUpdateService.DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY;
 
 @Service
 public class ImportService {
@@ -86,7 +87,9 @@ public class ImportService {
 		RF2Type importType = job.getType();
 		String branchPath = job.getBranchPath();
 		Integer patchReleaseVersion = job.getPatchReleaseVersion();
-
+		Map<String, String> metaData = branchService.findLatest(branchPath).getMetadata();
+		metaData.put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
+		branchService.updateMetadata(branchPath, metaData);
 		try {
 			Date start = new Date();
 			logger.info("Starting RF2 {}{} import on branch {}. ID {}", importType, patchReleaseVersion != null ? " RELEASE PATCH on effectiveTime " + patchReleaseVersion : "", branchPath, importId);
@@ -132,6 +135,10 @@ public class ImportService {
 			logger.error("Failed RF2 {} import on branch {}. ID {}", importType, branchPath, importId, e);
 			job.setStatus(ImportJob.ImportStatus.FAILED);
 			throw e;
+		} finally {
+			metaData = branchService.findLatest(branchPath).getMetadata();
+			metaData.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
+			branchService.updateMetadata(branchPath, metaData);
 		}
 	}
 

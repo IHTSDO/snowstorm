@@ -68,6 +68,8 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 
 	private Logger logger = LoggerFactory.getLogger(MRCMUpdateService.class);
 
+	public static final String DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY = "disableMrcmAutoUpdate";
+
 	static final Comparator<AttributeDomain> ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID = Comparator
 			.comparing(AttributeDomain::getDomainId, Comparator.nullsFirst(String::compareTo));
 
@@ -79,6 +81,12 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
+		boolean isMRCMAudoUpdatedDisabled = commit.getBranch().getMetadata() != null
+				&& "true".equals(commit.getBranch().getMetadata().get(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY));
+		if (isMRCMAudoUpdatedDisabled) {
+			logger.info("MRCM auto update is disabled on branch {}", commit.getBranch().getPath());
+			return;
+		}
 		if (commit.getCommitType() == CONTENT) {
 			logger.debug("Start updating MRCM domain templates and attribute rules on branch {}.", commit.getBranch().getPath());
 			try {

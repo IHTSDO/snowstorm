@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.mrcm.MRCMUpdateService.DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -559,6 +560,18 @@ public class ImportServiceTest extends AbstractTest {
 		assertNotNull(member);
 	}
 
+	@Test
+	public void testSimplestRefsetImport() throws IOException, ReleaseImportException {
+		assertNull(referenceSetMemberService.findMember("MAIN", "01a78d22-ad0b-5e76-8fd4-9fed481e5de5"));
+
+		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/refset-snapshot-import");
+		String importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN", false, false);
+		importService.importArchive(importId, new FileInputStream(zipFile));
+
+		assertNotNull(referenceSetMemberService.findMember("MAIN", "01a78d22-ad0b-5e76-8fd4-9fed481e5de5"));
+		assertFalse(branchService.findLatest("MAIN").getMetadata().containsKey(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY));
+	}
+	
 	private void collectContentCounts(List<Concept> concepts, Map<String, AtomicInteger> conceptDefinitionStatuses, Map<String, AtomicInteger> descriptionCaseSignificance, Map<String, AtomicInteger> descriptionAcceptability, Map<Integer, AtomicInteger> relationshipGroups) {
 		conceptDefinitionStatuses.clear();
 		descriptionCaseSignificance.clear();
