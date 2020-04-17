@@ -1,0 +1,24 @@
+{
+  "resourceType": "ValueSet",
+  "status": "active",
+  "name": "ReasonForEncounterValueSet",
+  "id": "reason-for-encounter",
+  "title": "Reason For Encounter Value Set",
+  "description": "Codes describing the patient's reason for a request for care, taken from SNOMED-CT.",
+  "version": "0.1.0",
+  "url": "http://snomed.test/fhir/reasonForEncounter/ValueSet/reason-for-encounter",
+  "compose": {
+    "include": [
+      {
+        "system": "http://snomed.info/sct/1234",
+        "filter": [
+          {
+            "property": "concept",
+            "op": "=",
+            "value": "<< 138875005"
+          }
+        ]
+      }
+    ]
+  }
+}

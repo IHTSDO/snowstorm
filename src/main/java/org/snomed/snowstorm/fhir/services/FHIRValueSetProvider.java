@@ -482,7 +482,14 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				throw new FHIROperationException (IssueType.NOTSUPPORTED , "Server currently requires consistency in ValueSet compose element code system versions");
 			}
 		}
-		StringType codeSystemVersionUri = new StringType(system + "/" + version);
+		
+		StringType codeSystemVersionUri;
+		if (version == null) {
+			codeSystemVersionUri = new StringType(system);
+		} else {
+			codeSystemVersionUri = new StringType(system + "/" + version);
+		}
+		
 		return fhirHelper.getBranchPathFromURI(codeSystemVersionUri);
 	}
 	
