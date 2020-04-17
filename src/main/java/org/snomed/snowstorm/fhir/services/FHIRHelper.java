@@ -1,10 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.text.ParseException;
+import java.util.*;
 
 import javax.servlet.http.HttpServletRequest;
 
@@ -48,15 +45,17 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
 @Component
 public class FHIRHelper implements FHIRConstants {
 
+	private static final java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyyMMdd");
+
 	@Autowired
 	private CodeSystemService codeSystemService;
-	
+
 	@Autowired
 	private DialectConfigurationService dialectService;
-	
+
 	@Autowired
 	private FHIRValueSetProvider vsService;
-	
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	Integer getSnomedVersion(String versionStr) {
@@ -132,10 +131,10 @@ public class FHIRHelper implements FHIRConstants {
 			List<LanguageDialect> languageDialects = new ArrayList<>();
 			for (String designation : designations) {
 				if (designation.length() > MAX_LANGUAGE_CODE_LENGTH) {
-					//in this case we're expecting a designation token 
+					//in this case we're expecting a designation token
 					//of the form snomed PIPE langrefsetId
 					String[] tokenParts = designation.split(PIPE);
-					if (tokenParts.length < 2 || 
+					if (tokenParts.length < 2 ||
 							!StringUtils.isNumeric(tokenParts[1]) ||
 							!tokenParts[0].equals(SNOMED_URI)) {
 						throw new FHIROperationException(IssueType.VALUE, "Malformed designation token '" + designation + "' expected format http://snomed.info/sct PIPE langrefsetId");
@@ -209,7 +208,7 @@ public class FHIRHelper implements FHIRConstants {
 		if (languageDialects == null) {
 			languageDialects = new ArrayList<>();
 		}
-		
+
 		if (langCode != null && !isPresent(languageDialects, langCode)) {
 			languageDialects.add(new LanguageDialect(langCode));
 		}
@@ -240,19 +239,19 @@ public class FHIRHelper implements FHIRConstants {
 	public void append(StringType str, String appendMe) {
 		str.setValueAsString(str.toString() + appendMe);
 	}
-	
+
 	public void requireOneOf(String param1Name, Object param1, String param2Name, Object param2) throws FHIROperationException {
 		if (param1 == null && param2 == null) {
 			throw new FHIROperationException(IssueType.INVARIANT, "One of '" + param1Name + "' or '" + param2Name + "' parameters must be supplied");
 		}
 	}
-	
+
 	public void mutuallyExclusive(String param1Name, Object param1, String param2Name, Object param2) throws FHIROperationException {
 		if (param1 != null && param2 != null) {
 			throw new FHIROperationException(IssueType.INVARIANT, "Use one of '" + param1Name + "' or '" + param2Name + "' parameters");
 		}
 	}
-	
+
 	public void mutuallyRequired(String param1Name, Object param1, String param2Name, Object param2) throws FHIROperationException {
 		if (param1 != null && param2 == null) {
 			throw new FHIROperationException(IssueType.INVARIANT, "Input parameter '" + param1Name + "' can only be used in conjunction with parameter '" + param2Name);
@@ -297,9 +296,10 @@ public class FHIRHelper implements FHIRConstants {
 		}
 		return conceptId;
 	}
-	
+
 	public StringType enhanceCodeSystem (StringType codeSystem, StringType version, Coding coding) throws FHIROperationException {
 		if (version != null) {
+			FHIRHelper.validateEffectiveTime(version.asStringValue());
 			if (codeSystem == null) {
 				codeSystem = new StringType(SNOMED_URI_DEFAULT_MODULE + "/version/" + version.toString());
 			} else {
@@ -309,7 +309,7 @@ public class FHIRHelper implements FHIRConstants {
 				append(codeSystem, "/version/" + version.toString());
 			}
 		}
-		
+
 		if (coding != null && coding.getSystem() != null) {
 			String codeSystemFromCoding = coding.getSystem();
 			if (codeSystem != null && !codeSystem.toString().equals(codeSystemFromCoding)) {
@@ -320,7 +320,7 @@ public class FHIRHelper implements FHIRConstants {
 		}
 		return codeSystem;
 	}
-	
+
 	public Page<ConceptMini> eclSearch(QueryService queryService, String ecl, Boolean active, String termFilter, List<LanguageDialect> languageDialects, BranchPath branchPath, int offset, int pageSize) {
 		Page<ConceptMini> conceptMiniPage;
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
@@ -371,12 +371,12 @@ public class FHIRHelper implements FHIRConstants {
 		if (searchTerm == null || StringUtils.isEmpty(searchTerm.getValue())) {
 			return true;
 		}
-		
+
 		//If we've specified a search term but the target element is not populated, that's not a match
 		if (searchTerm.getValue() != null && value == null) {
 			return false;
 		}
-		
+
 		//What sort of matching are we doing?  StartsWith by default
 		if (searchTerm.isExact()) {
 			return value.toLowerCase().equals(searchTerm.getValue().toLowerCase());
@@ -392,28 +392,39 @@ public class FHIRHelper implements FHIRConstants {
 		if (search != null && value == null) {
 			return false;
 		}
-		
+
 		//If we've not specified a search term, then we pass through a match
 		if (search == null) {
 			return true;
 		}
-		
+
 		return value.equals(search);
 	}
-	
+
 
 	private boolean codingMatches(Coding c, String string) {
 		//If we've specified a search but the target element is not populated, that's not a match
 		if (string != null && (c == null || c.getCode() == null)) {
 			return false;
 		}
-		
+
 		//If we've not specified a search term, then we pass through a match
 		if (string == null) {
 			return true;
 		}
-		
+
 		return c.getCode().equals(string);
+	}
+
+	public static void validateEffectiveTime (String input) throws org.snomed.snowstorm.fhir.services.FHIROperationException {
+		if (!StringUtils.isEmpty(input)) {
+			try {
+				Date date =	sdf.parse(input.trim());
+				sdf.format(date);
+			} catch (ParseException e) {
+				throw new FHIROperationException(IssueType.VALUE, "Version is expected to be in format YYYYMMDD only.  Instead received: " + input);
+			}
+		}
 	}
 
 }
