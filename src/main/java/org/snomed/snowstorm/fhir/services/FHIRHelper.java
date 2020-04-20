@@ -419,8 +419,7 @@ public class FHIRHelper implements FHIRConstants {
 	public static void validateEffectiveTime (String input) throws org.snomed.snowstorm.fhir.services.FHIROperationException {
 		if (!StringUtils.isEmpty(input)) {
 			try {
-				Date date =	sdf.parse(input.trim());
-				sdf.format(date);
+				sdf.parse(input.trim());
 			} catch (ParseException e) {
 				throw new FHIROperationException(IssueType.VALUE, "Version is expected to be in format YYYYMMDD only.  Instead received: " + input);
 			}
