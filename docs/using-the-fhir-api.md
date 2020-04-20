@@ -148,3 +148,7 @@ http://localhost:8080/fhir/ConceptMap/$translate?code=254153009&system=http://sn
 #### Notes on output:
 
 The API will return either JSON or XML depending on what's specified in the 'Accept' header.  Because most browsers specify both HTML and XML as acceptable, where HTML is detected, the server will assume a browser is being used and return JSON unless a format parameter is used.   It is no longer necessary to include &_format=json in URLs when testing via a browser.   When no 'Accept' header is specified, JSON will again be used by default.
+
+#### Notes on unversioned content.
+The FHIR specification has no notion of working with unversioned, unpublished content as a content provider might wish to do during an authoring cycle.   As a 'straw man' solution for discussion, a magic string value of UNVERSIONED is being allowed, which will cause the request to look at the "daily build" branch, or whatever we think of as "MAIN" for that particular code system.   This will work for both CodeSystem $lookup and ValueSet $expand operations eg
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct/45991000052106/version/UNVERSIONED?fhir_vs=isa/27624003&designation=sv

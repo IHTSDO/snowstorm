@@ -32,6 +32,7 @@ import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -56,10 +57,17 @@ public class FHIRHelper implements FHIRConstants {
 	@Autowired
 	private FHIRValueSetProvider vsService;
 
-	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private static final Logger logger = LoggerFactory.getLogger(FHIRHelper.class);
+
+	public static final String UNVERSIONED_STR = "UNVERSIONED";
+	public static final int UNVERSIONED = -1;
 
 	Integer getSnomedVersion(String versionStr) {
 		String versionUri = "/" + FHIRConstants.VERSION + "/";
+		if (versionStr.contains(UNVERSIONED_STR)) {
+			return UNVERSIONED;
+		}
+
 		return !versionStr.contains("/" + FHIRConstants.VERSION + "/")
 				? null
 				: Integer.parseInt(versionStr.substring(versionStr.indexOf(versionUri) + versionUri.length()));
@@ -93,9 +101,9 @@ public class FHIRHelper implements FHIRConstants {
 	public BranchPath getBranchPathFromURI(StringType codeSystemVersionUri) {
 		String branchPathStr;
 		String defaultModule = getSnomedEditionModule(codeSystemVersionUri);
-		Integer editionVersionString = null;
+		Integer version = null;
 		if (codeSystemVersionUri != null) {
-			editionVersionString = getSnomedVersion(codeSystemVersionUri.toString());
+			version = getSnomedVersion(codeSystemVersionUri.toString());
 		}
 
 		org.snomed.snowstorm.core.data.domain.CodeSystem codeSystem = codeSystemService.findByDefaultModule(defaultModule);
@@ -108,17 +116,23 @@ public class FHIRHelper implements FHIRConstants {
 
 		CodeSystemVersion codeSystemVersion;
 		String shortName = codeSystem.getShortName();
-		if (editionVersionString != null) {
-			// Lookup specific version
-			codeSystemVersion = codeSystemService.findVersion(shortName, editionVersionString);
-			if (codeSystemVersion == null) {
-				throw new NotFoundException(String.format("No branch found for Code system %s with edition version %s.", shortName, editionVersionString));
+		if (version != null) {
+			// Lookup specific version, or the "daily build" branch if we detect "UNVERSIONED" as the version
+			if (version.equals(UNVERSIONED)) {
+				branchPathStr = codeSystem.getBranchPath();
+				logger.debug("Request to use unversioned content, using daily build branchpath: " + branchPathStr);
+			} else {
+				codeSystemVersion = codeSystemService.findVersion(shortName, version);
+				if (codeSystemVersion == null) {
+					throw new NotFoundException(String.format("No branch found for Code system %s with edition version %s.", shortName, version));
+				}
+				branchPathStr = codeSystemVersion.getBranchPath();
 			}
-			branchPathStr = codeSystemVersion.getBranchPath();
 		} else {
-			// Lookup latest effective version (future versions will not be used until publication date)
+			// Lookup latest published effective version
 			branchPathStr = codeSystem.getLatestVersion().getBranchPath();
 		}
+
 		if (branchPathStr == null) {
 			throw new NotFoundException(String.format("No branch found for Code system %s with default module %s.", shortName, defaultModule));
 		}
