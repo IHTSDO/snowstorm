@@ -571,7 +571,7 @@ public class ImportServiceTest extends AbstractTest {
 		assertNotNull(referenceSetMemberService.findMember("MAIN", "01a78d22-ad0b-5e76-8fd4-9fed481e5de5"));
 		assertFalse(branchService.findLatest("MAIN").getMetadata().containsKey(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY));
 	}
-	
+
 	private void collectContentCounts(List<Concept> concepts, Map<String, AtomicInteger> conceptDefinitionStatuses, Map<String, AtomicInteger> descriptionCaseSignificance, Map<String, AtomicInteger> descriptionAcceptability, Map<Integer, AtomicInteger> relationshipGroups) {
 		conceptDefinitionStatuses.clear();
 		descriptionCaseSignificance.clear();
