@@ -75,7 +75,7 @@
 		<dependency>
 			<groupId>org.snomed.languages</groupId>
 			<artifactId>snomed-ecl-parser</artifactId>
-			<version>1.1.1-SNAPSHOT</version>
+			<version>1.2.0</version>
 		</dependency>
 		<dependency>
 			<groupId>org.snomed.cis</groupId>
