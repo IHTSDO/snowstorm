@@ -81,9 +81,9 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
-		boolean isMRCMAudoUpdatedDisabled = commit.getBranch().getMetadata() != null
+		boolean isMRCMAutoUpdatedDisabled = commit.getBranch().getMetadata() != null
 				&& "true".equals(commit.getBranch().getMetadata().get(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY));
-		if (isMRCMAudoUpdatedDisabled) {
+		if (isMRCMAutoUpdatedDisabled) {
 			logger.info("MRCM auto update is disabled on branch {}", commit.getBranch().getPath());
 			return;
 		}
@@ -344,15 +344,15 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		for (String domainId : domainsByDomainIdMap.keySet()) {
 			Domain domain = new Domain(domainsByDomainIdMap.get(domainId));
 			List<String> parentDomainIds = findParentDomains(domain, domainsByDomainIdMap);
-			String precoordinated = generateDomainTemplate(domain, domainsByDomainIdMap, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, ContentType.PRECOORDINATED);
+			String precoordinated = generateDomainTemplate(domain, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, ContentType.PRECOORDINATED);
 			boolean isChanged = false;
-			if (!domain.getDomainTemplateForPrecoordination().equals(precoordinated)) {
+			if (!precoordinated.equals(domain.getDomainTemplateForPrecoordination())) {
 				domain.setDomainTemplateForPrecoordination(precoordinated);
 				isChanged = true;
 			}
-			String postoordinated = generateDomainTemplate(domain, domainsByDomainIdMap, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, ContentType.POSTCOORDINATED);
-			if (!domain.getDomainTemplateForPostcoordination().equals(postoordinated)) {
-				domain.setDomainTemplateForPostcoordination(postoordinated);
+			String postcoordinated = generateDomainTemplate(domain, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, ContentType.POSTCOORDINATED);
+			if (!postcoordinated.equals(domain.getDomainTemplateForPostcoordination())) {
+				domain.setDomainTemplateForPostcoordination(postcoordinated);
 				isChanged = true;
 			}
 			if (isChanged) {
@@ -366,13 +366,15 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		if (rangeConstraint == null || rangeConstraint.trim().isEmpty()) {
 			return rangeConstraint;
 		}
-		ExpressionConstraint constraint = null;
+
+		ExpressionConstraint constraint;
 		try {
 			constraint = eclQueryBuilder.createQuery(rangeConstraint);
 		} catch(ECLException e) {
 			logger.error("Invalid range constraint {} found in member {}.", rangeConstraint, memberId);
 			return rangeConstraint;
 		}
+		if (constraint == null) return rangeConstraint;
 
 		if (constraint instanceof CompoundExpressionConstraint) {
 			StringBuilder expressionBuilder = new StringBuilder();
@@ -487,8 +489,10 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		}
 	}
 
-	private String generateDomainTemplate(Domain domain, Map<String, Domain> domainsByDomainIdMap, Map<String, List<AttributeDomain>> domainToAttributesMap,
-										  Map<String, List<AttributeRange>> attributeToRangesMap, Map<String, String> conceptToFsnMap, List<String> parentDomainIds, ContentType type) {
+	private String generateDomainTemplate(Domain domain, Map<String, List<AttributeDomain>> domainToAttributesMap,
+										  Map<String, List<AttributeRange>> attributeToRangesMap,
+										  Map<String, String> conceptToFsnMap,
+										  List<String> parentDomainIds, ContentType type) {
 
 		StringBuilder templateBuilder = new StringBuilder();
 		// proximal primitive domain constraint
@@ -525,7 +529,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			}
 			List<AttributeRange> ranges = attributeToRangesMap.get(attributeDomain.getReferencedComponentId());
 			if (ranges == null) {
-				logger.warn("No attribute ranges defined for attribute {}", attributeDomain.getReferencedComponentId());
+				logger.warn("No attribute ranges defined for attribute {} in domain ", attributeDomain.getReferencedComponentId(), attributeDomain.getDomainId());
 				continue;
 			}
 			AttributeRange attributeRange = null;

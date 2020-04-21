@@ -68,18 +68,16 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 				.setAdditionalField("parentDomain", null)
 				.setAdditionalField("proximalPrimitiveConstraint", "<< 272379006 |Event (event)|")
 				.setAdditionalField("proximalPrimitiveRefinement", null)
-				.setAdditionalField("domainTemplateForPrecoordination", "")
-				.setAdditionalField("domainTemplateForPostcoordination", "")
 				.setAdditionalField("guideURL", "");
 
-		ReferenceSetMember clinicalFindingDomain = new ReferenceSetMember(null, null,true,
+		ReferenceSetMember clinicalFindingDomain = new ReferenceSetMember(null, new Integer("20200309"),true,
 				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL,"404684003")
 				.setAdditionalField("domainConstraint", "<< 404684003 |Clinical finding (finding)|")
 				.setAdditionalField("parentDomain", null)
 				.setAdditionalField("proximalPrimitiveConstraint", "<< 404684003 |Clinical finding (finding)|")
 				.setAdditionalField("proximalPrimitiveRefinement", null)
 				.setAdditionalField("domainTemplateForPrecoordination", "")
-				.setAdditionalField("domainTemplateForPostcoordination", "")
+				.setAdditionalField("domainTemplateForPostcoordination", null)
 				.setAdditionalField("guideURL", "");
 
 		ReferenceSetMember event = new ReferenceSetMember(null, null,true,
@@ -137,6 +135,8 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 
 		clinicalFindingDomain = memberService.findMember(branch.getPath(), clinicalFindingDomain.getMemberId());
 		assertNotNull(clinicalFindingDomain);
+		assertNull(clinicalFindingDomain.getEffectiveTimeI());
+		assertNull(clinicalFindingDomain.getEffectiveTime());
 		assertEquals("[[+id(<< 404684003 |Clinical finding (finding)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+id(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]}",
 				clinicalFindingDomain.getAdditionalField("domainTemplateForPrecoordination"));
 		assertEquals("[[+scg(<< 404684003 |Clinical finding (finding)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+scg(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]}",
@@ -383,4 +383,45 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 		assertEquals(expected,
 				mrcmUpdateService.sortExpressionConstraintByConceptId(rangeConstraint, "1a9b01ce-6385-11ea-9b6e-3c15c2c6e32e"));
 	}
+
+
+	@Test
+	public void testCreatingMRCMDomainAttributeWithoutRange() throws Exception {
+		Branch branch = branchService.create("MAIN/MRCM");
+
+		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"255234002", "After");
+		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"272379006", "Event (event)");
+		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"404684003", "Clinical finding (finding)");
+
+		ReferenceSetMember eventDomain = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL,"272379006")
+				.setAdditionalField("domainConstraint", "<< 272379006 |Event (event)|")
+				.setAdditionalField("parentDomain", null)
+				.setAdditionalField("proximalPrimitiveConstraint", "<< 272379006 |Event (event)|")
+				.setAdditionalField("proximalPrimitiveRefinement", null)
+				.setAdditionalField("guideURL", "");
+
+		ReferenceSetMember event = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL,"255234002")
+				.setAdditionalField("domainId", "272379006")
+				.setAdditionalField("grouped", "1")
+				.setAdditionalField("attributeCardinality", "0..*")
+				.setAdditionalField("attributeInGroupCardinality", "0..1")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005");
+
+		Set<ReferenceSetMember> mrcmMembers = new HashSet<>();
+		mrcmMembers.add(eventDomain);
+		mrcmMembers.add(event);
+		memberService.createMembers(branch.getPath(), mrcmMembers);
+
+		eventDomain = memberService.findMember(branch.getPath(), eventDomain.getMemberId());
+		assertNotNull(eventDomain);
+		assertNotNull(eventDomain.getAdditionalField("domainTemplateForPrecoordination"));
+		assertNotNull(eventDomain.getAdditionalField("domainTemplateForPostcoordination"));
+
+		event = memberService.findMember(branch.getPath(), event.getMemberId());
+		assertNotNull(event);
+	}
+
 }
