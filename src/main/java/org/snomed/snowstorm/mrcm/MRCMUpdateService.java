@@ -197,7 +197,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 						ruleBuilder.append(")");
 					}
 				}
-				if (!range.getAttributeRule().equals(ruleBuilder.toString()) || isRangeConstraintChanged) {
+				if (!ruleBuilder.toString().equals(range.getAttributeRule()) || isRangeConstraintChanged) {
 					logger.debug("before = " + range.getAttributeRule());
 					logger.debug("after = " + ruleBuilder.toString());
 					AttributeRange updated = new AttributeRange(range);

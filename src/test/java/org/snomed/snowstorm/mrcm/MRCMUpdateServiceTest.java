@@ -92,7 +92,6 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 		ReferenceSetMember clinicFinding = new ReferenceSetMember(null, null,true,
 				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL,"255234002")
 				.setAdditionalField("domainId", "404684003")
-				.setAdditionalField("grouped", "1")
 				.setAdditionalField("attributeCardinality", "0..*")
 				.setAdditionalField("attributeInGroupCardinality", "0..1")
 				.setAdditionalField("ruleStrengthId", "723597001")
@@ -101,7 +100,7 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 		ReferenceSetMember range = new ReferenceSetMember(null, null,true,
 				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL,"255234002")
 				.setAdditionalField("rangeConstraint", "<< 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)| OR << 272379006 |Event (event)|")
-				.setAdditionalField("attributeRule", " ")
+				.setAdditionalField("attributeRule", null)
 				.setAdditionalField("ruleStrengthId", "723597001")
 				.setAdditionalField("contentTypeId", "723596005");
 
@@ -120,8 +119,8 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 		assertEquals("<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|",
 				range.getAdditionalFields().get("rangeConstraint"));
 
-		String expected = "(<< 272379006 |Event (event)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })" +
-				" OR (<< 404684003 |Clinical finding (finding)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })";
+		String expected = "(<< 272379006 |Event (event)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) }) " +
+				"OR (<< 404684003 |Clinical finding (finding)|: [0..*] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|))";
 
 		assertEquals(expected, range.getAdditionalField("attributeRule"));
 
@@ -137,9 +136,9 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 		assertNotNull(clinicalFindingDomain);
 		assertNull(clinicalFindingDomain.getEffectiveTimeI());
 		assertNull(clinicalFindingDomain.getEffectiveTime());
-		assertEquals("[[+id(<< 404684003 |Clinical finding (finding)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+id(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]}",
+		assertEquals("[[+id(<< 404684003 |Clinical finding (finding)|)]]: [[0..*]] 255234002 |After| = [[+id(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]",
 				clinicalFindingDomain.getAdditionalField("domainTemplateForPrecoordination"));
-		assertEquals("[[+scg(<< 404684003 |Clinical finding (finding)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+scg(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]}",
+		assertEquals("[[+scg(<< 404684003 |Clinical finding (finding)|)]]: [[0..*]] 255234002 |After| = [[+scg(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]",
 				clinicalFindingDomain.getAdditionalField("domainTemplateForPostcoordination"));
 	}
 

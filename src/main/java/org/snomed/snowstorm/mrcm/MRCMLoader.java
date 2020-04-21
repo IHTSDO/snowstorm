@@ -75,7 +75,7 @@ public class MRCMLoader {
 						member.isActive(),
 						member.getReferencedComponentId(),
 						member.getAdditionalField("domainId"),
-						member.getAdditionalField("grouped").equalsIgnoreCase("1"),
+						"1".equals(member.getAdditionalField("grouped")),
 						new Cardinality(member.getAdditionalField("attributeCardinality")),
 						new Cardinality(member.getAdditionalField("attributeInGroupCardinality")),
 						RuleStrength.lookupByConceptId(member.getAdditionalField("ruleStrengthId")),
