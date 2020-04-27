@@ -63,17 +63,13 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 	}
 
 	public List<AttributeRange> generateAttributeRule(Map<String, Domain> domainMapByDomainId, Map<String, List<AttributeDomain>> attributeToDomainsMap,
-											   Map<String, List<AttributeRange>> attributeToRangesMap,
-											   Map<String, String> conceptToFsnMap) {
-		List<AttributeRange> updatedRanges = new ArrayList<>();
-		// generate attribute rule
+													  Map<String, List<AttributeRange>> attributeToRangesMap,
+													  Map<String, String> conceptToFsnMap) {
 
+		List<AttributeRange> updatedRanges = new ArrayList<>();
 		for (String attributeId : attributeToDomainsMap.keySet()) {
-			// domain
-			List<AttributeDomain> sorted = attributeToDomainsMap.get(attributeId);
-			Collections.sort(sorted, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
 			if (!attributeToRangesMap.containsKey(attributeId)) {
-				logger.info("No attribute ranges defined for attribute {}.", attributeId);
+				logger.info("No attribute ranges defined in all domains for attribute {}.", attributeId);
 				continue;
 			}
 			for (AttributeRange range : attributeToRangesMap.get(attributeId)) {
@@ -83,49 +79,45 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 					isRangeConstraintChanged = true;
 					range.setRangeConstraint(sortedConstraint);
 				}
-				int counter = 0;
-				StringBuilder ruleBuilder = new StringBuilder();
-				for (AttributeDomain attributeDomain : sorted) {
-					if (RuleStrength.MANDATORY != attributeDomain.getRuleStrength()) {
-						continue;
-					}
-					if (ContentType.ALL != attributeDomain.getContentType() && range.getContentType() != attributeDomain.getContentType()) {
-						continue;
-					}
-					if (counter++ > 0) {
-						ruleBuilder.insert(0, "(");
-						ruleBuilder.append(")");
-						ruleBuilder.append(" OR (");
-					}
-					String domainConstraint = domainMapByDomainId.get(attributeDomain.getDomainId()).getDomainConstraint().getExpression();
-					ruleBuilder.append(domainConstraint);
-					if (domainConstraint.contains(":")) {
-						ruleBuilder.append(",");
-					} else {
-						ruleBuilder.append(":");
-					}
-					// attribute group and attribute cardinality
-					if (attributeDomain.isGrouped()) {
-						ruleBuilder.append(" [" + attributeDomain.getAttributeCardinality().getValue() + "]" + " {");
-						ruleBuilder.append(" [" + attributeDomain.getAttributeInGroupCardinality().getValue() + "]");
-					} else {
-						ruleBuilder.append(" [" + attributeDomain.getAttributeCardinality().getValue() + "]");
-					}
+				// attribute domains are mandatory and matched content type
+				List<AttributeDomain> attributeDomains = attributeToDomainsMap.get(attributeId)
+						.stream()
+						.filter(d -> (RuleStrength.MANDATORY == d.getRuleStrength())
+										&& (ContentType.ALL == d.getContentType() || range.getContentType() == d.getContentType()))
+						.collect(Collectors.toList());
 
-					ruleBuilder.append(" " + attributeId + " |" + conceptToFsnMap.get(attributeId) + "|" + " = ");
-					// range constraint
-					if (range.getRangeConstraint().contains("OR")) {
-						ruleBuilder.append("(" + range.getRangeConstraint() + ")");
-					} else {
-						ruleBuilder.append(range.getRangeConstraint());
-					}
-					if (attributeDomain.isGrouped()) {
-						ruleBuilder.append(" }");
-					}
-					if (counter > 1) {
-						ruleBuilder.append(")");
-					}
+				// group attribute domain by attribute cardinality and attribute in group cardinality
+				List<AttributeDomain> grouped = attributeDomains.stream().filter(AttributeDomain::isGrouped).collect(Collectors.toList());
+				Map<String, List<AttributeDomain>> groupedByCardinality = new HashMap<>();
+				for (AttributeDomain attributeDomain : grouped) {
+					groupedByCardinality.computeIfAbsent(attributeDomain.getAttributeCardinality().getValue()
+							+ "_" + attributeDomain.getAttributeInGroupCardinality().getValue(), domains -> new ArrayList<>()).add(attributeDomain);
 				}
+				// Generate attribute rule un-grouped first then grouped
+				StringBuilder ruleBuilder = new StringBuilder();
+				// unGrouped
+				List<AttributeDomain> unGrouped = new ArrayList<>(attributeDomains);
+				unGrouped.removeAll(grouped);
+				Collections.sort(unGrouped, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
+				ruleBuilder.append(constructAttributeRule(unGrouped, domainMapByDomainId, range, conceptToFsnMap));
+				if (!unGrouped.isEmpty() && !grouped.isEmpty()) {
+					ruleBuilder.append(", ");
+				}
+				// sort by group cardinality
+				List<String> groupList = new ArrayList<>(groupedByCardinality.keySet());
+				Collections.sort(groupList);
+				// grouped
+				int counter = 0;
+				for (String group : groupList) {
+					List<AttributeDomain> sortedByCardinality = groupedByCardinality.get(group);
+					Collections.sort(sortedByCardinality, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
+					// generate rule
+					if (counter++ > 0) {
+						ruleBuilder.append(", ");
+					}
+					ruleBuilder.append(constructAttributeRule(sortedByCardinality, domainMapByDomainId, range, conceptToFsnMap));
+				}
+
 				if (!ruleBuilder.toString().equals(range.getAttributeRule()) || isRangeConstraintChanged) {
 					logger.debug("before = " + range.getAttributeRule());
 					logger.debug("after = " + ruleBuilder.toString());
@@ -136,6 +128,50 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			}
 		}
 		return updatedRanges;
+	}
+
+	private String constructAttributeRule(List<AttributeDomain> attributeDomains, Map<String, Domain> domainMapByDomainId,
+										AttributeRange range, Map<String, String> conceptToFsnMap) {
+		int counter = 0;
+		StringBuilder ruleBuilder = new StringBuilder();
+		if (attributeDomains == null || attributeDomains.isEmpty()) {
+			return ruleBuilder.toString();
+		}
+		for (AttributeDomain attributeDomain : attributeDomains) {
+			if (counter++ > 0) {
+				ruleBuilder.append(" OR ");
+			}
+			String domainConstraint = domainMapByDomainId.get(attributeDomain.getDomainId()).getDomainConstraint().getExpression();
+			ruleBuilder.append(domainConstraint);
+		}
+		if (counter > 1) {
+			ruleBuilder.insert(0, "(");
+			ruleBuilder.append(")");
+		}
+		if (ruleBuilder.toString().contains(":")) {
+			ruleBuilder.append(", ");
+		} else {
+			ruleBuilder.append(": ");
+		}
+		// attribute group and attribute cardinality
+		AttributeDomain attributeDomain = attributeDomains.get(0);
+		if (attributeDomain.isGrouped()) {
+			ruleBuilder.append("[" + attributeDomain.getAttributeCardinality().getValue() + "]" + " {");
+			ruleBuilder.append(" [" + attributeDomain.getAttributeInGroupCardinality().getValue() + "]");
+		} else {
+			ruleBuilder.append("[" + attributeDomain.getAttributeCardinality().getValue() + "]");
+		}
+		ruleBuilder.append(" " + range.getReferencedComponentId() + " |" + conceptToFsnMap.get(range.getReferencedComponentId()) + "|" + " = ");
+		// range constraint
+		if (range.getRangeConstraint().contains("OR")) {
+			ruleBuilder.append("(" + range.getRangeConstraint() + ")");
+		} else {
+			ruleBuilder.append(range.getRangeConstraint());
+		}
+		if (attributeDomain.isGrouped()) {
+			ruleBuilder.append(" }");
+		}
+		return ruleBuilder.toString();
 	}
 
 	public String generateDomainTemplate(Domain domain, Map<String, List<AttributeDomain>> domainToAttributesMap,
@@ -191,7 +227,8 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		return templateBuilder.toString();
 	}
 
-	private boolean hasAttributeRangeChangedInSubDomain(List<ProximalPrimitiveRefinement> refinements, Map<String, List<AttributeRange>> attributeToRangesMap, ContentType type) {
+	private boolean hasAttributeRangeChangedInSubDomain(List<ProximalPrimitiveRefinement> refinements,
+														Map<String, List<AttributeRange>> attributeToRangesMap, ContentType type) {
 		boolean hasChange = false;
 		for (ProximalPrimitiveRefinement refinement : refinements) {
 			List<AttributeRange> ranges = attributeToRangesMap.get(refinement.getAttributeId());
@@ -213,7 +250,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		List<ProximalPrimitiveRefinement> result = new ArrayList<>();
 		//[[1..*]] 260686004 |Method| = [[+id(<< 129265001 |Evaluation - action|)]]
 		if (proximalPrimitiveRefinement != null && !proximalPrimitiveRefinement.trim().isEmpty()) {
-			logger.info("processing proximalPrimitiveRefinement {}", proximalPrimitiveRefinement);
+			logger.debug("processing proximalPrimitiveRefinement {}", proximalPrimitiveRefinement);
 			String[] splits = proximalPrimitiveRefinement.split(",", -1);
 			for (String refinement : splits) {
 				String[] parts = refinement.split("=", -1);
@@ -252,7 +289,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		boolean isGrouped = attributeDomains.get(0).isGrouped();
 		Map<String, ProximalPrimitiveRefinement> attributeIdToRefinementMap = new HashMap<>();
 		if (isGrouped) {
-			Cardinality groupCardinality = attributeDomains.get(0).getAttributeCardinality();
+			Cardinality groupCardinality = null;
 			if (refinements != null) {
 				for (ProximalPrimitiveRefinement refinement : refinements) {
 					attributeIdToRefinementMap.put(refinement.getAttributeId(), refinement);
@@ -260,10 +297,9 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 						Cardinality cardinality = new Cardinality(refinement.getGroupCardinality());
 						if (groupCardinality == null) {
 							groupCardinality = cardinality;
-						} else {
-							if (cardinality.getMin() > groupCardinality.getMin()) {
-								groupCardinality = cardinality;
-							}
+						}
+						if (cardinality.getMin() > groupCardinality.getMin()) {
+							groupCardinality = cardinality;
 						}
 					} catch (ServiceException e) {
 						throw new IllegalArgumentException("Wrong cardinality format found for " + refinement.getGroupCardinality(), e);
@@ -271,13 +307,18 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 				}
 			}
 			templateBuilder.append("[[");
-			templateBuilder.append(groupCardinality.getValue());
+			if (groupCardinality != null) {
+				templateBuilder.append(groupCardinality.getValue());
+			} else {
+				// use the default 0..* role group for now until we have implemented self grouping
+				templateBuilder.append("0..*");
+			}
 			templateBuilder.append("]] { ");
 		}
 
 		int counter = 0;
 		for (AttributeDomain attributeDomain : attributeDomains) {
-			if (counter++ > 0) {
+			if (counter > 0) {
 				templateBuilder.append(", ");
 			}
 			List<AttributeRange> ranges = attributeToRangesMap.get(attributeDomain.getReferencedComponentId());
@@ -288,15 +329,17 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			AttributeRange attributeRange = null;
 			for (AttributeRange range : ranges) {
 				if (RuleStrength.MANDATORY == range.getRuleStrength() &&
-						(ContentType.ALL == range.getContentType() ||  type == range.getContentType())) {
+						(ContentType.ALL == range.getContentType() || type == range.getContentType())) {
 					attributeRange = range;
 					break;
 				}
 			}
-			if (attributeRange == null) {
-				logger.warn("No attribute range found for attribute {} with content type or {}", attributeDomain.getReferencedComponentId(), type.getName(), ContentType.ALL.name());
+			if (attributeRange == null || attributeRange.getRangeConstraint() == null || attributeRange.getRangeConstraint().trim().isEmpty()) {
+				logger.warn("No attribute range constraint found for attribute {} with content type or {}",
+						attributeDomain.getReferencedComponentId(), type.getName(), ContentType.ALL.name());
 				continue;
 			}
+			counter++;
 			ProximalPrimitiveRefinement refinement = null;
 			templateBuilder.append("[[");
 			if (isGrouped) {

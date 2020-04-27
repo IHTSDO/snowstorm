@@ -108,9 +108,8 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 		assertEquals("<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|",
 				range.getAdditionalFields().get("rangeConstraint"));
 
-		String expected = "(<< 272379006 |Event (event)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) }) " +
-				"OR (<< 404684003 |Clinical finding (finding)|: [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|))";
-
+		String expected = "<< 404684003 |Clinical finding (finding)|: [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|), " +
+				"<< 272379006 |Event (event)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) }";
 		assertEquals(expected, range.getAdditionalField("attributeRule"));
 
 		// verify domain templates

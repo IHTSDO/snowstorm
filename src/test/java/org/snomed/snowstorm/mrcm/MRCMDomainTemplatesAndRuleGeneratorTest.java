@@ -192,8 +192,8 @@ public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		List<AttributeRange> attributeRanges = generator.generateAttributeRule(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap);
 		assertEquals(1, attributeRanges.size());
 		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
-		String expected = "(<< 272379006 |Event (event)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })" +
-				" OR (<< 404684003 |Clinical finding (finding)|: [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) })";
+		String expected = "(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)|): [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| " +
+				"OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|) }";
 
 		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
 
@@ -212,7 +212,15 @@ public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 				true, "405815000", "363787002", true,
 				new Cardinality("0..*"), new Cardinality("0..*"), RuleStrength.MANDATORY, ContentType.ALL);
 
-		attributeToDomainsMap.put("405815000", Arrays.asList(procedure, observable));
+		AttributeDomain observable_optional = new AttributeDomain(null,
+				null,true, "405815000", "363787002", true,
+				new Cardinality("0..1"), new Cardinality("1..1"), RuleStrength.OPTIONAL, ContentType.ALL);
+
+		AttributeDomain procedure_precoordinated = new AttributeDomain("016dbf3a-4665-4b44-908e-2040dc8ccf5d", null,
+				true, "405815000", "71388002", true,
+				new Cardinality("1..*"), new Cardinality("0..1"), RuleStrength.MANDATORY, ContentType.PRECOORDINATED);
+
+		attributeToDomainsMap.put("405815000", Arrays.asList(procedure, observable, observable_optional, procedure_precoordinated));
 		AttributeRange range = new AttributeRange("b41253a7-7b17-4acf-96a1-d784ad0a6c04", null, true, "405815000",
 				"<< 49062001 |Device (physical object)|",
 				" ", RuleStrength.MANDATORY, ContentType.ALL);
@@ -231,8 +239,8 @@ public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		List<AttributeRange> attributeRanges = generator.generateAttributeRule(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap);
 		assertEquals(1, attributeRanges.size());
 		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
-		assertEquals("(<< 363787002 |Observable entity (observable entity)|: [0..*] { [0..*] 405815000 |Procedure device| = << 49062001 |Device (physical object)| }) " +
-						"OR (<< 71388002 |Procedure (procedure)|: [0..*] { [0..1] 405815000 |Procedure device| = << 49062001 |Device (physical object)| })",
+		assertEquals("<< 363787002 |Observable entity (observable entity)|: [0..*] { [0..*] 405815000 |Procedure device| = << 49062001 |Device (physical object)| }, " +
+						"<< 71388002 |Procedure (procedure)|: [0..*] { [0..1] 405815000 |Procedure device| = << 49062001 |Device (physical object)| }",
 				attributeRanges.get(0).getAttributeRule());
 	}
 
