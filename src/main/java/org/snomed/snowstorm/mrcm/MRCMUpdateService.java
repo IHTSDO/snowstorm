@@ -6,12 +6,6 @@ import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.script.Script;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.langauges.ecl.ECLException;
-import org.snomed.langauges.ecl.ECLQueryBuilder;
-import org.snomed.langauges.ecl.domain.expressionconstraint.CompoundExpressionConstraint;
-import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
-import org.snomed.langauges.ecl.domain.expressionconstraint.RefinedExpressionConstraint;
-import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
@@ -46,9 +40,6 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	private MRCMLoader mrcmLoader;
 
 	@Autowired
-	private ECLQueryBuilder eclQueryBuilder;
-
-	@Autowired
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
@@ -66,22 +57,16 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
 
+	@Autowired
+	private MRCMDomainTemplatesAndRuleGenerator generator;
+
 	private Logger logger = LoggerFactory.getLogger(MRCMUpdateService.class);
 
 	public static final String DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY = "disableMrcmAutoUpdate";
 
-	static final Comparator<AttributeDomain> ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID = Comparator
-			.comparing(AttributeDomain::getDomainId, Comparator.nullsFirst(String::compareTo));
-
-	static final Comparator<AttributeDomain> ATTRIBUTE_DOMAIN_COMPARATOR_BY_ATTRIBUTE_ID = Comparator
-			.comparing(AttributeDomain::getReferencedComponentId, Comparator.nullsFirst(String::compareTo));
-
-	static final Comparator<SubExpressionConstraint> EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID = Comparator
-			.comparing(SubExpressionConstraint::getConceptId, Comparator.nullsFirst(String::compareTo));
-
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
-		boolean isMRCMAutoUpdatedDisabled = commit.getBranch().getMetadata() != null
+		 boolean isMRCMAutoUpdatedDisabled = commit.getBranch().getMetadata() != null
 				&& "true".equals(commit.getBranch().getMetadata().get(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY));
 		if (isMRCMAutoUpdatedDisabled) {
 			logger.info("MRCM auto update is disabled on branch {}", commit.getBranch().getPath());
@@ -114,7 +99,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 												   Map<String, List<AttributeRange>> domainToRangesMap,
 												   Map<String, String> conceptToTermMap) {
 
-		List<Domain> updatedDomains = generateDomainTemplates(domainMapByDomainId, domainToAttributesMap, domainToRangesMap, conceptToTermMap);
+		List<Domain> updatedDomains = generator.generateDomainTemplates(domainMapByDomainId, domainToAttributesMap, domainToRangesMap, conceptToTermMap);
 		if (updatedDomains.size() > 0) {
 			logger.info("{} domain templates updated.", updatedDomains.size());
 		}
@@ -132,81 +117,6 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			member.markChanged();
 		}
 		return domainMembers;
-	}
-
-	List<AttributeRange> generateAttributeRule(Map<String, Domain> domainMapByDomainId, Map<String, List<AttributeDomain>> attributeToDomainsMap,
-											   Map<String, List<AttributeRange>> attributeToRangesMap,
-											   Map<String, String> conceptToFsnMap) {
-		List<AttributeRange> updatedRanges = new ArrayList<>();
-		// generate attribute rule
-		for (String attributeId : attributeToDomainsMap.keySet()) {
-			// domain
-			List<AttributeDomain> sorted = attributeToDomainsMap.get(attributeId);
-			Collections.sort(sorted, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
-			if (!attributeToRangesMap.containsKey(attributeId)) {
-				logger.info("No attribute ranges defined for attribute {}.", attributeId);
-				continue;
-			}
-			for (AttributeRange range : attributeToRangesMap.get(attributeId)) {
-				String sortedConstraint = sortExpressionConstraintByConceptId(range.getRangeConstraint(), range.getId());
-				boolean isRangeConstraintChanged = false;
-				if (!range.getRangeConstraint().equals(sortedConstraint)) {
-					isRangeConstraintChanged = true;
-					range.setRangeConstraint(sortedConstraint);
-				}
-				int counter = 0;
-				StringBuilder ruleBuilder = new StringBuilder();
-				for (AttributeDomain attributeDomain : sorted) {
-					if (RuleStrength.MANDATORY != attributeDomain.getRuleStrength()) {
-						continue;
-					}
-					if (ContentType.ALL != attributeDomain.getContentType() && range.getContentType() != attributeDomain.getContentType()) {
-						continue;
-					}
-					if (counter++ > 0) {
-						ruleBuilder.insert(0, "(");
-						ruleBuilder.append(")");
-						ruleBuilder.append(" OR (");
-					}
-					String domainConstraint = domainMapByDomainId.get(attributeDomain.getDomainId()).getDomainConstraint().getExpression();
-					ruleBuilder.append(domainConstraint);
-					if (domainConstraint.contains(":")) {
-						ruleBuilder.append(",");
-					} else {
-						ruleBuilder.append(":");
-					}
-					// attribute group and attribute cardinality
-					if (attributeDomain.isGrouped()) {
-						ruleBuilder.append(" [" + attributeDomain.getAttributeCardinality().getValue() + "]" + " {");
-						ruleBuilder.append(" [" + attributeDomain.getAttributeInGroupCardinality().getValue() + "]");
-					} else {
-						ruleBuilder.append(" [" + attributeDomain.getAttributeCardinality().getValue() + "]");
-					}
-
-					ruleBuilder.append(" " + attributeId + " |" + conceptToFsnMap.get(attributeId) + "|" + " = ");
-					// range constraint
-					if (range.getRangeConstraint().contains("OR")) {
-						ruleBuilder.append("(" + range.getRangeConstraint() + ")");
-					} else {
-						ruleBuilder.append(range.getRangeConstraint());
-					}
-					if (attributeDomain.isGrouped()) {
-						ruleBuilder.append(" }");
-					}
-					if (counter > 1) {
-						ruleBuilder.append(")");
-					}
-				}
-				if (!ruleBuilder.toString().equals(range.getAttributeRule()) || isRangeConstraintChanged) {
-					logger.debug("before = " + range.getAttributeRule());
-					logger.debug("after = " + ruleBuilder.toString());
-					AttributeRange updated = new AttributeRange(range);
-					updated.setAttributeRule(ruleBuilder.toString());
-					updatedRanges.add(updated);
-				}
-			}
-		}
-		return updatedRanges;
 	}
 
 	private void performUpdate(boolean allComponents, Commit commit) throws IOException, ServiceException {
@@ -288,7 +198,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 														  Map<String, List<AttributeRange>> attributeToRangesMap,
 														  Map<String,String> conceptToTermMap) {
 
-		List<AttributeRange> attributeRanges = generateAttributeRule(domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap);
+		List<AttributeRange> attributeRanges = generator.generateAttributeRule(domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap);
 		if (attributeRanges.size() > 0) {
 			logger.info("{} changes generated for attribute rules.", attributeRanges.size());
 		}
@@ -335,110 +245,6 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		}
 		return result;
 	}
-
-	List<Domain> generateDomainTemplates(Map<String, Domain> domainsByDomainIdMap, Map<String, List<AttributeDomain>> domainToAttributesMap,
-												Map<String, List<AttributeRange>> attributeToRangesMap, Map<String, String> conceptToFsnMap) {
-
-		List<Domain> updatedDomains = new ArrayList<>();
-		logger.debug("Checking and updating templates for {} domains.", domainsByDomainIdMap.keySet().size());
-		for (String domainId : domainsByDomainIdMap.keySet()) {
-			Domain domain = new Domain(domainsByDomainIdMap.get(domainId));
-			List<String> parentDomainIds = findParentDomains(domain, domainsByDomainIdMap);
-			String precoordinated = generateDomainTemplate(domain, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, ContentType.PRECOORDINATED);
-			boolean isChanged = false;
-			if (!precoordinated.equals(domain.getDomainTemplateForPrecoordination())) {
-				domain.setDomainTemplateForPrecoordination(precoordinated);
-				isChanged = true;
-			}
-			String postcoordinated = generateDomainTemplate(domain, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, ContentType.POSTCOORDINATED);
-			if (!postcoordinated.equals(domain.getDomainTemplateForPostcoordination())) {
-				domain.setDomainTemplateForPostcoordination(postcoordinated);
-				isChanged = true;
-			}
-			if (isChanged) {
-				updatedDomains.add(domain);
-			}
-		}
-		return updatedDomains;
-	}
-
-	String sortExpressionConstraintByConceptId(String rangeConstraint, String memberId) {
-		if (rangeConstraint == null || rangeConstraint.trim().isEmpty()) {
-			return rangeConstraint;
-		}
-
-		ExpressionConstraint constraint;
-		try {
-			constraint = eclQueryBuilder.createQuery(rangeConstraint);
-		} catch(ECLException e) {
-			logger.error("Invalid range constraint {} found in member {}.", rangeConstraint, memberId);
-			return rangeConstraint;
-		}
-		if (constraint == null) return rangeConstraint;
-
-		if (constraint instanceof CompoundExpressionConstraint) {
-			StringBuilder expressionBuilder = new StringBuilder();
-			CompoundExpressionConstraint compound = (CompoundExpressionConstraint) constraint;
-			if (compound.getConjunctionExpressionConstraints() != null) {
-				List<SubExpressionConstraint> conJunctions = compound.getConjunctionExpressionConstraints();
-				Collections.sort(conJunctions, EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
-				for (int i = 0; i < conJunctions.size(); i++) {
-					if (i > 0) {
-						expressionBuilder.append( " AND ");
-					}
-					expressionBuilder.append(constructExpression(conJunctions.get(i)));
-				}
-			}
-			if (compound.getDisjunctionExpressionConstraints() != null) {
-				List<SubExpressionConstraint> disJunctions = compound.getDisjunctionExpressionConstraints();
-				Collections.sort(disJunctions, EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
-				for (int i = 0; i < disJunctions.size(); i++) {
-					if (i > 0) {
-						expressionBuilder.append( " OR ");
-					}
-					expressionBuilder.append(constructExpression(disJunctions.get(i)));
-				}
-			}
-
-			if (compound.getExclusionExpressionConstraint() != null) {
-				expressionBuilder.append(" MINUS ");
-				expressionBuilder.append(constructExpression(compound.getExclusionExpressionConstraint()));
-			}
-			return expressionBuilder.toString();
-		}
-		return rangeConstraint;
-	}
-
-	private String constructExpression(SubExpressionConstraint constraint) {
-		StringBuilder expressionBuilder = new StringBuilder();
-		if (constraint.getOperator() != null) {
-			expressionBuilder.append(constraint.getOperator().getText());
-			expressionBuilder.append(" ");
-		}
-		expressionBuilder.append(constraint.getConceptId());
-		expressionBuilder.append(" ");
-		expressionBuilder.append("|");
-		expressionBuilder.append(constraint.getTerm());
-		expressionBuilder.append("|");
-		return expressionBuilder.toString();
-	}
-
-	private List<String> findParentDomains(Domain domain, Map<String, Domain> domainsByDomainIdMap) {
-		List<String> result = new ArrayList<>();
-		Domain current = domain;
-		while (current != null && current.getParentDomain() != null && !current.getParentDomain().isEmpty()) {
-			String parentDomain = current.getParentDomain();
-			parentDomain = parentDomain.substring(0, parentDomain.indexOf("|")).trim();
-			Domain parent = domainsByDomainIdMap.get(parentDomain);
-			if (parent == null) {
-				throw new IllegalStateException("No domain object found for for " + parentDomain);
-			}
-			result.add(parent.getReferencedComponentId());
-			current = parent;
-		}
-		return result;
-	}
-
 
 	private void saveRefsetMembersViaUpdateQuery(Collection<ReferenceSetMember> referenceSetMembers) throws IOException {
 		List<UpdateQuery> updateQueries = new ArrayList<>();
@@ -487,86 +293,5 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			elasticsearchTemplate.bulkUpdate(updateQueries);
 			elasticsearchTemplate.refresh(ReferenceSetMember.class);
 		}
-	}
-
-	private String generateDomainTemplate(Domain domain, Map<String, List<AttributeDomain>> domainToAttributesMap,
-										  Map<String, List<AttributeRange>> attributeToRangesMap,
-										  Map<String, String> conceptToFsnMap,
-										  List<String> parentDomainIds, ContentType type) {
-
-		StringBuilder templateBuilder = new StringBuilder();
-		// proximal primitive domain constraint
-		if (domain.getProximalPrimitiveConstraint() != null) {
-			if ( ContentType.PRECOORDINATED == type) {
-				templateBuilder.append("[[+id(");
-			} else {
-				templateBuilder.append("[[+scg(");
-			}
-			templateBuilder.append(domain.getProximalPrimitiveConstraint().getExpression());
-			templateBuilder.append(")]]:");
-		}
-		// proximal primitive domain refinement
-		if (domain.getProximalPrimitiveRefinement() != null && !domain.getProximalPrimitiveRefinement().isEmpty()) {
-			logger.debug("Found domain having ProximalPrimitiveRefinement " + domain.getReferencedComponentId());
-			templateBuilder.append(" " + domain.getProximalPrimitiveRefinement() + ", ");
-		}
-		// Filter for mandatory and all content type or given type
-		List<String> domainIdsToInclude = new ArrayList<>(parentDomainIds);
-		domainIdsToInclude.add(domain.getReferencedComponentId());
-		List<AttributeDomain> attributeDomains = new ArrayList<>();
-		for (String domainId : domainIdsToInclude) {
-			 if (domainToAttributesMap.containsKey(domainId)) {
-				 attributeDomains.addAll(domainToAttributesMap.get(domainId).stream()
-						 .filter(d -> (RuleStrength.MANDATORY == d.getRuleStrength()) && (ContentType.ALL == d.getContentType() || type == d.getContentType()))
-						 .collect(Collectors.toList()));
-			 }
-		}
-		Collections.sort(attributeDomains, ATTRIBUTE_DOMAIN_COMPARATOR_BY_ATTRIBUTE_ID);
-		int counter = 0;
-		for (AttributeDomain attributeDomain : attributeDomains) {
-			if (counter++ > 0) {
-				templateBuilder.append(",");
-			}
-			List<AttributeRange> ranges = attributeToRangesMap.get(attributeDomain.getReferencedComponentId());
-			if (ranges == null) {
-				logger.warn("No attribute ranges defined for attribute {} in domain ", attributeDomain.getReferencedComponentId(), attributeDomain.getDomainId());
-				continue;
-			}
-			AttributeRange attributeRange = null;
-			for (AttributeRange range : ranges) {
-				if (RuleStrength.MANDATORY == range.getRuleStrength() &&
-						(ContentType.ALL == range.getContentType() ||  type == range.getContentType())) {
-					attributeRange = range;
-					break;
-				}
-			}
-			if (attributeRange == null) {
-				logger.warn("No attribute range found for attribute {} with content type or {}",
-						attributeDomain.getReferencedComponentId(), type.getName(), ContentType.ALL.name());
-				continue;
-			}
-			templateBuilder.append(" [[");
-			templateBuilder.append(attributeDomain.getAttributeCardinality().getValue());
-			templateBuilder.append("]] ");
-			if (attributeDomain.isGrouped()) {
-				templateBuilder.append("{");
-				templateBuilder.append(" [[");
-				templateBuilder.append(attributeDomain.getAttributeInGroupCardinality().getValue());
-				templateBuilder.append("]] ");
-			}
-
-			templateBuilder.append(attributeDomain.getReferencedComponentId() + " |" + conceptToFsnMap.get(attributeDomain.getReferencedComponentId()) + "|");
-			if (ContentType.PRECOORDINATED == type) {
-				templateBuilder.append(" = [[+id(");
-			} else {
-				templateBuilder.append(" = [[+scg(");
-			}
-			templateBuilder.append(attributeRange.getRangeConstraint());
-			templateBuilder.append(")]]");
-			if (attributeDomain.isGrouped()) {
-				templateBuilder.append("}");
-			}
-		}
-		return templateBuilder.toString();
 	}
 }
