@@ -19,20 +19,14 @@ import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
@@ -62,15 +56,19 @@ public class FHIRHelper implements FHIRConstants {
 	public static final String UNVERSIONED_STR = "UNVERSIONED";
 	public static final int UNVERSIONED = -1;
 
-	Integer getSnomedVersion(String versionStr) {
+	public static Integer getSnomedVersion(String versionStr) throws FHIROperationException {
 		String versionUri = "/" + FHIRConstants.VERSION + "/";
 		if (versionStr.contains(UNVERSIONED_STR)) {
 			return UNVERSIONED;
 		}
 
-		return !versionStr.contains("/" + FHIRConstants.VERSION + "/")
-				? null
-				: Integer.parseInt(versionStr.substring(versionStr.indexOf(versionUri) + versionUri.length()));
+		try {
+			return !versionStr.contains("/" + FHIRConstants.VERSION + "/")
+					? null
+					: Integer.parseInt(versionStr.substring(versionStr.indexOf(versionUri) + versionUri.length()));
+		} catch (NumberFormatException e) {
+			throw new FHIROperationException(IssueType.CONFLICT, "Version expected to be numeric in format YYYYMMDD" );
+		}
 	}
 
 	static String translateDescType(String typeSctid) {
@@ -98,7 +96,7 @@ public class FHIRHelper implements FHIRConstants {
 				: versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1, versionStr.indexOf("/" + FHIRConstants.VERSION + "/"));
 	}
 
-	public BranchPath getBranchPathFromURI(StringType codeSystemVersionUri) {
+	public BranchPath getBranchPathFromURI(StringType codeSystemVersionUri) throws FHIROperationException {
 		String branchPathStr;
 		String defaultModule = getSnomedEditionModule(codeSystemVersionUri);
 		Integer version = null;
@@ -109,9 +107,7 @@ public class FHIRHelper implements FHIRConstants {
 		org.snomed.snowstorm.core.data.domain.CodeSystem codeSystem = codeSystemService.findByDefaultModule(defaultModule);
 		if (codeSystem == null) {
 			String msg = String.format("No code system with default module %s.", defaultModule);
-			//throw new NotFoundException());
-			logger.error(msg + " Using MAIN.");
-			return new BranchPath("MAIN");
+			throw new FHIROperationException(IssueType.NOTFOUND, msg );
 		}
 
 		CodeSystemVersion codeSystemVersion;
@@ -124,7 +120,8 @@ public class FHIRHelper implements FHIRConstants {
 			} else {
 				codeSystemVersion = codeSystemService.findVersion(shortName, version);
 				if (codeSystemVersion == null) {
-					throw new NotFoundException(String.format("No branch found for Code system %s with edition version %s.", shortName, version));
+					String msg = String.format("No branch found for Code system %s with edition version %s.", shortName, version);
+					throw new FHIROperationException(IssueType.NOTFOUND, msg );
 				}
 				branchPathStr = codeSystemVersion.getBranchPath();
 			}
@@ -134,7 +131,8 @@ public class FHIRHelper implements FHIRConstants {
 		}
 
 		if (branchPathStr == null) {
-			throw new NotFoundException(String.format("No branch found for Code system %s with default module %s.", shortName, defaultModule));
+			String msg = String.format("No branch found for Code system %s with default module %s.", shortName, defaultModule);
+			throw new FHIROperationException(IssueType.NOTFOUND, msg);
 		}
 		return new BranchPath(branchPathStr);
 	}
@@ -312,24 +310,27 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	public StringType enhanceCodeSystem (StringType codeSystem, StringType version, Coding coding) throws FHIROperationException {
-		if (version != null) {
-			FHIRHelper.validateEffectiveTime(version.asStringValue());
-			if (codeSystem == null) {
-				codeSystem = new StringType(SNOMED_URI_DEFAULT_MODULE + "/version/" + version.toString());
-			} else {
-				if (codeSystem.toString().contains("/version/")) {
-					throw new FHIROperationException(IssueType.CONFLICT, "CodeSystem version supplied in both (code)System and version parameters.  Use one or the other");
-				}
-				append(codeSystem, "/version/" + version.toString());
+
+		if (codeSystem != null) {
+			if (!codeSystem.asStringValue().equals(SNOMED_URI)) {
+				throw new FHIROperationException(IssueType.VALUE, "Snowstorm FHIR API currently only accepts '" + SNOMED_URI + "' as a (code)system.  Additionally, the version parameter can be used to specify a module and effective date");
 			}
+		} else {
+			codeSystem = new StringType (SNOMED_URI);
+		}
+
+		if (version != null) {
+			if (!version.asStringValue().startsWith(codeSystem.asStringValue())) {
+				throw new FHIROperationException(IssueType.CONFLICT, "Version parameter must start with '" + SNOMED_URI + "'");
+			}
+			getSnomedVersion(version.asStringValue());
+			codeSystem = version;
 		}
 
 		if (coding != null && coding.getSystem() != null) {
 			String codeSystemFromCoding = coding.getSystem();
-			if (codeSystem != null && !codeSystem.toString().equals(codeSystemFromCoding)) {
+			if (!codeSystem.toString().equals(codeSystemFromCoding)) {
 				throw new FHIROperationException(IssueType.CONFLICT, "CodeSystem defined in (code)system paramter + version is not identical to that supplied in the coding parameter");
-			} else if (codeSystem == null) {
-				codeSystem = new StringType(codeSystemFromCoding);
 			}
 		}
 		return codeSystem;
