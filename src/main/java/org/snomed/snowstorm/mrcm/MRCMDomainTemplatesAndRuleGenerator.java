@@ -138,11 +138,19 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			return ruleBuilder.toString();
 		}
 		for (AttributeDomain attributeDomain : attributeDomains) {
+			if (!domainMapByDomainId.containsKey(attributeDomain.getDomainId())) {
+				logger.warn("No domain defined for domainId referenced {}", attributeDomain.getDomainId());
+				continue;
+			}
+			Constraint domainConstraint = domainMapByDomainId.get(attributeDomain.getDomainId()).getDomainConstraint();
+			if (domainConstraint == null) {
+				logger.warn("No domain constraint defined for domain {}", attributeDomain.getDomainId());
+				continue;
+			}
 			if (counter++ > 0) {
 				ruleBuilder.append(" OR ");
 			}
-			String domainConstraint = domainMapByDomainId.get(attributeDomain.getDomainId()).getDomainConstraint().getExpression();
-			ruleBuilder.append(domainConstraint);
+			ruleBuilder.append(domainConstraint.getExpression());
 		}
 		if (counter > 1) {
 			ruleBuilder.insert(0, "(");
@@ -217,32 +225,39 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			templateBuilder.append(", ");
 		}
 		// grouped
+		// use the proximal primitive refinement to construct the first role group if present
 		constructAttributeRoleGroup(grouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, refinements);
 
-		// additional parent domain when there is range change in the sub domain
-		if (hasAttributeRangeChangedInSubDomain(refinements, attributeToRangesMap, type)) {
+		// additional optional role group
+		if (hasMeaningfulChangesInRefinement(refinements, attributeToRangesMap, type)) {
 			templateBuilder.append(", ");
 			constructAttributeRoleGroup(grouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, null);
 		}
 		return templateBuilder.toString();
 	}
 
-	private boolean hasAttributeRangeChangedInSubDomain(List<ProximalPrimitiveRefinement> refinements,
-														Map<String, List<AttributeRange>> attributeToRangesMap, ContentType type) {
-		boolean hasChange = false;
+	private boolean hasMeaningfulChangesInRefinement(List<ProximalPrimitiveRefinement> refinements,
+													 Map<String, List<AttributeRange>> attributeToRangesMap, ContentType type) {
+		// Current logic for this is not clear due to existing modeling requires further refinements.
+		if (refinements == null || refinements.isEmpty()) {
+			return false;
+		}
 		for (ProximalPrimitiveRefinement refinement : refinements) {
+			// here just to check whether the role group has changed.
+			if (refinement.getGroupCardinality() != null && refinement.getGroupCardinality().startsWith("1")) {
+				return true;
+			}
 			List<AttributeRange> ranges = attributeToRangesMap.get(refinement.getAttributeId());
 			for (AttributeRange range : ranges) {
 				if (RuleStrength.MANDATORY == range.getRuleStrength() &&
 						(ContentType.ALL == range.getContentType() ||  type == range.getContentType())) {
 					if (!range.getRangeConstraint().equals(refinement.getRangeConstraint())) {
-						hasChange = true;
+						return true;
 					}
-					break;
 				}
 			}
 		}
-		return hasChange;
+		return false;
 	}
 
 	private List<ProximalPrimitiveRefinement> processProximalPrimitiveRefinement(String proximalPrimitiveRefinement) {
