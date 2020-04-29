@@ -357,6 +357,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		List<LanguageDialect> designations = new ArrayList<>();
 		boolean includeDesignations = setLanguageOptions(designations, designationsStr, displayLanguageStr, includeDesignationsType, request);
 
+		//If we've specified a system version as part of the call, then that overrides whatever is in the compose element or URL
+		if (systemVersion != null && !systemVersion.asStringValue().isEmpty()) {
+			branchPath.set(fhirHelper.getBranchPathFromURI(systemVersion));
+		}
+		
 		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
 		//These calls will also set the branchPath
 		int cutPoint = url == null ? -1 : url.indexOf("?");
@@ -364,11 +369,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			conceptMiniPage = doExplicitExpansion(vs, active, filter, branchPath, designations, offset, pageSize);
 		} else {
 			conceptMiniPage = doImplcitExpansion(cutPoint, url, active, filter, branchPath, designations, offset, pageSize);
-		}
-		
-		//If we've specified a system version as part of the call, then that overrides whatever is in the compose element or URL
-		if (systemVersion != null && !systemVersion.asStringValue().isEmpty()) {
-			branchPath.set(fhirHelper.getBranchPathFromURI(systemVersion));
 		}
 		
 		//We will always need the PT, so recover further details
