@@ -172,9 +172,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="offset") String offsetStr,
 			@OperationParam(name="count") String countStr,
-			@OperationParam(name="system-version") StringType systemVersion) throws FHIROperationException {
+			@OperationParam(name="system-version") StringType systemVersion,
+			@OperationParam(name="force-system-version") StringType forceSystemVersion) throws FHIROperationException {
 		return expand (id, request, response, url, filter, activeType, includeDesignationsType,
-				designations, displayLanguage, offsetStr, countStr, systemVersion);
+				designations, displayLanguage, offsetStr, countStr, systemVersion, forceSystemVersion);
 	}
 	
 	@Operation(name="$expand", idempotent=true)
@@ -189,9 +190,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="offset") String offsetStr,
 			@OperationParam(name="count") String countStr,
-			@OperationParam(name="system-version") StringType systemVersion) throws FHIROperationException {
+			@OperationParam(name="system-version") StringType systemVersion,
+			@OperationParam(name="force-system-version") StringType forceSystemVersion) throws FHIROperationException {
 		return expand(null, request, response, url, filter, activeType, includeDesignationsType,
-				designations, displayLanguage, offsetStr, countStr, systemVersion);
+				designations, displayLanguage, offsetStr, countStr, systemVersion, forceSystemVersion);
 	}
 	
 	@Operation(name="$validate-code", idempotent=true)
@@ -333,7 +335,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			String displayLanguageStr,
 			String offsetStr,
 			String countStr,
-			StringType systemVersion) throws FHIROperationException {
+			StringType systemVersion, StringType forceSystemVersion) throws FHIROperationException {
 		// Are we expanding a specific named Valueset?
 		ValueSet vs = null;
 		if (id != null) {
@@ -358,8 +360,15 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		boolean includeDesignations = setLanguageOptions(designations, designationsStr, displayLanguageStr, includeDesignationsType, request);
 
 		//If we've specified a system version as part of the call, then that overrides whatever is in the compose element or URL
+		//TODO In fact this behaviour needs to be a little more subtle.  The total override is what forceSystemVersion does
+		//What this parameter needs to do is only specify the version when it is not otherwise specified in the ValueSet
 		if (systemVersion != null && !systemVersion.asStringValue().isEmpty()) {
 			branchPath.set(fhirHelper.getBranchPathFromURI(systemVersion));
+		}
+		
+		if (forceSystemVersion != null && !forceSystemVersion.asStringValue().isEmpty()) {
+			branchPath.set(fhirHelper.getBranchPathFromURI(forceSystemVersion));
+			logger.warn("ValueSet expansion system version being forced to " + forceSystemVersion + " which evaluated to branch path " + branchPath);
 		}
 		
 		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
