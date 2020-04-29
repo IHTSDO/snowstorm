@@ -24,4 +24,8 @@ public class BranchPath {
 	public String toString() {
 		return branchPathStr;
 	}
+	
+	public boolean isEmpty() {
+		return branchPathStr == null;
+	}
 }

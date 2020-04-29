@@ -85,7 +85,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		
 		//Attempt to expand the valueset in lieu of full validation
 		if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
-			obtainConsistentCodeSystemVersionFromCompose(vs.getCompose());
+			obtainConsistentCodeSystemVersionFromCompose(vs.getCompose(), new BranchPath("MAIN"));
 			covertComposeToEcl(vs.getCompose());
 		}
 		
@@ -362,11 +362,15 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		//If we've specified a system version as part of the call, then that overrides whatever is in the compose element or URL
 		//TODO In fact this behaviour needs to be a little more subtle.  The total override is what forceSystemVersion does
 		//What this parameter needs to do is only specify the version when it is not otherwise specified in the ValueSet
+		//TODO pass this value or forceSystemVersion through to the implicit/explicit expansion methods so they can decide
+		//if they need to use it or not.   It fails too early here if the branch does not exist.
 		if (systemVersion != null && !systemVersion.asStringValue().isEmpty()) {
 			branchPath.set(fhirHelper.getBranchPathFromURI(systemVersion));
 		}
 		
+		boolean branchPathForced = false;
 		if (forceSystemVersion != null && !forceSystemVersion.asStringValue().isEmpty()) {
+			branchPathForced = true;
 			branchPath.set(fhirHelper.getBranchPathFromURI(forceSystemVersion));
 			logger.warn("ValueSet expansion system version being forced to " + forceSystemVersion + " which evaluated to branch path " + branchPath);
 		}
@@ -375,9 +379,17 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		//These calls will also set the branchPath
 		int cutPoint = url == null ? -1 : url.indexOf("?");
 		if (cutPoint == NOT_SET) {
-			conceptMiniPage = doExplicitExpansion(vs, active, filter, branchPath, designations, offset, pageSize);
+			conceptMiniPage = doExplicitExpansion(vs, active, filter, branchPath, designations, offset, pageSize, branchPathForced);
 		} else {
-			conceptMiniPage = doImplcitExpansion(cutPoint, url, active, filter, branchPath, designations, offset, pageSize);
+			if (!branchPathForced) {
+				StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
+				//If we've no branch path, or the systemVersion wasn't specified, or the implicit URL is more specific than the systemVersion
+				//the use the implicit URL's idea of what the code system version should be
+				if (branchPath.isEmpty() || systemVersion == null || codeSystemVersionUri.toString().length() >= systemVersion.toString().length()) {
+					branchPath.set(fhirHelper.getBranchPathFromURI(codeSystemVersionUri));
+				}
+			}
+			conceptMiniPage = doImplcitExpansion(cutPoint, url, active, filter, branchPath, designations, offset, pageSize, branchPathForced);
 		}
 		
 		//We will always need the PT, so recover further details
@@ -420,11 +432,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	/**
 	 * An implicit ValueSet is one that hasn't been saved on the server, but is being 
 	 * defined at expansion time by use of a URL containing a definition of the content
+	 * @param branchPathForced 
 	 */
 	private Page<ConceptMini> doImplcitExpansion(int cutPoint, String url, Boolean active, String filter,
-			BranchPath branchPath, List<LanguageDialect> designations, int offset, int pageSize) throws FHIROperationException {
-		StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
-		branchPath.set(fhirHelper.getBranchPathFromURI(codeSystemVersionUri));
+			BranchPath branchPath, List<LanguageDialect> designations, int offset, int pageSize, boolean branchPathForced) throws FHIROperationException {
 		//Are we looking for all known refsets?  Special case.
 		if (url.endsWith("?fhir_vs=refset")) {
 			return findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
@@ -439,12 +450,15 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	/**
 	 * An explicit ValueSet has been saved on the server with a name and id, and 
 	 * is defined by use of the "compose" element within the valueset resource.
+	 * @param branchPathForced 
 	 */
 	private Page<ConceptMini> doExplicitExpansion(ValueSet vs, Boolean active, String filter,
-			BranchPath branchPath, List<LanguageDialect> designations, int offset, int pageSize) throws FHIROperationException {
+			BranchPath branchPath, List<LanguageDialect> designations, int offset, int pageSize, boolean branchPathForced) throws FHIROperationException {
 		Page<ConceptMini> conceptMiniPage = new PageImpl<>(new ArrayList<>());
 		if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
-			branchPath.set(obtainConsistentCodeSystemVersionFromCompose(vs.getCompose()));
+			if (!branchPathForced) {
+				branchPath.set(obtainConsistentCodeSystemVersionFromCompose(vs.getCompose(), branchPath));
+			}
 			String ecl = covertComposeToEcl(vs.getCompose());
 			conceptMiniPage = fhirHelper.eclSearch(queryService, ecl, active, filter, designations, branchPath, offset, pageSize);
 			logger.info("Recovered: {} concepts from branch: {} with ecl from compose: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
@@ -465,7 +479,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		.anyMatch(ld -> ld.getLanguageCode().equals(displayLanguage));
 	}
 
-	private BranchPath obtainConsistentCodeSystemVersionFromCompose(ValueSetComposeComponent compose) throws FHIROperationException {
+	private BranchPath obtainConsistentCodeSystemVersionFromCompose(ValueSetComposeComponent compose, BranchPath branchPath) throws FHIROperationException {
 		String system = null;
 		String version = null;
 		
@@ -494,7 +508,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		
 		StringType codeSystemVersionUri;
 		if (version == null) {
-			codeSystemVersionUri = new StringType(system);
+			if (system == null) {
+				return branchPath;
+			} else {
+				codeSystemVersionUri = new StringType(system);
+			}
 		} else {
 			codeSystemVersionUri = new StringType(system + "/" + version);
 		}
