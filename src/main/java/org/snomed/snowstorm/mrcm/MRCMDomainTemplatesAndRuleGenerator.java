@@ -16,6 +16,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static org.snomed.snowstorm.core.util.PredicateUtil.not;
+
 @Service
 public class MRCMDomainTemplatesAndRuleGenerator {
 	@Autowired
@@ -199,9 +201,17 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			templateBuilder.append(")]]: ");
 		}
 
-		// Filter for mandatory and all content type or given type
-		List<String> domainIdsToInclude = new ArrayList<>(parentDomainIds);
+		// Currently there is no way in the MRCM for a sub domain to state whether to inherit the attributes from its parent domain.
+		// The following logic requires future improvements
+		List<ProximalPrimitiveRefinement> refinements = processProximalPrimitiveRefinement(domain.getProximalPrimitiveRefinement());
+		List<String> domainIdsToInclude = new ArrayList<>();
+		if (parentDomainIds != null && !parentDomainIds.isEmpty()) {
+			if (!excludeParentDomainAttributes(domain, domainToAttributesMap, refinements)) {
+				domainIdsToInclude.addAll(parentDomainIds);
+			}
+		}
 		domainIdsToInclude.add(domain.getReferencedComponentId());
+		// Filter for mandatory and all content type or given type
 		List<AttributeDomain> attributeDomains = new ArrayList<>();
 		for (String domainId : domainIdsToInclude) {
 			if (domainToAttributesMap.containsKey(domainId)) {
@@ -210,14 +220,12 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 						.collect(Collectors.toList()));
 			}
 		}
+
 		List<AttributeDomain> grouped = attributeDomains.stream().filter(AttributeDomain::isGrouped).collect(Collectors.toList());
 		Collections.sort(grouped, ATTRIBUTE_DOMAIN_COMPARATOR_BY_ATTRIBUTE_ID);
 
-		List<AttributeDomain> unGrouped = new ArrayList<>(attributeDomains);
-		unGrouped.removeAll(grouped);
+		List<AttributeDomain> unGrouped = attributeDomains.stream().filter(not(AttributeDomain::isGrouped)).collect(Collectors.toList());
 		Collections.sort(unGrouped, ATTRIBUTE_DOMAIN_COMPARATOR_BY_ATTRIBUTE_ID);
-
-		List<ProximalPrimitiveRefinement> refinements = processProximalPrimitiveRefinement(domain.getProximalPrimitiveRefinement());
 
 		// un-grouped first if present
 		constructAttributeRoleGroup(unGrouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, refinements);
@@ -234,6 +242,22 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			constructAttributeRoleGroup(grouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, null);
 		}
 		return templateBuilder.toString();
+	}
+
+	private boolean excludeParentDomainAttributes(Domain domain, Map<String, List<AttributeDomain>> domainToAttributesMap,
+												  List<ProximalPrimitiveRefinement> refinements) {
+		if (domainToAttributesMap.containsKey(domain.getReferencedComponentId())) {
+			List<AttributeDomain> attributeDomains = domainToAttributesMap.get(domain.getReferencedComponentId());
+			for (AttributeDomain attributeDomain : attributeDomains) {
+				if (attributeDomain.getAttributeCardinality() == null) {
+					continue;
+				}
+				if (1 == attributeDomain.getAttributeCardinality().getMin() && refinements.isEmpty()) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private boolean hasMeaningfulChangesInRefinement(List<ProximalPrimitiveRefinement> refinements,
@@ -325,8 +349,15 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			if (groupCardinality != null) {
 				templateBuilder.append(groupCardinality.getValue());
 			} else {
-				// use the default 0..* role group for now until we have implemented self grouping
-				templateBuilder.append("0..*");
+				// use the default 0..* role group for now when there is no mandatory attribute until we have implemented self grouping
+				String roleGroup = "0..*";
+				for (AttributeDomain attributeDomain : attributeDomains) {
+					if (1 == attributeDomain.getAttributeCardinality().getMin()) {
+						roleGroup = attributeDomain.getAttributeCardinality().getValue();
+						break;
+					}
+				}
+				templateBuilder.append(roleGroup);
 			}
 			templateBuilder.append("]] { ");
 		}
