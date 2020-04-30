@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 import org.hl7.fhir.r4.model.BooleanType;
@@ -16,22 +17,28 @@ import org.hl7.fhir.r4.model.Type;
 import io.kaicode.elasticvc.api.BranchService;
 
 import org.junit.Before;
+import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
+import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.http.*;
+import org.springframework.test.context.junit4.SpringRunner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 
+@RunWith(SpringRunner.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
 public abstract class AbstractFHIRTest extends AbstractTest {
 
 	@LocalServerPort
@@ -63,6 +70,9 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 	HttpEntity<String> defaultRequestEntity;
 	boolean setupComplete = false;
 	ObjectMapper mapper = new ObjectMapper();
+	
+	static String baseUrl;
+	static HttpHeaders headers;
 
 	protected final Logger logger = LoggerFactory.getLogger(getClass());
 	
@@ -71,6 +81,11 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		if (setupComplete) {
 			return;
 		}
+		
+		baseUrl = "http://localhost:" + port + "/fhir/ValueSet";
+		headers = new HttpHeaders();
+		headers.setContentType(new MediaType("application", "fhir+json", StandardCharsets.UTF_8));
+		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
 		
 		fhirJsonParser = FhirContext.forR4().newJsonParser();
 		

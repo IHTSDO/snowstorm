@@ -1,6 +1,6 @@
 {
   "resourceType": "ValueSet",
   "id":"chronic-diseases",
-  "url": "http://snomed.info/sct?fhir_vs=ecl/<<27624003",
+  "url": "http://snomed.info/sct/1234?fhir_vs=ecl/<<27624003",
   "status": "draft"
 }

@@ -7,7 +7,6 @@ import org.junit.runner.RunWith;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.*;
 import org.springframework.test.context.junit4.SpringRunner;
@@ -26,7 +25,7 @@ import java.util.Collections;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
-public class ValueSetProviderEclTest extends AbstractFHIRTest implements FHIRConstants {
+public class ValueSetProviderEclTest extends AbstractFHIRTest {
 	
 	String baseUrl;
 	HttpHeaders headers;
@@ -108,7 +107,7 @@ public class ValueSetProviderEclTest extends AbstractFHIRTest implements FHIRCon
 				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + 
 				"&_format=json";
 		ValueSet v = getValueSet(url);
-		assertEquals(13,v.getExpansion().getContains().size());
+		assertEquals(11,v.getExpansion().getContains().size());
 	}
 	
 	@Test(expected=FHIROperationException.class)

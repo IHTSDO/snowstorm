@@ -1,71 +1,19 @@
 package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.*;
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.http.*;
-import org.springframework.test.context.junit4.SpringRunner;
 
-import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
-import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.rest.api.MethodOutcome;
-import io.kaicode.elasticvc.api.BranchService;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
-public class ValueSetProviderScrudTest {
-	
-	@LocalServerPort
-	protected int port;
-	
-	@Autowired
-	protected TestRestTemplate restTemplate;
-	
-	@Autowired
-	protected BranchService branchService;
-	
-	protected IParser fhirJsonParser;
-	
-	private final Logger logger = LoggerFactory.getLogger(getClass());
-	
-	String baseUrl;
-	HttpHeaders headers;
-	
-	@Before
-	synchronized public void setup() throws ServiceException, InterruptedException {
-		
-		branchService.create("MAIN");
-		
-		fhirJsonParser = FhirContext.forR4().newJsonParser();
-		baseUrl = "http://localhost:" + port + "/fhir/ValueSet";
-		headers = new HttpHeaders();
-		headers.setContentType(new MediaType("application", "fhir+json", StandardCharsets.UTF_8));
-		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-	}
-	
-	@After
-	synchronized public void tearDown() throws ServiceException, InterruptedException {
-		branchService.deleteAll();
-	}
+public class ValueSetProviderScrudTest extends AbstractFHIRTest {
 	
 	@Test
 	public void testValueSetCrudOperations() throws Exception {
@@ -128,6 +76,7 @@ public class ValueSetProviderScrudTest {
 		assertNotNull(is);
 		ValueSet exampleVS = fhirJsonParser.parseResource(ValueSet.class, is);
 		String vsJson = fhirJsonParser.encodeResourceToString(exampleVS);
+		logger.info("Saving chronic-diseases");
 		storeVs("chronic-diseases", vsJson);
 		
 		//Now expand that ValueSet we just saved
@@ -135,6 +84,7 @@ public class ValueSetProviderScrudTest {
 		ResponseEntity<String> response2 = restTemplate.getForEntity(url, String.class);
 		ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response2.getBody());
 		assertEquals(0, savedVS.getExpansion().getTotal());
+		
 		restTemplate.delete(baseUrl + "/chronic-diseases");
 		logger.info("ValueSet expansion tested OK!");
 	}
