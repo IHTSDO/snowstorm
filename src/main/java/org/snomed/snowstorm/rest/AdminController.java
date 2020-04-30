@@ -3,6 +3,7 @@ package org.snomed.snowstorm.rest;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -162,6 +163,16 @@ public class AdminController {
 	@ResponseBody
 	public IntegrityService.ConceptsInForm findExtraConceptsInSemanticIndex(@PathVariable String branch) {
 		return integrityService.findExtraConceptsInSemanticIndex(BranchPathUriUtil.decodePath(branch));
+	}
+
+	@ApiOperation(value = "Restore the 'released' flag and other fields of a concept.",
+			notes = "Restore the 'released' flag as well as the internal fields 'effectiveTimeI' and 'releaseHash' of all components of a concept. " +
+					"Makes a new commit on the specified branch. Will restore any deleted components as inactive. " +
+					"Looks up the code system and latest release branch automatically. ")
+	@RequestMapping(value = "/{branch}/actions/restore-released-status", method = RequestMethod.POST)
+	@ResponseBody
+	public Concept restoreReleasedStatus(@PathVariable String branch, @RequestParam String conceptId) {
+		return adminOperationsService.restoreReleasedStatus(BranchPathUriUtil.decodePath(branch), conceptId);
 	}
 
 }

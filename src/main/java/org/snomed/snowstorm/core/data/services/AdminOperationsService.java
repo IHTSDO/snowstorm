@@ -36,11 +36,13 @@ import java.io.InputStreamReader;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Iterables.partition;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
+import static java.lang.String.format;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
@@ -73,6 +75,9 @@ public class AdminOperationsService {
 
 	@Autowired
 	private BranchRepository branchRepository;
+
+	@Autowired
+	private ConceptService conceptService;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	public static final int ONE_SECOND_IN_MILLIS = 1000;
@@ -167,7 +172,7 @@ public class AdminOperationsService {
 	public void rollbackCommit(String branchPath, long timepoint) {
 		Branch branchVersion = branchService.findAtTimepointOrThrow(branchPath, new Date(timepoint));
 		if (branchVersion.getEnd() != null) {
-			throw new IllegalStateException(String.format("Branch %s at timepoint %s is already ended, it's not the latest commit.", branchPath, timepoint));
+			throw new IllegalStateException(format("Branch %s at timepoint %s is already ended, it's not the latest commit.", branchPath, timepoint));
 		}
 		branchService.rollbackCompletedCommit(branchVersion, new ArrayList<>(domainEntityConfiguration.getAllDomainEntityTypes()));
 	}
@@ -249,7 +254,7 @@ public class AdminOperationsService {
 		}
 		int childrenCount = branchService.findChildren(path).size();
 		if (childrenCount != 0) {
-			throw new IllegalStateException(String.format("Branch '%s' can not be deleted because is has children (%s).", path, childrenCount));
+			throw new IllegalStateException(format("Branch '%s' can not be deleted because is has children (%s).", path, childrenCount));
 		}
 
 		if (branch.isLocked()) {
@@ -287,7 +292,7 @@ public class AdminOperationsService {
 				lineNumber++;
 				String[] rows = line.split("\t");
 				if (rows.length != 10) {
-					throw new IllegalArgumentException(String.format("Line %s does not have the expected 10 columns.", lineNumber));
+					throw new IllegalArgumentException(format("Line %s does not have the expected 10 columns.", lineNumber));
 				}
 				if (rows[1].equals(effectiveTimeString)) {
 					relationshipIdsToKeep.add(Long.parseLong(rows[0]));
@@ -406,10 +411,10 @@ public class AdminOperationsService {
 		// Check there are no commits on the timeline where we are trying to write
 		Branch existingBranchAtRevertCommit = branchService.findAtTimepointOrThrow(codeSystemPath, revertCommitTime);
 		if (existingBranchAtRevertCommit.getHead().equals(promotionCommitTime)) {
-			throw new IllegalStateException(String.format("There is already a commit on %s at %s, can not proceed.", codeSystemPath, promotionCommitTime.getTime()));
+			throw new IllegalStateException(format("There is already a commit on %s at %s, can not proceed.", codeSystemPath, promotionCommitTime.getTime()));
 		}
 		if (existingBranchAtRevertCommit.getHead().equals(revertCommitTime)) {
-			throw new IllegalStateException(String.format("There is already a commit on %s at %s, can not proceed.", codeSystemPath, revertCommitTime.getTime()));
+			throw new IllegalStateException(format("There is already a commit on %s at %s, can not proceed.", codeSystemPath, revertCommitTime.getTime()));
 		}
 
 		logger.info("Promoting fixes from release branch into code system branch back in time " + promotionCommitTime);
@@ -604,6 +609,65 @@ public class AdminOperationsService {
 					}
 				} while (!page.isLast());
 			}
+		}
+	}
+
+	public Concept restoreReleasedStatus(String branchPath, String conceptId) {
+		CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branchPath);
+		if (codeSystem == null) {
+			throw new IllegalStateException(format("No code system found for branch '%s'.", branchPath));
+		}
+		CodeSystemVersion latestImportedVersion = codeSystemService.findLatestImportedVersion(codeSystem.getShortName());
+		if (latestImportedVersion == null) {
+			throw new IllegalStateException(format("No version found for code system '%s'.", codeSystem.getShortName()));
+		}
+
+		Concept releasedConcept = conceptService.find(conceptId, latestImportedVersion.getBranchPath());
+		Concept conceptToFix = conceptService.find(conceptId, branchPath);
+
+		try (Commit commit = branchService.openCommit(branchPath)) {
+			if (!conceptToFix.isReleased()) {
+				conceptToFix.copyReleaseDetails(releasedConcept);
+				conceptToFix.markChanged();
+				conceptUpdateHelper.doSaveBatchComponents(Collections.singleton(conceptToFix), Concept.class, commit);
+				System.out.println("Restoring missing released status of concept.");
+			}
+			restoreComponentReleasedStatus(conceptToFix.getDescriptions(), releasedConcept.getDescriptions(), commit);
+			restoreComponentReleasedStatus(conceptToFix.getRelationships(), releasedConcept.getRelationships(), commit);
+			restoreComponentReleasedStatus(conceptToFix.getAllOwlAxiomMembers(), releasedConcept.getAllOwlAxiomMembers(), commit);
+
+			commit.markSuccessful();
+		}
+
+		return conceptToFix;
+	}
+
+	@SuppressWarnings("unchecked")
+	private <T extends SnomedComponent> void restoreComponentReleasedStatus(Set<T> componentsToFix, Set<T> releasedComponents, Commit commit) {
+		Map<String, T> componentsToFixMap = componentsToFix.stream().collect(Collectors.toMap(SnomedComponent::getId, Function.identity()));
+		Class<T> componentClass = (Class<T>) releasedComponents.iterator().next().getClass();
+
+		Collection<T> componentsToSave = new HashSet<>();
+		for (T releasedComponent : releasedComponents) {
+			T componentToFix = componentsToFixMap.get(releasedComponent.getId());
+			if (componentToFix == null) {
+				// Released but must have been deleted, restore released version as inactive
+				componentToFix = releasedComponent;
+				componentToFix.setActive(false);
+				componentToFix.markChanged();
+				componentsToSave.add(componentToFix);
+				System.out.println(format("Restoring deleted component %s %s.", componentClass.getSimpleName(), componentToFix.getId()));
+			} else {
+				if (!componentToFix.isReleased()) {
+					componentToFix.copyReleaseDetails(releasedComponent);
+					componentToFix.markChanged();
+					componentsToSave.add(componentToFix);
+					System.out.println(format("Restoring missing released status of %s %s.", componentClass.getSimpleName(), componentToFix.getId()));
+				}
+			}
+		}
+		if (!componentsToSave.isEmpty()) {
+			conceptUpdateHelper.doSaveBatchComponents(componentsToSave, componentClass, commit);
 		}
 	}
 }

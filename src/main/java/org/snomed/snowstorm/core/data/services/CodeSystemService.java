@@ -42,6 +42,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 
@@ -128,11 +129,11 @@ public class CodeSystemService {
 				// Check dependant version exists on parent path
 				if (parentCodeSystem != null) {
 					if (findVersion(parentCodeSystem.getShortName(), dependantVersionEffectiveTime) == null) {
-						throw new IllegalArgumentException(String.format("No code system version found matching dependantVersion '%s' on the parent branch path '%s'.",
+						throw new IllegalArgumentException(format("No code system version found matching dependantVersion '%s' on the parent branch path '%s'.",
 								dependantVersionEffectiveTime, parentPath));
 					}
 				} else {
-					throw new IllegalArgumentException(String.format("No code system found on the parent branch path '%s' so dependantVersion property is not required.",
+					throw new IllegalArgumentException(format("No code system found on the parent branch path '%s' so dependantVersion property is not required.",
 							parentPath));
 				}
 			} else if (parentCodeSystem != null) {
@@ -147,13 +148,13 @@ public class CodeSystemService {
 		boolean branchExists = branchService.exists(branchPath);
 		if (parentCodeSystem != null && dependantVersionEffectiveTime != null) {
 			if (branchExists) {
-				throw new IllegalStateException(String.format("Unable to create code system branch with correct base timepoint because branch '%s' already exists!", branchPath));
+				throw new IllegalStateException(format("Unable to create code system branch with correct base timepoint because branch '%s' already exists!", branchPath));
 			}
 			// Create branch with base timepoint matching dependant version branch base timepoint
 			String releaseBranchPath = getReleaseBranchPath(parentCodeSystem.getBranchPath(), dependantVersionEffectiveTime);
 			Branch dependantVersionBranch = branchService.findLatest(releaseBranchPath);
 			if (dependantVersionBranch == null) {
-				throw new IllegalStateException(String.format("Dependant version branch '%s' is missing.", releaseBranchPath));
+				throw new IllegalStateException(format("Dependant version branch '%s' is missing.", releaseBranchPath));
 			}
 			branchService.createAtBaseTimepoint(branchPath, dependantVersionBranch.getBase());
 
@@ -173,6 +174,17 @@ public class CodeSystemService {
 				CodeSystem.class);
 
 		return codeSystems.isEmpty() ? Optional.empty() : Optional.of(codeSystems.get(0));
+	}
+
+	public CodeSystem findClosestCodeSystemUsingAnyBranch(String branchPath) {
+		do {
+			Optional<CodeSystem> codeSystem = findByBranchPath(branchPath);
+			if (codeSystem.isPresent()) {
+				return codeSystem.get();
+			}
+			branchPath = PathUtil.getParentPath(branchPath);
+		} while (branchPath != null);
+		return null;
 	}
 
 	public synchronized String createVersion(CodeSystem codeSystem, Integer effectiveDate, String description) {
@@ -218,7 +230,7 @@ public class CodeSystemService {
 		List<CodeSystem> codeSystems = elasticsearchOperations.queryForList(new NativeSearchQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)), CodeSystem.class);
 		if (!codeSystems.isEmpty()) {
 			CodeSystem codeSystem = codeSystems.get(0);
-			createVersion(codeSystem, releaseDate, String.format("%s %s import.", codeSystem.getShortName(), releaseDate));
+			createVersion(codeSystem, releaseDate, format("%s %s import.", codeSystem.getShortName(), releaseDate));
 		}
 	}
 
