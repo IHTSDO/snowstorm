@@ -109,7 +109,7 @@ public class IdentifierService {
 
 	@Scheduled(fixedDelay = 30_000)
 	public synchronized void registerIdentifiers() {
-		if (registrationEnabled) {
+		if (!registrationEnabled) {
 			logger.debug("SCTID Registration process disabled.");
 			return;
 		}
