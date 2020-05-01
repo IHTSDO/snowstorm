@@ -645,6 +645,9 @@ public class AdminOperationsService {
 	@SuppressWarnings("unchecked")
 	private <T extends SnomedComponent> void restoreComponentReleasedStatus(Set<T> componentsToFix, Set<T> releasedComponents, Commit commit) {
 		Map<String, T> componentsToFixMap = componentsToFix.stream().collect(Collectors.toMap(SnomedComponent::getId, Function.identity()));
+		if (releasedComponents.isEmpty()) {
+			return;
+		}
 		Class<T> componentClass = (Class<T>) releasedComponents.iterator().next().getClass();
 
 		Collection<T> componentsToSave = new HashSet<>();
@@ -660,6 +663,7 @@ public class AdminOperationsService {
 			} else {
 				if (!componentToFix.isReleased()) {
 					componentToFix.copyReleaseDetails(releasedComponent);
+					componentToFix.updateEffectiveTime();
 					componentToFix.markChanged();
 					componentsToSave.add(componentToFix);
 					System.out.println(format("Restoring missing released status of %s %s.", componentClass.getSimpleName(), componentToFix.getId()));
