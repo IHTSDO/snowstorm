@@ -20,24 +20,8 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
 public class ValueSetProviderEclTest extends AbstractFHIRTest {
-	
-	String baseUrl;
-	HttpHeaders headers;
-	
-	@Before
-	synchronized public void setup() throws ServiceException, InterruptedException {
-		baseUrl = "http://localhost:" + port + "/fhir/ValueSet";
-		headers = new HttpHeaders();
-		headers.setContentType(new MediaType("application", "fhir+json", StandardCharsets.UTF_8));
-		headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
-		super.setup();
-	}
 	
 	@Test
 	public void testECLRecovery_DescOrSelf() throws FHIROperationException {
@@ -59,14 +43,14 @@ public class ValueSetProviderEclTest extends AbstractFHIRTest {
 
 	@Test
 	public void testECLRecovery_Self() throws FHIROperationException {
-		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/" + sampleSCTID +"&_format=json";
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/" + sampleSCTID +"&_format=json";
 		ValueSet v = getValueSet(url);
 		assertEquals(1,v.getExpansion().getContains().size());
 	}
 	
 	@Test
 	public void testECLRecovery_Descriptions() throws FHIROperationException {
-		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/" + sampleSCTID +"&includeDesignations=true&_format=json";
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/" + sampleSCTID +"&includeDesignations=true&_format=json";
 		ValueSet v = getValueSet(url);
 		assertEquals(1,v.getExpansion().getContains().size());
 		assertFalse(v.getExpansion().getContains().get(0).getDesignation().isEmpty());
@@ -76,7 +60,7 @@ public class ValueSetProviderEclTest extends AbstractFHIRTest {
 	@Test
 	public void testECLWithFilter() throws FHIROperationException {
 		//Expecting 0 results when filter is applied
-		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + "&filter=banana&_format=json";
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + "&filter=banana&_format=json";
 		ValueSet v = getValueSet(url);
 		assertEquals(0,v.getExpansion().getContains().size());
 	}
@@ -84,17 +68,17 @@ public class ValueSetProviderEclTest extends AbstractFHIRTest {
 	@Test
 	public void testECLWithOffsetCount() throws FHIROperationException {
 		//Asking for 5 at a time, expect 10 total
-		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=0&count=5&_format=json";
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=0&count=5&_format=json";
 		ValueSet v = getValueSet(url);
 		assertEquals(5,v.getExpansion().getContains().size());
 		assertEquals(10,v.getExpansion().getTotal());
 		
-		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=1&count=5&_format=json";
+		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=1&count=5&_format=json";
 		v = getValueSet(url);
 		assertEquals(5,v.getExpansion().getContains().size());
 		assertEquals(10,v.getExpansion().getTotal());
 		
-		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=2&count=5&_format=json";
+		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=2&count=5&_format=json";
 		v = getValueSet(url);
 		assertEquals(0,v.getExpansion().getContains().size());
 		assertEquals(10,v.getExpansion().getTotal());
@@ -103,7 +87,7 @@ public class ValueSetProviderEclTest extends AbstractFHIRTest {
 	@Test
 	public void testECLWithSpecificVersion() throws FHIROperationException {
 		//Asking for 5 at a time, expect 10 total
-		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?system-version=http://snomed.info/sct/900000000000207008/version/20190731&" + 
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?system-version=http://snomed.info/sct/1234/version/20190731&" + 
 				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + 
 				"&_format=json";
 		ValueSet v = getValueSet(url);
@@ -123,17 +107,17 @@ public class ValueSetProviderEclTest extends AbstractFHIRTest {
 	public void testImplcitValueSets() throws FHIROperationException {
 		
 		// ?fhir_vs -> all concepts
-		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs&_format=json";
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs&_format=json";
 		ValueSet v = getValueSet(url);
 		assertEquals(11,v.getExpansion().getTotal());
 		
 		// ?fhir_vs=refset -> all concepts representing refsets
-		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=refset&_format=json";
+		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=refset&_format=json";
 		v = getValueSet(url);
 		assertEquals("Two value sets in the latest release branch.", 2, v.getExpansion().getTotal());
 		
 		// ?fhir_vs=isa/<root concept> -> all concepts under root plus self
-		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT + "&_format=json";
+		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT + "&_format=json";
 		v = getValueSet(url);
 		assertEquals(11,v.getExpansion().getTotal());
 		

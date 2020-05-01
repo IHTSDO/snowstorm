@@ -66,13 +66,13 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 	protected static final String sampleModuleId = "1234";
 	protected static final String sampleVersion = "20190731";
 	protected final String MAIN = "MAIN";
-	protected IParser fhirJsonParser;
-	HttpEntity<String> defaultRequestEntity;
-	boolean setupComplete = false;
-	ObjectMapper mapper = new ObjectMapper();
-	
 	static String baseUrl;
 	static HttpHeaders headers;
+	
+	static protected IParser fhirJsonParser;
+	static HttpEntity<String> defaultRequestEntity;
+	static boolean setupComplete = false;
+	static ObjectMapper mapper = new ObjectMapper();
 
 	protected final Logger logger = LoggerFactory.getLogger(getClass());
 	
@@ -102,6 +102,8 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		
 		// Version content to fill effectiveTime fields
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", MAIN);
+		//codeSystemConfigurationService.getConfigurations().add(config);
+
 		codeSystemService.createCodeSystem(codeSystem);
 		codeSystemService.createVersion(codeSystem, Integer.parseInt(sampleVersion), "");
 		
@@ -116,7 +118,6 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		codeSystemConfigurationService.getConfigurations().add(config);
 
 		concepts.clear();
-		//concepts.add(new Concept(Concepts.SNOMEDCT_ROOT));
 		for (int x=11; x<=12; x++) {
 			createDummyData(x, concepts);
 		}

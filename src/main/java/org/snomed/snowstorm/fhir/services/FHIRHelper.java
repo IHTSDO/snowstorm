@@ -106,7 +106,7 @@ public class FHIRHelper implements FHIRConstants {
 
 		org.snomed.snowstorm.core.data.domain.CodeSystem codeSystem = codeSystemService.findByDefaultModule(defaultModule);
 		if (codeSystem == null) {
-			String msg = String.format("No code system with default module %s.", defaultModule);
+			String msg = String.format("No code system known with default module of %s.", defaultModule);
 			throw new FHIROperationException(IssueType.NOTFOUND, msg );
 		}
 
@@ -329,7 +329,11 @@ public class FHIRHelper implements FHIRConstants {
 
 		if (coding != null && coding.getSystem() != null) {
 			String codeSystemFromCoding = coding.getSystem();
-			if (!codeSystem.toString().equals(codeSystemFromCoding)) {
+			//We're OK if the code system is the default and the system in the coding is more specific
+			if (codeSystem.toString().equals(SNOMED_URI) && codeSystemFromCoding.toString().length() > SNOMED_URI.length()) {
+				//This is fine, use the coding
+				codeSystem = new StringType(codeSystemFromCoding);
+			} else if (!codeSystem.toString().equals(codeSystemFromCoding)) {
 				throw new FHIROperationException(IssueType.CONFLICT, "CodeSystem defined in (code)system paramter + version is not identical to that supplied in the coding parameter");
 			}
 		}
