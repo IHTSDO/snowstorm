@@ -448,11 +448,20 @@ public class ConceptService extends ComponentService {
 		return doSave(concepts, branch);
 	}
 
-	@Async
-	public void createUpdateAsync(List<Concept> concepts, String path, AsyncConceptChangeBatch batchConceptChange, SecurityContext securityContext) {
-		SecurityContextHolder.setContext(securityContext);
+	public String createUpdateAsyncNewJob(AsyncConceptChangeBatch batchConceptChange) {
 		synchronized (batchConceptChanges) {
 			batchConceptChanges.put(batchConceptChange.getId(), batchConceptChange);
+		}
+		return batchConceptChange.getId();
+	}
+
+	@Async
+	public void createUpdateAsync(List<Concept> concepts, String path, String batchConceptChangeId, SecurityContext securityContext) {
+		SecurityContextHolder.setContext(securityContext);
+		AsyncConceptChangeBatch batchConceptChange = batchConceptChanges.getIfPresent(batchConceptChangeId);
+		if (batchConceptChange == null) {
+			logger.error("Batch concept change {} not found.", batchConceptChangeId);
+			return;
 		}
 		try {
 			PersistedComponents persistedComponents = createUpdate(concepts, path);
