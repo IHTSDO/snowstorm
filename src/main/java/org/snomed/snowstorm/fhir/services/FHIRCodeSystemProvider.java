@@ -12,6 +12,7 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
+import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -167,10 +168,20 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			return mapper.singleOutValue("outcome", "subsumes");
 		} else if (matchesConcept(eclBsubsumesA, branchPath)) {
 			return mapper.singleOutValue("outcome", "subsumed-by");
-		} 
+		}
+		//TODO First check for the concept in all known codesystemversions
+		//Secondly, should we return an Outcome object if the concept is not found?
+		ensureConceptExists(conceptAId, branchPath);
+		ensureConceptExists(conceptBId, branchPath);
 		return mapper.singleOutValue("outcome", "not-subsumed");
 	}
 	
+	private void ensureConceptExists(String sctId, BranchPath branchPath) {
+		if (!matchesConcept(sctId, branchPath)) {
+			throw new NotFoundException(sctId + " not found in " + branchPath); 
+		}
+	}
+
 	private void doSubsumptionParameterValidation(CodeType codeA, CodeType codeB, StringType system, StringType version,
 			Coding codingA, Coding codingB) throws FHIROperationException {
 		fhirHelper.mutuallyExclusive("codeA", codeA, "codingA", codingA);
