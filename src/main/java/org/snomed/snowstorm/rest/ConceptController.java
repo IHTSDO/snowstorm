@@ -356,9 +356,10 @@ public class ConceptController {
 		List<Concept> conceptList = new ArrayList<>();
 		concepts.forEach(conceptView -> conceptList.add((Concept) conceptView));
 		AsyncConceptChangeBatch batchConceptChange = new AsyncConceptChangeBatch();
-		conceptService.createUpdateAsync(conceptList, BranchPathUriUtil.decodePath(branch), batchConceptChange, SecurityContextHolder.getContext());
+		String batchId = conceptService.createUpdateAsyncNewJob(batchConceptChange);
+		conceptService.createUpdateAsync(conceptList, BranchPathUriUtil.decodePath(branch), batchId, SecurityContextHolder.getContext());
 		return ResponseEntity.created(uriComponentsBuilder.path("/browser/{branch}/concepts/bulk/{bulkChangeId}")
-				.buildAndExpand(branch, batchConceptChange.getId()).toUri()).build();
+				.buildAndExpand(branch, batchId).toUri()).build();
 	}
 
 	@ApiOperation("Fetch the status of a bulk concept creation or update.")
