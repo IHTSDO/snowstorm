@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
+import static org.junit.Assert.assertNotNull;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -16,11 +18,12 @@ import org.hl7.fhir.r4.model.Type;
 
 import io.kaicode.elasticvc.api.BranchService;
 
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.runner.RunWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
@@ -39,7 +42,17 @@ import ca.uhn.fhir.parser.IParser;
 
 @RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
-public abstract class AbstractFHIRTest extends AbstractTest {
+/**
+ * 	The data that is set up here is used by the majority of test cases in a read-only manner
+ *	so it makes sense to perform this expensive operation (especially the setup of the JSONParser)
+ *	only once.  Similarly we keep a count of the number of classes run to ensure that the final 
+ *  teardown is called only once.
+ *		
+ *	Ideally this would run in a @BeforeClass method, but that wouldn't allow access to the autowired
+ *	member variables, so the boolean "setupComplete" is simulating that behaviour
+ *
+ */
+public abstract class AbstractFHIRTest {
 
 	@LocalServerPort
 	protected int port;
@@ -75,12 +88,37 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 	static ObjectMapper mapper = new ObjectMapper();
 
 	protected final Logger logger = LoggerFactory.getLogger(getClass());
+	protected static final Logger slogger = LoggerFactory.getLogger(AbstractFHIRTest.class);
 	
+	private static final int TOTAL_TEST_CLASSES = 6;
+	private static int testClassesRun = 0;
+	private static AbstractFHIRTest lastTestRun;
+	
+	@BeforeClass
+	public static void classSetup() {
+		testClassesRun++;
+	}
+	
+	@AfterClass 
+	public static void classTearDown() {
+		if (testClassesRun >= TOTAL_TEST_CLASSES) {
+			slogger.warn("Digging up the Potatoes");
+			lastTestRun.finalTearDown();
+		}
+	}
+	
+	private void finalTearDown() {
+		branchService.deleteAll();
+		conceptService.deleteAll();
+		codeSystemService.deleteAll();
+	}
+
 	@Before
-	synchronized public void setup() throws ServiceException, InterruptedException {
+	public void setup() throws ServiceException, InterruptedException {
 		if (setupComplete) {
 			return;
 		}
+		lastTestRun = this;
 		
 		baseUrl = "http://localhost:" + port + "/fhir/ValueSet";
 		headers = new HttpHeaders();
@@ -98,6 +136,7 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		for (int x=1; x<=10; x++) {
 			createDummyData(x, concepts);
 		}
+		branchService.create(MAIN);
 		conceptService.batchCreate(concepts, MAIN);
 		
 		// Version content to fill effectiveTime fields
@@ -118,13 +157,16 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		codeSystemConfigurationService.getConfigurations().add(config);
 
 		concepts.clear();
+		//The new module will inherit the 10 concepts from MAIN.  Add two new unqique to MAIN/SNOMEDCT-WK
 		for (int x=11; x<=12; x++) {
 			createDummyData(x, concepts);
 		}
 		conceptService.batchCreate(concepts, branchWK);
 		CodeSystem codeSystemWK = new CodeSystem("SNOMEDCT-WK", branchWK);
 		codeSystemService.createCodeSystem(codeSystemWK);
-		codeSystemService.createVersion(codeSystemWK, 20190731, "");
+		codeSystemService.createVersion(codeSystemWK, 20190731, "Unit Test Version");
+		
+		assertNotNull(codeSystemService.findByDefaultModule(sampleModuleId));
 		
 		logger.info("Baked Potato test data setup complete");
 		
@@ -134,7 +176,7 @@ public abstract class AbstractFHIRTest extends AbstractTest {
 		
 		setupComplete = true;
 	}
-
+	
 	private void createDummyData(int sequence, List<Concept> concepts) throws ServiceException {
 		// Create dummy concept with descriptions and relationships
 		Relationship infParentRel = new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT);
