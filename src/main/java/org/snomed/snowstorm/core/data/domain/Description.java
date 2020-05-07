@@ -504,12 +504,11 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	 */
 	public boolean hasAcceptability(String acceptability, LanguageDialect dialect) {
 		//Is the language refset specified in the dialect?
-		if (dialect.getLanguageReferenceSet() == null) {
-			return languageCode.equals(dialect.getLanguageCode());
-		} else if (dialect.getLanguageReferenceSet() != null) {
+		if (dialect.getLanguageReferenceSet() != null) {
 			return hasAcceptability(acceptability, dialect.getLanguageReferenceSet());
 		} 
-		return languageCode.equals(dialect.getLanguageCode()); 
+		//Fall back to just checking the language is as specified
+		return languageCode.equals(dialect.getLanguageCode());
 	}
 	
 	/**
