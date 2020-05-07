@@ -6,8 +6,10 @@ import io.kaicode.elasticvc.domain.Branch;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,11 +21,10 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
 
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 /*
@@ -47,8 +48,9 @@ public class MultiSearchService {
 	private ElasticsearchTemplate elasticsearchTemplate;
 
 	public Page<Description> findDescriptions(DescriptionCriteria criteria, PageRequest pageRequest) {
+		final BoolQueryBuilder branchesQuery = getBranchesQuery();
 		final BoolQueryBuilder descriptionQuery = boolQuery()
-				.must(getBranchesQuery());
+				.must(branchesQuery);
 
 		descriptionService.addTermClauses(criteria.getTerm(), criteria.getSearchLanguageCodes(), criteria.getType(), descriptionQuery, criteria.getSearchMode());
 
@@ -104,7 +106,7 @@ public class MultiSearchService {
 		return result;
 	}
 
-	private QueryBuilder getBranchesQuery() {
+	private BoolQueryBuilder getBranchesQuery() {
 		Set<String> branchPaths = getAllPublishedVersionBranchPaths();
 
 		BoolQueryBuilder branchesQuery = boolQuery();
