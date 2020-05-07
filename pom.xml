@@ -7,7 +7,7 @@
 
 	<groupId>org.snomed</groupId>
 	<artifactId>snowstorm</artifactId>
-	<version>4.10.0-SNAPSHOT</version>
+	<version>4.10.0</version>
 
 	<parent>
 		<groupId>org.springframework.boot</groupId>
@@ -40,7 +40,7 @@
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
 		<!-- Spring Boot 2.0.1 needs specific tomcat version (8.5.41) which has fix for CVE-2019-10072 -->
 		<tomcat.version>8.5.41</tomcat.version>
-		<snomed-boot.version>2.1.1-SNAPSHOT</snomed-boot.version>
+		<snomed-boot.version>2.2.0</snomed-boot.version>
 
 		<!-- FHIR HAPI library -->
 		<hapi.version>4.2.0</hapi.version>
