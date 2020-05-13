@@ -8,11 +8,14 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
+import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class CodeSystemUpgradeService {
@@ -32,9 +35,15 @@ public class CodeSystemUpgradeService {
 	@Autowired
 	private DailyBuildService dailyBuildService;
 
+	@Autowired
+	private  IntegrityService integrityService;
+
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public void upgrade(String shortName, Integer newDependantVersion) {
+	public void upgrade(String shortName, Integer newDependantVersion) throws  ServiceException {
 		// Pre checks
 		CodeSystem codeSystem = codeSystemService.find(shortName);
 		if (codeSystem == null) {
@@ -73,6 +82,16 @@ public class CodeSystemUpgradeService {
 			logger.info("Running upgrade of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
 			branchMergeService.rebaseToSpecificTimepointAndRemoveDuplicateContent(parentPath, newParentBaseTimepoint, branchPath, String.format("Upgrading extension to %s@%s.", parentPath, newParentVersion.getVersion()));
 			logger.info("Completed upgrade of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
+			Branch extensionBranch = branchService.findLatest(branchPath);
+			IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrity(extensionBranch);
+			if (!integrityReport.isEmpty()) {
+				Map<String, String> metaData = extensionBranch.getMetadata();
+				Map<String, Object> metaDataExpanded = metaData == null ? new HashMap<>() : branchMetadataHelper.expandObjectValues(metaData);
+				Map<String, String> integrityIssueMetaData = new HashMap<>();
+				integrityIssueMetaData.put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "true");
+				metaDataExpanded.put(IntegrityService.INTERNAL_METADATA_KEY, integrityIssueMetaData);
+				branchService.updateMetadata(branchPath, branchMetadataHelper.flattenObjectValues(metaDataExpanded));
+			}
 		} finally {
 			// Re-enable daily build
 			if (dailyBuildAvailable) {

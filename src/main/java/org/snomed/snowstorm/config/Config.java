@@ -154,6 +154,9 @@ public abstract class Config {
 	
 	@Autowired
 	private DialectConfigurationService dialectService;
+
+	@Autowired
+	private IntegrityService integrityService;
 	
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -164,6 +167,7 @@ public abstract class Config {
 		branchService.addCommitListener(semanticIndexUpdateService);
 		branchService.addCommitListener(mrcmUpdateService);
 		branchService.addCommitListener(traceabilityLogService);
+		branchService.addCommitListener(integrityService);
 		branchService.addCommitListener(commit -> {
 			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint()));
 		});

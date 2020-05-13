@@ -153,7 +153,7 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testExtensionDailyBuildImport() throws IOException, ReleaseImportException {
+	public void testExtensionDailyBuildImport() throws Exception {
 		String shortName = "SNOMEDCT-LAND";
 		String branchPath = "MAIN/SNOMEDCT-LAND";
 
