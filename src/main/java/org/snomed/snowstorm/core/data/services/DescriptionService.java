@@ -63,6 +63,7 @@ import java.util.stream.Collectors;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.*;
+import static org.springframework.util.StringUtils.isEmpty;
 
 @Service
 public class DescriptionService extends ComponentService {
@@ -133,11 +134,14 @@ public class DescriptionService extends ComponentService {
 		}
 	}
 
-	public Page<Description> findDescriptions(String branch, String exactTerm, String concept, PageRequest pageRequest) {
+	public Page<Description> findDescriptions(String branch, String exactTerm, Set<String> descriptionIds, Set<String> conceptIds, PageRequest pageRequest) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class));
-		if (concept != null && !concept.isEmpty()) {
-			query.must(termQuery(Description.Fields.CONCEPT_ID, concept));
+		if (!isEmpty(descriptionIds)) {
+			query.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIds));
+		}
+		if (!isEmpty(conceptIds)) {
+			query.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds));
 		}
 		if (exactTerm != null && !exactTerm.isEmpty()) {
 			query.must(termQuery(Description.Fields.TERM, exactTerm));
@@ -153,7 +157,7 @@ public class DescriptionService extends ComponentService {
 		return descriptions;
 	}
 
-	public Set<Description> findDescriptions(String branchPath, Set<String> conceptIds) {
+	public Set<Description> findDescriptionsByConceptId(String branchPath, Set<String> conceptIds) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		Map<String, Concept> conceptMap = new HashMap<>();
 		for (String conceptId : conceptIds) {

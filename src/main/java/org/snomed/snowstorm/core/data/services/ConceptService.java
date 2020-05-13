@@ -52,6 +52,7 @@ import java.util.stream.StreamSupport;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
+import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Service
 public class ConceptService extends ComponentService {
@@ -129,6 +130,9 @@ public class ConceptService extends ComponentService {
 	}
 
 	public Collection<Concept> find(String path, Collection<?> ids, List<LanguageDialect> languageDialects) {
+		if (isEmpty(ids)) {
+			return Collections.emptySet();
+		}
 		return doFind(ids, languageDialects, new BranchTimepoint(path), PageRequest.of(0, ids.size())).getContent();
 	}
 

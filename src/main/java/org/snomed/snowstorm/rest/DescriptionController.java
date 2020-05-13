@@ -153,7 +153,7 @@ public class DescriptionController {
 			@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "50") int limit) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-		return new ItemsPage<>(descriptionService.findDescriptions(branch, null, concept, ControllerHelper.getPageRequest(offset, limit)));
+		return new ItemsPage<>(descriptionService.findDescriptions(branch, null, null, Collections.singleton(concept), ControllerHelper.getPageRequest(offset, limit)));
 	}
 
 	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.GET)
