@@ -11,10 +11,7 @@ import io.swagger.annotations.ApiParam;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.ConceptView;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
@@ -44,6 +41,7 @@ import java.util.*;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.snomed.snowstorm.core.pojo.BranchTimepoint.BRANCH_CREATION_TIMEPOINT;
 import static org.snomed.snowstorm.rest.ControllerHelper.parseBranchTimepoint;
+import static org.springframework.util.CollectionUtils.isEmpty;
 
 @RestController
 @Api(tags = "Concepts", description = "-")
@@ -52,6 +50,9 @@ public class ConceptController {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private DescriptionService descriptionService;
 
 	@Autowired
 	private RelationshipService relationshipService;
@@ -217,10 +218,20 @@ public class ConceptController {
 	@JsonView(value = View.Component.class)
 	public Collection<Concept> getBrowserConcepts(
 			@PathVariable String branch,
-			@RequestBody ConceptIdsPojo request,
+			@RequestBody ConceptBulkLoadRequest request,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return conceptService.find(BranchPathUriUtil.decodePath(branch), request.getConceptIds(), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
+		String path = BranchPathUriUtil.decodePath(branch);
+
+		List<String> conceptIds = request.getConceptIds();
+		Set<String> descriptionIds = request.getDescriptionIds();
+
+		if (!isEmpty(descriptionIds)) {
+			Page<Description> descriptions = descriptionService.findDescriptions(path, null, descriptionIds, null, LARGE_PAGE);
+			descriptions.forEach(description -> conceptIds.add(description.getConceptId()));
+		}
+
+		return conceptService.find(path, conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
 	@ApiOperation(value = "Load a concept in the browser format.",
