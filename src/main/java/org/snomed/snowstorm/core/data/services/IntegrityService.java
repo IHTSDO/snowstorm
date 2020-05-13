@@ -2,10 +2,9 @@ package org.snomed.snowstorm.core.data.services;
 
 import ch.qos.logback.classic.Level;
 import com.google.common.collect.Sets;
-import io.kaicode.elasticvc.api.BranchCriteria;
-import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
@@ -24,13 +23,12 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
-import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION;
 
 @Service
-public class IntegrityService {
+public class IntegrityService extends ComponentService implements CommitListener {
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
@@ -47,9 +45,43 @@ public class IntegrityService {
 	@Autowired
 	private AxiomConversionService axiomConversionService;
 
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
+
+	public static final String INTERNAL_METADATA_KEY = "internal";
+
+	public static final String INTEGRITY_ISSUE_METADATA_KEY = "integrityIssue";
+
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
+	@Override
+	public void preCommitCompletion(Commit commit) throws IllegalStateException {
+		if (commit.isRebase()) {
+			return;
+		}
+		Map<String, String> metadata = commit.getBranch().getMetadata();
+		if (metadata != null && metadata.containsKey(INTERNAL_METADATA_KEY)) {
+			Map<String, String> internalMetaData = ((Map<String, String>) branchMetadataHelper.expandObjectValues(metadata).get(INTERNAL_METADATA_KEY));
+			BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+			if (Boolean.valueOf(internalMetaData.get(INTEGRITY_ISSUE_METADATA_KEY))) {
+				try {
+					IntegrityIssueReport integrityIssueReport = findChangedComponentsWithBadIntegrity(branchCriteriaIncludingOpenCommit, commit.getBranch());
+					if (integrityIssueReport.isEmpty()) {
+						metadata.remove(INTERNAL_METADATA_KEY);
+						logger.info("No integrity issue found on branch {} after commit {}", commit.getBranch().getPath(), commit.getTimepoint().getTime());
+					}
+				} catch (ServiceException e) {
+					logger.error("Integrity check didn't complete successfully.", e);
+				}
+			}
+		}
+	}
+
 	public IntegrityIssueReport findChangedComponentsWithBadIntegrity(Branch branch) throws ServiceException {
+		return findChangedComponentsWithBadIntegrity(versionControlHelper.getBranchCriteria(branch), branch);
+	}
+
+	public IntegrityIssueReport findChangedComponentsWithBadIntegrity(BranchCriteria branchCriteria, Branch branch) throws ServiceException {
 
 		if (branch.getPath().equals("MAIN")) {
 			throw new RuntimeServiceException("This function can not be used on the MAIN branch. " +
@@ -57,8 +89,6 @@ public class IntegrityService {
 		}
 
 		TimerUtil timer = new TimerUtil("Changed component integrity check on " + branch.getPath(), Level.INFO, 1);
-
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 
 		final Map<Long, Long> relationshipWithInactiveSource = new Long2LongOpenHashMap();
 		final Map<Long, Long> relationshipWithInactiveType = new Long2LongOpenHashMap();

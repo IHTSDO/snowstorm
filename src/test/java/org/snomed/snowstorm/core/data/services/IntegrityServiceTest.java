@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -23,6 +24,7 @@ import static org.junit.Assert.*;
 @ContextConfiguration(classes = TestConfig.class)
 public class IntegrityServiceTest extends AbstractTest {
 
+	public static final String MAIN_PROJECT = "MAIN/project";
 	@Autowired
 	private BranchService branchService;
 
@@ -40,6 +42,9 @@ public class IntegrityServiceTest extends AbstractTest {
 
 	@Autowired
 	private RelationshipService relationshipService;
+
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
 
 	@Test
 	/*
@@ -227,4 +232,53 @@ public class IntegrityServiceTest extends AbstractTest {
 		return Arrays.toString(reportProject.getAxiomsWithMissingOrInactiveReferencedConcept().values().stream().flatMap(Collection::stream).sorted().toArray());
 	}
 
+	@Test
+	public void testIntegrityCommitHook() throws Exception {
+		String path = "MAIN/project";
+		Branch branch = branchService.create(path);
+		// invalid relationship
+		conceptService.create(new Concept("10000101").addRelationship(new Relationship("100002", "100001")), path);
+
+		// Two bad relationships are on project
+		IntegrityIssueReport reportProject = integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest(path));
+		assertNull(reportProject.getRelationshipsWithMissingOrInactiveSource());
+		assertEquals(1, reportProject.getRelationshipsWithMissingOrInactiveType().size());
+		assertEquals(1, reportProject.getRelationshipsWithMissingOrInactiveDestination().size());
+
+		Map<String, String> metaData = branch.getMetadata();
+		metaData.put("existingConfig", "test");
+		Map<String, Object> metaDataExpanded = metaData == null ? new HashMap<>() : branchMetadataHelper.expandObjectValues(metaData);
+		Map<String, String> integrityIssueMetaData = new HashMap<>();
+		integrityIssueMetaData.put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "true");
+		metaDataExpanded.put(IntegrityService.INTERNAL_METADATA_KEY, integrityIssueMetaData);
+		branchService.updateMetadata(branch.getPath(), branchMetadataHelper.flattenObjectValues(metaDataExpanded));
+
+		branch = branchService.findLatest(path);
+		assertNotNull(branch.getMetadata());
+		metaDataExpanded = branchMetadataHelper.expandObjectValues(branch.getMetadata());
+		assertTrue(metaDataExpanded.containsKey(IntegrityService.INTERNAL_METADATA_KEY));
+		String integrityIssueFound = ((Map<String, String>) metaDataExpanded.get(IntegrityService.INTERNAL_METADATA_KEY)).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
+		assertTrue(Boolean.valueOf(integrityIssueFound));
+
+		// partial fix
+		conceptService.create(new Concept("100001"), path);
+		branch = branchService.findLatest(path);
+		reportProject = integrityService.findChangedComponentsWithBadIntegrity(branch);
+		assertFalse(reportProject.isEmpty());
+		assertNotNull(branch.getMetadata());
+		metaDataExpanded = branchMetadataHelper.expandObjectValues(branch.getMetadata());
+		assertTrue(metaDataExpanded.containsKey(IntegrityService.INTERNAL_METADATA_KEY));
+		integrityIssueFound = ((Map<String, String>) metaDataExpanded.get(IntegrityService.INTERNAL_METADATA_KEY)).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
+		assertTrue(Boolean.valueOf(integrityIssueFound));
+
+		// complete fix
+		conceptService.create(new Concept("100002"), path);
+		branch = branchService.findLatest(path);
+		reportProject = integrityService.findChangedComponentsWithBadIntegrity(branch);
+		assertTrue(reportProject.isEmpty());
+		assertNotNull(branch.getMetadata());
+		metaDataExpanded = branchMetadataHelper.expandObjectValues(branch.getMetadata());
+		assertFalse(metaDataExpanded.containsKey(IntegrityService.INTERNAL_METADATA_KEY));
+		assertTrue(metaDataExpanded.containsKey("existingConfig"));
+	}
 }

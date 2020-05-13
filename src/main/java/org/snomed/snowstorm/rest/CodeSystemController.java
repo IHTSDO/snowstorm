@@ -118,7 +118,7 @@ public class CodeSystemController {
 					"An integrity check should be run after this operation to find content that needs fixing. ")
 	@RequestMapping(value = "/{shortName}/upgrade", method = RequestMethod.POST)
 	@ResponseBody
-	public void upgradeCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpgradeRequest request) {
+	public void upgradeCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpgradeRequest request) throws ServiceException {
 		codeSystemUpgradeService.upgrade(shortName, request.getNewDependantVersion());
 	}
 
