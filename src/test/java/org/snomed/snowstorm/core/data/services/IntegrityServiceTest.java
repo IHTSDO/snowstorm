@@ -246,8 +246,8 @@ public class IntegrityServiceTest extends AbstractTest {
 		assertEquals(1, reportProject.getRelationshipsWithMissingOrInactiveDestination().size());
 
 		Map<String, String> metaData = branch.getMetadata();
-		metaData.put("existingConfig", "test");
 		Map<String, Object> metaDataExpanded = metaData == null ? new HashMap<>() : branchMetadataHelper.expandObjectValues(metaData);
+		metaDataExpanded.put("existingConfig", "test");
 		Map<String, String> integrityIssueMetaData = new HashMap<>();
 		integrityIssueMetaData.put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "true");
 		metaDataExpanded.put(IntegrityService.INTERNAL_METADATA_KEY, integrityIssueMetaData);
