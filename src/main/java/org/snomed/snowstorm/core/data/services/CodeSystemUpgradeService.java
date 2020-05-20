@@ -39,6 +39,9 @@ public class CodeSystemUpgradeService {
 	private  IntegrityService integrityService;
 
 	@Autowired
+	private InactivationUpgradeService inactivationUpgradeService;
+
+	@Autowired
 	private BranchMetadataHelper branchMetadataHelper;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -82,6 +85,10 @@ public class CodeSystemUpgradeService {
 			logger.info("Running upgrade of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
 			branchMergeService.rebaseToSpecificTimepointAndRemoveDuplicateContent(parentPath, newParentBaseTimepoint, branchPath, String.format("Upgrading extension to %s@%s.", parentPath, newParentVersion.getVersion()));
 			logger.info("Completed upgrade of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
+
+			logger.info("Running inactivation update");
+			inactivationUpgradeService.findAndUpdateInactivationIndicators(codeSystem);
+			logger.info("Completed inactivation update ");
 			Branch extensionBranch = branchService.findLatest(branchPath);
 			IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrity(extensionBranch);
 			if (!integrityReport.isEmpty()) {
