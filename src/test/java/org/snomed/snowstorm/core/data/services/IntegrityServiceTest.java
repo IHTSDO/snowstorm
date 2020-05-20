@@ -24,7 +24,6 @@ import static org.junit.Assert.*;
 @ContextConfiguration(classes = TestConfig.class)
 public class IntegrityServiceTest extends AbstractTest {
 
-	public static final String MAIN_PROJECT = "MAIN/project";
 	@Autowired
 	private BranchService branchService;
 
