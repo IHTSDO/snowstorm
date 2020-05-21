@@ -13,7 +13,7 @@ public class DescriptionCriteria {
 	private String term;
 	private Collection<String> searchLanguageCodes = DEFAULT_LANGUAGE_CODES;
 	private Boolean active;
-	private String module;
+	private Collection<String> modules;
 	private String semanticTag;
 	private Set<String> semanticTags;
 	private Boolean conceptActive;
@@ -27,7 +27,7 @@ public class DescriptionCriteria {
 
 	public boolean hasDescriptionCriteria() {
 		return term != null
-				|| module != null
+				|| modules != null
 				|| semanticTag != null
 				|| !CollectionUtils.isEmpty(preferredIn)
 				|| !CollectionUtils.isEmpty(acceptableIn)
@@ -65,13 +65,13 @@ public class DescriptionCriteria {
 		return active;
 	}
 
-	public DescriptionCriteria module(String module) {
-		this.module = module;
+	public DescriptionCriteria modules(Collection<String> modules) {
+		this.modules = modules;
 		return this;
 	}
 
-	public String getModule() {
-		return module;
+	public Collection<String> getModules() {
+		return modules;
 	}
 
 	public DescriptionCriteria semanticTag(String semanticTag) {

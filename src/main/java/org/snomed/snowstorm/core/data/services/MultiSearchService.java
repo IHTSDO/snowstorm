@@ -4,7 +4,6 @@ import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
@@ -20,7 +19,9 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -59,9 +60,9 @@ public class MultiSearchService {
 			descriptionQuery.must(termQuery(Description.Fields.ACTIVE, active));
 		}
 
-		String module = criteria.getModule();
-		if (!Strings.isNullOrEmpty(module)) {
-			descriptionQuery.must(termQuery(Description.Fields.MODULE_ID, module));
+		Collection<String> modules = criteria.getModules();
+		if (!CollectionUtils.isEmpty(modules)) {
+			descriptionQuery.must(termsQuery(Description.Fields.MODULE_ID, modules));
 		}
 
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
