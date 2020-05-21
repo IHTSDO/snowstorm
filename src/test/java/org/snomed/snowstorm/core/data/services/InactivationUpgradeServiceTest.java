@@ -99,6 +99,7 @@ public class InactivationUpgradeServiceTest extends AbstractTest {
 		assertTrue(inactivationMember.isActive());
 		assertEquals(publishedDescription.getModuleId(), inactivationMember.getModuleId());
 		assertEquals(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, inactivationMember.getRefsetId());
+		assertEquals(Concepts.CONCEPT_NON_CURRENT, inactivationMember.getAdditionalField("valueId"));
 		assertEquals(publishedDescription.getDescriptionId(), inactivationMember.getReferencedComponentId());
 		assertEquals(publishedDescription.getConceptId(), inactivationMember.getConceptId());
 
@@ -135,7 +136,7 @@ public class InactivationUpgradeServiceTest extends AbstractTest {
 		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(MAIN, searchRequest, PageRequest.of(0, 2));
 		assertNotNull(members);
 		assertEquals(1, members.getContent().size());
-		String usPreferedMemberId = members.getContent().iterator().next().getMemberId();
+		String usPreferredMemberId = members.getContent().iterator().next().getMemberId();
 
 		// add a new en-gb language refset member
 		published.addLanguageRefsetMember(Concepts.GB_EN_LANG_REFSET, Concepts.ACCEPTABLE);
@@ -166,7 +167,7 @@ public class InactivationUpgradeServiceTest extends AbstractTest {
 		assertEquals(2, members.getContent().size());
 		for (ReferenceSetMember member : members) {
 			if (member.isReleased()) {
-				assertEquals(usPreferedMemberId, member.getMemberId());
+				assertEquals(usPreferredMemberId, member.getMemberId());
 			}
 			assertTrue(member.isActive());
 		}
@@ -181,7 +182,7 @@ public class InactivationUpgradeServiceTest extends AbstractTest {
 		for (ReferenceSetMember member : members) {
 			assertTrue(member.isReleased());
 			assertFalse(member.isActive());
-			assertEquals(usPreferedMemberId, member.getMemberId());
+			assertEquals(usPreferredMemberId, member.getMemberId());
 		}
 	}
 }

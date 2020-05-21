@@ -67,7 +67,6 @@ public class InactivationUpgradeService {
 
 		List<ReferenceSetMember> membersToSave = new ArrayList<>();
 		List<Description> descriptionsToDelete = new ArrayList<>();
-		int total = 0;
 		// find descriptions with inactivation indicators on the extension branch only
 		BranchCriteria changesOnBranchOnly = versionControlHelper.getChangesOnBranchCriteria(codeSystem.getBranchPath());
 		for (List<Long> batch : Iterables.partition(inactiveConceptIds, CLAUSE_LIMIT)) {
@@ -75,7 +74,7 @@ public class InactivationUpgradeService {
 					.withQuery(boolQuery()
 							.must(changesOnBranchOnly.getEntityBranchCriteria(ReferenceSetMember.class))
 							.must(termQuery(REFSET_ID, Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET))
-							.must(termQuery(getAdditionalFieldTextTypeMapping("valueid"), Concepts.CONCEPT_NON_CURRENT))
+							.must(termQuery(ReferenceSetMember.Fields.ADDITIONAL_FIELDS_PREFIX + "valueId", Concepts.CONCEPT_NON_CURRENT))
 							.must(termsQuery(CONCEPT_ID, batch))
 							.must(termQuery(ACTIVE, true)))
 					.withFields(REFERENCED_COMPONENT_ID)
@@ -100,10 +99,10 @@ public class InactivationUpgradeService {
 
 			try (CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(descriptionQuery, Description.class)) {
 				descriptions.forEachRemaining(description -> updateOrDelete(description, membersToSave, descriptionsToDelete));
-				total++;
 			}
 		}
 
+		int total = membersToSave.size() + descriptionsToDelete.size();
 		logger.info("{} descriptions found with inactive concepts but without concept non-current indicators", total);
 		if (total > 0) {
 			try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata("Concept non-current description inactivation"))) {
@@ -125,7 +124,7 @@ public class InactivationUpgradeService {
 		if (description.isReleased()) {
 			// add description inactivation indicators
 			ReferenceSetMember inactivation = new ReferenceSetMember(description.getModuleId(), Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, description.getDescriptionId());
-			inactivation.setAdditionalField(getAdditionalFieldTextTypeMapping("valueId"), Concepts.CONCEPT_NON_CURRENT);
+			inactivation.setAdditionalField("valueId", Concepts.CONCEPT_NON_CURRENT);
 			inactivation.setConceptId(description.getConceptId());
 			inactivation.setCreating(true);
 			inactivation.markChanged();

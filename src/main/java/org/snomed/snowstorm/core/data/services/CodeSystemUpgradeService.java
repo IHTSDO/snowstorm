@@ -11,6 +11,7 @@ import org.snomed.snowstorm.core.data.repositories.CodeSystemRepository;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -43,6 +44,9 @@ public class CodeSystemUpgradeService {
 
 	@Autowired
 	private BranchMetadataHelper branchMetadataHelper;
+
+	@Value("${snowstorm.rest-api.readonly}")
+	private Boolean isReadOnly;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -86,20 +90,29 @@ public class CodeSystemUpgradeService {
 			branchMergeService.rebaseToSpecificTimepointAndRemoveDuplicateContent(parentPath, newParentBaseTimepoint, branchPath, String.format("Upgrading extension to %s@%s.", parentPath, newParentVersion.getVersion()));
 			logger.info("Completed upgrade of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
 
-			logger.info("Running inactivation update");
-			inactivationUpgradeService.findAndUpdateDescriptionsInactivation(codeSystem);
-			inactivationUpgradeService.findAndUpdateLanguageRefsets(codeSystem);
-			logger.info("Completed inactivation update");
+			if (!dailyBuildAvailable && (isReadOnly != null && !isReadOnly)) {
+				logger.info("Running inactivation update");
+				inactivationUpgradeService.findAndUpdateDescriptionsInactivation(codeSystem);
+				inactivationUpgradeService.findAndUpdateLanguageRefsets(codeSystem);
+				logger.info("Completed inactivation update");
+			}
+
+			logger.info("Running integrity check on {}", branchPath);
 			Branch extensionBranch = branchService.findLatest(branchPath);
 			IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrity(extensionBranch);
 			if (!integrityReport.isEmpty()) {
-				Map<String, String> metaData = extensionBranch.getMetadata();
-				Map<String, Object> metaDataExpanded = metaData == null ? new HashMap<>() : branchMetadataHelper.expandObjectValues(metaData);
+				logger.info("Bad integrity found on {}", branchPath);
+				Map<String, Object> metaDataExpanded = branchMetadataHelper.expandObjectValues(extensionBranch.getMetadata());
 				Map<String, String> integrityIssueMetaData = new HashMap<>();
 				integrityIssueMetaData.put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "true");
+				if (metaDataExpanded == null) {
+					metaDataExpanded = new HashMap<>();
+				}
 				metaDataExpanded.put(IntegrityService.INTERNAL_METADATA_KEY, integrityIssueMetaData);
 				branchService.updateMetadata(branchPath, branchMetadataHelper.flattenObjectValues(metaDataExpanded));
 			}
+			logger.info("Completed integrity check on {}", branchPath);
+
 		} finally {
 			// Re-enable daily build
 			if (dailyBuildAvailable) {
