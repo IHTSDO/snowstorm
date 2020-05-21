@@ -48,7 +48,7 @@ public class MultiSearchController {
 	public ItemsPage<BrowserDescriptionSearchResult> findDescriptions(
 			@RequestParam String term,// Required!
 			@RequestParam(required = false) Boolean active,
-			@RequestParam(required = false) String module,
+			@RequestParam(required = false) Collection<String> module,
 
 			@ApiParam(value = "Set of two character language codes to match. " +
 					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
@@ -69,7 +69,7 @@ public class MultiSearchController {
 		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
 				.term(term)
 				.active(active)
-				.module(module)
+				.modules(module)
 				.searchLanguageCodes(language)
 				.type(type)
 				.conceptActive(conceptActive);

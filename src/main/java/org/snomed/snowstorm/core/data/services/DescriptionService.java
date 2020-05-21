@@ -63,7 +63,6 @@ import java.util.stream.Collectors;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.*;
-import static org.springframework.util.StringUtils.isEmpty;
 
 @Service
 public class DescriptionService extends ComponentService {
@@ -92,7 +91,7 @@ public class DescriptionService extends ComponentService {
 		STANDARD, REGEX
 	}
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Description findDescription(String path, String descriptionId) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
@@ -137,10 +136,10 @@ public class DescriptionService extends ComponentService {
 	public Page<Description> findDescriptions(String branch, String exactTerm, Set<String> descriptionIds, Set<String> conceptIds, PageRequest pageRequest) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class));
-		if (!isEmpty(descriptionIds)) {
+		if (!CollectionUtils.isEmpty(descriptionIds)) {
 			query.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIds));
 		}
-		if (!isEmpty(conceptIds)) {
+		if (!CollectionUtils.isEmpty(conceptIds)) {
 			query.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds));
 		}
 		if (exactTerm != null && !exactTerm.isEmpty()) {
@@ -489,9 +488,9 @@ public class DescriptionService extends ComponentService {
 			descriptionQuery.must(termQuery(Description.Fields.ACTIVE, active));
 		}
 
-		String module = criteria.getModule();
-		if (!Strings.isNullOrEmpty(module)) {
-			descriptionQuery.must(termQuery(Description.Fields.MODULE_ID, module));
+		Collection<String> modules = criteria.getModules();
+		if (!CollectionUtils.isEmpty(modules)) {
+			descriptionQuery.must(termsQuery(Description.Fields.MODULE_ID, modules));
 		}
 
 

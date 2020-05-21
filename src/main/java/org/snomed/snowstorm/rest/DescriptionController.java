@@ -47,7 +47,7 @@ public class DescriptionController {
 			@PathVariable String branch,
 			@RequestParam(required = false) String term,
 			@RequestParam(required = false) Boolean active,
-			@RequestParam(required = false) String module,
+			@RequestParam(required = false) Set<String> module,
 
 			@ApiParam(value = "Set of two character language codes to match. " +
 					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
@@ -90,7 +90,7 @@ public class DescriptionController {
 						// Description clauses
 						.term(term)
 						.active(active)
-						.module(module)
+						.modules(module)
 						.searchLanguageCodes(language)
 						.type(type)
 						.semanticTag(semanticTag)
