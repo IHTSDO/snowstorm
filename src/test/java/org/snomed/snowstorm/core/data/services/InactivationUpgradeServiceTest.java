@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Commit;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -14,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
+import java.util.Arrays;
 import java.util.Set;
 
 import static org.junit.Assert.*;
@@ -36,15 +38,16 @@ public class InactivationUpgradeServiceTest extends AbstractTest {
 	@Autowired
 	private InactivationUpgradeService inactivationUpgradeService;
 
+	@Autowired
+	private ConceptUpdateHelper conceptUpdateHelper;
+
 	private ServiceTestUtil testUtil;
 
 	private final CodeSystem SNOMEDCT = new CodeSystem("SNOMEDCT", "MAIN");
-	private final CodeSystem SNOMEDCT_DK = new CodeSystem("SNOMEDCT-DK", "MAIN/SNOMEDCT-DK");
 
 	@Before
 	public void setUp() {
 		codeSystemService.createCodeSystem(SNOMEDCT);
-		codeSystemService.createCodeSystem(SNOMEDCT_DK);
 		testUtil = new ServiceTestUtil(conceptService);
 	}
 
@@ -52,7 +55,6 @@ public class InactivationUpgradeServiceTest extends AbstractTest {
 	public void testFindAndUpdateInactivationIndicators() throws Exception {
 		// add content
 		Concept conceptA = testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100000", "Inactivation testing", "en");
-
 		// version
 		codeSystemService.createVersion(SNOMEDCT, Integer.valueOf("20200131"), "20200131 International Release");
 
@@ -85,7 +87,7 @@ public class InactivationUpgradeServiceTest extends AbstractTest {
 				.referencedComponentId(publishedDescription.getDescriptionId()), PageRequest.of(0, 10));
 		assertEquals(0, members.getContent().size());
 
-		inactivationUpgradeService.findAndUpdateInactivationIndicators(SNOMEDCT);
+		inactivationUpgradeService.findAndUpdateDescriptionsInactivation(SNOMEDCT);
 		members = referenceSetMemberService.findMembers(MAIN, new MemberSearchRequest().referenceSet("900000000000490003"), PageRequest.of(0, 10));
 		assertEquals(1, members.getContent().size());
 
@@ -109,5 +111,77 @@ public class InactivationUpgradeServiceTest extends AbstractTest {
 		assertEquals(publishedDescription.getConceptId(), remaining.getConceptId());
 		assertTrue(remaining.isActive());
 		assertTrue(remaining.isReleased());
+	}
+
+	@Test
+	public void testFindAndUpdateLanguageRefsetsForInactiveDescriptions() throws Exception {
+		// add concept
+		Concept conceptA = testUtil.createConceptWithPathIdAndTermWithLang(MAIN, "100000", "Inactivation testing", "en");
+		Set<Description> descriptions = conceptA.getDescriptions();
+		for (Description description : descriptions) {
+			description.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED);
+		}
+		conceptService.update(conceptA, MAIN);
+
+		// version
+		codeSystemService.createVersion(SNOMEDCT, Integer.valueOf("20200731"), "20200731 International Release");
+		// inactivate descriptions
+		conceptA = conceptService.find(conceptA.getConceptId(), MAIN);
+		descriptions = conceptA.getDescriptions();
+		assertNotNull(descriptions);
+		assertEquals(1, descriptions.size());
+		Description published = descriptions.iterator().next();
+		MemberSearchRequest searchRequest = new MemberSearchRequest().referencedComponentId(published.getDescriptionId());
+		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(MAIN, searchRequest, PageRequest.of(0, 2));
+		assertNotNull(members);
+		assertEquals(1, members.getContent().size());
+		String usPreferedMemberId = members.getContent().iterator().next().getMemberId();
+
+		// add a new en-gb language refset member
+		published.addLanguageRefsetMember(Concepts.GB_EN_LANG_REFSET, Concepts.ACCEPTABLE);
+		conceptService.update(conceptA, MAIN);
+
+		// there are should be 2 language refset members
+		members = referenceSetMemberService.findMembers(MAIN, searchRequest, PageRequest.of(0, 3));
+		assertNotNull(members);
+		assertEquals(2, members.getContent().size());
+
+		// inactivate description
+		conceptA = conceptService.find(conceptA.getConceptId(), MAIN);
+		published = conceptA.getDescriptions().iterator().next();
+		try (Commit commit = branchService.openCommit(MAIN)) {
+			published.setActive(false);
+			published.markChanged();
+			conceptUpdateHelper.doSaveBatchComponents(Arrays.asList(published), Description.class, commit);
+			commit.markSuccessful();
+		}
+
+		// check description is inactive
+		conceptA = conceptService.find(conceptA.getConceptId(), MAIN);
+		assertFalse(conceptA.getDescriptions().iterator().next().isActive());
+
+		// there are should be 2 language refset members
+		members = referenceSetMemberService.findMembers(MAIN, searchRequest, PageRequest.of(0, 3));
+		assertNotNull(members);
+		assertEquals(2, members.getContent().size());
+		for (ReferenceSetMember member : members) {
+			if (member.isReleased()) {
+				assertEquals(usPreferedMemberId, member.getMemberId());
+			}
+			assertTrue(member.isActive());
+		}
+
+		// test upgrade service
+		inactivationUpgradeService.findAndUpdateLanguageRefsets(SNOMEDCT);
+
+		// check one language refset is inactivated
+		members = referenceSetMemberService.findMembers(MAIN, searchRequest, PageRequest.of(0, 2));
+		assertNotNull(members);
+		assertEquals(1, members.getContent().size());
+		for (ReferenceSetMember member : members) {
+			assertTrue(member.isReleased());
+			assertFalse(member.isActive());
+			assertEquals(usPreferedMemberId, member.getMemberId());
+		}
 	}
 }
