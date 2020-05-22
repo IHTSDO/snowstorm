@@ -19,6 +19,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.CLAUSE_LIMIT;
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -108,11 +109,13 @@ public class InactivationUpgradeService {
 			try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata("Concept non-current description inactivation"))) {
 				if (!descriptionsToDelete.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchDescriptions(descriptionsToDelete, commit);
-					logger.info("Deleted {} unpublished descriptions having inactive concepts.", descriptionsToDelete.size());
+					logger.info("Deleted {} unpublished descriptions having inactive concepts. Description ids: {}", descriptionsToDelete.size(),
+							descriptionsToDelete.stream().map(Description::getDescriptionId).collect(Collectors.toList()));
 				}
 				if (!membersToSave.isEmpty()) {
 					conceptUpdateHelper.doSaveBatchComponents(membersToSave, ReferenceSetMember.class, commit);
-					logger.info("Added {} concept non-current indicators for descriptions having inactive concepts.", membersToSave.size());
+					logger.info("Added {} concept non-current indicators for descriptions having inactive concepts. Member uuids: {}",
+							membersToSave.size(), membersToSave.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList()));
 				}
 				commit.markSuccessful();
 			}
@@ -157,8 +160,10 @@ public class InactivationUpgradeService {
 				activeMembers.forEachRemaining(member -> removeOrInactivate(member, toDelete, toInactivate));
 			}
 		}
-		logger.info("{} language reference set members are to be inactivated", toInactivate.size());
-		logger.info("{} language reference set members are to be deleted", toDelete.size());
+		logger.info("{} language reference set members are to be inactivated: {}",
+				toInactivate.size(), toInactivate.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList()));
+		logger.info("{} language reference set members are to be deleted: {}",
+				toDelete.size(), toDelete.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList()));
 		// batch update
 		List<ReferenceSetMember> toSave = new ArrayList<>();
 		toSave.addAll(toInactivate);

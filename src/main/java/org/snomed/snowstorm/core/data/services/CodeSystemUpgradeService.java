@@ -101,7 +101,7 @@ public class CodeSystemUpgradeService {
 			Branch extensionBranch = branchService.findLatest(branchPath);
 			IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrity(extensionBranch);
 			if (!integrityReport.isEmpty()) {
-				logger.info("Bad integrity found on {}", branchPath);
+				logger.warn("Bad integrity found on {}", branchPath);
 				Map<String, Object> metaDataExpanded = branchMetadataHelper.expandObjectValues(extensionBranch.getMetadata());
 				Map<String, String> integrityIssueMetaData = new HashMap<>();
 				integrityIssueMetaData.put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "true");
@@ -110,6 +110,8 @@ public class CodeSystemUpgradeService {
 				}
 				metaDataExpanded.put(IntegrityService.INTERNAL_METADATA_KEY, integrityIssueMetaData);
 				branchService.updateMetadata(branchPath, branchMetadataHelper.flattenObjectValues(metaDataExpanded));
+			} else {
+				logger.info("No issues found in the integrity issue report.");
 			}
 			logger.info("Completed integrity check on {}", branchPath);
 
