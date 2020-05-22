@@ -129,7 +129,7 @@ public class ExpressionsDiffUtil {
 		diffAttributeRules(actualRangeMapById, publishedRangeMapById, reportDir);
 	}
 
-	private static void diffAttributeRules(Map<String,ReferenceSetMember> actualRangeMapById, Map<String,ReferenceSetMember> publishedRangeMapById, File reportDir) throws IOException {
+	private static void diffAttributeRules(Map<String, ReferenceSetMember> actualRangeMapById, Map<String, ReferenceSetMember> publishedRangeMapById, File reportDir) throws IOException {
 		List<String> matchedExactly = new ArrayList<>();
 		List<String> matchedWhenIgnoringSorting = new ArrayList<>();
 		List<String> newMembers = new ArrayList<>();
