@@ -239,14 +239,13 @@ public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		List<AttributeRange> attributeRanges = generator.generateAttributeRule(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap);
 		assertEquals(1, attributeRanges.size());
 		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
-		assertEquals("<< 363787002 |Observable entity (observable entity)|: [0..*] { [0..*] 405815000 |Procedure device| = << 49062001 |Device (physical object)| }, " +
-						"<< 71388002 |Procedure (procedure)|: [0..*] { [0..1] 405815000 |Procedure device| = << 49062001 |Device (physical object)| }",
+		assertEquals("(<< 363787002 |Observable entity (observable entity)|: [0..*] { [0..*] 405815000 |Procedure device| = << 49062001 |Device (physical object)| }) OR " +
+						"(<< 71388002 |Procedure (procedure)|: [0..*] { [0..1] 405815000 |Procedure device| = << 49062001 |Device (physical object)| })",
 				attributeRanges.get(0).getAttributeRule());
 	}
 
-
 	@Test
-	public void testPrecoodinationDomainTemplate() throws Exception {
+	public void testPrecordinationDomainTemplate() throws Exception {
 		Domain substance = new Domain("19d3f679-5369-42fb-9543-8795fdee5dce", null, true, "105590001",
 				new Constraint("<< 105590001 |Substance (substance)|", "105590001", Operator.descendantorselfof),
 				"", new Constraint("<< 105590001 |Substance (substance)|", "105590001", Operator.descendantorselfof),

@@ -102,22 +102,35 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 				unGrouped.removeAll(grouped);
 				Collections.sort(unGrouped, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
 				ruleBuilder.append(constructAttributeRule(unGrouped, domainMapByDomainId, range, conceptToFsnMap));
-				if (!unGrouped.isEmpty() && !grouped.isEmpty()) {
-					ruleBuilder.append(", ");
-				}
+
 				// sort by group cardinality
 				List<String> groupList = new ArrayList<>(groupedByCardinality.keySet());
 				Collections.sort(groupList);
 				// grouped
-				int counter = 0;
+				List<String> groupedRules = new ArrayList<>();
 				for (String group : groupList) {
 					List<AttributeDomain> sortedByCardinality = groupedByCardinality.get(group);
 					Collections.sort(sortedByCardinality, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
 					// generate rule
-					if (counter++ > 0) {
-						ruleBuilder.append(", ");
+					groupedRules.add(constructAttributeRule(sortedByCardinality, domainMapByDomainId, range, conceptToFsnMap));
+				}
+				if (!unGrouped.isEmpty() && !grouped.isEmpty()) {
+					ruleBuilder.append(", ");
+				}
+				if (!groupedRules.isEmpty()) {
+					int counter = 0;
+					for (String groupRule : groupedRules) {
+						if (groupedRules.size() > 1) {
+							if (counter++ > 0) {
+								ruleBuilder.append(" OR ");
+							}
+							ruleBuilder.append("(");
+							ruleBuilder.append(groupRule);
+							ruleBuilder.append(")");
+						} else {
+							ruleBuilder.append(groupRule);
+						}
 					}
-					ruleBuilder.append(constructAttributeRule(sortedByCardinality, domainMapByDomainId, range, conceptToFsnMap));
 				}
 
 				if (!ruleBuilder.toString().equals(range.getAttributeRule()) || isRangeConstraintChanged) {
