@@ -12,6 +12,8 @@ Unfortunately HAPI does not easily support a Swagger interface for testing, but 
 
 You can also find a description of the capabilities here - https://documenter.getpostman.com/view/462462/S1TVXJ3k
 
+You can also find the HTTP requests in [the fhir-requests.http file](fhir-requests.http) in this repo.
+
 ## Testing
 
 In a default installation, the FHIR endpoints can be found at: http://localhost:8080/fhir  although there is no operation there, so you could try one of these calls:
@@ -95,7 +97,7 @@ See  [https://www.hl7.org/fhir/snomedct.html#implicit]
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003
 
 #### Expansion of an intensionally defined value set using ECL against a specific edition/version
-http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&system-version=system-version=http://snomed.info/sct/900000000000207008/version/20190731
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&system-version=http://snomed.info/sct/900000000000207008/version/20190731
 
 #### Expansion of an intensionally defined value set using ISA
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=isa/27624003
@@ -131,7 +133,7 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=e
 http://localhost:8080/fhir/ValueSet/gps/$validate-code?coding=http://snomed.info/sct|840539006
 
 #### Validate a code against an implicit valueset, also checking display term
-http://localhost:8080/fhir/ValueSet/$validate-code?url=http://snomed.info/sct?fhir_vs=ecl/<<34014006 |Viral disease|&coding=http://snomed.info/sct|840539006&dsiplay=COVID-19
+http://localhost:8080/fhir/ValueSet/$validate-code?url=http://snomed.info/sct?fhir_vs=ecl/<<34014006 |Viral disease|&coding=http://snomed.info/sct|840539006&display=COVID-19
 
 #### Validate a code against an implicit valueset expanded against a specific SNOMED release
 http://localhost:8080/fhir/ValueSet/$validate-code?url=http://snomed.info/sct/900000000000207008/version/20200309?fhir_vs=ecl/<<34014006 |Viral disease|&coding=http://snomed.info/sct|840539006
