@@ -5,14 +5,8 @@ import org.ihtsdo.otf.snomedboot.ReleaseImporter;
 import org.ihtsdo.otf.snomedboot.factory.ComponentFactory;
 import org.ihtsdo.otf.snomedboot.factory.ImpotentComponentFactory;
 import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
-import org.snomed.langauges.ecl.ECLException;
-import org.snomed.langauges.ecl.ECLQueryBuilder;
-import org.snomed.langauges.ecl.domain.expressionconstraint.CompoundExpressionConstraint;
-import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
-import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.ecl.SECLObjectFactory;
 
 import java.io.*;
 import java.util.*;
@@ -21,35 +15,28 @@ import java.util.stream.Collectors;
 
 public class ExpressionsDiffUtil {
 
-	public static ECLQueryBuilder eclQueryBuilder = new ECLQueryBuilder(new SECLObjectFactory());
-
-	static final Comparator<SubExpressionConstraint> EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID = Comparator
-			.comparing(SubExpressionConstraint::getConceptId, Comparator.nullsFirst(String::compareTo));
-
+	public static final String ATTRIBUTE_RULE = "attributeRule";
 	private static boolean ignoreSorting = true;
 
-	private static boolean ignoreCardinality = true;
-
-	private static boolean outputBeforeAndAfter = false;
+	private static boolean outputBeforeAndAfter = true;
 
 	private static final String RELEASE_FILES_ARG = "-releaseFiles";
 
-	private static final String IGNORE_CARDINALITY_ARG = "-ignoreCardinality";
+	private static final String IGNORE_SORTING_ARG = "-ignoreSorting";
 
 	/**
-	 *
-	 * @param args -releaseFiles [previous, current] -ignoreCardinality [true]
+	 * @param args -releaseFiles [previous, current] -ignoreSorting [false]
 	 * @throws Exception
 	 */
-	public static void  main(String[] args) throws Exception {
+	public static void main(String[] args) throws Exception {
 		if (args == null || args.length < 3 || !RELEASE_FILES_ARG.equals(args[0])) {
-			System.out.println("Usage:-releaseFiles [previous, current] -ignoreCardinality [true]");
+			System.out.println("Usage:-releaseFiles [previous, current] -ignoreSorting [false]");
 			return;
 		}
 		String published = args[1];
 		String actual = args[2];
-		if (args.length == 5 && IGNORE_CARDINALITY_ARG.equals(args[3])) {
-			ignoreCardinality = Boolean.valueOf(args[4]);
+		if (args.length == 5 && IGNORE_SORTING_ARG.equals(args[3])) {
+			ignoreSorting = Boolean.valueOf(args[4]);
 		}
 
 		// load MRCM refsets
@@ -86,16 +73,16 @@ public class ExpressionsDiffUtil {
 		System.out.println("Please find the diff reports in folder " + reportDir);
 	}
 
-	private static void performDiffDomainTemplates(List<ReferenceSetMember> published, List<ReferenceSetMember> actual, File reportDir) throws  IOException {
+	private static void performDiffDomainTemplates(List<ReferenceSetMember> published, List<ReferenceSetMember> actual, File reportDir) throws IOException {
 		Map<String, ReferenceSetMember> actualDomainMapById = actual.stream()
-				.filter(ReferenceSetMember :: isActive)
-				.filter(domain ->  "723560006".equals(domain.getRefsetId()))
-				.collect(Collectors.toMap(ReferenceSetMember :: getMemberId, Function.identity()));
+				.filter(ReferenceSetMember::isActive)
+				.filter(domain -> "723560006".equals(domain.getRefsetId()))
+				.collect(Collectors.toMap(ReferenceSetMember::getMemberId, Function.identity()));
 
 		Map<String, ReferenceSetMember> publishedDomainMapById = published.stream()
-				.filter(ReferenceSetMember :: isActive)
-				.filter(domain ->  "723560006".equals(domain.getRefsetId()))
-				.collect(Collectors.toMap(ReferenceSetMember :: getMemberId, Function.identity()));
+				.filter(ReferenceSetMember::isActive)
+				.filter(domain -> "723560006".equals(domain.getRefsetId()))
+				.collect(Collectors.toMap(ReferenceSetMember::getMemberId, Function.identity()));
 
 		if (publishedDomainMapById.keySet().size() != actualDomainMapById.keySet().size()) {
 			System.out.println(String.format("%d domains found in the published and %d domains found in the actual", publishedDomainMapById.keySet().size(), actualDomainMapById.keySet().size()));
@@ -110,17 +97,17 @@ public class ExpressionsDiffUtil {
 	private static void performDiffAttributeRangeConstraintAndRules(List<ReferenceSetMember> publishedRanges, List<ReferenceSetMember> actualRanges, File reportDir) throws IOException {
 
 		Map<String, ReferenceSetMember> actualRangeMapById = actualRanges.stream()
-				.filter(ReferenceSetMember :: isActive)
+				.filter(ReferenceSetMember::isActive)
 				.filter(range -> "723562003".equals(range.getRefsetId()))
-				.collect(Collectors.toMap(ReferenceSetMember :: getMemberId, Function.identity()));
+				.collect(Collectors.toMap(ReferenceSetMember::getMemberId, Function.identity()));
 
 		Map<String, ReferenceSetMember> publishedRangeMapById = publishedRanges.stream()
-				.filter(ReferenceSetMember :: isActive)
+				.filter(ReferenceSetMember::isActive)
 				.filter(range -> "723562003".equals(range.getRefsetId()))
-				.collect(Collectors.toMap(ReferenceSetMember :: getMemberId, Function.identity()));
+				.collect(Collectors.toMap(ReferenceSetMember::getMemberId, Function.identity()));
 
 		if (publishedRangeMapById.keySet().size() != actualRangeMapById.keySet().size()) {
-			System.out.println(String.format("%d attribute ranges found in the published and %d found in the actual",
+			System.out.println(String.format("%d attribute ranges found in the published and %d found in the latest release",
 					publishedRangeMapById.keySet().size(), actualRangeMapById.keySet().size()));
 		} else {
 			System.out.println(String.format("%d attribute ranges found", publishedRangeMapById.keySet().size()));
@@ -147,20 +134,33 @@ public class ExpressionsDiffUtil {
 			if (!published.getReferencedComponentId().equals(actual.getReferencedComponentId())) {
 				throw new IllegalStateException(String.format("%s has different referencedComponentIds", memberId));
 			}
-			String publishedRule = publishedRangeMapById.get(memberId).getAdditionalField("attributeRule");
-			String actualRule = actualRangeMapById.get(memberId).getAdditionalField("attributeRule");
+			String publishedRule = publishedRangeMapById.get(memberId).getAdditionalField(ATTRIBUTE_RULE);
+			String actualRule = actualRangeMapById.get(memberId).getAdditionalField(ATTRIBUTE_RULE);
 			if (publishedRule.equals(actualRule)) {
 				matchedExactly.add(memberId);
 			} else {
 				if (ignoreSorting) {
-					// TODO attribute rule is not sorted yet
-					String publishedSorted = sortExpressionConstraintByConceptId(publishedRule, memberId);
-					publishedSortedMapByMemberId.put(memberId, publishedSorted);
-					if (publishedSorted.equals(actualRule)) {
-						matchedWhenIgnoringSorting.add(memberId);
-					} else {
-						outputBeforeAndAfter(publishedRule, actualRule);
-						diffMembers.add(memberId);
+					try {
+						String publishedSorted = ExpressionUtil.sortExpressionConstraintByConceptId(publishedRule);
+						publishedSortedMapByMemberId.put(memberId, publishedSorted);
+						// check auto generated rule is sorted
+						String actualSorted = ExpressionUtil.sortExpressionConstraintByConceptId(actualRule);
+						if (!actualRule.equals(actualSorted)) {
+							System.out.println("Actual attribute rule is not sorted!");
+							System.out.println("Before sorting:");
+							System.out.println(actualRule);
+							System.out.println("After sorting:");
+							System.out.println(actualSorted);
+						}
+						if (publishedSorted.equals(actualRule)) {
+							matchedWhenIgnoringSorting.add(memberId);
+						} else {
+							outputBeforeAndAfter(publishedRule, actualRule);
+							diffMembers.add(memberId);
+						}
+					} catch (Exception e) {
+						System.out.println("Error encountered during sorting.");
+						e.printStackTrace();
 					}
 				} else {
 					outputBeforeAndAfter(publishedRule, actualRule);
@@ -180,8 +180,8 @@ public class ExpressionsDiffUtil {
 			writer.newLine();
 			writer.append(matchedExactly.toString());
 			writer.newLine();
-			if (ignoreSorting && ignoreCardinality) {
-				writer.append("Total attribute rules are the same when cardinality and sorting are ignored = " + matchedWhenIgnoringSorting.size());
+			if (ignoreSorting) {
+				writer.append("Total attribute rules are the same when sorting is ignored = " + matchedWhenIgnoringSorting.size());
 				writer.newLine();
 				writer.append(matchedWhenIgnoringSorting.toString());
 				writer.newLine();
@@ -190,11 +190,11 @@ public class ExpressionsDiffUtil {
 			writer.newLine();
 			for (int i = 0; i < diffMembers.size(); i++) {
 				String memberId = diffMembers.get(i);
-				writer.append("Diff " + i + ": " + memberId);
+				writer.append("Diff " + (i + 1) + ": " + memberId);
 				writer.newLine();
 				writer.append("Published original:");
 				writer.newLine();
-				writer.append(publishedRangeMapById.get(memberId).getAdditionalField("attributeRule"));
+				writer.append(publishedRangeMapById.get(memberId).getAdditionalField(ATTRIBUTE_RULE));
 				writer.newLine();
 				if (publishedSortedMapByMemberId.containsKey(memberId)) {
 					writer.append("Published and sorted:");
@@ -204,13 +204,13 @@ public class ExpressionsDiffUtil {
 				}
 				writer.append("Actual:");
 				writer.newLine();
-				writer.append( actualRangeMapById.get(memberId).getAdditionalField("attributeRule"));
+				writer.append(actualRangeMapById.get(memberId).getAdditionalField(ATTRIBUTE_RULE));
 				writer.newLine();
 			}
 		}
 	}
 
-	private static void diffRangeConstraints(Map<String,ReferenceSetMember> actualRangeMapById, Map<String,ReferenceSetMember> publishedRangeMapById,
+	private static void diffRangeConstraints(Map<String, ReferenceSetMember> actualRangeMapById, Map<String, ReferenceSetMember> publishedRangeMapById,
 											 File reportDir) throws IOException {
 
 		List<String> matchedExactly = new ArrayList<>();
@@ -236,8 +236,17 @@ public class ExpressionsDiffUtil {
 				matchedExactly.add(memberId);
 			} else {
 				if (ignoreSorting) {
-					String publishedSorted = sortExpressionConstraintByConceptId(publishedConstraint, memberId);
+					String publishedSorted = ExpressionUtil.sortExpressionConstraintByConceptId(publishedConstraint);
 					publishedSortedMapByMemberId.put(memberId, publishedSorted);
+					// check constraint is auto sorted
+					String actualSorted = ExpressionUtil.sortExpressionConstraintByConceptId(actualConstraint);
+					if (!actualConstraint.equals(actualSorted)) {
+						System.out.println("Actual attribute constraint is not sorted!");
+						System.out.println("Before sorting:");
+						System.out.println(actualConstraint);
+						System.out.println("After sorting:");
+						System.out.println(actualSorted);
+					}
 					if (publishedSorted.equals(actualConstraint)) {
 						matchedWhenIgnoringSorting.add(memberId);
 					} else {
@@ -262,8 +271,8 @@ public class ExpressionsDiffUtil {
 			writer.newLine();
 			writer.append(matchedExactly.toString());
 			writer.newLine();
-			if (ignoreCardinality && ignoreSorting) {
-				writer.append("Total range constraints are the same when cardinality and sorting are ignored = " + matchedWhenIgnoringSorting.size());
+			if (ignoreSorting) {
+				writer.append("Total range constraints are the same when sorting is ignored = " + matchedWhenIgnoringSorting.size());
 				writer.newLine();
 				writer.append(matchedWhenIgnoringSorting.toString());
 				writer.newLine();
@@ -272,7 +281,7 @@ public class ExpressionsDiffUtil {
 			writer.newLine();
 			for (int i = 0; i < diffMembers.size(); i++) {
 				String memberId = diffMembers.get(i);
-				writer.append("Diff " + i + ": " + memberId);
+				writer.append("Diff " + (i + 1) + ": " + memberId);
 				writer.newLine();
 				writer.append("Published original:");
 				writer.newLine();
@@ -286,7 +295,7 @@ public class ExpressionsDiffUtil {
 				}
 				writer.append("Actual:");
 				writer.newLine();
-				writer.append( actualRangeMapById.get(memberId).getAdditionalField("rangeConstraint"));
+				writer.append(actualRangeMapById.get(memberId).getAdditionalField("rangeConstraint"));
 				writer.newLine();
 			}
 		}
@@ -316,7 +325,7 @@ public class ExpressionsDiffUtil {
 			String published = publishedDomains.get(memberId).getAdditionalField(domainTemplateFieldName);
 			String actual = actualDomains.get(memberId).getAdditionalField(domainTemplateFieldName);
 			if (!published.equals(actual)) {
-				String diffMsg = hasDiff(published, actual, ignoreCardinality);
+				String diffMsg = hasDiff(published, actual, ignoreSorting);
 				if (!Strings.isNullOrEmpty(diffMsg)) {
 					diffMembers.add(memberId);
 					outputBeforeAndAfter(published, actual);
@@ -349,8 +358,8 @@ public class ExpressionsDiffUtil {
 			writer.newLine();
 			writer.append(matchedExactly.toString());
 			writer.newLine();
-			if (ignoreCardinality && ignoreSorting) {
-				writer.append("Total templates are the same when cardinality and sorting is ignored = " + matchedWhenSortingIgnored.size());
+			if (ignoreSorting) {
+				writer.append("Total templates are the same when sorting is ignored = " + matchedWhenSortingIgnored.size());
 				writer.newLine();
 				writer.append(matchedWhenSortingIgnored.toString());
 				writer.newLine();
@@ -370,7 +379,8 @@ public class ExpressionsDiffUtil {
 		boolean hasDiff = false;
 		List<String> publishedSorted = split(published, ignoreCardinality);
 		List<String> actualSorted = split(actual, ignoreCardinality);
-		StringBuilder msgBuilder = new StringBuilder();;
+		StringBuilder msgBuilder = new StringBuilder();
+		;
 		msgBuilder.append("Token is in the published version but is missing in the newly generated:\n");
 		for (String token : publishedSorted) {
 			if (!actualSorted.contains(token)) {
@@ -421,67 +431,9 @@ public class ExpressionsDiffUtil {
 		return result;
 	}
 
-	public static String sortExpressionConstraintByConceptId(String rangeConstraint, String memberId) {
-		if (rangeConstraint == null || rangeConstraint.trim().isEmpty()) {
-			return rangeConstraint;
-		}
-		ExpressionConstraint constraint = null;
-		try {
-			constraint = eclQueryBuilder.createQuery(rangeConstraint);
-		} catch(ECLException e) {
-			throw new IllegalStateException(String.format("Invalid range constraint %s found in member %s.", rangeConstraint, memberId));
-		}
-
-		if (constraint instanceof CompoundExpressionConstraint) {
-			StringBuilder expressionBuilder = new StringBuilder();
-			CompoundExpressionConstraint compound = (CompoundExpressionConstraint) constraint;
-			if (compound.getConjunctionExpressionConstraints() != null) {
-				List<SubExpressionConstraint> conJunctions = compound.getConjunctionExpressionConstraints();
-				Collections.sort(conJunctions, EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
-				for (int i = 0; i < conJunctions.size(); i++) {
-					if (i > 0) {
-						expressionBuilder.append( " AND ");
-					}
-					expressionBuilder.append(constructExpression(conJunctions.get(i)));
-				}
-			}
-			if (compound.getDisjunctionExpressionConstraints() != null) {
-				List<SubExpressionConstraint> disJunctions = compound.getDisjunctionExpressionConstraints();
-				Collections.sort(disJunctions, EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
-				for (int i = 0; i < disJunctions.size(); i++) {
-					if (i > 0) {
-						expressionBuilder.append( " OR ");
-					}
-					expressionBuilder.append(constructExpression(disJunctions.get(i)));
-				}
-			}
-
-			if (compound.getExclusionExpressionConstraint() != null) {
-				expressionBuilder.append(" MINUS ");
-				expressionBuilder.append(constructExpression(compound.getExclusionExpressionConstraint()));
-			}
-			return expressionBuilder.toString();
-		} else {
-			return rangeConstraint;
-		}
-	}
-
-	public static String constructExpression(SubExpressionConstraint constraint) {
-		StringBuilder expressionBuilder = new StringBuilder();
-		if (constraint.getOperator() != null) {
-			expressionBuilder.append(constraint.getOperator().getText());
-			expressionBuilder.append(" ");
-		}
-		expressionBuilder.append(constraint.getConceptId());
-		expressionBuilder.append(" ");
-		expressionBuilder.append("|");
-		expressionBuilder.append(constraint.getTerm());
-		expressionBuilder.append("|");
-		return expressionBuilder.toString();
-	}
-
-	private static class MRCMRefsetComponentsLoader  extends ImpotentComponentFactory {
+	private static class MRCMRefsetComponentsLoader extends ImpotentComponentFactory {
 		List<ReferenceSetMember> mrcmRefsetMembers = new ArrayList<>();
+
 		public void newReferenceSetMemberState(String[] fieldNames, String id, String effectiveTime, String active, String moduleId, String refsetId, String referencedComponentId, String... otherValues) {
 			if (!Concepts.MRCM_INTERNATIONAL_REFSETS.contains(refsetId)) {
 				return;
@@ -497,12 +449,13 @@ public class ExpressionsDiffUtil {
 			member.setReferencedComponentId(referencedComponentId);
 
 			if (fieldNames.length > 6) {
-				for (int i = 6; i < fieldNames.length-1; i++) {
-					member.setAdditionalField(fieldNames[i], otherValues[i-6]);
+				for (int i = 6; i < fieldNames.length - 1; i++) {
+					member.setAdditionalField(fieldNames[i], otherValues[i - 6]);
 				}
 			}
 			mrcmRefsetMembers.add(member);
 		}
+
 		List<ReferenceSetMember> getAllMembers() {
 			return this.mrcmRefsetMembers;
 		}
