@@ -227,8 +227,10 @@ public class IntegrityServiceTest extends AbstractTest {
 		assertEquals("[100005]", getAxiomReferencedConcepts(reportProjectTest2Run2));
 	}
 
+	@SuppressWarnings("unchecked")
 	public String getAxiomReferencedConcepts(IntegrityIssueReport reportProject) {
-		return Arrays.toString(reportProject.getAxiomsWithMissingOrInactiveReferencedConcept().values().stream().flatMap(Collection::stream).sorted().toArray());
+		return Arrays.toString(reportProject.getAxiomsWithMissingOrInactiveReferencedConcept().values().stream()
+				.map(conceptMini -> (Set<Long>)conceptMini.getExtraFields().get("missingOrInactiveConcepts")).flatMap(Collection::stream).sorted().toArray());
 	}
 
 	@Test
