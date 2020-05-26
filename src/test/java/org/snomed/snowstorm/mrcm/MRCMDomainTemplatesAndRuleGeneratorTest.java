@@ -206,11 +206,11 @@ public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 
 		AttributeDomain procedure= new AttributeDomain("016dbf3a-4665-4b44-908e-2040dc8ccf5d", null,
 				true, "405815000", "71388002", true,
-				new Cardinality("0..*"), new Cardinality("0..1"), RuleStrength.MANDATORY, ContentType.ALL);
+				new Cardinality("0..*"), new Cardinality("0..*"), RuleStrength.MANDATORY, ContentType.ALL);
 
 		AttributeDomain observable = new AttributeDomain("58388c47-7807-4ba2-8be8-dc92cf93067", null,
 				true, "405815000", "363787002", true,
-				new Cardinality("0..*"), new Cardinality("0..*"), RuleStrength.MANDATORY, ContentType.ALL);
+				new Cardinality("0..*"), new Cardinality("0..1"), RuleStrength.MANDATORY, ContentType.ALL);
 
 		AttributeDomain observable_optional = new AttributeDomain(null,
 				null,true, "405815000", "363787002", true,
@@ -239,8 +239,8 @@ public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		List<AttributeRange> attributeRanges = generator.generateAttributeRule(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap);
 		assertEquals(1, attributeRanges.size());
 		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
-		assertEquals("(<< 363787002 |Observable entity (observable entity)|: [0..*] { [0..*] 405815000 |Procedure device| = << 49062001 |Device (physical object)| }) OR " +
-						"(<< 71388002 |Procedure (procedure)|: [0..*] { [0..1] 405815000 |Procedure device| = << 49062001 |Device (physical object)| })",
+		assertEquals("(<< 363787002 |Observable entity (observable entity)|: [0..*] { [0..1] 405815000 |Procedure device| = << 49062001 |Device (physical object)| }) OR " +
+						"(<< 71388002 |Procedure (procedure)|: [0..*] { [0..*] 405815000 |Procedure device| = << 49062001 |Device (physical object)| })",
 				attributeRanges.get(0).getAttributeRule());
 	}
 

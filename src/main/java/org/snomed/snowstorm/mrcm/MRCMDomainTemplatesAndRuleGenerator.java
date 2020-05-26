@@ -103,46 +103,62 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 				Collections.sort(unGrouped, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
 				ruleBuilder.append(constructAttributeRule(unGrouped, domainMapByDomainId, range, conceptToFsnMap));
 
-				// sort by group cardinality
-				List<String> groupList = new ArrayList<>(groupedByCardinality.keySet());
-				Collections.sort(groupList);
 				// grouped
-				List<String> groupedRules = new ArrayList<>();
-				for (String group : groupList) {
-					List<AttributeDomain> sortedByCardinality = groupedByCardinality.get(group);
-					Collections.sort(sortedByCardinality, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
-					// generate rule
-					groupedRules.add(constructAttributeRule(sortedByCardinality, domainMapByDomainId, range, conceptToFsnMap));
+				Map<String, String> attributeRuleMappedByDomain = new HashMap<>();
+				for (String group : groupedByCardinality.keySet()) {
+					List<AttributeDomain> sortedAttributeDomains = groupedByCardinality.get(group);
+					Collections.sort(sortedAttributeDomains, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
+					// generate rule and mapped by domain concept id
+					List<String> domains = sortedAttributeDomains.stream().map(AttributeDomain::getDomainId).collect(Collectors.toList());
+					Collections.sort(domains);
+					attributeRuleMappedByDomain.put(domains.get(0), constructAttributeRule(sortedAttributeDomains, domainMapByDomainId, range, conceptToFsnMap));
 				}
 				if (!unGrouped.isEmpty() && !grouped.isEmpty()) {
-					ruleBuilder.append(", ");
+					ruleBuilder.insert(0, "(");
+					ruleBuilder.append(") OR (");
 				}
-				if (!groupedRules.isEmpty()) {
+				if (!attributeRuleMappedByDomain.isEmpty()) {
+					List<String> domains = new ArrayList<>(attributeRuleMappedByDomain.keySet());
+					Collections.sort(domains);
 					int counter = 0;
-					for (String groupRule : groupedRules) {
-						if (groupedRules.size() > 1) {
-							if (counter++ > 0) {
-								ruleBuilder.append(" OR ");
-							}
+					for (String domain : domains) {
+						if (counter++ > 0) {
+							ruleBuilder.append(" OR ");
+						}
+						if (domains.size() > 1) {
 							ruleBuilder.append("(");
-							ruleBuilder.append(groupRule);
+						}
+						ruleBuilder.append(attributeRuleMappedByDomain.get(domain));
+						if (domains.size() > 1) {
 							ruleBuilder.append(")");
-						} else {
-							ruleBuilder.append(groupRule);
 						}
 					}
 				}
-
+				if (!unGrouped.isEmpty() && !grouped.isEmpty()) {
+					ruleBuilder.append(")");
+				}
 				if (!ruleBuilder.toString().equals(range.getAttributeRule()) || isRangeConstraintChanged) {
 					logger.debug("before = " + range.getAttributeRule());
 					logger.debug("after = " + ruleBuilder.toString());
 					AttributeRange updated = new AttributeRange(range);
+					eclValidation(ruleBuilder.toString(), range);
 					updated.setAttributeRule(ruleBuilder.toString());
 					updatedRanges.add(updated);
 				}
 			}
 		}
 		return updatedRanges;
+	}
+
+	private void eclValidation(String attributeRule, AttributeRange range) {
+		try {
+			eclQueryBuilder.createQuery(attributeRule);
+		} catch(ECLException e) {
+			logger.info("Attribute range member id " + range.getId());
+			String errorMsg = String.format("Generated attribute rule for attribute %s is not valid ECL: %s", range.getReferencedComponentId(), attributeRule);
+			logger.error(errorMsg);
+			throw new IllegalStateException(errorMsg, e);
+		}
 	}
 
 	private String constructAttributeRule(List<AttributeDomain> attributeDomains, Map<String, Domain> domainMapByDomainId,
@@ -441,6 +457,13 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		}
 	}
 
+	/**
+	 *  This is a simplified version to sort range constraint(type of CompoundExpressionConstraint for now only).
+	 *  Tt doesn't cover RefinedExpressionConstraint yet.
+	 * @param rangeConstraint Attribute range constraint
+	 * @param memberId
+	 * @return A sorted expression
+	 */
 	public String sortExpressionConstraintByConceptId(String rangeConstraint, String memberId) {
 		if (rangeConstraint == null || rangeConstraint.trim().isEmpty()) {
 			return rangeConstraint;
