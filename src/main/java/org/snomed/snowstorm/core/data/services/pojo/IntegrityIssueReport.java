@@ -1,12 +1,13 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
+
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 public class IntegrityIssueReport {
 
-	private Map<String, Set<Long>> axiomsWithMissingOrInactiveReferencedConcept;
+	private Map<String, ConceptMini> axiomsWithMissingOrInactiveReferencedConcept;
 	private Map<Long, Long> relationshipsWithMissingOrInactiveSource;
 	private Map<Long, Long> relationshipsWithMissingOrInactiveType;
 	private Map<Long, Long> relationshipsWithMissingOrInactiveDestination;
@@ -18,11 +19,11 @@ public class IntegrityIssueReport {
 		(relationshipsWithMissingOrInactiveDestination == null || relationshipsWithMissingOrInactiveDestination.isEmpty());
 	}
 
-	public void setAxiomsWithMissingOrInactiveReferencedConcept(Map<String, Set<Long>> axiomsWithMissingOrInactiveReferencedConcept) {
+	public void setAxiomsWithMissingOrInactiveReferencedConcept(Map<String, ConceptMini> axiomsWithMissingOrInactiveReferencedConcept) {
 		this.axiomsWithMissingOrInactiveReferencedConcept = axiomsWithMissingOrInactiveReferencedConcept;
 	}
 
-	public Map<String, Set<Long>> getAxiomsWithMissingOrInactiveReferencedConcept() {
+	public Map<String, ConceptMini> getAxiomsWithMissingOrInactiveReferencedConcept() {
 		return axiomsWithMissingOrInactiveReferencedConcept;
 	}
 

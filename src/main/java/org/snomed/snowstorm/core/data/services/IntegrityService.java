@@ -12,6 +12,7 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.core.util.TimerUtil;
@@ -47,6 +48,9 @@ public class IntegrityService extends ComponentService implements CommitListener
 
 	@Autowired
 	private BranchMetadataHelper branchMetadataHelper;
+
+	@Autowired
+	private DescriptionService descriptionService;
 
 	public static final String INTERNAL_METADATA_KEY = "internal";
 
@@ -145,6 +149,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 				conceptIdsWithBadAxioms.add(indexConcept.getConceptIdL());
 			});
 		}
+		Map<String, String> axiomIdReferenceComponentMap = new HashMap<>();
 		if (!conceptIdsWithBadAxioms.isEmpty()) {
 			try (CloseableIterator<ReferenceSetMember> possiblyBadAxioms = elasticsearchTemplate.stream(
 					new NativeSearchQueryBuilder()
@@ -163,6 +168,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 						Set<Long> referencedConcepts = axiomConversionService.getReferencedConcepts(owlExpression);
 						Sets.SetView<Long> badReferences = Sets.intersection(referencedConcepts, deletedOrInactiveConcepts);
 						if (!badReferences.isEmpty()) {
+							axiomIdReferenceComponentMap.put(axiomMember.getId(), axiomMember.getReferencedComponentId());
 							axiomWithInactiveReferencedConcept.computeIfAbsent(axiomMember.getId(), id -> new HashSet<>()).addAll(badReferences);
 						}
 					}
@@ -206,6 +212,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 			try {
 				while (axiomStream.hasNext()) {
 					ReferenceSetMember axiom = axiomStream.next();
+					axiomIdReferenceComponentMap.put(axiom.getId(), axiom.getReferencedComponentId());
 					Set<Long> referencedConcepts = axiomConversionService.getReferencedConcepts(axiom.getAdditionalField(OWL_EXPRESSION));
 					for (Long referencedConcept : referencedConcepts) {
 						conceptUsedInAxioms.computeIfAbsent(referencedConcept, id -> new HashSet<>()).add(axiom.getId());
@@ -254,9 +261,17 @@ public class IntegrityService extends ComponentService implements CommitListener
 				axiomWithInactiveReferencedConcept.computeIfAbsent(axiomId, id -> new HashSet<>()).add(conceptNotActive);
 			}
 		}
+
+		Map<String, ConceptMini> axiomsMinisAndInactiveConcepts = new HashMap<>();
+		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
+		for (String axiomId : axiomWithInactiveReferencedConcept.keySet()) {
+			addConceptMini(axiomsMinisAndInactiveConcepts, conceptMiniMap, axiomId, axiomIdReferenceComponentMap.get(axiomId), axiomWithInactiveReferencedConcept.get(axiomId));
+		}
+		descriptionService.joinActiveDescriptions(branch.getPath(), conceptMiniMap);
+
 		timer.finish();
 
-		return getReport(axiomWithInactiveReferencedConcept, relationshipWithInactiveSource, relationshipWithInactiveType, relationshipWithInactiveDestination);
+		return getReport(axiomsMinisAndInactiveConcepts, relationshipWithInactiveSource, relationshipWithInactiveType, relationshipWithInactiveDestination);
 	}
 
 	public IntegrityIssueReport findAllComponentsWithBadIntegrity(Branch branch, boolean stated) throws ServiceException {
@@ -264,7 +279,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		final Map<Long, Long> relationshipWithInactiveSource = new Long2LongOpenHashMap();
 		final Map<Long, Long> relationshipWithInactiveType = new Long2LongOpenHashMap();
 		final Map<Long, Long> relationshipWithInactiveDestination = new Long2LongOpenHashMap();
-		final Map<String, Set<Long>> axiomWithInactiveReferencedConcept = new HashMap<>();
+		final Map<String, ConceptMini> axiomWithInactiveReferencedConcept = new HashMap<>();
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		TimerUtil timer = new TimerUtil("Full integrity check on " + branch.getPath());
@@ -328,15 +343,18 @@ public class IntegrityService extends ComponentService implements CommitListener
 							.withPageable(LARGE_PAGE).build(),
 					ReferenceSetMember.class)) {
 				try {
+					Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
 					while (possiblyBadAxioms.hasNext()) {
 						ReferenceSetMember axiomMember = possiblyBadAxioms.next();
 						String owlExpression = axiomMember.getAdditionalField(OWL_EXPRESSION);
 						Set<Long> referencedConcepts = axiomConversionService.getReferencedConcepts(owlExpression);
 						Sets.SetView<Long> badReferences = Sets.difference(referencedConcepts, activeConcepts);
 						if (!badReferences.isEmpty()) {
-							axiomWithInactiveReferencedConcept.computeIfAbsent(axiomMember.getId(), id -> new HashSet<>()).addAll(badReferences);
+							addConceptMini(axiomWithInactiveReferencedConcept, conceptMiniMap, axiomMember.getId(), axiomMember.getReferencedComponentId(), badReferences);
 						}
 					}
+					// Join descriptions so FSN and PT are returned
+					descriptionService.joinActiveDescriptions(branch.getPath(), conceptMiniMap);
 				} catch (ConversionException e) {
 					throw new ServiceException("Failed to deserialise axiom during reference integrity check.", e);
 				}
@@ -348,7 +366,21 @@ public class IntegrityService extends ComponentService implements CommitListener
 		return getReport(axiomWithInactiveReferencedConcept, relationshipWithInactiveSource, relationshipWithInactiveType, relationshipWithInactiveDestination);
 	}
 
-	private IntegrityIssueReport getReport(Map<String, Set<Long>> axiomWithInactiveReferencedConcept, Map<Long, Long> relationshipWithInactiveSource, Map<Long, Long> relationshipWithInactiveType, Map<Long, Long> relationshipWithInactiveDestination) {
+	private void addConceptMini(Map<String, ConceptMini> axiomsWithInactiveReferencedConcept, Map<String, ConceptMini> conceptMiniMap,
+			String axiomMemberId, String referencedComponentId, Collection<Long> badReferences) {
+
+		ConceptMini conceptMini = axiomsWithInactiveReferencedConcept.computeIfAbsent(axiomMemberId, id ->
+				conceptMiniMap.computeIfAbsent(referencedComponentId, conceptId -> new ConceptMini(conceptId, Config.DEFAULT_LANGUAGE_DIALECTS))
+		);
+		if (conceptMini.getExtraFields() == null) {
+			conceptMini.setExtraFields(new HashMap<>());
+		}
+		@SuppressWarnings("unchecked")
+		Set<Long> missingOrInactiveConcepts = (Set<Long>) conceptMini.getExtraFields().computeIfAbsent("missingOrInactiveConcepts", i -> new HashSet<Long>());
+		missingOrInactiveConcepts.addAll(badReferences);
+	}
+
+	private IntegrityIssueReport getReport(Map<String, ConceptMini> axiomWithInactiveReferencedConcept, Map<Long, Long> relationshipWithInactiveSource, Map<Long, Long> relationshipWithInactiveType, Map<Long, Long> relationshipWithInactiveDestination) {
 
 		IntegrityIssueReport issueReport = new IntegrityIssueReport();
 
