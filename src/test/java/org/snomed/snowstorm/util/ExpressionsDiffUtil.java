@@ -18,7 +18,7 @@ public class ExpressionsDiffUtil {
 	public static final String ATTRIBUTE_RULE = "attributeRule";
 	private static boolean ignoreSorting = true;
 
-	private static boolean outputBeforeAndAfter = true;
+	private static boolean outputBeforeAndAfter = false;
 
 	private static final String RELEASE_FILES_ARG = "-releaseFiles";
 
