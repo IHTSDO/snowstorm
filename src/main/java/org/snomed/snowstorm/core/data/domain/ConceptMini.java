@@ -204,4 +204,18 @@ public class ConceptMini implements Serializable {
 		this.active = active;
 	}
 
+	@Override
+	// hashCode() and equals() should only use conceptId.
+	// If you need to check other fields consider using a custom comparator in your service / collection.
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		ConceptMini that = (ConceptMini) o;
+		return Objects.equals(conceptId, that.conceptId);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(conceptId);
+	}
 }
