@@ -3,6 +3,64 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## 4.10.1 Release - 2020-05-27
+
+This release features many new capabilities and improvements to the FHIR API as well as some other general improvements and minor fixes. 
+
+### Features
+- FHIR
+  - Add TerminologyCapabilities endpoint.
+  - Implement list all ValueSets.
+  - Implement search ValueSets.
+  - Add support for validate-code operation in CodeSystem.
+  - Add support for validate-code operation in ValueSet.
+  - Add support for subsumes operation.
+  - Add SCRUD support for StructureDefinition Resources.
+- Authoring
+  - MRCM Maintenance - Automatic generation of MRCM domain templates, triggered by changes to the MRCM refsets.
+  - Function to generate language refset changes for extensions that base their language refset on an international one (for example IE or NZ).
+### Improvements
+- RF2 import skips empty lines
+- Configuration
+  - New flag to enable CIS ID registration process. The out-of-the-box setup uses an internal id generator so ID registration is now disabled by default.
+  - Switch Canadian English codesystem shortname to SNOMEDCT-CA.
+- FHIR
+  - Make JSON the default response format when common browser headers detected, (format=json removed from examples).
+  - Fix #114 Allow use of version 'UNVERSIONED' to indicate unpublished content should be used. By using the code system / daily build branch rather than a version branch.
+  - Update HAPI library to 4.2.0.
+  - FHIR Base URL to respond with simple webpage rather than metadata redirect.
+  - CodeSystem $lookup uses PT rather than FSN.
+  - ValueSet supports all specified search parameters and text modes where possible.
+  - Add support for specifying FHIR system-version when expanding a ValueSet.
+  - Add support for specifying language refset SCTID as designation in a ValueSet expansion.
+  - Add support for en-x-NNNNNN in language headers.
+  - Add support for ICD-0 map translations.
+  - Add support for VS expansion force-system-version parameter.
+  - Attempt expansion of ValueSet prior to creation.
+- Snowstorm API
+  - Fix #107 Add multi-module parameter to description search API.
+  - Bulk load concepts by description id.
+- Authoring
+  - Add API for bulk refset member deletion.
+  - Add API for bulk relationship deletion.
+- Admin Functions
+  - Function to restore released flag and associated fields of concept and related components.
+### Fixes
+- Branch child listing pagination.
+- Search
+  - Fix #106 Allow concept search by ECL filtered by conceptId list.
+  - Fix MRCM attribute range search, use inferred form not stated.
+- FHIR
+  - Fix #112 Missing version when expanding stored valueset caused failure to determine correct branch.
+  - Fix term search in non-english languages.
+  - Meaningful error message when version parameter contains full SNOMED URI instead of YYYYMMDD.
+- Authoring
+  - Cleaner incremental semantic index updates.
+  - Promote release patch function only sets component effectiveTime if blank.
+  - Exclude parents of GCI axioms when calculating concept Authoring Form.
+- Build
+  - Make unit test elasticsearch node startup time configurable using `-Dtest.elasticsearch.start-timeout-mins=10`.
+
 
 ## 4.8.0 Release - 2019-03-20
 
