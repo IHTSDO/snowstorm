@@ -27,6 +27,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
+
 @RestController
 @Api(tags = "Branching", description = "-")
 @RequestMapping(produces = "application/json")
@@ -86,7 +88,13 @@ public class BranchController {
 		if (branchService.findBranchOrThrow(path).isLocked()) {
 			throw new IllegalStateException("Branch metadata can not be updated when branch is locked.");
 		}
+		Branch branch = branchService.findBranchOrThrow(path);
+		Map<String, String> existing = branch.getMetadata();
 		Map<String, String> metadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
+		// skip updating for internal if exists
+		if (existing.containsKey(INTERNAL_METADATA_KEY)) {
+			metadata.put(INTERNAL_METADATA_KEY, existing.get(INTERNAL_METADATA_KEY));
+		}
 		return getBranchPojo(branchService.updateMetadata(path, metadata));
 	}
 

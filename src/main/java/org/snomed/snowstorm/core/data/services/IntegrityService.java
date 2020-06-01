@@ -27,6 +27,7 @@ import java.util.*;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
 @Service
 public class IntegrityService extends ComponentService implements CommitListener {
@@ -52,8 +53,6 @@ public class IntegrityService extends ComponentService implements CommitListener
 	@Autowired
 	private DescriptionService descriptionService;
 
-	public static final String INTERNAL_METADATA_KEY = "internal";
-
 	public static final String INTEGRITY_ISSUE_METADATA_KEY = "integrityIssue";
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -65,13 +64,20 @@ public class IntegrityService extends ComponentService implements CommitListener
 		}
 		Map<String, String> metadata = commit.getBranch().getMetadata();
 		if (metadata != null && metadata.containsKey(INTERNAL_METADATA_KEY)) {
-			Map<String, String> internalMetaData = ((Map<String, String>) branchMetadataHelper.expandObjectValues(metadata).get(INTERNAL_METADATA_KEY));
-			BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-			if (Boolean.valueOf(internalMetaData.get(INTEGRITY_ISSUE_METADATA_KEY))) {
+			Map<String, String> internalExpanded = (Map<String, String>) branchMetadataHelper.expandObjectValues(metadata).get(INTERNAL_METADATA_KEY);
+			if (Boolean.valueOf(internalExpanded.get(INTEGRITY_ISSUE_METADATA_KEY))) {
 				try {
+					BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 					IntegrityIssueReport integrityIssueReport = findChangedComponentsWithBadIntegrity(branchCriteriaIncludingOpenCommit, commit.getBranch());
 					if (integrityIssueReport.isEmpty()) {
-						metadata.remove(INTERNAL_METADATA_KEY);
+						if (internalExpanded.keySet().size() > 1) {
+							internalExpanded.remove(INTEGRITY_ISSUE_METADATA_KEY);
+							Map<String, Object> updatedInternal = new HashMap<>();
+							updatedInternal.put(INTERNAL_METADATA_KEY, internalExpanded);
+							metadata.put(INTERNAL_METADATA_KEY, branchMetadataHelper.flattenObjectValues(updatedInternal).get(INTERNAL_METADATA_KEY));
+						} else {
+							metadata.remove(INTERNAL_METADATA_KEY);
+						}
 						logger.info("No integrity issue found on branch {} after commit {}", commit.getBranch().getPath(), commit.getTimepoint().getTime());
 					}
 				} catch (ServiceException e) {
