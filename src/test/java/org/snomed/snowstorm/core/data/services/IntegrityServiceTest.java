@@ -19,6 +19,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -251,14 +252,15 @@ public class IntegrityServiceTest extends AbstractTest {
 		metaDataExpanded.put("existingConfig", "test");
 		Map<String, String> integrityIssueMetaData = new HashMap<>();
 		integrityIssueMetaData.put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "true");
-		metaDataExpanded.put(IntegrityService.INTERNAL_METADATA_KEY, integrityIssueMetaData);
+		integrityIssueMetaData.put("other_key", "something else");
+		metaDataExpanded.put(INTERNAL_METADATA_KEY, integrityIssueMetaData);
 		branchService.updateMetadata(branch.getPath(), branchMetadataHelper.flattenObjectValues(metaDataExpanded));
 
 		branch = branchService.findLatest(path);
 		assertNotNull(branch.getMetadata());
 		metaDataExpanded = branchMetadataHelper.expandObjectValues(branch.getMetadata());
-		assertTrue(metaDataExpanded.containsKey(IntegrityService.INTERNAL_METADATA_KEY));
-		String integrityIssueFound = ((Map<String, String>) metaDataExpanded.get(IntegrityService.INTERNAL_METADATA_KEY)).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
+		assertTrue(metaDataExpanded.containsKey(INTERNAL_METADATA_KEY));
+		String integrityIssueFound = ((Map<String, String>) metaDataExpanded.get(INTERNAL_METADATA_KEY)).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
 		assertTrue(Boolean.valueOf(integrityIssueFound));
 
 		// partial fix
@@ -268,8 +270,8 @@ public class IntegrityServiceTest extends AbstractTest {
 		assertFalse(reportProject.isEmpty());
 		assertNotNull(branch.getMetadata());
 		metaDataExpanded = branchMetadataHelper.expandObjectValues(branch.getMetadata());
-		assertTrue(metaDataExpanded.containsKey(IntegrityService.INTERNAL_METADATA_KEY));
-		integrityIssueFound = ((Map<String, String>) metaDataExpanded.get(IntegrityService.INTERNAL_METADATA_KEY)).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
+		assertTrue(metaDataExpanded.containsKey(INTERNAL_METADATA_KEY));
+		integrityIssueFound = ((Map<String, String>) metaDataExpanded.get(INTERNAL_METADATA_KEY)).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
 		assertTrue(Boolean.valueOf(integrityIssueFound));
 
 		// complete fix
@@ -279,7 +281,11 @@ public class IntegrityServiceTest extends AbstractTest {
 		assertTrue(reportProject.isEmpty());
 		assertNotNull(branch.getMetadata());
 		metaDataExpanded = branchMetadataHelper.expandObjectValues(branch.getMetadata());
-		assertFalse(metaDataExpanded.containsKey(IntegrityService.INTERNAL_METADATA_KEY));
+		assertTrue(metaDataExpanded.containsKey(INTERNAL_METADATA_KEY));
+		Map<String, String> internalExpanded = (Map<String, String>) branchMetadataHelper.expandObjectValues(branch.getMetadata()).get(INTERNAL_METADATA_KEY);
+		assertFalse(internalExpanded.containsKey(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY));
+		assertTrue(internalExpanded.containsKey("other_key"));
 		assertTrue(metaDataExpanded.containsKey("existingConfig"));
+
 	}
 }

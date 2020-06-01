@@ -18,6 +18,8 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
+
 @Service
 public class CodeSystemUpgradeService {
 
@@ -46,7 +48,7 @@ public class CodeSystemUpgradeService {
 	private BranchMetadataHelper branchMetadataHelper;
 
 	@Value("${snowstorm.rest-api.readonly}")
-	private Boolean isReadOnly;
+	private boolean isReadOnly;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -90,7 +92,7 @@ public class CodeSystemUpgradeService {
 			branchMergeService.rebaseToSpecificTimepointAndRemoveDuplicateContent(parentPath, newParentBaseTimepoint, branchPath, String.format("Upgrading extension to %s@%s.", parentPath, newParentVersion.getVersion()));
 			logger.info("Completed upgrade of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
 
-			if (!dailyBuildAvailable && (isReadOnly != null && !isReadOnly)) {
+			if (!dailyBuildAvailable && !isReadOnly) {
 				logger.info("Running inactivation update");
 				inactivationUpgradeService.findAndUpdateDescriptionsInactivation(codeSystem);
 				inactivationUpgradeService.findAndUpdateLanguageRefsets(codeSystem);
@@ -108,7 +110,7 @@ public class CodeSystemUpgradeService {
 				if (metaDataExpanded == null) {
 					metaDataExpanded = new HashMap<>();
 				}
-				metaDataExpanded.put(IntegrityService.INTERNAL_METADATA_KEY, integrityIssueMetaData);
+				metaDataExpanded.put(INTERNAL_METADATA_KEY, integrityIssueMetaData);
 				branchService.updateMetadata(branchPath, branchMetadataHelper.flattenObjectValues(metaDataExpanded));
 			} else {
 				logger.info("No issues found in the integrity issue report.");
