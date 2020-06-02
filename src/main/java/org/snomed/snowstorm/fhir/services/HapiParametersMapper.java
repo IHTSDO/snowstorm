@@ -111,7 +111,10 @@ public class HapiParametersMapper implements FHIRConstants {
 					if (mapTarget == null) {
 						mapTarget = member.getAdditionalField(ReferenceSetMember.AssociationFields.MAP_TARGET);
 					}
-					
+					//We might be looking up an attribute value refset for an inactivation indicator MAINT-1221
+					if (mapTarget == null) {
+						mapTarget = member.getAdditionalField("valueId");
+					}
 					if (mapTarget != null) {
 						Coding coding = new Coding().setCode(mapTarget).setSystemElement(targetSystem);
 						matches.addPart().setName("mapTarget").setValue(coding);
