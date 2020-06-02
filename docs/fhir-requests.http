@@ -29,10 +29,12 @@ GET {{baseUrl}}/CodeSystem/$lookup
     &code=427623005
 Accept-Language: sv
 
-#### Check if 195967001 |Asthma (disorder)| is a type of 50043002 |Disorder of respiratory system (disorder)|
+#### Check if 195967001 |Asthma (disorder)| is a type of 50043002 |Disorder of respiratory system (disorder)| in the January 2020 International version
 GET {{baseUrl}}/CodeSystem/$subsumes
-    ?codingA=http://snomed.info/sct/900000000000207008|50043002
-    &codingB=http://snomed.info/sct/900000000000207008|195967001
+    ?system=http://snomed.info/sct
+    &version=http://snomed.info/sct/900000000000207008/version/20200131
+    &codeA=50043002
+    &codeB=195967001
 
 #### Expansion of an intensionally defined value set using ECL (limited to 10 results)
 GET {{baseUrl}}/ValueSet/$expand
