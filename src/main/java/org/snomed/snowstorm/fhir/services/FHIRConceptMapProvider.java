@@ -32,6 +32,9 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 	@Autowired
 	private HapiParametersMapper mapper;
 	
+	@Autowired
+	private FHIRHelper fhirHelper;
+	
 	private static int DEFAULT_PAGESIZE = 1000;
 	
 	private BiMap<String, String> knownUriMap;
@@ -39,7 +42,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 	String[] validMapSources;
 	
 	@Operation(name="$translate", idempotent=true)
-	public Parameters expand(
+	public Parameters translate(
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="url") String url,
@@ -47,7 +50,8 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="code") CodeType code,
 			@OperationParam(name="source") UriType source,
 			@OperationParam(name="target") UriType target) throws FHIROperationException {
-
+		fhirHelper.required("source", source);
+		fhirHelper.required("target", target);
 		validate("System", system.asStringValue(), Validation.EQUALS, getValidMapSources(), true);
 		validate("Source", source.asStringValue(), Validation.STARTS_WITH, getValidMapSources(), true);
 		validate("Target", target.asStringValue(), Validation.EQUALS, getValidMapTargets(), true);

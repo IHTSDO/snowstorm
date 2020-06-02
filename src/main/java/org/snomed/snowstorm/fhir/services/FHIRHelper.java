@@ -275,6 +275,12 @@ public class FHIRHelper implements FHIRConstants {
 			throw new FHIROperationException(IssueType.INVARIANT, "Use of input parameter '" + param1Name + "' only allowed if '" + param2Name + "' or '" + param3Name + "' is also present");
 		}
 	}
+	
+	public void required(String param1Name, Object param1) throws FHIROperationException {
+		if (param1 == null) {
+			throw new FHIROperationException(IssueType.INVARIANT, "Parameter '" + param1Name + "' must be supplied");
+		}
+	}
 
 	public void notSupported(String paramName, Object obj) throws FHIROperationException {
 		if (obj != null) {
