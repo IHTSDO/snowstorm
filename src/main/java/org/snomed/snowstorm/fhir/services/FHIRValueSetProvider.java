@@ -273,6 +273,12 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				Concept fullConcept = conceptService.find(conceptId, languageDialects, branchPath.toString());
 				return paramMapper.mapToFHIR(fullConcept, display);
 			} else {
+				//Now it might be that in this case we do not have this ValueSet loaded at all - or it's been 
+				//defined or the substrate has changed such that it has no members.   MAINT-1261 refers
+				result = fhirHelper.eclSearch(queryService, ecl, null, null, languageDialects, branchPath, 0, 1);
+				if (result.getContent().size() == 0) {
+					throw new FHIROperationException (IssueType.PROCESSING, "Concept not found and additionally the Valueset contains no members when expanded against the specified substrate. Check any relevant reference set is actually loaded.  ECL = " + ecl + ", branch path = " + branchPath);
+				}
 				return paramMapper.conceptNotFound();
 			}
 		} else {
