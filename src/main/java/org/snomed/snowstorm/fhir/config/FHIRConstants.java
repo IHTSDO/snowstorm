@@ -59,7 +59,8 @@ public interface FHIRConstants {
 		SUFFICIENTLY_DEFINED("sufficientlyDefined"),
 		MODULE_ID("moduleId"),
 		NORMAL_FORM("normalForm"),
-		NORMAL_FORM_TERSE("normalFormTerse");
+		NORMAL_FORM_TERSE("normalFormTerse"),
+		ALL_PROPERTIES("*");
 
 		private final String name;
 

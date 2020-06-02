@@ -145,21 +145,23 @@ public class HapiParametersMapper implements FHIRConstants {
 		Boolean sufficientlyDefined = c.getDefinitionStatusId().equals(Concepts.SUFFICIENTLY_DEFINED);
 		parameters.addParameter(createProperty(EFFECTIVE_TIME, c.getEffectiveTime(), false))
 			.addParameter(createProperty(MODULE_ID, c.getModuleId(), true));
+		
+		boolean allProperties = properties.contains(FhirSctProperty.ALL_PROPERTIES);
 	
-		if (properties.contains(FhirSctProperty.INACTVE)) {
+		if (allProperties || properties.contains(FhirSctProperty.INACTVE)) {
 			parameters.addParameter(createProperty(FhirSctProperty.INACTVE.toStringType(), !c.isActive(), false));
 		}
 		
-		if (properties.contains(FhirSctProperty.SUFFICIENTLY_DEFINED)) {
+		if (allProperties || properties.contains(FhirSctProperty.SUFFICIENTLY_DEFINED)) {
 			parameters.addParameter(createProperty(FhirSctProperty.SUFFICIENTLY_DEFINED.toStringType(), sufficientlyDefined, false));
 		}
 		
-		if (properties.contains(FhirSctProperty.NORMAL_FORM_TERSE)) {
+		if (allProperties || properties.contains(FhirSctProperty.NORMAL_FORM_TERSE)) {
 			Expression expression = expressionService.getExpression(c, false);
 			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM_TERSE.toStringType(), expression.toString(false), false));
 		}
 		
-		if (properties.contains(FhirSctProperty.NORMAL_FORM)) {
+		if (allProperties || properties.contains(FhirSctProperty.NORMAL_FORM)) {
 			Expression expression = expressionService.getExpression(c, false);
 			parameters.addParameter(createProperty(FhirSctProperty.NORMAL_FORM.toStringType(), expression.toString(true), false));
 		}
