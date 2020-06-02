@@ -89,9 +89,12 @@ public class BranchController {
 			throw new IllegalStateException("Branch metadata can not be updated when branch is locked.");
 		}
 		Branch branch = branchService.findBranchOrThrow(path);
-		Map<String, String> existing = branch.getMetadata();
 		Map<String, String> metadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
-		// skip updating for internal if exists
+		// skip updating for internal via REST api
+		if (metadata.containsKey(INTERNAL_METADATA_KEY)) {
+			metadata.remove(INTERNAL_METADATA_KEY);
+		}
+		Map<String, String> existing = branch.getMetadata();
 		if (existing.containsKey(INTERNAL_METADATA_KEY)) {
 			metadata.put(INTERNAL_METADATA_KEY, existing.get(INTERNAL_METADATA_KEY));
 		}
