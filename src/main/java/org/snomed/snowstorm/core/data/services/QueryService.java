@@ -32,6 +32,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -157,7 +158,14 @@ public class QueryService implements ApplicationContextAware {
 			// We fetch all lexical results then use them to filter the logical matches and for ordering of the final results.
 			logger.info("Lexical search before logical {}", term);
 			TimerUtil timer = new TimerUtil("Lexical and Logical Search");
-			final Collection<Long> allConceptIdsSortedByTermOrder = descriptionService.findDescriptionAndConceptIds(descriptionCriteria, branchCriteria, timer).getMatchedConceptIds();
+			// Convert Set of String to set of Long
+			Set<Long> conceptIds = Collections.EMPTY_SET;
+			if (!CollectionUtils.isEmpty(conceptQuery.getConceptIds())) {
+				conceptIds = conceptQuery.getConceptIds().stream()
+						.map(s -> Long.parseLong(s))
+						.collect(Collectors.toSet());
+			}
+			final Collection<Long> allConceptIdsSortedByTermOrder = descriptionService.findDescriptionAndConceptIds(descriptionCriteria, conceptIds, branchCriteria, timer).getMatchedConceptIds();
 			timer.checkpoint("lexical complete");
 
 			// Fetch Logical matches
