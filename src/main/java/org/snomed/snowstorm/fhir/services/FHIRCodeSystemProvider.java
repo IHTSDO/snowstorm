@@ -146,7 +146,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			HttpServletResponse response,
 			@OperationParam(name="codeA") CodeType codeA,
 			@OperationParam(name="codeB") CodeType codeB,
-			@OperationParam(name="systen") StringType system,
+			@OperationParam(name="system") StringType system,
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="codingA") Coding codingA,
 			@OperationParam(name="codingB") Coding codingB)
