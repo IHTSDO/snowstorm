@@ -2,6 +2,8 @@ package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchService;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -26,10 +28,7 @@ import org.springframework.test.context.junit4.SpringRunner;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -200,19 +199,43 @@ public class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConceptSearchWithCSVResults() throws IOException {
-		HttpHeaders headers = new HttpHeaders();
-		headers.add("Accept", "text/csv");
-		ResponseEntity<String> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/projectA/concepts",
-				HttpMethod.GET, new HttpEntity<>(null, headers), String.class, Collections.singletonMap("limit", 100));
+    public void testConceptSearchWithCSVResults() throws IOException {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Accept", "text/csv");
+        ResponseEntity<String> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/projectA/concepts",
+                HttpMethod.GET, new HttpEntity<>(null, headers), String.class, Collections.singletonMap("limit", 100));
 
-		assertEquals(200, responseEntity.getStatusCode().value());
+        assertEquals(200, responseEntity.getStatusCode().value());
+        String responseBody = responseEntity.getBody();
+        assertNotNull(responseBody);
+        try (BufferedReader reader = new BufferedReader(new StringReader(responseBody))) {
+            String header = reader.readLine();
+            assertEquals("id\tfsn\teffectiveTime\tactive\tmoduleId\tdefinitionStatus", header);
+            assertEquals("257751006\tWallace \"69\" side-to-end anastomosis - action (qualifier value)\t\ttrue\t900000000000207008\tPRIMITIVE", reader.readLine());
+        }
+    }
+
+    @Test
+    public void testConceptSearchWithLanguageRefsets() throws JSONException {
+        String conceptId = "257751006";
+
+		// Expected 1 concept found for US_EN language refset
+	    ResponseEntity<String> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/projectA/concepts?preferredOrAcceptableIn=" + Long.parseLong(Concepts.US_EN_LANG_REFSET) + "&conceptIds=" + conceptId,
+                HttpMethod.GET, new HttpEntity<>(null), String.class);
+        assertEquals(200, responseEntity.getStatusCode().value());
 		String responseBody = responseEntity.getBody();
+        assertNotNull(responseBody);
+		JSONObject jsonObject = new JSONObject(responseBody);
+		assertEquals(1, jsonObject.get("total"));
+
+		// No result for invalid given language refset
+		long belgiumDutchLanguageRefsetId = 31000172101L;
+		responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/projectA/concepts?preferredOrAcceptableIn=" + belgiumDutchLanguageRefsetId + "&conceptIds=" + conceptId,
+				HttpMethod.GET, new HttpEntity<>(null), String.class);
+		assertEquals(200, responseEntity.getStatusCode().value());
+		responseBody = responseEntity.getBody();
 		assertNotNull(responseBody);
-		try (BufferedReader reader = new BufferedReader(new StringReader(responseBody))) {
-			String header = reader.readLine();
-			assertEquals("id\tfsn\teffectiveTime\tactive\tmoduleId\tdefinitionStatus", header);
-			assertEquals("257751006\tWallace \"69\" side-to-end anastomosis - action (qualifier value)\t\ttrue\t900000000000207008\tPRIMITIVE", reader.readLine());
-		}
-	}
+		jsonObject = new JSONObject(responseBody);
+		assertEquals(0, jsonObject.get("total"));
+    }
 }

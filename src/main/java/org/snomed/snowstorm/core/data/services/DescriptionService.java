@@ -182,7 +182,7 @@ public class DescriptionService extends ComponentService {
 
 		// Fetch all matching description and concept ids
 		// ids of concepts where all descriptions and concept criteria are met
-		DescriptionMatches descriptionMatches = findDescriptionAndConceptIds(criteria, branchCriteria, timer);
+		DescriptionMatches descriptionMatches = findDescriptionAndConceptIds(criteria, Collections.EMPTY_SET, branchCriteria, timer);
 		BoolQueryBuilder descriptionQuery = descriptionMatches.getDescriptionQuery();
 
 		// Apply concept and acceptability filtering for final search
@@ -475,7 +475,7 @@ public class DescriptionService extends ComponentService {
 		joinLangRefsetMembers(branchCriteria, conceptMiniMap.keySet(), descriptionIdMap);
 	}
 
-	DescriptionMatches findDescriptionAndConceptIds(DescriptionCriteria criteria, BranchCriteria branchCriteria, TimerUtil timer) throws TooCostlyException {
+	DescriptionMatches findDescriptionAndConceptIds(DescriptionCriteria criteria, Set<Long> conceptIdsCriteria, BranchCriteria branchCriteria, TimerUtil timer) throws TooCostlyException {
 
 		// Build up the description criteria
 		final BoolQueryBuilder descriptionQuery = boolQuery();
@@ -493,6 +493,9 @@ public class DescriptionService extends ComponentService {
 			descriptionQuery.must(termsQuery(Description.Fields.MODULE_ID, modules));
 		}
 
+		if (!CollectionUtils.isEmpty(conceptIdsCriteria)) {
+			descriptionQuery.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIdsCriteria));
+		}
 
 		// First pass search to collect all description and concept ids.
 		Map<Long, Long> descriptionToConceptMap = new Long2ObjectLinkedOpenHashMap<>();
