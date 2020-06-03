@@ -3,6 +3,12 @@ package org.snomed.snowstorm.fhir.services;
 import ca.uhn.fhir.rest.annotation.IdParam;
 import ca.uhn.fhir.rest.annotation.Operation;
 import ca.uhn.fhir.rest.annotation.OperationParam;
+import ca.uhn.fhir.rest.annotation.OptionalParam;
+import ca.uhn.fhir.rest.annotation.Read;
+import ca.uhn.fhir.rest.annotation.Search;
+import ca.uhn.fhir.rest.param.QuantityParam;
+import ca.uhn.fhir.rest.param.StringParam;
+import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 
 import org.hl7.fhir.r4.model.*;
@@ -18,6 +24,7 @@ import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
+import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -27,6 +34,7 @@ import org.springframework.stereotype.Component;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
@@ -41,7 +49,10 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	private QueryService queryService;
 
 	@Autowired
-	private HapiParametersMapper mapper;
+	private HapiParametersMapper pMapper;
+	
+	@Autowired
+	private HapiCodeSystemMapper csMapper;
 	
 	@Autowired
 	private FHIRHelper fhirHelper;
@@ -55,9 +66,68 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		defaultLanguages = new ArrayList<>();
 		defaultLanguages.addAll(DEFAULT_LANGUAGE_DIALECTS);
 	}
+	
+	//See https://www.hl7.org/fhir/valueset.html#search
+	@Search
+	public List<CodeSystem> findCodeSystems(
+			HttpServletRequest theRequest, 
+			HttpServletResponse theResponse,
+			@OptionalParam(name="_id") String id,
+			@OptionalParam(name="code") String code,
+			@OptionalParam(name="context") TokenParam context,
+			@OptionalParam(name="context-quantity") QuantityParam contextQuantity,
+			@OptionalParam(name="context-type") String contextType,
+			@OptionalParam(name="date") String date,
+			@OptionalParam(name="description") StringParam description,
+			@OptionalParam(name="identifier") StringParam identifier,
+			@OptionalParam(name="jurisdiction") StringParam jurisdiction,
+			@OptionalParam(name="name") StringParam name,
+			@OptionalParam(name="publisher") StringParam publisher,
+			@OptionalParam(name="reference") StringParam reference,
+			@OptionalParam(name="status") String status,
+			@OptionalParam(name="title") StringParam title,
+			@OptionalParam(name="url") String url,
+			@OptionalParam(name="version") String version) throws FHIROperationException {
+		SearchFilter csFilter = new SearchFilter()
+									.withId(id)
+									.withCode(code)
+									.withContext(context)
+									.withContextQuantity(contextQuantity)
+									.withContextType(contextType)
+									.withDate(date)
+									.withDescription(description)
+									.withIdentifier(identifier)
+									.withJurisdiction(jurisdiction)
+									.withName(name)
+									.withPublisher(publisher)
+									.withReference(reference)
+									.withStatus(status)
+									.withTitle(title)
+									.withUrl(url)
+									.withVersion(version);
+		return multiSearchService.getAllPublishedVersions().stream()
+				.map(cv -> csMapper.mapToFHIR(cv))
+				.filter(cs -> csFilter.apply(cs, fhirHelper))
+				.collect(Collectors.toList());
+	}
+	
+	@Read()
+	public CodeSystem getCodeSystem(@IdParam IdType id) {
+		//TODO If we cache these we could use a map to find just the one we want.
+		//Would be nice to also populate the count on each module/version
+		Optional<CodeSystem> o = multiSearchService.getAllPublishedVersions().stream()
+				.map(cv -> csMapper.mapToFHIR(cv))
+				.filter(cs -> cs.getId().equals(id.getIdPart()))
+				.findAny();
+		
+		if (o.isPresent()) {
+			return o.get();
+		}
+		throw new NotFoundException("Code System " + id + " not found"); 
+	}
 
 	@Operation(name="$lookup", idempotent=true)
-	public Parameters lookup(
+	public Parameters lookupImplicit(
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="code") CodeType code,
@@ -70,20 +140,51 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		fhirHelper.mutuallyExclusive("code", code, "coding", coding);
 		fhirHelper.notSupported("date", date);
 		system = fhirHelper.enhanceCodeSystem(system, version, coding);
+		return lookup(request, response, system, code, coding, displayLanguage, propertiesType);
+	}
+	
+	@Operation(name="$lookup", idempotent=true)
+	public Parameters lookupInstance(
+			@IdParam IdType id,
+			HttpServletRequest request,
+			HttpServletResponse response,
+			@OperationParam(name="system") StringType system,
+			@OperationParam(name="version") StringType version,
+			@OperationParam(name="code") CodeType code,
+			@OperationParam(name="coding") Coding coding,
+			@OperationParam(name="date") StringType date,
+			@OperationParam(name="displayLanguage") String displayLanguage,
+			@OperationParam(name="property") List<CodeType> propertiesType ) throws FHIROperationException {
+		fhirHelper.mutuallyExclusive("code", code, "coding", coding);
+		fhirHelper.notSupported("date", date);
+		fhirHelper.notSupported("system", system, "CodeSystem where instance id is already specified in URL");
+		fhirHelper.notSupported("version", version, "CodeSystem where instance id is already specified in URL");
+		StringType systemURI = new StringType(getCodeSystem(id).getUrl());
+		return lookup(request, response, systemURI, code, coding, displayLanguage, propertiesType);
+	}
+	
+	//Method common to both implicit and instance lookups
+	private Parameters lookup(
+			HttpServletRequest request,
+			HttpServletResponse response,
+			StringType system,
+			CodeType code,
+			Coding coding,
+			String displayLanguage,
+			List<CodeType> propertiesType) throws FHIROperationException {
 		String conceptId = fhirHelper.recoverConceptId(code, coding);
 		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		fhirHelper.ensurePresent(displayLanguage, languageDialects);
-
 		BranchPath branchPath = fhirHelper.getBranchPathFromURI(system);
 		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, languageDialects, branchPath.toString()));
 		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + conceptId), branchPath.toString(), LARGE_PAGE);
 		Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
-		return mapper.mapToFHIR(system, concept, childIds.getContent(), properties);
+		return pMapper.mapToFHIR(system, concept, childIds.getContent(), properties);
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
-	public Parameters validateCode(
+	public Parameters validateCodeImplicit(
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="url") UriType url,
@@ -99,6 +200,43 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		fhirHelper.mutuallyRequired("display", display, "code", code, "coding", coding);
 		fhirHelper.notSupported("date", date);
 		codeSystem = fhirHelper.enhanceCodeSystem(codeSystem, version, coding);
+		return validateCode(request, response, url, codeSystem, code, display, version, date, coding, displayLanguage);
+	}
+	
+	@Operation(name="$validate-code", idempotent=true)
+	public Parameters validateCodeInstance(
+			@IdParam IdType id,
+			HttpServletRequest request,
+			HttpServletResponse response,
+			@OperationParam(name="url") UriType url,
+			@OperationParam(name="codeSystem") StringType codeSystem,
+			@OperationParam(name="code") CodeType code,
+			@OperationParam(name="display") String display,
+			@OperationParam(name="version") StringType version,
+			@OperationParam(name="date") DateTimeType date,
+			@OperationParam(name="coding") Coding coding,
+			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
+		fhirHelper.mutuallyExclusive("url", url, "codeSystem", codeSystem);
+		fhirHelper.mutuallyExclusive("code", code, "coding", coding);
+		fhirHelper.mutuallyRequired("display", display, "code", code, "coding", coding);
+		fhirHelper.notSupported("date", date);
+		fhirHelper.notSupported("codeSystem", codeSystem, "CodeSystem where instance id is already specified in URL");
+		fhirHelper.notSupported("version", version, "CodeSystem where instance id is already specified in URL");
+		StringType systemURI = new StringType(getCodeSystem(id).getUrl());
+		return validateCode(request, response, url, systemURI, code, display, version, date, coding, displayLanguage);
+	}
+	
+	private Parameters validateCode(
+			HttpServletRequest request,
+			HttpServletResponse response,
+			UriType url,
+			StringType codeSystem,
+			CodeType code,
+			String display,
+			StringType version,
+			DateTimeType date,
+			Coding coding,
+			String displayLanguage) throws FHIROperationException {
 		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
 		String conceptId = fhirHelper.recoverConceptId(code, coding);
 		ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(conceptId));
@@ -116,9 +254,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		}
 		
 		if (fullConcept == null) {
-			return mapper.conceptNotFound();
+			return pMapper.conceptNotFound();
 		} else {
-			return mapper.mapToFHIR(fullConcept, display);
+			return pMapper.mapToFHIR(fullConcept, display);
 		}
 	}
 	
@@ -129,19 +267,20 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			HttpServletResponse response,
 			@OperationParam(name="codeA") CodeType codeA,
 			@OperationParam(name="codeB") CodeType codeB,
-			@OperationParam(name="systen") StringType system,
+			@OperationParam(name="system") StringType system,
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="codingA") Coding codingA,
 			@OperationParam(name="codingB") Coding codingB)
 			throws FHIROperationException {
-		
-		//doSubsumptionParameterValidation(codeA, codeB, system, version, codingA, codingB);
-		//system = fhirHelper.enhanceCodeSystem(system, version, codingA);
-		throw new FHIROperationException(IssueType.NOTSUPPORTED, "Subsumption testing on codeSystem instances not yet supported.  Specify codeSystem in parameters instead");
+		fhirHelper.notSupported("system", system, "CodeSystem where instance id is already specified in URL");
+		fhirHelper.notSupported("version", version, "CodeSystem where instance id is already specified in URL");
+			doSubsumptionParameterValidation(codeA, codeB, system, version, codingA, codingB);
+		StringType systemURI = new StringType(getCodeSystem(id).getUrl());
+		return subsumes(request, response, codeA, codeB, systemURI, version, codingA, codingB);
 	}
 
 	@Operation(name="$subsumes", idempotent=true)
-	public Parameters subsumes(
+	public Parameters subsumesImplicit(
 			HttpServletRequest request,
 			HttpServletResponse response,
 			@OperationParam(name="codeA") CodeType codeA,
@@ -151,29 +290,41 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="codingA") Coding codingA,
 			@OperationParam(name="codingB") Coding codingB)
 			throws FHIROperationException {
-		
 		doSubsumptionParameterValidation(codeA, codeB, system, version, codingA, codingB);
 		Coding commonCoding = validateCodings(codingA, codingB);
 		system = fhirHelper.enhanceCodeSystem(system, version, commonCoding);
+		return subsumes(request, response, codeA, codeB, system, version, codingA, codingB);
+	}
+	
+	private Parameters subsumes(
+			HttpServletRequest request,
+			HttpServletResponse response,
+			CodeType codeA,
+			CodeType codeB,
+			StringType system,
+			StringType version,
+			Coding codingA,
+			Coding codingB)
+			throws FHIROperationException {
 		String conceptAId = fhirHelper.recoverConceptId(codeA, codingA);
 		String conceptBId = fhirHelper.recoverConceptId(codeB, codingB);
 		if (conceptAId.equals(conceptBId)) {
-			return mapper.singleOutValue("outcome", "equivalent");
+			return pMapper.singleOutValue("outcome", "equivalent");
 		}
 		//Test for A subsumes B, then B subsumes A
 		String eclAsubsumesB = conceptAId + " AND > " + conceptBId;
 		String eclBsubsumesA = conceptBId + " AND > " + conceptAId;
 		BranchPath branchPath = fhirHelper.getBranchPathFromURI(system);
 		if (matchesConcept(eclAsubsumesB, branchPath)) {
-			return mapper.singleOutValue("outcome", "subsumes");
+			return pMapper.singleOutValue("outcome", "subsumes");
 		} else if (matchesConcept(eclBsubsumesA, branchPath)) {
-			return mapper.singleOutValue("outcome", "subsumed-by");
+			return pMapper.singleOutValue("outcome", "subsumed-by");
 		}
 		//TODO First check for the concept in all known codesystemversions
 		//Secondly, should we return an Outcome object if the concept is not found?
 		ensureConceptExists(conceptAId, branchPath);
 		ensureConceptExists(conceptBId, branchPath);
-		return mapper.singleOutValue("outcome", "not-subsumed");
+		return pMapper.singleOutValue("outcome", "not-subsumed");
 	}
 	
 	private void ensureConceptExists(String sctId, BranchPath branchPath) {

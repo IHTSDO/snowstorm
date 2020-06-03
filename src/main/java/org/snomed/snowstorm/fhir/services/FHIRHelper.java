@@ -5,17 +5,10 @@ import java.util.*;
 
 import javax.servlet.http.HttpServletRequest;
 
-import org.hl7.fhir.r4.model.StringType;
-import org.hl7.fhir.r4.model.UsageContext;
-import org.hl7.fhir.r4.model.ValueSet;
+import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.ValueSet.*;
 import org.apache.commons.lang.StringUtils;
-import org.fhir.ucum.TokenType;
-import org.hl7.fhir.r4.model.CodeType;
-import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
-import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +37,7 @@ public class FHIRHelper implements FHIRConstants {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
-
+	
 	@Autowired
 	private DialectConfigurationService dialectService;
 
@@ -57,15 +50,14 @@ public class FHIRHelper implements FHIRConstants {
 	public static final int UNVERSIONED = -1;
 
 	public static Integer getSnomedVersion(String versionStr) throws FHIROperationException {
-		String versionUri = "/" + FHIRConstants.VERSION + "/";
 		if (versionStr.contains(UNVERSIONED_STR)) {
 			return UNVERSIONED;
 		}
 
 		try {
-			return !versionStr.contains("/" + FHIRConstants.VERSION + "/")
+			return !versionStr.contains(VERSION)
 					? null
-					: Integer.parseInt(versionStr.substring(versionStr.indexOf(versionUri) + versionUri.length()));
+					: Integer.parseInt(versionStr.substring(versionStr.indexOf(VERSION) + VERSION.length()));
 		} catch (NumberFormatException e) {
 			throw new FHIROperationException(IssueType.CONFLICT, "Version expected to be numeric in format YYYYMMDD" );
 		}
@@ -91,9 +83,9 @@ public class FHIRHelper implements FHIRConstants {
 		if (!versionStr.startsWith(FHIRConstants.SNOMED_URI)) {
 			throw new NotFoundException("Unknown system URI: " + versionStr + ", expected " + FHIRConstants.SNOMED_URI + "...");
 		}
-		return !versionStr.contains("/" + FHIRConstants.VERSION + "/")
+		return !versionStr.contains(FHIRConstants.VERSION)
 				? versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1,  FHIRConstants.SNOMED_URI.length() + versionStr.length() - FHIRConstants.SNOMED_URI.length())
-				: versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1, versionStr.indexOf("/" + FHIRConstants.VERSION + "/"));
+				: versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1, versionStr.indexOf(FHIRConstants.VERSION));
 	}
 
 	public BranchPath getBranchPathFromURI(StringType codeSystemVersionUri) throws FHIROperationException {
@@ -281,10 +273,14 @@ public class FHIRHelper implements FHIRConstants {
 			throw new FHIROperationException(IssueType.INVARIANT, "Parameter '" + param1Name + "' must be supplied");
 		}
 	}
-
+	
 	public void notSupported(String paramName, Object obj) throws FHIROperationException {
+		notSupported(paramName, obj, null);
+	}
+
+	public void notSupported(String paramName, Object obj, String context) throws FHIROperationException {
 		if (obj != null) {
-			throw new FHIROperationException(IssueType.NOTSUPPORTED, "Input parameter '" + paramName + "' is not currently supported.");
+			throw new FHIROperationException(IssueType.NOTSUPPORTED, "Input parameter '" + paramName + "' is not currently supported" + (context == null ? "." : " in the context of a " + context));
 		}
 	}
 
@@ -359,17 +355,17 @@ public class FHIRHelper implements FHIRConstants {
 		return conceptMiniPage;
 	}
 
-	public boolean hasUsageContext(ValueSet vs, TokenParam context) {
-		if (vs.getUseContext() != null && vs.getUseContext().size() > 0) {
-			return vs.getUseContext().stream()
+	public boolean hasUsageContext(MetadataResource r, TokenParam context) {
+		if (r.getUseContext() != null && r.getUseContext().size() > 0) {
+			return r.getUseContext().stream()
 				.anyMatch(u -> codingMatches(u.getCode(), context.getValue()));
 		}
 		return false;
 	}
 
-	public boolean hasJurisdiction(ValueSet vs, StringParam jurisdiction) {
-		if (vs.getJurisdiction() != null && vs.getJurisdiction().size() > 0) {
-			for (CodeableConcept codeableConcept : vs.getJurisdiction()) {
+	public boolean hasJurisdiction(MetadataResource r, StringParam jurisdiction) {
+		if (r.getJurisdiction() != null && r.getJurisdiction().size() > 0) {
+			for (CodeableConcept codeableConcept : r.getJurisdiction()) {
 				for (Coding c : codeableConcept.getCoding()) {
 					if (c.getCode().equals(jurisdiction.getValue())) {
 						return true;
@@ -383,6 +379,17 @@ public class FHIRHelper implements FHIRConstants {
 	public boolean hasIdentifier(ValueSet vs, StringParam identifier) {
 		if (vs.getIdentifier() != null && vs.getIdentifier().size() > 0) {
 			for (Identifier i : vs.getIdentifier()) {
+				if (stringMatches(i.getValue(), identifier)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	public boolean hasIdentifier(CodeSystem cs, StringParam identifier) {
+		if (cs.getIdentifier() != null && cs.getIdentifier().size() > 0) {
+			for (Identifier i : cs.getIdentifier()) {
 				if (stringMatches(i.getValue(), identifier)) {
 					return true;
 				}

@@ -33,6 +33,7 @@ public interface FHIRConstants {
 	String SNOMED_EDITION = "SNOMED CT International Edition";
 	String SNOMED_INTERNATIONAL = "SNOMED International";
 	String SNOMED_URI = "http://snomed.info/sct";
+	String VERSION = "/version/";
 	String SNOMED_URI_DEFAULT_MODULE = "http://snomed.info/sct/900000000000207008";
 	String ICD10 = "ICD-10";
 	String ICD10_URI = "http://hl7.org/fhir/sid/icd-10";
@@ -48,7 +49,6 @@ public interface FHIRConstants {
 	String VALUE = "value";
 	String VALUE_BOOLEAN = "valueBoolean";
 	String VALUE_STRING = "valueString";
-	String VERSION = "version";
 	
 	String IMPLICIT_ISA = "?fhir_vs=isa/";
 	String IMPLICIT_REFSET = "?fhir_vs=refset/";

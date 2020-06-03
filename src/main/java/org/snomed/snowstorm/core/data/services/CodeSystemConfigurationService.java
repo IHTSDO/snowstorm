@@ -26,6 +26,15 @@ public class CodeSystemConfigurationService {
 		}
 		return null;
 	}
+	
+	public String getDefaultModuleId(String codeSystemShortName) {
+		for (CodeSystemConfiguration codeSystemConfiguration : configurations) {
+			if (codeSystemConfiguration.getShortName().equalsIgnoreCase(codeSystemShortName)) {
+				return codeSystemConfiguration.getModule();
+			}
+		}
+		return null;
+	}
 
 	@PostConstruct
 	private void init() {

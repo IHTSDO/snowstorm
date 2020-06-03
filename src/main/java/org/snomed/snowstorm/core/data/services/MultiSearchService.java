@@ -136,6 +136,14 @@ public class MultiSearchService {
 		}
 		return branchPaths;
 	}
+	
+	public Set<CodeSystemVersion> getAllPublishedVersions() {
+		Set<CodeSystemVersion> codeSystemVersions = new HashSet<>();
+		for (CodeSystem codeSystem : codeSystemService.findAll()) {
+			codeSystemVersions.addAll(codeSystemService.findAllVersions(codeSystem.getShortName(), true));
+		}
+		return codeSystemVersions;
+	}
 
 	public Page<Concept> findConcepts(ConceptCriteria criteria, PageRequest pageRequest) {
 		final BoolQueryBuilder conceptQuery = boolQuery().must(getBranchesQuery());

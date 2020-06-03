@@ -2,6 +2,7 @@ package org.snomed.snowstorm.fhir.domain;
 
 import org.hl7.fhir.r4.model.ValueSet;
 import org.apache.commons.lang.NotImplementedException;
+import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.StructureDefinition;
@@ -221,8 +222,57 @@ public class SearchFilter {
 			
 		return true;
 	}
+	
 	public boolean apply(StructureDefinition sd, FHIRHelper fhirHelper) {
 		throw new NotImplementedException();
+	}
+	
+	public boolean apply(CodeSystem cs, FHIRHelper fhirHelper) {
+		if (getId() != null && !getId().equals(cs.getId())) {
+			return false;
+		}
+		
+		if (getContext() != null && !fhirHelper.hasUsageContext(cs, getContext())) {
+			return false;
+		}
+		
+		if (!fhirHelper.stringMatches(cs.getDescription(), getDescription()))  {
+			return false;
+		}
+		
+		if (getIdentifier() != null && !fhirHelper.hasIdentifier(cs, getIdentifier())) {
+			return false;
+		}
+		
+		if (getJurisdiction() != null && !fhirHelper.hasJurisdiction(cs, getJurisdiction())) {
+			return false;
+		}
+		
+		if (!fhirHelper.stringMatches(cs.getName(), getName())) {
+			return false;
+		}
+		
+		if (!fhirHelper.stringMatches(cs.getPublisher(), getPublisher())) {
+			return false;
+		}
+		
+		if (!fhirHelper.enumerationMatches (cs.getStatus(), getStatus())) {
+			return false;
+		}
+		
+		if (!fhirHelper.stringMatches(cs.getTitle(), getTitle())) {
+			return false;
+		}
+		
+		if (getUrl() != null && !getUrl().equals(cs.getUrl())) {
+			return false;
+		}
+		
+		if (getVersion() != null && !getVersion().equals(cs.getVersion())) {
+			return false;
+		}
+			
+		return true;
 	}
 
 }
