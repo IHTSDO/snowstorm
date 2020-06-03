@@ -356,8 +356,12 @@ public class ConceptController {
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.DELETE)
-	public void deleteConcept(@PathVariable String branch, @PathVariable String conceptId) {
-		conceptService.deleteConceptAndComponents(conceptId, BranchPathUriUtil.decodePath(branch), false);
+	public void deleteConcept(
+			@PathVariable String branch,
+			@PathVariable String conceptId,
+			@ApiParam("Force the deletion of a released description.")
+			@RequestParam(defaultValue = "false") boolean force) {
+		conceptService.deleteConceptAndComponents(conceptId, BranchPathUriUtil.decodePath(branch), force);
 	}
 
 	@ApiOperation(value = "Start a bulk concept change.", notes = "Concepts can be created or updated using this endpoint.")
