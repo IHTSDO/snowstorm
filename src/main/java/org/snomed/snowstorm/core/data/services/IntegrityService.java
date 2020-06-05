@@ -53,6 +53,9 @@ public class IntegrityService extends ComponentService implements CommitListener
 	@Autowired
 	private DescriptionService descriptionService;
 
+	@Autowired
+	private CodeSystemService codeSystemService;
+
 	public static final String INTEGRITY_ISSUE_METADATA_KEY = "integrityIssue";
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -88,7 +91,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 	}
 
 	public IntegrityIssueReport findChangedComponentsWithBadIntegrity(Branch branch) throws ServiceException {
-		return findChangedComponentsWithBadIntegrity(versionControlHelper.getBranchCriteria(branch), branch);
+		return  findChangedComponentsWithBadIntegrity(versionControlHelper.getBranchCriteria(branch), branch);
 	}
 
 	public IntegrityIssueReport findChangedComponentsWithBadIntegrity(BranchCriteria branchCriteria, Branch branch) throws ServiceException {
@@ -155,6 +158,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 				conceptIdsWithBadAxioms.add(indexConcept.getConceptIdL());
 			});
 		}
+
 		Map<String, String> axiomIdReferenceComponentMap = new HashMap<>();
 		if (!conceptIdsWithBadAxioms.isEmpty()) {
 			try (CloseableIterator<ReferenceSetMember> possiblyBadAxioms = elasticsearchTemplate.stream(
@@ -183,7 +187,6 @@ public class IntegrityService extends ComponentService implements CommitListener
 				}
 			}
 		}
-
 
 		// Gather all the concept ids used in active axioms and stated relationships which have been changed on this task
 		Map<Long, Set<Long>> conceptUsedAsSourceInRelationships = new Long2ObjectOpenHashMap<>();
@@ -279,6 +282,163 @@ public class IntegrityService extends ComponentService implements CommitListener
 
 		return getReport(axiomsMinisAndInactiveConcepts, relationshipWithInactiveSource, relationshipWithInactiveType, relationshipWithInactiveDestination);
 	}
+
+
+	public IntegrityIssueReport findChangedComponentsWithBadIntegrity(Branch taskBranch, String extensionMainBranchPath) throws ServiceException {
+		Branch extensionMain = branchService.findBranchOrThrow(extensionMainBranchPath);
+		Branch projectBranch = branchService.findBranchOrThrow(PathUtil.getParentPath(taskBranch.getPath()));
+		if (!projectBranch.getPath().equalsIgnoreCase(extensionMainBranchPath) && !PathUtil.getParentPath(projectBranch.getPath()).equalsIgnoreCase(extensionMain.getPath())) {
+			throw new RuntimeServiceException(String.format("Branch %s is not a descendant of %s", projectBranch.getPath(), extensionMainBranchPath));
+		}
+		// make sure project and task are rebased
+		if (!projectBranch.getPath().equalsIgnoreCase(extensionMain.getPath()) && projectBranch.getBaseTimestamp() < extensionMain.getHeadTimestamp()) {
+			throw new RuntimeServiceException(String.format("Branch %s needs to rebase first before running integrity check", projectBranch.getPath()));
+		}
+		if (taskBranch.getBaseTimestamp() < extensionMain.getHeadTimestamp()) {
+			throw new RuntimeServiceException(String.format("Branch %s needs to rebase first before running integrity check", taskBranch.getPath()));
+		}
+
+		TimerUtil timer = new TimerUtil("Changed component integrity check on " + taskBranch.getPath() + " and " + extensionMainBranchPath, Level.INFO, 1);
+		IntegrityIssueReport integrityIssueReportOnExtensionMain = findChangedComponentsWithBadIntegrity(extensionMain);
+		if (integrityIssueReportOnExtensionMain.isEmpty()) {
+			logger.info("No integrity issue found on {}", extensionMainBranchPath);
+			return findChangedComponentsWithBadIntegrity(taskBranch);
+		}
+		Map<Long, Long> relationshipWithInactiveSource = integrityIssueReportOnExtensionMain.getRelationshipsWithMissingOrInactiveSource();
+		Map<Long, Long> relationshipWithInactiveType = integrityIssueReportOnExtensionMain.getRelationshipsWithMissingOrInactiveType();
+		Map<Long, Long> relationshipWithInactiveDestination = integrityIssueReportOnExtensionMain.getRelationshipsWithMissingOrInactiveDestination();
+
+		Set<Long> relationshipIdsWithBadIntegrity = new HashSet<>();
+		if (relationshipWithInactiveSource != null) {
+			logger.info("{} relationships with inactive source found on {}", relationshipWithInactiveSource.keySet().size(), extensionMainBranchPath);
+			relationshipIdsWithBadIntegrity.addAll(relationshipWithInactiveSource.keySet());
+		}
+		if (relationshipWithInactiveType != null) {
+			logger.info("{} relationships with inactive type found on {}", relationshipWithInactiveType.keySet().size(), extensionMainBranchPath);
+			relationshipIdsWithBadIntegrity.addAll(relationshipWithInactiveType.keySet());
+		}
+		if (relationshipWithInactiveDestination != null) {
+			logger.info("{} relationships with inactive destination found on {}", relationshipWithInactiveDestination.keySet().size(), extensionMainBranchPath);
+			relationshipIdsWithBadIntegrity.addAll(relationshipWithInactiveDestination.keySet());
+		}
+
+		Map<String, ConceptMini> axiomsWithInactiveConcept = integrityIssueReportOnExtensionMain.getAxiomsWithMissingOrInactiveReferencedConcept();
+		Set<String> axiomsWithBadIntegrity = axiomsWithInactiveConcept != null ? axiomsWithInactiveConcept.keySet() : new HashSet<>();
+		logger.info("{} axioms referenced inactive concept found on {}", axiomsWithBadIntegrity.size(), extensionMainBranchPath);
+		timer.checkpoint("Integrity check completed on " + extensionMainBranchPath);
+
+		// fetch source, type and destination in the fix task for relationships reported
+		BranchCriteria taskBranchCriteria = versionControlHelper.getBranchCriteria(taskBranch);
+		Map<Long, Long> relationshipIdToSourceMap = new HashMap<>();
+		Map<Long, Long> relationshipIdToTypeMap = new HashMap<>();
+		Map<Long, Long> relationshipIdToDestinationMap = new HashMap<>();
+		try (CloseableIterator<Relationship> badRelationshipsStream = elasticsearchTemplate.stream(
+				new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								.must(taskBranchCriteria.getEntityBranchCriteria(Relationship.class))
+								.must(termsQuery(Relationship.Fields.ACTIVE, true))
+								.mustNot(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
+								.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipIdsWithBadIntegrity))
+						)
+						.withPageable(LARGE_PAGE).build(),
+				Relationship.class)) {
+			badRelationshipsStream.forEachRemaining(relationship -> {
+				relationshipIdToSourceMap.put(parseLong(relationship.getRelationshipId()), parseLong(relationship.getSourceId()));
+				relationshipIdToTypeMap.put(parseLong(relationship.getRelationshipId()), parseLong(relationship.getTypeId()));
+				relationshipIdToDestinationMap.put(parseLong(relationship.getRelationshipId()), parseLong(relationship.getDestinationId()));
+			});
+		}
+
+		// fetch concepts referenced by axioms reported with bad integrity
+		Map<Long, Set<String>> conceptUsedInAxioms = new Long2ObjectOpenHashMap<>();
+		Map<String, String> axiomIdReferenceComponentMap = new HashMap<>();
+		try (CloseableIterator<ReferenceSetMember> axiomStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								.must(taskBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+								.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+								.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
+								.must(termsQuery(ReferenceSetMember.Fields.MEMBER_ID, axiomsWithBadIntegrity))
+						)
+						.withPageable(LARGE_PAGE)
+						.build(),
+				ReferenceSetMember.class)) {
+			try {
+				while (axiomStream.hasNext()) {
+					ReferenceSetMember axiom = axiomStream.next();
+					axiomIdReferenceComponentMap.put(axiom.getMemberId(), axiom.getReferencedComponentId());
+					Set<Long> referencedConcepts = axiomConversionService.getReferencedConcepts(axiom.getAdditionalField(OWL_EXPRESSION));
+					for (Long referencedConcept : referencedConcepts) {
+						conceptUsedInAxioms.computeIfAbsent(referencedConcept, id -> new HashSet<>()).add(axiom.getId());
+					}
+				}
+			} catch (ConversionException e) {
+				throw new ServiceException("Failed to deserialise axiom during reference integrity check.", e);
+			}
+		}
+
+		Set<Long> conceptIdsToCheck = new HashSet<>();
+		conceptIdsToCheck.addAll(conceptUsedInAxioms.keySet());
+		conceptIdsToCheck.addAll(relationshipIdToSourceMap.values());
+		conceptIdsToCheck.addAll(relationshipIdToDestinationMap.values());
+		conceptIdsToCheck.addAll(relationshipIdToTypeMap.values());
+
+		Set<Long> activeConcepts = new LongOpenHashSet();
+		try (CloseableIterator<Concept> activeConceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(taskBranchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termQuery(Concept.Fields.ACTIVE, true))
+						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsToCheck))
+				)
+				.withFields(Concept.Fields.CONCEPT_ID)
+				.build(), Concept.class)) {
+			activeConceptStream.forEachRemaining(concept -> activeConcepts.add(concept.getConceptIdAsLong()));
+		}
+		timer.checkpoint("Collect active concepts referenced in changed relationships and axioms: " + activeConcepts.size() + " on " + taskBranch.getPath());
+
+		// check axioms still with bad integrity
+		Map<String, Set<Long>> axiomWithInactiveReferencedConcept = new HashMap<>();
+		for (Long concept : conceptUsedInAxioms.keySet()) {
+			if (!activeConcepts.contains(concept)) {
+				for (String axiomId : conceptUsedInAxioms.get(concept)) {
+					axiomWithInactiveReferencedConcept.computeIfAbsent(axiomId, id -> new HashSet<>()).add(concept);
+				}
+			}
+		}
+		logger.info("{} axioms still with referenced inactive concepts", axiomWithInactiveReferencedConcept.keySet().size());
+
+		// check relationships still with bad integrity
+		Map<Long, Long> relationshipStillWithInactiveSource = new HashMap<>();
+		Map<Long, Long> relationshipStillWithInactiveType = new HashMap<>();
+		Map<Long, Long> relationshipStillWithInactiveDestination = new HashMap<>();
+		for (Long relationshipId : relationshipIdToSourceMap.keySet()) {
+			if (!activeConcepts.contains(relationshipIdToSourceMap.get(relationshipId))) {
+				relationshipStillWithInactiveSource.put(relationshipId, relationshipIdToSourceMap.get(relationshipId));
+			}
+		}
+
+		for (Long relationshipId : relationshipIdToDestinationMap.keySet()) {
+			if (!activeConcepts.contains(relationshipIdToDestinationMap.get(relationshipId))) {
+				relationshipStillWithInactiveDestination.put(relationshipId, relationshipIdToDestinationMap.get(relationshipId));
+			}
+		}
+
+		for (Long relationshipId : relationshipStillWithInactiveType.keySet()) {
+			if (!activeConcepts.contains(relationshipStillWithInactiveType.get(relationshipId))) {
+				relationshipStillWithInactiveType.put(relationshipId, relationshipStillWithInactiveType.get(relationshipId));
+			}
+		}
+
+		Map<String, ConceptMini> axiomsMinisAndInactiveConcepts = new HashMap<>();
+		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
+		for (String axiomId : axiomWithInactiveReferencedConcept.keySet()) {
+			addConceptMini(axiomsMinisAndInactiveConcepts, conceptMiniMap, axiomId, axiomIdReferenceComponentMap.get(axiomId), axiomWithInactiveReferencedConcept.get(axiomId));
+		}
+		descriptionService.joinActiveDescriptions(taskBranch.getPath(), conceptMiniMap);
+
+		timer.finish();
+		return getReport(axiomsMinisAndInactiveConcepts, relationshipStillWithInactiveSource, relationshipStillWithInactiveType, relationshipStillWithInactiveDestination);
+	}
+
 
 	public IntegrityIssueReport findAllComponentsWithBadIntegrity(Branch branch, boolean stated) throws ServiceException {
 
@@ -511,3 +671,4 @@ public class IntegrityService extends ComponentService implements CommitListener
 		}
 	}
 }
+
