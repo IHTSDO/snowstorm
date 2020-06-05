@@ -194,6 +194,20 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 				'}';
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		QueryConcept that = (QueryConcept) o;
+		return stated == that.stated &&
+				Objects.equals(conceptIdL, that.conceptIdL);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(conceptIdL, stated);
+	}
+
 	private static final class GroupedAttributesMapSerializer {
 
 		private static String serializeMap(Map<Integer, Map<String, List<String>>> groupedAttributesMap) {
