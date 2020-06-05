@@ -202,25 +202,33 @@ public class BranchController {
 	@ApiOperation(value = "Perform integrity check against changed components on this branch.",
 			notes = "Returns a report containing an entry for each type of issue found together with a map of components. " +
 					"In the component map each key represents an existing component and the corresponding map value is the id of a component which is missing or inactive.")
-	public IntegrityIssueReport integrityCheck(
-			@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath,
-			@ApiParam(value="Extension main branch e.g MAIN/{Code System}") @RequestParam(required = false) @NotNull String extensionMainBranchPath) throws ServiceException {
+	public IntegrityIssueReport integrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) throws ServiceException {
 		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branchPath));
-		if (extensionMainBranchPath != null) {
-			if ("MAIN".equalsIgnoreCase(extensionMainBranchPath)) {
-				throw new IllegalArgumentException("Extension main branch path can't be MAIN");
-			}
-			Branch extensionMainBranch = branchService.findBranchOrThrow(extensionMainBranchPath);
-			if (!"MAIN".equalsIgnoreCase(PathUtil.getParentPath(extensionMainBranch.getPath()))) {
-				throw new IllegalArgumentException("The parent of an extension main branch must be MAIN but is " + PathUtil.getParentPath(extensionMainBranch.getPath()));
-			}
-			// check task is a descendant of extension main
-			if (!isDescendant(branch, extensionMainBranch.getPath())) {
-				throw new IllegalArgumentException(String.format("Branch %s is not a descendant of %s", branch.getPath(), extensionMainBranchPath));
-			}
-			return integrityService.findChangedComponentsWithBadIntegrity(branch, extensionMainBranchPath);
-		}
 		return integrityService.findChangedComponentsWithBadIntegrity(branch);
+	}
+
+
+	@ResponseBody
+	@RequestMapping(value = "/{branch}/upgrade-integrity-check", method = RequestMethod.POST)
+	@ApiOperation(value = "Perform integrity check against changed components during extension upgrade on the fix branch.",
+			notes = "Returns a report containing an entry for each type of issue found together with a map of components which still need to be fixed." +
+					"In the component map each key represents an existing component and the corresponding map value is the id of a component which is missing or inactive.")
+	public IntegrityIssueReport upgradeIntegrityCheck(
+			@ApiParam(value="The fix branch path") @PathVariable(value="branch") @NotNull final String branchPath,
+			@ApiParam(value="Extension main branch e.g MAIN/{Code System}") @RequestParam @NotNull String extensionMainBranchPath) throws ServiceException {
+		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branchPath));
+		if ("MAIN".equalsIgnoreCase(extensionMainBranchPath)) {
+			throw new IllegalArgumentException("Extension main branch path can't be MAIN");
+		}
+		Branch extensionMainBranch = branchService.findBranchOrThrow(extensionMainBranchPath);
+		if (!"MAIN".equalsIgnoreCase(PathUtil.getParentPath(extensionMainBranch.getPath()))) {
+			throw new IllegalArgumentException("The parent of an extension main branch must be MAIN but is " + PathUtil.getParentPath(extensionMainBranch.getPath()));
+		}
+		// check task is a descendant of extension main
+		if (!isDescendant(branch, extensionMainBranch.getPath())) {
+			throw new IllegalArgumentException(String.format("Branch %s is not a descendant of %s", branch.getPath(), extensionMainBranchPath));
+		}
+		return integrityService.findChangedComponentsWithBadIntegrity(branch, extensionMainBranchPath);
 	}
 
 	private boolean isDescendant(Branch branch, String extensionMainBranchPath) {
