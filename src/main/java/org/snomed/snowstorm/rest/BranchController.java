@@ -24,7 +24,6 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
-import javax.websocket.server.PathParam;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -210,13 +209,13 @@ public class BranchController {
 
 	@ResponseBody
 	@RequestMapping(value = "/{branch}/upgrade-integrity-check", method = RequestMethod.POST)
-	@ApiOperation(value = "Perform integrity check against changed components during extension upgrade on the fix branch.",
+	@ApiOperation(value = "Perform integrity check against changed components during extension upgrade on the extension main branch and fix branch.",
 			notes = "Returns a report containing an entry for each type of issue found together with a map of components which still need to be fixed." +
 					"In the component map each key represents an existing component and the corresponding map value is the id of a component which is missing or inactive.")
 	public IntegrityIssueReport upgradeIntegrityCheck(
-			@ApiParam(value="The fix branch path") @PathVariable(value="branch") @NotNull final String branchPath,
+			@ApiParam(value="The fix branch path") @PathVariable(value="branch") @NotNull final String fixBranchPath,
 			@ApiParam(value="Extension main branch e.g MAIN/{Code System}") @RequestParam @NotNull String extensionMainBranchPath) throws ServiceException {
-		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branchPath));
+		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(fixBranchPath));
 		if ("MAIN".equalsIgnoreCase(extensionMainBranchPath)) {
 			throw new IllegalArgumentException("Extension main branch path can't be MAIN");
 		}
