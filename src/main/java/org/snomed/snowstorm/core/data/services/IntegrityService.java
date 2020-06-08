@@ -53,9 +53,6 @@ public class IntegrityService extends ComponentService implements CommitListener
 	@Autowired
 	private DescriptionService descriptionService;
 
-	@Autowired
-	private CodeSystemService codeSystemService;
-
 	public static final String INTEGRITY_ISSUE_METADATA_KEY = "integrityIssue";
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
