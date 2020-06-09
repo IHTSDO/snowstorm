@@ -333,66 +333,70 @@ public class ClassificationService {
 
 	@Async
 	public void saveClassificationResultsToBranch(String path, String classificationId, SecurityContext securityContext) {
-		SecurityContextHolder.setContext(securityContext);
-		Classification classification = classificationSaveStatusCheck(path, classificationId);
+		try {
+			SecurityContextHolder.setContext(securityContext);
+			Classification classification = classificationSaveStatusCheck(path, classificationId);
 
-		if (classification.getInferredRelationshipChangesFound()) {
-			classification.setStatus(SAVING_IN_PROGRESS);
-			classificationRepository.save(classification);
+			if (classification.getInferredRelationshipChangesFound()) {
+				classification.setStatus(SAVING_IN_PROGRESS);
+				classificationRepository.save(classification);
 
-			try {
-				// Commit in auto-close try block like this will roll back if an exception is thrown
-				try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Saving classification " + classification.getId()))) {
-					commit.getBranch().getMetadata().put(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY, "true");
+				try {
+					// Commit in auto-close try block like this will roll back if an exception is thrown
+					try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Saving classification " + classification.getId()))) {
+						commit.getBranch().getMetadata().put(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY, "true");
 
-					NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-							.withQuery(termQuery("classificationId", classificationId))
-							.withSort(new FieldSortBuilder(RelationshipChange.Fields.SOURCE_ID))
-							.withSort(new FieldSortBuilder(RelationshipChange.Fields.GROUP))
-							.withSort(new FieldSortBuilder(RelationshipChange.Fields.SORT_NUMBER))// This gives a guaranteed sort order for a reliable stateless stream
-							.withPageable(LARGE_PAGE);
-					try (CloseableIterator<RelationshipChange> relationshipChangeStream = elasticsearchOperations.statelessStream(queryBuilder.build(), RelationshipChange.class)) {
-						while (relationshipChangeStream.hasNext()) {
-							List<RelationshipChange> changesBatch = new ArrayList<>();
-							int i = 0;
-							while (i++ < 10_000 && relationshipChangeStream.hasNext()) {
-								changesBatch.add(relationshipChangeStream.next());
+						NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+								.withQuery(termQuery("classificationId", classificationId))
+								.withSort(new FieldSortBuilder(RelationshipChange.Fields.SOURCE_ID))
+								.withSort(new FieldSortBuilder(RelationshipChange.Fields.GROUP))
+								.withSort(new FieldSortBuilder(RelationshipChange.Fields.SORT_NUMBER))// This gives a guaranteed sort order for a reliable stateless stream
+								.withPageable(LARGE_PAGE);
+						try (CloseableIterator<RelationshipChange> relationshipChangeStream = elasticsearchOperations.statelessStream(queryBuilder.build(), RelationshipChange.class)) {
+							while (relationshipChangeStream.hasNext()) {
+								List<RelationshipChange> changesBatch = new ArrayList<>();
+								int i = 0;
+								while (i++ < 10_000 && relationshipChangeStream.hasNext()) {
+									changesBatch.add(relationshipChangeStream.next());
+								}
+
+								// Group changes by concept
+								Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
+								for (RelationshipChange relationshipChange : changesBatch) {
+									conceptToChangeMap.computeIfAbsent(parseLong(relationshipChange.getSourceId()), conceptId -> new ArrayList<>()).add(relationshipChange);
+								}
+
+								// Load concepts
+								Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet(), Config.DEFAULT_LANGUAGE_DIALECTS);
+
+								// Apply changes to concepts
+								for (Concept concept : concepts) {
+									List<RelationshipChange> relationshipChanges = conceptToChangeMap.get(concept.getConceptIdAsLong());
+									applyRelationshipChangesToConcept(concept, relationshipChanges, false);
+								}
+
+								// Update concepts
+								conceptService.updateWithinCommit(concepts, commit);
 							}
-
-							// Group changes by concept
-							Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
-							for (RelationshipChange relationshipChange : changesBatch) {
-								conceptToChangeMap.computeIfAbsent(parseLong(relationshipChange.getSourceId()), conceptId -> new ArrayList<>()).add(relationshipChange);
-							}
-
-							// Load concepts
-							Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet(), Config.DEFAULT_LANGUAGE_DIALECTS);
-
-							// Apply changes to concepts
-							for (Concept concept : concepts) {
-								List<RelationshipChange> relationshipChanges = conceptToChangeMap.get(concept.getConceptIdAsLong());
-								applyRelationshipChangesToConcept(concept, relationshipChanges, false);
-							}
-
-							// Update concepts
-							conceptService.updateWithinCommit(concepts, commit);
 						}
+
+						commit.getBranch().getMetadata().remove(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY);
+						commit.markSuccessful();
+						classification.setStatus(SAVED);
+						classification.setSaveDate(new Date());
 					}
-
-					commit.getBranch().getMetadata().remove(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY);
-					commit.markSuccessful();
-					classification.setStatus(SAVED);
-					classification.setSaveDate(new Date());
+				} catch (ServiceException e) {
+					classification.setStatus(SAVE_FAILED);
+					logger.error("Classification save failed {} {}", classification.getPath(), classificationId, e);
 				}
-			} catch (ServiceException e) {
-				classification.setStatus(SAVE_FAILED);
-				logger.error("Classification save failed {} {}", classification.getPath(), classificationId, e);
+			} else {
+				classification.setStatus(SAVED);
 			}
-		} else {
-			classification.setStatus(SAVED);
-		}
 
-		classificationRepository.save(classification);
+			classificationRepository.save(classification);
+		} finally {
+			SecurityContextHolder.clearContext();
+		}
 	}
 
 	public Classification classificationSaveStatusCheck(String path, String classificationId) {

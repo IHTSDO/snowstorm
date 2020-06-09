@@ -475,6 +475,8 @@ public class ConceptService extends ComponentService {
 			batchConceptChange.setStatus(AsyncConceptChangeBatch.Status.FAILED);
 			batchConceptChange.setMessage(e.getMessage());
 			logger.error("Batch concept change failed, id:{}, branch:{}", batchConceptChange.getId(), path, e);
+		} finally {
+			SecurityContextHolder.clearContext();
 		}
 	}
 
