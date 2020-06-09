@@ -29,6 +29,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.annotation.web.configurers.ExpressionUrlAuthorizationConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -144,7 +145,6 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 	@Override
 	protected void configure(HttpSecurity http) throws Exception {
-		http.sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS);
 		http.csrf().disable();
 
 		if (restApiReadOnly) {
@@ -238,16 +238,16 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	}
 
 	@Bean
-	public FilterRegistrationBean getSingleSignOnFilter() {
-		FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean<>(
+	public FilterRegistrationBean<RequestHeaderAuthenticationDecorator> getSingleSignOnFilter() {
+		FilterRegistrationBean<RequestHeaderAuthenticationDecorator> filterRegistrationBean = new FilterRegistrationBean<>(
 				new RequestHeaderAuthenticationDecorator());
 		filterRegistrationBean.setOrder(1);
 		return filterRegistrationBean;
 	}
 
 	@Bean
-	public FilterRegistrationBean getRequiredRoleFilter(@Value("${ims-security.required-role}") String requiredRole) {
-		FilterRegistrationBean filterRegistrationBean = new FilterRegistrationBean<>(
+	public FilterRegistrationBean<RequestHeaderAuthenticationDecoratorWithRequiredRole> getRequiredRoleFilter(@Value("${ims-security.required-role}") String requiredRole) {
+		FilterRegistrationBean<RequestHeaderAuthenticationDecoratorWithRequiredRole> filterRegistrationBean = new FilterRegistrationBean<>(
 				new RequestHeaderAuthenticationDecoratorWithRequiredRole(requiredRole)
 						.addExcludedPath("/webjars/springfox-swagger-ui")
 		);
