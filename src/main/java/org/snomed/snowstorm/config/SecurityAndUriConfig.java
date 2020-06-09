@@ -113,7 +113,9 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 				"/(.*)/authoring-stats.*",
 				"/mrcm/(.*)/domain-attributes",
 				"/mrcm/(.*)/attribute-values.*",
-				"/admin/(.*)/actions/.*"
+				"/admin/(.*)/actions/.*",
+				"/admin/permissions/(.*)/role/.*",
+				"/admin/permissions/(.*)"
 		));
 	}
 
