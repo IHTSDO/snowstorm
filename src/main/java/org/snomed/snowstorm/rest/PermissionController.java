@@ -6,7 +6,6 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.security.PermissionRecord;
 import org.snomed.snowstorm.core.data.services.PermissionService;
-import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.snomed.snowstorm.rest.pojo.UserGroupsPojo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
