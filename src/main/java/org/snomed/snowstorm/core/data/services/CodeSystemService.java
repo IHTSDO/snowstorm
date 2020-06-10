@@ -27,6 +27,7 @@ import org.snomed.snowstorm.core.util.LangUtil;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -240,7 +241,8 @@ public class CodeSystemService {
 		return codeSystems;
 	}
 
-	public List<String> findAllCodeSystemBranches() {
+	@Cacheable("code-system-branches")
+	public List<String> findAllCodeSystemBranchesUsingCache() {
 		return repository.findAll(PageRequest.of(0, 1000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent().stream().map(CodeSystem::getBranchPath).sorted().collect(Collectors.toList());
 	}
 
