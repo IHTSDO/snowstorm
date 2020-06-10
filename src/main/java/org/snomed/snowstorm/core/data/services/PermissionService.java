@@ -4,7 +4,6 @@ import io.kaicode.elasticvc.domain.Branch;
 import org.snomed.snowstorm.core.data.domain.security.PermissionRecord;
 import org.snomed.snowstorm.core.data.domain.security.Role;
 import org.snomed.snowstorm.core.data.repositories.PermissionRecordRepository;
-import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -24,13 +23,16 @@ public class PermissionService {
 	private static final Sort SORT = Sort.by(
 			Sort.Order.desc(PermissionRecord.Fields.GLOBAL), Sort.Order.asc(PermissionRecord.Fields.PATH), Sort.Order.asc(PermissionRecord.Fields.ROLE));
 
-	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 10_000, SORT);
+	protected static final PageRequest PAGE_REQUEST = PageRequest.of(0, 10_000, SORT);
 
 	@Autowired
 	private CodeSystemService codeSystemService;
 
 	@Autowired
 	private PermissionRecordRepository repository;
+
+	@Autowired
+	private PermissionServiceCache permissionServiceCache;
 
 	private @Value("${permission.admin.group}") String adminUserGroup;
 
@@ -57,20 +59,9 @@ public class PermissionService {
 			return Collections.emptySet();
 		}
 
-		TimerUtil timer = new TimerUtil("PermissionLoad");
-		// TODO: cache this
-		List<PermissionRecord> allPermissionRecords = findAll();
-		timer.checkpoint("load records");
-		// TODO: cache this
-		List<String> codeSystemBranches = codeSystemService.findAllCodeSystemBranches();
-		timer.checkpoint("load code systems");
-
-		Set<String> grantedBranchRole = getUserRolesForBranch(branchPath, allPermissionRecords, codeSystemBranches, securityContext.getAuthentication());
-
-		timer.checkpoint("filter records");
-		timer.finish();
-
-		return grantedBranchRole;
+		List<PermissionRecord> allPermissionRecords = permissionServiceCache.findAllUsingCache();
+		List<String> codeSystemBranches = codeSystemService.findAllCodeSystemBranchesUsingCache();
+		return getUserRolesForBranch(branchPath, allPermissionRecords, codeSystemBranches, securityContext.getAuthentication());
 	}
 
 	Set<String> getUserRolesForBranch(String branchPath, List<PermissionRecord> allPermissionRecords, List<String> codeSystemBranches, Authentication authentication) {

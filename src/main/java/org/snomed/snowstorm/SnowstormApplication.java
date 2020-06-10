@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
+import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jms.annotation.EnableJms;
@@ -28,6 +29,7 @@ import java.util.List;
 @EnableSwagger2
 @EnableJms
 @EnableScheduling
+@EnableCaching
 public class SnowstormApplication extends Config implements ApplicationRunner {
 
 	private static final String DELETE_INDICES_FLAG = "delete-indices";
