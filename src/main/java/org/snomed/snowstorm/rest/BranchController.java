@@ -27,6 +27,7 @@ import javax.validation.constraints.NotNull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
@@ -50,6 +51,9 @@ public class BranchController {
 
 	@Autowired
 	private IntegrityService integrityService;
+
+	@Autowired
+	private PermissionService permissionService;
 
 	@ApiOperation("Retrieve all branches")
 	@RequestMapping(value = "/branches", method = RequestMethod.GET)
@@ -79,7 +83,8 @@ public class BranchController {
 	}
 
 	private BranchPojo getBranchPojo(Branch branch) {
-		return new BranchPojo(branch, branchMetadataHelper.expandObjectValues(branch.getMetadata()));
+		Set<String> userRoles = permissionService.getUserRolesForBranch(branch.getPath());
+		return new BranchPojo(branch, branchMetadataHelper.expandObjectValues(branch.getMetadata()), userRoles);
 	}
 
 	@ApiOperation("Update branch metadata")

@@ -9,7 +9,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 
-@JsonPropertyOrder(value = {"path", "state", "containsContent", "locked", "creation", "base", "head",
+@JsonPropertyOrder(value = {"path", "state", "userRoles", "containsContent", "locked", "creation", "base", "head",
 		"creationTimestamp", "baseTimestamp", "headTimestamp", "metadata", "versionsReplacedCounts"})
 public abstract class BranchMixIn {
 

@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.domain.security;
 
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
+import com.google.common.collect.Sets;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -86,5 +87,10 @@ public class PermissionRecord {
 
 	public void setUserGroups(Set<String> userGroups) {
 		this.userGroups = userGroups;
+	}
+
+	public PermissionRecord withUserGroups(String... userGroups) {
+		this.userGroups = Sets.newHashSet(userGroups);
+		return this;
 	}
 }
