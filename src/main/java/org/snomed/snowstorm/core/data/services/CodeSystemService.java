@@ -240,6 +240,10 @@ public class CodeSystemService {
 		return codeSystems;
 	}
 
+	public List<String> findAllCodeSystemBranches() {
+		return repository.findAll(PageRequest.of(0, 1000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent().stream().map(CodeSystem::getBranchPath).sorted().collect(Collectors.toList());
+	}
+
 	private void joinContentInformation(List<CodeSystem> codeSystems) {
 		for (CodeSystem codeSystem : codeSystems) {
 			String branchPath = codeSystem.getBranchPath();

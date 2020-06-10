@@ -10,10 +10,12 @@ public class BranchPojo {
 
 	private final Branch branch;
 	private final Map<String, Object> metadata;
+	private final Set<String> userRoles;
 
-	public BranchPojo(Branch branch, Map<String, Object> metadata) {
+	public BranchPojo(Branch branch, Map<String, Object> metadata, Set<String> userRoles) {
 		this.branch = branch;
 		this.metadata = metadata;
+		this.userRoles = userRoles;
 	}
 
 	public String getPath() {
@@ -66,5 +68,9 @@ public class BranchPojo {
 
 	public Map<String, Integer> getVersionsReplacedCounts() {
 		return branch.getVersionsReplacedCounts();
+	}
+
+	public Set<String> getUserRoles() {
+		return userRoles;
 	}
 }
