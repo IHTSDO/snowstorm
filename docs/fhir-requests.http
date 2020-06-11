@@ -71,14 +71,14 @@ GET {{baseUrl}}/ValueSet/$expand
 GET {{baseUrl}}/ValueSet/$validate-code
     ?url=http://snomed.info/sct
     ?fhir_vs=ecl/<<34014006 |Viral disease|
-    &coding=http://snomed.info/sct|840539006
+    &code=840539006
     &display=COVID-19
 
 #### Validate a code against an implicit valueset expanded against a specific SNOMED release
 GET {{baseUrl}}/ValueSet/$validate-code
     ?url=http://snomed.info/sct/900000000000207008/version/20200309
     ?fhir_vs=ecl/<<34014006 |Viral disease|
-    &coding=http://snomed.info/sct|840539006
+    &code=840539006
 
 
 #### Refset - list all SNOMED concepts mapped to ICD-O  (ECL here is ^446608001 |ICD-O simple map reference set (foundation metadata concept)|)
