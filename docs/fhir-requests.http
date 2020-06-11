@@ -50,8 +50,8 @@ GET {{baseUrl}}/ValueSet/$expand
 
 #### Expansion of an intensionally defined value set using ISA
 GET {{baseUrl}}/ValueSet/$expand
-    ?url=http://snomed.info/sct?
-    fhir_vs=isa/27624003
+    ?url=http://snomed.info/sct
+    ?fhir_vs=isa/27624003
 
 #### Expansion of an intensional value set against the Swedish Edition, including synonyms
 GET {{baseUrl}}/ValueSet/$expand
