@@ -42,7 +42,7 @@ public class CodeSystemUpgradeService {
 	private  IntegrityService integrityService;
 
 	@Autowired
-	private InactivationUpgradeService inactivationUpgradeService;
+	private UpgradeInactivationService upgradeInactivationService;
 
 	@Autowired
 	private BranchMetadataHelper branchMetadataHelper;
@@ -94,8 +94,9 @@ public class CodeSystemUpgradeService {
 
 			if (!dailyBuildAvailable && !isReadOnly) {
 				logger.info("Running inactivation update");
-				inactivationUpgradeService.findAndUpdateDescriptionsInactivation(codeSystem);
-				inactivationUpgradeService.findAndUpdateLanguageRefsets(codeSystem);
+				upgradeInactivationService.findAndUpdateDescriptionsInactivation(codeSystem);
+				upgradeInactivationService.findAndUpdateLanguageRefsets(codeSystem);
+				upgradeInactivationService.findAndUpdateAdditionalAxioms(codeSystem);
 				logger.info("Completed inactivation update");
 			}
 

@@ -7,6 +7,7 @@ import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -17,8 +18,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.CLAUSE_LIMIT;
@@ -27,7 +27,7 @@ import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.*;
 import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE;
 
 @Service
-public class InactivationUpgradeService {
+public class UpgradeInactivationService {
 
 	@Autowired
 	private BranchService branchService;
@@ -175,6 +175,72 @@ public class InactivationUpgradeService {
 			}
 		}
 		logger.info("Completed language reference set auto inactivation for code system {} on branch {}", codeSystem.getShortName(), codeSystem.getBranchPath());
+	}
+
+	public void findAndUpdateAdditionalAxioms(CodeSystem codeSystem) {
+		logger.info("Start additional axioms auto inactivation for code system {} on branch {}", codeSystem.getShortName(), codeSystem.getBranchPath());
+		// find active axioms changed on extension MAIN branch
+		Map<Long, List<ReferenceSetMember>> conceptToAxiomsMap = new HashMap<>();
+		BranchCriteria changesOnBranchCriteria = versionControlHelper.getChangesOnBranchCriteria(codeSystem.getBranchPath());
+		NativeSearchQueryBuilder activeAxiomsQueryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(changesOnBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET)))
+				.withPageable(ComponentService.LARGE_PAGE);
+		try (CloseableIterator<ReferenceSetMember> activeAxioms = elasticsearchTemplate.stream(activeAxiomsQueryBuilder.build(), ReferenceSetMember.class)) {
+			activeAxioms.forEachRemaining(axiom -> conceptToAxiomsMap.computeIfAbsent(new Long(axiom.getReferencedComponentId()), axioms -> new ArrayList<>()).add(axiom));
+		}
+
+		// check referenced components are still active
+		if (conceptToAxiomsMap.isEmpty()) {
+			return;
+		}
+		Set<Long> activeConceptIds = new LongOpenHashSet();
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(codeSystem.getBranchPath());
+		NativeSearchQueryBuilder activeConceptsQueryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termQuery(Concept.Fields.ACTIVE, true))
+						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptToAxiomsMap.keySet()))
+				)
+				.withFields(Concept.Fields.CONCEPT_ID)
+				.withPageable(ComponentService.LARGE_PAGE);
+		try (CloseableIterator<Concept> activeConcepts = elasticsearchTemplate.stream(activeConceptsQueryBuilder.build(), Concept.class)) {
+			activeConcepts.forEachRemaining(concept -> activeConceptIds.add(concept.getConceptIdAsLong()));
+		}
+
+		// inactivate additional axioms for publish components and delete for unpublished.
+		List<ReferenceSetMember> toInactivate = new ArrayList<>();
+		List<ReferenceSetMember> toDelete = new ArrayList<>();
+		for (Long conceptId : conceptToAxiomsMap.keySet()) {
+			if (!activeConceptIds.contains(conceptId)) {
+				for (ReferenceSetMember axiom : conceptToAxiomsMap.get(conceptId)) {
+					if (axiom.isReleased()) {
+						axiom.setActive(false);
+						axiom.markChanged();
+						toInactivate.add(axiom);
+					} else {
+						axiom.markDeleted();
+						toDelete.add(axiom);
+					}
+				}
+			}
+		}
+		logger.info("{} published additional axioms are to be inactivated: {}",
+				toInactivate.size(), toInactivate.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList()));
+		logger.info("{} unpublished additional axioms are to be deleted: {}",
+				toDelete.size(), toDelete.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList()));
+		List<ReferenceSetMember> toSave = new ArrayList<>();
+		toSave.addAll(toInactivate);
+		toSave.addAll(toDelete);
+		if (!toSave.isEmpty()) {
+			try (Commit commit = branchService.openCommit(codeSystem.getBranchPath(), branchMetadataHelper.getBranchLockMetadata("additional axioms updating during upgrade"))) {
+				conceptUpdateHelper.doSaveBatchComponents(toSave, ReferenceSetMember.class, commit);
+				commit.markSuccessful();
+			}
+		}
+		logger.info("Completed additional axioms auto inactivation for code system {} on branch {}", codeSystem.getShortName(), codeSystem.getBranchPath());
 	}
 
 	private void removeOrInactivate(ReferenceSetMember member, List<ReferenceSetMember> toDelete, List<ReferenceSetMember> toInactivate) {
