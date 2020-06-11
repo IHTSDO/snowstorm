@@ -27,7 +27,6 @@ public class MRCMController {
 	@ApiOperation(value = "Retrieve MRCM domain attributes applicable for the given stated parents.",
 			notes = "The parentIds must be the set ids of stated parents. If creating post-coordinated expressions be sure to set the content type to POSTCOORDINATED.")
 	@RequestMapping(value = "/mrcm/{branch}/domain-attributes", method = RequestMethod.GET)
-	@ResponseBody
 	public ItemsPage<ConceptMini> retrieveDomainAttributes(
 			@PathVariable String branch,
 			@RequestParam(required = false) Set<Long> parentIds,
@@ -41,7 +40,6 @@ public class MRCMController {
 
 	@ApiOperation("Retrieve valid values for the given attribute and term prefix.")
 	@RequestMapping(value = "/mrcm/{branch}/attribute-values/{attributeId}", method = RequestMethod.GET)
-	@ResponseBody
 	public ItemsPage<ConceptMini> retrieveAttributeValues(
 			@PathVariable String branch,
 			@RequestParam(required = false, defaultValue = "NEW_PRECOORDINATED") ContentType contentType,

@@ -22,14 +22,12 @@ public class AuthoringStatsController {
 
 	@ApiOperation(value = "Calculate statistics for unreleased/unversioned content to be used in daily build browser.", notes = "Does not work on versioned content.")
 	@RequestMapping(value = "{branch}/authoring-stats", method = RequestMethod.GET, produces = "application/json")
-	@ResponseBody
 	public AuthoringStatsSummary getStats(@PathVariable String branch) {
 		branch = BranchPathUriUtil.decodePath(branch);
 		return authoringStatsService.getStats(branch);
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/new-concepts", method = RequestMethod.GET, produces = "application/json")
-	@ResponseBody
 	public List<ConceptMicro> getNewConcepts(
 			@PathVariable String branch,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -38,7 +36,6 @@ public class AuthoringStatsController {
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/inactivated-concepts", method = RequestMethod.GET, produces = "application/json")
-	@ResponseBody
 	public List<ConceptMicro> getInactivatedConcepts(
 			@PathVariable String branch,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -47,7 +44,6 @@ public class AuthoringStatsController {
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/reactivated-concepts", method = RequestMethod.GET, produces = "application/json")
-	@ResponseBody
 	public List<ConceptMicro> getReactivatedConcepts(
 			@PathVariable String branch,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -56,7 +52,6 @@ public class AuthoringStatsController {
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/changed-fully-specified-names", method = RequestMethod.GET, produces = "application/json")
-	@ResponseBody
 	public List<ConceptMicro> getChangedFSNs(
 			@PathVariable String branch,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -65,19 +60,16 @@ public class AuthoringStatsController {
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/inactivated-synonyms", method = RequestMethod.GET, produces = "application/json")
-	@ResponseBody
 	public List<ConceptMicro> getInactivatedSynonyms(@PathVariable String branch) {
 		return authoringStatsService.getInactivatedSynonyms(BranchPathUriUtil.decodePath(branch));
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/new-synonyms-on-existing-concepts", method = RequestMethod.GET, produces = "application/json")
-	@ResponseBody
 	public List<ConceptMicro> getNewSynonymsOnExistingConcepts(@PathVariable String branch) {
 		return authoringStatsService.getNewSynonymsOnExistingConcepts(BranchPathUriUtil.decodePath(branch));
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/reactivated-synonyms", method = RequestMethod.GET, produces = "application/json")
-	@ResponseBody
 	public List<ConceptMicro> getReactivatedSynonyms(@PathVariable String branch) {
 		return authoringStatsService.getReactivatedSynonyms(BranchPathUriUtil.decodePath(branch));
 	}

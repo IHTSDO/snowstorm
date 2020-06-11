@@ -53,7 +53,6 @@ public class CodeSystemController {
 					"otherwise these are sorted by the number of active translated terms. " +
 					"defaultLanguageReferenceSet has no effect on the API but can be used by browsers to reflect extension preferences. ")
 	@RequestMapping(method = RequestMethod.POST)
-	@ResponseBody
 	public ResponseEntity<Void> createCodeSystem(@RequestBody CodeSystemCreate codeSystem) {
 		codeSystemService.createCodeSystem((CodeSystem) codeSystem);
 		return ControllerHelper.getCreatedResponse(codeSystem.getShortName());
@@ -61,21 +60,18 @@ public class CodeSystemController {
 
 	@ApiOperation("Retrieve all code systems")
 	@RequestMapping(method = RequestMethod.GET)
-	@ResponseBody
 	public ItemsPage<CodeSystem> findAll() {
 		return new ItemsPage<>(codeSystemService.findAll());
 	}
 
 	@ApiOperation("Retrieve a code system")
 	@RequestMapping(value = "/{shortName}", method = RequestMethod.GET)
-	@ResponseBody
 	public CodeSystem findCodeSystem(@PathVariable String shortName) {
 		return ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName));
 	}
 
 	@ApiOperation("Update a code system")
 	@RequestMapping(value = "/{shortName}", method = RequestMethod.PUT)
-	@ResponseBody
 	public CodeSystem updateCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpdateRequest updateRequest) {
 		CodeSystem codeSystem = findCodeSystem(shortName);
 		codeSystemService.update(codeSystem, updateRequest);
@@ -84,7 +80,6 @@ public class CodeSystemController {
 
 	@ApiOperation(value = "Delete a code system", notes = "This function deletes the code system and its versions but it does not delete the branches or the content.")
 	@RequestMapping(value = "/{shortName}", method = RequestMethod.DELETE)
-	@ResponseBody
 	public void deleteCodeSystem(@PathVariable String shortName) {
 		CodeSystem codeSystem = findCodeSystem(shortName);
 		codeSystemService.deleteCodeSystemAndVersions(codeSystem);
@@ -92,14 +87,12 @@ public class CodeSystemController {
 
 	@ApiOperation("Retrieve all code system versions")
 	@RequestMapping(value = "/{shortName}/versions", method = RequestMethod.GET)
-	@ResponseBody
 	public ItemsPage<CodeSystemVersion> findAllVersions(@PathVariable String shortName, @RequestParam(required = false) Boolean showFutureVersions) {
 		return new ItemsPage<>(codeSystemService.findAllVersions(shortName, showFutureVersions));
 	}
 
 	@ApiOperation("Create a new code system version")
 	@RequestMapping(value = "/{shortName}/versions", method = RequestMethod.POST)
-	@ResponseBody
 	public ResponseEntity<Void> createVersion(@PathVariable String shortName, @RequestBody CreateCodeSystemVersionRequest input) {
 		CodeSystem codeSystem = codeSystemService.find(shortName);
 		ControllerHelper.throwIfNotFound("CodeSystem", codeSystem);
@@ -117,7 +110,6 @@ public class CodeSystemController {
 					"_newDependantVersion_ uses the same format as the effectiveTime RF2 field, for example '20190731'. \n\n" +
 					"An integrity check should be run after this operation to find content that needs fixing. ")
 	@RequestMapping(value = "/{shortName}/upgrade", method = RequestMethod.POST)
-	@ResponseBody
 	public void upgradeCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpgradeRequest request) throws ServiceException {
 		codeSystemUpgradeService.upgrade(shortName, request.getNewDependantVersion());
 	}
@@ -127,7 +119,6 @@ public class CodeSystemController {
 					"This operation is required when an extension exists under an International version branch, for example: MAIN/2019-01-31/SNOMEDCT-BE. " +
 					"An integrity check should be run after this operation to find content that needs fixing.")
 	@RequestMapping(value = "/{shortName}/migrate", method = RequestMethod.POST)
-	@ResponseBody
 	public void migrateCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemMigrationRequest request) throws ServiceException {
 		CodeSystem codeSystem = codeSystemService.find(shortName);
 		ControllerHelper.throwIfNotFound("CodeSystem", codeSystem);
@@ -139,7 +130,6 @@ public class CodeSystemController {
 			notes = "If you have a daily build set up for a code system this operation should be used to revert/rollback the daily build content " +
 					"before importing any versioned content. Be sure to disable the daily build too.")
 	@RequestMapping(value = "/{shortName}/daily-build/rollback", method = RequestMethod.POST)
-	@ResponseBody
 	public void rollbackDailyBuildContent(@PathVariable String shortName) {
 		if (dailyBuildEnabled) {
 			CodeSystem codeSystem = codeSystemService.find(shortName);
@@ -154,7 +144,6 @@ public class CodeSystemController {
 					"When completeCopy flag is set to false, only the changes from the latest international release will be copied/updated in the extension module. " +
 					"Currently you only need to run this when upgrading SNOMEDCT-IE and SNOMEDCT-NZ")
 	@RequestMapping(value = "/{shortName}/additional-en-language-refset-delta", method = RequestMethod.POST)
-	@ResponseBody
 	public void generateAdditionalLanguageRefsetDelta(@PathVariable String shortName,
 													  @RequestParam String branchPath,
 													  @ApiParam("The language refset to copy from e.g 900000000000508004 | Great Britain English language reference set (foundation metadata concept) ")

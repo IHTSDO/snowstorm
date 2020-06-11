@@ -45,7 +45,6 @@ public class RelationshipController {
 	}
 
 	@RequestMapping(value = "{branch}/relationships", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<Relationship> findRelationships(@PathVariable String branch,
 			@RequestParam(required = false) Boolean active,
@@ -98,7 +97,6 @@ public class RelationshipController {
 	}
 
 	@RequestMapping(value = "{branch}/relationships/{relationshipId}", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Relationship fetchRelationship(
 			@PathVariable String branch,
@@ -114,7 +112,6 @@ public class RelationshipController {
 
 	@ApiOperation(value = "Delete a relationship.")
 	@RequestMapping(value = "{branch}/relationships/{relationshipId}", method = RequestMethod.DELETE)
-	@ResponseBody
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteRelationship(
 			@PathVariable String branch,
@@ -127,7 +124,6 @@ public class RelationshipController {
 
 	@ApiOperation(value = "Batch delete relationships.")
 	@RequestMapping(value = "{branch}/relationships", method = RequestMethod.DELETE)
-	@ResponseBody
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteRelationships(
 			@PathVariable String branch,

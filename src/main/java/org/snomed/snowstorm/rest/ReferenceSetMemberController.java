@@ -52,7 +52,6 @@ public class ReferenceSetMemberController {
 
 	@ApiOperation("Search for reference set ids.")
 	@RequestMapping(value = "/browser/{branch}/members", method = RequestMethod.GET)
-	@ResponseBody
 	public RefSetMemberPageWithBucketAggregations<ReferenceSetMember> findBrowserReferenceSetMembersWithAggregations(
 			@PathVariable String branch,
 			@ApiParam("A reference set identifier or ECL expression can be used to limit the reference sets searched. Example: <723564002")
@@ -112,7 +111,6 @@ public class ReferenceSetMemberController {
 
 	@ApiOperation("Search for reference set members.")
 	@RequestMapping(value = "/{branch}/members", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
 			@ApiParam("A reference set identifier or ECL expression can be used to limit the reference sets searched. Example: <723564002")
@@ -159,7 +157,6 @@ public class ReferenceSetMemberController {
 
 
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMember fetchMember(@PathVariable String branch,
 			@PathVariable String uuid,
@@ -173,7 +170,6 @@ public class ReferenceSetMemberController {
 
 	@ApiOperation("Create a reference set member.")
 	@RequestMapping(value = "/{branch}/members", method = RequestMethod.POST)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMemberView createMember(@PathVariable String branch, @RequestBody @Valid ReferenceSetMemberView member) {
 		ControllerHelper.requiredParam(member.getReferencedComponentId(), "referencedComponentId");
@@ -183,7 +179,6 @@ public class ReferenceSetMemberController {
 
 	@ApiOperation("Update a reference set member.")
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.PUT)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMemberView updateMember(@PathVariable String branch,
 												 @PathVariable String uuid,

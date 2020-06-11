@@ -22,7 +22,6 @@ public class PermissionController {
 
 	@ApiOperation(value = "Retrieve all permissions", notes = "List all roles and user groups set at the global level and set against each branch.")
 	@RequestMapping(method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public List<PermissionRecord> findAll() {
 		return permissionService.findAll();
@@ -30,7 +29,6 @@ public class PermissionController {
 
 	@ApiOperation(value = "Retrieve all global permissions", notes = "List roles and user groups set at the global level.")
 	@RequestMapping(value = "/global", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public List<PermissionRecord> findGlobal() {
 		return permissionService.findGlobal();
@@ -38,7 +36,6 @@ public class PermissionController {
 
 	@ApiOperation(value = "Retrieve all permissions on given branch", notes = "List roles and user groups for a specific branch.")
 	@RequestMapping(value = "/{branch}", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public List<PermissionRecord> findForBranch(@PathVariable String branch) {
 		branch = BranchPathUriUtil.decodePath(branch);
