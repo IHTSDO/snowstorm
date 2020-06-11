@@ -73,7 +73,6 @@ public class ConceptController {
 	private boolean allowUnlimitedConceptPagination;
 
 	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
-	@ResponseBody
 	public ItemsPage<ConceptMini> findConcepts(
 			@PathVariable String branch,
 			@RequestParam(required = false) Boolean activeFilter,
@@ -142,7 +141,6 @@ public class ConceptController {
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
-	@ResponseBody
 	public ConceptMini findConcept(
 			@PathVariable String branch,
 			@PathVariable String conceptId,
@@ -156,7 +154,6 @@ public class ConceptController {
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST, produces = {"application/json", "text/csv"})
-	@ResponseBody
 	public ItemsPage<ConceptMini> search(
 			@PathVariable String branch,
 			@RequestBody ConceptSearchRequest searchRequest,
@@ -185,7 +182,6 @@ public class ConceptController {
 					"Load the first page then take the 'searchAfter' value from the response and use that " +
 					"as a parameter in the next page request instead of 'number'.")
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<Concept> getBrowserConcepts(
 			@PathVariable String branch,
@@ -214,7 +210,6 @@ public class ConceptController {
 	}
 
 	@RequestMapping(value = "/browser/{branch}/concepts/bulk-load", method = RequestMethod.POST)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Collection<Concept> getBrowserConcepts(
 			@PathVariable String branch,
@@ -238,7 +233,6 @@ public class ConceptController {
 			notes = "During content authoring previous versions of the concept can be loaded from version control.\n" +
 					"To do this use the branch path format {branch@" + BranchTimepoint.DATE_FORMAT_STRING + "} or {branch@epoch_milliseconds}.\n" +
 					"The version of the concept when the branch was created can be loaded using {branch@" + BRANCH_CREATION_TIMEPOINT + "}.")
-	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public ConceptView findBrowserConcept(
@@ -257,7 +251,6 @@ public class ConceptController {
 		return ControllerHelper.throwIfNotFound("Concept", concept);
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descriptions", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public ConceptDescriptionsResult findConceptDescriptions(
@@ -269,7 +262,6 @@ public class ConceptController {
 		return new ConceptDescriptionsResult(concept.getDescriptions());
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descendants", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ConceptMini> findConceptDescendants(@PathVariable String branch,
@@ -286,7 +278,6 @@ public class ConceptController {
 		return findConcepts(branch, null, null, null, null, null, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, offset, limit, null, acceptLanguageHeader);
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/inbound-relationships", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public InboundRelationshipsResult findConceptInboundRelationships(@PathVariable String branch, @PathVariable String conceptId) {
@@ -296,7 +287,6 @@ public class ConceptController {
 
 	@ApiOperation(value = "Find concepts which reference this concept in the inferred or stated form (including stated axioms).",
 			notes = "Pagination works on the referencing concepts. A referencing concept may have one or more references of different types.")
-	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/references", method = RequestMethod.GET)
 	public ConceptReferencesResult findConceptReferences(
 			@PathVariable String branch,
@@ -330,7 +320,6 @@ public class ConceptController {
 		return new ConceptReferencesResult(typeSets, conceptReferencesPage.getPageable(), conceptReferencesPage.getTotalElements());
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.PUT)
 	@JsonView(value = View.Component.class)
 	public ConceptView updateConcept(
@@ -344,7 +333,6 @@ public class ConceptController {
 		return conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.POST)
 	@JsonView(value = View.Component.class)
 	public ConceptView createConcept(
@@ -365,7 +353,6 @@ public class ConceptController {
 	}
 
 	@ApiOperation(value = "Start a bulk concept change.", notes = "Concepts can be created or updated using this endpoint.")
-	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/bulk", method = RequestMethod.POST)
 	public ResponseEntity createConceptBulkChange(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts, UriComponentsBuilder uriComponentsBuilder) {
 		List<Concept> conceptList = new ArrayList<>();
@@ -378,13 +365,11 @@ public class ConceptController {
 	}
 
 	@ApiOperation("Fetch the status of a bulk concept creation or update.")
-	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/bulk/{bulkChangeId}", method = RequestMethod.GET)
 	public AsyncConceptChangeBatch getConceptBulkChange(@PathVariable String branch, @PathVariable String bulkChangeId) {
 		return ControllerHelper.throwIfNotFound("Bulk Change", conceptService.getBatchConceptChange(bulkChangeId));
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/children", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptChildren(@PathVariable String branch,
@@ -412,7 +397,6 @@ public class ConceptController {
 		return children;
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/parents", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptParents(@PathVariable String branch,
@@ -433,7 +417,6 @@ public class ConceptController {
 		return parents;
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/ancestors", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptAncestors(@PathVariable String branch,
@@ -445,7 +428,6 @@ public class ConceptController {
 		return findConceptsWithECL(">" + conceptId, form == Relationship.CharacteristicType.stated, branch, acceptLanguageHeader, 0, LARGE_PAGE.getPageSize()).getItems();
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/authoring-form", method = RequestMethod.GET)
 	public Expression getConceptAuthoringForm(
 			@PathVariable String branch,
@@ -455,7 +437,6 @@ public class ConceptController {
 		return expressionService.getConceptAuthoringForm(conceptId, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
 	}
 	
-	@ResponseBody
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/normal-form", method = RequestMethod.GET)
 	public ExpressionStringPojo getConceptNormalForm(
 			@PathVariable String branch,

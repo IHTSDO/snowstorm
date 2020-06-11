@@ -31,21 +31,18 @@ public class ClassificationController {
 
 	@ApiOperation("Retrieve classifications on a branch")
 	@RequestMapping(method = RequestMethod.GET)
-	@ResponseBody
 	public ItemsPage<Classification> findClassifications(@PathVariable String branch) {
 		return new ItemsPage<>(classificationService.findClassifications(BranchPathUriUtil.decodePath(branch)));
 	}
 
 	@ApiOperation("Retrieve a classification on a branch")
 	@RequestMapping(value = "/{classificationId}", method = RequestMethod.GET)
-	@ResponseBody
 	public Classification findClassification(@PathVariable String branch, @PathVariable String classificationId) {
 		return classificationService.findClassification(BranchPathUriUtil.decodePath(branch), classificationId);
 	}
 
 	@ApiOperation("Retrieve relationship changes made by a classification run on a branch")
 	@RequestMapping(value = "/{classificationId}/relationship-changes", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
-	@ResponseBody
 	public ItemsPage<RelationshipChange> getRelationshipChanges(
 			@PathVariable String branch,
 			@PathVariable String classificationId,
@@ -69,7 +66,6 @@ public class ClassificationController {
 
 	@ApiOperation("Retrieve a preview of a concept with classification changes applied")
 	@RequestMapping(value = "/{classificationId}/concept-preview/{conceptId}", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ConceptView getConceptPreview(
 			@PathVariable String branch,
@@ -82,7 +78,6 @@ public class ClassificationController {
 
 	@ApiOperation("Retrieve equivalent concepts from a classification run on a branch")
 	@RequestMapping(value = "/{classificationId}/equivalent-concepts", method = RequestMethod.GET)
-	@ResponseBody
 	public ItemsPage<EquivalentConceptsResponse> getEquivalentConcepts(
 			@PathVariable String branch,
 			@PathVariable String classificationId,
@@ -96,7 +91,6 @@ public class ClassificationController {
 
 	@ApiOperation("Create a classification on a branch")
 	@RequestMapping(method = RequestMethod.POST)
-	@ResponseBody
 	public ResponseEntity createClassification(@PathVariable String branch,
 			@RequestParam(required = false, defaultValue = SnomedReasonerService.ELK_REASONER_FACTORY) String reasonerId,
 			UriComponentsBuilder uriComponentsBuilder) throws ServiceException {

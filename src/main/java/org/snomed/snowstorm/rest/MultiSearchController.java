@@ -43,7 +43,6 @@ public class MultiSearchController {
 
 	@ApiOperation("Search descriptions across multiple Code Systems.")
 	@RequestMapping(value = "multisearch/descriptions", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<BrowserDescriptionSearchResult> findDescriptions(
 			@RequestParam String term,// Required!
@@ -106,7 +105,6 @@ public class MultiSearchController {
 	
 	@ApiOperation("Search concepts across multiple Code Systems.")
 	@RequestMapping(value = "multisearch/concepts", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<ConceptMini> findConcepts(
 			@RequestParam(required = false) Set<String> conceptIds,

@@ -26,7 +26,6 @@ public class ImportController {
 	private ImportService importService;
 
 	@RequestMapping(method = RequestMethod.POST)
-	@ResponseBody
 	public ResponseEntity<Void> createImportJob(@RequestBody ImportCreationRequest importRequest) {
 		ControllerHelper.requiredParam(importRequest.getType(), "type");
 		ControllerHelper.requiredParam(importRequest.getBranchPath(), "branchPath");
@@ -38,7 +37,6 @@ public class ImportController {
 	}
 
 	@RequestMapping(value = "/release-patch", method = RequestMethod.POST)
-	@ResponseBody
 	public ResponseEntity<Void> createReleasePatchImportJob(@RequestBody ImportPatchCreationRequest importPatchRequest) {
 		ControllerHelper.requiredParam(importPatchRequest.getBranchPath(), "branchPath");
 		ControllerHelper.requiredParam(importPatchRequest.getPatchReleaseVersion(), "patchReleaseVersion");

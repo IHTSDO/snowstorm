@@ -62,7 +62,6 @@ public class AdminController {
 					"of all concepts can be updated based on the concept's axioms. " +
 					"You are unlikely to need this action.")
 	@RequestMapping(value = "/{branch}/actions/update-definition-statuses", method = RequestMethod.POST)
-	@ResponseBody
 	public void updateDefinitionStatuses(@PathVariable String branch) throws ServiceException {
 		definitionStatusUpdateService.updateAllDefinitionStatuses(BranchPathUriUtil.decodePath(branch));
 	}
@@ -71,7 +70,6 @@ public class AdminController {
 			notes = "You may need this action if you have used the branch merge operation to upgrade an extension " +
 					"which has donated content to the International Edition. The operation should be run on the extension branch.")
 	@RequestMapping(value = "/{branch}/actions/end-donated-content", method = RequestMethod.POST)
-	@ResponseBody
 	public Map<String, Object> endDonatedContent(@PathVariable String branch) {
 		Map<String, Object> response = new HashMap<>();
 		Map<Class, Set<String>> fixes = adminOperationsService.findAndEndDonatedContent(BranchPathUriUtil.decodePath(branch));
@@ -81,7 +79,6 @@ public class AdminController {
 
 	@ApiOperation(value = "Hide parent version of duplicate versions of components in version control.")
 	@RequestMapping(value = "/{branch}/actions/find-duplicate-hide-parent-version", method = RequestMethod.POST)
-	@ResponseBody
 	public Map<String, Object> findDuplicateAndHideParentVersion(@PathVariable String branch) {
 		Map<String, Object> response = new HashMap<>();
 		Map<Class, Set<String>> fixes = adminOperationsService.findDuplicateAndHideParentVersion(BranchPathUriUtil.decodePath(branch));
@@ -143,7 +140,6 @@ public class AdminController {
 	}
 
 	@RequestMapping(value = "/{branch}/actions/clone-child-branch", method = RequestMethod.POST)
-	@ResponseBody
 	public void cloneChildBranch(@PathVariable String branch, @RequestParam String newBranch) {
 		adminOperationsService.cloneChildBranch(BranchPathUriUtil.decodePath(branch), newBranch);
 	}
@@ -153,14 +149,12 @@ public class AdminController {
 					"If something has gone wrong when editing MRCM reference sets you can use this function to force updating the domain templates and attribute rules " +
 					"for all MRCM reference components.")
 	@RequestMapping(value = "/{branch}/actions/update-mrcm-domain-templates-and-attribute-rules", method = RequestMethod.POST)
-	@ResponseBody
 	public void updateMRCMDomainTemplatesAndAttributeRules(@PathVariable String branch) throws ServiceException {
 		mrcmUpdateService.updateAllDomainTemplatesAndAttributeRules(BranchPathUriUtil.decodePath(branch));
 	}
 
 	@ApiOperation("Find concepts in the semantic index which should not be there. The concept may be inactive or deleted. To catch and debug rare cases.")
 	@RequestMapping(value = "/{branch}/actions/find-extra-concepts-in-semantic-index", method = RequestMethod.POST)
-	@ResponseBody
 	public IntegrityService.ConceptsInForm findExtraConceptsInSemanticIndex(@PathVariable String branch) {
 		return integrityService.findExtraConceptsInSemanticIndex(BranchPathUriUtil.decodePath(branch));
 	}
@@ -170,7 +164,6 @@ public class AdminController {
 					"Makes a new commit on the specified branch. Will restore any deleted components as inactive. " +
 					"Looks up the code system and latest release branch automatically. ")
 	@RequestMapping(value = "/{branch}/actions/restore-released-status", method = RequestMethod.POST)
-	@ResponseBody
 	public Concept restoreReleasedStatus(@PathVariable String branch, @RequestParam String conceptId) {
 		return adminOperationsService.restoreReleasedStatus(BranchPathUriUtil.decodePath(branch), conceptId);
 	}

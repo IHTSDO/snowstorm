@@ -28,7 +28,6 @@ public class ConceptValidationController {
 	@Autowired
 	private ContentReportService contentReportService;
 
-	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/validate/concept", method = RequestMethod.POST)
 	@ApiOperation("Validation using the Snomed-Drools project.")
 	public List<InvalidContent> validateConcept(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull String branchPath,
@@ -38,7 +37,6 @@ public class ConceptValidationController {
 		return validationService.validateConcept(branchPath, concept);
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/browser/{branch}/validate/concepts", method = RequestMethod.POST)
 	@ApiOperation("Validation using the Snomed-Drools project.")
 	public List<InvalidContent> validateConcepts(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull String branchPath,
@@ -54,7 +52,6 @@ public class ConceptValidationController {
 		validationService.newRuleExecutorAndResources();
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/{branch}/report/inactive-concepts-without-association", method = RequestMethod.GET)
 	@ApiOperation("Find inactive concepts with no historical association grouped by inactivation type.")
 	@JsonView(value = View.Component.class)

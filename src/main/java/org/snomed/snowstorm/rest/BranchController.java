@@ -57,14 +57,12 @@ public class BranchController {
 
 	@ApiOperation("Retrieve all branches")
 	@RequestMapping(value = "/branches", method = RequestMethod.GET)
-	@ResponseBody
 	public List<Branch> retrieveAllBranches() {
 		return clearMetadata(branchService.findAll());
 	}
 	
 	@ApiOperation("Retrieve branch descendants")
 	@RequestMapping(value = "/branches/{path}/children", method = RequestMethod.GET)
-	@ResponseBody
 	public List<Branch> retrieveBranchDescendants(
 			@PathVariable String path,
 			@RequestParam(required = false, defaultValue = "false") boolean immediateChildren,
@@ -76,7 +74,6 @@ public class BranchController {
 	}
 
 	@RequestMapping(value = "/branches", method = RequestMethod.POST)
-	@ResponseBody
 	public BranchPojo createBranch(@RequestBody CreateBranchRequest request) {
 		Map<String, String> flatMetadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
 		return getBranchPojo(branchService.create(request.getParent() + "/" + request.getName(), flatMetadata));
@@ -89,7 +86,6 @@ public class BranchController {
 
 	@ApiOperation("Update branch metadata")
 	@RequestMapping(value = "/branches/{path}", method = RequestMethod.PUT)
-	@ResponseBody
 	public BranchPojo updateBranch(@PathVariable String path, @RequestBody UpdateBranchRequest request) {
 		path = BranchPathUriUtil.decodePath(path);
 		if (branchService.findBranchOrThrow(path).isLocked()) {
@@ -110,24 +106,20 @@ public class BranchController {
 
 	@ApiOperation("Retrieve a single branch")
 	@RequestMapping(value = "/branches/{path}", method = RequestMethod.GET)
-	@ResponseBody
 	public BranchPojo retrieveBranch(@PathVariable String path, @RequestParam(required = false, defaultValue = "false") boolean includeInheritedMetadata) {
 		return getBranchPojo(branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(path), includeInheritedMetadata));
 	}
 
 	@RequestMapping(value = "/branches/{path}/actions/lock", method = RequestMethod.POST)
-	@ResponseBody
 	public void lockBranch(@PathVariable String path, @RequestParam String lockMessage) {
 		branchService.lockBranch(BranchPathUriUtil.decodePath(path), lockMessage);
 	}
 
 	@RequestMapping(value = "/branches/{path}/actions/unlock", method = RequestMethod.POST)
-	@ResponseBody
 	public void unlockBranch(@PathVariable String path) {
 		branchService.unlock(BranchPathUriUtil.decodePath(path));
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/reviews", method = RequestMethod.POST)
 	public ResponseEntity<Void> createBranchReview(@RequestBody @Valid CreateReviewRequest createReviewRequest) {
 		BranchReview branchReview = reviewService.getCreateReview(createReviewRequest.getSource(), createReviewRequest.getTarget());
@@ -135,13 +127,11 @@ public class BranchController {
 		return ControllerHelper.getCreatedResponse(id);
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/reviews/{id}", method = RequestMethod.GET)
 	public BranchReview getBranchReview(@PathVariable String id) {
 		return ControllerHelper.throwIfNotFound("Branch review", reviewService.getBranchReview(id));
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/reviews/{id}/concept-changes", method = RequestMethod.GET)
 	public BranchReviewConceptChanges getBranchReviewConceptChanges(@PathVariable String id) {
 		BranchReview branchReview = reviewService.getBranchReviewOrThrow(id);
@@ -151,20 +141,17 @@ public class BranchController {
 		return new BranchReviewConceptChanges(branchReview.getChangedConcepts());
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/merge-reviews", method = RequestMethod.POST)
 	public ResponseEntity<Void> createMergeReview(@RequestBody @Valid CreateReviewRequest createReviewRequest) {
 		MergeReview mergeReview = reviewService.createMergeReview(createReviewRequest.getSource(), createReviewRequest.getTarget());
 		return ControllerHelper.getCreatedResponse(mergeReview.getId());
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/merge-reviews/{id}", method = RequestMethod.GET)
 	public MergeReview getMergeReview(@PathVariable String id) {
 		return ControllerHelper.throwIfNotFound("Merge review", reviewService.getMergeReview(id));
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/merge-reviews/{id}/details", method = RequestMethod.GET)
 	public Collection<MergeReviewConceptVersions> getMergeReviewConflictingConcepts(
 			@PathVariable String id,
@@ -201,7 +188,6 @@ public class BranchController {
 		return branchMergeService.getBranchMergeJobOrThrow(mergeId);
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/{branch}/integrity-check", method = RequestMethod.POST)
 	@ApiOperation(value = "Perform integrity check against changed components on this branch.",
 			notes = "Returns a report containing an entry for each type of issue found together with a map of components. " +
@@ -212,7 +198,6 @@ public class BranchController {
 	}
 
 
-	@ResponseBody
 	@RequestMapping(value = "/{branch}/upgrade-integrity-check", method = RequestMethod.POST)
 	@ApiOperation(value = "Perform integrity check against changed components during extension upgrade on the extension main branch and fix branch.",
 			notes = "Returns a report containing an entry for each type of issue found together with a map of components which still need to be fixed." +
@@ -241,7 +226,6 @@ public class BranchController {
 		return branchPaths.contains(branch.getPath());
 	}
 
-	@ResponseBody
 	@RequestMapping(value = "/{branch}/integrity-check-full", method = RequestMethod.POST)
 	@ApiOperation(value = "Perform integrity check against all components on this branch.",
 			notes = "Returns a report containing an entry for each type of issue found together with a map of components. " +

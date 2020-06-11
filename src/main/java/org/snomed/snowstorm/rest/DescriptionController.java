@@ -41,7 +41,6 @@ public class DescriptionController {
 					"Each language is used as an optional clause for matching and will include the correct character folding behaviour for that language. " +
 					"The Accept-Language header list is also used to chose the best translated FSN and PT values in the response.")
 	@RequestMapping(value = "browser/{branch}/descriptions", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Page<BrowserDescriptionSearchResult> findBrowserDescriptions(
 			@PathVariable String branch,
@@ -146,7 +145,6 @@ public class DescriptionController {
 	}
 
 	@RequestMapping(value = "{branch}/descriptions", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public ItemsPage<Description> findDescriptions(@PathVariable String branch,
 			@RequestParam(required = false) @ApiParam("The concept id to match") String concept,
@@ -157,7 +155,6 @@ public class DescriptionController {
 	}
 
 	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Description fetchDescription(@PathVariable String branch, @PathVariable String descriptionId) {
 		return ControllerHelper.throwIfNotFound("Description", descriptionService.findDescription(BranchPathUriUtil.decodePath(branch), descriptionId));
@@ -165,7 +162,6 @@ public class DescriptionController {
 
 	@ApiOperation(value = "Delete a description.")
 	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.DELETE)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public void deleteDescription(
 			@PathVariable String branch,
@@ -179,7 +175,6 @@ public class DescriptionController {
 
 	@ApiOperation("List semantic tags of all active concepts together with a count of concepts using each.")
 	@RequestMapping(value = "{branch}/descriptions/semantictags", method = RequestMethod.GET)
-	@ResponseBody
 	@JsonView(value = View.Component.class)
 	public Map<String, Long> countSemanticTags(@PathVariable String branch) {
 

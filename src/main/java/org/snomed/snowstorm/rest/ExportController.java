@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
-import java.io.FileOutputStream;
 import java.io.IOException;
 
 @RestController
@@ -22,7 +21,6 @@ public class ExportController {
 	private ExportService exportService;
 
 	@RequestMapping(method = RequestMethod.POST)
-	@ResponseBody
 	public ResponseEntity<Void> createExportJob(@Valid @RequestBody ExportRequestView exportConfiguration) {
 		String id = exportService.createJob(exportConfiguration);
 		return ControllerHelper.getCreatedResponse(id);
