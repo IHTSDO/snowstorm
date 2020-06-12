@@ -2,26 +2,35 @@
 ### See https://github.com/Huachao/vscode-restclient
 
 ### URL to test against (change as appropriate)
-@baseUrl = https://temp-snowstorm.ihtsdotools.org/fhir
+@baseUrl = https://snowstorm-training.snomedtools.org/fhir
 
-#### Code System Lookup of Clinical Finding
+#### R1: Code System Lookup of Clinical Finding
 GET {{baseUrl}}/CodeSystem/$lookup
     ?system=http://snomed.info/sct
     &code=404684003
 
-#### Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)|
+#### R1: Single line version
+GET {{baseUrl}}/CodeSystem/$lookup?system=http://snomed.info/sct&code=404684003    
+
+#### R2: Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)|
 GET {{baseUrl}}/CodeSystem/$lookup
     ?system=http://snomed.info/sct
     &code=427623005
 
-#### Code System Lookup of medicinal product including normalForm and sufficientlyDefined properties.  Properties are listed here: [https://www.hl7.org/fhir/snomedct.html#props]
+#### R2: Single line version
+GET {{baseUrl}}/CodeSystem/$lookup?system=http://snomed.info/sct&code=427623005
+
+#### R3: Code System Lookup of medicinal product including normalForm and sufficientlyDefined properties.  Properties are listed here: [https://www.hl7.org/fhir/snomedct.html#props]
 GET {{baseUrl}}/CodeSystem/$lookup
     ?system=http://snomed.info/sct
     &code=322236009
     &property=normalForm
     &property=sufficientlyDefined
 
-#### Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)| in Swedish Extension
+#### R3: Single line version
+GET {{baseUrl}}/CodeSystem/$lookup?system=http://snomed.info/sct&code=322236009&property=normalForm&property=sufficientlyDefined
+
+#### R4: Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)| in Swedish Extension
 #### This example allows use of language headers to specify Swedish language.
 GET {{baseUrl}}/CodeSystem/$lookup
     ?system=http://snomed.info/sct
@@ -29,31 +38,46 @@ GET {{baseUrl}}/CodeSystem/$lookup
     &code=427623005
 Accept-Language: sv
 
-#### Check if 195967001 |Asthma (disorder)| is a type of 50043002 |Disorder of respiratory system (disorder)| in the January 2020 International version
+#### R4: Single line version
+GET {{baseUrl}}/CodeSystem/$lookup?system=http://snomed.info/sct&version=http://snomed.info/sct/45991000052106&code=427623005
+Accept-Language: sv
+
+#### R5: Check if 195967001 |Asthma (disorder)| is a type of 50043002 |Disorder of respiratory system (disorder)| in the January 2020 International version
 GET {{baseUrl}}/CodeSystem/$subsumes
     ?system=http://snomed.info/sct
     &version=http://snomed.info/sct/900000000000207008/version/20200131
     &codeA=50043002
     &codeB=195967001
 
-#### Expansion of an intensionally defined value set using ECL (limited to 10 results)
+#### R5: Single line version
+GET {{baseUrl}}/CodeSystem/$subsumes?system=http://snomed.info/sct&version=http://snomed.info/sct/900000000000207008/version/20200131&codeA=50043002&codeB=195967001
+
+#### R6: Expansion of an intensionally defined value set using ECL (limited to 10 results)
 GET {{baseUrl}}/ValueSet/$expand
     ?url=http://snomed.info/sct
     ?fhir_vs=ecl/<<27624003
     &count=10
 
-#### Expansion of an intensionally defined value set using ECL against a specific edition/version
-GET {{baseUrl}}/ValueSet/$expand
-    ?url=http://snomed.info/sct
-    ?fhir_vs=ecl/<<27624003
-    &system-version=http://snomed.info/sct/900000000000207008/version/20200131
+#### R6: Single line version
+GET {{baseUrl}}/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&count=10
 
-#### Expansion of an intensionally defined value set using ISA
+#### R7: Expansion of an intensionally defined value set using ECL against a specific edition/version
+GET {{baseUrl}}/ValueSet/$expand
+    ?url=http://snomed.info/sct/900000000000207008/version/20200131
+    ?fhir_vs=ecl/<<27624003
+
+#### R7: Single line version
+GET {{baseUrl}}/ValueSet/$expand?url=http://snomed.info/sct/900000000000207008/version/20200131?fhir_vs=ecl/<<27624003
+
+#### R8: Expansion of an intensionally defined value set using ISA
 GET {{baseUrl}}/ValueSet/$expand
     ?url=http://snomed.info/sct
     ?fhir_vs=isa/27624003
 
-#### Expansion of an intensional value set against the Swedish Edition, including synonyms
+#### R8: Single line version
+GET {{baseUrl}}/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=isa/27624003
+
+#### R9: Expansion of an intensional value set against the Swedish Edition, including synonyms
 GET {{baseUrl}}/ValueSet/$expand
     ?url=http://snomed.info/sct/45991000052106
     ?fhir_vs=ecl/<<27624003
@@ -61,33 +85,47 @@ GET {{baseUrl}}/ValueSet/$expand
     &count=10
     &designation=sv
 
-#### Term filtering - ValueSet of all <<763158003 |Medicinal product (product)| containing the word aspirin.  This is not case sensitive.
+#### R9: Single line version
+GET {{baseUrl}}/ValueSet/$expand?url=http://snomed.info/sct/45991000052106?fhir_vs=ecl/<<27624003&includeDesignations=true&count=10&designation=sv
+
+#### R10: Term filtering - ValueSet of all <<763158003 |Medicinal product (product)| containing the word aspirin.  This is not case sensitive.
 GET {{baseUrl}}/ValueSet/$expand
     ?url=http://snomed.info/sct
     ?fhir_vs=ecl/<<763158003
     &filter=Aspirin
 
-#### Validate a code against an implicit valueset, also checking display term
+#### R10: Single line version
+GET {{baseUrl}}/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<763158003&filter=Aspirin
+
+#### R11: Validate a code against an implicit valueset, also checking display term
 GET {{baseUrl}}/ValueSet/$validate-code
     ?url=http://snomed.info/sct
     ?fhir_vs=ecl/<<34014006 |Viral disease|
     &code=840539006
     &display=COVID-19
 
-#### Validate a code against an implicit valueset expanded against a specific SNOMED release
+#### R11: Single line version
+GET {{baseUrl}}/ValueSet/$validate-code?url=http://snomed.info/sct?fhir_vs=ecl/<<34014006 |Viral disease|&code=840539006&display=COVID-19
+
+#### R12: Validate a code against an implicit valueset expanded against a specific SNOMED release
 GET {{baseUrl}}/ValueSet/$validate-code
     ?url=http://snomed.info/sct/900000000000207008/version/20200309
     ?fhir_vs=ecl/<<34014006 |Viral disease|
     &code=840539006
 
+#### R12: Single line version
+GET {{baseUrl}}/ValueSet/$validate-code?url=http://snomed.info/sct/900000000000207008/version/20200309?fhir_vs=ecl/<<34014006 |Viral disease|&code=840539006
 
-#### Refset - list all SNOMED concepts mapped to ICD-O  (ECL here is ^446608001 |ICD-O simple map reference set (foundation metadata concept)|)
+#### R13: Refset - list all SNOMED concepts mapped to ICD-O  (ECL here is ^446608001 |ICD-O simple map reference set (foundation metadata concept)|)
 GET {{baseUrl}}/ValueSet/$expand
     ?url=http://snomed.info/sct
     ?fhir_vs=ecl/^446608001
     &count=20
 
-#### Find ICD-10 Map target for 254153009 |Familial expansile osteolysis (disorder)|
+#### R13: Single line version
+GET {{baseUrl}}/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/^446608001&count=20
+
+#### R14: Find ICD-10 Map target for 254153009 |Familial expansile osteolysis (disorder)|
 GET {{baseUrl}}/ConceptMap/$translate
     ?code=254153009
     &system=http://snomed.info/sct
@@ -97,13 +135,20 @@ GET {{baseUrl}}/ConceptMap/$translate
     &url=http://snomed.info/sct
     ?fhir_cm=447562003
 
-#### Find all Maps target for 254153009 |Familial expansile osteolysis (disorder)| - note fhir_cm value is left blank so all refsets are potentially returned.
+#### R14: Single line version
+GET {{baseUrl}}/ConceptMap/$translate?code=254153009&system=http://snomed.info/sct&source=http://snomed.info/sct?fhir_vs&target=http://hl7.org/fhir/sid/icd-10&url=http://snomed.info/sct?fhir_cm=447562003
+
+#### R15: Find all Maps target for 254153009 |Familial expansile osteolysis (disorder)| - note fhir_cm value is left blank so all refsets are potentially returned.
 GET {{baseUrl}}/ConceptMap/$translate
     ?code=254153009
     &system=http://snomed.info/sct
+    &version=http://snomed.info/sct/900000000000207008/version/20200309
     &source=http://snomed.info/sct
     ?fhir_vs
     &target=http://snomed.info/sct
     ?fhir_vs
     &url=http://snomed.info/sct
     ?fhir_cm=
+
+#### R15: Single line version
+GET {{baseUrl}}/ConceptMap/$translate?code=254153009&system=http://snomed.info/sct&version=http://snomed.info/sct/900000000000207008/version/20200309&source=http://snomed.info/sct?fhir_vs&target=http://snomed.info/sct?fhir_vs&url=http://snomed.info/sct?fhir_cm=
