@@ -433,7 +433,20 @@ public class IntegrityService extends ComponentService implements CommitListener
 		descriptionService.joinActiveDescriptions(taskBranch.getPath(), conceptMiniMap);
 
 		timer.finish();
-		return getReport(axiomsMinisAndInactiveConcepts, relationshipStillWithInactiveSource, relationshipStillWithInactiveType, relationshipStillWithInactiveDestination);
+		IntegrityIssueReport fixedReport = getReport(axiomsMinisAndInactiveConcepts, relationshipStillWithInactiveSource, relationshipStillWithInactiveType, relationshipStillWithInactiveDestination);
+		if (fixedReport.isEmpty()) {
+			// update the internal flag to false on the fix branch
+			Map<String, Object> metaDataExpanded = branchMetadataHelper.expandObjectValues(taskBranch.getMetadata());
+			Map<String, String> integrityIssueMetaData = new HashMap<>();
+			integrityIssueMetaData.put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "false");
+			if (metaDataExpanded == null) {
+				metaDataExpanded = new HashMap<>();
+			}
+			metaDataExpanded.put(INTERNAL_METADATA_KEY, integrityIssueMetaData);
+			branchService.updateMetadata(taskBranch.getPath(), branchMetadataHelper.flattenObjectValues(metaDataExpanded));
+			logger.info("Integrity issues have been fixed on branch {}", taskBranch.getPath());
+		}
+		return fixedReport;
 	}
 
 
