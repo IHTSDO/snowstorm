@@ -21,7 +21,10 @@ GET {{baseUrl}}/fhir/CodeSystem/$lookup
     &property=normalForm
     &property=sufficientlyDefined
 
-#### Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)| in Swedish Extension
+#### R3: Single line version
+GET {{baseUrl}}/CodeSystem/$lookup?system=http://snomed.info/sct&code=322236009&property=normalForm&property=sufficientlyDefined
+
+#### R4: Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)| in Swedish Extension
 #### This example allows use of language headers to specify Swedish language.
 GET {{baseUrl}}/fhir/CodeSystem/$lookup
     ?system=http://snomed.info/sct
@@ -44,7 +47,6 @@ GET {{baseUrl}}/fhir/ValueSet/$expand
 GET {{baseUrl}}/fhir/ValueSet/$expand
     ?url=http://snomed.info/sct
     ?fhir_vs=ecl/<<27624003
-    &system-version=http://snomed.info/sct/900000000000207008/version/20200131
 
 #### Expansion of an intensionally defined value set using ISA
 GET {{baseUrl}}/fhir/ValueSet/$expand
@@ -78,6 +80,8 @@ GET {{baseUrl}}/fhir/ValueSet/$validate-code
     ?fhir_vs=ecl/<<34014006 |Viral disease|
     &coding=http://snomed.info/sct|840539006
 
+#### R12: Single line version
+GET {{baseUrl}}/ValueSet/$validate-code?url=http://snomed.info/sct/900000000000207008/version/20200309?fhir_vs=ecl/<<34014006 |Viral disease|&code=840539006
 
 #### Refset - list all SNOMED concepts mapped to ICD-O  (ECL here is ^446608001 |ICD-O simple map reference set (foundation metadata concept)|)
 GET {{baseUrl}}/fhir/ValueSet/$expand
@@ -99,9 +103,13 @@ GET {{baseUrl}}/fhir/ConceptMap/$translate
 GET {{baseUrl}}/fhir/ConceptMap/$translate
     ?code=254153009
     &system=http://snomed.info/sct
+    &version=http://snomed.info/sct/900000000000207008/version/20200309
     &source=http://snomed.info/sct
     ?fhir_vs
     &target=http://snomed.info/sct
     ?fhir_vs
     &url=http://snomed.info/sct
     ?fhir_cm=
+
+#### R15: Single line version
+GET {{baseUrl}}/ConceptMap/$translate?code=254153009&system=http://snomed.info/sct&version=http://snomed.info/sct/900000000000207008/version/20200309&source=http://snomed.info/sct?fhir_vs&target=http://snomed.info/sct?fhir_vs&url=http://snomed.info/sct?fhir_cm=
