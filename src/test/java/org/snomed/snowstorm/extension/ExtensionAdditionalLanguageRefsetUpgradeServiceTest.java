@@ -6,10 +6,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
@@ -19,10 +23,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
+import java.util.*;
 
 import static org.junit.Assert.*;
 
@@ -45,40 +46,62 @@ public class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends Abstrac
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
 
+	@Autowired
+	private ConceptService conceptService;
+
 	private CodeSystem snomedct;
 
 	private CodeSystem snomedctNZ;
 
 	@Before
-	public void setUp() {
+	public void setUp() throws Exception {
 		snomedct = new CodeSystem("SNOMEDCT", "MAIN");
 		codeSystemService.createCodeSystem(snomedct);
 		ReferenceSetMember enGbLanguageMember = new ReferenceSetMember(null,null, true,
 				"900000000000207008", "900000000000508004", "675173018");
 		enGbLanguageMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000548007");
-		enGbLanguageMember.release(new Integer("20190731"));
 		ReferenceSetMember enUsLanguageMember = new ReferenceSetMember(null, null, true,
 				"900000000000207008","900000000000509007", "675173018");
 		enUsLanguageMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000549004");
-		enUsLanguageMember.release(new Integer("20190731"));
-		referenceSetMemberService.createMembers(snomedct.getBranchPath(), new HashSet<>(Arrays.asList(enGbLanguageMember, enUsLanguageMember)));
+		Concept concept = new Concept("123456");
+		Description description = new Description("675173018", "testing");
+		description.addLanguageRefsetMember(enGbLanguageMember);
+		description.addLanguageRefsetMember(enUsLanguageMember);
+		concept.addDescription(description);
+
+		conceptService.create(concept, snomedct.getBranchPath());
 		codeSystemService.createVersion(snomedct, new Integer("20190731"), "2019-07-31 release");
 
 		ReferenceSetMember enGbLanguageMemberLatest = new ReferenceSetMember(null, null, true,
-				"900000000000207008", "900000000000508004", "675173020");
+				"900000000000207008", "900000000000508004", "675173019");
 		enGbLanguageMemberLatest.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000548007");
-		enGbLanguageMemberLatest.release(new Integer("20200131"));
+
 		ReferenceSetMember enUsLanguageMemberLatest = new ReferenceSetMember(null, null, true,
-				"900000000000207008", "900000000000509007", "675173020");
+				"900000000000207008", "900000000000509007", "675173019");
 		enUsLanguageMemberLatest.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000549004");
 
-		ReferenceSetMember inactiveEnGbLanguageMember = new ReferenceSetMember(null, null, false,
-				"900000000000207008", "900000000000508004", "2913577019");
-		enGbLanguageMemberLatest.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000548007");
-		enGbLanguageMemberLatest.release(new Integer("20200131"));
-		enUsLanguageMemberLatest.release(new Integer("20200131"));
-		inactiveEnGbLanguageMember.release(new Integer("20200131"));
-		referenceSetMemberService.createMembers(snomedct.getBranchPath(), new HashSet<>(Arrays.asList(enGbLanguageMemberLatest, enUsLanguageMemberLatest, inactiveEnGbLanguageMember)));
+		Description latestDescription = new Description("675173019", "new term testing");
+		latestDescription.addLanguageRefsetMember(enGbLanguageMemberLatest);
+		latestDescription.addLanguageRefsetMember(enUsLanguageMemberLatest);
+		concept = conceptService.find("123456", snomedct.getBranchPath());
+		concept.addDescription(latestDescription);
+		concept = conceptService.update(concept, snomedct.getBranchPath());
+
+		// this is for testing complete copy as only active ones are copied.
+		Description existing = concept.getDescription("675173018");
+		ReferenceSetMember existingGbMember = existing.getLangRefsetMembers().get("900000000000508004");
+		existingGbMember.setActive(false);
+		referenceSetMemberService.updateMember("MAIN", existingGbMember);
+
+		assertEquals(1, concept.getDescription("675173018").getAcceptabilityMap().keySet().size());
+
+		MemberSearchRequest searchRequest = new MemberSearchRequest();
+		searchRequest.referenceSet("900000000000508004");
+
+		Page<ReferenceSetMember> updatedResult =  referenceSetMemberService.findMembers(snomedct.getBranchPath(), searchRequest, PageRequest.of(0, 10));
+		assertNotNull(updatedResult);
+		assertEquals(2, updatedResult.getContent().size());
+
 		codeSystemService.createVersion(snomedct, new Integer("20200131"), "2020-01-31 release");
 
 		snomedctNZ = new CodeSystem("SNOMEDCT-NZ", "MAIN/SNOMEDCT-NZ");
@@ -117,81 +140,102 @@ public class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends Abstrac
 	}
 
 	@Test
-	public void testGenerateAdditionalLanguageRefsetsForTheFirstTime() {
+	public void testGenerateAdditionalLanguageRefsetsWithCompleteCopy() {
 		// check extension is upgraded to the dependent release
-		MemberSearchRequest searchRequest = new MemberSearchRequest();
-		searchRequest.referenceSet("900000000000508004");
+		MemberSearchRequest enGbSearchRequest = new MemberSearchRequest();
+		enGbSearchRequest.referenceSet("900000000000508004");
 
-		Page<ReferenceSetMember> updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), searchRequest, PageRequest.of(0, 10));
+		// only two en-eb one active and the other one inactive
+		Page<ReferenceSetMember> updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), enGbSearchRequest, PageRequest.of(0, 10));
 		assertNotNull(updatedResult);
-		assertEquals(3, updatedResult.getContent().size());
+		assertEquals(2, updatedResult.getContent().size());
 
-		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), "675173020", PageRequest.of(0, 10));
+		// It should have two members for 675173019 (en and us)
+		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), "675173019", PageRequest.of(0, 10));
 		assertNotNull(updatedResult);
 		assertEquals(2, updatedResult.getContent().size());
 
 		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, snomedctNZ.getBranchPath(), "900000000000508004", true);
 
-		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), searchRequest, PageRequest.of(0, 10));
+		// after update there should still be 2 with en-gb
+		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), enGbSearchRequest, PageRequest.of(0, 10));
 		assertNotNull(updatedResult);
-		assertEquals(3, updatedResult.getContent().size());
+		assertEquals(2, updatedResult.getContent().size());
 
-		searchRequest = new MemberSearchRequest();
-		searchRequest.referenceSet("271000210107");
-		updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), searchRequest, PageRequest.of(0, 10));
+		// search for nz-en
+		MemberSearchRequest nzEnSearchRequest = new MemberSearchRequest();
+		nzEnSearchRequest.referenceSet("271000210107");
+		updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), nzEnSearchRequest, PageRequest.of(0, 10));
 		assertNotNull(updatedResult);
 		// first time only copies active components
-		assertEquals(2, updatedResult.getContent().size());
+		assertEquals(1, updatedResult.getContent().size());
 		// check effective time, module id and reference set id
 		for (ReferenceSetMember member : updatedResult.getContent()) {
 			assertNull(member.getEffectiveTimeI());
 			assertEquals("21000210109", member.getModuleId());
 			assertEquals("271000210107", member.getRefsetId());
+			assertEquals("123456", member.getConceptId());
 		}
 
-		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), "675173018", PageRequest.of(0, 10));
+		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), "675173019", PageRequest.of(0, 10));
 		assertNotNull(updatedResult);
 		// 2 from INT and 1 fom NZ
 		assertEquals(3, updatedResult.getContent().size());
+
+		Concept concept = conceptService.find("123456", Config.DEFAULT_LANGUAGE_DIALECTS, snomedctNZ.getBranchPath());
+		Set<String> refsetIds = concept.getDescription("675173019").getLangRefsetMembers().keySet();
+		assertEquals(3, refsetIds.size());
+		assertTrue(refsetIds.contains("271000210107"));
 	}
 
 
 	@Test
 	public void testGenerateAdditionalLanguageRefsetsWithDeltaOnly() {
 		// check extension is upgraded to the dependent release
-		MemberSearchRequest searchRequest = new MemberSearchRequest();
-		searchRequest.referenceSet("900000000000508004");
+		MemberSearchRequest enGbSearchRequest = new MemberSearchRequest();
+		enGbSearchRequest.referenceSet("900000000000508004");
 
-		Page<ReferenceSetMember> updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), searchRequest, PageRequest.of(0, 10));
+		// only two for en-gb
+		Page<ReferenceSetMember> updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), enGbSearchRequest, PageRequest.of(0, 10));
 		assertNotNull(updatedResult);
-		assertEquals(3, updatedResult.getContent().size());
+		assertEquals(2, updatedResult.getContent().size());
 
+
+		// only two language members for description id 675173018
 		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), "675173018", PageRequest.of(0, 10));
 		assertNotNull(updatedResult);
 		assertEquals(2, updatedResult.getContent().size());
 
+		// no en-nz components yet
+		MemberSearchRequest enNzSearchRequest = new MemberSearchRequest();
+		enNzSearchRequest.referenceSet("271000210107");
+		updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), enNzSearchRequest, PageRequest.of(0, 10));
+		assertNotNull(updatedResult);
+		assertEquals(0, updatedResult.getContent().size());
+
+		// create a published version on the extension for previous release
 		ReferenceSetMember enNzLanguageMember = new ReferenceSetMember(null, 20190931, true,
-				"21000210109", "271000210107", "675173020");
+				"21000210109", "271000210107", "675173018");
 		enNzLanguageMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000549004");
 		enNzLanguageMember.release(new Integer("20190931"));
 
 		enNzLanguageMember = referenceSetMemberService.createMember(snomedctNZ.getBranchPath(), enNzLanguageMember);
 		enNzLanguageMember = referenceSetMemberService.findMember(snomedctNZ.getBranchPath(), enNzLanguageMember.getMemberId());
-		assertEquals("900000000000549004", enNzLanguageMember.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID));
+		assertEquals(true, enNzLanguageMember.isActive());
 
 		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(snomedctNZ, snomedctNZ.getBranchPath(), "900000000000508004",false);
 
 		enNzLanguageMember = referenceSetMemberService.findMember(snomedctNZ.getBranchPath(), enNzLanguageMember.getMemberId());
 		// current implementation always takes the latest version from the international release
-		assertEquals("900000000000548007", enNzLanguageMember.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID));
+		assertEquals(false, enNzLanguageMember.isActive());
 
-		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), searchRequest, PageRequest.of(0, 10));
+		// INT en-gb components not changed
+		updatedResult = referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), enGbSearchRequest, PageRequest.of(0, 10));
 		assertNotNull(updatedResult);
-		assertEquals(3, updatedResult.getContent().size());
+		assertEquals(2, updatedResult.getContent().size());
 
-		searchRequest = new MemberSearchRequest();
-		searchRequest.referenceSet("271000210107");
-		updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), searchRequest, PageRequest.of(0, 10));
+		// en-nz components should have two
+		updatedResult =  referenceSetMemberService.findMembers(snomedctNZ.getBranchPath(), enNzSearchRequest, PageRequest.of(0, 10));
 		assertNotNull(updatedResult);
 		assertEquals(2, updatedResult.getContent().size());
 		// check effective time, module id and reference set id
@@ -199,11 +243,17 @@ public class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends Abstrac
 			assertNull(member.getEffectiveTimeI());
 			assertEquals("21000210109", member.getModuleId());
 			assertEquals("271000210107", member.getRefsetId());
+			assertEquals("123456", member.getConceptId());
 			if (!member.isActive()) {
-				assertEquals("2913577019", member.getReferencedComponentId());
+				assertEquals("675173018", member.getReferencedComponentId());
 			} else {
-				assertEquals("675173020", member.getReferencedComponentId());
+				assertEquals("675173019", member.getReferencedComponentId());
 			}
 		}
+
+		Concept concept = conceptService.find("123456", Config.DEFAULT_LANGUAGE_DIALECTS, snomedctNZ.getBranchPath());
+		Set<String> refsetIds = concept.getDescription("675173019").getLangRefsetMembers().keySet();
+		assertEquals(3, refsetIds.size());
+		assertTrue(refsetIds.contains("271000210107"));
 	}
 }

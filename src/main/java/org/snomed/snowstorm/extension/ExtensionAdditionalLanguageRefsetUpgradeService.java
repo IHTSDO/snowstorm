@@ -5,7 +5,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
@@ -14,7 +13,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
 import org.snomed.snowstorm.core.data.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
@@ -25,12 +23,11 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
-import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.MEMBER_ID;
-import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID;
-import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.REFSET_ID;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.*;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH;
 import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE;
@@ -40,7 +37,7 @@ import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.*;
 import static com.google.common.collect.Iterables.partition;
 
 @Service
-public class ExtensionAdditionalLanguageRefsetUpgradeService extends ComponentService {
+public class ExtensionAdditionalLanguageRefsetUpgradeService {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
@@ -58,9 +55,6 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService extends ComponentSe
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
-
-	@Autowired
-	private ReferenceSetMemberRepository memberRepository;
 
 	private Gson gson = new GsonBuilder().create();
 
@@ -96,7 +90,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService extends ComponentSe
 		if (toSave != null && !toSave.isEmpty()) {
 			String lockMsg = String.format("Add or update additional language refset on branch %s ", branchPath);
 			try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata(lockMsg))) {
-				doSaveBatchComponents(toSave, commit, MEMBER_ID, memberRepository);
+				referenceSetMemberService.doSaveBatchMembers(toSave, commit);
 				commit.markSuccessful();
 				logger.info("{} components saved.", toSave.size());
 			}
