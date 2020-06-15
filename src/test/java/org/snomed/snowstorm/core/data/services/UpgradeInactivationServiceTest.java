@@ -22,7 +22,7 @@ import static org.junit.Assert.*;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class InactivationUpgradeServiceTest extends AbstractTest {
+public class UpgradeInactivationServiceTest extends AbstractTest {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
@@ -36,7 +36,7 @@ public class InactivationUpgradeServiceTest extends AbstractTest {
 	private ReferenceSetMemberService referenceSetMemberService;
 
 	@Autowired
-	private InactivationUpgradeService inactivationUpgradeService;
+	private UpgradeInactivationService upgradeInactivationService;
 
 	@Autowired
 	private ConceptUpdateHelper conceptUpdateHelper;
@@ -87,7 +87,7 @@ public class InactivationUpgradeServiceTest extends AbstractTest {
 				.referencedComponentId(publishedDescription.getDescriptionId()), PageRequest.of(0, 10));
 		assertEquals(0, members.getContent().size());
 
-		inactivationUpgradeService.findAndUpdateDescriptionsInactivation(SNOMEDCT);
+		upgradeInactivationService.findAndUpdateDescriptionsInactivation(SNOMEDCT);
 		members = referenceSetMemberService.findMembers(MAIN, new MemberSearchRequest().referenceSet("900000000000490003"), PageRequest.of(0, 10));
 		assertEquals(1, members.getContent().size());
 
@@ -173,7 +173,7 @@ public class InactivationUpgradeServiceTest extends AbstractTest {
 		}
 
 		// test upgrade service
-		inactivationUpgradeService.findAndUpdateLanguageRefsets(SNOMEDCT);
+		upgradeInactivationService.findAndUpdateLanguageRefsets(SNOMEDCT);
 
 		// check one language refset is inactivated
 		members = referenceSetMemberService.findMembers(MAIN, searchRequest, PageRequest.of(0, 2));
@@ -185,4 +185,5 @@ public class InactivationUpgradeServiceTest extends AbstractTest {
 			assertEquals(usPreferredMemberId, member.getMemberId());
 		}
 	}
+
 }
