@@ -80,11 +80,11 @@ GET {{baseUrl}}/ValueSet/$validate-code
     &code=840539006
 
 #### R13: Refset - list all SNOMED concepts mapped to ICD-O  (ECL here is ^446608001 |ICD-O simple map reference set (foundation metadata concept)|)
-### Note that "%5E" is the URL encoding for "^" ###
+### Note that "%5E" is the URL encoding for "^" and may be required for use in a browser###
 
 GET {{baseUrl}}/ValueSet/$expand
     ?url=http://snomed.info/sct
-    ?fhir_vs=ecl/%5E446608001
+    ?fhir_vs=ecl/^446608001
     &count=20
 
 #### R14: Find ICD-10 Map target for 254153009 |Familial expansile osteolysis (disorder)|
