@@ -7,6 +7,7 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -41,6 +42,7 @@ public class AdminController {
 					"The descriptions of the specified language will be reindexed on all branches using the new configuration. " +
 					"N.B. Snowstorm must be restarted to read the new configuration.")
 	@RequestMapping(value = "/actions/rebuild-description-index-for-language", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public void rebuildDescriptionIndexForLanguage(@RequestParam String languageCode) throws IOException {
 		ControllerHelper.requiredParam(languageCode, "languageCode");
 		adminOperationsService.reindexDescriptionsForLanguage(languageCode);
@@ -52,6 +54,7 @@ public class AdminController {
 					"which supports the ECL queries can be rebuilt on demand. " +
 					"You are unlikely to need this action.")
 	@RequestMapping(value = "/{branch}/actions/rebuild-semantic-index", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void rebuildBranchTransitiveClosure(@PathVariable String branch) throws ServiceException {
 		queryConceptUpdateService.rebuildStatedAndInferredSemanticIndex(BranchPathUriUtil.decodePath(branch));
 	}
@@ -62,6 +65,7 @@ public class AdminController {
 					"of all concepts can be updated based on the concept's axioms. " +
 					"You are unlikely to need this action.")
 	@RequestMapping(value = "/{branch}/actions/update-definition-statuses", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void updateDefinitionStatuses(@PathVariable String branch) throws ServiceException {
 		definitionStatusUpdateService.updateAllDefinitionStatuses(BranchPathUriUtil.decodePath(branch));
 	}
@@ -70,6 +74,7 @@ public class AdminController {
 			notes = "You may need this action if you have used the branch merge operation to upgrade an extension " +
 					"which has donated content to the International Edition. The operation should be run on the extension branch.")
 	@RequestMapping(value = "/{branch}/actions/end-donated-content", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public Map<String, Object> endDonatedContent(@PathVariable String branch) {
 		Map<String, Object> response = new HashMap<>();
 		Map<Class, Set<String>> fixes = adminOperationsService.findAndEndDonatedContent(BranchPathUriUtil.decodePath(branch));
@@ -79,6 +84,7 @@ public class AdminController {
 
 	@ApiOperation(value = "Hide parent version of duplicate versions of components in version control.")
 	@RequestMapping(value = "/{branch}/actions/find-duplicate-hide-parent-version", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public Map<String, Object> findDuplicateAndHideParentVersion(@PathVariable String branch) {
 		Map<String, Object> response = new HashMap<>();
 		Map<Class, Set<String>> fixes = adminOperationsService.findDuplicateAndHideParentVersion(BranchPathUriUtil.decodePath(branch));
@@ -91,6 +97,7 @@ public class AdminController {
 					"and that there are no child branches created or rebased since the commit otherwise version control will break."
 	)
 	@RequestMapping(value = "/{branch}/actions/rollback-commit", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void rollbackCommit(@PathVariable String branch, @RequestParam long commitHeadTime) {
 		adminOperationsService.rollbackCommit(BranchPathUriUtil.decodePath(branch), commitHeadTime);
 	}
@@ -102,12 +109,14 @@ public class AdminController {
 					"This function only works on branches with no children. "
 	)
 	@RequestMapping(value = "/{branch}/actions/hard-delete", method = RequestMethod.DELETE)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void hardDeleteBranch(@PathVariable String branch) {
 		adminOperationsService.hardDeleteBranch(BranchPathUriUtil.decodePath(branch));
 	}
 
 	@ApiOperation(value = "Restore role group number of inactive relationships.")
 	@RequestMapping(value = "/{branch}/actions/inactive-relationships-restore-group-number", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void restoreGroupNumberOfInactiveRelationships(@PathVariable String branch, @RequestParam String currentEffectiveTime, @RequestParam String previousReleaseBranch) {
 		adminOperationsService.restoreGroupNumberOfInactiveRelationships(BranchPathUriUtil.decodePath(branch), currentEffectiveTime, previousReleaseBranch);
 	}
@@ -116,6 +125,7 @@ public class AdminController {
 			notes = "This function will delete all inferred relationships found on the specified branch where the id is NOT in the snapshot RF2 relationship file provided. " +
 					"This can be useful to help clean up differences between an Alpha/Beta/Member extension release and the final release if both have been imported.")
 	@RequestMapping(value = "/{branch}/actions/delete-extra-inferred-relationships", method = RequestMethod.POST, consumes = "multipart/form-data")
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void deleteExtraInferredRelationships(@PathVariable String branch, @RequestParam int effectiveTime, @RequestParam MultipartFile relationshipsToKeep) {
 		try {
 			adminOperationsService.deleteExtraInferredRelationships(BranchPathUriUtil.decodePath(branch), relationshipsToKeep.getInputStream(), effectiveTime);
@@ -135,11 +145,13 @@ public class AdminController {
 					"The fixes should be applied to head timepoint of the code system branch using an alternative method. "
 	)
 	@RequestMapping(value = "/{releaseFixBranch}/actions/promote-release-fix", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #releaseFixBranch)")
 	public void promoteReleaseFix(@PathVariable String releaseFixBranch) {
 		adminOperationsService.promoteReleaseFix(BranchPathUriUtil.decodePath(releaseFixBranch));
 	}
 
 	@RequestMapping(value = "/{branch}/actions/clone-child-branch", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void cloneChildBranch(@PathVariable String branch, @RequestParam String newBranch) {
 		adminOperationsService.cloneChildBranch(BranchPathUriUtil.decodePath(branch), newBranch);
 	}
@@ -149,12 +161,14 @@ public class AdminController {
 					"If something has gone wrong when editing MRCM reference sets you can use this function to force updating the domain templates and attribute rules " +
 					"for all MRCM reference components.")
 	@RequestMapping(value = "/{branch}/actions/update-mrcm-domain-templates-and-attribute-rules", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void updateMRCMDomainTemplatesAndAttributeRules(@PathVariable String branch) throws ServiceException {
 		mrcmUpdateService.updateAllDomainTemplatesAndAttributeRules(BranchPathUriUtil.decodePath(branch));
 	}
 
 	@ApiOperation("Find concepts in the semantic index which should not be there. The concept may be inactive or deleted. To catch and debug rare cases.")
 	@RequestMapping(value = "/{branch}/actions/find-extra-concepts-in-semantic-index", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public IntegrityService.ConceptsInForm findExtraConceptsInSemanticIndex(@PathVariable String branch) {
 		return integrityService.findExtraConceptsInSemanticIndex(BranchPathUriUtil.decodePath(branch));
 	}
@@ -164,6 +178,7 @@ public class AdminController {
 					"Makes a new commit on the specified branch. Will restore any deleted components as inactive. " +
 					"Looks up the code system and latest release branch automatically. ")
 	@RequestMapping(value = "/{branch}/actions/restore-released-status", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public Concept restoreReleasedStatus(@PathVariable String branch, @RequestParam String conceptId) {
 		return adminOperationsService.restoreReleasedStatus(BranchPathUriUtil.decodePath(branch), conceptId);
 	}

@@ -28,8 +28,6 @@ import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
 import org.springframework.security.config.annotation.web.configurers.ExpressionUrlAuthorizationConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -88,7 +86,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	}
 
 	@Bean
-	public FilterRegistrationBean getUrlRewriteFilter() {
+	public FilterRegistrationBean<BranchPathUriRewriteFilter> getUrlRewriteFilter() {
 		// Encode branch paths in uri to allow request mapping to work
 		return new FilterRegistrationBean<>(new BranchPathUriRewriteFilter(
 				"/branches/(.*)/children",
@@ -165,13 +163,13 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 					.antMatchers(HttpMethod.DELETE, "/**").denyAll()
 					.anyRequest().anonymous();
 		} else if (rolesEnabled) {
-			http.authorizeRequests()
-					.antMatchers("/admin/**").hasRole("snowstorm-admin")// ROLE_snowstorm-admin
-					.antMatchers(HttpMethod.PUT, "/codesystems/**").hasRole("snowstorm-admin")
-					.antMatchers(HttpMethod.POST, "/codesystems/**").hasRole("snowstorm-admin")
+			http
+					.authorizeRequests()
 					.anyRequest().permitAll();
 		}
 	}
+
+
 
 	@Bean
 	// Swagger config

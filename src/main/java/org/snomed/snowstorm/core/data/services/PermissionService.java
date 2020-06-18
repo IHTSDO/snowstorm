@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.domain.Branch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.security.PermissionRecord;
 import org.snomed.snowstorm.core.data.domain.security.Role;
 import org.snomed.snowstorm.core.data.repositories.PermissionRecordRepository;
@@ -36,6 +38,8 @@ public class PermissionService {
 
 	private @Value("${permission.admin.group}") String adminUserGroup;
 
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+
 	@PostConstruct
 	public void init() {
 		setGlobalRoleGroups(Role.ADMIN, Collections.singleton(adminUserGroup));
@@ -53,15 +57,29 @@ public class PermissionService {
 		return repository.findByPath(escapeBranchPath(branchPath), PAGE_REQUEST).getContent();
 	}
 
+	public boolean userHasRoleOnBranch(String role, String branchPath, Authentication authentication) {
+
+		Set<String> userRoleForBranch = getUserRoleForBranch(branchPath, authentication);
+		boolean contains = userRoleForBranch.contains(role);
+		if (!contains) {
+			logger.info("User '{}' does not have required role '{}' on branch '{}', on this branch they have roles:{}.", getUsername(authentication), role, branchPath, userRoleForBranch);
+		}
+		return contains;
+	}
+
 	public Set<String> getUserRolesForBranch(String branchPath) {
 		SecurityContext securityContext = SecurityContextHolder.getContext();
 		if (securityContext == null) {
 			return Collections.emptySet();
 		}
 
+		return getUserRoleForBranch(branchPath, securityContext.getAuthentication());
+	}
+
+	private Set<String> getUserRoleForBranch(String branchPath, Authentication authentication) {
 		List<PermissionRecord> allPermissionRecords = permissionServiceCache.findAllUsingCache();
 		List<String> codeSystemBranches = codeSystemService.findAllCodeSystemBranchesUsingCache();
-		return getUserRolesForBranch(branchPath, allPermissionRecords, codeSystemBranches, securityContext.getAuthentication());
+		return getUserRolesForBranch(branchPath, allPermissionRecords, codeSystemBranches, authentication);
 	}
 
 	Set<String> getUserRolesForBranch(String branchPath, List<PermissionRecord> allPermissionRecords, List<String> codeSystemBranches, Authentication authentication) {
@@ -77,6 +95,7 @@ public class PermissionService {
 		for (GrantedAuthority grantedAuthority : authentication.getAuthorities()) {
 			userGroups.add(grantedAuthority.getAuthority().replace("ROLE_", ""));
 		}
+		logger.info("Authorities:{}, userGroups:{}", authentication.getAuthorities(), userGroups);
 
 		Set<String> grantedBranchRole = new HashSet<>();
 		for (PermissionRecord permissionRecord : allPermissionRecords) {
@@ -104,6 +123,10 @@ public class PermissionService {
 		setGlobalOrBranchRoleGroups(true, null, role, userGroups);
 	}
 
+	public void setBranchRoleGroups(String branch, Role role, Set<String> userGroups) {
+		setBranchRoleGroups(branch, role.toString(), userGroups);
+	}
+
 	public void setBranchRoleGroups(String branch, String role, Set<String> userGroups) {
 		setGlobalOrBranchRoleGroups(false, branch, role, userGroups);
 	}
@@ -125,5 +148,19 @@ public class PermissionService {
 
 	private String escapeBranchPath(String branch) {
 		return branch != null ? branch.replace("/", "\\/") : null;
+	}
+
+	private String getUsername(Authentication authentication) {
+		if (authentication != null) {
+			Object principal = authentication.getPrincipal();
+			if (principal != null) {
+				return principal.toString();
+			}
+		}
+		return null;
+	}
+
+	public void deleteAll() {
+		repository.deleteAll();
 	}
 }
