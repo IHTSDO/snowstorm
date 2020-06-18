@@ -8,6 +8,7 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.rest.View;
+import org.springframework.util.CollectionUtils;
 
 import java.io.Serializable;
 import java.util.*;
@@ -49,6 +50,17 @@ public class ConceptMini implements Serializable {
 		Set<Description> descriptions = concept.getDescriptions();
 		if (descriptions != null) {
 			activeDescriptions = descriptions.stream().filter(SnomedComponent::isActive).collect(Collectors.toSet());
+		}
+		if (!CollectionUtils.isEmpty(activeDescriptions) && !CollectionUtils.isEmpty(requestedLanguageDialects)) {
+			if (extraFields == null) {
+				extraFields = new HashMap <>();
+			}
+			requestedLanguageDialects.forEach(languageDialect -> {
+				if (languageDialect.getLanguageReferenceSet() != null) {
+					TermLangPojo termLangPojo = DescriptionHelper.getPtDescriptionTermAndLang(activeDescriptions, Arrays.asList(languageDialect));
+					extraFields.put(Concepts.PREFERRED_TERM_PREFIX + languageDialect.getLanguageReferenceSet().toString(), termLangPojo);
+				}
+			});
 		}
 	}
 
