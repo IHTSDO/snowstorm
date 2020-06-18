@@ -210,8 +210,8 @@ public class ConceptControllerTest extends AbstractTest {
         assertNotNull(responseBody);
         try (BufferedReader reader = new BufferedReader(new StringReader(responseBody))) {
             String header = reader.readLine();
-            assertEquals("id\tfsn\teffectiveTime\tactive\tmoduleId\tdefinitionStatus", header);
-            assertEquals("257751006\tWallace \"69\" side-to-end anastomosis - action (qualifier value)\t\ttrue\t900000000000207008\tPRIMITIVE", reader.readLine());
+            assertEquals("id\tfsn\teffectiveTime\tactive\tmoduleId\tdefinitionStatus\tpt_900000000000508004\tpt_900000000000509007", header);
+            assertEquals("257751006\tWallace \"69\" side-to-end anastomosis - action (qualifier value)\t\ttrue\t900000000000207008\tPRIMITIVE\t\tWallace \"69\" side-to-end anastomosis - action", reader.readLine());
         }
     }
 

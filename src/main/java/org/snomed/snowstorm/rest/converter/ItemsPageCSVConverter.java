@@ -3,6 +3,7 @@ package org.snomed.snowstorm.rest.converter;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
+import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpOutputMessage;
@@ -10,14 +11,14 @@ import org.springframework.http.MediaType;
 import org.springframework.http.converter.AbstractGenericHttpMessageConverter;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.http.converter.HttpMessageNotWritableException;
+import org.springframework.util.CollectionUtils;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.lang.reflect.Type;
-import java.util.Collection;
-import java.util.HashSet;
+import java.util.*;
 
 public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<ItemsPage<?>> {
 
@@ -40,8 +41,24 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 				Object item = items.iterator().next();
 				if (ConceptMini.class.isAssignableFrom(item.getClass())) {
 					writer.write("id\tfsn\teffectiveTime\tactive\tmoduleId\tdefinitionStatus");
-					writer.newLine();
+					int count = 0;
+					List <String> ptColumns = new ArrayList<>();
 					for (ConceptMini concept : (Collection<ConceptMini>) items) {
+						Map<String, Object> extraFields = concept.getExtraFields();
+						// Add new additional columns for preferred terms
+						if (count == 0) {
+							if (extraFields != null) {
+								for (String key : extraFields.keySet()) {
+									Object object = extraFields.get(key);
+									if (key.startsWith(Concepts.PREFERRED_TERM_PREFIX) && object instanceof TermLangPojo) {
+										writer.write(TAB);
+										writer.write(key);
+										ptColumns.add(key);
+									}
+								}
+							}
+							writer.newLine();
+						}
 						writer.write(concept.getConceptId());
 						writer.write(TAB);
 						writer.write(concept.getFsnTerm());
@@ -53,7 +70,15 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 						writer.write(concept.getModuleId());
 						writer.write(TAB);
 						writer.write(concept.getDefinitionStatus());
+						if (extraFields != null && !CollectionUtils.isEmpty(ptColumns)) {
+							for (int i = 0; i <  ptColumns.size(); i++) {
+								Object object = extraFields.get(ptColumns.get(i));
+								writer.write(TAB);
+								writer.write(((TermLangPojo) object).getTerm());
+							}
+						}
 						writer.newLine();
+						count++;
 					}
 				} else if (RelationshipChange.class.isAssignableFrom(item.getClass())) {
 					writer.write("changeNature\tsourceId\tsourceFsn\ttypeId\ttypeFsn\tdestinationId\tdestinationFsn\tdestinationNegated\tcharacteristicTypeId\tgroup\tid\tunionGroup\tmodifier");
