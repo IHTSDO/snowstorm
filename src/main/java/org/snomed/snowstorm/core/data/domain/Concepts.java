@@ -9,7 +9,7 @@ import java.util.Set;
 public class Concepts {
 
 	public static final String SNOMEDCT_ROOT = "138875005";
-	public static final String PREFERRED_TERM_PREFIX = "pt_";
+
 
 	// Modules
 	public static final String CORE_MODULE = "900000000000207008";
