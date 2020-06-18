@@ -977,9 +977,9 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertNull(mergeReviewConceptVersions.getAutoMergedConcept());
 
 		// Accept the deleted version
-		reviewService.persistManualMergeConceptDeletion(review.getId(), 10000100L);
+		reviewService.persistManualMergeConceptDeletion(reviewService.getMergeReviewOrThrow(review.getId()), 10000100L);
 
-		reviewService.applyMergeReview(review.getId());
+		reviewService.applyMergeReview(review);
 
 		assertNull("Concept should be deleted after the merge.", conceptService.find("10000100", "MAIN/A1"));
 	}
@@ -1014,9 +1014,9 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertNull(mergeReviewConceptVersions.getAutoMergedConcept());
 
 		// Accept the deleted version
-		reviewService.persistManualMergeConceptDeletion(review.getId(), 10000100L);
+		reviewService.persistManualMergeConceptDeletion(reviewService.getMergeReviewOrThrow(review.getId()), 10000100L);
 
-		reviewService.applyMergeReview(review.getId());
+		reviewService.applyMergeReview(review);
 
 		assertNull("Concept should be deleted after the merge.", conceptService.find("10000100", "MAIN/A1"));
 	}
@@ -1051,9 +1051,9 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertNull(mergeReviewConceptVersions.getAutoMergedConcept());
 
 		// Accept the updated
-		reviewService.persistManuallyMergedConcept(review.getId(), mergeReviewConceptVersions.getSourceConcept().getConceptIdAsLong(), mergeReviewConceptVersions.getSourceConcept());
+		reviewService.persistManuallyMergedConcept(review, mergeReviewConceptVersions.getSourceConcept().getConceptIdAsLong(), mergeReviewConceptVersions.getSourceConcept());
 
-		reviewService.applyMergeReview(review.getId());
+		reviewService.applyMergeReview(review);
 
 		assertNotNull("Concept should be restored after the merge.", conceptService.find("10000100", "MAIN/A1"));
 	}
@@ -1088,9 +1088,9 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertNull(mergeReviewConceptVersions.getAutoMergedConcept());
 
 		// Accept the updated version
-		reviewService.persistManuallyMergedConcept(review.getId(), mergeReviewConceptVersions.getTargetConcept().getConceptIdAsLong(), mergeReviewConceptVersions.getTargetConcept());
+		reviewService.persistManuallyMergedConcept(review, mergeReviewConceptVersions.getTargetConcept().getConceptIdAsLong(), mergeReviewConceptVersions.getTargetConcept());
 
-		reviewService.applyMergeReview(review.getId());
+		reviewService.applyMergeReview(review);
 
 		assertNotNull("Concept should be restored after the merge.", conceptService.find("10000100", "MAIN/A1"));
 	}

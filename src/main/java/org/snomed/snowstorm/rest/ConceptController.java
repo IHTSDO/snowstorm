@@ -30,6 +30,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.SearchAfterPage;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
@@ -320,7 +321,19 @@ public class ConceptController {
 		return new ConceptReferencesResult(typeSets, conceptReferencesPage.getPageable(), conceptReferencesPage.getTotalElements());
 	}
 
+	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	@JsonView(value = View.Component.class)
+	public ConceptView createConcept(
+			@PathVariable String branch,
+			@RequestBody @Valid ConceptView concept,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
+
+		return conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
+	}
+
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.PUT)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	public ConceptView updateConcept(
 			@PathVariable String branch,
@@ -333,17 +346,8 @@ public class ConceptController {
 		return conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
 	}
 
-	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.POST)
-	@JsonView(value = View.Component.class)
-	public ConceptView createConcept(
-			@PathVariable String branch,
-			@RequestBody @Valid ConceptView concept,
-			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
-
-		return conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
-	}
-
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.DELETE)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	public void deleteConcept(
 			@PathVariable String branch,
 			@PathVariable String conceptId,
@@ -352,9 +356,10 @@ public class ConceptController {
 		conceptService.deleteConceptAndComponents(conceptId, BranchPathUriUtil.decodePath(branch), force);
 	}
 
-	@ApiOperation(value = "Start a bulk concept change.", notes = "Concepts can be created or updated using this endpoint.")
+	@ApiOperation(value = "Start a bulk concept create/update job.", notes = "Concepts can be created or updated using this endpoint.")
 	@RequestMapping(value = "/browser/{branch}/concepts/bulk", method = RequestMethod.POST)
-	public ResponseEntity createConceptBulkChange(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts, UriComponentsBuilder uriComponentsBuilder) {
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	public ResponseEntity<ResponseEntity.BodyBuilder> createUpdateConceptBulkChange(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts, UriComponentsBuilder uriComponentsBuilder) {
 		List<Concept> conceptList = new ArrayList<>();
 		concepts.forEach(conceptView -> conceptList.add((Concept) conceptView));
 		AsyncConceptChangeBatch batchConceptChange = new AsyncConceptChangeBatch();
@@ -366,6 +371,7 @@ public class ConceptController {
 
 	@ApiOperation("Fetch the status of a bulk concept creation or update.")
 	@RequestMapping(value = "/browser/{branch}/concepts/bulk/{bulkChangeId}", method = RequestMethod.GET)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	public AsyncConceptChangeBatch getConceptBulkChange(@PathVariable String branch, @PathVariable String bulkChangeId) {
 		return ControllerHelper.throwIfNotFound("Bulk Change", conceptService.getBatchConceptChange(bulkChangeId));
 	}

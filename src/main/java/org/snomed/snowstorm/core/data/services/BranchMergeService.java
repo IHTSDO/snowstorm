@@ -128,7 +128,7 @@ public class BranchMergeService {
 		executorService.submit(() -> {
 			try {
 				if (mergeReview != null) {
-					branchReviewService.applyMergeReview(mergeReview.getId());
+					branchReviewService.applyMergeReview(mergeReview);
 				} else {
 					mergeBranchSync(source, target, null);
 				}

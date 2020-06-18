@@ -31,4 +31,8 @@ public class CreateBranchRequest {
 	public void setMetadata(Map<String, Object> metadata) {
 		this.metadata = metadata;
 	}
+
+	public String getBranch() {
+		return getParent() + "/" + getName();
+	}
 }

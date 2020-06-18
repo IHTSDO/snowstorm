@@ -27,6 +27,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -162,12 +163,11 @@ public class BranchReviewService {
 		return conflicts.values();
 	}
 
-	public void applyMergeReview(String mergeReviewId) throws ServiceException {
-		final MergeReview mergeReview = getMergeReviewOrThrow(mergeReviewId);
+	public void applyMergeReview(MergeReview mergeReview) throws ServiceException {
 		assertMergeReviewCurrent(mergeReview);
 
 		// Check all conflicts manually merged
-		List<ManuallyMergedConcept> manuallyMergedConcepts = manuallyMergedConceptRepository.findByMergeReviewId(mergeReviewId, LARGE_PAGE).getContent();
+		List<ManuallyMergedConcept> manuallyMergedConcepts = manuallyMergedConceptRepository.findByMergeReviewId(mergeReview.getId(), LARGE_PAGE).getContent();
 		Set<Long> manuallyMergedConceptIds = manuallyMergedConcepts.stream().map(ManuallyMergedConcept::getConceptId).collect(Collectors.toSet());
 		final Set<Long> conflictingConceptIds = getConflictingConceptIds(mergeReview);
 		final Set<Long> conflictsRemaining = new HashSet<>(conflictingConceptIds);
@@ -196,7 +196,7 @@ public class BranchReviewService {
 				concepts.add(concept);
 			}
 		} catch (IOException e) {
-			throw new ServiceException("Failed to deserialise manually merged concept from temp store. mergeReview:" + mergeReviewId + ", conceptId:" + manuallyMergedConcept.getConceptId(), e);
+			throw new ServiceException("Failed to deserialise manually merged concept from temp store. mergeReview:" + mergeReview.getId() + ", conceptId:" + manuallyMergedConcept.getConceptId(), e);
 		}
 		branchMergeService.mergeBranchSync(mergeReview.getSourcePath(), mergeReview.getTargetPath(), concepts);
 	}
@@ -539,14 +539,14 @@ public class BranchReviewService {
 	/**
 	 * Persist manually merged concept in a temp store to be applied to the branch when the merge review is applied.
 	 */
-	public void persistManuallyMergedConcept(String mergeReviewId, Long conceptId, Concept manuallyMergedConcept) throws ServiceException {
-		getMergeReviewOrThrow(mergeReviewId);
+	@PreAuthorize("hasPermission('AUTHOR', #mergeReview.targetPath)")
+	public void persistManuallyMergedConcept(MergeReview mergeReview, Long conceptId, Concept manuallyMergedConcept) throws ServiceException {
 		if (!conceptId.equals(manuallyMergedConcept.getConceptIdAsLong())) {
 			throw new IllegalArgumentException("conceptId in request path does not match the conceptId in the request body.");
 		}
 		try {
 			String conceptJson = objectMapper.writeValueAsString(manuallyMergedConcept);
-			manuallyMergedConceptRepository.save(new ManuallyMergedConcept(mergeReviewId, conceptId, conceptJson, false));
+			manuallyMergedConceptRepository.save(new ManuallyMergedConcept(mergeReview.getId(), conceptId, conceptJson, false));
 		} catch (IOException e) {
 			throw new ServiceException("Failed to serialise manually merged concept.", e);
 		}
@@ -555,8 +555,8 @@ public class BranchReviewService {
 	/**
 	 * Persist manually merged concept deletion in a temp store to be applied to the branch when the merge review is applied.
 	 */
-	public void persistManualMergeConceptDeletion(String mergeReviewId, Long conceptId) {
-		getMergeReviewOrThrow(mergeReviewId);
-		manuallyMergedConceptRepository.save(new ManuallyMergedConcept(mergeReviewId, conceptId, null, true));
+	@PreAuthorize("hasPermission('AUTHOR', #mergeReview.targetPath)")
+	public void persistManualMergeConceptDeletion(MergeReview mergeReview, Long conceptId) {
+		manuallyMergedConceptRepository.save(new ManuallyMergedConcept(mergeReview.getId(), conceptId, null, true));
 	}
 }

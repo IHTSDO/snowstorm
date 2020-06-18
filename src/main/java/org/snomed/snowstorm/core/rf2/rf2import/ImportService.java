@@ -11,6 +11,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PathVariable;
 
@@ -155,7 +156,8 @@ public class ImportService {
 		return new FullImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, codeSystemService, branchPath, null);
 	}
 
-	public void importArchiveAsync(String importId, InputStream releaseFileStream) {
+	@PreAuthorize("hasPermission('AUTHOR', #branchPath)")
+	public void importArchiveAsync(String importId, @SuppressWarnings("unused") String branchPath, InputStream releaseFileStream) {
 		executorService.submit(() -> {
 			try {
 				importArchive(importId, releaseFileStream);

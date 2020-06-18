@@ -75,9 +75,10 @@ public class BranchController {
 	}
 
 	@RequestMapping(value = "/branches", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	public BranchPojo createBranch(@RequestBody CreateBranchRequest request) {
 		Map<String, String> flatMetadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
-		return getBranchPojo(branchService.create(request.getParent() + "/" + request.getName(), flatMetadata));
+		return getBranchPojo(branchService.create(request.getBranch(), flatMetadata));
 	}
 
 	private BranchPojo getBranchPojo(Branch branch) {
@@ -125,6 +126,7 @@ public class BranchController {
 	}
 
 	@RequestMapping(value = "/reviews", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('AUTHOR', #source) and hasPermission('AUTHOR', #target)")
 	public ResponseEntity<Void> createBranchReview(@RequestBody @Valid CreateReviewRequest createReviewRequest) {
 		BranchReview branchReview = reviewService.getCreateReview(createReviewRequest.getSource(), createReviewRequest.getTarget());
 		final String id = branchReview.getId();
@@ -146,6 +148,7 @@ public class BranchController {
 	}
 
 	@RequestMapping(value = "/merge-reviews", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('AUTHOR', #source) and hasPermission('AUTHOR', #target)")
 	public ResponseEntity<Void> createMergeReview(@RequestBody @Valid CreateReviewRequest createReviewRequest) {
 		MergeReview mergeReview = reviewService.createMergeReview(createReviewRequest.getSource(), createReviewRequest.getTarget());
 		return ControllerHelper.getCreatedResponse(mergeReview.getId());
@@ -166,22 +169,23 @@ public class BranchController {
 
 	@RequestMapping(value = "/merge-reviews/{id}/{conceptId}", method = RequestMethod.POST)
 	public void saveMergeReviewConflictingConcept(@PathVariable String id, @PathVariable Long conceptId, @RequestBody Concept manuallyMergedConcept) throws ServiceException {
-		reviewService.persistManuallyMergedConcept(id, conceptId, manuallyMergedConcept);
+		reviewService.persistManuallyMergedConcept(reviewService.getMergeReviewOrThrow(id), conceptId, manuallyMergedConcept);
 	}
 
 	@RequestMapping(value = "/merge-reviews/{id}/{conceptId}", method = RequestMethod.DELETE)
 	public void deleteMergeReviewConflictingConcept(@PathVariable String id, @PathVariable Long conceptId) {
-		reviewService.persistManualMergeConceptDeletion(id, conceptId);
+		reviewService.persistManualMergeConceptDeletion(reviewService.getMergeReviewOrThrow(id), conceptId);
 	}
 
 	@RequestMapping(value = "/merge-reviews/{id}/apply", method = RequestMethod.POST)
 	public void applyMergeReview(@PathVariable String id) throws ServiceException {
-		reviewService.applyMergeReview(id);
+		reviewService.applyMergeReview(reviewService.getMergeReviewOrThrow(id));
 	}
 
-	@RequestMapping(value = "/merges", method = RequestMethod.POST)
 	@ApiOperation(value = "Perform a branch rebase or promotion.",
 			notes = "The integrity-check endpoint should be used before performing a promotion to avoid promotion errors.")
+	@RequestMapping(value = "/merges", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('AUTHOR', #mergeRequest.target)")
 	public ResponseEntity<Void> mergeBranch(@RequestBody MergeRequest mergeRequest) {
 		BranchMergeJob mergeJob = branchMergeService.mergeBranchAsync(mergeRequest);
 		return ControllerHelper.getCreatedResponse(mergeJob.getId());
