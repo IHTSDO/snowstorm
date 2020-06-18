@@ -12,6 +12,7 @@ import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -52,12 +53,9 @@ public class CodeSystemUpgradeService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public void upgrade(String shortName, Integer newDependantVersion) throws  ServiceException {
+	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
+	public void upgrade(CodeSystem codeSystem, Integer newDependantVersion) throws  ServiceException {
 		// Pre checks
-		CodeSystem codeSystem = codeSystemService.find(shortName);
-		if (codeSystem == null) {
-			throw new NotFoundException(String.format("Code System with short name '%s' does not exist.", shortName));
-		}
 		String branchPath = codeSystem.getBranchPath();
 		String parentPath = PathUtil.getParentPath(branchPath);
 		if (parentPath == null) {

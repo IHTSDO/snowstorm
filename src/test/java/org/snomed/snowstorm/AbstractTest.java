@@ -5,6 +5,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.PermissionService;
 import org.snomed.snowstorm.core.data.services.classification.ClassificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -24,6 +25,9 @@ public abstract class AbstractTest {
 	@Autowired
 	private ClassificationService classificationService;
 
+	@Autowired
+	private PermissionService permissionService;
+
 	@Before
 	public void before() {
 		branchService.create(MAIN);
@@ -35,6 +39,7 @@ public abstract class AbstractTest {
 		conceptService.deleteAll();
 		codeSystemService.deleteAll();
 		classificationService.deleteAll();
+		permissionService.deleteAll();
 	}
 
 }

@@ -4,6 +4,13 @@ public class CodeSystemUpgradeRequest {
 
 	private Integer newDependantVersion;
 
+	public CodeSystemUpgradeRequest() {
+	}
+
+	public CodeSystemUpgradeRequest(Integer newDependantVersion) {
+		this.newDependantVersion = newDependantVersion;
+	}
+
 	public Integer getNewDependantVersion() {
 		return newDependantVersion;
 	}

@@ -4,7 +4,6 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.otf.resourcemanager.ResourceConfiguration;
 import org.ihtsdo.otf.resourcemanager.ResourceManager;
-import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -191,7 +190,7 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		codeSystemService.createVersion(snomedct, 20200131, "");
 
 		// Upgrade the extension (rollback of previous daily build is automatic)
-		codeSystemUpgradeService.upgrade(shortName, 20200131);
+		codeSystemUpgradeService.upgrade(snomedExtensionCodeSystem, 20200131);
 		assertEquals("Assert extension upgraded", 20200131, codeSystemService.find(shortName).getDependantVersionEffectiveTime().intValue());
 		assertNull("Daily build 1 still not there.", conceptService.find(dailyBuild1Concept, branchPath));
 		assertNull("Daily build 2 Concept should have been reverted as part of the upgrade.", conceptService.find(dailyBuild2Concept, branchPath));

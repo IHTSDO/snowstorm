@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.CloseableIterator;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -60,7 +61,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 
 	private Logger logger = LoggerFactory.getLogger(ExtensionAdditionalLanguageRefsetUpgradeService.class);
 
-
+	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public void generateAdditionalLanguageRefsetDelta(CodeSystem codeSystem, String branchPath, String languageRefsetId, Boolean completeCopy) {
 		logger.info("Start updating additional language refset on branch {} for {}.", branchPath, codeSystem);
 		AdditionalRefsetExecutionConfig config = createExecutionConfig(codeSystem, completeCopy);
@@ -184,14 +185,15 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		AdditionalRefsetExecutionConfig config = new AdditionalRefsetExecutionConfig(codeSystem, completeCopy);
 		Branch branch = branchService.findLatest(codeSystem.getBranchPath());
 		Map<String, Object> expandedMetadata = branchMetadataHelper.expandObjectValues(branch.getMetadata());
-		Object jsonObject = expandedMetadata.get(REQUIRED_LANGUAGE_REFSETS);
-		LanguageRefsetMetadataConfig[] configs = gson.fromJson(jsonObject.toString(), LanguageRefsetMetadataConfig[].class);
 		String defaultEnglishLanguageRefsetId = null;
-		for (LanguageRefsetMetadataConfig metadataConfig : configs) {
-			if (metadataConfig.usedByDefault && metadataConfig.getEnglishLanguageRestId() != null)
-			{
-				defaultEnglishLanguageRefsetId = metadataConfig.getEnglishLanguageRestId();
-				break;
+		if (expandedMetadata != null && expandedMetadata.containsKey(REQUIRED_LANGUAGE_REFSETS)) {
+			Object jsonObject = expandedMetadata.get(REQUIRED_LANGUAGE_REFSETS);
+			LanguageRefsetMetadataConfig[] configs = gson.fromJson(jsonObject.toString(), LanguageRefsetMetadataConfig[].class);
+			for (LanguageRefsetMetadataConfig metadataConfig : configs) {
+				if (metadataConfig.usedByDefault && metadataConfig.getEnglishLanguageRestId() != null) {
+					defaultEnglishLanguageRefsetId = metadataConfig.getEnglishLanguageRestId();
+					break;
+				}
 			}
 		}
 		if (defaultEnglishLanguageRefsetId == null) {

@@ -45,19 +45,6 @@ public class CodeSystemServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testCodesystemUpdateValidation() {
-		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
-		codeSystemService.createCodeSystem(codeSystem);
-		try {
-			codeSystemService.update(codeSystem, new CodeSystemUpdateRequest());
-			fail("Validation should have failed.");
-		} catch (IllegalArgumentException e) {
-			// pass
-		}
-		codeSystemService.update(codeSystem, new CodeSystemUpdateRequest().setBranchPath("MAIN"));
-	}
-
-	@Test
 	public void testFindLatestImportedVersion() {
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
 		codeSystemService.createCodeSystem(codeSystem);

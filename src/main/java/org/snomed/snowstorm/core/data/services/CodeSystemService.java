@@ -35,6 +35,7 @@ import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.Pair;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -188,6 +189,7 @@ public class CodeSystemService {
 		return null;
 	}
 
+	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public synchronized String createVersion(CodeSystem codeSystem, Integer effectiveDate, String description) {
 
 		if (effectiveDate == null || effectiveDate.toString().length() != 8) {
@@ -380,6 +382,14 @@ public class CodeSystemService {
 		}
 	}
 
+	public CodeSystem findOrThrow(String codeSystemShortName) {
+		CodeSystem codeSystem = find(codeSystemShortName);
+		if (codeSystem == null) {
+			throw new NotFoundException(String.format("Code System with short name '%s' does not exist.", codeSystemShortName));
+		}
+		return codeSystem;
+	}
+
 	public CodeSystem find(String codeSystemShortName) {
 		Optional<CodeSystem> codeSystem = repository.findById(codeSystemShortName);
 		codeSystem.ifPresent(c -> joinContentInformation(Collections.singletonList(c)));
@@ -439,6 +449,7 @@ public class CodeSystemService {
 	}
 
 	@Deprecated// Deprecated in favour of upgrade operation.
+	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public void migrateDependantCodeSystemVersion(CodeSystem codeSystem, String dependantCodeSystem, Integer newDependantVersion, boolean copyMetadata) throws ServiceException {
 		try {
 			CodeSystemVersion newDependantCodeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(dependantCodeSystem, newDependantVersion);
@@ -480,6 +491,7 @@ public class CodeSystemService {
 		return results.isEmpty() ? null : results.get(0);
 	}
 
+	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public CodeSystem update(CodeSystem codeSystem, CodeSystemUpdateRequest updateRequest) {
 		modelMapper.map(updateRequest, codeSystem);
 		validatorService.validate(codeSystem);
@@ -488,6 +500,7 @@ public class CodeSystemService {
 		return codeSystem;
 	}
 
+	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public void deleteCodeSystemAndVersions(CodeSystem codeSystem) {
 		if (codeSystem.getBranchPath().equals("MAIN")) {
 			throw new IllegalArgumentException("The root code system can not be deleted. " +

@@ -11,6 +11,7 @@ import org.snomed.snowstorm.core.data.services.ContentReportService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.validation.DroolsValidationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.constraints.NotNull;
@@ -48,6 +49,7 @@ public class ConceptValidationController {
 
 	@RequestMapping(value = "/validation-maintenance/reload-validation-rules", method = RequestMethod.POST)
 	@ApiOperation("Reload SNOMED Drools assertions and test resources.")
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public void reloadDrools() throws ServiceException {
 		validationService.newRuleExecutorAndResources();
 	}

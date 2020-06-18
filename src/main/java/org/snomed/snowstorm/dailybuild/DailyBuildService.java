@@ -21,6 +21,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.ResourcePatternResolver;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -103,6 +104,7 @@ public class DailyBuildService {
 		logger.info("Daily build delta import completed for code system " +  codeSystem.getShortName());
 	}
 
+	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public void rollbackDailyBuildContent(CodeSystem codeSystem) {
 		// Roll back commits on Code System branch if commit starts after latest release commit
 		// AND new base timestamp does not match one of the parent codesystem release branch timepoints.
