@@ -181,7 +181,7 @@ public class AdminOperationsService {
 		logger.info("Restoring group number of inactive relationships on branch {}.", branchPath);
 
 		Map<Long, Relationship> inactiveRelationships = getAllInactiveRelationships(branchPath, currentEffectiveTime);
-		logger.info("{} relationships inactive on this branch branch with effectiveTime {}.", inactiveRelationships.size(), currentEffectiveTime);
+		logger.info("{} relationships inactive on this branch with effectiveTime {}.", inactiveRelationships.size(), currentEffectiveTime);
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(previousReleaseBranch);
 		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder().withQuery(

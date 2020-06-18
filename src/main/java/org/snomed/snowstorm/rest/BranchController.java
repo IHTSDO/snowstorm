@@ -20,6 +20,7 @@ import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
@@ -62,15 +63,15 @@ public class BranchController {
 	}
 	
 	@ApiOperation("Retrieve branch descendants")
-	@RequestMapping(value = "/branches/{path}/children", method = RequestMethod.GET)
+	@RequestMapping(value = "/branches/{branch}/children", method = RequestMethod.GET)
 	public List<Branch> retrieveBranchDescendants(
-			@PathVariable String path,
+			@PathVariable String branch,
 			@RequestParam(required = false, defaultValue = "false") boolean immediateChildren,
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "100") int size) {
 		PageRequest pageRequest = PageRequest.of(page, size);
 		ControllerHelper.validatePageSize(pageRequest.getOffset(), pageRequest.getPageSize());
-		return clearMetadata(branchMergeService.findChildBranches(BranchPathUriUtil.decodePath(path), immediateChildren, pageRequest));
+		return clearMetadata(branchMergeService.findChildBranches(BranchPathUriUtil.decodePath(branch), immediateChildren, pageRequest));
 	}
 
 	@RequestMapping(value = "/branches", method = RequestMethod.POST)
@@ -85,39 +86,42 @@ public class BranchController {
 	}
 
 	@ApiOperation("Update branch metadata")
-	@RequestMapping(value = "/branches/{path}", method = RequestMethod.PUT)
-	public BranchPojo updateBranch(@PathVariable String path, @RequestBody UpdateBranchRequest request) {
-		path = BranchPathUriUtil.decodePath(path);
-		if (branchService.findBranchOrThrow(path).isLocked()) {
+	@RequestMapping(value = "/branches/{branch}", method = RequestMethod.PUT)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
+	public BranchPojo updateBranch(@PathVariable String branch, @RequestBody UpdateBranchRequest request) {
+		branch = BranchPathUriUtil.decodePath(branch);
+		if (branchService.findBranchOrThrow(branch).isLocked()) {
 			throw new IllegalStateException("Branch metadata can not be updated when branch is locked.");
 		}
-		Branch branch = branchService.findBranchOrThrow(path);
+		Branch branchObject = branchService.findBranchOrThrow(branch);
 		Map<String, String> metadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
 		// skip updating for internal via REST api
 		if (metadata.containsKey(INTERNAL_METADATA_KEY)) {
 			metadata.remove(INTERNAL_METADATA_KEY);
 		}
-		Map<String, String> existing = branch.getMetadata();
+		Map<String, String> existing = branchObject.getMetadata();
 		if (existing.containsKey(INTERNAL_METADATA_KEY)) {
 			metadata.put(INTERNAL_METADATA_KEY, existing.get(INTERNAL_METADATA_KEY));
 		}
-		return getBranchPojo(branchService.updateMetadata(path, metadata));
+		return getBranchPojo(branchService.updateMetadata(branch, metadata));
 	}
 
 	@ApiOperation("Retrieve a single branch")
-	@RequestMapping(value = "/branches/{path}", method = RequestMethod.GET)
-	public BranchPojo retrieveBranch(@PathVariable String path, @RequestParam(required = false, defaultValue = "false") boolean includeInheritedMetadata) {
-		return getBranchPojo(branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(path), includeInheritedMetadata));
+	@RequestMapping(value = "/branches/{branch}", method = RequestMethod.GET)
+	public BranchPojo retrieveBranch(@PathVariable String branch, @RequestParam(required = false, defaultValue = "false") boolean includeInheritedMetadata) {
+		return getBranchPojo(branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branch), includeInheritedMetadata));
 	}
 
-	@RequestMapping(value = "/branches/{path}/actions/lock", method = RequestMethod.POST)
-	public void lockBranch(@PathVariable String path, @RequestParam String lockMessage) {
-		branchService.lockBranch(BranchPathUriUtil.decodePath(path), lockMessage);
+	@RequestMapping(value = "/branches/{branch}/actions/lock", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
+	public void lockBranch(@PathVariable String branch, @RequestParam String lockMessage) {
+		branchService.lockBranch(BranchPathUriUtil.decodePath(branch), lockMessage);
 	}
 
-	@RequestMapping(value = "/branches/{path}/actions/unlock", method = RequestMethod.POST)
-	public void unlockBranch(@PathVariable String path) {
-		branchService.unlock(BranchPathUriUtil.decodePath(path));
+	@RequestMapping(value = "/branches/{branch}/actions/unlock", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
+	public void unlockBranch(@PathVariable String branch) {
+		branchService.unlock(BranchPathUriUtil.decodePath(branch));
 	}
 
 	@RequestMapping(value = "/reviews", method = RequestMethod.POST)
@@ -188,10 +192,10 @@ public class BranchController {
 		return branchMergeService.getBranchMergeJobOrThrow(mergeId);
 	}
 
-	@RequestMapping(value = "/{branch}/integrity-check", method = RequestMethod.POST)
 	@ApiOperation(value = "Perform integrity check against changed components on this branch.",
 			notes = "Returns a report containing an entry for each type of issue found together with a map of components. " +
 					"In the component map each key represents an existing component and the corresponding map value is the id of a component which is missing or inactive.")
+	@RequestMapping(value = "/{branch}/integrity-check", method = RequestMethod.POST)
 	public IntegrityIssueReport integrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) throws ServiceException {
 		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branchPath));
 		return integrityService.findChangedComponentsWithBadIntegrity(branch);

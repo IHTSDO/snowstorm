@@ -44,7 +44,6 @@ public class TestConfig extends Config {
 
 	private static final String ELASTIC_SEARCH_SERVER_VERSION = "6.8.0";
 	public static final String DEFAULT_LANGUAGE_CODE = "en";
-	public static final List<String> DEFAULT_LANGUAGE_CODES = Collections.singletonList(DEFAULT_LANGUAGE_CODE);
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
@@ -56,6 +55,8 @@ public class TestConfig extends Config {
 	private static File installationDirectory;
 	private static final int PORT = 9931;
 
+	private final boolean testElasticsearchUseLocal = false;
+
 	@PostConstruct
 	public void init() {
 		traceabilityLogService.setEnabled(false);
@@ -63,6 +64,11 @@ public class TestConfig extends Config {
 
 	@Bean
 	public ElasticsearchRestClient elasticsearchClient(@Value("${test.elasticsearch.start-timeout-mins:2}") int unitTestElasticsearchStartTimeoutMins) {
+
+		if (testElasticsearchUseLocal) {
+			return new ElasticsearchRestClient(new HashMap<>(), "http://localhost:9200");
+		}
+
 		// Share the Elasticsearch instance between test contexts
 		if (testElasticsearchSingleton == null) {
 			// Create and start a clean standalone Elasticsearch test instance

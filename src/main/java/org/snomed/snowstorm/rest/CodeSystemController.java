@@ -4,7 +4,6 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
-import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
@@ -12,17 +11,14 @@ import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.CodeSystemUpgradeService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.snomed.snowstorm.extension.ExtensionAdditionalLanguageRefsetUpgradeService;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 
 @RestController
 @Api(tags = "Code Systems", description = "-")
@@ -38,9 +34,6 @@ public class CodeSystemController {
 	@Autowired
 	private DailyBuildService dailyBuildService;
 
-	@Value("${daily-build.delta-import.enabled}")
-	private boolean dailyBuildEnabled;
-
 	@Autowired
 	private ExtensionAdditionalLanguageRefsetUpgradeService extensionAdditionalLanguageRefsetUpgradeService;
 
@@ -53,6 +46,7 @@ public class CodeSystemController {
 					"otherwise these are sorted by the number of active translated terms. " +
 					"defaultLanguageReferenceSet has no effect on the API but can be used by browsers to reflect extension preferences. ")
 	@RequestMapping(method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public ResponseEntity<Void> createCodeSystem(@RequestBody CodeSystemCreate codeSystem) {
 		codeSystemService.createCodeSystem((CodeSystem) codeSystem);
 		return ControllerHelper.getCreatedResponse(codeSystem.getShortName());
@@ -111,7 +105,8 @@ public class CodeSystemController {
 					"An integrity check should be run after this operation to find content that needs fixing. ")
 	@RequestMapping(value = "/{shortName}/upgrade", method = RequestMethod.POST)
 	public void upgradeCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpgradeRequest request) throws ServiceException {
-		codeSystemUpgradeService.upgrade(shortName, request.getNewDependantVersion());
+		CodeSystem codeSystem = codeSystemService.findOrThrow(shortName);
+		codeSystemUpgradeService.upgrade(codeSystem, request.getNewDependantVersion());
 	}
 
 	@ApiOperation(value = "DEPRECATED - Migrate code system to a different dependant version.",
@@ -131,10 +126,8 @@ public class CodeSystemController {
 					"before importing any versioned content. Be sure to disable the daily build too.")
 	@RequestMapping(value = "/{shortName}/daily-build/rollback", method = RequestMethod.POST)
 	public void rollbackDailyBuildContent(@PathVariable String shortName) {
-		if (dailyBuildEnabled) {
-			CodeSystem codeSystem = codeSystemService.find(shortName);
-			dailyBuildService.rollbackDailyBuildContent(codeSystem);
-		}
+		CodeSystem codeSystem = codeSystemService.find(shortName);
+		dailyBuildService.rollbackDailyBuildContent(codeSystem);
 	}
 
 	@ApiOperation(value = "Generate additional english language refset",
@@ -156,8 +149,8 @@ public class CodeSystemController {
 		if (codeSystem == null) {
 			throw new NotFoundException("No code system found with short name " + shortName);
 		}
-		if (!BranchPathUriUtil.decodePath(branchPath).contains(shortName)) {
-			throw new IllegalArgumentException(String.format("Branch path %s should be matching CodeSystem %s", BranchPathUriUtil.decodePath(branchPath), shortName));
+		if (!BranchPathUriUtil.decodePath(branchPath).contains(codeSystem.getBranchPath())) {
+			throw new IllegalArgumentException(String.format("Given branch %s must the code system branch %s or a child branch.", BranchPathUriUtil.decodePath(branchPath), codeSystem.getBranchPath()));
 		}
 		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(codeSystem, BranchPathUriUtil.decodePath(branchPath), languageRefsetToCopyFrom, completeCopy);
 	}

@@ -5,6 +5,14 @@ public class CreateCodeSystemVersionRequest {
 	private Integer effectiveDate;
 	private String description;
 
+	public CreateCodeSystemVersionRequest() {
+	}
+
+	public CreateCodeSystemVersionRequest(Integer effectiveDate, String description) {
+		this.effectiveDate = effectiveDate;
+		this.description = description;
+	}
+
 	public Integer getEffectiveDate() {
 		return effectiveDate;
 	}
