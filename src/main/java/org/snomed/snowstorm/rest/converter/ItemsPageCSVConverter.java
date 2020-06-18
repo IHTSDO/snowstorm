@@ -4,6 +4,7 @@ import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
+import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpOutputMessage;
@@ -23,6 +24,8 @@ import java.util.*;
 public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<ItemsPage<?>> {
 
 	private static final String TAB = "\t";
+
+	private static final String PREFERRED_TERM_PREFIX = "pt_";
 
 	public ItemsPageCSVConverter() {
 		super(new MediaType("text", "csv"));
@@ -44,17 +47,14 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 					int count = 0;
 					List <String> ptColumns = new ArrayList<>();
 					for (ConceptMini concept : (Collection<ConceptMini>) items) {
-						Map<String, Object> extraFields = concept.getExtraFields();
+						Map<String, String> extraFields = this.getConceptExtraFields(concept);
 						// Add new additional columns for preferred terms
 						if (count == 0) {
 							if (extraFields != null) {
 								for (String key : extraFields.keySet()) {
-									Object object = extraFields.get(key);
-									if (key.startsWith(Concepts.PREFERRED_TERM_PREFIX) && object instanceof TermLangPojo) {
-										writer.write(TAB);
-										writer.write(key);
-										ptColumns.add(key);
-									}
+									writer.write(TAB);
+									writer.write(key);
+									ptColumns.add(key);
 								}
 							}
 							writer.newLine();
@@ -70,11 +70,10 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 						writer.write(concept.getModuleId());
 						writer.write(TAB);
 						writer.write(concept.getDefinitionStatus());
-						if (extraFields != null && !CollectionUtils.isEmpty(ptColumns)) {
+						if (!CollectionUtils.isEmpty(ptColumns)) {
 							for (int i = 0; i <  ptColumns.size(); i++) {
-								Object object = extraFields.get(ptColumns.get(i));
 								writer.write(TAB);
-								writer.write(((TermLangPojo) object).getTerm());
+								writer.write(extraFields.get(ptColumns.get(i)));
 							}
 						}
 						writer.newLine();
@@ -147,6 +146,20 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 	@Override
 	protected ItemsPage<ConceptMini> readInternal(Class<? extends ItemsPage<?>> clazz, HttpInputMessage inputMessage) throws HttpMessageNotReadableException {
 		return new ItemsPage<>(new HashSet<>());
+	}
+
+	private Map<String, String> getConceptExtraFields(ConceptMini concept) {
+		Map<String, String> extraFields = new HashMap <>();
+		if (!CollectionUtils.isEmpty(concept.getRequestedLanguageDialects())) {
+			concept.getRequestedLanguageDialects().forEach(languageDialect -> {
+				if (languageDialect.getLanguageReferenceSet() != null) {
+					TermLangPojo termLangPojo = DescriptionHelper.getPtDescriptionTermAndLang(concept.getActiveDescriptions(), Arrays.asList(languageDialect));
+					extraFields.put(PREFERRED_TERM_PREFIX + languageDialect.getLanguageReferenceSet().toString(), termLangPojo.getTerm());
+				}
+			});
+		}
+
+		return extraFields;
 	}
 
 	private static final class NullSafeBufferedWriter extends BufferedWriter {
