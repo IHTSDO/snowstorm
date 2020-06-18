@@ -17,6 +17,7 @@ import org.snomed.snowstorm.rest.pojo.ClassificationUpdateRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -107,6 +108,7 @@ public class ClassificationController {
 			"to 'SAVED' or 'SAVE_FAILED'.\n" +
 			"Currently only the state can be changed from 'COMPLETED' to 'SAVED'.")
 	@RequestMapping(value = "/{classificationId}", method = RequestMethod.PUT)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	public void updateClassification(@PathVariable String branch, @PathVariable String classificationId, @RequestBody ClassificationUpdateRequest updateRequest) {
 		if (updateRequest.getStatus() != ClassificationStatus.SAVED) {
 			throw new IllegalArgumentException("The only expected status is " + ClassificationStatus.SAVED.toString());

@@ -27,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
@@ -170,6 +171,7 @@ public class ReferenceSetMemberController {
 
 	@ApiOperation("Create a reference set member.")
 	@RequestMapping(value = "/{branch}/members", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMemberView createMember(@PathVariable String branch, @RequestBody @Valid ReferenceSetMemberView member) {
 		ControllerHelper.requiredParam(member.getReferencedComponentId(), "referencedComponentId");
@@ -179,6 +181,7 @@ public class ReferenceSetMemberController {
 
 	@ApiOperation("Update a reference set member.")
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.PUT)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	public ReferenceSetMemberView updateMember(@PathVariable String branch,
 												 @PathVariable String uuid,
@@ -193,6 +196,7 @@ public class ReferenceSetMemberController {
 
 	@ApiOperation("Delete a reference set member.")
 	@RequestMapping(value = "/{branch}/members/{uuid}", method = RequestMethod.DELETE)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteMember(
@@ -206,6 +210,7 @@ public class ReferenceSetMemberController {
 
 	@ApiOperation("Batch delete reference set members.")
 	@RequestMapping(value = "/{branch}/members", method = RequestMethod.DELETE)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteMembers(

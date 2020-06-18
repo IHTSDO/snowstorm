@@ -20,6 +20,7 @@ import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -162,6 +163,7 @@ public class DescriptionController {
 
 	@ApiOperation(value = "Delete a description.")
 	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.DELETE)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	public void deleteDescription(
 			@PathVariable String branch,

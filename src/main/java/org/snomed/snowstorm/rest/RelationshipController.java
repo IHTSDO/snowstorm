@@ -15,6 +15,7 @@ import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -112,6 +113,7 @@ public class RelationshipController {
 
 	@ApiOperation(value = "Delete a relationship.")
 	@RequestMapping(value = "{branch}/relationships/{relationshipId}", method = RequestMethod.DELETE)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteRelationship(
 			@PathVariable String branch,
@@ -124,6 +126,7 @@ public class RelationshipController {
 
 	@ApiOperation(value = "Batch delete relationships.")
 	@RequestMapping(value = "{branch}/relationships", method = RequestMethod.DELETE)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void deleteRelationships(
 			@PathVariable String branch,
