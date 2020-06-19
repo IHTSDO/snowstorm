@@ -138,7 +138,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 		// Promote to A
 		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", null);
-		assertEquals("System performed merge of MAIN/A/A1 to MAIN/A", getLatestTraceabilityCommitComment());
+		assertEquals("test-admin performed merge of MAIN/A/A1 to MAIN/A", getLatestTraceabilityCommitComment());
 		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
 		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.FORWARD, conceptId, true);
 		assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.UP_TO_DATE, conceptId, true);
@@ -156,7 +156,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertEquals("The base timepoint of the original version of the branch should not have changed.",
 				branchA2BeforeRebase.getBase(), branchService.findAtTimepointOrThrow("MAIN/A/A2", beforeRebaseTimepoint).getBase());
 
-		assertEquals("System performed merge of MAIN/A to MAIN/A/A2", getLatestTraceabilityCommitComment());
+		assertEquals("test-admin performed merge of MAIN/A to MAIN/A/A2", getLatestTraceabilityCommitComment());
 		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
 		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.FORWARD, conceptId, true);
 		assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.UP_TO_DATE, conceptId, true);
