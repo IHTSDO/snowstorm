@@ -74,7 +74,7 @@ public class PermissionService {
 
 	public Set<String> getUserRolesForBranch(String branchPath) {
 		SecurityContext securityContext = SecurityContextHolder.getContext();
-		if (securityContext == null) {
+		if (securityContext == null || securityContext.getAuthentication() == null) {
 			return Collections.emptySet();
 		}
 
