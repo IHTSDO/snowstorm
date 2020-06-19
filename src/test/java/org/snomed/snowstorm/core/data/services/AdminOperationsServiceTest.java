@@ -81,6 +81,8 @@ public class AdminOperationsServiceTest extends AbstractTest {
 		assertEquals(18, releasedTotal);
 
 		// Delay before new authoring cycle import
+		// TODO: why is this delay required?
+		System.out.println("Wait 15 seconds ...");
 		Thread.sleep(15_000L);
 
 		// import new authoring cycle to MAIN

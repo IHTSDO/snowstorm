@@ -4,16 +4,18 @@ import io.kaicode.elasticvc.api.BranchService;
 import org.junit.Before;
 import org.junit.runner.RunWith;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.TestConfigWithSecurity;
+import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.security.Role;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.PermissionService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.http.*;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import java.net.URI;
@@ -25,8 +27,9 @@ import static java.lang.String.format;
 import static org.junit.Assert.*;
 
 @RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfigWithSecurity.class)
-public class AbstractControllerSecurityTest extends AbstractTest {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
+@ActiveProfiles("secure-test")
+public abstract class AbstractControllerSecurityTest extends AbstractTest {
 
 	@LocalServerPort
 	protected int port;
@@ -52,8 +55,13 @@ public class AbstractControllerSecurityTest extends AbstractTest {
 	protected HttpHeaders globalAdminHeaders;
 	protected CodeSystem extensionBCodeSystem;
 
+	@Value("${ims-security.roles.enabled}")
+	private boolean rolesEnabled;
+
 	@Before
 	public void setup() {
+		assertTrue("Role based access control must be enabled for security tests.", rolesEnabled);
+
 		url = "http://localhost:" + port;
 
 		userWithoutRoleHeaders = new HttpHeaders();

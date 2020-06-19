@@ -38,6 +38,9 @@ public class PermissionService {
 
 	private @Value("${permission.admin.group}") String adminUserGroup;
 
+	@Value("${ims-security.roles.enabled}")
+	private boolean rolesEnabled;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
@@ -58,7 +61,9 @@ public class PermissionService {
 	}
 
 	public boolean userHasRoleOnBranch(String role, String branchPath, Authentication authentication) {
-
+		if (!rolesEnabled) {
+			return true;
+		}
 		Set<String> userRoleForBranch = getUserRoleForBranch(branchPath, authentication);
 		boolean contains = userRoleForBranch.contains(role);
 		if (!contains) {
