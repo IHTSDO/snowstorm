@@ -6,17 +6,19 @@ import org.elasticsearch.search.aggregations.Aggregation;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SimpleAggregation implements Aggregation {
 
 	private final String name;
-	private final String bucket;
-	private final long count;
+	private Map<String, Long> buckets = new ConcurrentHashMap <>();
 
-	public SimpleAggregation(String name, String bucket, long count) {
+	public SimpleAggregation(String name) {
 		this.name = name;
-		this.bucket = bucket;
-		this.count = count;
+	}
+	public SimpleAggregation(String name, String bucket, long count) {
+		this(name);
+		buckets.put(bucket, count);
 	}
 
 	@Override
@@ -25,9 +27,11 @@ public class SimpleAggregation implements Aggregation {
 	}
 
 	public Map<String, Long> getBuckets() {
-		Map<String, Long> buckets = new HashMap<>();
-		buckets.put(bucket, count);
 		return buckets;
+	}
+
+	public void addBucket(String bucket, long count) {
+		buckets.put(bucket, count);
 	}
 
 	@Override
