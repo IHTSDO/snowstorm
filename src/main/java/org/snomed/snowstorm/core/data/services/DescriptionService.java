@@ -175,7 +175,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	public PageWithBucketAggregations<Description> findDescriptionsWithAggregations(String path, DescriptionCriteria criteria, PageRequest pageRequest) throws TooCostlyException {
-		TimerUtil timer = new TimerUtil("Search", Level.INFO, 5);
+		TimerUtil timer = new TimerUtil("Search", Level.INFO, 5, new TimerUtil("Search DEBUG", Level.DEBUG));
 
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		timer.checkpoint("Build branch criteria");
