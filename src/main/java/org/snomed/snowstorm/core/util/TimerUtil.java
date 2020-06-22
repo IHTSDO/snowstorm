@@ -13,9 +13,10 @@ public class TimerUtil {
 	private final String timerName;
 	private final long start;
 	private long lastCheck;
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final Level loggingLevel;
-	private float durationLoggingThreshold;
+	private final float durationLoggingThreshold;
+	private final TimerUtil childTimer;
 
 	public TimerUtil(String timerName) {
 		this(timerName, Level.INFO);
@@ -36,11 +37,16 @@ public class TimerUtil {
 	 * @param durationLoggingThreshold Minimum number of seconds required to make a log message.
 	 */
 	public TimerUtil(String timerName, Level loggingLevel, float durationLoggingThreshold) {
+		this(timerName, loggingLevel, durationLoggingThreshold, null);
+	}
+
+	public TimerUtil(String timerName, Level loggingLevel, float durationLoggingThreshold, TimerUtil childTimer) {
 		this.loggingLevel = loggingLevel;
 		this.timerName = timerName;
 		this.start = new Date().getTime();
 		lastCheck = start;
 		this.durationLoggingThreshold = durationLoggingThreshold;
+		this.childTimer = childTimer;
 	}
 
 	public static String secondsSince(Date startTime) {
@@ -58,6 +64,9 @@ public class TimerUtil {
 		if (secondsTaken >= durationLoggingThreshold) {
 			log("Timer {}: {} took {} seconds", timerName, nameSupplier.get(), secondsTaken);
 		}
+		if (childTimer != null) {
+			childTimer.checkpoint(nameSupplier);
+		}
 	}
 
 	public void finish() {
@@ -65,6 +74,9 @@ public class TimerUtil {
 		float secondsTaken = getDuration(start, now);
 		if (secondsTaken >= durationLoggingThreshold) {
 			log("Timer {}: total took {} seconds", timerName, secondsTaken);
+		}
+		if (childTimer != null) {
+			childTimer.finish();
 		}
 	}
 
