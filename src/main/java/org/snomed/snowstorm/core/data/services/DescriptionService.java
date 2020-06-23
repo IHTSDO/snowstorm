@@ -25,7 +25,6 @@ import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.aggregations.metrics.cardinality.Cardinality;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -244,43 +243,18 @@ public class DescriptionService extends ComponentService {
 			conceptIds = conceptSemanticTagMatches;
 		}
 
-		// Fetch concept refset membership
-		Set<Long> refetIds = new LongOpenHashSet();
-		try (CloseableIterator<ReferenceSetMember> members = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		// Fetch concept refset membership aggregation
+		AggregatedPage<ReferenceSetMember> membershipResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, true))
 						.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
 				)
-				.withPageable(LARGE_PAGE)
-				.build(), ReferenceSetMember.class)) {
-			members.forEachRemaining(member -> refetIds.add(parseLong(member.getRefsetId())));
-		}
-		timer.checkpoint("Fetching Concept refset");
-
-		// Fetch concept refset membership aggregation
-		Set<Long> finalConceptIds = conceptIds;
-		Map<String, Long> membershipMap = new ConcurrentHashMap <>();
-		refetIds.forEach(refsetId -> {
-			AggregatedPage<ReferenceSetMember> membershipResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-							.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, true))
-							.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, refsetId.toString()))
-							.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, finalConceptIds))
-					)
-					.withPageable(LARGE_PAGE)
-					.addAggregation(AggregationBuilders.cardinality("refsetComponentCount").field(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID))
-					.build(), ReferenceSetMember.class);
-			Cardinality count = membershipResults.getAggregations().get("refsetComponentCount");
-			membershipMap.put(refsetId.toString(), count.getValue());
-		});
-		timer.checkpoint("Concept refset membership aggregation - additional counts");
-		SimpleAggregation membershipAggregation = new SimpleAggregation("membership");
-		membershipMap.entrySet().forEach(item -> {
-			membershipAggregation.addBucket(item.getKey(), item.getValue());
-		});
-		allAggregations.add(membershipAggregation);
+				.withPageable(PAGE_OF_ONE)
+				.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID))
+				.build(), ReferenceSetMember.class);
+		allAggregations.add(membershipResults.getAggregation("membership"));
+		timer.checkpoint("Concept refset membership aggregation");
 
 		// Perform final paged description search with description property aggregations
 		descriptionFilter.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds));
@@ -626,7 +600,6 @@ public class DescriptionService extends ComponentService {
 						new NativeSearchQueryBuilder()
 								.withQuery(boolQuery()
 										.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, criteria.getConceptRefset()))
-										.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, true))
 										.filter(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 										.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
 								)
@@ -643,10 +616,7 @@ public class DescriptionService extends ComponentService {
 		}
 
 		Set<Long> descriptions;
-		if (criteria.isGroupByConcept()
-			|| !Strings.isNullOrEmpty(criteria.getConceptRefset())
-			|| !Strings.isNullOrEmpty(criteria.getSemanticTag())
-			|| !CollectionUtils.isEmpty(criteria.getSemanticTags())) {
+		if (criteria.isGroupByConcept()) {
 			descriptions = new LongLinkedOpenHashSet();
 			Set<Long> uniqueConceptIds = new LongOpenHashSet();
 			for (Map.Entry<Long, Long> entry : descriptionToConceptMap.entrySet()) {
