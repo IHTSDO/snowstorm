@@ -145,6 +145,7 @@ public class PermissionService {
 			// Delete any existing entry
 			findByGlobalPathAndRole(global, branch, role).ifPresent(record -> repository.delete(record));
 		}
+		permissionServiceCache.clearCache();
 	}
 
 	private Optional<PermissionRecord> findByGlobalPathAndRole(boolean global, String branch, String role) {
