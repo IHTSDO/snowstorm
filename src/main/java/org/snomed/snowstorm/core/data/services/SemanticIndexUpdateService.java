@@ -39,6 +39,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
+import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
@@ -467,7 +468,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 				buildGraphFromExistingNodes(alternativeAncestors, form.isStated(), graphBuilder, branchCriteriaForAlreadyCommittedContent,
 						queryConcept -> {});
 			}
-			timer.checkpoint(String.format("Build existing graph from nodes. %s alternative ancestors found.", alternativeAncestors.size()));
+			timer.checkpoint(format("Build existing graph from nodes. %s alternative ancestors found.", alternativeAncestors.size()));
 		} else {
 			// Rebuild from scratch.
 			// Strategy: Find relationships of existing TC and descendant nodes and build existing graph(s)
@@ -567,7 +568,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 							relationshipConsumer.accept(axiomMember, relationship);
 						});
 			} catch (ConversionException e) {
-				exceptionHolder.set(e);
+				exceptionHolder.set(new ConversionException(format("Failed to convert axiom %s", axiomMember.getMemberId()), e));
 			}
 		});
 		if (exceptionHolder.get() != null) {
