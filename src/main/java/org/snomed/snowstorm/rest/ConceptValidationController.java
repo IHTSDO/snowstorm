@@ -50,7 +50,7 @@ public class ConceptValidationController {
 	@RequestMapping(value = "/validation-maintenance/reload-validation-rules", method = RequestMethod.POST)
 	@ApiOperation("Reload SNOMED Drools assertions and test resources.")
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
-	public void reloadDrools() throws ServiceException {
+	public void reloadDrools() {
 		validationService.newRuleExecutorAndResources();
 	}
 

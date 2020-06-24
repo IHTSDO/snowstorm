@@ -75,7 +75,7 @@ public class BranchController {
 	}
 
 	@RequestMapping(value = "/branches", method = RequestMethod.POST)
-	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	@PreAuthorize("hasPermission('AUTHOR', #request.branch)")
 	public BranchPojo createBranch(@RequestBody CreateBranchRequest request) {
 		Map<String, String> flatMetadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
 		return getBranchPojo(branchService.create(request.getBranch(), flatMetadata));
@@ -126,9 +126,9 @@ public class BranchController {
 	}
 
 	@RequestMapping(value = "/reviews", method = RequestMethod.POST)
-	@PreAuthorize("hasPermission('AUTHOR', #source) and hasPermission('AUTHOR', #target)")
-	public ResponseEntity<Void> createBranchReview(@RequestBody @Valid CreateReviewRequest createReviewRequest) {
-		BranchReview branchReview = reviewService.getCreateReview(createReviewRequest.getSource(), createReviewRequest.getTarget());
+	@PreAuthorize("hasPermission('AUTHOR', #request.source) and hasPermission('AUTHOR', #request.target)")
+	public ResponseEntity<Void> createBranchReview(@RequestBody @Valid CreateReviewRequest request) {
+		BranchReview branchReview = reviewService.getCreateReview(request.getSource(), request.getTarget());
 		final String id = branchReview.getId();
 		return ControllerHelper.getCreatedResponse(id);
 	}
@@ -148,9 +148,9 @@ public class BranchController {
 	}
 
 	@RequestMapping(value = "/merge-reviews", method = RequestMethod.POST)
-	@PreAuthorize("hasPermission('AUTHOR', #source) and hasPermission('AUTHOR', #target)")
-	public ResponseEntity<Void> createMergeReview(@RequestBody @Valid CreateReviewRequest createReviewRequest) {
-		MergeReview mergeReview = reviewService.createMergeReview(createReviewRequest.getSource(), createReviewRequest.getTarget());
+	@PreAuthorize("hasPermission('AUTHOR', #request.source) and hasPermission('AUTHOR', #request.target)")
+	public ResponseEntity<Void> createMergeReview(@RequestBody @Valid CreateReviewRequest request) {
+		MergeReview mergeReview = reviewService.createMergeReview(request.getSource(), request.getTarget());
 		return ControllerHelper.getCreatedResponse(mergeReview.getId());
 	}
 
