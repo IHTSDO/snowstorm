@@ -568,7 +568,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 							relationshipConsumer.accept(axiomMember, relationship);
 						});
 			} catch (ConversionException e) {
-				exceptionHolder.set(new ConversionException(format("Failed to convert axiom %s", axiomMember.getMemberId()), e));
+				exceptionHolder.set(new ConversionException(format("Failed to convert axiom %s", axiomMember.getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION)), e));
 			}
 		});
 		if (exceptionHolder.get() != null) {
