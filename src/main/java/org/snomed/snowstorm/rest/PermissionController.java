@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
 
 @RestController
@@ -54,6 +55,13 @@ public class PermissionController {
 		permissionService.setGlobalRoleGroups(role, userGroupsPojo.getUserGroups());
 	}
 
+	@ApiOperation(value = "Delete a global role.")
+	@RequestMapping(value = "/global/role/{role}", method = RequestMethod.DELETE)
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
+	public void deleteGlobalRole(@PathVariable String role) {
+		permissionService.deleteGlobalRole(role);
+	}
+
 	@ApiOperation(value = "Set branch permissions.", notes = "Set which user groups have the given role on the given branch.\n " +
 			"These permissions will also apply to ancestor branches in the same code system.")
 	@RequestMapping(value = "/{branch}/role/{role}", method = RequestMethod.PUT)
@@ -61,6 +69,14 @@ public class PermissionController {
 	public void setBranchRoleGroups(@PathVariable String branch, @PathVariable String role, @RequestBody UserGroupsPojo userGroupsPojo) {
 		branch = BranchPathUriUtil.decodePath(branch);
 		permissionService.setBranchRoleGroups(branch, role, userGroupsPojo.getUserGroups());
+	}
+
+	@ApiOperation(value = "Delete branch role.")
+	@RequestMapping(value = "/{branch}/role/{role}", method = RequestMethod.DELETE)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
+	public void deleteBranchRole(@PathVariable String branch, @PathVariable String role) {
+		branch = BranchPathUriUtil.decodePath(branch);
+		permissionService.deleteBranchRole(branch, role);
 	}
 
 }
