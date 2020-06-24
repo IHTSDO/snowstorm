@@ -128,12 +128,20 @@ public class PermissionService {
 		setGlobalOrBranchRoleGroups(true, null, role, userGroups);
 	}
 
+	public void deleteGlobalRole(String role) {
+		setGlobalOrBranchRoleGroups(true, null, role, Collections.emptySet());
+	}
+
 	public void setBranchRoleGroups(String branch, Role role, Set<String> userGroups) {
 		setBranchRoleGroups(branch, role.toString(), userGroups);
 	}
 
 	public void setBranchRoleGroups(String branch, String role, Set<String> userGroups) {
 		setGlobalOrBranchRoleGroups(false, branch, role, userGroups);
+	}
+
+	public void deleteBranchRole(String branch, String role) {
+		setGlobalOrBranchRoleGroups(false, branch, role, Collections.emptySet());
 	}
 
 	private void setGlobalOrBranchRoleGroups(boolean global, String branch, String role, Set<String> userGroups) {
