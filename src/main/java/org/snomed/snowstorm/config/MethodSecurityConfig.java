@@ -35,6 +35,9 @@ public class MethodSecurityConfig extends GlobalMethodSecurityConfiguration {
 		return new PermissionEvaluator() {
 			@Override
 			public boolean hasPermission(Authentication authentication, Object role, Object branchObject) {
+				if (branchObject == null) {
+					throw new SecurityException("Branch path is null, can not ascertain roles.");
+				}
 				return permissionService.userHasRoleOnBranch((String) role, BranchPathUriUtil.decodePath((String) branchObject), authentication);
 			}
 
