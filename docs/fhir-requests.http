@@ -97,14 +97,13 @@ GET {{baseUrl}}/ConceptMap/$translate
     &url=http://snomed.info/sct
     ?fhir_cm=447562003
 
-#### R15: Find all Maps target for 254153009 |Familial expansile osteolysis (disorder)| - note fhir_cm value is left blank so all refsets are potentially returned.
+#### R15: Find all Maps target for 254153009 |Familial expansile osteolysis (disorder)|, in a specific version (and Edition) of SNOMED CT - note fhir_cm value is left blank so all refsets are potentially returned.
 GET {{baseUrl}}/ConceptMap/$translate
     ?code=254153009
     &system=http://snomed.info/sct
-    &version=http://snomed.info/sct/900000000000207008/version/20200309
     &source=http://snomed.info/sct
     ?fhir_vs
     &target=http://snomed.info/sct
     ?fhir_vs
-    &url=http://snomed.info/sct
+    &url=http://snomed.info/sct/900000000000207008/version/20200309
     ?fhir_cm=
