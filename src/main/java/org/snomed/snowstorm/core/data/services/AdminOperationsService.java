@@ -396,7 +396,6 @@ public class AdminOperationsService {
 		logger.info("Release fix branch base " + releaseFixBranch.getBase().getTime());
 		logger.info("Release fix branch head " + releaseFixBranch.getHead().getTime());
 		final Branch codeSystemVersionCommit = branchService.findAtTimepointOrThrow(codeSystemPath, releaseFixBranch.getBase());
-		final BranchCriteria codeSystemVersionCommitBranchCriteria = versionControlHelper.getBranchCriteriaAtTimepoint(codeSystemPath, codeSystemVersionCommit.getHead());
 
 		// Date of now used to end components on the release branch
 		Date now = new Date();
@@ -432,28 +431,25 @@ public class AdminOperationsService {
 			try (CloseableIterator<? extends DomainEntity> stream = elasticsearchTemplate.stream(query, type)) {
 				stream.forEachRemaining(entitiesToPromote::add);
 			}
-			logger.info("Found {} {} to promote.", entitiesToPromote.size(), type.getSimpleName());
-			if (!entitiesToPromote.isEmpty()) {
+
+			Set<String> entityVersionsReplaced = releaseFixBranch.getVersionsReplaced(type);
+			logger.info("Found {} {} to promote, {} versions replaced.", entitiesToPromote.size(), type.getSimpleName(), entityVersionsReplaced.size());
+
+			if (!entitiesToPromote.isEmpty() || !entityVersionsReplaced.isEmpty()) {
 				// Manually promote all entity types including the semantic index.
 				// We do not want any post-commit hooks to run because they will not be able to deal with a new historic commit.
 				// Post-commit hooks will not run because we will not be asking the branch service for a Commit object.
-
-				// Find existing versions of the same entities on the parent branch
 				String typeIdField = domainEntityConfiguration.getAllIdFields().get(type);
 				ElasticsearchCrudRepository typeRepository = domainEntityConfiguration.getAllTypeRepositoryMap().get(type);
-				for (List<DomainEntity> entitiesToPromoteBatch : partition(entitiesToPromote, 1_000)) {
+
+				// Find existing versions of the same entities on the parent branch
+				for (List<String> entityVersionsReplacedBatch : Lists.partition(new ArrayList<>(entityVersionsReplaced), 1_000)) {
 					List<DomainEntity> existingEntitiesBatch = new ArrayList<>();
 					Map<String, Date> existingEntitiesOriginalStartDate = new HashMap<>();
 					try (CloseableIterator<? extends DomainEntity> existingEntityStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
-							.withQuery(boolQuery()
-									.must(codeSystemVersionCommitBranchCriteria.getEntityBranchCriteria(type))
-									.must(boolQuery()
-											// New version of component on fix branch
-											.should(termsQuery(typeIdField, entitiesToPromoteBatch.stream().map(DomainEntity::getId).collect(Collectors.toList())))
-											// Deleted component on fix branch
-											.should(termsQuery("internalId", releaseFixBranch.getVersionsReplaced(type)))
-									)
-							).withPageable(LARGE_PAGE).build(), type)) {
+							// Deleted or replaced component on fix branch
+							.withQuery(termsQuery("_id", entityVersionsReplacedBatch))
+							.withPageable(LARGE_PAGE).build(), type)) {
 						existingEntityStream.forEachRemaining(existingEntity -> {
 							if (existingEntity.getPath().equals(codeSystemPath)) {
 								existingEntitiesBatch.add(existingEntity);
@@ -465,7 +461,9 @@ public class AdminOperationsService {
 						});
 					}
 
-					if (!existingEntitiesBatch.isEmpty()) {
+					if (existingEntitiesBatch.isEmpty()) {
+						logger.info("No existing {} found on the code system path for this batch.", type.getSimpleName());
+					} else {
 						logger.info("{} existing {} found on the code system path for this batch, for example {} {}.",
 								existingEntitiesBatch.size(), type.getSimpleName(), type.getSimpleName(), existingEntitiesBatch.iterator().next().getId());
 
@@ -489,13 +487,15 @@ public class AdminOperationsService {
 						// We have created a gap in the timeline to insert the fix version of the component
 						// to prevent having multiple versions of the same entity existing at once.
 					}
+				}
 
+				for (List<DomainEntity> entitiesToPromoteBatch : partition(entitiesToPromote, 1_000)) {
 					// End versions on the version branch
 					for (DomainEntity entity : entitiesToPromoteBatch) {
 						// End after set time period
 						entity.setEnd(now);
 					}
-					logger.info("Ending {} {} on source branch with now {} end date.", existingEntitiesBatch.size(), type.getSimpleName(), now.getTime());
+					logger.info("Ending {} {} on source branch with now {} end date.", entitiesToPromoteBatch.size(), type.getSimpleName(), now.getTime());
 					typeRepository.saveAll(entitiesToPromoteBatch);
 
 					// Copy the entities to the parent branch
@@ -515,7 +515,7 @@ public class AdminOperationsService {
 							}
 						}
 					}
-					logger.info("Promoting {} {} before revert commit.", existingEntitiesBatch.size(), type.getSimpleName());
+					logger.info("Promoting {} {} before revert commit.", entitiesToPromoteBatch.size(), type.getSimpleName());
 					typeRepository.saveAll(entitiesToPromoteBatch);
 				}
 			}
