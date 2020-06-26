@@ -10,6 +10,7 @@ import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
+import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -48,6 +49,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 			@OperationParam(name="url") String url,
 			@OperationParam(name="system") UriType system,
 			@OperationParam(name="code") CodeType code,
+			@OperationParam(name="version") StringType version,
 			@OperationParam(name="source") UriType source,
 			@OperationParam(name="target") UriType target) throws FHIROperationException {
 		fhirHelper.required("source", source);
@@ -55,7 +57,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		validate("System", system.asStringValue(), Validation.EQUALS, getValidMapSources(), true);
 		validate("Source", source.asStringValue(), Validation.STARTS_WITH, getValidMapSources(), true);
 		validate("Target", target.asStringValue(), Validation.EQUALS, getValidMapTargets(), true);
-		
+		fhirHelper.notSupported("version", version);
 		normaliseURIs(source, target, ICD10, ICD10_URI);
 		normaliseURIs(source, target, ICDO, ICDO_URI);
 		
@@ -65,8 +67,12 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		
 		String refsetId = "";
 		if (url != null) {
-			validate("Url", url, Validation.STARTS_WITH, SNOMED_CONCEPTMAP, true);
-			refsetId = url.substring(SNOMED_CONCEPTMAP.length());
+			validate("Url", url, Validation.STARTS_WITH, SNOMED_URI, true);
+			int idx = url.indexOf(MAP_INDICATOR);
+			if (idx == NOT_SET) {
+				throw new FHIROperationException (IssueType.INCOMPLETE, "url parameter is expected to contain '"+ MAP_INDICATOR +"' indicating the refset sctid of the map to be used.");
+			}
+			refsetId = url.substring(idx + MAP_INDICATOR.length());
 		}
 		
 		//If a refset is specified does that match the target system?
@@ -87,9 +93,24 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		} else {
 			memberSearchRequest.referencedComponentId(code.getCode());
 		}
+		
+		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_cm=447562003
+		//These calls will also set the branchPath
+		BranchPath branchPath = new BranchPath();
+		int cutPoint = url == null ? -1 : url.indexOf("?");
+		if (cutPoint == NOT_SET) {
+			if (url == null) {
+				branchPath.set(MAIN);
+			} else {
+				throw new FHIROperationException (IssueType.INCOMPLETE, "url parameter is expected to contain a parameter indicating the refset id of the map to be used");
+			}
+		} else {
+			StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
+			branchPath.set(fhirHelper.getBranchPathFromURI(codeSystemVersionUri));
+		}
 
 		Page<ReferenceSetMember> members = memberService.findMembers(
-				BranchPathUriUtil.decodePath(MAIN),
+				branchPath.toString(),
 				memberSearchRequest,
 				ControllerHelper.getPageRequest(0, DEFAULT_PAGESIZE));
 		return mapper.mapToFHIR(members.getContent(), target, knownUriMap);

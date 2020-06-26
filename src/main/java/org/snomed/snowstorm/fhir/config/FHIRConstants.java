@@ -39,7 +39,8 @@ public interface FHIRConstants {
 	String ICD10_URI = "http://hl7.org/fhir/sid/icd-10";
 	String ICDO = "ICD-O";
 	String ICDO_URI = "http://hl7.org/fhir/sid/icd-o";
-	String SNOMED_CONCEPTMAP = SNOMED_URI + "?fhir_cm=";
+	String MAP_INDICATOR = "?fhir_cm=";
+	//String SNOMED_CONCEPTMAP = SNOMED_URI + MAP_INDICATOR;
 	
 	enum Validation { EQUALS, STARTS_WITH }
 	
