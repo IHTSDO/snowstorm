@@ -26,25 +26,25 @@ http://localhost:8080/fhir/metadata?mode=terminology
 
 ### Code System
 
-#### Code System Instances see [CodeSystem Instances](fhir-resources/code-system-instances.md)
+#### [CodeSystem Instances](fhir-resources/code-system-instances.md)
 
-#### Code System Lookup see [CodeSystem Lookup](fhir-resources/code-system-lookup.md)
+#### [CodeSystem Lookup](fhir-resources/code-system-lookup.md)
 
-#### Code System Validate Code see [CodeSystem Validate Code](fhir-resources/code-system-validate-code.md)
+#### [CodeSystem Validate Code](fhir-resources/code-system-validate-code.md)
 
-#### Code System Subsumes see [CodeSystem Subsumes](fhir-resources/code-system-subsumes.md)
+#### [CodeSystem Subsumes](fhir-resources/code-system-subsumes.md)
 
 ### ValueSet
 
-#### ValueSet search, create, replace, update and delete see [ValueSet SCRUD](fhir-resources/valueset-scrud.md)
+#### [ValueSet search, create, replace, update and delete](fhir-resources/valueset-scrud.md)
 
-#### ValueSet Expansion see [ValueSet Expansion](fhir-resources/valueset-expansion.md)
+#### [ValueSet Expansion](fhir-resources/valueset-expansion.md)
 
-#### ValueSet validate-code see [ValueSet Validate Code](fhir-resources/valueset-validate-code.md)
+#### [ValueSet Validate Code](fhir-resources/valueset-validate-code.md)
 
 ### Concept Maps
 
-#### Concept Map Translate see [ValueSet ConceptMap](fhir-resources/concept-map.md)
+#### [ValueSet ConceptMap](fhir-resources/concept-map.md)
 
 ------
 

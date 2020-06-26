@@ -14,7 +14,7 @@ http://localhost:8080/fhir/CodeSystem?publisher:contains=SNOMED
 
 ### CodeSystem Operations
 
-All the operations that can be performed directly against the CodeSystem endpoint specifying a SNOMED Edition via a system or version parameter, can also be performed using the CodeSystem instance indenfier directly, instead of the equivalents parameters. There is no material difference between these two methods.
+All the operations that can be performed directly against the CodeSystem endpoint (specifying a SNOMED Edition via a system or version parameter), can also be performed using the CodeSystem instance indentifier directly, instead of the equivalent parameters. There is no material difference between these two apporaches and the results are expected to be identical.
 
 #### Validate Code against a particular Code System Instance
 http://localhost:8080/fhir/CodeSystem/sct_900000000000207008_20200309/$validate-code?code=840539006
