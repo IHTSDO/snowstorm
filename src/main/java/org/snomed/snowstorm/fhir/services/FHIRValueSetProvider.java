@@ -172,8 +172,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="offset") String offsetStr,
 			@OperationParam(name="count") String countStr,
+			@OperationParam(name="version") StringType version,
 			@OperationParam(name="system-version") StringType systemVersion,
 			@OperationParam(name="force-system-version") StringType forceSystemVersion) throws FHIROperationException {
+		fhirHelper.notSupported("version", version, "ValueSet $expand operation.  Use system-version or force-system-version parameters instead.");
 		return expand (id, request, response, url, filter, activeType, includeDesignationsType,
 				designations, displayLanguage, offsetStr, countStr, systemVersion, forceSystemVersion);
 	}
@@ -190,8 +192,10 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="displayLanguage") String displayLanguage,
 			@OperationParam(name="offset") String offsetStr,
 			@OperationParam(name="count") String countStr,
+			@OperationParam(name="version") StringType version,
 			@OperationParam(name="system-version") StringType systemVersion,
 			@OperationParam(name="force-system-version") StringType forceSystemVersion) throws FHIROperationException {
+		fhirHelper.notSupported("version", version, "ValueSet $expand operation.  Use system-version or force-system-version parameters instead.");
 		return expand(null, request, response, url, filter, activeType, includeDesignationsType,
 				designations, displayLanguage, offsetStr, countStr, systemVersion, forceSystemVersion);
 	}
