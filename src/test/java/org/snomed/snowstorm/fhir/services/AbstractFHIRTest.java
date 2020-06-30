@@ -29,13 +29,19 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.http.*;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.context.SecurityContextImpl;
+import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
 import org.springframework.test.context.junit4.SpringRunner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Sets;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
@@ -74,6 +80,9 @@ public abstract class AbstractFHIRTest {
 	
 	@Autowired
 	protected CodeSystemConfigurationService codeSystemConfigurationService;
+	
+	@Value("${ims-security.roles.enabled}")
+	private boolean rolesEnabled;
 
 	protected static final String sampleSCTID = "257751006";
 	protected static final String sampleModuleId = "1234";
@@ -118,6 +127,15 @@ public abstract class AbstractFHIRTest {
 		if (setupComplete) {
 			return;
 		}
+		
+		// Setup security
+		if (!rolesEnabled) {
+			PreAuthenticatedAuthenticationToken authentication = new PreAuthenticatedAuthenticationToken("test-admin", "123", Sets.newHashSet(new SimpleGrantedAuthority("USER")));
+			SecurityContextHolder.setContext(new SecurityContextImpl(authentication));
+		} else {
+			SecurityContextHolder.clearContext();
+		}
+		
 		lastTestRun = this;
 		
 		baseUrl = "http://localhost:" + port + "/fhir/ValueSet";
