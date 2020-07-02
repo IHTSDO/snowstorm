@@ -55,10 +55,21 @@ public class CodeSystemController {
 		return ControllerHelper.getCreatedResponse(codeSystem.getShortName());
 	}
 
-	@ApiOperation("Retrieve all code systems")
+	@ApiOperation(value = "List code systems",
+			notes = "List all code systems.\n" +
+			"forBranch is an optional parameter to find the code system which the specified branch is within.")
 	@RequestMapping(method = RequestMethod.GET)
-	public ItemsPage<CodeSystem> findAll() {
-		return new ItemsPage<>(codeSystemService.findAll());
+	public ItemsPage<CodeSystem> listCodeSystems(@RequestParam(required = false) String forBranch) {
+		if (!Strings.isNullOrEmpty(forBranch)) {
+			CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(forBranch, true);
+			if (codeSystem != null) {
+				return new ItemsPage<>(Collections.singleton(codeSystem));
+			} else {
+				return new ItemsPage<>(Collections.emptySet());
+			}
+		} else {
+			return new ItemsPage<>(codeSystemService.findAll());
+		}
 	}
 
 	@ApiOperation("Retrieve a code system")

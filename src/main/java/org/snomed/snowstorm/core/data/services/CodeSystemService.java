@@ -178,11 +178,15 @@ public class CodeSystemService {
 		return codeSystems.isEmpty() ? Optional.empty() : Optional.of(codeSystems.get(0));
 	}
 
-	public CodeSystem findClosestCodeSystemUsingAnyBranch(String branchPath) {
+	public CodeSystem findClosestCodeSystemUsingAnyBranch(String branchPath, boolean includeContentInformation) {
 		do {
-			Optional<CodeSystem> codeSystem = findByBranchPath(branchPath);
-			if (codeSystem.isPresent()) {
-				return codeSystem.get();
+			Optional<CodeSystem> codeSystemOptional = findByBranchPath(branchPath);
+			if (codeSystemOptional.isPresent()) {
+				CodeSystem codeSystem = codeSystemOptional.get();
+				if(includeContentInformation) {
+					joinContentInformation(Collections.singletonList(codeSystem));
+				}
+				return codeSystem;
 			}
 			branchPath = PathUtil.getParentPath(branchPath);
 		} while (branchPath != null);

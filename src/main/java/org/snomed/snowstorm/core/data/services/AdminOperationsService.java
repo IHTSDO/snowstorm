@@ -613,7 +613,7 @@ public class AdminOperationsService {
 	}
 
 	public Concept restoreReleasedStatus(String branchPath, String conceptId) {
-		CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branchPath);
+		CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branchPath, false);
 		if (codeSystem == null) {
 			throw new IllegalStateException(format("No code system found for branch '%s'.", branchPath));
 		}
