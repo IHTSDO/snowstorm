@@ -19,7 +19,7 @@ import java.util.Objects;
  */
 @Document(indexName = "codesystem")
 @JsonPropertyOrder({"name", "shortName", "branchPath", "dependantVersionEffectiveTime", "dailyBuildAvailable",
-		"countryCode", "defaultLanguageReferenceSets", "maintainerType", "latestVersion", "languages", "modules"})
+		"countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets", "maintainerType", "latestVersion", "languages", "modules"})
 public class CodeSystem implements CodeSystemCreate {
 
 	public interface Fields {
