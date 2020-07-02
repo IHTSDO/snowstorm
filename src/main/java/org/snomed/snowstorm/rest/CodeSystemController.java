@@ -4,6 +4,7 @@ import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
+import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
@@ -15,10 +16,11 @@ import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.snomed.snowstorm.extension.ExtensionAdditionalLanguageRefsetUpgradeService;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Collections;
 
 @RestController
 @Api(tags = "Code Systems", description = "-")
@@ -38,13 +40,14 @@ public class CodeSystemController {
 	private ExtensionAdditionalLanguageRefsetUpgradeService extensionAdditionalLanguageRefsetUpgradeService;
 
 	@ApiOperation(value = "Create a code system",
-			notes = "Required fields are shortName and branch. " +
-					"shortName should use format SNOMEDCT-XX where XX is the country code for national extensions. " +
+			notes = "Required fields are shortName and branch.\n" +
+					"shortName should use format SNOMEDCT-XX where XX is the country code for national extensions.\n" +
 					"dependantVersion uses effectiveTime format and can be used if the new code system depends on an older version of the parent code system, " +
-					"otherwise the latest version will be selected automatically. " +
+					"otherwise the latest version will be selected automatically.\n" +
 					"defaultLanguageCode can be used to force the sort order of the languages listed under the codesystem, " +
-					"otherwise these are sorted by the number of active translated terms. " +
-					"defaultLanguageReferenceSet has no effect on the API but can be used by browsers to reflect extension preferences. ")
+					"otherwise these are sorted by the number of active translated terms.\n" +
+					"maintainerType has no effect on API behaviour but can be used in frontend applications for extension categorisation.\n" +
+					"defaultLanguageReferenceSet has no effect API behaviour but can be used by browsers to reflect extension preferences. ")
 	@RequestMapping(method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public ResponseEntity<Void> createCodeSystem(@RequestBody CodeSystemCreate codeSystem) {

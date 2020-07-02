@@ -19,7 +19,7 @@ import java.util.Objects;
  */
 @Document(indexName = "codesystem")
 @JsonPropertyOrder({"name", "shortName", "branchPath", "dependantVersionEffectiveTime", "dailyBuildAvailable",
-		"countryCode", "defaultLanguageReferenceSets", "latestVersion", "languages", "modules"})
+		"countryCode", "defaultLanguageReferenceSets", "maintainerType", "latestVersion", "languages", "modules"})
 public class CodeSystem implements CodeSystemCreate {
 
 	public interface Fields {
@@ -37,6 +37,9 @@ public class CodeSystem implements CodeSystemCreate {
 
 	@Field(type = FieldType.keyword)
 	private String countryCode;
+
+	@Field(type = FieldType.keyword)
+	private String maintainerType;
 
 	@Field(type = FieldType.keyword)
 	private String defaultLanguageCode;
@@ -101,6 +104,14 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setCountryCode(String countryCode) {
 		this.countryCode = countryCode;
+	}
+
+	public String getMaintainerType() {
+		return maintainerType;
+	}
+
+	public void setMaintainerType(String maintainerType) {
+		this.maintainerType = maintainerType;
 	}
 
 	public String getDefaultLanguageCode() {
