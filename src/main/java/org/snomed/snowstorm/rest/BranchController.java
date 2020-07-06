@@ -96,12 +96,10 @@ public class BranchController {
 		}
 		Branch branchObject = branchService.findBranchOrThrow(branch);
 		Map<String, String> metadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
-		// skip updating for internal via REST api
-		if (metadata.containsKey(INTERNAL_METADATA_KEY)) {
-			metadata.remove(INTERNAL_METADATA_KEY);
-		}
+		// Prevent updating internal values via REST api
+		metadata.remove(INTERNAL_METADATA_KEY);
 		Map<String, String> existing = branchObject.getMetadata();
-		if (existing.containsKey(INTERNAL_METADATA_KEY)) {
+		if (existing != null && existing.containsKey(INTERNAL_METADATA_KEY)) {
 			metadata.put(INTERNAL_METADATA_KEY, existing.get(INTERNAL_METADATA_KEY));
 		}
 		return getBranchPojo(branchService.updateMetadata(branch, metadata));
