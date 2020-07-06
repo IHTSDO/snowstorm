@@ -100,7 +100,7 @@ public class PermissionService {
 		for (GrantedAuthority grantedAuthority : authentication.getAuthorities()) {
 			userGroups.add(grantedAuthority.getAuthority().replace("ROLE_", ""));
 		}
-		logger.info("Authorities:{}, userGroups:{}", authentication.getAuthorities(), userGroups);
+		logger.debug("Authorities:{}, userGroups:{}", authentication.getAuthorities(), userGroups);
 
 		Set<String> grantedBranchRole = new HashSet<>();
 		for (PermissionRecord permissionRecord : allPermissionRecords) {
