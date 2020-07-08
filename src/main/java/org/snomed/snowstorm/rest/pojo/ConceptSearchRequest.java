@@ -1,5 +1,7 @@
 package org.snomed.snowstorm.rest.pojo;
 
+import org.springframework.web.bind.annotation.RequestParam;
+
 import java.util.Set;
 
 public class ConceptSearchRequest {
@@ -15,6 +17,7 @@ public class ConceptSearchRequest {
 	private String eclFilter;
 	private String statedEclFilter;
 	private Set<String> conceptIds;
+	private boolean returnIdOnly;
 	private int offset = 0;
 	private int limit = 50;
 	private String searchAfter;
@@ -94,6 +97,14 @@ public class ConceptSearchRequest {
 
 	public void setConceptIds(Set<String> conceptIds) {
 		this.conceptIds = conceptIds;
+	}
+
+	public boolean isReturnIdOnly() {
+		return returnIdOnly;
+	}
+
+	public void setReturnIdOnly(boolean returnIdOnly) {
+		this.returnIdOnly = returnIdOnly;
 	}
 
 	public int getOffset() {
