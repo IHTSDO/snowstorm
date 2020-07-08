@@ -29,7 +29,7 @@ Development and testing is currently in progress for the authoring of SNOMED CT 
     - [Language Specific Search Behaviour](docs/language-specific-search.md)
   - [Loading SNOMED](docs/loading-snomed.md)
   - [Loading & updating SNOMED CT with local Extensions or Editions](docs/updating-snomed-and-extensions.md)
-  - [Setup for Extension Authoring](docs/setup-for-extension-authoring.md)
+  - [Extension Authoring](docs/extension-authoring.md)
   - [Elasticsearch Index Mapping Changes](docs/index-mapping-changes.md)
   - [Docker Quickstart](docs/using-docker.md)
 - Use
