@@ -54,7 +54,7 @@ public class CodeSystemUpgradeService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
-	public void upgrade(CodeSystem codeSystem, Integer newDependantVersion) throws  ServiceException {
+	public void upgrade(CodeSystem codeSystem, Integer newDependantVersion, boolean contentAutomations) throws  ServiceException {
 		// Pre checks
 		String branchPath = codeSystem.getBranchPath();
 		String parentPath = PathUtil.getParentPath(branchPath);
@@ -90,12 +90,12 @@ public class CodeSystemUpgradeService {
 			branchMergeService.rebaseToSpecificTimepointAndRemoveDuplicateContent(parentPath, newParentBaseTimepoint, branchPath, String.format("Upgrading extension to %s@%s.", parentPath, newParentVersion.getVersion()));
 			logger.info("Completed upgrade of {} to {} version {}.", codeSystem, parentCodeSystem, newDependantVersion);
 
-			if (!dailyBuildAvailable && !isReadOnly) {
-				logger.info("Running inactivation update");
+			if (contentAutomations) {
+				logger.info("Running upgrade content automations.");
 				upgradeInactivationService.findAndUpdateDescriptionsInactivation(codeSystem);
 				upgradeInactivationService.findAndUpdateLanguageRefsets(codeSystem);
 				upgradeInactivationService.findAndUpdateAdditionalAxioms(codeSystem);
-				logger.info("Completed inactivation update");
+				logger.info("Completed upgrade content automations.");
 			}
 
 			logger.info("Running integrity check on {}", branchPath);

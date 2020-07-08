@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
 
+import static java.lang.Boolean.TRUE;
+
 @RestController
 @Api(tags = "Code Systems", description = "-")
 @RequestMapping(value = "/codesystems", produces = "application/json")
@@ -116,11 +118,13 @@ public class CodeSystemController {
 					"The extension must have been imported on a branch which is a direct child of MAIN. \n\n" +
 					"For example: MAIN/SNOMEDCT-BE. \n\n" +
 					"_newDependantVersion_ uses the same format as the effectiveTime RF2 field, for example '20190731'. \n\n" +
-					"An integrity check should be run after this operation to find content that needs fixing. ")
+					"_contentAutomations_ should be set to false unless you are the extension maintainer and would like some automatic content changes made " +
+					"to support creating a new version of the extension. \n\n" +
+					"If you are the extension maintainer an integrity check should be run after this operation to find content that needs fixing. ")
 	@RequestMapping(value = "/{shortName}/upgrade", method = RequestMethod.POST)
 	public void upgradeCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpgradeRequest request) throws ServiceException {
 		CodeSystem codeSystem = codeSystemService.findOrThrow(shortName);
-		codeSystemUpgradeService.upgrade(codeSystem, request.getNewDependantVersion());
+		codeSystemUpgradeService.upgrade(codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()));
 	}
 
 	@ApiOperation(value = "DEPRECATED - Migrate code system to a different dependant version.",
