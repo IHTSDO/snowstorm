@@ -3,17 +3,19 @@
 ## Overview
 Snowstorm uses the Spring Boot framework so this [general information about Spring Boot configuration](https://docs.spring.io/spring-boot/docs/2.0.1.RELEASE/reference/htmlsingle/#boot-features-external-config) is recommended.
 
-## The Defaults
+See also: 
+- [Security Configuration Guide](security-configuration.md)
+- [Language Specific Search Behaviour](docs/language-specific-search.md)
 
-The default configuration can be found in src/main/resources/**application.properties**. 
+## Default Configuration Options
 
-This file also contains an explanation of each option.
+The full list of the configuration options, their defaults and an explanation of each option can be found in src/main/resources/**application.properties**. 
 
-## Override the defaults
+## Override the default
 
 The defaults can be overridden using either an external properties file or command line parameters.
 
-### Using a a properties file
+### Using a properties file
 For example to override the HTTP port configuration using a properties file.
 Create a properties named **application-local.properties** with content:
 ```properties
