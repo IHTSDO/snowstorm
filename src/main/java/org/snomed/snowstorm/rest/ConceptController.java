@@ -38,6 +38,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.snomed.snowstorm.core.pojo.BranchTimepoint.BRANCH_CREATION_TIMEPOINT;
@@ -98,11 +99,14 @@ public class ConceptController {
 			@RequestParam(required = false) String ecl,
 			@RequestParam(required = false) String statedEcl,
 			@RequestParam(required = false) Set<String> conceptIds,
+			@RequestParam(required = false) boolean returnIdOnly,
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestParam(required = false) String searchAfter,
 			@ApiParam("Accept-Language header can take the format en-x-900000000000508004 which sets the language reference set to use in the results.")
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		branch = BranchPathUriUtil.decodePath(branch);
 
 		// Parameter validation
 		if (ecl != null && statedEcl != null) {
@@ -138,7 +142,14 @@ public class ConceptController {
 
 		ControllerHelper.validatePageSize(offset, limit);
 
-		return new ItemsPage<>(queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branch), ControllerHelper.getPageRequest(offset, searchAfter, limit)));
+		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, searchAfter, limit);
+		if (returnIdOnly) {
+			SearchAfterPage<Long> conceptIdPage = queryService.searchForIds(queryBuilder, branch, pageRequest);
+			List<ConceptMini> conceptMinis = conceptIdPage.stream().map(id -> new ConceptMini(id.toString(), null)).collect(Collectors.toList());
+			return new ItemsPage<>(PageHelper.toSearchAfterPage(conceptMinis, conceptIdPage));
+		} else {
+			return new ItemsPage<>(queryService.search(queryBuilder, branch, pageRequest));
+		}
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
@@ -172,6 +183,7 @@ public class ConceptController {
 				searchRequest.getEclFilter(),
 				searchRequest.getStatedEclFilter(),
 				searchRequest.getConceptIds(),
+				searchRequest.isReturnIdOnly(),
 				searchRequest.getOffset(),
 				searchRequest.getLimit(),
 				searchRequest.getSearchAfter(),
@@ -276,7 +288,7 @@ public class ConceptController {
 	}
 
 	private ItemsPage<ConceptMini> findConceptsWithECL(String ecl, boolean stated, String branch, String acceptLanguageHeader, int offset, int limit) {
-		return findConcepts(branch, null, null, null, null, null, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, offset, limit, null, acceptLanguageHeader);
+		return findConcepts(branch, null, null, null, null, null, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, false, offset, limit, null, acceptLanguageHeader);
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/inbound-relationships", method = RequestMethod.GET)
