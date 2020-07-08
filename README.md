@@ -26,6 +26,7 @@ Development and testing is currently in progress for the authoring of SNOMED CT 
 - Setup
   - [Getting Started (plain installation)](docs/getting-started.md)
   - [Configuration Guide](docs/configuration-guide.md)
+    - [Language Specific Search Behaviour](docs/language-specific-search.md)
   - [Loading SNOMED](docs/loading-snomed.md)
   - [Loading & updating SNOMED CT with local Extensions or Editions](docs/updating-snomed-and-extensions.md)
   - [Setup for Extension Authoring](docs/setup-for-extension-authoring.md)
