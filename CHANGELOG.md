@@ -3,7 +3,58 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 4.10.1 Release - 2020-05-27
+
+## 4.12.0 Release - 2020-07-08 - Role Based Access Control
+
+Role based access control has been applied to the API to restrict which users can perform administration and authoring functions when not in read-only mode.  
+See [Security Configuration Guide](docs/security-configuration.md).
+
+### Features
+- Role based access control
+  - Roles can be assigned at global or branch level to user groups via the admin API.
+  - Extendable solution allows granting branch permission to user groups using any role name. Useful for complex user interfaces.
+  - List of roles displayed on each branch for the current user.
+  - Roles `ADMIN` and `AUTHOR` applied to relevant API functions.
+  - Careful cache design mitigates any RBAC performance impact.  
+
+### Improvements
+- Improved logging for axiom expression parsing errors.
+- Add optional code system `maintainerType` field to aid extension categorisation and filtering in UIs.
+- Add code system listing `forBranch` parameter which allows code system lookup using any ancestor branch.
+
+### Fixes
+- Authentication session memory leak fixed from previous RBAC solution.
+- Fix for release-fix-branch promotion function when deletions are the only change. 
+- Allow batch job status to be access immediately after creation.
+
+
+## 4.11.0 Release - Extension Authoring Upgrade Automations and UI Support
+
+Features have been added to automate aspects of extension maintenance when upgrading to a new International release.  
+See "Upgrading to a new International Release" in [Extension Authoring](docs/extension-authoring.md).
+
+### Features
+- Extension authoring upgrade support.
+  - Enhanced branch integrity check which includes source concept and can be combined with a fix branch during the upgrade process.
+  - Automatic integrity check and marking of branch with issues during upgrade process and fix promotions.
+  - Automatic inactivation of language refset members which reference inactive descriptions.
+  - Automatic inactivation of additional axioms which belong to an inactive concept.
+  - Automatic addition of concept not current indicators for descriptions which reference inactive concepts.
+  - Historic associations can be fetched from API to support update of existing axioms via UI.
+
+### Improvements
+- Fix #107 Add multi-module parameter to description search API.
+- Allow concept bulk fetch by descriptionId.
+- Allow versioned concepts to be deleted using the `force` flag.
+
+### Fixes
+- Allow batch job status to be access immediately after creation.
+- Fix concept search when filtering by single conceptId.
+- Prevent duplicate semantic index entries by adding hashcode and equals methods.
+- Update UK extension module to `83821000000107`, thanks @lawley.
+
+
+## 4.10.2 Release - 2020-05-27
 
 This release features many new capabilities and improvements to the FHIR API as well as some other general improvements and minor fixes. 
 
