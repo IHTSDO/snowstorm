@@ -38,7 +38,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.snomed.snowstorm.core.pojo.BranchTimepoint.BRANCH_CREATION_TIMEPOINT;
@@ -75,7 +74,7 @@ public class ConceptController {
 	private boolean allowUnlimitedConceptPagination;
 
 	@RequestMapping(value = "/{branch}/concepts", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
-	public ItemsPage<ConceptMini> findConcepts(
+	public ItemsPage<?> findConcepts(
 			@PathVariable String branch,
 			@RequestParam(required = false) Boolean activeFilter,
 			@RequestParam(required = false) String definitionStatusFilter,
@@ -145,8 +144,7 @@ public class ConceptController {
 		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, searchAfter, limit);
 		if (returnIdOnly) {
 			SearchAfterPage<Long> conceptIdPage = queryService.searchForIds(queryBuilder, branch, pageRequest);
-			List<ConceptMini> conceptMinis = conceptIdPage.stream().map(id -> new ConceptMini(id.toString(), null)).collect(Collectors.toList());
-			return new ItemsPage<>(PageHelper.toSearchAfterPage(conceptMinis, conceptIdPage));
+			return new ItemsPage<>(conceptIdPage);
 		} else {
 			return new ItemsPage<>(queryService.search(queryBuilder, branch, pageRequest));
 		}
@@ -166,7 +164,7 @@ public class ConceptController {
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/search", method = RequestMethod.POST, produces = {"application/json", "text/csv"})
-	public ItemsPage<ConceptMini> search(
+	public ItemsPage<?> search(
 			@PathVariable String branch,
 			@RequestBody ConceptSearchRequest searchRequest,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
@@ -277,7 +275,7 @@ public class ConceptController {
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descendants", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
-	public ItemsPage<ConceptMini> findConceptDescendants(@PathVariable String branch,
+	public ItemsPage<?> findConceptDescendants(@PathVariable String branch,
 			@PathVariable String conceptId,
 			@RequestParam(required = false, defaultValue = "false") boolean stated,
 			@RequestParam(required = false, defaultValue = "0") int offset,
@@ -287,7 +285,7 @@ public class ConceptController {
 		return findConceptsWithECL("<" + conceptId, stated, branch, acceptLanguageHeader, offset, limit);
 	}
 
-	private ItemsPage<ConceptMini> findConceptsWithECL(String ecl, boolean stated, String branch, String acceptLanguageHeader, int offset, int limit) {
+	private ItemsPage<?> findConceptsWithECL(String ecl, boolean stated, String branch, String acceptLanguageHeader, int offset, int limit) {
 		return findConcepts(branch, null, null, null, null, null, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, false, offset, limit, null, acceptLanguageHeader);
 	}
 
@@ -437,7 +435,7 @@ public class ConceptController {
 
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/ancestors", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
-	public Collection<ConceptMini> findConceptAncestors(@PathVariable String branch,
+	public Collection<?> findConceptAncestors(@PathVariable String branch,
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
