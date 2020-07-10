@@ -9,9 +9,9 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import org.elasticsearch.common.collect.MapBuilder;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
@@ -27,7 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.IOException;
 import java.util.*;
@@ -37,9 +37,7 @@ import static org.junit.Assert.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = TestConfig.class)
-public class ConceptServiceTest extends AbstractTest {
+class ConceptServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
@@ -73,8 +71,8 @@ public class ConceptServiceTest extends AbstractTest {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private ObjectMapper objectMapper;
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 		testUtil = new ServiceTestUtil(conceptService);
 		objectMapper = new ObjectMapper();
 		DeserializationConfig deserializationConfig = objectMapper.getDeserializationConfig().without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
@@ -83,7 +81,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConceptCreationBranchingVisibility() throws ServiceException {
+	void testConceptCreationBranchingVisibility() throws ServiceException {
 		Assert.assertNull("Concept 100001 does not exist on MAIN.", conceptService.find("100001", "MAIN"));
 
 		conceptService.create(new Concept("100001", "10000111"), "MAIN");
@@ -105,7 +103,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDeleteDescription() throws ServiceException {
+	void testDeleteDescription() throws ServiceException {
 		final Concept concept = conceptService.create(
 				new Concept("100001")
 						.addDescription(new Description("100001", "one"))
@@ -131,7 +129,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDeleteLangMembersDuringDescriptionDeletion() throws ServiceException {
+	void testDeleteLangMembersDuringDescriptionDeletion() throws ServiceException {
 		Concept concept = new Concept("10000123");
 		Description fsn = fsn("Is a (attribute)");
 		conceptService.create(concept
@@ -158,7 +156,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionInactivation() throws ServiceException {
+	void testDescriptionInactivation() throws ServiceException {
 		Concept concept = new Concept("10000123");
 		Description fsn = fsn("Is a (attribute)");
 		conceptService.create(concept
@@ -219,7 +217,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testCreateDeleteConcept() throws ServiceException {
+	void testCreateDeleteConcept() throws ServiceException {
 		String path = "MAIN";
 		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), path);
 		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), path);
@@ -235,7 +233,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testCreateDeleteRelationship() throws ServiceException {
+	void testCreateDeleteRelationship() throws ServiceException {
 		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), "MAIN");
 		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), "MAIN");
 
@@ -278,7 +276,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testMultipleConceptVersionsOnOneBranch() throws ServiceException {
+	void testMultipleConceptVersionsOnOneBranch() throws ServiceException {
 		assertEquals(0, conceptService.findAll("MAIN", ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 		conceptService.create(new Concept("100001", "10000111"), "MAIN");
 
@@ -294,7 +292,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testUpdateExistingConceptOnNewBranch() throws ServiceException {
+	void testUpdateExistingConceptOnNewBranch() throws ServiceException {
 		conceptService.create(new Concept("100001", "10000111"), "MAIN");
 
 		branchService.create("MAIN/A");
@@ -306,7 +304,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testOnlyUpdateWhatChanged() throws ServiceException {
+	void testOnlyUpdateWhatChanged() throws ServiceException {
 		final Integer effectiveTime = 20160731;
 
 		conceptService.create(new Concept("100001", effectiveTime, true, Concepts.CORE_MODULE, Concepts.PRIMITIVE)
@@ -318,22 +316,22 @@ public class ConceptServiceTest extends AbstractTest {
 
 		final Concept conceptAfterSave = conceptService.find("100001", "MAIN");
 
-		conceptAfterSave.getDescription("1000011").setActive(false);
+		Description fsn = conceptAfterSave.getDescription("1000011");
+		fsn.setActive(false);
+		String fsnInternalId = fsn.getInternalId();
 		conceptService.update(conceptAfterSave, "MAIN");
-
 		final Concept conceptAfterUpdate = conceptService.find("100001", "MAIN");
 
 		assertEquals("Concept document should not have been updated.",
 				conceptAfterSave.getInternalId(), conceptAfterUpdate.getInternalId());
 		assertEquals("Synonym document should not have been updated.",
 				conceptAfterSave.getDescription("1000012").getInternalId(), conceptAfterUpdate.getDescription("1000012").getInternalId());
-		Assert.assertNotEquals("FSN document should have been updated.",
-				conceptAfterSave.getDescription("1000011").getInternalId(), conceptAfterUpdate.getDescription("1000011").getInternalId());
+		Assert.assertNotEquals("FSN document should have been updated.", fsnInternalId, conceptAfterUpdate.getDescription("1000011").getInternalId());
 
 	}
 
 	@Test
-	public void testFindConceptOnParentBranchUsingBaseVersion() throws ServiceException {
+	void testFindConceptOnParentBranchUsingBaseVersion() throws ServiceException {
 		conceptService.create(new Concept("100001", "10000111"), "MAIN");
 		conceptService.update(new Concept("100001", "10000222"), "MAIN");
 
@@ -354,7 +352,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testListConceptsOnGrandchildBranchWithUpdateOnChildBranch() throws ServiceException {
+	void testListConceptsOnGrandchildBranchWithUpdateOnChildBranch() throws ServiceException {
 		conceptService.create(new Concept("100001", "10000111"), "MAIN");
 		assertEquals("10000111", conceptService.find("100001", "MAIN").getModuleId());
 
@@ -389,7 +387,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testSaveConceptWithDescription() throws ServiceException {
+	void testSaveConceptWithDescription() throws ServiceException {
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", FSN,
 				"Bleeding (morphologic abnormality)", "900000000000020002").addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED));
@@ -416,7 +414,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testSaveConceptWithAxioms() throws ServiceException {
+	void testSaveConceptWithAxioms() throws ServiceException {
 		String path = "MAIN";
 		final Concept concept = new Concept("50960005", 20020131, true, Concepts.CORE_MODULE, "900000000000074008");
 		concept.addAxiom(new Axiom(null, Concepts.FULLY_DEFINED, Sets.newHashSet(new Relationship(Concepts.ISA, "10000100"), new Relationship("10000200", "10000300"))).setModuleId(CORE_MODULE));
@@ -481,7 +479,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testGciWithOneRelationshipError() throws ServiceException {
+	void testGciWithOneRelationshipError() throws ServiceException {
 		try {
 			conceptService.create(new Concept()
 							.addAxiom(new Relationship(ISA, CLINICAL_FINDING))
@@ -513,7 +511,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConceptInactivation() throws ServiceException {
+	void testConceptInactivation() throws ServiceException {
 		String path = "MAIN";
 		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
@@ -594,7 +592,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testCreateObjectAttribute() throws ServiceException {
+	void testCreateObjectAttribute() throws ServiceException {
 		conceptService.create(new Concept(CONCEPT_MODEL_OBJECT_ATTRIBUTE)
 						.addFSN("Concept model object attribute (attribute)")
 						.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(ISA, CONCEPT_MODEL_ATTRIBUTE))))
@@ -610,7 +608,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testSaveConceptWithDescriptionAndAcceptabilityTogether() throws ServiceException {
+	void testSaveConceptWithDescriptionAndAcceptabilityTogether() throws ServiceException {
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
 				new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
@@ -629,7 +627,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testChangeDescriptionAcceptabilityOnChildBranch() throws ServiceException {
+	void testChangeDescriptionAcceptabilityOnChildBranch() throws ServiceException {
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
 				new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
@@ -663,7 +661,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testChangeDescriptionCaseSignificance() throws ServiceException, IOException {
+	void testChangeDescriptionCaseSignificance() throws ServiceException, IOException {
 		String conceptId = "50960005";
 		Concept concept = new Concept(conceptId, 20020131, true, "900000000000207008", "900000000000074008");
 		String descriptionId = "84923010";
@@ -716,7 +714,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testInactivateDescriptionAcceptability() throws ServiceException {
+	void testInactivateDescriptionAcceptability() throws ServiceException {
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		// Add acceptability with released refset member
 		concept.addDescription(
@@ -755,7 +753,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testInactivateDescriptionAcceptabilityViaDescriptionInactivation() throws ServiceException {
+	void testInactivateDescriptionAcceptabilityViaDescriptionInactivation() throws ServiceException {
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		// Add acceptability with released refset member
 		concept.addDescription(
@@ -794,7 +792,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testLatestVersionMatch() throws ServiceException {
+	void testLatestVersionMatch() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTerm("MAIN", "100001", "Heart");
 
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
@@ -822,7 +820,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRestoreEffectiveTime() throws ServiceException {
+	void testRestoreEffectiveTime() throws ServiceException {
 		final Integer effectiveTime = 20170131;
 		final String conceptId = "50960005";
 		final String originalModuleId = "900000000000207008";
@@ -913,7 +911,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testCreateUpdate10KConcepts() throws ServiceException {
+	void testCreateUpdate10KConcepts() throws ServiceException {
 		branchService.create("MAIN/A");
 		conceptService.create(new Concept(SNOMEDCT_ROOT), "MAIN/A");
 
@@ -960,7 +958,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testLoadConceptFromParentBranchUsingBaseTimepoint() throws ServiceException {
+	void testLoadConceptFromParentBranchUsingBaseTimepoint() throws ServiceException {
 		List<LanguageDialect> en = DEFAULT_LANGUAGE_DIALECTS;
 		String conceptId = "100001";
 
@@ -999,7 +997,7 @@ public class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testUpdateDescriptionInactivationIndicatorRefsetsWithNoChanges() throws ServiceException {
+	void testUpdateDescriptionInactivationIndicatorRefsetsWithNoChanges() throws ServiceException {
 		String conceptId = "148176006";
 		String descriptionId = "231971010";
 

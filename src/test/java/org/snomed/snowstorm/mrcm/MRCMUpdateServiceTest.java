@@ -4,25 +4,24 @@ import static org.junit.Assert.*;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceTestUtil;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.util.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = TestConfig.class)
-public class MRCMUpdateServiceTest extends AbstractTest {
+@Testcontainers
+@ExtendWith(SpringExtension.class)
+class MRCMUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private MRCMUpdateService mrcmUpdateService;
@@ -38,13 +37,13 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 
 	private ServiceTestUtil testUtil;
 
-	@Before
-	public void setUp() {
+	@BeforeEach
+	void setUp() {
 		testUtil = new ServiceTestUtil(conceptService);
 	}
 
 	@Test
-	public void testUpdatingMRCMRulesAndTemplates() throws Exception {
+	void testUpdatingMRCMRulesAndTemplates() throws Exception {
 
 		Branch branch = branchService.create("MAIN/MRCM");
 		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"255234002", "After");
@@ -132,7 +131,7 @@ public class MRCMUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testCreatingMRCMDomainAttributeWithoutRange() throws Exception {
+	void testCreatingMRCMDomainAttributeWithoutRange() throws Exception {
 		Branch branch = branchService.create("MAIN/MRCM");
 
 		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"255234002", "After");

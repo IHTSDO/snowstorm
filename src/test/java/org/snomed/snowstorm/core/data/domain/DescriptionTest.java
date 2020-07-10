@@ -1,13 +1,13 @@
 package org.snomed.snowstorm.core.data.domain;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.Assert.*;
 
-public class DescriptionTest {
+class DescriptionTest {
 
 	@Test
-	public void getTag() {
+	void getTag() {
 		assertEquals(null, new Description("abc de").setTypeId(Concepts.SYNONYM).getTag());
 		assertEquals(null, new Description("abc de (disorder)").setTypeId(Concepts.SYNONYM).getTag());
 		assertEquals(null, new Description("abc de (disorder) ").setTypeId(Concepts.FSN).getTag());

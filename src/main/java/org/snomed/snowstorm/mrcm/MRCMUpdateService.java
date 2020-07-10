@@ -2,8 +2,6 @@ package org.snomed.snowstorm.mrcm;
 
 import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
-import org.elasticsearch.action.update.UpdateRequest;
-import org.elasticsearch.script.Script;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
@@ -14,23 +12,21 @@ import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.mrcm.model.*;
+import org.snomed.snowstorm.mrcm.model.AttributeDomain;
+import org.snomed.snowstorm.mrcm.model.AttributeRange;
+import org.snomed.snowstorm.mrcm.model.Domain;
+import org.snomed.snowstorm.mrcm.model.MRCM;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.UpdateQuery;
-import org.springframework.data.elasticsearch.core.query.UpdateQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
@@ -119,7 +115,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		return domainMembers;
 	}
 
-	private void performUpdate(boolean allComponents, Commit commit) throws IOException, ServiceException {
+	private void performUpdate(boolean allComponents, Commit commit) throws ServiceException {
 		String branchPath = commit.getBranch().getPath();
 		Set<String> mrcmComponentsChangedOnTask =  getMRCMRefsetComponentsChanged(commit);
 		if (!allComponents) {
@@ -226,7 +222,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	private Set<String> getMRCMRefsetComponentsChanged(Commit commit) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
 		Set<String> result = new HashSet<>();
-		try (final CloseableIterator<ReferenceSetMember> mrcmMembers = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (final SearchHitsIterator<ReferenceSetMember> mrcmMembers = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						// Must be at least one of the following should clauses:
@@ -239,59 +235,39 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 				.withPageable(ConceptService.LARGE_PAGE)
 				.withFields(ReferenceSetMember.Fields.MEMBER_ID)
 				.build(), ReferenceSetMember.class)) {
-			while (mrcmMembers.hasNext()) {
-				result.add(mrcmMembers.next().getMemberId());
-			}
+			mrcmMembers.forEachRemaining(hit -> result.add(hit.getContent().getMemberId()));
 		}
 		return result;
 	}
 
-	private void saveRefsetMembersViaUpdateQuery(Collection<ReferenceSetMember> referenceSetMembers) throws IOException {
+
+	private String constructAdditionalFieldUpdateScript(List<String> fieldNames, ReferenceSetMember member) {
+		StringBuilder scriptBuilder = new StringBuilder();
+		for (String fieldName : fieldNames) {
+			String value = member.getAdditionalField(fieldName);
+			if (value == null) {
+				continue;
+			}
+			if (!scriptBuilder.toString().isEmpty()) {
+				scriptBuilder.append(";");
+			}
+			scriptBuilder.append("ctx._source.additionalFields." + fieldName + "='" + value + "'");
+		}
+		return scriptBuilder.toString();
+	}
+
+	private void saveRefsetMembersViaUpdateQuery(Collection<ReferenceSetMember> referenceSetMembers) {
 		List<UpdateQuery> updateQueries = new ArrayList<>();
+		List<String> fieldNames = Arrays.asList("rangeConstraint", "attributeRule", "domainTemplateForPrecoordination", "domainTemplateForPostcoordination");
 		for (ReferenceSetMember member : referenceSetMembers) {
-			StringBuilder inlineBuilder = new StringBuilder();
-			String rangeConstraint = member.getAdditionalField("rangeConstraint");
-			if (rangeConstraint != null) {
-				inlineBuilder.append("ctx._source.additionalFields.rangeConstraint='" + rangeConstraint + "'");
-			}
-
-			String attributeRule = member.getAdditionalField("attributeRule");
-			if (attributeRule != null) {
-				if (!inlineBuilder.toString().isEmpty()) {
-					inlineBuilder.append(";");
-				}
-				inlineBuilder.append("ctx._source.additionalFields.attributeRule='" + attributeRule + "'");
-			}
-
-			String precoordinate = member.getAdditionalField("domainTemplateForPrecoordination");
-			if (precoordinate != null) {
-				if (!inlineBuilder.toString().isEmpty()) {
-					inlineBuilder.append(";");
-				}
-				inlineBuilder.append("ctx._source.additionalFields.domainTemplateForPrecoordination='"+ precoordinate + "'");
-			}
-
-			String postcoordinate = member.getAdditionalField("domainTemplateForPostcoordination");
-			if (precoordinate != null) {
-				if (!inlineBuilder.toString().isEmpty()) {
-					inlineBuilder.append(";");
-				}
-				inlineBuilder.append("ctx._source.additionalFields.domainTemplateForPostcoordination='"+ postcoordinate + "'");
-			}
-
-			if (!inlineBuilder.toString().isEmpty()) {
-				UpdateRequest updateRequest = new UpdateRequest();
-				updateRequest.script(new Script(inlineBuilder.toString()));
-				updateQueries.add(new UpdateQueryBuilder()
-						.withClass(ReferenceSetMember.class)
-						.withId(member.getInternalId())
-						.withUpdateRequest(updateRequest)
-						.build());
+			String script = constructAdditionalFieldUpdateScript(fieldNames, member);
+			if (!script.isEmpty()) {
+				updateQueries.add(UpdateQuery.builder(member.getInternalId()).withScript(script).build());
 			}
 		}
 		if (!updateQueries.isEmpty()) {
-			elasticsearchTemplate.bulkUpdate(updateQueries);
-			elasticsearchTemplate.refresh(ReferenceSetMember.class);
+			elasticsearchTemplate.bulkUpdate(updateQueries, elasticsearchTemplate.getIndexCoordinatesFor(ReferenceSetMember.class));
+			elasticsearchTemplate.indexOps(ReferenceSetMember.class).refresh();
 		}
 	}
 }

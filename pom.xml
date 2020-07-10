@@ -7,11 +7,11 @@
 
 	<groupId>org.snomed</groupId>
 	<artifactId>snowstorm</artifactId>
-	<version>4.13.0</version>
+	<version>5.0.0-SNAPSHOT</version>
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.0.1.RELEASE</version>
+		<version>2.3.3.RELEASE</version>
 		<!-- Remember to update documentation links if this version changes -->
 	</parent>
 
@@ -21,24 +21,14 @@
 		<maven.compiler.target>${java.version}</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<packageName>${project.artifactId}</packageName>
-
 		<!--
-		ElasticVC 2.6.4
-		- uses Snomed International's Fork of Spring Data Elasticsearch
-		- uses Elasticsearch Client version 6.0.1
-
-		Current recommended Elasticsearch _Server_ version is 6.8.0
+		Current Elasticsearch _Server_ version supported by AWS is 7.7.0
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
 		-->
-		<elasticvc.version>2.6.4</elasticvc.version>
-
-		<!-- Elasticsearch Client version -->
-		<!-- Can not be changed without code changes in ElasticVC and Spring Data Elasticsearch -->
-		<elasticsearch.version>6.0.1</elasticsearch.version>
+		<elasticvc.version>3.0.0</elasticvc.version>
+		<elasticsearch.version>7.7.0</elasticsearch.version>
 
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
-		<!-- Spring Boot 2.0.1 needs specific tomcat version (8.5.41) which has fix for CVE-2019-10072 -->
-		<tomcat.version>8.5.41</tomcat.version>
 		<snomed-boot.version>2.2.0</snomed-boot.version>
 
 		<!-- FHIR HAPI library -->
@@ -89,6 +79,10 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -198,13 +192,36 @@
 		<dependency>
 			<groupId>org.springframework</groupId>
 			<artifactId>spring-test</artifactId>
-			<version>${spring.version}</version>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
-			<groupId>pl.allegro.tech</groupId>
-			<artifactId>embedded-elasticsearch</artifactId>
-			<version>2.10.0</version>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-engine</artifactId>
+			<version>5.6.2</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.junit.jupiter</groupId>
+			<artifactId>junit-jupiter-api</artifactId>
+			<version>5.6.2</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers</artifactId>
+			<version>1.14.3</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>elasticsearch</artifactId>
+			<version>1.14.3</version>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>junit-jupiter</artifactId>
+			<version>1.14.3</version>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>

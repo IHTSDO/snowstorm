@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
@@ -14,14 +14,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class MultiSearchServiceTest extends AbstractTest {
+class MultiSearchServiceTest extends AbstractTest {
 
 	@Autowired
 	private MultiSearchService multiSearchService;
@@ -37,13 +37,13 @@ public class MultiSearchServiceTest extends AbstractTest {
 
 	private ServiceTestUtil testUtil;
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 		testUtil = new ServiceTestUtil(conceptService);
 	}
 
 	@Test
-	public void testFindDescriptions() throws ServiceException {
+	void testFindDescriptions() throws ServiceException {
 		CodeSystem codeSystemInternational = new CodeSystem("SNOMEDCT", "MAIN");
 		codeSystemService.createCodeSystem(codeSystemInternational);
 		testUtil.createConceptWithPathIdAndTerm("MAIN", Concepts.CLINICAL_FINDING, "Clinical finding");

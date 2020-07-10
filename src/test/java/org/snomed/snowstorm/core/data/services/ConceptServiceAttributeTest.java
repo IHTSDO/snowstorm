@@ -2,9 +2,9 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
@@ -19,7 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -28,9 +28,9 @@ import java.io.IOException;
 import static org.junit.Assert.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ConceptServiceAttributeTest extends AbstractTest {
+class ConceptServiceAttributeTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
@@ -45,8 +45,8 @@ public class ConceptServiceAttributeTest extends AbstractTest {
 	private ReferenceSetMemberService referenceSetMemberService;
 	private static final String PATH = "MAIN";
 
-	@Before
-	public void setup() throws IOException {
+	@BeforeEach
+	void setup() throws IOException {
 		File rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/RF2Release");
 		File completeOwlRf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/conversion-to-complete-owl");
 		importRF2(RF2Type.SNAPSHOT, rf2Archive, PATH);
@@ -54,7 +54,7 @@ public class ConceptServiceAttributeTest extends AbstractTest {
 	}
 
 	@Test
-	public void testSaveAttributeConceptWithSubObjectPropertyOfAxiom() throws ServiceException {
+	void testSaveAttributeConceptWithSubObjectPropertyOfAxiom() throws ServiceException {
 		final Concept newAttributeConcept = new Concept("246501002", MODEL_MODULE);
 		newAttributeConcept.addAxiom(new Relationship(Concepts.ISA, CONCEPT_MODEL_OBJECT_ATTRIBUTE));
 		String conceptId = conceptService.create(newAttributeConcept, PATH).getConceptId();
@@ -69,7 +69,7 @@ public class ConceptServiceAttributeTest extends AbstractTest {
 		assertEquals("SubObjectPropertyOf", owlExpression.substring(0, owlExpression.indexOf("(")));
 	}
 
-	public void importRF2(RF2Type type, File rf2Archive, String path) throws IOException {
+	void importRF2(RF2Type type, File rf2Archive, String path) throws IOException {
 		String importJobId = importService.createJob(type, path, false, false);
 		try (FileInputStream releaseFileStream = new FileInputStream(rf2Archive)) {
 			importService.importArchive(importJobId, releaseFileStream);

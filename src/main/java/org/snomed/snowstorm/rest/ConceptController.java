@@ -20,6 +20,7 @@ import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.*;
@@ -27,7 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.SearchAfterPage;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -139,9 +140,7 @@ public class ConceptController {
 
 		queryBuilder.getDescriptionCriteria().preferredOrAcceptableValues(preferredOrAcceptableIn, preferredIn, acceptableIn);
 
-		ControllerHelper.validatePageSize(offset, limit);
-
-		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, searchAfter, limit);
+		PageRequest pageRequest = getPageRequestWithSort(offset, limit, searchAfter, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
 		if (returnIdOnly) {
 			SearchAfterPage<Long> conceptIdPage = queryService.searchForIds(queryBuilder, branch, pageRequest);
 			return new ItemsPage<>(conceptIdPage);
@@ -202,22 +201,11 @@ public class ConceptController {
 			@RequestParam(required = false) String searchAfter,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		PageRequest pageRequest;
-		Integer conceptIdsSize = conceptIds != null ? conceptIds.size() : null;
-		if (!Strings.isNullOrEmpty(searchAfter)) {
-			if (!allowUnlimitedConceptPagination) {
-				throw new IllegalArgumentException("Unlimited pagination of the full concept representation is disabled in this deployment.");
-			}
-			pageRequest = SearchAfterPageRequest.of(SearchAfterHelper.fromSearchAfterToken(searchAfter), size);
-		} else {
-			pageRequest = PageRequest.of(number, size);
-			ControllerHelper.validatePageSize(pageRequest.getOffset(), pageRequest.getPageSize());
-			conceptIds = PageHelper.subList(conceptIds, number, size);
-		}
+		PageRequest pageRequest = getPageRequestWithSort(number, size, searchAfter, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
+		conceptIds = PageHelper.subList(conceptIds, number, size);
 
 		Page<Concept> page = conceptService.find(conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch), pageRequest);
-		SearchAfterPage<Concept> concepts = PageHelper.toSearchAfterPage(page, concept -> SearchAfterHelper.convertToTokenAndBack(new Object[]{concept.getId()}), conceptIdsSize);
-		return new ItemsPage<>(concepts);
+		return new ItemsPage<>(page);
 	}
 
 	@RequestMapping(value = "/browser/{branch}/concepts/bulk-load", method = RequestMethod.POST)
@@ -467,4 +455,18 @@ public class ConceptController {
 		return new ExpressionStringPojo(expression.toString(includeTerms));
 	}
 
+
+	private PageRequest getPageRequestWithSort(int offset, int size, String searchAfter, Sort sort) {
+		ControllerHelper.validatePageSize(offset, size);
+		PageRequest pageRequest;
+		if (!Strings.isNullOrEmpty(searchAfter)) {
+			if (!allowUnlimitedConceptPagination) {
+				throw new IllegalArgumentException("Unlimited pagination of the full concept representation is disabled in this deployment.");
+			}
+			pageRequest = SearchAfterPageRequest.of(SearchAfterHelper.fromSearchAfterToken(searchAfter), size, sort);
+		} else {
+			pageRequest = PageRequest.of(offset, size, sort);
+		}
+		return pageRequest;
+	}
 }

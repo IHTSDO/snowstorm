@@ -4,9 +4,9 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.search.sort.SortBuilders;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -15,10 +15,11 @@ import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -27,9 +28,9 @@ import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ECLQueryServiceTest extends AbstractTest {
+class ECLQueryServiceTest extends AbstractTest {
 
 	// Model
 	protected static final String MODEL_COMPONENT = "900000000000441003";
@@ -91,13 +92,13 @@ public class ECLQueryServiceTest extends AbstractTest {
 	protected VersionControlHelper versionControlHelper;
 
 	@Autowired
-	protected ElasticsearchTemplate elasticsearchTemplate;
+	protected ElasticsearchRestTemplate elasticsearchTemplate;
 
 	protected Set<String> allConceptIds;
 	protected BranchCriteria branchCriteria;
 
-	@Before
-	public void setup() throws ServiceException {
+	@BeforeEach
+	void setup() throws ServiceException {
 		List<Concept> allConcepts = new ArrayList<>();
 
 		allConcepts.add(new Concept(SNOMEDCT_ROOT));
@@ -199,14 +200,16 @@ public class ECLQueryServiceTest extends AbstractTest {
 
 		branchCriteria = versionControlHelper.getBranchCriteria(MAIN);
 
-		List<QueryConcept> queryConcepts = elasticsearchTemplate.queryForList(
+		List<QueryConcept> queryConcepts = elasticsearchTemplate.search(
 				new NativeSearchQueryBuilder()
 						.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID))
-						.withPageable(LARGE_PAGE).build(), QueryConcept.class);
+						.withPageable(LARGE_PAGE).build(), QueryConcept.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
+		assertEquals(34, queryConcepts.size());
 	}
 
 	@Test
-	public void selectByDescendantAndAncestorOperators() {
+	void selectByDescendantAndAncestorOperators() {
 		// Self
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT),
@@ -258,7 +261,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectParents() {
+	void selectParents() {
 		// Direct Parents
 		assertEquals(
 				Sets.newHashSet(),
@@ -274,7 +277,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectChildren() {
+	void selectChildren() {
 		// Direct Children
 		assertEquals(
 				Sets.newHashSet(MODEL_COMPONENT, RIGHT, BODY_STRUCTURE, CLINICAL_FINDING, PROCEDURE, ISA),
@@ -294,7 +297,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectMemberOfReferenceSet() {
+	void selectMemberOfReferenceSet() {
 		// Member of x
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, BODY_STRUCTURE),
@@ -314,7 +317,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectByAttributeType() {
+	void selectByAttributeType() {
 		assertEquals(
 				Sets.newHashSet(),
 				strings(selectConceptIds("*:" + CLINICAL_FINDING + "=*")));
@@ -343,7 +346,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectByAttributeValue() {
+	void selectByAttributeValue() {
 		// Attribute Value Equals
 		assertEquals(
 				Sets.newHashSet(BLEEDING, BLEEDING_SKIN),
@@ -373,14 +376,14 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void selectByAttributeConjunction() {
+	void selectByAttributeConjunction() {
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN),
 				strings(selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + HEMORRHAGE+ " , " + FINDING_SITE + "=*")));
 	}
 
 	@Test
-	public void selectByAttributeDisjunction() {
+	void selectByAttributeDisjunction() {
 		Collection<Long> ids = selectConceptIds("*:" + ASSOCIATED_MORPHOLOGY + "=" + HEMORRHAGE + " OR " + FINDING_SITE + "=*");
 		assertEquals(
 				Sets.newHashSet(BLEEDING_SKIN, BLEEDING, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
@@ -388,7 +391,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void focusConceptConjunction() {
+	void focusConceptConjunction() {
 		assertEquals(
 				Sets.newHashSet(DISORDER, BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
 				strings(selectConceptIds("<" + SNOMEDCT_ROOT + " AND <" + CLINICAL_FINDING)));
@@ -403,7 +406,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void focusConceptDisjunction() {
+	void focusConceptDisjunction() {
 		assertEquals(
 				Sets.newHashSet(SNOMEDCT_ROOT, CLINICAL_FINDING),
 				strings(selectConceptIds(SNOMEDCT_ROOT + " OR " + CLINICAL_FINDING)));
@@ -418,7 +421,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void focusConceptExclusion() {
+	void focusConceptExclusion() {
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, BLEEDING, BLEEDING_SKIN),
 				strings(selectConceptIds("<<" + CLINICAL_FINDING + " MINUS <<" + DISORDER)));
@@ -429,14 +432,14 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void focusConceptConjunctionDisjunction() {
+	void focusConceptConjunctionDisjunction() {
 		assertEquals(
 				Sets.newHashSet(BLEEDING, BLEEDING_SKIN),
 				strings(selectConceptIds("<" + SNOMEDCT_ROOT + " AND (<<" + BLEEDING + " OR " + SNOMEDCT_ROOT +")")));
 	}
 
 	@Test
-	public void attributeGroups() {
+	void attributeGroups() {
 		String eclWithoutGrouping =
 				"<404684003 |Clinical finding| :\n" +
 						"	363698007 |Finding site| = <<39057004 |Pulmonary valve structure|,\n" +
@@ -468,7 +471,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void attributeGroupCardinality() {
+	void attributeGroupCardinality() {
 		assertEquals(
 				"Match clinical finding with at least one grouped finding site attributes.",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
@@ -496,7 +499,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void attributeGroupDisjunction() {
+	void attributeGroupDisjunction() {
 		assertEquals(
 				"Match clinical finding with at least one grouped finding site attributes.",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),// No bleeding because |Associated morphology| must be grouped
@@ -504,7 +507,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 	
 	@Test
-	public void attributeGroupDisjunction2() {
+	void attributeGroupDisjunction2() {
 		//Searching for Right OR Left foot site amputations should return ALL foot amputations: left, right and bilateral
 		assertEquals(
 			"Match procedure with left OR right foot (grouped)",
@@ -514,7 +517,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void reverseFlagAttributes() {
+	void reverseFlagAttributes() {
 		// Select the Finding sites of descendants of Disorder
 		// Using Reverse Flag
 		assertEquals(
@@ -555,7 +558,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void conjunctionWithReverseFlag() {
+	void conjunctionWithReverseFlag() {
 		assertEquals(
 				Sets.newHashSet(RIGHT_VENTRICULAR_STRUCTURE, PULMONARY_VALVE_STRUCTURE),
 				strings(selectConceptIds("<" + BODY_STRUCTURE + " AND (<" + DISORDER + "." + FINDING_SITE + ")")));
@@ -564,7 +567,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	// TODO: Add reverse flag with cardinality
 
 	@Test
-	public void attributeCardinality() {
+	void attributeCardinality() {
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, DISORDER, BLEEDING, BLEEDING_SKIN, PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING),
 				strings(selectConceptIds("<<" + CLINICAL_FINDING + ":[0..*]" + FINDING_SITE + "=*")));
@@ -633,7 +636,7 @@ public class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testAncestorOfWildcard() {
+	void testAncestorOfWildcard() {
 		// All non-leaf concepts
 		assertEquals(
 				"[123037004, 71388002, 410662002, 138875005, 131148009, 363704007, 762705008, 64572001, 900000000000441003, 404684003]",

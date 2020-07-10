@@ -21,19 +21,19 @@ public class ReferenceSetType extends DomainEntity<ReferenceSetType> {
 
 	public static final String FIELD_ID = "conceptId";
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String name;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String conceptId;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String fieldNames;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String fieldTypes;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String exportDir;
 
 	public ReferenceSetType() {

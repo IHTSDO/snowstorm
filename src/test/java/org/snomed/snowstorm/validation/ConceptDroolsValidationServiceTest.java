@@ -2,9 +2,9 @@ package org.snomed.snowstorm.validation;
 
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -15,11 +15,11 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ConceptDroolsValidationServiceTest extends AbstractTest {
+class ConceptDroolsValidationServiceTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
@@ -35,8 +35,8 @@ public class ConceptDroolsValidationServiceTest extends AbstractTest {
 
 	private ConceptDroolsValidationService validationService;
 
-	@Before
-	public void setup() throws ServiceException {
+	@BeforeEach
+	void setup() throws ServiceException {
 		String branch = "MAIN";
 		conceptService.create(new Concept("100001", null, true, "10000111", Concepts.PRIMITIVE), branch);
 		conceptService.create(new Concept("100002", null, false, "10000111", Concepts.PRIMITIVE), branch);
@@ -45,7 +45,7 @@ public class ConceptDroolsValidationServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void isActive() {
+	void isActive() {
 		Assert.assertTrue(validationService.isActive("100001"));
 		Assert.assertFalse(validationService.isActive("100002"));
 		Assert.assertFalse(validationService.isActive("100003"));

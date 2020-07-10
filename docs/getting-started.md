@@ -14,8 +14,7 @@ Elasticsearch will work best with another 4G of memory left free on the server f
 
 ## Setup
 ### Install Elasticsearch
-Download and install [Elasticsearch version 6](https://www.elastic.co/downloads/past-releases/elasticsearch-6-8-0) (tested against 6.8.0). 
-**Snowstorm does not yet work with Elasticsearch 7 or later.** 
+Download and install [Elasticsearch version 7](https://www.elastic.co/downloads/past-releases/elasticsearch-7-7-0) (tested against 7.7.0). 
 
 Update the configuration file _config/jvm.options_ with the memory options `-Xms4g` and `-Xmx4g`.
 

@@ -1,13 +1,13 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.Assert.*;
 
-public class AsyncConceptChangeBatchTest {
+class AsyncConceptChangeBatchTest {
 
 	@Test
-	public void getSecondsDuration() throws InterruptedException {
+	void getSecondsDuration() throws InterruptedException {
 		AsyncConceptChangeBatch batch = new AsyncConceptChangeBatch();
 		Thread.sleep(2_000);
 		assertNull(batch.getSecondsDuration());

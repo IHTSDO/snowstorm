@@ -11,6 +11,7 @@ import org.snomed.snowstorm.validation.domain.DroolsConcept;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
@@ -44,21 +45,21 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 						.must(termQuery(Concept.Fields.ACTIVE, true)))
 				.withPageable(Config.PAGE_OF_ONE)
 				.build();
-		List<Concept> matches = elasticsearchTemplate.queryForList(query, Concept.class);
+		List<Concept> matches = elasticsearchTemplate.search(query, Concept.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
 		return !matches.isEmpty();
 	}
 
-    @Override
-    public org.ihtsdo.drools.domain.Concept findById(String conceptId) {
-        NativeSearchQuery query = new NativeSearchQueryBuilder()
-                .withQuery(boolQuery()
-                        .must(branchCriteria.getEntityBranchCriteria(Concept.class))
-                        .must(termQuery(Concept.Fields.CONCEPT_ID, conceptId)))
-                .withPageable(Config.PAGE_OF_ONE)
-                .build();
-        List<Concept> matches = elasticsearchTemplate.queryForList(query, Concept.class);
-        return !matches.isEmpty() ? new DroolsConcept(matches.get(0)) : null;
-    }
+	@Override
+	public org.ihtsdo.drools.domain.Concept findById(String conceptId) {
+		NativeSearchQuery query = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termQuery(Concept.Fields.CONCEPT_ID, conceptId)))
+				.withPageable(Config.PAGE_OF_ONE)
+				.build();
+		List<Concept> matches = elasticsearchTemplate.search(query, Concept.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
+		return !matches.isEmpty() ? new DroolsConcept(matches.get(0)) : null;
+	}
 
     @Override
 	public Set<String> getAllTopLevelHierarchies() {

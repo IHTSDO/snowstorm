@@ -70,7 +70,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	public ValueSet getValueSet(@IdParam IdType id) {
 		Optional<ValueSetWrapper> vsOpt = valuesetRepository.findById(id.getIdPart());
 		if (vsOpt.isPresent()) {
-			ValueSet vs = vsOpt.get().getValueset();
+			ValueSet vs = vsOpt.get().getValueSet();
 			//If we're not calling the expansion operation, don't include that element
 			vs.setExpansion(null);
 			return vs;
@@ -154,7 +154,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 									.withUrl(url)
 									.withVersion(version);
 		return StreamSupport.stream(valuesetRepository.findAll().spliterator(), false)
-				.map(vs -> vs.getValueset())
+				.map(vs -> vs.getValueSet())
 				.filter(vs -> vsFilter.apply(vs, queryService, fhirHelper))
 				.collect(Collectors.toList());
 	}

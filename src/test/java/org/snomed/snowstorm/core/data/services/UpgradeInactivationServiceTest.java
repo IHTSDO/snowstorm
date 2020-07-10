@@ -2,9 +2,9 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Commit;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -13,16 +13,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Arrays;
 import java.util.Set;
 
 import static org.junit.Assert.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class UpgradeInactivationServiceTest extends AbstractTest {
+class UpgradeInactivationServiceTest extends AbstractTest {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
@@ -45,14 +45,14 @@ public class UpgradeInactivationServiceTest extends AbstractTest {
 
 	private final CodeSystem SNOMEDCT = new CodeSystem("SNOMEDCT", "MAIN");
 
-	@Before
-	public void setUp() {
+	@BeforeEach
+	void setUp() {
 		codeSystemService.createCodeSystem(SNOMEDCT);
 		testUtil = new ServiceTestUtil(conceptService);
 	}
 
 	@Test
-	public void testFindAndUpdateInactivationIndicators() throws Exception {
+	void testFindAndUpdateInactivationIndicators() throws Exception {
 		// add content
 		Concept conceptA = testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100000", "Inactivation testing", "en");
 		// version
@@ -115,7 +115,7 @@ public class UpgradeInactivationServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testFindAndUpdateLanguageRefsetsForInactiveDescriptions() throws Exception {
+	void testFindAndUpdateLanguageRefsetsForInactiveDescriptions() throws Exception {
 		// add concept
 		Concept conceptA = testUtil.createConceptWithPathIdAndTermWithLang(MAIN, "100000", "Inactivation testing", "en");
 		Set<Description> descriptions = conceptA.getDescriptions();

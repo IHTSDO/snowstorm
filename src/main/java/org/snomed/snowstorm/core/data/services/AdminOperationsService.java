@@ -22,11 +22,14 @@ import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.*;
-import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
-import org.springframework.data.util.CloseableIterator;
+import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -88,7 +91,7 @@ public class AdminOperationsService {
 		logger.info("Reindexing all description documents in version control with language code '{}' using {} folded characters.", languageCode, foldedCharacters.size());
 		AtomicLong descriptionCount = new AtomicLong();
 		AtomicLong descriptionUpdateCount = new AtomicLong();
-		try (CloseableIterator<Description> descriptionsOnAllBranchesStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<Description> descriptionsOnAllBranchesStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 						.withQuery(termQuery(Description.Fields.LANGUAGE_CODE, languageCode))
 						.withSort(SortBuilders.fieldSort("internalId"))
 						.withPageable(LARGE_PAGE)
@@ -97,7 +100,8 @@ public class AdminOperationsService {
 
 			List<UpdateQuery> updateQueries = new ArrayList<>();
 			AtomicReference<IOException> exceptionThrown = new AtomicReference<>();
-			descriptionsOnAllBranchesStream.forEachRemaining(description -> {
+			descriptionsOnAllBranchesStream.forEachRemaining(hit -> {
+				Description description = hit.getContent();
 				if (exceptionThrown.get() == null) {
 
 					String newFoldedTerm = DescriptionHelper.foldTerm(description.getTerm(), foldedCharacters);
@@ -113,16 +117,12 @@ public class AdminOperationsService {
 							exceptionThrown.set(e);
 						}
 
-						updateQueries.add(new UpdateQueryBuilder()
-								.withClass(Description.class)
-								.withId(description.getInternalId())
-								.withUpdateRequest(updateRequest)
-								.build());
+						updateQueries.add(UpdateQuery.builder(description.getInternalId()).build());
 						descriptionUpdateCount.incrementAndGet();
 					}
 					if (updateQueries.size() == 10_000) {
 						logger.info("Bulk update {}", descriptionUpdateCount.get());
-						elasticsearchTemplate.bulkUpdate(updateQueries);
+						elasticsearchTemplate.bulkUpdate(updateQueries, elasticsearchTemplate.getIndexCoordinatesFor(Description.class));
 						updateQueries.clear();
 					}
 				}
@@ -132,10 +132,10 @@ public class AdminOperationsService {
 			}
 			if (!updateQueries.isEmpty()) {
 				logger.info("Bulk update {}", descriptionUpdateCount.get());
-				elasticsearchTemplate.bulkUpdate(updateQueries);
+				elasticsearchTemplate.bulkUpdate(updateQueries, elasticsearchTemplate.getIndexCoordinatesFor(Description.class));
 			}
 		} finally {
-			elasticsearchTemplate.refresh(Description.class);
+			elasticsearchTemplate.indexOps(Description.class).refresh();
 		}
 		logger.info("Completed reindexing of description documents with language code '{}'. Of the {} documents found {} were updated due to a character folding change.",
 				languageCode, descriptionCount.get(), descriptionUpdateCount.get());
@@ -194,8 +194,9 @@ public class AdminOperationsService {
 				.build();
 
 		List<Relationship> correctedRelationships = new ArrayList<>();
-		try (CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(searchQuery, Relationship.class)) {
-			stream.forEachRemaining(relationshipInPreviousRelease -> {
+		try (SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(searchQuery, Relationship.class)) {
+			stream.forEachRemaining(hit -> {
+				Relationship relationshipInPreviousRelease = hit.getContent();
 				Relationship currentRelationship = inactiveRelationships.get(parseLong(relationshipInPreviousRelease.getRelationshipId()));
 				if (currentRelationship.getGroupId() != relationshipInPreviousRelease.getGroupId()) {
 					currentRelationship.setGroupId(relationshipInPreviousRelease.getGroupId());
@@ -226,7 +227,7 @@ public class AdminOperationsService {
 
 	private Map<Long, Relationship> getAllInactiveRelationships(String previousReleaseBranch, String effectiveTime) {
 		Map<Long, Relationship> relationshipMap = new Long2ObjectOpenHashMap<>();
-		try (CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(
 						boolQuery()
 								.must(versionControlHelper.getBranchCriteria(previousReleaseBranch).getEntityBranchCriteria(Relationship.class))
@@ -236,8 +237,8 @@ public class AdminOperationsService {
 						)
 				.withPageable(LARGE_PAGE)
 				.build(), Relationship.class)) {
-			stream.forEachRemaining(relationship -> {
-				relationshipMap.put(parseLong(relationship.getRelationshipId()), relationship);
+			stream.forEachRemaining(hit -> {
+				relationshipMap.put(parseLong(hit.getContent().getRelationshipId()), hit.getContent());
 				if (relationshipMap.size() % 10_000 == 0) {
 					System.out.print(".");
 				}
@@ -263,17 +264,17 @@ public class AdminOperationsService {
 		branchService.lockBranch(path, "Deleting branch.");
 
 		logger.info("Deleting all documents on branch {}.", path);
-		DeleteQuery deleteQuery = new DeleteQuery();
-		deleteQuery.setQuery(QueryBuilders.termQuery("path", path));
+
+		Query deleteQuery = new NativeSearchQueryBuilder().withQuery(QueryBuilders.termQuery("path", path)).build();
 		for (Class<? extends DomainEntity> domainEntityType : domainEntityConfiguration.getAllDomainEntityTypes()) {
 			logger.info("Deleting all {} type documents on branch {}.", domainEntityType.getSimpleName(), path);
-			elasticsearchTemplate.delete(deleteQuery, domainEntityType);
-			elasticsearchTemplate.refresh(domainEntityType);
+			elasticsearchTemplate.delete(deleteQuery, domainEntityType, elasticsearchTemplate.getIndexCoordinatesFor(domainEntityType));
+			elasticsearchTemplate.indexOps(domainEntityType).refresh();
 		}
 
 		logger.info("Deleting branch documents for path {}.", path);
-		elasticsearchTemplate.delete(deleteQuery, Branch.class);
-		elasticsearchTemplate.refresh(Branch.class);
+		elasticsearchTemplate.delete(deleteQuery, Branch.class, elasticsearchTemplate.getIndexCoordinatesFor(Branch.class));
+		elasticsearchTemplate.indexOps(Branch.class).refresh();
 	}
 
 	public void deleteExtraInferredRelationships(String branchPath, InputStream relationshipsToKeepInputStream, int effectiveTime) throws IOException {
@@ -315,9 +316,9 @@ public class AdminOperationsService {
 						.must(termQuery(Relationship.Fields.EFFECTIVE_TIME, effectiveTime)))
 				.withFields(Relationship.Fields.RELATIONSHIP_ID)
 				.withPageable(LARGE_PAGE);
-		try (CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
-			stream.forEachRemaining(relationship -> {
-				Long relationshipId = Long.parseLong(relationship.getRelationshipId());
+		try (SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(queryBuilder.build(), Relationship.class)) {
+			stream.forEachRemaining(hit -> {
+				Long relationshipId = Long.parseLong(hit.getContent().getRelationshipId());
 				if (!relationshipIdsToKeep.contains(relationshipId)) {
 					relationshipIdsToDelete.add(relationshipId);
 				} else {
@@ -428,8 +429,8 @@ public class AdminOperationsService {
 					.withQuery(boolQuery().must(changesOnFixBranch.getEntityBranchCriteria(type)))
 					.withPageable(LARGE_PAGE).build();
 			Collection<DomainEntity> entitiesToPromote = new ArrayList<>();
-			try (CloseableIterator<? extends DomainEntity> stream = elasticsearchTemplate.stream(query, type)) {
-				stream.forEachRemaining(entitiesToPromote::add);
+			try (SearchHitsIterator<? extends DomainEntity> stream = elasticsearchTemplate.searchForStream(query, type)) {
+				stream.forEachRemaining(hit -> entitiesToPromote.add(hit.getContent()));
 			}
 
 			Set<String> entityVersionsReplaced = releaseFixBranch.getVersionsReplaced(type);
@@ -439,18 +440,18 @@ public class AdminOperationsService {
 				// Manually promote all entity types including the semantic index.
 				// We do not want any post-commit hooks to run because they will not be able to deal with a new historic commit.
 				// Post-commit hooks will not run because we will not be asking the branch service for a Commit object.
-				String typeIdField = domainEntityConfiguration.getAllIdFields().get(type);
-				ElasticsearchCrudRepository typeRepository = domainEntityConfiguration.getAllTypeRepositoryMap().get(type);
+				ElasticsearchRepository typeRepository = domainEntityConfiguration.getAllTypeRepositoryMap().get(type);
 
 				// Find existing versions of the same entities on the parent branch
 				for (List<String> entityVersionsReplacedBatch : Lists.partition(new ArrayList<>(entityVersionsReplaced), 1_000)) {
 					List<DomainEntity> existingEntitiesBatch = new ArrayList<>();
 					Map<String, Date> existingEntitiesOriginalStartDate = new HashMap<>();
-					try (CloseableIterator<? extends DomainEntity> existingEntityStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+					try (SearchHitsIterator<? extends DomainEntity> existingEntityStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 							// Deleted or replaced component on fix branch
 							.withQuery(termsQuery("_id", entityVersionsReplacedBatch))
 							.withPageable(LARGE_PAGE).build(), type)) {
-						existingEntityStream.forEachRemaining(existingEntity -> {
+						existingEntityStream.forEachRemaining(hit -> {
+							DomainEntity existingEntity = hit.getContent();
 							if (existingEntity.getPath().equals(codeSystemPath)) {
 								existingEntitiesBatch.add(existingEntity);
 							} else {
@@ -586,26 +587,28 @@ public class AdminOperationsService {
 			branchRepository.save(sourceBranchCommit);
 
 			// Clone commit content into new path
-			Map<Class<? extends DomainEntity>, ElasticsearchCrudRepository> allTypeRepositoryMap = domainEntityConfiguration.getAllTypeRepositoryMap();
-			for (Class<? extends DomainEntity> type : allTypeRepositoryMap.keySet()) {
-				ElasticsearchCrudRepository elasticsearchCrudRepository = domainEntityConfiguration.getAllTypeRepositoryMap().get(type);
+			Map<Class<? extends DomainEntity>, ElasticsearchRepository> allTypeRepositoryMap = domainEntityConfiguration.getAllTypeRepositoryMap();
+			for (Map.Entry<Class<? extends DomainEntity>, ElasticsearchRepository> entry : allTypeRepositoryMap.entrySet()) {
+				ElasticsearchRepository elasticsearchRepository = entry.getValue();
 				Page<? extends DomainEntity> page;
 				do {
-					page = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+					SearchHits<? extends DomainEntity> searchHits = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 							.withQuery(boolQuery()
 									.must(termQuery("path", sourceBranchPath))
-									.must(termQuery("start", sourceBranchCommit.getStart()))
+									.must(termQuery("start", sourceBranchCommit.getStart().getTime()))
 							)
 							.withPageable(pageSize)
-							.build(), type);
+							.build(), entry.getKey());
+					page = new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageSize, searchHits.getTotalHits());
+
 					List<? extends DomainEntity> content = page.getContent();
 					if (!content.isEmpty()) {
-						logger.info("Cloning {} {}s", content.size(), type.getSimpleName());
+						logger.info("Cloning {} {}s", content.size(), entry.getKey().getSimpleName());
 						content.forEach(domainEntity -> {
 							domainEntity.setPath(destinationBranchPath);
 							domainEntity.clearInternalId();// ES will create a new document rather than updating.
 						});
-						elasticsearchCrudRepository.saveAll(content);
+						elasticsearchRepository.saveAll(content);
 					}
 				} while (!page.isLast());
 			}

@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.domain.review;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.elasticsearch.annotations.DateFormat;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -13,17 +14,17 @@ import java.util.Set;
 public class BranchReview {
 
 	@Id
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	@NotNull
 	private String id;
 
 	@Field(type = FieldType.Boolean)
 	private boolean sourceIsParent;
 
-	@Field(type = FieldType.Date)
+	@Field(type = FieldType.Date, format = DateFormat.date_optional_time)
 	private Date lastUpdated;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private ReviewStatus status;
 
 	@Field(type = FieldType.Nested)

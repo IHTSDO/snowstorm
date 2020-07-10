@@ -13,17 +13,21 @@ import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
@@ -46,7 +50,7 @@ public class MultiSearchService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
+	private ElasticsearchRestTemplate elasticsearchTemplate;
 
 	public Page<Description> findDescriptions(DescriptionCriteria criteria, PageRequest pageRequest) {
 		final BoolQueryBuilder branchesQuery = getBranchesQuery();
@@ -74,24 +78,25 @@ public class MultiSearchService {
 		}
 		NativeSearchQuery query = queryBuilder.build();
 		DescriptionService.addTermSort(query);
-		return elasticsearchTemplate.queryForPage(query, Description.class);
+		SearchHits<Description> searchHits = elasticsearchTemplate.search(query, Description.class);
+		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
 	}
 
 	private Set<Long> getMatchedConcepts(Boolean conceptActiveFlag, BoolQueryBuilder branchesQuery, BoolQueryBuilder descriptionQuery) {
 		// return description and concept ids
 		Set<Long> conceptIdsMatched = new LongOpenHashSet();
-		try (final CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (final SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(descriptionQuery)
 				.withFields(Description.Fields.CONCEPT_ID)
 				.withPageable(ConceptService.LARGE_PAGE).build(), Description.class)) {
 			while (descriptions.hasNext()) {
-				conceptIdsMatched.add(new Long(descriptions.next().getConceptId()));
-			}
+				conceptIdsMatched.add(Long.valueOf(descriptions.next().getContent().getConceptId()));
+		}
 		}
 		// filter description ids based on concept query results using active flag
 		Set<Long> result = new LongOpenHashSet();
 		if (!conceptIdsMatched.isEmpty()) {
-			try (final CloseableIterator<Concept> concepts = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+			try (final SearchHitsIterator<Concept> concepts = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(branchesQuery)
 							.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIdsMatched))
@@ -100,7 +105,7 @@ public class MultiSearchService {
 					.withFields(Concept.Fields.CONCEPT_ID)
 					.withPageable(ConceptService.LARGE_PAGE).build(), Concept.class)) {
 				while (concepts.hasNext()) {
-					result.add(new Long(concepts.next().getConceptId()));
+					result.add(Long.valueOf(concepts.next().getContent().getConceptId()));
 				}
 			}
 		}
@@ -152,6 +157,7 @@ public class MultiSearchService {
 				.withQuery(conceptQuery)
 				.withPageable(pageRequest)
 				.build();
-		return elasticsearchTemplate.queryForPage(query, Concept.class);
+		SearchHits<Concept> searchHits = elasticsearchTemplate.search(query, Concept.class);
+		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
 	}
 }

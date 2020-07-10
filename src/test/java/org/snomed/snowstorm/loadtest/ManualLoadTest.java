@@ -12,9 +12,7 @@ import org.snomed.snowstorm.core.data.domain.ConceptView;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
@@ -54,10 +52,10 @@ import java.util.stream.Collectors;
  * Update CONCEPTS_TO_CREATE_PER_USER to set the number times each user will run through the authoring procedure.
  * Update HIERARCHIES_TO_AUTHOR_IN to use more hierarchies.
  */
-public class ManualLoadTest {
+class ManualLoadTest {
 
 	// Script configuration variables
-	private static final String SNOWSTORM_API_URI = "http://localhost:8080/snowstorm/snomed-ct/v2";
+	private static final String SNOWSTORM_API_URI = "http://localhost:8080/snowstorm/snomed-ct";
 	private static final String COOKIE = "dev-ims-ihtsdo=YOUR_COOKIE_HERE";
 	private static final int CONCURRENT_USERS = 1;
 	private static final int CONCEPTS_TO_CREATE_PER_USER = 1;
@@ -253,17 +251,24 @@ public class ManualLoadTest {
 	}
 
 	private void validateConcept(String taskBranch, Concept concept) throws JsonProcessingException {
-		long startMilis = new Date().getTime();
+		long startMillis = new Date().getTime();
 		String request = conceptToString(concept);
-		restTemplate.postForObject("/browser/" + taskBranch + "/validate/concept", request, ArrayList.class);
-		LOGGER.info("Validated concept {} on {} in {} seconds", concept.getFsn(), taskBranch, recordDuration("validate-concept", startMilis));
+		HttpHeaders headers = new HttpHeaders();
+		headers.setContentType(MediaType.APPLICATION_JSON);
+		HttpEntity<String> requestEntity = new HttpEntity<>(request, headers);
+		restTemplate.postForObject("/browser/" + taskBranch + "/validate/concept", requestEntity, ArrayList.class);
+		LOGGER.info("Validated concept {} on {} in {} seconds", concept.getFsn(), taskBranch, recordDuration("validate-concept", startMillis));
 	}
 
 	private Concept createConcept(String taskBranch, Concept concept) throws JsonProcessingException, InterruptedException {
-		long startMilis = new Date().getTime();
+		long startMillis = new Date().getTime();
 		Concept newConcept = null;
 		try {
-			newConcept = restTemplate.postForObject("/browser/" + taskBranch + "/concepts", conceptToString(concept), Concept.class);
+			HttpHeaders headers = new HttpHeaders();
+			headers.setContentType(MediaType.APPLICATION_JSON);
+			HttpEntity<String> requestEntity = new HttpEntity(conceptToString(concept), headers);
+
+			newConcept = restTemplate.postForObject("/browser/" + taskBranch + "/concepts", requestEntity, Concept.class);
 		} catch (HttpClientErrorException e) {
 			String responseBodyAsString = e.getResponseBodyAsString();
 			if (e.getRawStatusCode() == 400 && responseBodyAsString.contains("insufficient number of component ids available")) {
@@ -275,7 +280,7 @@ public class ManualLoadTest {
 				throw e;
 			}
 		}
-		LOGGER.info("Created concept {} on {} in {} seconds", newConcept.getConceptId(), taskBranch, recordDuration("create-concept", startMilis));
+		LOGGER.info("Created concept {} on {} in {} seconds", newConcept.getConceptId(), taskBranch, recordDuration("create-concept", startMillis));
 		return newConcept;
 	}
 

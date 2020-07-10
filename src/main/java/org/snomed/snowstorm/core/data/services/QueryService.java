@@ -16,6 +16,7 @@ import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
@@ -26,11 +27,10 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchAfterPage;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.elasticsearch.core.*;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -52,7 +52,7 @@ public class QueryService implements ApplicationContextAware {
 	static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchRestTemplate elasticsearchTemplate;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -107,10 +107,9 @@ public class QueryService implements ApplicationContextAware {
 			// No ids - return page of all concept ids
 			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(Concept.class)))
-					.withSort(SortBuilders.fieldSort(Concept.Fields.CONCEPT_ID))
 					.withPageable(pageRequest);
-			Page<Concept> conceptPage = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
-			return PageHelper.mapToSearchAfterPage(conceptPage, Concept::getConceptIdAsLong, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
+			SearchHits<Concept> searchHits = elasticsearchTemplate.search(queryBuilder.build(), Concept.class);
+			return PageHelper.toSearchAfterPage(searchHits, Concept::getConceptIdAsLong, pageRequest);
 		});
 	}
 
@@ -141,14 +140,12 @@ public class QueryService implements ApplicationContextAware {
 			} else {
 				// Concept id search
 				BoolQueryBuilder conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
-				Page<Concept> pageOfConcepts = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+				SearchHits<Concept> searchHits = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 						.withQuery(conceptBoolQuery)
 						.withFields(Concept.Fields.CONCEPT_ID)
-						.withSort(getDefaultSortForConcept())
 						.withPageable(pageRequest)
 						.build(), Concept.class);
-				List<Long> pageOfIds = pageOfConcepts.getContent().stream().map(Concept::getConceptIdAsLong).collect(Collectors.toList());
-				conceptIdPage = PageHelper.toSearchAfterPage(new PageImpl<>(pageOfIds, pageRequest, pageOfConcepts.getTotalElements()), CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
+				conceptIdPage = PageHelper.toSearchAfterPage(searchHits, Concept::getConceptIdAsLong, pageRequest);
 			}
 
 		} else {
@@ -177,13 +174,13 @@ public class QueryService implements ApplicationContextAware {
 			} else {
 				allFilteredLogicalMatches = new LongArrayList();
 				BoolQueryBuilder conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
-				try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				try (SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 						.withQuery(conceptBoolQuery)
 						.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, allConceptIdsSortedByTermOrder))
 						.withFields(Concept.Fields.CONCEPT_ID)
 						.withPageable(LARGE_PAGE)
 						.build(), Concept.class)) {
-					stream.forEachRemaining(c -> allFilteredLogicalMatches.add(c.getConceptIdAsLong()));
+					stream.forEachRemaining(hit -> allFilteredLogicalMatches.add(hit.getContent().getConceptIdAsLong()));
 				}
 			}
 
@@ -235,8 +232,8 @@ public class QueryService implements ApplicationContextAware {
 				.withSort(getDefaultSortForConcept())
 				.withPageable(LARGE_PAGE);
 
-		try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(conceptDefinitionQuery.build(), Concept.class)) {
-			stream.forEachRemaining(concept -> filteredConceptIds.add(concept.getConceptIdAsLong()));
+		try (SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(conceptDefinitionQuery.build(), Concept.class)) {
+			stream.forEachRemaining(hit -> filteredConceptIds.add(hit.getContent().getConceptIdAsLong()));
 		}
 
 		return filteredConceptIds;
@@ -272,11 +269,19 @@ public class QueryService implements ApplicationContextAware {
 	}
 
 	public Page<QueryConcept> queryForPage(NativeSearchQuery searchQuery) {
-		return elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class);
+		searchQuery.setTrackTotalHits(true);
+		Pageable pageable = searchQuery.getPageable();
+		SearchHits<QueryConcept> searchHits;
+		if (pageable instanceof SearchAfterPageRequest) {
+			searchHits = elasticsearchTemplate.searchAfter(((SearchAfterPageRequest) pageable).getSearchAfter(), searchQuery, QueryConcept.class);
+		} else {
+			searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
+		}
+		return PageHelper.toSearchAfterPage(searchHits, pageable);
 	}
 
-	public CloseableIterator<QueryConcept> streamQueryResults(NativeSearchQuery searchQuery) {
-		return elasticsearchTemplate.stream(searchQuery, QueryConcept.class);
+	public SearchHitsIterator<QueryConcept> streamQueryResults(NativeSearchQuery searchQuery) {
+		return elasticsearchTemplate.searchForStream(searchQuery, QueryConcept.class);
 	}
 
 	public Set<Long> findAncestorIds(String conceptId, String path, boolean stated) {
@@ -292,7 +297,8 @@ public class QueryService implements ApplicationContextAware {
 				)
 				.withPageable(PAGE_OF_ONE)
 				.build();
-		List<QueryConcept> concepts = elasticsearchTemplate.queryForList(searchQuery, QueryConcept.class);
+		List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		return concepts.isEmpty() ? Collections.emptySet() : concepts.get(0).getParents();
 	}
 
@@ -305,7 +311,8 @@ public class QueryService implements ApplicationContextAware {
 				)
 				.withPageable(LARGE_PAGE)
 				.build();
-		final List<QueryConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class).getContent();
+		final List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		if (concepts.size() > 1) {
 			logger.error("More than one index concept found {}", concepts);
 			throw new IllegalStateException("More than one query-index-concept found for id " + conceptId + " on branch " + path + ".");
@@ -322,7 +329,8 @@ public class QueryService implements ApplicationContextAware {
 				)
 				.withPageable(LARGE_PAGE)
 				.build();
-		final List<QueryConcept> concepts = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class).getContent();
+		final List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		Set<Long> allAncestors = new HashSet<>();
 		for (QueryConcept concept : concepts) {
 			allAncestors.addAll(concept.getAncestors());
@@ -341,9 +349,8 @@ public class QueryService implements ApplicationContextAware {
 				.withPageable(LARGE_PAGE)
 				.withSort(SortBuilders.fieldSort(QueryConcept.Fields.CONCEPT_ID))// This could be anything
 				.build();
-		Page<QueryConcept> conceptsPage = elasticsearchTemplate.queryForPage(searchQuery, QueryConcept.class);
-		List<Long> conceptIdsFound = conceptsPage.getContent().stream().map(QueryConcept::getConceptIdL).collect(Collectors.toList());
-		return new PageImpl<>(conceptIdsFound, LARGE_PAGE, conceptsPage.getTotalElements()).getContent();
+		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
+		return searchHits.stream().map(SearchHit::getContent).map(QueryConcept::getConceptIdL).collect(Collectors.toList());
 	}
 
 	public Set<Long> findConceptIdsInReferenceSet(BranchCriteria branchCriteria, String referenceSetId) {
@@ -386,8 +393,9 @@ public class QueryService implements ApplicationContextAware {
 				.build();
 
 		Set<Long> destinationIds = new LongArraySet();
-		try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(query, QueryConcept.class)) {
-			stream.forEachRemaining(queryConcept -> {
+		try (SearchHitsIterator<QueryConcept> stream = elasticsearchTemplate.searchForStream(query, QueryConcept.class)) {
+			stream.forEachRemaining(hit -> {
+				QueryConcept queryConcept = hit.getContent();
 				if (attributeTypeIds != null) {
 					for (Long attributeTypeId : attributeTypeIds) {
 						if (attributeTypeId.equals(Concepts.IS_A_LONG)) {
@@ -435,12 +443,12 @@ public class QueryService implements ApplicationContextAware {
 						.must(termQuery(QueryConcept.Fields.STATED, form == Relationship.CharacteristicType.stated))
 						.must(termsQuery(QueryConcept.Fields.PARENTS, conceptIdsToFind)))
 				.withPageable(LARGE_PAGE);
-		try (CloseableIterator<QueryConcept> children = elasticsearchTemplate.stream(queryBuilder.build(), QueryConcept.class)) {
-			children.forEachRemaining(child -> {
+		try (SearchHitsIterator<QueryConcept> children = elasticsearchTemplate.searchForStream(queryBuilder.build(), QueryConcept.class)) {
+			children.forEachRemaining(hit -> {
 				if (conceptIdsToFind.isEmpty()) {
 					return;
 				}
-				Set<Long> parents = child.getParents();
+				Set<Long> parents = hit.getContent().getParents();
 				for (Long parent : parents) {
 					if (conceptIdsToFind.contains(parent)) {
 						// Concept has at least one child in this form - mark as not a leaf.

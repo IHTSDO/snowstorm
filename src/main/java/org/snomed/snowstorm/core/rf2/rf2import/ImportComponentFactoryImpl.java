@@ -15,8 +15,8 @@ import org.snomed.snowstorm.core.data.services.ConceptUpdateHelper;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -148,7 +148,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 				List<T> componentsAtDate = effectiveDateMap.get(effectiveTime);
 				String idField = componentsAtDate.get(0).getIdField();
 				AtomicInteger alreadyExistingComponentCount = new AtomicInteger();
-				try (CloseableIterator<T> componentsWithSameOrLaterEffectiveTime = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				try (SearchHitsIterator<T> componentsWithSameOrLaterEffectiveTime = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
 								.must(termsQuery(idField, componentsAtDate.stream().map(T::getId).collect(Collectors.toList())))
@@ -158,9 +158,9 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 						.withFields(idField)// Only fetch the id
 						.withPageable(LARGE_PAGE)
 						.build(), componentClass)) {
-					componentsWithSameOrLaterEffectiveTime.forEachRemaining(component -> {
+					componentsWithSameOrLaterEffectiveTime.forEachRemaining(hit -> {
 						// Skip component import
-						components.remove(component);// Compared by id only
+						components.remove(hit.getContent());// Compared by id only
 						alreadyExistingComponentCount.incrementAndGet();
 					});
 				}
@@ -171,7 +171,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 			Map<String, T> idToUnreleasedComponentMap = components.stream().filter(component -> component.getEffectiveTime() == null).collect(Collectors.toMap(T::getId, Function.identity()));
 			if (!idToUnreleasedComponentMap.isEmpty()) {
 				String idField = idToUnreleasedComponentMap.values().iterator().next().getIdField();
-				try (CloseableIterator<T> stream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+				try (SearchHitsIterator<T> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(branchCriteriaBeforeOpenCommit.getEntityBranchCriteria(componentClass))
 								.must(termQuery(SnomedComponent.Fields.RELEASED, true))
@@ -179,10 +179,10 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 						)
 						.withPageable(LARGE_PAGE)
 						.build(), componentClass)) {
-					stream.forEachRemaining(component -> {
-						T t = idToUnreleasedComponentMap.get(component.getId());
+					stream.forEachRemaining(hit -> {
+						T t = idToUnreleasedComponentMap.get(hit.getContent().getId());
 						// noinspection unchecked
-						t.copyReleaseDetails(component);
+						t.copyReleaseDetails(hit.getContent());
 						t.updateEffectiveTime();
 					});
 				}

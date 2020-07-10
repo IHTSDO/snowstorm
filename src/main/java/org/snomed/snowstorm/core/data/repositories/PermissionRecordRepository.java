@@ -4,11 +4,11 @@ import org.snomed.snowstorm.core.data.domain.security.PermissionRecord;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
+import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 
 import java.util.Optional;
 
-public interface PermissionRecordRepository extends ElasticsearchCrudRepository<PermissionRecord, String> {
+public interface PermissionRecordRepository extends ElasticsearchRepository<PermissionRecord, String> {
 
 	Page<PermissionRecord> findByPath(String path, Pageable pageable);
 

@@ -1,23 +1,26 @@
 package org.snomed.snowstorm.core.data.services.identifier;
 
-import org.junit.*;
-import org.junit.runner.RunWith;
+import org.junit.Assert;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.ComponentType;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.jobs.IdentifiersForRegistration;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = TestConfig.class)
-public class IdentifierServiceTest extends AbstractTest {
+import static org.junit.jupiter.api.Assertions.assertAll;
+
+@ExtendWith(SpringExtension.class)
+class IdentifierServiceTest extends AbstractTest {
 	
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
@@ -28,7 +31,7 @@ public class IdentifierServiceTest extends AbstractTest {
 	private IdentifierCacheManager cacheManager;
 	
 	@Test
-	public void testGetReserveBlock() throws ServiceException {
+	void testGetReserveBlock() throws ServiceException {
 		List<Concept> testConcepts = createTestData();
 		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts, null);
 		Assert.assertEquals(2, block.size(ComponentType.Concept));
@@ -37,7 +40,7 @@ public class IdentifierServiceTest extends AbstractTest {
 	}
 	
 	@Test
-	public void testNamespaceIdentifierMap() {
+	void testNamespaceIdentifierMap() {
 		List<IdentifiersForRegistration> ifr = new ArrayList<>();
 		ifr.add(new IdentifiersForRegistration(0, Collections.singletonList(123456L)));
 		ifr.add(new IdentifiersForRegistration(1000003, Collections.singletonList(336331000003125L)));
@@ -51,14 +54,14 @@ public class IdentifierServiceTest extends AbstractTest {
 	 * @throws ServiceException
 	 */
 	@Test
-	public void testGetReserveBlockLarge() throws ServiceException {
+	void testGetReserveBlockLarge() throws ServiceException {
 		List<Concept> testConcepts = createTestDataLarge(250);
 		IdentifierReservedBlock block = identifierService.reserveIdentifierBlock(testConcepts, null);
 		Assert.assertEquals(250, block.size(ComponentType.Concept));
 	}
 	
 	@Test
-	public void testRegistration() throws ServiceException, InterruptedException {
+	void testRegistration() throws ServiceException, InterruptedException {
 		while (cacheManager.topUpInProgress()) {
 			logger.warn("IDService unit test blocked as cache top up in progress");
 			Thread.sleep(5000);
@@ -70,11 +73,12 @@ public class IdentifierServiceTest extends AbstractTest {
 			Long sctId = block.getNextId(ComponentType.Concept);
 			c.setConceptId(sctId.toString());
 		}
-		identifierService.persistAssignedIdsForRegistration(block);
-		identifierService.registerIdentifiers();
+		assertAll(() -> identifierService.persistAssignedIdsForRegistration(block));
+		assertAll(() -> identifierService.registerIdentifiers());
+
 	}
 
-	private List<Concept> createTestData() throws ServiceException {
+	private List<Concept> createTestData() {
 		List<Concept> testData = new ArrayList<Concept>();
 		//Total 2 concepts + 4 descriptions + 3 relationships = 9 identifiers
 		//NB Relationship must be given type/destination or the set that holds it will see a duplicate
@@ -98,7 +102,7 @@ public class IdentifierServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testIsConceptId() {
+	void testIsConceptId() {
 		Assert.assertTrue(IdentifierService.isConceptId("1234101"));
 		Assert.assertTrue(IdentifierService.isConceptId("1234001"));
 		
@@ -112,7 +116,7 @@ public class IdentifierServiceTest extends AbstractTest {
 	}
 	
 	@Test
-	public void testIsDescriptionId() {
+	void testIsDescriptionId() {
 		Assert.assertTrue(IdentifierService.isDescriptionId("1234110"));
 		Assert.assertTrue(IdentifierService.isDescriptionId("1234013"));
 		
@@ -125,7 +129,7 @@ public class IdentifierServiceTest extends AbstractTest {
 	}
 	
 	@Test
-	public void testIsValid() {
+	void testIsValid() {
 		String errMsg = IdentifierService.isValidId("999480551000087103", ComponentType.Concept);
 		Assert.assertNull(errMsg);
 		

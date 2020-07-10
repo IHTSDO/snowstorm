@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.mrcm;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.langauges.ecl.domain.refinement.Operator;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
@@ -11,7 +11,7 @@ import org.snomed.snowstorm.core.data.services.ServiceTestUtil;
 import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -19,9 +19,9 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
+class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 	@Autowired
 	private MRCMDomainTemplatesAndRuleGenerator generator;
 
@@ -36,8 +36,8 @@ public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 	@Autowired
 	private ConceptService conceptService;
 
-	@Before
-	public void setUp() {
+	@BeforeEach
+	void setUp() {
 		attributeToDomainsMap = new HashMap<>();
 		attributeToRangesMap = new HashMap<>();
 		conceptToPtMap = new HashMap<>();
@@ -46,7 +46,7 @@ public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 
 
 	@Test
-	public void testPrecoodinationDomainTemplateWithParentDomain() throws Exception {
+	void testPrecoodinationDomainTemplateWithParentDomain() throws Exception {
 		Domain bodyStructure = new Domain("273f1341-03c9-44a1-9797-9b5106c07e8", "", true, "123037004",
 				new Constraint("<< 123037004 |Body structure (body structure)|", "123037004", Operator.descendantorselfof),
 				"",
@@ -161,7 +161,7 @@ public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 
 
 	@Test
-	public void testAttributeRuleAndConstraint() throws Exception{
+	void testAttributeRuleAndConstraint() throws Exception{
 
 		AttributeDomain event= new AttributeDomain("358fdc09-ed75-43a0-b9ad-d926ed51162d", null,
 				true, "255234002", "272379006", true,
@@ -202,7 +202,7 @@ public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 	}
 
 	@Test
-	public void testAttributeRuleWithDifferentCardinality() throws Exception{
+	void testAttributeRuleWithDifferentCardinality() throws Exception{
 
 		AttributeDomain procedure= new AttributeDomain("016dbf3a-4665-4b44-908e-2040dc8ccf5d", null,
 				true, "405815000", "71388002", true,
@@ -245,7 +245,7 @@ public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 	}
 
 	@Test
-	public void testPrecordinationDomainTemplate() throws Exception {
+	void testPrecordinationDomainTemplate() throws Exception {
 		Domain substance = new Domain("19d3f679-5369-42fb-9543-8795fdee5dce", null, true, "105590001",
 				new Constraint("<< 105590001 |Substance (substance)|", "105590001", Operator.descendantorselfof),
 				"", new Constraint("<< 105590001 |Substance (substance)|", "105590001", Operator.descendantorselfof),
@@ -283,7 +283,7 @@ public class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 	}
 
 	@Test
-	public void testSortExpressionConstraintByConceptId() {
+	void testSortExpressionConstraintByConceptId() {
 		String rangeConstraint = "<< 420158005 |Performer of method (person)|" +
 				" OR << 419358007 |Subject of record or other provider of history (person)|" +
 				" OR << 444018008 |Person with characteristic related to subject of record (person)|";

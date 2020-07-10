@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.core.rf2.export;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -16,7 +16,7 @@ import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.util.StreamUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -31,9 +31,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ExportServiceTest extends AbstractTest {
+class ExportServiceTest extends AbstractTest {
 
 	private static final String DESCRIPTION_TYPE_REFERENCE_SET = "900000000000538005";
 
@@ -53,8 +53,8 @@ public class ExportServiceTest extends AbstractTest {
 	private String textDefId;
 	private ReferenceSetMember owlMember;
 
-	@Before
-	public void setup() throws ServiceException {
+	@BeforeEach
+	void setup() throws ServiceException {
 		referenceSetMemberService.init();
 
 		List<Concept> concepts = new ArrayList<>();
@@ -121,7 +121,7 @@ public class ExportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void exportRF2Archive() throws Exception {
+	void exportRF2Archive() throws Exception {
 		File exportFile = getTempFile("export", ".zip");
 		exportFile.deleteOnExit();
 
@@ -208,7 +208,7 @@ public class ExportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void exportRF2ArchiveForClassification() throws Exception {
+	void exportRF2ArchiveForClassification() throws Exception {
 		File exportFile = getTempFile("export", ".zip");
 		exportFile.deleteOnExit();
 
@@ -262,7 +262,7 @@ public class ExportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void exportRF2ArchiveWithTransientEffectiveTime() throws Exception {
+	void exportRF2ArchiveWithTransientEffectiveTime() throws Exception {
 		File exportFile = getTempFile("export", ".zip");
 		exportFile.deleteOnExit();
 
@@ -300,7 +300,7 @@ public class ExportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void exportSnapshot() throws Exception {
+	void exportSnapshot() throws Exception {
 		File exportFile = getTempFile("export", ".zip");
 		exportFile.deleteOnExit();
 
@@ -351,7 +351,7 @@ public class ExportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void exportSnapshotWithStartEffectiveTime() throws Exception {
+	void exportSnapshotWithStartEffectiveTime() throws Exception {
 		File exportFile = getTempFile("export", ".zip");
 		exportFile.deleteOnExit();
 
@@ -396,7 +396,7 @@ public class ExportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testExportRefsetMemberWithBlankFields() throws IOException {
+	void testExportRefsetMemberWithBlankFields() throws IOException {
 		String path = "MAIN";
 		owlMember = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN, "433590000");
 		owlMember.setAdditionalField("domainConstraint", "<< 433590000 |Administration of substance via specific route (procedure)|");
@@ -439,7 +439,7 @@ public class ExportServiceTest extends AbstractTest {
 		}
 	}
 
-	public void printLines(List<String> lines) {
+	void printLines(List<String> lines) {
 		for (String l : lines) {
 			System.out.println(l);
 		}

@@ -7,9 +7,9 @@ import io.kaicode.elasticvc.domain.Commit;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -63,11 +63,11 @@ public class ReleaseService {
 				.build();
 
 		List<T> componentsToSave = new ArrayList<>();
-		try (CloseableIterator<T> stream = elasticsearchOperations.stream(searchQuery, componentType)) {
-			stream.forEachRemaining(c -> {
-				c.release(effectiveTime);
-				c.markChanged();
-				componentsToSave.add(c);
+		try (SearchHitsIterator<T> stream = elasticsearchOperations.searchForStream(searchQuery, componentType)) {
+			stream.forEachRemaining(hit -> {
+				hit.getContent().release(effectiveTime);
+				hit.getContent().markChanged();
+				componentsToSave.add(hit.getContent());
 			});
 		}
 

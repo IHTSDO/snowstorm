@@ -1,13 +1,13 @@
 package org.snomed.snowstorm.core.data.services;
 
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,20 +17,20 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ConceptAttributeSortHelperTest {
+class ConceptAttributeSortHelperTest {
 
 	@Autowired
 	private ConceptAttributeSortHelper conceptAttributeSortHelper;
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 		conceptAttributeSortHelper.getSubHierarchyToTopLevelTagCache().put("disorder", "finding");
 	}
 
 	@Test
-	public void sortAttributes() {
+	void sortAttributes() {
 		Concept concept = new Concept()
 				.addFSN("Contracture of knee joint (disorder)")
 				.addAxiom(

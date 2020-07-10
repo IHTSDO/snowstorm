@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.rest;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.rest.pojo.*;
@@ -16,10 +16,10 @@ import java.util.*;
 import static java.lang.String.format;
 import static org.junit.Assert.fail;
 
-public class ConceptControllerSecurityTest extends AbstractControllerSecurityTest {
+class ConceptControllerSecurityTest extends AbstractControllerSecurityTest {
 
 	@Test
-	public void findConcepts() throws URISyntaxException {
+	void findConcepts() throws URISyntaxException {
 		RequestEntity<Object> request = new RequestEntity<>(HttpMethod.GET, new URI(url + "/MAIN/concepts"));
 		testStatusCode(HttpStatus.OK, userWithoutRoleHeaders, request);
 		testStatusCode(HttpStatus.OK, authorHeaders, request);
@@ -30,7 +30,7 @@ public class ConceptControllerSecurityTest extends AbstractControllerSecurityTes
 	}
 
 	@Test
-	public void searchViaPost() throws URISyntaxException {
+	void searchViaPost() throws URISyntaxException {
 		RequestEntity<Object> request = new RequestEntity<>(new ConceptSearchRequest(), HttpMethod.POST, new URI(url + "/MAIN/concepts/search"));
 		testStatusCode(HttpStatus.OK, userWithoutRoleHeaders, request);
 		testStatusCode(HttpStatus.OK, authorHeaders, request);
@@ -41,7 +41,7 @@ public class ConceptControllerSecurityTest extends AbstractControllerSecurityTes
 	}
 
 	@Test
-	public void getBrowserConceptsViaPost() throws URISyntaxException {
+	void getBrowserConceptsViaPost() throws URISyntaxException {
 		RequestEntity<Object> request = new RequestEntity<>(new ConceptBulkLoadRequest(), HttpMethod.POST, new URI(url + "/browser/MAIN/concepts/bulk-load"));
 		testStatusCode(HttpStatus.OK, userWithoutRoleHeaders, request);
 		testStatusCode(HttpStatus.OK, authorHeaders, request);
@@ -52,7 +52,7 @@ public class ConceptControllerSecurityTest extends AbstractControllerSecurityTes
 	}
 
 	@Test
-	public void createConcept() throws URISyntaxException {
+	void createConcept() throws URISyntaxException {
 		Concept concept = new Concept().addFSN("Test");
 
 		RequestEntity<Object> request = new RequestEntity<>(concept, HttpMethod.POST, new URI(
@@ -75,7 +75,7 @@ public class ConceptControllerSecurityTest extends AbstractControllerSecurityTes
 	}
 
 	@Test
-	public void updateConcept() throws URISyntaxException {
+	void updateConcept() throws URISyntaxException {
 		Concept concept = new Concept(Concepts.CLINICAL_FINDING).addFSN("Test");
 		// Create concept first
 		testStatusCode(HttpStatus.OK, authorHeaders, new RequestEntity<>(concept, HttpMethod.POST, new URI(
@@ -106,7 +106,7 @@ public class ConceptControllerSecurityTest extends AbstractControllerSecurityTes
 	}
 
 	@Test
-	public void deleteConcept() throws URISyntaxException {
+	void deleteConcept() throws URISyntaxException {
 		// Create concept first
 		testStatusCode(HttpStatus.OK, authorHeaders, new RequestEntity<>(new Concept(Concepts.CLINICAL_FINDING).addFSN("Test"), HttpMethod.POST, new URI(
 				url + "/browser/" + "MAIN" + "/concepts")));
@@ -135,7 +135,7 @@ public class ConceptControllerSecurityTest extends AbstractControllerSecurityTes
 	}
 
 	@Test
-	public void createConceptBulkChange() throws URISyntaxException {
+	void createConceptBulkChange() throws URISyntaxException {
 		List<Concept> concepts = Collections.singletonList(new Concept().addFSN("Test"));
 		String completedStatus = "COMPLETED";
 

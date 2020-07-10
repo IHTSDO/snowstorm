@@ -11,6 +11,8 @@ public class LanguageDialect implements Serializable {
 	private String languageCode;
 	private Long languageReferenceSet;
 
+	public LanguageDialect() { }
+
 	public LanguageDialect(String languageCode) {
 		this.languageCode = languageCode;
 	}

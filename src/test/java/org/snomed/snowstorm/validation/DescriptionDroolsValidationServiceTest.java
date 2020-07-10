@@ -3,9 +3,9 @@ package org.snomed.snowstorm.validation;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -21,16 +21,16 @@ import org.snomed.snowstorm.validation.domain.DroolsDescription;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Set;
 
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class DescriptionDroolsValidationServiceTest extends AbstractTest {
+class DescriptionDroolsValidationServiceTest extends AbstractTest {
 
     @Autowired
     private ConceptService conceptService;
@@ -59,8 +59,8 @@ public class DescriptionDroolsValidationServiceTest extends AbstractTest {
 
     private Concept bodyStructureDescendant2;
 
-    @Before
-    public void setup() throws ServiceException {
+    @BeforeEach
+    void setup() throws ServiceException {
         root = new Concept(SNOMEDCT_ROOT);
         bodyStructureAncestor = new Concept("123037004").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Concepts.INFERRED_RELATIONSHIP)).addFSN("Body structure (body structure)");
         bodyStructureDescendant1 = new Concept("442083009").addRelationship(new Relationship(ISA, bodyStructureAncestor.getId())).addFSN("Anatomical or acquired body structure (body structure)");
@@ -72,7 +72,7 @@ public class DescriptionDroolsValidationServiceTest extends AbstractTest {
     }
 
     @Test
-    public void findMatchingDescriptionInHierarchy() {
+    void findMatchingDescriptionInHierarchy() {
 
         Concept concept = new Concept("1760555000");
         concept.addRelationship(new Relationship(ISA, bodyStructureDescendant1.getId()));

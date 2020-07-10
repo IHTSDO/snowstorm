@@ -5,10 +5,10 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
@@ -20,11 +20,12 @@ import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
-import org.springframework.data.elasticsearch.core.query.DeleteQuery;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -32,11 +33,12 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class SemanticIndexUpdateServiceTest extends AbstractTest {
+class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private QueryService queryService;
@@ -57,12 +59,12 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	private ConceptUpdateHelper conceptUpdateHelper;
 
 	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
+	private ElasticsearchRestTemplate elasticsearchTemplate;
 
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 
 	@Test
-	public void testCommitListenerOrderingConfig() {
+	void testCommitListenerOrderingConfig() {
 		List<CommitListener> commitListeners = branchService.getCommitListeners();
 		assertEquals(6, commitListeners.size());
 		assertEquals(ConceptDefinitionStatusUpdateService.class, commitListeners.get(0).getClass());
@@ -73,7 +75,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testIncrementalStatedTransitiveClosureUpdate() throws Exception {
+	void testIncrementalStatedTransitiveClosureUpdate() throws Exception {
 		// Create three nodes, each parent of the next
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
@@ -191,7 +193,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testIncrementalStatedUpdateUsingNonIsAChanges() throws Exception {
+	void testIncrementalStatedUpdateUsingNonIsAChanges() throws Exception {
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept toppingAttribute = new Concept("110000000").addRelationship(new Relationship(ISA, root.getId()));
 		Concept cheeseTopping = new Concept("210000000").addRelationship(new Relationship(ISA, root.getId()));
@@ -228,7 +230,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDestinationHierarchyBranchTCInherited() throws ServiceException {
+	void testDestinationHierarchyBranchTCInherited() throws ServiceException {
 		// Create two hierarchy branches of three and four concepts in length under the root
 		Concept root = new Concept(SNOMEDCT_ROOT);
 
@@ -275,7 +277,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testUpdateAncestorWhereDescendantHasMultipleParents() throws ServiceException {
+	void testUpdateAncestorWhereDescendantHasMultipleParents() throws ServiceException {
 		Concept root = new Concept(SNOMEDCT_ROOT);
 
 		Concept a = new Concept("100001001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
@@ -307,7 +309,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testSecondIsARemoval() throws ServiceException {
+	void testSecondIsARemoval() throws ServiceException {
 		Concept root = new Concept(SNOMEDCT_ROOT);
 
 		Concept n11 = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
@@ -331,7 +333,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRemoveSecondInferredIsAOnChildBranch() throws ServiceException {
+	void testRemoveSecondInferredIsAOnChildBranch() throws ServiceException {
 		Concept root = new Concept(SNOMEDCT_ROOT);
 
 		Concept n11 = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
@@ -362,21 +364,20 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(1, queryService.eclSearch(">!" + n14.getId(), true, branch, LARGE_PAGE).getTotalElements());
 	}
 
-	@Test(expected = IllegalStateException.class)
-	public void testCircularReferenceInNormalCommitThrowsException() throws ServiceException {
+	@Test
+	void testCircularReferenceInNormalCommitThrowsException() {
 		Concept root = new Concept(SNOMEDCT_ROOT);
-
 		Concept n11 = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
 		Concept n12 = new Concept("1000012").addRelationship(new Relationship(ISA, n11.getId()));
 		Concept n13 = new Concept("1000013").addRelationship(new Relationship(ISA, n12.getId()));
 		n11.addRelationship(new Relationship(ISA, n13.getId()));
-
 		String branch = "MAIN";
-		conceptService.batchCreate(Lists.newArrayList(root, n11, n12, n13), branch);
+		List<Concept> concepts = Lists.newArrayList(root, n11, n12, n13);
+		assertThrows(IllegalStateException.class, () -> conceptService.batchCreate(concepts, branch));
 	}
 
 	@Test
-	public void testCircularReferenceCreatedDuringRebaseDoesNotBreak() throws ServiceException {
+	void testCircularReferenceCreatedDuringRebaseDoesNotBreak() throws ServiceException {
 		// On MAIN
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept cA = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
@@ -404,7 +405,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void inactiveConceptsNotAdded() throws ServiceException {
+	void inactiveConceptsNotAdded() throws ServiceException {
 		String path = "MAIN";
 		conceptService.create(new Concept(SNOMEDCT_ROOT), path);
 		Concept ambulanceman = new Concept().addFSN("Ambulanceman").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
@@ -416,7 +417,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void inactiveConceptsRemoved() throws ServiceException {
+	void inactiveConceptsRemoved() throws ServiceException {
 		String path = "MAIN";
 		conceptService.create(new Concept(SNOMEDCT_ROOT), path);
 		Concept ambulanceman = conceptService.create(new Concept("10000123").addFSN("Ambulanceman").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)), path);
@@ -432,14 +433,14 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testGetParentPaths() {
+	void testGetParentPaths() {
 		Assert.assertEquals("[]", updateService.getParentPaths("MAIN").toString());
 		Assert.assertEquals("[MAIN]", updateService.getParentPaths("MAIN/ONE").toString());
 		Assert.assertEquals("[MAIN/ONE, MAIN]", updateService.getParentPaths("MAIN/ONE/ONE-123").toString());
 	}
 
 	@Test
-	public void testSavePartialBatch() throws ServiceException {
+	void testSavePartialBatch() throws ServiceException {
 		List<Concept> concepts = new ArrayList<>();
 		concepts.add(new Concept(SNOMEDCT_ROOT));
 		int conceptCount = Config.BATCH_SAVE_SIZE + 100;
@@ -454,7 +455,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRelationshipEffectiveDateSorting() throws ServiceException {
+	void testRelationshipEffectiveDateSorting() throws ServiceException {
 		List<Concept> concepts = new ArrayList<>();
 		concepts.add(new Concept(SNOMEDCT_ROOT));
 		for (int conceptId = 0; conceptId < 50; conceptId++) {
@@ -488,7 +489,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRebuildSemanticIndexWithMixedEffectiveDates() throws ServiceException {
+	void testRebuildSemanticIndexWithMixedEffectiveDates() throws ServiceException {
 		String path = "MAIN";
 		List<Concept> concepts = new ArrayList<>();
 
@@ -522,7 +523,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRebuildSemanticIndexWithSameTripleActiveAndInactiveOnSameDate() throws ServiceException, InterruptedException {
+	void testRebuildSemanticIndexWithSameTripleActiveAndInactiveOnSameDate() throws ServiceException, InterruptedException {
 		String path = "MAIN";
 		List<Concept> concepts = new ArrayList<>();
 
@@ -555,17 +556,18 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Delete all documents in semantic index and rebuild
 
-		List<QueryConcept> queryConcepts = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().build(), QueryConcept.class);
+		List<QueryConcept> queryConcepts = elasticsearchTemplate.search(new NativeSearchQueryBuilder().build(), QueryConcept.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(6, queryConcepts.size());
 
-		DeleteQuery deleteQuery = new DeleteQuery();
-		deleteQuery.setQuery(new MatchAllQueryBuilder());
-		elasticsearchTemplate.delete(deleteQuery, QueryConcept.class);
+		Query deleteQuery = new NativeSearchQueryBuilder().withQuery(new MatchAllQueryBuilder()).build();
+		elasticsearchTemplate.delete(deleteQuery, QueryConcept.class, elasticsearchTemplate.getIndexCoordinatesFor(QueryConcept.class));
 
 		// Wait for deletion to flush through
 		Thread.sleep(2000);
 
-		queryConcepts = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder().build(), QueryConcept.class);
+		queryConcepts = elasticsearchTemplate.search(new NativeSearchQueryBuilder().build(), QueryConcept.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(0, queryConcepts.size());
 
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
@@ -578,7 +580,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testSameTripleMadeInactiveInDifferentModule() throws ServiceException {
+	void testSameTripleMadeInactiveInDifferentModule() throws ServiceException {
 		// There are around 150 instances in the US Edition of 'is a' relationships being made inactive in the US module straight
 		// after the same triple is made active in the International Module (different relationship id).
 		// This test checks that making the same triple inactive in a different module does not remove the triple from the semantic index.
@@ -615,7 +617,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	@Test
 	// This tests the semantic index recognises that relationships can be made inactive on a parent branch but still be active on the child.
 	// The concepts used in this unit test are completely meaningless, as usual.
-	public void testSameTripleMadeInactiveInChildBranchAfterParentChanged() throws ServiceException {
+	void testSameTripleMadeInactiveInChildBranchAfterParentChanged() throws ServiceException {
 		String path = "MAIN";
 		String extensionBranch = "MAIN/SNOMEDCT-US";
 		List<Concept> concepts = new ArrayList<>();
@@ -656,7 +658,7 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 	@Test
 	// This tests the semantic index recognises that relationships can be made inactive on a grandparent branch but still be active on the child.
 	// The concepts used in this unit test are completely meaningless, as usual.
-	public void testSameTripleMadeInactiveInChildBranchAfterGrandparentChanged() throws ServiceException {
+	void testSameTripleMadeInactiveInChildBranchAfterGrandparentChanged() throws ServiceException {
 		String path = "MAIN";
 		String extensionBranch = "MAIN/SNOMEDCT-US";
 		String extensionProjectBranch = "MAIN/SNOMEDCT-US/PROJECTA";
@@ -719,8 +721,8 @@ public class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(expectedAncestors, queryService.findAncestorIds(concept.getId(), branch, true));
 	}
 
-	@After
-	public void teardown() {
+	@AfterEach
+	void teardown() {
 		conceptService.deleteAll();
 	}
 

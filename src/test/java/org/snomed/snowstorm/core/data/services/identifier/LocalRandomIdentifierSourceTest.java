@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.core.data.services.identifier;
 
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -10,7 +10,7 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -18,9 +18,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class LocalRandomIdentifierSourceTest extends AbstractTest {
+class LocalRandomIdentifierSourceTest extends AbstractTest {
 
 	@Autowired
 	private LocalRandomIdentifierSource identifierSource;
@@ -29,14 +29,14 @@ public class LocalRandomIdentifierSourceTest extends AbstractTest {
 	private ConceptService conceptService;
 
 	@Test
-	public void testReserveIds() {
+	void testReserveIds() {
 		List<Long> longs = identifierSource.reserveIds(0, "10", 20);
 		assertEquals(20, longs.size());
 		assertEquals(11, longs.get(0).toString().length());
 	}
 
 	@Test
-	public void testClashDetection() throws ServiceException {
+	void testClashDetection() throws ServiceException {
 		LocalRandomIdentifierSource.ItemIdProvider originalItemIdProvider = identifierSource.getItemIdProvider();
 		try {
 			// Replace random ids with sequential based on 100
@@ -75,7 +75,7 @@ public class LocalRandomIdentifierSourceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testGenerate10KWithClashDetection() throws ServiceException {
+	void testGenerate10KWithClashDetection() throws ServiceException {
 		LocalRandomIdentifierSource.ItemIdProvider originalItemIdProvider = identifierSource.getItemIdProvider();
 		try {
 			// Replace random ids with sequential based on 100

@@ -1,21 +1,15 @@
 package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.*;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.snomed.snowstorm.TestConfig;
+import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
 
 import static org.junit.Assert.assertEquals;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
-public class CodeSystemProviderSubsumesTest extends AbstractFHIRTest {
+class CodeSystemProviderSubsumesTest extends AbstractFHIRTest {
 	
 	@Test
-	public void testSubsumption() throws FHIROperationException {
+	void testSubsumption() throws FHIROperationException {
 		String URI = "http://snomed.info/sct/" + sampleModuleId + "/version/" + sampleVersion;
 		
 		//Test subsumption using defaults

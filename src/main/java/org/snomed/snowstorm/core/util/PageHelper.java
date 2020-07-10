@@ -2,9 +2,9 @@ package org.snomed.snowstorm.core.util;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.core.SearchAfterPage;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
-import org.springframework.data.elasticsearch.core.aggregation.impl.AggregatedPageImpl;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -30,12 +30,12 @@ public class PageHelper {
 		}
 
 		T lastItem = getLastItem(pageOfResults);
-		return new AggregatedPageImpl<>(pageOfResults, pageable, fullResultList.size(), searchAfterExtractor.apply(lastItem));
+		return new SearchAfterPageImpl<>(pageOfResults, pageable, fullResultList.size(), searchAfterExtractor.apply(lastItem));
 	}
 
 	public static <T, R> SearchAfterPage<R> mapToSearchAfterPage(Page<T> page, Function<T, R> mapFunction, Function<R, Object[]> searchAfterExtractor) {
 		List<R> mappedList = page.getContent().stream().map(mapFunction).collect(Collectors.toList());
-		return new AggregatedPageImpl<>(mappedList, page.getPageable(), page.getTotalElements(), searchAfterExtractor.apply(getLastItem(mappedList)));
+		return new SearchAfterPageImpl<>(mappedList, page.getPageable(), page.getTotalElements(), searchAfterExtractor.apply(getLastItem(mappedList)));
 	}
 
 	private static <T> List<T> subList(List<T> wholeList, Object[] searchAfter, int pageSize, Function<T, Object[]> searchAfterExtractor) {
@@ -83,15 +83,33 @@ public class PageHelper {
 	}
 
 	public static <T> SearchAfterPage<T> toSearchAfterPage(Page<T> page, Function<T, Object[]> searchAfterExtractor, Integer forceTotalElements) {
-		return new AggregatedPageImpl<>(page.getContent(), page.getPageable(), forceTotalElements != null ? forceTotalElements : page.getTotalElements(), searchAfterExtractor.apply(getLastItem(page.getContent())));
+		return new SearchAfterPageImpl<>(page.getContent(), page.getPageable(), forceTotalElements != null ? forceTotalElements : page.getTotalElements(), searchAfterExtractor.apply(getLastItem(page.getContent())));
 
 	}
 
 	public static <T, R> SearchAfterPage<T> toSearchAfterPage(List<T> results, SearchAfterPage<R> searchAfterPage) {
-		return new AggregatedPageImpl<>(results, searchAfterPage.getPageable(), searchAfterPage.getTotalElements(), searchAfterPage.getSearchAfter());
+		return new SearchAfterPageImpl<>(results, searchAfterPage.getPageable(), searchAfterPage.getTotalElements(), searchAfterPage.getSearchAfter());
 	}
 
 	private static <T> T getLastItem(List<T> pageOfResults) {
 		return pageOfResults.isEmpty() ? null : pageOfResults.get(pageOfResults.size() - 1);
+	}
+
+	public static <T> SearchAfterPage<T> toSearchAfterPage(SearchHits<T> searchHits, Pageable pageable) {
+		Object[] searchAfter = null;
+		if (!searchHits.isEmpty()) {
+			searchAfter = searchHits.getSearchHit(searchHits.getSearchHits().size()-1).getSortValues().toArray();
+		}
+		return new SearchAfterPageImpl<>(searchHits.stream().map(SearchHit::getContent).collect(Collectors.toList()),
+				(pageable != null) ? pageable : Pageable.unpaged(), searchHits.getTotalHits(), searchAfter);
+	}
+
+	public static <T, R> SearchAfterPage<R> toSearchAfterPage(SearchHits<T> searchHits, Function<T, R> mapFunction, Pageable pageable) {
+		Object[] searchAfter = null;
+		if (!searchHits.isEmpty()) {
+			searchAfter = searchHits.getSearchHit(searchHits.getSearchHits().size()-1).getSortValues().toArray();
+		}
+		return new SearchAfterPageImpl<>(searchHits.stream().map(SearchHit::getContent).map(mapFunction).collect(Collectors.toList()),
+				(pageable != null) ? pageable : Pageable.unpaged(), searchHits.getTotalHits(), searchAfter);
 	}
 }

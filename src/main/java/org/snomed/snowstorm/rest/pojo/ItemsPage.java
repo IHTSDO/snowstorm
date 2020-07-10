@@ -1,10 +1,10 @@
 package org.snomed.snowstorm.rest.pojo;
 
 import com.fasterxml.jackson.annotation.JsonView;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.domain.Page;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
-import org.springframework.data.elasticsearch.core.SearchAfterPage;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 
 import java.util.Collection;
