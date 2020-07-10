@@ -16,8 +16,8 @@ import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -86,7 +86,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 			logger.info("{} components found with language refset id {} and effective time {}.", enGbComponents.keySet().size(),
 					config.getLanguageRefsetIdToCopyFrom(), effectiveTime);
 			toSave = addOrUpdateLanguageRefsetComponents(branchPath, config, enGbComponents);
-			toSave.stream().forEach(ReferenceSetMember :: markChanged);
+			toSave.stream().forEach(ReferenceSetMember::markChanged);
 		}
 		if (toSave != null && !toSave.isEmpty()) {
 			String lockMsg = String.format("Add or update additional language refset on branch %s ", branchPath);
@@ -109,8 +109,8 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH)
 				.withPageable(LARGE_PAGE);
 
-		try (final CloseableIterator<ReferenceSetMember> referencedComponents = elasticsearchTemplate.stream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
-			referencedComponents.forEachRemaining(referenceSetMember -> result.add(copy(referenceSetMember, config)));
+		try (final SearchHitsIterator<ReferenceSetMember> referencedComponents = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
+			referencedComponents.forEachRemaining(hit -> result.add(copy(hit.getContent(), config)));
 		}
 		return result;
 	}
@@ -125,9 +125,9 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				.withFilter(termQuery(EFFECTIVE_TIME, effectiveTime))
 				.withFields(REFERENCED_COMPONENT_ID, ACTIVE, ACCEPTABILITY_ID_FIELD_PATH)
 				.withPageable(LARGE_PAGE);
-		try (final CloseableIterator<ReferenceSetMember> referencedComponents = elasticsearchTemplate.stream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
-			referencedComponents.forEachRemaining(referenceSetMember ->
-					result.put(new Long(referenceSetMember.getReferencedComponentId()), referenceSetMember));
+		try (final SearchHitsIterator<ReferenceSetMember> referencedComponents = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
+			referencedComponents.forEachRemaining(hit ->
+					result.put(new Long(hit.getContent().getReferencedComponentId()), hit.getContent()));
 		}
 		return result;
 	}
@@ -144,8 +144,8 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 					).withFilter(termsQuery(REFERENCED_COMPONENT_ID, batch))
 					.withPageable(LARGE_PAGE);
 
-			try (final CloseableIterator<ReferenceSetMember> componentsToUpdate = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
-				componentsToUpdate.forEachRemaining(referenceSetMember -> update(referenceSetMember, existing, result));
+			try (final SearchHitsIterator<ReferenceSetMember> componentsToUpdate = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
+				componentsToUpdate.forEachRemaining(hit -> update(hit.getContent(), existing, result));
 			}
 		}
 
@@ -215,37 +215,38 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		private boolean completeCopy;
 		private String languageRefsetIdToCopyFrom;
 
-		public AdditionalRefsetExecutionConfig(CodeSystem codeSystem, Boolean completeCopy) {
+		AdditionalRefsetExecutionConfig(CodeSystem codeSystem, Boolean completeCopy) {
 			this.codeSystem = codeSystem;
 			this.completeCopy = completeCopy == null ? false : completeCopy;
 		}
 
-		public void setDefaultEnglishLanguageRefsetId(String defaultEnglishLanguageRefsetId) {
+		void setDefaultEnglishLanguageRefsetId(String defaultEnglishLanguageRefsetId) {
 			this.defaultEnglishLanguageRefsetId = defaultEnglishLanguageRefsetId;
 		}
 
-		public String getDefaultEnglishLanguageRefsetId() {
+		String getDefaultEnglishLanguageRefsetId() {
 			return defaultEnglishLanguageRefsetId;
 		}
 
-		public CodeSystem getCodeSystem() {
+		CodeSystem getCodeSystem() {
 			return codeSystem;
 		}
 
-		public String getDefaultModuleId() {
+		String getDefaultModuleId() {
 			return defaultModuleId;
 		}
 
-		public void setDefaultModuleId(String defaultModuleId) {
+		void setDefaultModuleId(String defaultModuleId) {
 			this.defaultModuleId = defaultModuleId;
 		}
 
-		public boolean isCompleteCopy() { return this.completeCopy; }
+		boolean isCompleteCopy() { return this.completeCopy; }
 
-		 public void setLanguageRefsetIdToCopyFrom(String languageRefsetIdToCopyFrom) {
+		void setLanguageRefsetIdToCopyFrom(String languageRefsetIdToCopyFrom) {
 			this.languageRefsetIdToCopyFrom = languageRefsetIdToCopyFrom;
 		 }
-		 public String getLanguageRefsetIdToCopyFrom() {
+
+		 String getLanguageRefsetIdToCopyFrom() {
 			return this.languageRefsetIdToCopyFrom;
 		 }
 	 }
@@ -262,34 +263,34 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 
 		private String dialectName;
 
-		public boolean isUsedByDefault() {
+		boolean isUsedByDefault() {
 			return usedByDefault;
 		}
 
-		public void setUsedByDefault(boolean usedByDefault) {
+		void setUsedByDefault(boolean usedByDefault) {
 			this.usedByDefault = usedByDefault;
 		}
 
-		public String getEnglishLanguageRestId() {
+		String getEnglishLanguageRestId() {
 			return englishLanguageRestId;
 		}
 
-		public void setEnglishLanguageRefsetId(String englishLanguageRestId) {
+		void setEnglishLanguageRefsetId(String englishLanguageRestId) {
 			this.englishLanguageRestId = englishLanguageRestId;
 		}
-		public boolean isReadOnly() {
+		boolean isReadOnly() {
 			return readOnly;
 		}
 
-		public void setReadOnly(boolean readOnly) {
+		void setReadOnly(boolean readOnly) {
 			this.readOnly = readOnly;
 		}
 
-		public String getDialectName() {
+		String getDialectName() {
 			return dialectName;
 		}
 
-		public void setDialectName(String dialectName) {
+		void setDialectName(String dialectName) {
 			this.dialectName = dialectName;
 		}
 	}

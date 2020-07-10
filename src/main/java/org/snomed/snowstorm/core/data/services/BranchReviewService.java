@@ -24,9 +24,9 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -399,22 +399,22 @@ public class BranchReviewService {
 					startVersionsReplaced.getOrDefault(type, Collections.emptySet())));
 		}
 		if (!changedVersionsReplaced.getOrDefault(Concept.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
-			try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(
+			try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(
 					componentsReplacedCriteria(changedVersionsReplaced.get(Concept.class.getSimpleName()), Concept.Fields.CONCEPT_ID).build(), Concept.class)) {
-				stream.forEachRemaining(concept -> changedConcepts.add(parseLong(concept.getConceptId())));
+				stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getConceptId())));
 			}
 		}
 		if (!changedVersionsReplaced.getOrDefault(Description.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
 			NativeSearchQueryBuilder fsnQuery = componentsReplacedCriteria(changedVersionsReplaced.get(Description.class.getSimpleName()), Description.Fields.CONCEPT_ID)
 					.withFilter(termQuery(Description.Fields.TYPE_ID, Concepts.FSN));
-			try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(fsnQuery.build(), Description.class)) {
-				stream.forEachRemaining(description -> changedConcepts.add(parseLong(description.getConceptId())));
+			try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(fsnQuery.build(), Description.class)) {
+				stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getConceptId())));
 			}
 		}
 		if (!changedVersionsReplaced.getOrDefault(Relationship.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
-			try (final CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(
+			try (final SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(
 					componentsReplacedCriteria(changedVersionsReplaced.get(Relationship.class.getSimpleName()), Relationship.Fields.SOURCE_ID).build(), Relationship.class)) {
-				stream.forEachRemaining(relationship -> changedConcepts.add(parseLong(relationship.getSourceId())));
+				stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getSourceId())));
 			}
 		}
 		if (!changedVersionsReplaced.getOrDefault(ReferenceSetMember.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
@@ -422,8 +422,8 @@ public class BranchReviewService {
 			NativeSearchQueryBuilder refsetQuery = componentsReplacedCriteria(changedVersionsReplaced.get(ReferenceSetMember.class.getSimpleName()),
 					ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
 					.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)));
-			try (final CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(refsetQuery.build(), ReferenceSetMember.class)) {
-				stream.forEachRemaining(member -> referenceComponentIdToConceptMap.put(parseLong(member.getReferencedComponentId()), parseLong(member.getConceptId())));
+			try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(refsetQuery.build(), ReferenceSetMember.class)) {
+				stream.forEachRemaining(hit -> referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId())));
 			}
 		}
 
@@ -445,8 +445,8 @@ public class BranchReviewService {
 				.withSort(SortBuilders.fieldSort("start"))
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.build();
-		try (final CloseableIterator<Concept> stream = elasticsearchTemplate.stream(conceptsWithNewVersionsQuery, Concept.class)) {
-			stream.forEachRemaining(concept -> changedConcepts.add(parseLong(concept.getConceptId())));
+		try (final SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(conceptsWithNewVersionsQuery, Concept.class)) {
+			stream.forEachRemaining(hit -> changedConcepts.add(parseLong(hit.getContent().getConceptId())));
 		}
 
 		logger.debug("Collecting description changes for change report: branch {} time range {} to {}", path, start, end);
@@ -455,9 +455,9 @@ public class BranchReviewService {
 				.withFilter(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
 				.withFields(Description.Fields.CONCEPT_ID)
 				.build();
-		try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(descQuery, Description.class)) {
-			stream.forEachRemaining(description -> {
-				changedConcepts.add(parseLong(description.getConceptId()));
+		try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(descQuery, Description.class)) {
+			stream.forEachRemaining(hit -> {
+				changedConcepts.add(parseLong(hit.getContent().getConceptId()));
 				descriptions.incrementAndGet();
 			});
 		}
@@ -468,9 +468,9 @@ public class BranchReviewService {
 		NativeSearchQuery relQuery = newSearchQuery(updatesDuringRange)
 				.withFields(Relationship.Fields.SOURCE_ID)
 				.build();
-		try (final CloseableIterator<Relationship> stream = elasticsearchTemplate.stream(relQuery, Relationship.class)) {
-			stream.forEachRemaining(relationship -> {
-				changedConcepts.add(parseLong(relationship.getSourceId()));
+		try (final SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(relQuery, Relationship.class)) {
+			stream.forEachRemaining(hit -> {
+				changedConcepts.add(parseLong(hit.getContent().getSourceId()));
 				relationships.incrementAndGet();
 			});
 		}
@@ -481,8 +481,8 @@ public class BranchReviewService {
 				.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)))
 				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
 				.build();
-		try (final CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(memberQuery, ReferenceSetMember.class)) {
-			stream.forEachRemaining(member -> referenceComponentIdToConceptMap.put(parseLong(member.getReferencedComponentId()), parseLong(member.getConceptId())));
+		try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(memberQuery, ReferenceSetMember.class)) {
+			stream.forEachRemaining(hit -> referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId())));
 		}
 
 		// Filter out changes for active Synonyms
@@ -494,8 +494,8 @@ public class BranchReviewService {
 						.mustNot(termQuery(Description.Fields.TYPE_ID, Concepts.FSN))
 						.must(termsQuery(Description.Fields.DESCRIPTION_ID, referenceComponentIdToConceptMap.keySet()))
 						.must(termQuery(Description.Fields.ACTIVE, true)));
-		try (final CloseableIterator<Description> stream = elasticsearchTemplate.stream(synonymQuery.build(), Description.class)) {
-			stream.forEachRemaining(description -> synonymAndTextDefIds.add(parseLong(description.getDescriptionId())));
+		try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(synonymQuery.build(), Description.class)) {
+			stream.forEachRemaining(hit -> synonymAndTextDefIds.add(parseLong(hit.getContent().getDescriptionId())));
 		}
 
 		Set<Long> changedComponents = referenceComponentIdToConceptMap.keySet()

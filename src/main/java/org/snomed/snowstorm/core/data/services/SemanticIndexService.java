@@ -7,9 +7,10 @@ import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.pojo.MapPage;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
@@ -43,24 +44,25 @@ public class SemanticIndexService {
 				)
 				.withPageable(pageRequest);
 		String conceptIdString = conceptId.toString();
-		Page<QueryConcept> queryConcepts = elasticsearchTemplate.queryForPage(queryBuilder.build(), QueryConcept.class);
-		for (QueryConcept queryConcept : queryConcepts.getContent()) {
-			if (queryConcept.getAncestors().contains(conceptId)) {
+		SearchHits<QueryConcept> queryConcepts = elasticsearchTemplate.search(queryBuilder.build(), QueryConcept.class);
+
+		for (SearchHit<QueryConcept> hit : queryConcepts.getSearchHits()) {
+			if (hit.getContent().getAncestors().contains(conceptId)) {
 				referenceTypeToConceptMap.computeIfAbsent(Concepts.IS_A_LONG, id -> new LongOpenHashSet())
-						.add(queryConcept.getConceptIdL());
+						.add(hit.getContent().getConceptIdL());
 			} else {
-				Map<String, Set<String>> attributes = queryConcept.getAttr();
+				Map<String, Set<String>> attributes = hit.getContent().getAttr();
 				for (String attributeId : attributes.keySet()) {
 					if (attributeId.equals(QueryConcept.ATTR_TYPE_WILDCARD)) {
 						continue;
 					}
 					if (attributes.get(attributeId).contains(conceptIdString)) {
 						referenceTypeToConceptMap.computeIfAbsent(parseLong(attributeId), id -> new LongOpenHashSet())
-								.add(queryConcept.getConceptIdL());
+								.add(hit.getContent().getConceptIdL());
 					}
 				}
 			}
 		}
-		return new MapPage<>(referenceTypeToConceptMap, queryConcepts.getPageable(), queryConcepts.getTotalElements());
+		return new MapPage<>(referenceTypeToConceptMap, pageRequest, queryConcepts.getTotalHits());
 	}
 }

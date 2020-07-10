@@ -2,16 +2,16 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.util.CollectionUtils;
 
 import java.util.*;
@@ -21,9 +21,9 @@ import static org.junit.Assert.assertTrue;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ExpressionServiceTest extends AbstractTest {
+class ExpressionServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
@@ -45,8 +45,8 @@ public class ExpressionServiceTest extends AbstractTest {
 	private Concept target2;
 	private List<Concept> allKnownConcepts = new ArrayList<>();
 
-	@Before
-	public void setup() throws ServiceException {
+	@BeforeEach
+	void setup() throws ServiceException {
 		branchService.create(EXPRESSION_TEST_BRANCH);
 		root = createConcept(SNOMEDCT_ROOT, (Concept)null, PRIMITIVE);
 		// ISA needs to exist to use in it's own definition!
@@ -59,7 +59,7 @@ public class ExpressionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConceptAuthoringFormSimple() throws ServiceException {
+	void testConceptAuthoringFormSimple() throws ServiceException {
 
 		Concept concept1 = createConcept("100001", root, PRIMITIVE);
 		Concept concept2 = createConcept("100002", concept1, PRIMITIVE);
@@ -79,7 +79,7 @@ public class ExpressionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConceptAuthoringFormComplex() throws ServiceException {
+	void testConceptAuthoringFormComplex() throws ServiceException {
 		// Complex case checks correct calculation of proximal primitive parent(s)
 		// First parent's parent is actually also parent of 2nd parent, so should be discounted.
 		//                    Root
@@ -121,7 +121,7 @@ public class ExpressionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConceptAuthoringFormSimpleWithExcludedGciConcept() throws ServiceException {
+	void testConceptAuthoringFormSimpleWithExcludedGciConcept() throws ServiceException {
 
 		Concept concept1 = createConcept("100001", root, PRIMITIVE);
 		Concept concept2 = createConcept("100002", concept1, PRIMITIVE);
@@ -159,7 +159,7 @@ public class ExpressionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConceptAuthoringFormAttributeGroups() throws ServiceException {
+	void testConceptAuthoringFormAttributeGroups() throws ServiceException {
 		Concept concept1 = createConcept("1000031", root, PRIMITIVE);
 		Concept concept2 = createConcept("1000032", concept1, PRIMITIVE);
 		Concept concept3 = createConcept("1000033", concept2, FULLY_DEFINED);

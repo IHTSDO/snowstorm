@@ -14,8 +14,9 @@ import org.snomed.snowstorm.core.data.services.QueryService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 
 import java.util.Collection;
 import java.util.List;
@@ -37,7 +38,7 @@ public class ConceptSelectorHelper {
 	public static Page<Long> fetchIds(BoolQueryBuilder query, Collection<Long> filterByConceptIds, Function<QueryConcept, Boolean> inclusionFilter, PageRequest pageRequest, QueryService queryService) {
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(query)
-				.withFields(getRequiredFields(inclusionFilter));// This will cause the FastResultsMapper to be used
+				.withFields(getRequiredFields(inclusionFilter));
 
 		if (filterByConceptIds != null) {
 			searchQueryBuilder.withFilter(termsQuery(QueryConcept.Fields.CONCEPT_ID, filterByConceptIds));
@@ -48,10 +49,13 @@ public class ConceptSelectorHelper {
 
 		if (pageRequest != null && inclusionFilter == null) {
 			// Fetch a page of IDs
-			searchQueryBuilder
-					.withPageable(pageRequest);
-			searchQueryBuilder.withSort(getDefaultSortForQueryConcept());
-
+			if (Sort.unsorted().equals(pageRequest.getSort())
+					|| pageRequest.getSort().getOrderFor(QueryConcept.Fields.CONCEPT_ID) == null) {
+				searchQueryBuilder.withSort(getDefaultSortForQueryConcept());
+				searchQueryBuilder.withPageable(PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize()));
+			} else {
+				searchQueryBuilder.withPageable(pageRequest);
+			}
 			Page<QueryConcept> queryConcepts = queryService.queryForPage(searchQueryBuilder.build());
 			List<Long> ids = queryConcepts.getContent().stream().map(QueryConcept::getConceptIdL).collect(toList());
 			return new PageImpl<>(ids, pageRequest, queryConcepts.getTotalElements());
@@ -59,10 +63,10 @@ public class ConceptSelectorHelper {
 			// Fetch all IDs
 			searchQueryBuilder.withPageable(LARGE_PAGE);
 			List<Long> ids = new LongArrayList();
-			try (CloseableIterator<QueryConcept> stream = queryService.streamQueryResults(searchQueryBuilder.build())) {
-				stream.forEachRemaining(c -> {
-					if (inclusionFilter == null || inclusionFilter.apply(c)) {
-						ids.add(c.getConceptIdL());
+			try (SearchHitsIterator<QueryConcept> stream = queryService.streamQueryResults(searchQueryBuilder.build())) {
+				stream.forEachRemaining(hit -> {
+					if (inclusionFilter == null || inclusionFilter.apply(hit.getContent())) {
+						ids.add(hit.getContent().getConceptIdL());
 					}
 				});
 			}

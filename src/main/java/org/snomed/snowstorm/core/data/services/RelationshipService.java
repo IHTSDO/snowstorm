@@ -11,17 +11,17 @@ import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -104,18 +104,20 @@ public class RelationshipService extends ComponentService {
 				.withQuery(query)
 				.withPageable(page);
 
-		return elasticsearchOperations.queryForPage(queryBuilder.build(), Relationship.class);
+		SearchHits<Relationship> searchHits = elasticsearchOperations.search(queryBuilder.build(), Relationship.class);
+		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), page, searchHits.getTotalHits());
 	}
 
 	private List<Relationship> findRelationships(Set<String> relationshipIds, String branchPath) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-		return elasticsearchOperations.queryForList(new NativeSearchQueryBuilder()
+		return elasticsearchOperations.search(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 						.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipIds))
 				)
 				.withPageable(PageRequest.of(0, relationshipIds.size()))
-				.build(), Relationship.class);
+				.build(), Relationship.class)
+				.get().map(SearchHit::getContent).collect(Collectors.toList());
 	}
 
 	List<Long> findRelationshipDestinationIds(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
@@ -142,8 +144,8 @@ public class RelationshipService extends ComponentService {
 				.build();
 
 		Set<Long> destinationIds = new LongArraySet();
-		try (CloseableIterator<Relationship> stream = elasticsearchOperations.stream(query, Relationship.class)) {
-			stream.forEachRemaining(relationship -> destinationIds.add(parseLong(relationship.getDestinationId())));
+		try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(query, Relationship.class)) {
+			stream.forEachRemaining(hit -> destinationIds.add(parseLong(hit.getContent().getDestinationId())));
 		}
 
 		// Stream search doesn't sort for us

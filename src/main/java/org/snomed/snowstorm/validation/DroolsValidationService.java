@@ -25,8 +25,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
@@ -127,7 +127,7 @@ public class DroolsValidationService {
 				relationshipMap.put(parseLong(relationship.getId()), relationship);
 			});
 		});
-		try (CloseableIterator<Concept> conceptStream = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<Concept> conceptStream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.RELEASED, true))
@@ -135,14 +135,15 @@ public class DroolsValidationService {
 				)
 				.withPageable(LARGE_PAGE)
 				.build(), Concept.class)) {
-			conceptStream.forEachRemaining(conceptFromStore -> {
+			conceptStream.forEachRemaining(hit -> {
+				Concept conceptFromStore = hit.getContent();
 				Concept concept = conceptMap.get(conceptFromStore.getConceptIdAsLong());
 				concept.setReleasedEffectiveTime(conceptFromStore.getReleasedEffectiveTime());
 				concept.setReleaseHash(conceptFromStore.getReleaseHash());
 				concept.updateEffectiveTime();
 			});
 		}
-		try (CloseableIterator<Description> descriptionStream = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<Description> descriptionStream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery(Concept.Fields.RELEASED, true))
@@ -150,14 +151,15 @@ public class DroolsValidationService {
 				)
 				.withPageable(LARGE_PAGE)
 				.build(), Description.class)) {
-			descriptionStream.forEachRemaining(descriptionFromStore -> {
+			descriptionStream.forEachRemaining(hit -> {
+				Description descriptionFromStore = hit.getContent();
 				Description description = descriptionMap.get(parseLong(descriptionFromStore.getId()));
 				description.setReleasedEffectiveTime(descriptionFromStore.getReleasedEffectiveTime());
 				description.setReleaseHash(descriptionFromStore.getReleaseHash());
 				description.updateEffectiveTime();
 			});
 		}
-		try (CloseableIterator<Relationship> relationshipsFromStore = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<Relationship> relationshipsFromStore = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 						.must(termQuery(Concept.Fields.RELEASED, true))
@@ -165,7 +167,8 @@ public class DroolsValidationService {
 				)
 				.withPageable(LARGE_PAGE)
 				.build(), Relationship.class)) {
-			relationshipsFromStore.forEachRemaining(relationshipFromStore -> {
+			relationshipsFromStore.forEachRemaining(hit -> {
+				Relationship relationshipFromStore = hit.getContent();
 				Relationship relationship = relationshipMap.get(parseLong(relationshipFromStore.getId()));
 				relationship.setReleasedEffectiveTime(relationshipFromStore.getReleasedEffectiveTime());
 				relationship.setReleaseHash(relationshipFromStore.getReleaseHash());

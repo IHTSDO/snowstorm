@@ -6,10 +6,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.rest.View;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
-
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.*;
@@ -33,63 +33,69 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	}
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword, store = true)
+	@Field(type = FieldType.Keyword, store = true)
 	@Size(min = 5, max = 18)
 	private String descriptionId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	@NotNull
 	private String term;
 
-	@Field(type = FieldType.text)
+	@Field(type = FieldType.Text)
 	private String termFolded;
 
 	@Field(type = FieldType.Integer)
 	private int termLen;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String tag;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword, store = true)
+	@Field(type = FieldType.Keyword, store = true)
 	private String conceptId;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	@NotNull
 	@Size(min = 2, max = 2)
 	private String languageCode;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String typeId;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String caseSignificanceId;
 
 	// Populated when requesting an update
+	@Transient
 	private Map<String, String> acceptabilityMap;
 
 	@JsonIgnore
 	// Populated manually when loading from store
+	@Transient
 	private Map<String, ReferenceSetMember> langRefsetMembers;
 
 	@JsonIgnore
+	@Transient
 	private Set<ReferenceSetMember> inactivationIndicatorMembers;
 
 	@JsonIgnore
 	// Populated when requesting an update
+	@Transient
 	private String inactivationIndicatorName;
 
 	@JsonIgnore
+	@Transient
 	private Set<ReferenceSetMember> associationTargetMembers;
 
 	@JsonIgnore
 	// Populated when requesting an update
+	@Transient
 	private Map<String, Set<String>> associationTargetStrings;
 
 	private static final Logger logger = LoggerFactory.getLogger(Description.class);
@@ -127,6 +133,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		this.typeId = typeId;
 		setTerm(term);
 		this.caseSignificanceId = caseSignificanceId;
+		this.tag = getTag();
 	}
 
 	@Override
@@ -157,6 +164,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public Description setType(String type) {
 		typeId = Concepts.descriptionTypeNames.inverse().get(type);
+		this.tag = getTag();
 		return this;
 	}
 
@@ -340,6 +348,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		if (term != null) {
 			termLen = term.length();
 		}
+		this.tag = getTag();
 	}
 
 	public String getTermFolded() {
@@ -392,6 +401,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public Description setTypeId(String typeId) {
 		this.typeId = typeId;
+		this.tag = getTag();
 		return this;
 	}
 

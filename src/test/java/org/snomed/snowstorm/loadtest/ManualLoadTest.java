@@ -54,7 +54,7 @@ import java.util.stream.Collectors;
  * Update CONCEPTS_TO_CREATE_PER_USER to set the number times each user will run through the authoring procedure.
  * Update HIERARCHIES_TO_AUTHOR_IN to use more hierarchies.
  */
-public class ManualLoadTest {
+class ManualLoadTest {
 
 	// Script configuration variables
 	private static final String SNOWSTORM_API_URI = "http://localhost:8080/snowstorm/snomed-ct/v2";

@@ -16,8 +16,8 @@ import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -55,12 +55,12 @@ public class ContentReportService {
 			boolQueryBuilder.must(termQuery(Concept.Fields.EFFECTIVE_TIME, conceptEffectiveTime));
 		}
 		List<Long> conceptIds = new LongArrayList();
-		try (CloseableIterator<Concept> conceptStream = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<Concept> conceptStream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQueryBuilder)
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.withPageable(LARGE_PAGE)
 				.build(), Concept.class)) {
-			conceptStream.forEachRemaining(concept -> conceptIds.add(concept.getConceptIdAsLong()));
+			conceptStream.forEachRemaining(hit -> conceptIds.add(hit.getContent().getConceptIdAsLong()));
 		}
 		if (conceptIds.isEmpty()) {
 			return results;
@@ -69,7 +69,7 @@ public class ContentReportService {
 		// Gather ids of concepts with historical associations
 		List<Long> conceptsWithAssociations = new LongArrayList();
 		List<Long> allHistoricalAssociations = eclQueryService.selectConceptIds("<" + Concepts.REFSET_HISTORICAL_ASSOCIATION, branchCriteria, branchPath, true, LARGE_PAGE).getContent();
-		try (CloseableIterator<ReferenceSetMember> memberStream = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<ReferenceSetMember> memberStream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
@@ -79,7 +79,7 @@ public class ContentReportService {
 				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 				.withPageable(LARGE_PAGE)
 				.build(), ReferenceSetMember.class)) {
-			memberStream.forEachRemaining(member -> conceptsWithAssociations.add(parseLong(member.getReferencedComponentId())));
+			memberStream.forEachRemaining(hit -> conceptsWithAssociations.add(parseLong(hit.getContent().getReferencedComponentId())));
 		}
 
 		List<Long> conceptsWithoutAssociations = new LongArrayList(conceptIds);
@@ -90,7 +90,7 @@ public class ContentReportService {
 
 		// Inactivation indicators
 		Map<Long, List<Long>> conceptsByIndicator = new Long2ObjectOpenHashMap<>();
-		try (CloseableIterator<ReferenceSetMember> memberStream = elasticsearchOperations.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<ReferenceSetMember> memberStream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET))
@@ -99,10 +99,10 @@ public class ContentReportService {
 				)
 				.withPageable(LARGE_PAGE)
 				.build(), ReferenceSetMember.class)) {
-			memberStream.forEachRemaining(member ->
+			memberStream.forEachRemaining(hit ->
 					conceptsByIndicator.computeIfAbsent(
-							parseLong(member.getAdditionalField("valueId")), key -> new LongArrayList())
-							.add(parseLong(member.getReferencedComponentId())));
+							parseLong(hit.getContent().getAdditionalField("valueId")), key -> new LongArrayList())
+							.add(parseLong(hit.getContent().getReferencedComponentId())));
 		}
 
 		Map<String, ConceptMini> minis = conceptService.findConceptMinis(branchCriteria, conceptsByIndicator.keySet(), DEFAULT_LANGUAGE_DIALECTS).getResultsMap();

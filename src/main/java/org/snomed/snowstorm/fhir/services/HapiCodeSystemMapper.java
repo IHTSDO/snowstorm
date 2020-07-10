@@ -10,9 +10,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.CodeSystemConfigurationService;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
-@Component
 public class HapiCodeSystemMapper implements FHIRConstants {
 	
 	@Autowired

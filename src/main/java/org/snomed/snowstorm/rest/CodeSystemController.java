@@ -174,7 +174,7 @@ public class CodeSystemController {
 	}
 
 	@ApiOperation("Clear cache of code system calculated/aggregated information.")
-	@RequestMapping(value = "/clear-cache", method = RequestMethod.POST)
+	@PostMapping(value = "/clear-cache")
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public void clearCodeSystemInformationCache() {
 		codeSystemService.clearCache();

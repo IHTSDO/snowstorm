@@ -18,8 +18,8 @@ import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -111,7 +111,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		timer.checkpoint("Collect deleted or inactive concepts: " + deletedOrInactiveConcepts.size());
 
 		// Then find the relationships with bad integrity
-		try (CloseableIterator<Relationship> badRelationshipsStream = elasticsearchTemplate.stream(
+		try (SearchHitsIterator<Relationship> badRelationshipsStream = elasticsearchTemplate.searchForStream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
@@ -125,7 +125,8 @@ public class IntegrityService extends ComponentService implements CommitListener
 						)
 						.withPageable(LARGE_PAGE).build(),
 				Relationship.class)) {
-			badRelationshipsStream.forEachRemaining(relationship -> {
+			badRelationshipsStream.forEachRemaining(hit -> {
+				Relationship relationship = hit.getContent();
 				if (deletedOrInactiveConcepts.contains(parseLong(relationship.getSourceId()))) {
 					relationshipWithInactiveSource.put(parseLong(relationship.getRelationshipId()), parseLong(relationship.getSourceId()));
 				}
@@ -142,7 +143,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 
 		// Then find axioms with bad integrity using the stated semantic index
 		Set<Long> conceptIdsWithBadAxioms = new LongOpenHashSet();
-		try (CloseableIterator<QueryConcept> badStatedIndexConcepts = elasticsearchTemplate.stream(
+		try (SearchHitsIterator<QueryConcept> badStatedIndexConcepts = elasticsearchTemplate.searchForStream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
@@ -151,14 +152,12 @@ public class IntegrityService extends ComponentService implements CommitListener
 						)
 						.withPageable(LARGE_PAGE).build(),
 				QueryConcept.class)) {
-			badStatedIndexConcepts.forEachRemaining(indexConcept -> {
-				conceptIdsWithBadAxioms.add(indexConcept.getConceptIdL());
-			});
+			badStatedIndexConcepts.forEachRemaining(hit -> conceptIdsWithBadAxioms.add(hit.getContent().getConceptIdL()));
 		}
 
 		Map<String, String> axiomIdReferenceComponentMap = new HashMap<>();
 		if (!conceptIdsWithBadAxioms.isEmpty()) {
-			try (CloseableIterator<ReferenceSetMember> possiblyBadAxioms = elasticsearchTemplate.stream(
+			try (SearchHitsIterator<ReferenceSetMember> possiblyBadAxioms = elasticsearchTemplate.searchForStream(
 					new NativeSearchQueryBuilder()
 							.withQuery(boolQuery()
 									.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
@@ -170,7 +169,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 					ReferenceSetMember.class)) {
 				try {
 					while (possiblyBadAxioms.hasNext()) {
-						ReferenceSetMember axiomMember = possiblyBadAxioms.next();
+						ReferenceSetMember axiomMember = possiblyBadAxioms.next().getContent();
 						String owlExpression = axiomMember.getAdditionalField(OWL_EXPRESSION);
 						Set<Long> referencedConcepts = axiomConversionService.getReferencedConcepts(owlExpression);
 						Sets.SetView<Long> badReferences = Sets.intersection(referencedConcepts, deletedOrInactiveConcepts);
@@ -190,7 +189,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		Map<Long, Set<Long>> conceptUsedAsTypeInRelationships = new Long2ObjectOpenHashMap<>();
 		Map<Long, Set<Long>> conceptUsedAsDestinationInRelationships = new Long2ObjectOpenHashMap<>();
 		Map<Long, Set<String>> conceptUsedInAxioms = new Long2ObjectOpenHashMap<>();
-		try (CloseableIterator<Relationship> relationshipStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<Relationship> relationshipStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(versionControlHelper.getBranchCriteriaUnpromotedChanges(branch).getEntityBranchCriteria(Relationship.class))
 								.must(termQuery(Relationship.Fields.ACTIVE, true))
@@ -199,14 +198,15 @@ public class IntegrityService extends ComponentService implements CommitListener
 						.withPageable(LARGE_PAGE)
 						.build(),
 				Relationship.class)) {
-			relationshipStream.forEachRemaining(relationship -> {
+			relationshipStream.forEachRemaining(hit -> {
+				Relationship relationship = hit.getContent();
 				long relationshipId = parseLong(relationship.getRelationshipId());
 				conceptUsedAsSourceInRelationships.computeIfAbsent(parseLong(relationship.getSourceId()), id -> new LongOpenHashSet()).add(relationshipId);
 				conceptUsedAsTypeInRelationships.computeIfAbsent(parseLong(relationship.getTypeId()), id -> new LongOpenHashSet()).add(relationshipId);
 				conceptUsedAsDestinationInRelationships.computeIfAbsent(parseLong(relationship.getDestinationId()), id -> new LongOpenHashSet()).add(relationshipId);
 			});
 		}
-		try (CloseableIterator<ReferenceSetMember> axiomStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<ReferenceSetMember> axiomStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(versionControlHelper.getBranchCriteriaUnpromotedChanges(branch).getEntityBranchCriteria(ReferenceSetMember.class))
 								.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
@@ -217,7 +217,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 				ReferenceSetMember.class)) {
 			try {
 				while (axiomStream.hasNext()) {
-					ReferenceSetMember axiom = axiomStream.next();
+					ReferenceSetMember axiom = axiomStream.next().getContent();
 					axiomIdReferenceComponentMap.put(axiom.getId(), axiom.getReferencedComponentId());
 					Set<Long> referencedConcepts = axiomConversionService.getReferencedConcepts(axiom.getAdditionalField(OWL_EXPRESSION));
 					for (Long referencedConcept : referencedConcepts) {
@@ -238,7 +238,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		timer.checkpoint("Collect concepts referenced in changed relationships and axioms: " + conceptsRequiredActive.size());
 
 		Set<Long> activeConcepts = new LongOpenHashSet();
-		try (CloseableIterator<Concept> activeConceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<Concept> activeConceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.ACTIVE, true))
@@ -246,7 +246,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 				)
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.build(), Concept.class)) {
-			activeConceptStream.forEachRemaining(concept -> activeConcepts.add(concept.getConceptIdAsLong()));
+			activeConceptStream.forEachRemaining(hit -> activeConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
 		timer.checkpoint("Collect active concepts referenced in changed relationships and axioms: " + activeConcepts.size());
 
@@ -329,7 +329,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		Map<Long, Long> relationshipIdToSourceMap = new HashMap<>();
 		Map<Long, Long> relationshipIdToTypeMap = new HashMap<>();
 		Map<Long, Long> relationshipIdToDestinationMap = new HashMap<>();
-		try (CloseableIterator<Relationship> badRelationshipsStream = elasticsearchTemplate.stream(
+		try (SearchHitsIterator<Relationship> badRelationshipsStream = elasticsearchTemplate.searchForStream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(taskBranchCriteria.getEntityBranchCriteria(Relationship.class))
@@ -339,7 +339,8 @@ public class IntegrityService extends ComponentService implements CommitListener
 						)
 						.withPageable(LARGE_PAGE).build(),
 				Relationship.class)) {
-			badRelationshipsStream.forEachRemaining(relationship -> {
+			badRelationshipsStream.forEachRemaining(hit -> {
+				Relationship relationship = hit.getContent();
 				relationshipIdToSourceMap.put(parseLong(relationship.getRelationshipId()), parseLong(relationship.getSourceId()));
 				relationshipIdToTypeMap.put(parseLong(relationship.getRelationshipId()), parseLong(relationship.getTypeId()));
 				relationshipIdToDestinationMap.put(parseLong(relationship.getRelationshipId()), parseLong(relationship.getDestinationId()));
@@ -349,7 +350,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		// fetch concepts referenced by axioms reported with bad integrity
 		Map<Long, Set<String>> conceptUsedInAxioms = new Long2ObjectOpenHashMap<>();
 		Map<String, String> axiomIdReferenceComponentMap = new HashMap<>();
-		try (CloseableIterator<ReferenceSetMember> axiomStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<ReferenceSetMember> axiomStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(taskBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 								.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
@@ -361,7 +362,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 				ReferenceSetMember.class)) {
 			try {
 				while (axiomStream.hasNext()) {
-					ReferenceSetMember axiom = axiomStream.next();
+					ReferenceSetMember axiom = axiomStream.next().getContent();
 					axiomIdReferenceComponentMap.put(axiom.getMemberId(), axiom.getReferencedComponentId());
 					Set<Long> referencedConcepts = axiomConversionService.getReferencedConcepts(axiom.getAdditionalField(OWL_EXPRESSION));
 					for (Long referencedConcept : referencedConcepts) {
@@ -380,7 +381,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		conceptIdsToCheck.addAll(relationshipIdToTypeMap.values());
 
 		Set<Long> activeConcepts = new LongOpenHashSet();
-		try (CloseableIterator<Concept> activeConceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<Concept> activeConceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(taskBranchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.ACTIVE, true))
@@ -388,7 +389,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 				)
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.build(), Concept.class)) {
-			activeConceptStream.forEachRemaining(concept -> activeConcepts.add(concept.getConceptIdAsLong()));
+			activeConceptStream.forEachRemaining(hit -> activeConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
 		timer.checkpoint("Collect active concepts referenced in changed relationships and axioms: " + activeConcepts.size() + " on " + taskBranch.getPath());
 
@@ -483,8 +484,9 @@ public class IntegrityService extends ComponentService implements CommitListener
 		} else {
 			boolQueryBuilder.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP));
 		}
-		try (CloseableIterator<Relationship> relationshipStream = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
-			relationshipStream.forEachRemaining(relationship -> {
+		try (SearchHitsIterator<Relationship> relationshipStream = elasticsearchTemplate.searchForStream(queryBuilder.build(), Relationship.class)) {
+			relationshipStream.forEachRemaining(hit -> {
+				Relationship relationship = hit.getContent();
 				long relationshipId = parseLong(relationship.getRelationshipId());
 				putIfInactive(relationship.getSourceId(), activeConcepts, relationshipId, relationshipWithInactiveSource);
 				putIfInactive(relationship.getTypeId(), activeConcepts, relationshipId, relationshipWithInactiveType);
@@ -494,7 +496,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 
 		// Find Axioms pointing to something other than the active concepts, use semantic index first.
 		Set<Long> conceptIdsWithBadAxioms = new LongOpenHashSet();
-		try (CloseableIterator<QueryConcept> badStatedIndexConcepts = elasticsearchTemplate.stream(
+		try (SearchHitsIterator<QueryConcept> badStatedIndexConcepts = elasticsearchTemplate.searchForStream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
@@ -503,12 +505,10 @@ public class IntegrityService extends ComponentService implements CommitListener
 						)
 						.withPageable(LARGE_PAGE).build(),
 				QueryConcept.class)) {
-			badStatedIndexConcepts.forEachRemaining(indexConcept -> {
-				conceptIdsWithBadAxioms.add(indexConcept.getConceptIdL());
-			});
+			badStatedIndexConcepts.forEachRemaining(hit -> conceptIdsWithBadAxioms.add(hit.getContent().getConceptIdL()));
 		}
 		if (!conceptIdsWithBadAxioms.isEmpty()) {
-			try (CloseableIterator<ReferenceSetMember> possiblyBadAxioms = elasticsearchTemplate.stream(
+			try (SearchHitsIterator<ReferenceSetMember> possiblyBadAxioms = elasticsearchTemplate.searchForStream(
 					new NativeSearchQueryBuilder()
 							.withQuery(boolQuery()
 									.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
@@ -521,7 +521,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 				try {
 					Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
 					while (possiblyBadAxioms.hasNext()) {
-						ReferenceSetMember axiomMember = possiblyBadAxioms.next();
+						ReferenceSetMember axiomMember = possiblyBadAxioms.next().getContent();
 						String owlExpression = axiomMember.getAdditionalField(OWL_EXPRESSION);
 						Set<Long> referencedConcepts = axiomConversionService.getReferencedConcepts(owlExpression);
 						Sets.SetView<Long> badReferences = Sets.difference(referencedConcepts, activeConcepts);
@@ -593,13 +593,14 @@ public class IntegrityService extends ComponentService implements CommitListener
 
 		List<Long> statedIds = new ArrayList<>();
 		List<Long> inferredIds = new ArrayList<>();
-		try (CloseableIterator<QueryConcept> stream = elasticsearchTemplate.stream(
+		try (SearchHitsIterator<QueryConcept> stream = elasticsearchTemplate.searchForStream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(QueryConcept.class)))
 						.withFilter(boolQuery().mustNot(termsQuery(QueryConcept.Fields.CONCEPT_ID, activeConcepts)))
 						.withPageable(LARGE_PAGE)
 						.build(), QueryConcept.class)) {
-			stream.forEachRemaining(semanticConcept -> {
+			stream.forEachRemaining(hit -> {
+				QueryConcept semanticConcept = hit.getContent();
 				if (semanticConcept.isStated()) {
 					statedIds.add(semanticConcept.getConceptIdL());
 				} else {
@@ -622,19 +623,18 @@ public class IntegrityService extends ComponentService implements CommitListener
 	private Set<Long> findDeletedOrInactivatedConcepts(Branch branch, BranchCriteria branchCriteria) {
 		// Find Concepts changed or deleted on this branch
 		final Set<Long> changedOrDeletedConcepts = new LongOpenHashSet();
-		try (CloseableIterator<Concept> changedOrDeletedConceptStream = elasticsearchTemplate.stream(
+		try (SearchHitsIterator<Concept> changedOrDeletedConceptStream = elasticsearchTemplate.searchForStream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery().must(versionControlHelper.getBranchCriteriaUnpromotedChangesAndDeletions(branch).getEntityBranchCriteria(Concept.class)))
 						.withFields(Concept.Fields.CONCEPT_ID)
-						.withPageable(LARGE_PAGE).build(),
-				Concept.class)) {
-			changedOrDeletedConceptStream.forEachRemaining(conceptState -> changedOrDeletedConcepts.add(conceptState.getConceptIdAsLong()));
+						.withPageable(LARGE_PAGE).build(), Concept.class)) {
+			changedOrDeletedConceptStream.forEachRemaining(hit -> changedOrDeletedConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
 		logger.info("Concepts changed or deleted on branch {} = {}", branch.getPath(), changedOrDeletedConcepts.size());
 
 		// Of these concepts, which are currently present and active?
 		final Set<Long> changedAndActiveConcepts = new LongOpenHashSet();
-		try (CloseableIterator<Concept> changedOrDeletedConceptStream = elasticsearchTemplate.stream(
+		try (SearchHitsIterator<Concept> changedOrDeletedConceptStream = elasticsearchTemplate.searchForStream(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery()
 								.must(branchCriteria.getEntityBranchCriteria(Concept.class))
@@ -644,7 +644,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 						.withFields(Concept.Fields.CONCEPT_ID)
 						.withPageable(LARGE_PAGE).build(),
 				Concept.class)) {
-			changedOrDeletedConceptStream.forEachRemaining(conceptState -> changedAndActiveConcepts.add(conceptState.getConceptIdAsLong()));
+			changedOrDeletedConceptStream.forEachRemaining(hit -> changedAndActiveConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
 		logger.info("Concepts changed, currently present and active on branch {} = {}", branch.getPath(), changedAndActiveConcepts.size());
 

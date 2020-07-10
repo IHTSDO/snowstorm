@@ -18,12 +18,11 @@ import org.hl7.fhir.r4.model.Type;
 
 import io.kaicode.elasticvc.api.BranchService;
 
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
@@ -38,26 +37,29 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
 /**
  * 	The data that is set up here is used by the majority of test cases in a read-only manner
  *	so it makes sense to perform this expensive operation (especially the setup of the JSONParser)
- *	only once.  Similarly we keep a count of the number of classes run to ensure that the final 
+ *	only once.  Similarly we keep a count of the number of classes run to ensure that the final
  *  teardown is called only once.
- *		
- *	Ideally this would run in a @BeforeClass method, but that wouldn't allow access to the autowired
+ *
+ *	Ideally this would run in a @BeforeAll method, but that wouldn't allow access to the autowired
  *	member variables, so the boolean "setupComplete" is simulating that behaviour
  *
  */
+@ExtendWith(SpringExtension.class)
+@Testcontainers
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractFHIRTest {
 
 	@LocalServerPort
@@ -101,33 +103,23 @@ public abstract class AbstractFHIRTest {
 	
 	private static final int TOTAL_TEST_CLASSES = 6;
 	private static int testClassesRun = 0;
-	private static AbstractFHIRTest lastTestRun;
-	
-	@BeforeClass
-	public static void classSetup() {
-		testClassesRun++;
-	}
-	
-	@AfterClass 
-	public static void classTearDown() {
+
+	@AfterAll
+	void finalTearDown() {
 		if (testClassesRun >= TOTAL_TEST_CLASSES) {
-			slogger.warn("Digging up the Potatoes");
-			lastTestRun.finalTearDown();
+			logger.warn("Digging up the Potatoes");
+			branchService.deleteAll();
+			conceptService.deleteAll();
+			codeSystemService.deleteAll();
 		}
 	}
-	
-	private void finalTearDown() {
-		branchService.deleteAll();
-		conceptService.deleteAll();
-		codeSystemService.deleteAll();
-	}
 
-	@Before
-	public void setup() throws ServiceException, InterruptedException {
+	@BeforeAll
+	void setup() throws ServiceException, InterruptedException {
+		testClassesRun++;
 		if (setupComplete) {
 			return;
 		}
-		
 		// Setup security
 		if (!rolesEnabled) {
 			PreAuthenticatedAuthenticationToken authentication = new PreAuthenticatedAuthenticationToken("test-admin", "123", Sets.newHashSet(new SimpleGrantedAuthority("USER")));
@@ -135,8 +127,6 @@ public abstract class AbstractFHIRTest {
 		} else {
 			SecurityContextHolder.clearContext();
 		}
-		
-		lastTestRun = this;
 		
 		baseUrl = "http://localhost:" + port + "/fhir/ValueSet";
 		headers = new HttpHeaders();

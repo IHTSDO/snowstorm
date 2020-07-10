@@ -9,13 +9,12 @@ import io.kaicode.elasticvc.domain.Branch;
 import org.assertj.core.util.Maps;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.review.BranchReview;
 import org.snomed.snowstorm.core.data.domain.review.MergeReview;
@@ -27,10 +26,10 @@ import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -44,9 +43,8 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.review.ReviewStatus.CURRENT;
 import static org.snomed.snowstorm.core.data.domain.review.ReviewStatus.PENDING;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = TestConfig.class)
-public class BranchMergeServiceTest extends AbstractTest {
+@ExtendWith(SpringExtension.class)
+class BranchMergeServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchMergeService branchMergeService;
@@ -76,7 +74,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	private TraceabilityLogService traceabilityLogService;
 
 	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
+	private ElasticsearchRestTemplate elasticsearchTemplate;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -91,8 +89,8 @@ public class BranchMergeServiceTest extends AbstractTest {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
-	@Before
-	public void setup() throws ServiceException {
+	@BeforeEach
+	void setup() throws ServiceException {
 		conceptService.deleteAll();
 
 		Map<String, String> metadata = new HashMap<>();
@@ -113,14 +111,14 @@ public class BranchMergeServiceTest extends AbstractTest {
 		setUpForChildBranchesTest();
 	}
 
-	@After
-	public void tearDown() {
+	@AfterEach
+	void tearDown() {
 		conceptService.deleteAll();
 		traceabilityLogService.setEnabled(false);
 	}
 
 	@Test
-	public void testNewConceptWithoutComponentsRebaseAndPromotion() throws Exception {
+	void testNewConceptWithoutComponentsRebaseAndPromotion() throws Exception {
 		assertBranchState("MAIN", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
@@ -206,7 +204,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testPromotionOfConceptAndDescriptions() throws ServiceException {
+	void testPromotionOfConceptAndDescriptions() throws ServiceException {
 		assertBranchState("MAIN", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
@@ -360,7 +358,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRebaseCapturesChangesAcrossBranchesForTransitiveClosureIncrementalUpdate() throws ServiceException {
+	void testRebaseCapturesChangesAcrossBranchesForTransitiveClosureIncrementalUpdate() throws ServiceException {
 		assertBranchState("MAIN", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
@@ -405,7 +403,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 /*
 	// TODO: Disabled until production behaviour can be fixed.
 	@Test(expected = IllegalArgumentException.class)
-	public void testConflictWithoutManualMergeSupplied() throws ServiceException {
+	void testConflictWithoutManualMergeSupplied() throws ServiceException {
 		final String concept1 = "100";
 		final Concept concept = new Concept(concept1);
 		conceptService.batchCreate(concept, "MAIN/A/A1");
@@ -415,7 +413,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 */
 
 	@Test
-	public void testConflictConceptMergeChangesFromLeftIncludingStatedModeling() throws ServiceException {
+	void testConflictConceptMergeChangesFromLeftIncludingStatedModeling() throws ServiceException {
 		// Create concepts to be used in relationships
 		conceptService.createUpdate(Lists.newArrayList(
 				new Concept(Concepts.SNOMEDCT_ROOT),
@@ -460,7 +458,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testAutomaticMergeOfConceptDoubleInactivation() throws ServiceException {
+	void testAutomaticMergeOfConceptDoubleInactivation() throws ServiceException {
 		// The same concept is made inactive on two different branches with different inactivation reasons and historical associations.
 		// The concept comes up in the rebase review and the picked version should be kept.
 		// The redundant inactivation reason and historical association must be removed.
@@ -526,7 +524,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testAutomaticMergeOfInferredAdditions() throws ServiceException {
+	void testAutomaticMergeOfInferredAdditions() throws ServiceException {
 		// Create concepts to be used in relationships
 		String conceptId = "131148009";
 		conceptService.createUpdate(Lists.newArrayList(
@@ -575,8 +573,9 @@ public class BranchMergeServiceTest extends AbstractTest {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class))
 				.must(termsQuery("conceptId", conceptId));
-		return elasticsearchTemplate.queryForList(
-				new NativeSearchQueryBuilder().withQuery(query).build(), Description.class);
+		return elasticsearchTemplate.search(
+				new NativeSearchQueryBuilder().withQuery(query).build(), Description.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 	}
 
 	public long countRelationships(String branchPath, String conceptId1, Relationship.CharacteristicType inferred) {
@@ -592,7 +591,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testAutomaticMergeOfInferredChange() throws ServiceException {
+	void testAutomaticMergeOfInferredChange() throws ServiceException {
 		// Create concepts to be used in relationships
 		String conceptId = "131148009";
 		conceptService.createUpdate(Lists.newArrayList(
@@ -623,34 +622,35 @@ public class BranchMergeServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
 		assertEquals(1, countRelationships("MAIN/A/A1", conceptId, Relationship.CharacteristicType.inferred));
 
-		List<Relationship> rels = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+		List<Relationship> rels = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(termsQuery(Relationship.Fields.SOURCE_ID, conceptId))
 						.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP)))
 				.withPageable(LARGE_PAGE)
-				.withSort(SortBuilders.fieldSort("start")).build(), Relationship.class);
+				.withSort(SortBuilders.fieldSort("start")).build(), Relationship.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		for (Relationship rel : rels) {
 			System.out.println(rel);
 		}
 
-		List<QueryConcept> queryConceptsAcrossBranches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+		List<QueryConcept> queryConceptsAcrossBranches = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
 						.must(termsQuery(QueryConcept.Fields.STATED, false)))
 				.withPageable(LARGE_PAGE)
-				.withSort(SortBuilders.fieldSort("start")).build(), QueryConcept.class);
+				.withSort(SortBuilders.fieldSort("start")).build(), QueryConcept.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		for (QueryConcept queryConceptsAcrossBranch : queryConceptsAcrossBranches) {
 			System.out.println(queryConceptsAcrossBranch);
 		}
 
-		List<Branch> branches = elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+		List<Branch> branches = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 				.withSort(SortBuilders.fieldSort("start"))
 				.withPageable(LARGE_PAGE)
-				.build(), Branch.class);
-		for (Branch branch : branches) {
-			System.out.println(branch);
-		}
+				.build(), Branch.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 
+		branches.stream().forEach(System.out::println);
 		assertEquals(1, queryService.eclSearch(conceptId, false, "MAIN/A/A1", LARGE_PAGE).getTotalElements());
 
 		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptySet());
@@ -658,7 +658,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testAutomaticMergeOfSynonymChange() throws ServiceException {
+	void testAutomaticMergeOfSynonymChange() throws ServiceException {
 		// Create concept
 		String conceptId = "131148009";
 		conceptService.createUpdate(Lists.newArrayList(
@@ -692,7 +692,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testAutomaticMergeOfRefsetMemberChange() throws ServiceException {
+	void testAutomaticMergeOfRefsetMemberChange() throws ServiceException {
 		String referencedComponent = Concepts.CLINICAL_FINDING;
 		ReferenceSetMember member = memberService.createMember("MAIN",
 				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_SIMPLE, referencedComponent));
@@ -721,7 +721,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(1, countMembers(referencedComponent, "MAIN/A"));
 	}
 
-	public void setMemeberModule(String memberId, String branch, String module) {
+	void setMemeberModule(String memberId, String branch, String module) {
 		ReferenceSetMember member;
 		member = memberService.findMember(branch, memberId);
 		member.setModuleId(module);
@@ -734,7 +734,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 
 
 	@Test
-	public void testConflictConceptMergeChangesFromRight() throws ServiceException {
+	void testConflictConceptMergeChangesFromRight() throws ServiceException {
 		final String conceptId = "10000100";
 		final Description description = new Description("One");
 
@@ -756,7 +756,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConflictConceptMergeChangesFromRightSameChangeOnBothSides() throws ServiceException {
+	void testConflictConceptMergeChangesFromRightSameChangeOnBothSides() throws ServiceException {
 		final String conceptId = "10000100";
 
 		setupConflictSituation(
@@ -779,7 +779,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConflictConceptMergeChangesFromNowhere() throws ServiceException {
+	void testConflictConceptMergeChangesFromNowhere() throws ServiceException {
 		final String conceptId = "10000100";
 		final Description description = new Description("One");
 
@@ -800,7 +800,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConflictDescriptionsNewOnBothSides() throws ServiceException {
+	void testConflictDescriptionsNewOnBothSides() throws ServiceException {
 		final String conceptId = "10000100";
 
 		setupConflictSituation(
@@ -827,7 +827,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConflictDescriptionInactiveWithDifferentReasonOnBothSides() throws ServiceException, InterruptedException {
+	void testConflictDescriptionInactiveWithDifferentReasonOnBothSides() throws ServiceException, InterruptedException {
 		final String conceptId = "100001000";
 
 		// Release first version of the concept so that the inactive descriptions are not automatically deleted
@@ -902,7 +902,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConflictDescriptionsNewOnBothSidesAllDeletedInManualMerge() throws ServiceException {
+	void testConflictDescriptionsNewOnBothSidesAllDeletedInManualMerge() throws ServiceException {
 		final String conceptId = "10000100";
 
 		setupConflictSituation(
@@ -929,7 +929,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConcurrentPromotionBlockedByBranchLock() throws ServiceException, InterruptedException {
+	void testConcurrentPromotionBlockedByBranchLock() throws ServiceException, InterruptedException {
 		conceptService.create(new Concept("10000100").addDescription(new Description("100001")), "MAIN/A");
 		conceptService.create(new Concept("10000100").addDescription(new Description("100002")), "MAIN/C");
 
@@ -948,7 +948,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testCreateMergeReviewConceptDeletedOnChildAcceptDeleted() throws InterruptedException, ServiceException {
+	void testCreateMergeReviewConceptDeletedOnChildAcceptDeleted() throws InterruptedException, ServiceException {
 		createConcept("10000100", "MAIN");
 		branchService.create("MAIN/A1");
 
@@ -985,7 +985,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testCreateMergeReviewConceptDeletedOnParentAcceptDeleted() throws InterruptedException, ServiceException {
+	void testCreateMergeReviewConceptDeletedOnParentAcceptDeleted() throws InterruptedException, ServiceException {
 		createConcept("10000100", "MAIN");
 		branchService.create("MAIN/A1");
 
@@ -1022,7 +1022,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testCreateMergeReviewConceptDeletedOnChildAcceptUpdated() throws InterruptedException, ServiceException {
+	void testCreateMergeReviewConceptDeletedOnChildAcceptUpdated() throws InterruptedException, ServiceException {
 		createConcept("10000100", "MAIN");
 		branchService.create("MAIN/A1");
 
@@ -1059,7 +1059,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testCreateMergeReviewConceptDeletedOnParentAcceptUpdated() throws InterruptedException, ServiceException {
+	void testCreateMergeReviewConceptDeletedOnParentAcceptUpdated() throws InterruptedException, ServiceException {
 		createConcept("10000100", "MAIN");
 		branchService.create("MAIN/A1");
 
@@ -1096,7 +1096,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testFindChildBranches() {
+	void testFindChildBranches() {
 		String testRootPath = "MAIN/CHILDREN";
 		List<Branch> expectedBranches = new ArrayList<>(childBranches.values());
 
@@ -1106,7 +1106,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testFindChildBranchesWithImmediateChildren() {
+	void testFindChildBranchesWithImmediateChildren() {
 		String testRootPath = "MAIN/CHILDREN";
 		List<Branch> expectedBranches = new ArrayList<>(childBranches.values());
 		// remove the branches that should not be returned.
@@ -1119,7 +1119,7 @@ public class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testFindChildBranchesWithPaging() {
+	void testFindChildBranchesWithPaging() {
 		String testRootPath = "MAIN/CHILDREN";
 		List<Branch> expectedBranches = new ArrayList<>(childBranches.values());
 		int pageSize = 5;

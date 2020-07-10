@@ -13,9 +13,9 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -62,8 +62,8 @@ public class UpgradeInactivationService {
 				.withPageable(ComponentService.LARGE_PAGE)
 				.build();
 		List<Long> inactiveConceptIds = new LongArrayList();
-		try (CloseableIterator<Concept> conceptResults = elasticsearchTemplate.stream(inactiveConceptQuery, Concept.class)) {
-			conceptResults.forEachRemaining(concept -> inactiveConceptIds.add((concept.getConceptIdAsLong())));
+		try (SearchHitsIterator<Concept> conceptResults = elasticsearchTemplate.searchForStream(inactiveConceptQuery, Concept.class)) {
+			conceptResults.forEachRemaining(hit -> inactiveConceptIds.add((hit.getContent().getConceptIdAsLong())));
 		}
 
 		List<ReferenceSetMember> membersToSave = new ArrayList<>();
@@ -83,8 +83,8 @@ public class UpgradeInactivationService {
 					.build();
 
 			List<Long> descriptionIdsWithIndicators = new LongArrayList();
-			try (CloseableIterator<ReferenceSetMember> memberResults = elasticsearchTemplate.stream(descriptionInactivationQuery, ReferenceSetMember.class)) {
-				memberResults.forEachRemaining(member -> descriptionIdsWithIndicators.add(new Long(member.getReferencedComponentId())));
+			try (SearchHitsIterator<ReferenceSetMember> memberResults = elasticsearchTemplate.searchForStream(descriptionInactivationQuery, ReferenceSetMember.class)) {
+				memberResults.forEachRemaining(hit -> descriptionIdsWithIndicators.add(new Long(hit.getContent().getReferencedComponentId())));
 			}
 
 			// find active descriptions without description inactivation indicators for inactive concepts
@@ -98,8 +98,8 @@ public class UpgradeInactivationService {
 					.build();
 
 
-			try (CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(descriptionQuery, Description.class)) {
-				descriptions.forEachRemaining(description -> updateOrDelete(description, membersToSave, descriptionsToDelete));
+			try (SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(descriptionQuery, Description.class)) {
+				descriptions.forEachRemaining(hit -> updateOrDelete(hit.getContent(), membersToSave, descriptionsToDelete));
 			}
 		}
 
@@ -156,8 +156,8 @@ public class UpgradeInactivationService {
 							.must(termsQuery(REFERENCED_COMPONENT_ID, batch))
 							.must(existsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH)))
 					.withPageable(ComponentService.LARGE_PAGE);
-			try (final CloseableIterator<ReferenceSetMember> activeMembers = elasticsearchTemplate.stream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
-				activeMembers.forEachRemaining(member -> removeOrInactivate(member, toDelete, toInactivate));
+			try (final SearchHitsIterator<ReferenceSetMember> activeMembers = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
+				activeMembers.forEachRemaining(hit -> removeOrInactivate(hit.getContent(), toDelete, toInactivate));
 			}
 		}
 		logger.info("{} language reference set members are to be inactivated: {}",
@@ -188,8 +188,8 @@ public class UpgradeInactivationService {
 						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
 						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET)))
 				.withPageable(ComponentService.LARGE_PAGE);
-		try (CloseableIterator<ReferenceSetMember> activeAxioms = elasticsearchTemplate.stream(activeAxiomsQueryBuilder.build(), ReferenceSetMember.class)) {
-			activeAxioms.forEachRemaining(axiom -> conceptToAxiomsMap.computeIfAbsent(new Long(axiom.getReferencedComponentId()), axioms -> new ArrayList<>()).add(axiom));
+		try (SearchHitsIterator<ReferenceSetMember> activeAxioms = elasticsearchTemplate.searchForStream(activeAxiomsQueryBuilder.build(), ReferenceSetMember.class)) {
+			activeAxioms.forEachRemaining(hit -> conceptToAxiomsMap.computeIfAbsent(new Long(hit.getContent().getReferencedComponentId()), axioms -> new ArrayList<>()).add(hit.getContent()));
 		}
 
 		// check referenced components are still active
@@ -206,8 +206,8 @@ public class UpgradeInactivationService {
 				)
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.withPageable(ComponentService.LARGE_PAGE);
-		try (CloseableIterator<Concept> activeConcepts = elasticsearchTemplate.stream(activeConceptsQueryBuilder.build(), Concept.class)) {
-			activeConcepts.forEachRemaining(concept -> activeConceptIds.add(concept.getConceptIdAsLong()));
+		try (SearchHitsIterator<Concept> activeConcepts = elasticsearchTemplate.searchForStream(activeConceptsQueryBuilder.build(), Concept.class)) {
+			activeConcepts.forEachRemaining(hit -> activeConceptIds.add(hit.getContent().getConceptIdAsLong()));
 		}
 
 		// inactivate additional axioms for publish components and delete for unpublished.
@@ -266,8 +266,8 @@ public class UpgradeInactivationService {
 				.withFields(Description.Fields.DESCRIPTION_ID)
 				.withPageable(ComponentService.LARGE_PAGE);
 
-		try (final CloseableIterator<Description> inactiveDescriptions = elasticsearchTemplate.stream(searchQueryBuilder.build(), Description.class)) {
-			inactiveDescriptions.forEachRemaining(description -> result.add(new Long(description.getDescriptionId())));
+		try (final SearchHitsIterator<Description> inactiveDescriptions = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), Description.class)) {
+			inactiveDescriptions.forEachRemaining(hit -> result.add(new Long(hit.getContent().getDescriptionId())));
 		}
 		return result;
 	}

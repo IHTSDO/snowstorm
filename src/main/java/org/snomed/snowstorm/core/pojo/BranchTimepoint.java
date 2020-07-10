@@ -20,6 +20,8 @@ public class BranchTimepoint {
 	private boolean branchBaseTimepoint;
 	private Date timepoint;
 
+	public BranchTimepoint() {}
+
 	public BranchTimepoint(String branchPath) {
 		this.branchPath = branchPath;
 	}

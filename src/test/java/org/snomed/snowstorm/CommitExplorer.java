@@ -12,14 +12,14 @@ import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
-import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
+import org.springframework.data.elasticsearch.client.ClientConfiguration;
+import org.springframework.data.elasticsearch.client.RestClients;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.convert.MappingElasticsearchConverter;
 import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchMappingContext;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.rest.ElasticsearchRestClient;
-
-import java.util.HashMap;
 
 import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
@@ -29,7 +29,7 @@ import static org.elasticsearch.index.query.QueryBuilders.termQuery;
  */
 public class CommitExplorer {
 
-	private final ElasticsearchTemplate template;
+	private final ElasticsearchRestTemplate template;
 	private final String elasticsearchClusterHost;
 	private final String indexNamePrefix;
 
@@ -77,13 +77,14 @@ public class CommitExplorer {
 	private <T extends SnomedComponent> void listRecentVersions(String id, Class<T> componentClass) {
 		int size = 20;
 		System.out.println();
-		AggregatedPage<T> page = template.queryForPage(new NativeSearchQueryBuilder()
+		SearchHits<T> searchHits = template.search(new NativeSearchQueryBuilder()
 				.withQuery(termQuery(getIdField(componentClass), id))
 				.withSort(SortBuilders.fieldSort("start").order(SortOrder.DESC))
 				.withPageable(PageRequest.of(0, size))
 				.build(), componentClass);
-		System.out.println(format("Latest %s versions of %s '%s'", page.getNumberOfElements(), componentClass.getSimpleName(), id));
-		for (T componentVersion : page) {
+		System.out.println(format("Latest %s versions of %s '%s'", searchHits.getTotalHits(), componentClass.getSimpleName(), id));
+		for (SearchHit<T> hit : searchHits) {
+			T componentVersion = hit.getContent();
 			System.out.println(format("%s (%s) - %s - %s,%s - %s - %s",
 					componentVersion.getStartDebugFormat(),
 					componentVersion.getStart().getTime(),
@@ -94,18 +95,13 @@ public class CommitExplorer {
 					format("ID:%s %s/%s/%s", componentVersion.getInternalId(), elasticsearchClusterHost, getTypeMapping(componentClass), componentVersion.getInternalId())
 			));
 		}
-		System.out.println(format("%s total", page.getTotalElements()));
+		System.out.println(format("%s total", searchHits.getTotalHits()));
 	}
 
 	private <T extends SnomedComponent> String getTypeMapping(Class<T> componentClass) {
 		Document annotation = componentClass.getAnnotation(Document.class);
 		String indexName = annotation.indexName();
-		String type = annotation.type();
-		boolean useLegacyTypeMapping = true;
-		if (useLegacyTypeMapping) {
-			type = componentClass.getSimpleName().toLowerCase();
-		}
-		return Strings.isNullOrEmpty(type) ? format("%s%s", indexNamePrefix, indexName) : format("%s%s/%s", indexNamePrefix, indexName, type);
+		return format("%s%s", indexNamePrefix, indexName);
 	}
 
 	/**
@@ -115,16 +111,17 @@ public class CommitExplorer {
 	private void listCommits(String path) {
 		int size = 20;
 		System.out.println();
-		AggregatedPage<Branch> branchVersions = template.queryForPage(new NativeSearchQueryBuilder()
+		SearchHits<Branch> branchVersions = template.search(new NativeSearchQueryBuilder()
 				.withQuery(termQuery("path", path))
 				.withSort(SortBuilders.fieldSort("start").order(SortOrder.DESC))
 				.withPageable(PageRequest.of(0, size))
 				.build(), Branch.class);
-		System.out.println(format("Latest %s commits on %s", branchVersions.getNumberOfElements(), path));
-		for (Branch branchVersion : branchVersions) {
+		System.out.println(format("Latest %s commits on %s", branchVersions.getTotalHits(), path));
+		for (SearchHit<Branch> hit : branchVersions) {
+			Branch branchVersion = hit.getContent();
 			System.out.println(format("%s (%s)", branchVersion.getStartDebugFormat(), branchVersion.getStart().getTime()));
 		}
-		System.out.println(format("%s total", branchVersions.getTotalElements()));
+		System.out.println(format("%s total", branchVersions.getTotalHits()));
 	}
 
 	private <T extends SnomedComponent> String getIdField(Class<T> componentClass) {
@@ -135,11 +132,11 @@ public class CommitExplorer {
 		}
 	}
 
-	public ElasticsearchTemplate elasticsearchTemplate(String indexNamePrefix, String host) {
+	public ElasticsearchRestTemplate elasticsearchTemplate(String indexNamePrefix, String host) {
 		short indexShards = 3;// Assuming this won't be used because the indices already exist.
 		SimpleElasticsearchMappingContext mappingContext = new SnowstormElasticsearchMappingContext(new IndexConfig(indexNamePrefix, indexShards, indexShards));
-		return new ElasticsearchTemplate(
-				new ElasticsearchRestClient(new HashMap<>(), host),
+		return new ElasticsearchRestTemplate(
+				RestClients.create(ClientConfiguration.create(host)).rest(),
 				new MappingElasticsearchConverter(mappingContext)
 		);
 	}

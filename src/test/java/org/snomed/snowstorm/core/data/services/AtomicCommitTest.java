@@ -4,16 +4,16 @@ import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Map;
 
@@ -23,9 +23,9 @@ import static org.junit.Assert.*;
  * This class checks that making updates within a commit happen atomically.
  * If several concepts are being changed at once and one fails the whole operation should not be persisted.
  */
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class AtomicCommitTest extends AbstractTest {
+class AtomicCommitTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
@@ -36,13 +36,13 @@ public class AtomicCommitTest extends AbstractTest {
 	@Autowired
 	private ConceptService conceptService;
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 		branchService.create("MAIN/task");
 	}
 
 	@Test
-	public void testMultipleConceptCreationRollback() throws ServiceException {
+	void testMultipleConceptCreationRollback() throws ServiceException {
 		String branch = "MAIN/task";
 		Branch branchBefore = branchService.findLatest(branch);
 		assertEquals("Branch should be up to date before commit.", Branch.BranchState.UP_TO_DATE, branchBefore.getState());
@@ -74,7 +74,7 @@ public class AtomicCommitTest extends AbstractTest {
 
 	@Test
 	@SuppressWarnings("unchecked")
-	public void testBranchLockMetadata() {
+	void testBranchLockMetadata() {
 		try (Commit commit = branchService.openCommit("MAIN/task", branchMetadataHelper.getBranchLockMetadata("Testing lock metadata"))) {
 			Branch branch = branchService.findLatest("MAIN/task");
 			Map<String, Object> metadata = branchMetadataHelper.expandObjectValues(branch.getMetadata());

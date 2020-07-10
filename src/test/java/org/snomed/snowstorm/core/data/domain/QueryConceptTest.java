@@ -3,8 +3,8 @@ package org.snomed.snowstorm.core.data.domain;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Sets;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 
 import java.io.IOException;
@@ -15,12 +15,12 @@ import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
 
-public class QueryConceptTest {
+class QueryConceptTest {
 
 	private ObjectMapper objectMapper;
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 		objectMapper = Jackson2ObjectMapperBuilder
 				.json()
 				.defaultViewInclusion(false)
@@ -30,7 +30,7 @@ public class QueryConceptTest {
 	}
 
 	@Test
-	public void test() throws IOException {
+	void test() throws IOException {
 		QueryConcept queryConcept = new QueryConcept();
 		queryConcept.setConceptIdL(123L);
 		queryConcept.setPath("MAIN");

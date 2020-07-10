@@ -39,7 +39,7 @@ class RemoteClassificationServiceClient {
 
 		restTemplate = new RestTemplateBuilder()
 				.rootUri(serviceUrl)
-				.basicAuthorization(serviceUsername, servicePassword)
+				.basicAuthentication(serviceUsername, servicePassword)
 				.build();
 	}
 

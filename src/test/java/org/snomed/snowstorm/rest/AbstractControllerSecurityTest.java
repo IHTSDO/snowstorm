@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.rest;
 
 import io.kaicode.elasticvc.api.BranchService;
-import org.junit.Before;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
@@ -16,7 +16,7 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.junit4.SpringRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.net.URI;
 import java.util.Calendar;
@@ -26,7 +26,7 @@ import java.util.GregorianCalendar;
 import static java.lang.String.format;
 import static org.junit.Assert.*;
 
-@RunWith(SpringRunner.class)
+@ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
 @ActiveProfiles("secure-test")
 public abstract class AbstractControllerSecurityTest extends AbstractTest {
@@ -58,8 +58,8 @@ public abstract class AbstractControllerSecurityTest extends AbstractTest {
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 		assertTrue("Role based access control must be enabled for security tests.", rolesEnabled);
 
 		url = "http://localhost:" + port;
@@ -156,7 +156,7 @@ public abstract class AbstractControllerSecurityTest extends AbstractTest {
 			return status;
 		}
 
-		public void setStatus(String status) {
+		void setStatus(String status) {
 			this.status = status;
 		}
 	}

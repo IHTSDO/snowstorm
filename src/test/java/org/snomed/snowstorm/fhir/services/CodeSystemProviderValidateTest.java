@@ -1,22 +1,16 @@
 package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.*;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.snomed.snowstorm.TestConfig;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit4.SpringRunner;
-
+import org.junit.jupiter.api.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
-@RunWith(SpringRunner.class)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
-public class CodeSystemProviderValidateTest extends AbstractFHIRTest {
+
+class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 	
 	@Test
-	public void testValidateCode() throws FHIROperationException {
+	void testValidateCode() throws FHIROperationException {
 		//Test recovery using code with version
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?version=http://snomed.info/sct/1234&code=" + sampleSCTID;
 		Parameters p = get(url);

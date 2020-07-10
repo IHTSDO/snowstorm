@@ -4,24 +4,28 @@ import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.repositories.ConceptRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.query.*;
-import org.springframework.data.util.CloseableIterator;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.UpdateQuery;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.BATCH_SAVE_SIZE;
 
@@ -57,7 +61,7 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 			try {
 				performUpdate(false, commit);
 				logger.debug("End updating concept definition status on branch {}.", commit.getBranch().getPath());
-			} catch (IOException e) {
+			} catch (Exception e) {
 				throw new IllegalStateException("Failed to update concept definition status." + e, e);
 			}
 		}
@@ -68,13 +72,13 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 		try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Updating all concept definition statuses."))) {
 			performUpdate(true, commit);
 			commit.markSuccessful();
-		} catch (IOException e) {
+		} catch (Exception e) {
 			throw new ServiceException("Failed to update all concept definition statuses.", e);
 		}
 		logger.info("Completed updating all concept definition statuses on branch {}.", path);
 	}
 
-	private void performUpdate(boolean allConcepts, Commit commit) throws IOException {
+	private void performUpdate(boolean allConcepts, Commit commit) {
 		Set<Long> conceptIdsToUpdate = allConcepts ? getAllConceptsWithActiveAxioms(commit) : getConceptsWithAxiomsChanged(commit);
 		if (!conceptIdsToUpdate.isEmpty()) {
 			logger.info("Checking {} concepts.", conceptIdsToUpdate.size());
@@ -95,14 +99,12 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 				.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 				.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
 				.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true));
-		try (final CloseableIterator<ReferenceSetMember> allActiveAxioms = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (final SearchHitsIterator<ReferenceSetMember> allActiveAxioms = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(must)
 				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 				.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {
 
-			while (allActiveAxioms.hasNext()) {
-				result.add(Long.parseLong(allActiveAxioms.next().getReferencedComponentId()));
-			}
+			allActiveAxioms.forEachRemaining(hit -> result.add(Long.parseLong(hit.getContent().getReferencedComponentId())));
 		}
 		return result;
 	}
@@ -118,22 +120,20 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 		if (!allConcepts) {
 			must.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdsWithAxiomChange));
 		}
-		try (final CloseableIterator<ReferenceSetMember> changedAxioms = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (final SearchHitsIterator<ReferenceSetMember> changedAxioms = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(must)
 				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 				.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {
 
-			while (changedAxioms.hasNext()) {
-				result.add(Long.parseLong(changedAxioms.next().getReferencedComponentId()));
+			changedAxioms.forEachRemaining(hit -> result.add(Long.parseLong(hit.getContent().getReferencedComponentId())));
 			}
-		}
 		return result;
 	}
 
 	private Set<Long> getConceptsWithAxiomsChanged(Commit commit) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
 		Set<Long> result = new LongOpenHashSet();
-		try (final CloseableIterator<ReferenceSetMember> axioms = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (final SearchHitsIterator<ReferenceSetMember> axioms = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
@@ -141,10 +141,8 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 				.withPageable(ConceptService.LARGE_PAGE)
 				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 				.build(), ReferenceSetMember.class)) {
-			while (axioms.hasNext()) {
-				result.add(Long.parseLong(axioms.next().getReferencedComponentId()));
+				axioms.forEachRemaining(hit -> result.add(Long.parseLong(hit.getContent().getReferencedComponentId())));
 			}
-		}
 		return result;
 	}
 
@@ -161,10 +159,10 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 				)
 				.withPageable(ConceptService.LARGE_PAGE).build();
 		List<Concept> result = new ArrayList<>();
-		try (final CloseableIterator<Concept> existingConcepts = elasticsearchTemplate.stream(fullyDefinedQuery, Concept.class)) {
-			existingConcepts.forEachRemaining(existing -> result.add(
+		try (final SearchHitsIterator<Concept> existingConcepts = elasticsearchTemplate.searchForStream(fullyDefinedQuery, Concept.class)) {
+			existingConcepts.forEachRemaining(hit -> result.add(
 					// Correct the definition status
-					setDefinitionStatus(existing, Concepts.FULLY_DEFINED)));
+					setDefinitionStatus(hit.getContent(), Concepts.FULLY_DEFINED)));
 		}
 		int toDefinedCount = result.size();
 		if (toDefinedCount > 0) {
@@ -183,10 +181,10 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 						.mustNot(existsQuery("end"))
 				)
 				.withPageable(ConceptService.LARGE_PAGE).build();
-		try (final CloseableIterator<Concept> existingConcepts = elasticsearchTemplate.stream(primitiveQuery, Concept.class)) {
-			existingConcepts.forEachRemaining(existing -> result.add(
+		try (final SearchHitsIterator<Concept> existingConcepts = elasticsearchTemplate.searchForStream(primitiveQuery, Concept.class)) {
+			existingConcepts.forEachRemaining(hit -> result.add(
 					// Correct the definition status
-					setDefinitionStatus(existing, Concepts.PRIMITIVE)));
+					setDefinitionStatus(hit.getContent(), Concepts.PRIMITIVE)));
 		}
 		int toPrimitiveCount = result.size() - toDefinedCount;
 		if (toPrimitiveCount > 0) {
@@ -202,7 +200,7 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 		return concept;
 	}
 
-	private void saveChanges(Collection<Concept> conceptsToSave, Commit commit) throws IllegalStateException, IOException {
+	private void saveChanges(Collection<Concept> conceptsToSave, Commit commit) {
 		if (!conceptsToSave.isEmpty()) {
 			// Save in batches
 			for (List<Concept> concepts : Iterables.partition(conceptsToSave, BATCH_SAVE_SIZE)) {
@@ -224,24 +222,15 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 		}
 	}
 
-	private void updateConceptDefinitionStatusViaUpdateQuery(Collection<Concept> concepts) throws IOException {
+	private void updateConceptDefinitionStatusViaUpdateQuery(Collection<Concept> concepts) {
 		List<UpdateQuery> updateQueries = new ArrayList<>();
 		for (Concept concept : concepts) {
-			UpdateRequest updateRequest = new UpdateRequest();
-			updateRequest.doc(jsonBuilder()
-					.startObject()
-					.field(Concept.Fields.DEFINITION_STATUS_ID, concept.getDefinitionStatusId())
-					.endObject());
-
-			updateQueries.add(new UpdateQueryBuilder()
-					.withClass(Concept.class)
-					.withId(concept.getInternalId())
-					.withUpdateRequest(updateRequest)
-					.build());
+			String script = "ctx._source.definitionStatusId='" + concept.getDefinitionStatusId() + "'";
+			updateQueries.add(UpdateQuery.builder(concept.getInternalId()).withScript(script).build());
 		}
 		if (!updateQueries.isEmpty()) {
-			elasticsearchTemplate.bulkUpdate(updateQueries);
-			elasticsearchTemplate.refresh(Concept.class);
+			elasticsearchTemplate.bulkUpdate(updateQueries, elasticsearchTemplate.getIndexCoordinatesFor(Concept.class));
+			elasticsearchTemplate.indexOps(Concept.class).refresh();
 		}
 	}
 }

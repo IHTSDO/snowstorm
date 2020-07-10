@@ -43,98 +43,102 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 			if (!items.isEmpty()) {
 				Object item = items.iterator().next();
 				if (ConceptMini.class.isAssignableFrom(item.getClass())) {
-					writer.write("id\tfsn\teffectiveTime\tactive\tmoduleId\tdefinitionStatus");
-					int count = 0;
-					List <String> ptColumns = new ArrayList<>();
-					for (ConceptMini concept : (Collection<ConceptMini>) items) {
-						Map<String, String> extraFields = this.getConceptExtraFields(concept);
-						// Add new additional columns for preferred terms
-						if (count == 0) {
-							if (extraFields != null) {
-								for (String key : extraFields.keySet()) {
-									writer.write(TAB);
-									writer.write(key);
-									ptColumns.add(key);
-								}
-							}
-							writer.newLine();
-						}
-						writer.write(concept.getConceptId());
-						writer.write(TAB);
-						writer.write(concept.getFsnTerm());
-						writer.write(TAB);
-						writer.write(concept.getEffectiveTime());
-						writer.write(TAB);
-						writer.write(concept.getActive() != null ? concept.getActive().toString() : "");
-						writer.write(TAB);
-						writer.write(concept.getModuleId());
-						writer.write(TAB);
-						writer.write(concept.getDefinitionStatus());
-						if (!CollectionUtils.isEmpty(ptColumns)) {
-							for (int i = 0; i <  ptColumns.size(); i++) {
-								writer.write(TAB);
-								writer.write(extraFields.get(ptColumns.get(i)));
-							}
-						}
-						writer.newLine();
-						count++;
-					}
+					writeConceptMinis(writer, (Collection<ConceptMini>) items);
 				} else if (RelationshipChange.class.isAssignableFrom(item.getClass())) {
-					writer.write("changeNature\tsourceId\tsourceFsn\ttypeId\ttypeFsn\tdestinationId\tdestinationFsn\tdestinationNegated\tcharacteristicTypeId\tgroup\tid\tunionGroup\tmodifier");
-					writer.newLine();
-					for (RelationshipChange change : (Collection<RelationshipChange>) items) {
-						// changeNature
-						writer.write(change.getChangeNature().toString());
-						writer.write(TAB);
-						// sourceId
-						writer.write(change.getSourceId());
-						writer.write(TAB);
-						// sourceFsn
-						writer.write("\"");
-						writer.write(change.getSourceFsn());
-						writer.write("\"");
-						writer.write(TAB);
-						// typeId
-						writer.write(change.getTypeId());
-						writer.write(TAB);
-						// typeFsn
-						writer.write("\"");
-						writer.write(change.getTypeFsn());
-						writer.write("\"");
-						writer.write(TAB);
-						// destinationId
-						writer.write(change.getDestinationId());
-						writer.write(TAB);
-						// destinationFsn
-						writer.write("\"");
-						writer.write(change.getDestinationFsn());
-						writer.write("\"");
-						writer.write(TAB);
-						// destinationNegated
-						writer.write("false");
-						writer.write(TAB);
-						// characteristicTypeId
-						writer.write(Concepts.INFERRED_RELATIONSHIP);
-						writer.write(TAB);
-						// group
-						writer.write(change.getGroup() + "");
-						writer.write(TAB);
-						// id
-						writer.write(change.getRelationshipId());
-						writer.write(TAB);
-						// unionGroup
-						writer.write(change.getUnionGroup() + "");
-						writer.write(TAB);
-						// modifier
-						writer.write("EXISTENTIAL");
-						writer.write(TAB);
-						writer.newLine();
-					}
+					writeRelationshipChanges(writer, (Collection<RelationshipChange>) items);
 				} else {
 					writer.write("No rows");
 					writer.newLine();
 				}
 			}
+		}
+	}
+
+	private void writeRelationshipChanges(BufferedWriter writer, Collection<RelationshipChange> items) throws IOException {
+		writer.write("changeNature\tsourceId\tsourceFsn\ttypeId\ttypeFsn\tdestinationId\tdestinationFsn\tdestinationNegated\tcharacteristicTypeId\tgroup\tid\tunionGroup\tmodifier");
+		writer.newLine();
+		for (RelationshipChange change : items) {
+			// changeNature
+			writer.write(change.getChangeNature().toString());
+			writer.write(TAB);
+			// sourceId
+			writer.write(change.getSourceId());
+			writer.write(TAB);
+			// sourceFsn
+			writer.write("\"");
+			writer.write(change.getSourceFsn());
+			writer.write("\"");
+			writer.write(TAB);
+			// typeId
+			writer.write(change.getTypeId());
+			writer.write(TAB);
+			// typeFsn
+			writer.write("\"");
+			writer.write(change.getTypeFsn());
+			writer.write("\"");
+			writer.write(TAB);
+			// destinationId
+			writer.write(change.getDestinationId());
+			writer.write(TAB);
+			// destinationFsn
+			writer.write("\"");
+			writer.write(change.getDestinationFsn());
+			writer.write("\"");
+			writer.write(TAB);
+			// destinationNegated
+			writer.write("false");
+			writer.write(TAB);
+			// characteristicTypeId
+			writer.write(Concepts.INFERRED_RELATIONSHIP);
+			writer.write(TAB);
+			// group
+			writer.write(change.getGroup() + "");
+			writer.write(TAB);
+			// id
+			writer.write(change.getRelationshipId());
+			writer.write(TAB);
+			// unionGroup
+			writer.write(change.getUnionGroup() + "");
+			writer.write(TAB);
+			// modifier
+			writer.write("EXISTENTIAL");
+			writer.write(TAB);
+			writer.newLine();
+		}
+	}
+
+	private void writeConceptMinis(BufferedWriter writer, Collection<ConceptMini> items) throws IOException {
+		boolean isHeaderWritten = false;
+		writer.write("id\tfsn\teffectiveTime\tactive\tmoduleId\tdefinitionStatus");
+		List<String> ptColumns = new ArrayList<>();
+		for (ConceptMini concept : items) {
+			Map<String, String> extraFields = this.getConceptExtraFields(concept);
+			// Add new additional columns for preferred terms
+			if (!isHeaderWritten) {
+				for (String key : extraFields.keySet()) {
+					writer.write(TAB);
+					writer.write(key);
+					ptColumns.add(key);
+				}
+				writer.newLine();
+				isHeaderWritten = true;
+			}
+			writer.write(concept.getConceptId());
+			writer.write(TAB);
+			writer.write(concept.getFsnTerm());
+			writer.write(TAB);
+			writer.write(concept.getEffectiveTime());
+			writer.write(TAB);
+			writer.write(concept.getActive() != null ? concept.getActive().toString() : "");
+			writer.write(TAB);
+			writer.write(concept.getModuleId());
+			writer.write(TAB);
+			writer.write(concept.getDefinitionStatus());
+			for (int i = 0; i <  ptColumns.size(); i++) {
+				writer.write(TAB);
+				writer.write(extraFields.get(ptColumns.get(i)));
+			}
+			writer.newLine();
 		}
 	}
 

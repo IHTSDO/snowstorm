@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.fhir.domain;
 
 import org.hl7.fhir.r4.model.ValueSet;
-import org.apache.commons.lang.NotImplementedException;
+import org.apache.commons.lang3.NotImplementedException;
 import org.hl7.fhir.r4.model.CodeSystem;
 import org.hl7.fhir.r4.model.Enumerations.PublicationStatus;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;

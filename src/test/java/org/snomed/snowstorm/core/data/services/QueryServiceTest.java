@@ -1,9 +1,9 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Collections;
 import java.util.List;
@@ -21,9 +21,9 @@ import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class QueryServiceTest extends AbstractTest {
+class QueryServiceTest extends AbstractTest {
 
 	@Autowired
 	private QueryService service;
@@ -40,8 +40,8 @@ public class QueryServiceTest extends AbstractTest {
 	private Concept reallyCheesyPizza_5;
 	private Concept inactivePizza_6;
 
-	@Before
-	public void setup() throws ServiceException {
+	@BeforeEach
+	void setup() throws ServiceException {
 		root = new Concept(SNOMEDCT_ROOT);
 		pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Pizza");
 		cheesePizza_3 = new Concept("100005").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza");
@@ -54,7 +54,7 @@ public class QueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testSearchResultOrdering() {
+	void testSearchResultOrdering() {
 		List<ConceptMini> matches = service.search(service.createQueryBuilder(true).activeFilter(true).descriptionTerm("Piz"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(4, matches.size());
 		assertEquals("Pizza", matches.get(0).getFsnTerm());
@@ -82,7 +82,7 @@ public class QueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testFindInactiveConcept() {
+	void testFindInactiveConcept() {
 		Set<String> inactiveConceptId = Collections.singleton(inactivePizza_6.getId());
 		List<ConceptMini> content = service.search(service.createQueryBuilder(true).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent();
 		assertEquals(1, content.size());
@@ -95,7 +95,7 @@ public class QueryServiceTest extends AbstractTest {
 
 
 	@Test
-	public void testFindConceptsByTerm() {
+	void testFindConceptsByTerm() {
 
 		Page<ConceptMini> activeSearch = service.search(service.createQueryBuilder(true).descriptionTerm("pizza").activeFilter(true), PATH, PAGE_REQUEST);
 		assertEquals(4, activeSearch.getNumberOfElements());
@@ -108,13 +108,13 @@ public class QueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testFindConceptsByTermUsingConceptId() {
+	void testFindConceptsByTermUsingConceptId() {
 		Page<ConceptMini> activeSearch = service.search(service.createQueryBuilder(true).descriptionTerm("100003").activeFilter(true), PATH, PAGE_REQUEST);
 		assertEquals(1, activeSearch.getNumberOfElements());
 	}
 
 	@Test
-	public void testDefinitionStatusFilter() {
+	void testDefinitionStatusFilter() {
 		QueryService.ConceptQueryBuilder query = service.createQueryBuilder(true)
 				.ecl(pizza_2.getConceptId())
 				.definitionStatusFilter(Concepts.SUFFICIENTLY_DEFINED);
@@ -126,7 +126,7 @@ public class QueryServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testPagination() {
+	void testPagination() {
 		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(true).activeFilter(true);
 		Page<ConceptMini> page = service.search(queryBuilder, PATH, PageRequest.of(0, 2));
 		assertEquals(5, page.getTotalElements());

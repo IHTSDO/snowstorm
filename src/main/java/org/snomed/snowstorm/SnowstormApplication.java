@@ -74,6 +74,8 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 			if (deleteIndices) logger.warn("Deleting existing Elasticsearch Indices");
 			initialiseIndices(deleteIndices);
 
+			updateIndexMaxTermsSettingForQueryConcept();
+
 			codeSystemService.init();
 			referenceSetMemberService.init();
 

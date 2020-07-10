@@ -4,7 +4,7 @@ import io.kaicode.elasticvc.domain.DomainEntity;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
+import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -31,8 +31,8 @@ public class DomainEntityConfiguration {
 	@Autowired
 	private ReferenceSetTypeRepository referenceSetTypeRepository;
 
-	private Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> componentTypeRepositoryMap;
-	private Map<Class<? extends DomainEntity>, ElasticsearchCrudRepository> allTypeRepositoryMap;
+	private Map<Class<? extends SnomedComponent>, ElasticsearchRepository> componentTypeRepositoryMap;
+	private Map<Class<? extends DomainEntity>, ElasticsearchRepository> allTypeRepositoryMap;
 
 	private Set<Class<? extends DomainEntity>> allTypes;
 	private Map<Class<? extends DomainEntity>, String> allIdFields;
@@ -67,11 +67,11 @@ public class DomainEntityConfiguration {
 		allIdFields = Collections.unmodifiableMap(allIdFields);
 	}
 
-	public Map<Class<? extends SnomedComponent>, ElasticsearchCrudRepository> getComponentTypeRepositoryMap() {
+	public Map<Class<? extends SnomedComponent>, ElasticsearchRepository> getComponentTypeRepositoryMap() {
 		return componentTypeRepositoryMap;
 	}
 
-	public Map<Class<? extends DomainEntity>, ElasticsearchCrudRepository> getAllTypeRepositoryMap() {
+	public Map<Class<? extends DomainEntity>, ElasticsearchRepository> getAllTypeRepositoryMap() {
 		return allTypeRepositoryMap;
 	}
 

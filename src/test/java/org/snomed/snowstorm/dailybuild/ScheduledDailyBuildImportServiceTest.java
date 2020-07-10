@@ -4,9 +4,9 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.otf.resourcemanager.ResourceConfiguration;
 import org.ihtsdo.otf.resourcemanager.ResourceManager;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
@@ -23,9 +23,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.*;
 import java.util.List;
@@ -35,9 +35,9 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
+class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 
 	@Autowired
 	private DailyBuildService dailyBuildImportService;
@@ -69,7 +69,7 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 	private CodeSystem snomedct;
 
 	@Autowired
-	private ElasticsearchTemplate elasticsearchTemplate;
+	private ElasticsearchRestTemplate elasticsearchTemplate;
 
 	@Autowired
 	private ResourceLoader resourceLoader;
@@ -77,8 +77,8 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 	@Autowired
 	private DailyBuildResourceConfig dailyBuildResourceConfig;
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	void setUp() throws Exception {
 		baseLineRelease = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
 		snomedct = new CodeSystem("SNOMEDCT", "MAIN");
 		codeSystemService.createCodeSystem(snomedct);
@@ -90,7 +90,7 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDailyBuildImport() throws Exception {
+	void testDailyBuildImport() throws Exception {
 		String branchPath = snomedct.getBranchPath();
 		Page<Branch> branchPage = branchService.findAllVersions(branchPath, Pageable.unpaged());
 		assertEquals(3, branchPage.getTotalElements());
@@ -152,7 +152,7 @@ public class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testExtensionDailyBuildImport() throws Exception {
+	void testExtensionDailyBuildImport() throws Exception {
 		String shortName = "SNOMEDCT-LAND";
 		String branchPath = "MAIN/SNOMEDCT-LAND";
 

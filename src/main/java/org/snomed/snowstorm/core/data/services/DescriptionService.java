@@ -13,7 +13,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -23,6 +23,7 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.Operator;
 import org.elasticsearch.search.aggregations.Aggregation;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -31,9 +32,6 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
-import org.snomed.snowstorm.core.data.services.mapper.ConceptToConceptIdMapper;
-import org.snomed.snowstorm.core.data.services.mapper.DescriptionToConceptIdMapper;
-import org.snomed.snowstorm.core.data.services.mapper.RefsetMemberToReferenceComponentIdMapper;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
@@ -43,14 +41,16 @@ import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchResultMapper;
-import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -97,8 +97,9 @@ public class DescriptionService extends ComponentService {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 		BoolQueryBuilder query = boolQuery().must(branchCriteria.getEntityBranchCriteria(Description.class))
 				.must(termsQuery("descriptionId", descriptionId));
-		List<Description> descriptions = elasticsearchTemplate.queryForList(
-				new NativeSearchQueryBuilder().withQuery(query).build(), Description.class);
+		List<Description> descriptions = elasticsearchTemplate.search(
+				new NativeSearchQueryBuilder().withQuery(query).build(), Description.class)
+				.get().map(SearchHit::getContent).collect(Collectors.toList());
 		if (descriptions.size() > 1) {
 			String message = String.format("More than one description found for id %s on branch %s.", descriptionId, path);
 			logger.error(message + " {}", descriptions);
@@ -145,15 +146,15 @@ public class DescriptionService extends ComponentService {
 		if (exactTerm != null && !exactTerm.isEmpty()) {
 			query.must(termQuery(Description.Fields.TERM, exactTerm));
 		}
-		Page<Description> descriptions = elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+		SearchHits<Description> descriptions = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 				.withQuery(query)
 				.withPageable(pageRequest)
 				.build(), Description.class);
-		List<Description> content = descriptions.getContent();
+		List<Description> content = descriptions.get().map(SearchHit::getContent).collect(Collectors.toList());
 		joinLangRefsetMembers(branchCriteria,
 				content.stream().map(Description::getConceptId).collect(Collectors.toSet()),
 				content.stream().collect(Collectors.toMap(Description::getDescriptionId, Function.identity())));
-		return descriptions;
+		return new PageImpl<>(content, pageRequest, descriptions.getTotalHits());
 	}
 
 	public Set<Description> findDescriptionsByConceptId(String branchPath, Set<String> conceptIds) {
@@ -217,10 +218,9 @@ public class DescriptionService extends ComponentService {
 				)
 				.addAggregation(AggregationBuilders.terms("semanticTags").field(Description.Fields.TAG).size(AGGREGATION_SEARCH_SIZE));
 		if (!semanticTagFiltering) {
-			fsnQueryBuilder
-					.withPageable(PAGE_OF_ONE);
-			AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(fsnQueryBuilder.build(), Description.class);
-			allAggregations.add(semanticTagResults.getAggregation("semanticTags"));
+			fsnQueryBuilder.withPageable(PAGE_OF_ONE);
+			SearchHits<Description> semanticTagResults = elasticsearchTemplate.search(fsnQueryBuilder.build(), Description.class);
+			allAggregations.add(semanticTagResults.getAggregations().get("semanticTags"));
 			timer.checkpoint("Semantic tag aggregation");
 		} else {
 			// Apply semantic tag filter
@@ -230,21 +230,21 @@ public class DescriptionService extends ComponentService {
 
 			Set<Long> conceptSemanticTagMatches = new LongOpenHashSet();
 			if (allSemanticTags.size() == 1) {
-				try (CloseableIterator<Description> descriptionStream = elasticsearchTemplate.stream(fsnQueryBuilder.build(), Description.class)) {
-					descriptionStream.forEachRemaining(description -> conceptSemanticTagMatches.add(parseLong(description.getConceptId())));
+				try (SearchHitsIterator<Description> descriptionStream = elasticsearchTemplate.searchForStream(fsnQueryBuilder.build(), Description.class)) {
+					descriptionStream.forEachRemaining(hit -> conceptSemanticTagMatches.add(parseLong(hit.getContent().getConceptId())));
 				}
 				allAggregations.add(new SimpleAggregation("semanticTags", allSemanticTags.iterator().next(), conceptSemanticTagMatches.size()));
 			} else {
-				AggregatedPage<Description> semanticTagResults = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(fsnQueryBuilder.build(), Description.class);
-				semanticTagResults.stream().forEach((description -> conceptSemanticTagMatches.add(parseLong(description.getConceptId()))));
-				allAggregations.add(semanticTagResults.getAggregation("semanticTags"));
+				SearchHits<Description> semanticTagResults = elasticsearchTemplate.search(fsnQueryBuilder.build(), Description.class);
+				semanticTagResults.stream().forEach((hit -> conceptSemanticTagMatches.add(parseLong(hit.getContent().getConceptId()))));
+				allAggregations.add(semanticTagResults.getAggregations().get("semanticTags"));
 			}
 
 			conceptIds = conceptSemanticTagMatches;
 		}
 
 		// Fetch concept refset membership aggregation
-		AggregatedPage<ReferenceSetMember> membershipResults = (AggregatedPage<ReferenceSetMember>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+		SearchHits<ReferenceSetMember> membershipResults = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, true))
@@ -253,24 +253,23 @@ public class DescriptionService extends ComponentService {
 				.withPageable(PAGE_OF_ONE)
 				.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID))
 				.build(), ReferenceSetMember.class);
-		allAggregations.add(membershipResults.getAggregation("membership"));
+		allAggregations.add(membershipResults.getAggregations().get("membership"));
 		timer.checkpoint("Concept refset membership aggregation");
 
 		// Perform final paged description search with description property aggregations
 		descriptionFilter.must(termsQuery(Description.Fields.CONCEPT_ID, conceptIds));
 		final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(descriptionQuery
-						.filter(descriptionFilter))
+				.withQuery(descriptionQuery.filter(descriptionFilter))
 				.addAggregation(AggregationBuilders.terms("module").field(Description.Fields.MODULE_ID))
 				.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
 				.withPageable(pageRequest);
-		AggregatedPage<Description> descriptions = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(addTermSort(queryBuilder.build()), Description.class);
+		SearchHits<Description> descriptions = elasticsearchTemplate.search(addTermSort(queryBuilder.build()), Description.class);
 		allAggregations.addAll(descriptions.getAggregations().asList());
 		timer.checkpoint("Fetch descriptions including module and language aggregations");
 		timer.finish();
 
 		// Merge aggregations
-		return PageWithBucketAggregationsFactory.createPage(descriptions, allAggregations);
+		return PageWithBucketAggregationsFactory.createPage(descriptions, new Aggregations(allAggregations), pageRequest);
 	}
 
 	void joinDescriptions(BranchCriteria branchCriteria, Map<String, Concept> conceptIdMap, Map<String, ConceptMini> conceptMiniMap,
@@ -296,11 +295,9 @@ public class DescriptionService extends ComponentService {
 					.must(branchCriteria.getEntityBranchCriteria(Description.class))
 					.must(termsQuery("conceptId", conceptIds)))
 					.withPageable(LARGE_PAGE);
-			try (final CloseableIterator<Description> descriptions = elasticsearchTemplate.stream(queryBuilder.build(), Description.class)) {
-				descriptions.forEachRemaining(description -> {
-					// Workaround - transient property used to be persisted.
-					description.setInactivationIndicator(null);
-
+			try (final SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(queryBuilder.build(), Description.class)) {
+				descriptions.forEachRemaining(hit -> {
+					Description description = hit.getContent();
 					// Join Descriptions to concepts for loading whole concepts use case.
 					final String descriptionConceptId = description.getConceptId();
 					if (conceptIdMap != null) {
@@ -349,16 +346,16 @@ public class DescriptionService extends ComponentService {
 
 		List<Long> activeConcepts = new LongArrayList();
 
-		try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.ACTIVE, true)))
-				.withStoredFields(Concept.Fields.CONCEPT_ID)
-				.withPageable(LARGE_PAGE).build(), Concept.class, new ConceptToConceptIdMapper(activeConcepts))) {
-			stream.forEachRemaining(concept -> {});
+				.withSourceFilter(new FetchSourceFilter(new String[] {Concept.Fields.CONCEPT_ID}, new String[] {}))
+				.withPageable(LARGE_PAGE).build(), Concept.class)) {
+			stream.forEachRemaining(hit -> activeConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
 
-		AggregatedPage<Description> page = (AggregatedPage<Description>) elasticsearchTemplate.queryForPage(new NativeSearchQueryBuilder()
+		SearchHits<Description> page = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery(Description.Fields.ACTIVE, true))
@@ -369,12 +366,13 @@ public class DescriptionService extends ComponentService {
 				.build(), Description.class);
 
 		Map<String, Long> tagCounts = new TreeMap<>();
-		ParsedStringTerms semanticTags = (ParsedStringTerms) page.getAggregation("semanticTags");
-		List<? extends Terms.Bucket> buckets = semanticTags.getBuckets();
-		for (Terms.Bucket bucket : buckets) {
-			tagCounts.put(bucket.getKeyAsString(), bucket.getDocCount());
+		if (page.hasAggregations()) {
+			ParsedStringTerms semanticTags = page.getAggregations().get("semanticTags");
+			List<? extends Terms.Bucket> buckets = semanticTags.getBuckets();
+			for (Terms.Bucket bucket : buckets) {
+				tagCounts.put(bucket.getKeyAsString(), bucket.getDocCount());
+			}
 		}
-
 		// Cache result
 		semanticTagAggregationCache.put(branch, new SemanticTagCacheEntry(branchObject.getHead().getTime(), tagCounts));
 
@@ -398,8 +396,9 @@ public class DescriptionService extends ComponentService {
 					.must(termsQuery("referencedComponentId", componentIdsSegment)))
 					.withPageable(LARGE_PAGE);
 			// Join Members
-			try (final CloseableIterator<ReferenceSetMember> members = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
-				members.forEachRemaining(member -> {
+			try (final SearchHitsIterator<ReferenceSetMember> members = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
+				members.forEachRemaining(hit -> {
+					ReferenceSetMember member = hit.getContent();
 					String referencedComponentId = member.getReferencedComponentId();
 					switch (member.getRefsetId()) {
 						case Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET:
@@ -446,8 +445,9 @@ public class DescriptionService extends ComponentService {
 					.must(termsQuery("conceptId", conceptIds)))
 					.withPageable(LARGE_PAGE);
 			// Join Lang Refset Members
-			try (final CloseableIterator<ReferenceSetMember> langRefsetMembers = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
-				langRefsetMembers.forEachRemaining(langRefsetMember -> {
+			try (final SearchHitsIterator<ReferenceSetMember> langRefsetMembers = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
+				langRefsetMembers.forEachRemaining(hit -> {
+					ReferenceSetMember langRefsetMember = hit.getContent();
 					Description description = descriptionIdMap.get(langRefsetMember.getReferencedComponentId());
 					if (description != null) {
 						description.addLanguageRefsetMember(langRefsetMember);
@@ -466,8 +466,9 @@ public class DescriptionService extends ComponentService {
 				.withPageable(LARGE_PAGE)
 				.build();
 		Map<String, Description> descriptionIdMap = new HashMap<>();
-		try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(searchQuery, Description.class)) {
-			stream.forEachRemaining(description -> {
+		try (SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(searchQuery, Description.class)) {
+			stream.forEachRemaining(hit -> {
+				Description description = hit.getContent();
 				conceptMiniMap.get(description.getConceptId()).addActiveDescription(description);
 				descriptionIdMap.put(description.getId(), description);
 			});
@@ -498,13 +499,12 @@ public class DescriptionService extends ComponentService {
 		}
 
 		// First pass search to collect all description and concept ids.
-		Map<Long, Long> descriptionToConceptMap = new Long2ObjectLinkedOpenHashMap<>();
-		SearchResultMapper mapper = new DescriptionToConceptIdMapper(descriptionToConceptMap);
+		final Map<Long, Long> descriptionToConceptMap = new Long2ObjectLinkedOpenHashMap<>();
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(descriptionQuery)
-				.withStoredFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID);
+				.withSourceFilter(new FetchSourceFilter(new String[] {Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, new String[]{}));
 
-		long totalElements = elasticsearchTemplate.queryForPage(searchQueryBuilder.withPageable(PAGE_OF_ONE).build(), Description.class).getTotalElements();
+		long totalElements = elasticsearchTemplate.search(searchQueryBuilder.withPageable(PAGE_OF_ONE).build(), Description.class).getTotalHits();
 		if (totalElements > aggregationMaxProcessableResultsSize) {
 			throw new TooCostlyException(String.format("There are over %s results. Aggregating these results would be too costly.", aggregationMaxProcessableResultsSize));
 		}
@@ -512,9 +512,12 @@ public class DescriptionService extends ComponentService {
 
 		NativeSearchQuery searchQuery = searchQueryBuilder.withPageable(LARGE_PAGE).build();
 		addTermSort(searchQuery);
-		try (CloseableIterator<Description> stream = elasticsearchTemplate.stream(
-				searchQuery, Description.class, mapper)) {
-			stream.forEachRemaining(hit -> {});
+		try (SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(
+				searchQuery, Description.class)) {
+			stream.forEachRemaining(hit -> {
+				Description description = hit.getContent();
+				descriptionToConceptMap.put(parseLong(description.getDescriptionId()), parseLong(description.getConceptId()));
+			});
 		}
 		timer.checkpoint("Collect all description and concept ids");
 
@@ -522,6 +525,7 @@ public class DescriptionService extends ComponentService {
 		Set<Long> preferredIn = criteria.getPreferredIn();
 		Set<Long> acceptableIn = criteria.getAcceptableIn();
 		Set<Long> preferredOrAcceptableIn = criteria.getPreferredOrAcceptableIn();
+		Set<Long> conceptIds;
 		if (!CollectionUtils.isEmpty(preferredIn) || !CollectionUtils.isEmpty(acceptableIn) || !CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
 
 			BoolQueryBuilder queryBuilder = boolQuery()
@@ -547,13 +551,12 @@ public class DescriptionService extends ComponentService {
 			NativeSearchQuery nativeSearchQuery = new NativeSearchQueryBuilder()
 					.withQuery(queryBuilder)
 					.withFilter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, descriptionToConceptMap.keySet()))
-					.withStoredFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+					.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, new String[]{}))
 					.withPageable(LARGE_PAGE)
 					.build();
 			Set<Long> filteredDescriptionIds = new LongOpenHashSet();
-			try (CloseableIterator<ReferenceSetMember> stream =
-						 elasticsearchTemplate.stream(nativeSearchQuery, ReferenceSetMember.class, new RefsetMemberToReferenceComponentIdMapper(filteredDescriptionIds))) {
-				stream.forEachRemaining(hit -> {});
+			try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(nativeSearchQuery, ReferenceSetMember.class)) {
+				stream.forEachRemaining(hit -> filteredDescriptionIds.add(parseLong(hit.getContent().getReferencedComponentId())));
 			}
 
 			// Create new map of descriptions and concepts, keeping the original description order.
@@ -563,19 +566,19 @@ public class DescriptionService extends ComponentService {
 					filteredDescriptionToConceptMap.put(descriptionId, descriptionToConceptMap.get(descriptionId));
 				}
 			}
-			descriptionToConceptMap = filteredDescriptionToConceptMap;
+			descriptionToConceptMap.clear();
+			descriptionToConceptMap.putAll(filteredDescriptionToConceptMap);
 			timer.checkpoint("Language refset filtering");
 		}
 
 		// Get unique set of concept ids keeping the order that the descriptions were found.
-		Set<Long> conceptIds = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
-
+		conceptIds = new LongLinkedOpenHashSet(descriptionToConceptMap.values());
 		if (!conceptIds.isEmpty()) {
 
 			// Apply concept active filter
 			if (criteria.getConceptActive() != null) {
 				List<Long> filteredConceptIds = new LongArrayList();
-				try (CloseableIterator<Concept> stream = elasticsearchTemplate.stream(
+				try (SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(
 						new NativeSearchQueryBuilder()
 								.withQuery(boolQuery()
 										.must(termQuery(Concept.Fields.ACTIVE, criteria.getConceptActive()))
@@ -583,11 +586,10 @@ public class DescriptionService extends ComponentService {
 										.filter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
 								)
 								.withSort(SortBuilders.fieldSort("_doc"))
-								.withStoredFields(Concept.Fields.CONCEPT_ID)
+								.withSourceFilter(new FetchSourceFilter(new String[] {Concept.Fields.CONCEPT_ID}, new String[]{}))
 								.withPageable(LARGE_PAGE)
-								.build(), Concept.class, new ConceptToConceptIdMapper(filteredConceptIds))) {
-					stream.forEachRemaining(hit -> {
-					});
+								.build(), Concept.class)) {
+					stream.forEachRemaining(hit -> filteredConceptIds.add(hit.getContent().getConceptIdAsLong()));
 				}
 				conceptIds = filterOrderedSet(conceptIds, filteredConceptIds);
 				timer.checkpoint("Concept active filtering");
@@ -596,7 +598,7 @@ public class DescriptionService extends ComponentService {
 			// Apply refset filter
 			if (!Strings.isNullOrEmpty(criteria.getConceptRefset())) {
 				List<Long> filteredConceptIds = new LongArrayList();
-				try (CloseableIterator<ReferenceSetMember> stream = elasticsearchTemplate.stream(
+				try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(
 						new NativeSearchQueryBuilder()
 								.withQuery(boolQuery()
 										.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, criteria.getConceptRefset()))
@@ -604,11 +606,10 @@ public class DescriptionService extends ComponentService {
 										.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
 								)
 								.withSort(SortBuilders.fieldSort("_doc"))
-								.withStoredFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+								.withSourceFilter(new FetchSourceFilter(new String[] {ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, new String[] {}))
 								.withPageable(LARGE_PAGE)
-								.build(), ReferenceSetMember.class, new RefsetMemberToReferenceComponentIdMapper(filteredConceptIds))) {
-					stream.forEachRemaining(hit -> {
-					});
+								.build(), ReferenceSetMember.class)) {
+					stream.forEachRemaining(hit -> filteredConceptIds.add(parseLong(hit.getContent().getReferencedComponentId())));
 				}
 				conceptIds = filterOrderedSet(conceptIds, filteredConceptIds);
 				timer.checkpoint("Concept refset filtering");

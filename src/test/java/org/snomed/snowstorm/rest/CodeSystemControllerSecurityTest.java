@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.rest;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.rest.pojo.CodeSystemMigrationRequest;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpgradeRequest;
@@ -12,10 +12,10 @@ import org.springframework.http.RequestEntity;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-public class CodeSystemControllerSecurityTest extends AbstractControllerSecurityTest {
+class CodeSystemControllerSecurityTest extends AbstractControllerSecurityTest {
 
 	@Test
-	public void createCodeSystem() throws URISyntaxException {
+	void createCodeSystem() throws URISyntaxException {
 		RequestEntity<Object> request = new RequestEntity<>(extensionBCodeSystem, HttpMethod.POST, new URI(url + "/codesystems"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, request);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, request);
@@ -24,7 +24,7 @@ public class CodeSystemControllerSecurityTest extends AbstractControllerSecurity
 	}
 
 	@Test
-	public void findAll() throws URISyntaxException {
+	void findAll() throws URISyntaxException {
 		RequestEntity<Object> request = new RequestEntity<>(HttpMethod.GET, new URI(url + "/codesystems"));
 		testStatusCode(HttpStatus.OK, userWithoutRoleHeaders, request);
 		testStatusCode(HttpStatus.OK, authorHeaders, request);
@@ -33,7 +33,7 @@ public class CodeSystemControllerSecurityTest extends AbstractControllerSecurity
 	}
 
 	@Test
-	public void updateCodeSystem() throws URISyntaxException {
+	void updateCodeSystem() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(new CodeSystemUpdateRequest("International"), HttpMethod.PUT, new URI(url + "/codesystems/" + "SNOMEDCT"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -48,7 +48,7 @@ public class CodeSystemControllerSecurityTest extends AbstractControllerSecurity
 	}
 
 	@Test
-	public void deleteCodeSystem() throws URISyntaxException {
+	void deleteCodeSystem() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.DELETE, new URI(url + "/codesystems/" + "SNOMEDCT"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -63,7 +63,7 @@ public class CodeSystemControllerSecurityTest extends AbstractControllerSecurity
 	}
 
 	@Test
-	public void findAllVersions() throws URISyntaxException {
+	void findAllVersions() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.GET, new URI(url + "/codesystems/" + "SNOMEDCT" + "/versions"));
 		testStatusCode(HttpStatus.OK, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.OK, authorHeaders, requestMAIN);
@@ -78,7 +78,7 @@ public class CodeSystemControllerSecurityTest extends AbstractControllerSecurity
 	}
 
 	@Test
-	public void createVersion() throws URISyntaxException {
+	void createVersion() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(new CreateCodeSystemVersionRequest(20210131, "Jan 20201"), HttpMethod.POST, new URI(url + "/codesystems/" + "SNOMEDCT" + "/versions"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -93,7 +93,7 @@ public class CodeSystemControllerSecurityTest extends AbstractControllerSecurity
 	}
 
 	@Test
-	public void upgradeCodeSystem() throws URISyntaxException {
+	void upgradeCodeSystem() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(new CodeSystemUpgradeRequest(20250101), HttpMethod.POST, new URI(url + "/codesystems/" + "SNOMEDCT" + "/upgrade"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -108,7 +108,7 @@ public class CodeSystemControllerSecurityTest extends AbstractControllerSecurity
 	}
 
 	@Test
-	public void migrateCodeSystem() throws URISyntaxException {
+	void migrateCodeSystem() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(new CodeSystemMigrationRequest(), HttpMethod.POST, new URI(url + "/codesystems/" + "SNOMEDCT" + "/migrate"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -123,7 +123,7 @@ public class CodeSystemControllerSecurityTest extends AbstractControllerSecurity
 	}
 
 	@Test
-	public void rollbackDailyBuildContent() throws URISyntaxException {
+	void rollbackDailyBuildContent() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/codesystems/" + "SNOMEDCT" + "/daily-build/rollback"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -138,7 +138,7 @@ public class CodeSystemControllerSecurityTest extends AbstractControllerSecurity
 	}
 
 	@Test
-	public void generateAdditionalLanguageRefsetDelta() throws URISyntaxException {
+	void generateAdditionalLanguageRefsetDelta() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/codesystems/" + "SNOMEDCT" + "/additional-en-language-refset-delta?branchPath=MAIN"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);

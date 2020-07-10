@@ -31,7 +31,8 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.aggregation.AggregatedPage;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.util.Pair;
@@ -173,11 +174,13 @@ public class CodeSystemService {
 	}
 
 	public Optional<CodeSystem> findByBranchPath(String branchPath) {
-		List<CodeSystem> codeSystems = elasticsearchOperations.queryForList(
+		List<CodeSystem> codeSystems = elasticsearchOperations.search(
 				new NativeSearchQueryBuilder()
 						.withQuery(boolQuery().must(termsQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)))
-						.build(),
-				CodeSystem.class);
+						.build(), CodeSystem.class)
+				.stream()
+				.map(SearchHit::getContent)
+				.collect(Collectors.toList());
 
 		return codeSystems.isEmpty() ? Optional.empty() : Optional.of(codeSystems.get(0));
 	}
@@ -238,7 +241,8 @@ public class CodeSystemService {
 	}
 
 	public synchronized void createVersionIfCodeSystemFoundOnPath(String branchPath, Integer releaseDate) {
-		List<CodeSystem> codeSystems = elasticsearchOperations.queryForList(new NativeSearchQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)), CodeSystem.class);
+		List<CodeSystem> codeSystems = elasticsearchOperations.search(new NativeSearchQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)), CodeSystem.class)
+				.get().map(SearchHit::getContent).collect(Collectors.toList());
 		if (!codeSystems.isEmpty()) {
 			CodeSystem codeSystem = codeSystems.get(0);
 			createVersion(codeSystem, releaseDate, format("%s %s import.", codeSystem.getShortName(), releaseDate));
@@ -306,16 +310,16 @@ public class CodeSystemService {
 		List<String> acceptableLanguageCodes = new ArrayList<>(DEFAULT_LANGUAGE_CODES);
 
 		// Add list of languages using Description aggregation
-		AggregatedPage<Description> descriptionPage = (AggregatedPage<Description>) elasticsearchOperations.queryForPage(new NativeSearchQueryBuilder()
+		SearchHits<Description> descriptionSearch = elasticsearchOperations.search(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Description.class))
 						.must(termQuery(Description.Fields.ACTIVE, true)))
 				.withPageable(PageRequest.of(0, 1))
 				.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
 				.build(), Description.class);
-		if (descriptionPage.hasContent()) {
+		if (descriptionSearch.hasAggregations()) {
 			// Collect other languages for concept mini lookup
-			List<? extends Terms.Bucket> language = ((ParsedStringTerms) descriptionPage.getAggregation("language")).getBuckets();
+			List<? extends Terms.Bucket> language = ((ParsedStringTerms) descriptionSearch.getAggregations().get("language")).getBuckets();
 			List<String> languageCodesSorted = language.stream()
 					// sort by number of active descriptions in each language
 					.sorted(Comparator.comparing(MultiBucketsAggregation.Bucket::getDocCount).reversed())
@@ -343,15 +347,15 @@ public class CodeSystemService {
 		}
 
 		// Add list of modules using refset member aggregation
-		AggregatedPage<ReferenceSetMember> memberPage = (AggregatedPage<ReferenceSetMember>) elasticsearchOperations.queryForPage(new NativeSearchQueryBuilder()
+		SearchHits<ReferenceSetMember> memberPage = elasticsearchOperations.search(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true)))
 				.withPageable(PageRequest.of(0, 1))
 				.addAggregation(AggregationBuilders.terms("module").field(ReferenceSetMember.Fields.MODULE_ID))
 				.build(), ReferenceSetMember.class);
-		if (memberPage.hasContent()) {
-			Map<String, Long> modulesOfActiveMembers = PageWithBucketAggregationsFactory.createPage(memberPage, memberPage.getAggregations().asList())
+		if (memberPage.hasAggregations()) {
+			Map<String, Long> modulesOfActiveMembers = PageWithBucketAggregationsFactory.createPage(memberPage, PageRequest.of(0, 1))
 					.getBuckets().get("module");
 			List<LanguageDialect> languageDialects = acceptableLanguageCodes.stream().map(LanguageDialect::new).collect(Collectors.toList());
 			codeSystem.setModules(conceptService.findConceptMinis(branchCriteria, modulesOfActiveMembers.keySet(), languageDialects).getResultsMap().values());
@@ -494,8 +498,9 @@ public class CodeSystemService {
 	}
 
 	CodeSystem findOneByBranchPath(String path) {
-		List<CodeSystem> results = elasticsearchOperations.queryForList(
-				new NativeSearchQueryBuilder().withQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, path)).build(), CodeSystem.class);
+		List<CodeSystem> results = elasticsearchOperations.search(
+				new NativeSearchQueryBuilder().withQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, path)).build(), CodeSystem.class)
+				.get().map(SearchHit::getContent).collect(Collectors.toList());
 		return results.isEmpty() ? null : results.get(0);
 	}
 
