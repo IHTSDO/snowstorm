@@ -22,11 +22,17 @@ See [Security Configuration Guide](docs/security-configuration.md).
 - Add optional code system `maintainerType` field to aid extension categorisation and filtering in UIs.
 - Add code system listing `forBranch` parameter which allows code system lookup using any ancestor branch.
 
+#### FHIR API Improvements
+- [FHIR documentation](docs/using-the-fhir-api.md) split into individual markdown files for each resource and operation
+- The ValueSet $expand operation will now return an error if a request is made using the 'version' parameter.  This parameter is not supported by this operation and the error message will direct the user to use 'system-version' or 'force-system-version' instead.
+
 ### Fixes
 - Authentication session memory leak fixed from previous RBAC solution.
 - Fix for release-fix-branch promotion function when deletions are the only change. 
 - Allow batch job status to be access immediately after creation.
 
+#### FHIR API Fixes
+- The ConceptMap $translate operation now correctly determines which on which branch to look up the specific map, based on an (optional) full URI in the url parameter.
 
 ## 4.11.0 Release - Extension Authoring Upgrade Automations and UI Support
 
@@ -47,12 +53,19 @@ See "Upgrading to a new International Release" in [Extension Authoring](docs/ext
 - Allow concept bulk fetch by descriptionId.
 - Allow versioned concepts to be deleted using the `force` flag.
 
+#### FHIR API Improvements
+- CodeSystem $lookup operation now supports 'property=*' to indicate that all known properties should be returned.
+- When ValueSet $validate-code operation is called specifying a refset that either does not exist or contains no active members, an enhanced error message will now alert the user to this situation.
+- ConceptMap $translate now allows inactivation indicators to be recovered.
+
 ### Fixes
 - Allow batch job status to be access immediately after creation.
 - Fix concept search when filtering by single conceptId.
 - Prevent duplicate semantic index entries by adding hashcode and equals methods.
 - Update UK extension module to `83821000000107`, thanks @lawley.
 
+#### FHIR API Fixes
+- Fix for Null Pointer Exception when source or target is omitted in a ConceptMap $translate operation
 
 ## 4.10.2 Release - 2020-05-27
 
