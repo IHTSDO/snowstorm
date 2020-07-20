@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## 4.12.1 Release - 2020-16-08 - Role Based Access Control
+## 4.12.1 Release - 2020-16-07 - Role Based Access Control
 
 Role based access control has been applied to the API to restrict which users can perform administration and authoring functions when not in read-only mode.  
 See [Security Configuration Guide](docs/security-configuration.md).
