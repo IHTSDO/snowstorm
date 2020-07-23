@@ -220,16 +220,10 @@ public class BranchController {
 			throw new IllegalArgumentException("The parent of an extension main branch must be MAIN but is " + PathUtil.getParentPath(extensionMainBranch.getPath()));
 		}
 		// check task is a descendant of extension main
-		if (!isDescendant(branch, extensionMainBranch.getPath())) {
+		if (!branch.getPath().startsWith(extensionMainBranchPath)) {
 			throw new IllegalArgumentException(String.format("Branch %s is not a descendant of %s", branch.getPath(), extensionMainBranchPath));
 		}
 		return integrityService.findChangedComponentsWithBadIntegrity(branch, extensionMainBranchPath);
-	}
-
-	private boolean isDescendant(Branch branch, String extensionMainBranchPath) {
-		List<Branch> childrenBranches = clearMetadata(branchMergeService.findChildBranches(extensionMainBranchPath, false, PageRequest.of(0, 200)));
-		List<String> branchPaths = childrenBranches.stream().map(Branch::getPath).collect(Collectors.toList());
-		return branchPaths.contains(branch.getPath());
 	}
 
 	@RequestMapping(value = "/{branch}/integrity-check-full", method = RequestMethod.POST)
