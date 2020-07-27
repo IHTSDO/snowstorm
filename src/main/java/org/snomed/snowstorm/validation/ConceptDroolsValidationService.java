@@ -134,6 +134,22 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 		return idPage.getContent().stream().map(Object::toString).collect(Collectors.toSet());
 	}
 
+	@Override
+	public Set <String> findConceptsHavingMultipleTopHierarchies(String... strings) {
+		if (strings == null) {
+			return Collections.emptySet();
+		}
+		StringBuilder eclBuilder = new StringBuilder();
+		for (int i = 0; i < strings.length; i++) {
+			if (i != 0) {
+				eclBuilder.append(" AND ");
+			}
+			eclBuilder.append("<<").append(strings[i]);
+		}
+		Page<Long> idPage = queryService.searchForIds(queryService.createQueryBuilder(true).ecl(eclBuilder.toString()).activeFilter(true), branchPath, LARGE_PAGE);
+		return idPage.getContent().stream().map(Object::toString).collect(Collectors.toSet());
+	}
+
 	private Set<String> getStatedParents(org.ihtsdo.drools.domain.Concept concept) {
 		return concept.getRelationships().stream()
 				.filter(r -> r.isActive() &&
