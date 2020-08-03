@@ -559,6 +559,8 @@ public class AdminOperationsService {
 
 		branchRepository.saveAll(Lists.newArrayList(codeSystemVersionCommit, promotionCommit, revertCommit, releaseFixBranch, releaseBranchPromotionCommit));
 		logger.info("All content promoted and commits made. Fix promotion complete.");
+
+		codeSystemService.clearCache();
 	}
 
 	public void cloneChildBranch(String sourceBranchPath, String destinationBranchPath) {
