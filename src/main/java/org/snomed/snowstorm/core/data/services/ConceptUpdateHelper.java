@@ -242,10 +242,10 @@ public class ConceptUpdateHelper extends ComponentService {
 
 		// Apply default module to changed components
 		if (defaultModuleId != null) {
-			concepts.stream().filter(DomainEntity::isChanged).forEach(e -> e.setModuleId(defaultModuleId));
-			descriptionsToPersist.stream().filter(DomainEntity::isChanged).forEach(e -> e.setModuleId(defaultModuleId));
-			relationshipsToPersist.stream().filter(DomainEntity::isChanged).forEach(e -> e.setModuleId(defaultModuleId));
-			refsetMembersToPersist.stream().filter(DomainEntity::isChanged).forEach(e -> e.setModuleId(defaultModuleId));
+			applyDefaultModule(concepts, defaultModuleId);
+			applyDefaultModule(descriptionsToPersist, defaultModuleId);
+			applyDefaultModule(relationshipsToPersist, defaultModuleId);
+			applyDefaultModule(refsetMembersToPersist, defaultModuleId);
 		}
 
 		// TODO: Try saving all core component types at once - Elasticsearch likes multi-threaded writes.
@@ -260,6 +260,15 @@ public class ConceptUpdateHelper extends ComponentService {
 		identifierService.persistAssignedIdsForRegistration(reservedIds);
 
 		return new PersistedComponents(concepts, descriptionsToPersist, relationshipsToPersist, refsetMembersToPersist);
+	}
+
+	private <T extends SnomedComponent<?>> void applyDefaultModule(Collection<T> components, String defaultModuleId) {
+		for (T component : components) {
+			if (component.getEffectiveTime() == null) {
+				component.setModuleId(defaultModuleId);
+				component.updateEffectiveTime();
+			}
+		}
 	}
 
 	private void validateConcepts(Collection<Concept> concepts) {
