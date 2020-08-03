@@ -61,12 +61,6 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
-	private String moduleId;
-
-	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword)
-	@NotNull
-	@Size(min = 5, max = 18)
 	private String refsetId;
 
 	@JsonView(value = View.Component.class)
@@ -88,7 +82,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	private ConceptMini referencedComponent;
 
 	public ReferenceSetMember() {
-		moduleId = Concepts.CORE_MODULE;
+		setModuleId(Concepts.CORE_MODULE);
 		additionalFields = new HashMap<>();
 	}
 
@@ -98,7 +92,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		this.memberId = memberId;
 		setEffectiveTimeI(effectiveTime);
 		this.active = active;
-		this.moduleId = moduleId;
+		setModuleId(moduleId);
 		this.refsetId = refsetId;
 		this.referencedComponentId = referencedComponentId;
 	}
@@ -116,7 +110,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	public boolean isComponentChanged(ReferenceSetMember that) {
 		return that == null
 				|| active != that.isActive()
-				|| !moduleId.equals(that.getModuleId())
+				|| !getModuleId().equals(that.getModuleId())
 				|| !additionalFields.equals(that.getAdditionalFields());
 	}
 
@@ -124,7 +118,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	protected Object[] getReleaseHashObjects() {
 		Object[] hashObjects = new Object[2 + (additionalFields.size() * 2)];
 		hashObjects[0] = active;
-		hashObjects[1] = moduleId;
+		hashObjects[1] = getModuleId();
 		int a = 2;
 		for (String key : new TreeSet<>(additionalFields.keySet())) {
 			hashObjects[a++] = key;
@@ -162,14 +156,6 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 
 	public void setMemberId(String memberId) {
 		this.memberId = memberId;
-	}
-
-	public String getModuleId() {
-		return moduleId;
-	}
-
-	public void setModuleId(String moduleId) {
-		this.moduleId = moduleId;
 	}
 
 	public String getRefsetId() {
@@ -216,7 +202,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 			return true;
 		}
 
-		return Objects.equals(moduleId, that.moduleId) &&
+		return Objects.equals(getModuleId(), that.getModuleId()) &&
 				Objects.equals(refsetId, that.refsetId) &&
 				Objects.equals(referencedComponentId, that.referencedComponentId) &&
 				Objects.equals(conceptId, that.conceptId) &&
@@ -228,7 +214,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		if (memberId != null) {
 			return memberId.hashCode();
 		}
-		return Objects.hash(memberId, moduleId, refsetId, referencedComponentId, conceptId, additionalFields);
+		return Objects.hash(memberId, getModuleId(), refsetId, referencedComponentId, conceptId, additionalFields);
 	}
 
 	@Override
@@ -237,7 +223,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 				"memberId='" + memberId + '\'' +
 				", effectiveTime='" + getEffectiveTimeI() + '\'' +
 				", active=" + active +
-				", moduleId='" + moduleId + '\'' +
+				", moduleId='" + getModuleId() + '\'' +
 				", refsetId='" + refsetId + '\'' +
 				", referencedComponentId='" + referencedComponentId + '\'' +
 				", additionalFields='" + additionalFields + '\'' +
