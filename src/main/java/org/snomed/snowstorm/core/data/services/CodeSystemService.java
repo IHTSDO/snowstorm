@@ -109,6 +109,10 @@ public class CodeSystemService {
 		}
 	}
 
+	public void clearCache() {
+		contentInformationCache.clear();
+	}
+
 	public boolean codeSystemExistsOnBranch(String branchPath) {
 		return findOneByBranchPath(branchPath) != null;
 	}

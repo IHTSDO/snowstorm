@@ -172,4 +172,11 @@ public class CodeSystemController {
 		}
 		extensionAdditionalLanguageRefsetUpgradeService.generateAdditionalLanguageRefsetDelta(codeSystem, BranchPathUriUtil.decodePath(branchPath), languageRefsetToCopyFrom, completeCopy);
 	}
+
+	@ApiOperation("Clear cache of code system calculated/aggregated information.")
+	@RequestMapping(value = "/clear-cache", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
+	public void clearCodeSystemInformationCache() {
+		codeSystemService.clearCache();
+	}
 }
