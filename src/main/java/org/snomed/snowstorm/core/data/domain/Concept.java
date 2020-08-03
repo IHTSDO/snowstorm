@@ -28,7 +28,6 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public interface Fields extends SnomedComponent.Fields {
 		String CONCEPT_ID = "conceptId";
-		String MODULE_ID = "moduleId";
 		String DEFINITION_STATUS_ID = "definitionStatusId";
 	}
 
@@ -54,12 +53,6 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	// Populated when requesting an update
 	@Transient
 	private Map<String, Set<String>> associationTargetStrings;
-
-	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.Keyword)
-	@NotNull
-	@Size(min = 5, max = 18)
-	private String moduleId;
 
 	@Field(type = FieldType.Keyword)
 	@NotNull
@@ -89,7 +82,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public Concept() {
 		active = true;
-		moduleId = Concepts.CORE_MODULE;
+		setModuleId(Concepts.CORE_MODULE);
 		definitionStatusId = Concepts.PRIMITIVE;
 		descriptions = new HashSet<>();
 		relationships = new HashSet<>();
@@ -106,7 +99,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	public Concept(String conceptId, String moduleId) {
 		this();
 		this.conceptId = conceptId;
-		this.moduleId = moduleId;
+		setModuleId(moduleId);
 	}
 
 	public Concept(String conceptId, Integer effectiveTime, boolean active, String moduleId, String definitionStatusId) {
@@ -114,7 +107,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		this.conceptId = conceptId;
 		setEffectiveTimeI(effectiveTime);
 		this.active = active;
-		this.moduleId = moduleId;
+		setModuleId(moduleId);
 		this.definitionStatusId = definitionStatusId;
 	}
 
@@ -127,7 +120,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	public boolean isComponentChanged(Concept that) {
 		return that == null
 				|| active != that.active
-				|| !moduleId.equals(that.moduleId)
+				|| !getModuleId().equals(that.getModuleId())
 				|| !definitionStatusId.equals(that.definitionStatusId);
 	}
 
@@ -137,7 +130,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	@Override
 	protected Object[] getReleaseHashObjects() {
-		return new Object[]{active, moduleId, definitionStatusId};
+		return new Object[]{active, getModuleId(), definitionStatusId};
 	}
 
 	@JsonView(value = View.Component.class)
@@ -240,7 +233,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	public Concept addAxiom(Relationship... axiomFragments) {
-		Axiom axiom = new Axiom(moduleId, true, Concepts.PRIMITIVE, Sets.newHashSet(axiomFragments));
+		Axiom axiom = new Axiom(getModuleId(), true, Concepts.PRIMITIVE, Sets.newHashSet(axiomFragments));
 		axiom.getRelationships().forEach(r -> r.setSourceId(this.conceptId));
 		classAxioms.add(axiom);
 		return this;
@@ -253,7 +246,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	public Concept addGeneralConceptInclusionAxiom(Relationship... axiomFragments) {
-		Axiom axiom = new Axiom(moduleId, true, Concepts.PRIMITIVE, Sets.newHashSet(axiomFragments));
+		Axiom axiom = new Axiom(getModuleId(), true, Concepts.PRIMITIVE, Sets.newHashSet(axiomFragments));
 		axiom.getRelationships().forEach(r -> r.setSourceId(this.conceptId));
 		generalConceptInclusionAxioms.add(axiom);
 		return this;
@@ -339,16 +332,6 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	@Override
-	public String getModuleId() {
-		return moduleId;
-	}
-
-	public Concept setModuleId(String moduleId) {
-		this.moduleId = moduleId;
-		return this;
-	}
-
-	@Override
 	public String getDefinitionStatusId() {
 		return definitionStatusId;
 	}
@@ -419,13 +402,13 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 			return Objects.equals(conceptId, concept.conceptId);
 		}
 
-		return Objects.equals(moduleId, concept.moduleId) &&
+		return Objects.equals(getModuleId(), concept.getModuleId()) &&
 				Objects.equals(definitionStatusId, concept.definitionStatusId);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(conceptId, moduleId, definitionStatusId);
+		return Objects.hash(conceptId, getModuleId(), definitionStatusId);
 	}
 
 	@Override
@@ -434,7 +417,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 				"conceptId='" + conceptId + '\'' +
 				", effectiveTime='" + getEffectiveTimeI() + '\'' +
 				", active=" + active +
-				", moduleId='" + moduleId + '\'' +
+				", moduleId='" + getModuleId() + '\'' +
 				", definitionStatusId='" + definitionStatusId + '\'' +
 				", internalId='" + getInternalId() + '\'' +
 				", start='" + getStartDebugFormat() + '\'' +
