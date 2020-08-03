@@ -50,12 +50,6 @@ public class Relationship extends SnomedComponent<Relationship> {
 	private String relationshipId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword)
-	@NotNull
-	@Size(min = 5, max = 18)
-	private String moduleId;
-
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.keyword, store = true)
 	private String sourceId;
 
@@ -98,7 +92,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public Relationship() {
 		active = true;
-		moduleId = Concepts.CORE_MODULE;
+		setModuleId(Concepts.CORE_MODULE);
 		destinationId = "";
 		typeId = "";
 		characteristicTypeId = Concepts.STATED_RELATIONSHIP;
@@ -127,7 +121,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.relationshipId = id;
 		setEffectiveTimeI(effectiveTime);
 		this.active = active;
-		this.moduleId = moduleId;
+		setModuleId(moduleId);
 		this.sourceId = sourceId;
 		this.destinationId = destinationId;
 		this.relationshipGroup = relationshipGroup;
@@ -145,7 +139,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 	public boolean isComponentChanged(Relationship that) {
 		return that == null
 				|| active != that.active
-				|| !moduleId.equals(that.moduleId)
+				|| !getModuleId().equals(that.getModuleId())
 				|| !destinationId.equals(that.destinationId)
 				|| relationshipGroup != that.relationshipGroup
 				|| !typeId.equals(that.typeId)
@@ -159,7 +153,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	@Override
 	protected Object[] getReleaseHashObjects() {
-		return new Object[] {active, moduleId, destinationId, relationshipGroup, typeId, characteristicTypeId, modifierId};
+		return new Object[] {active, getModuleId(), destinationId, relationshipGroup, typeId, characteristicTypeId, modifierId};
 	}
 
 	public ConceptMini getSource() {
@@ -267,15 +261,6 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.relationshipId = relationshipId;
 	}
 
-	public String getModuleId() {
-		return moduleId;
-	}
-
-	public Relationship setModuleId(String moduleId) {
-		this.moduleId = moduleId;
-		return this;
-	}
-
 	public String getSourceId() {
 		return sourceId;
 	}
@@ -378,7 +363,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 				"relationshipId='" + relationshipId + '\'' +
 				", effectiveTime='" + getEffectiveTimeI() + '\'' +
 				", active=" + active +
-				", moduleId='" + moduleId + '\'' +
+				", moduleId='" + getModuleId() + '\'' +
 				", sourceId='" + sourceId + '\'' +
 				", destinationId='" + destinationId + '\'' +
 				", relationshipGroup='" + relationshipGroup + '\'' +

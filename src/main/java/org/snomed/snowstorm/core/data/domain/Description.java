@@ -55,12 +55,6 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	@Field(type = FieldType.keyword, store = true)
 	private String conceptId;
 
-	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword)
-	@NotNull
-	@Size(min = 5, max = 18)
-	private String moduleId;
-
 	@Field(type = FieldType.keyword)
 	@NotNull
 	@Size(min = 2, max = 2)
@@ -103,7 +97,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	public Description() {
 		active = true;
 		term = "";
-		moduleId = Concepts.CORE_MODULE;
+		setModuleId(Concepts.CORE_MODULE);
 		languageCode = "en";
 		typeId = Concepts.SYNONYM;
 		caseSignificanceId = Concepts.CASE_INSENSITIVE;
@@ -127,7 +121,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		this.descriptionId = id;
 		setEffectiveTimeI(effectiveTime);
 		this.active = active;
-		this.moduleId = moduleId;
+		setModuleId(moduleId);
 		this.conceptId = conceptId;
 		this.languageCode = languageCode;
 		this.typeId = typeId;
@@ -145,7 +139,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return that == null
 				|| active != that.active
 				|| !term.equals(that.term)
-				|| !moduleId.equals(that.moduleId)
+				|| !getModuleId().equals(that.getModuleId())
 				|| !languageCode.equals(that.languageCode)
 				|| !typeId.equals(that.typeId)
 				|| !caseSignificanceId.equals(that.caseSignificanceId);
@@ -153,7 +147,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	@Override
 	protected Object[] getReleaseHashObjects() {
-		return new Object[] {active, term, moduleId, languageCode, typeId, caseSignificanceId};
+		return new Object[] {active, term, getModuleId(), languageCode, typeId, caseSignificanceId};
 	}
 
 	@JsonView(value = View.Component.class)
@@ -202,7 +196,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	}
 
 	public Description addLanguageRefsetMember(String refsetId, String acceptability) {
-		final ReferenceSetMember member = new ReferenceSetMember(moduleId, refsetId, descriptionId);
+		final ReferenceSetMember member = new ReferenceSetMember(getModuleId(), refsetId, descriptionId);
 		member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, acceptability);
 		final ReferenceSetMember previousMember = langRefsetMembers.put(member.getRefsetId(), member);
 		if (previousMember != null) {
@@ -383,14 +377,6 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return this;
 	}
 
-	public String getModuleId() {
-		return moduleId;
-	}
-
-	public void setModuleId(String moduleId) {
-		this.moduleId = moduleId;
-	}
-
 	public String getLanguageCode() {
 		return languageCode;
 	}
@@ -454,7 +440,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 				", term='" + term + '\'' +
 				", conceptId='" + conceptId + '\'' +
 				", effectiveTime='" + getEffectiveTimeI() + '\'' +
-				", moduleId='" + moduleId + '\'' +
+				", moduleId='" + getModuleId() + '\'' +
 				", languageCode='" + languageCode + '\'' +
 				", typeId='" + typeId + '\'' +
 				", caseSignificanceId='" + caseSignificanceId + '\'' +
