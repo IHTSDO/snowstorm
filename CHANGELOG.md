@@ -4,7 +4,15 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## 4.12.1 Release - 2020-16-08 - Role Based Access Control
+## 4.13.0 Release - 2020-08-11 - Minor Improvement Release
+
+Minor improvement release before the next major release with Elasticsearch 7 support.
+
+### Improvements
+- Implement #135 - Option to return just concept identifiers in ECL results for ~5x performance improvement for large queries. Use `returnIdOnly` in request to `GET /{branch}/concepts`.
+
+
+## 4.12.1 Release - 2020-07-16 - Role Based Access Control
 
 Role based access control has been applied to the API to restrict which users can perform administration and authoring functions when not in read-only mode.  
 See [Security Configuration Guide](docs/security-configuration.md).
@@ -34,6 +42,7 @@ See [Security Configuration Guide](docs/security-configuration.md).
 
 #### FHIR API Fixes
 - The ConceptMap $translate operation now correctly determines which on which branch to look up the specific map, based on an (optional) full URI in the url parameter.
+
 
 ## 4.11.0 Release - Extension Authoring Upgrade Automations and UI Support
 
@@ -67,6 +76,7 @@ See "Upgrading to a new International Release" in [Extension Authoring](docs/ext
 
 #### FHIR API Fixes
 - Fix for Null Pointer Exception when source or target is omitted in a ConceptMap $translate operation
+
 
 ## 4.10.2 Release - 2020-05-27
 
