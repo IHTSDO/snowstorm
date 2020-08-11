@@ -22,8 +22,8 @@ public class ReleaseNoteHelper {
 	private static final Pattern TICKET_PATTERN = Pattern.compile("([A-Z]+-[0-9]*)[: ].*");
 
 	public static void main(String[] args) {
-		String codeDirectory = "/Users/kai/c/snowstorm";// Yes I hardcoded my local directory. What can I say, this class is just for me :P
 		String startCommit = "-";
+		File codeDirectory = new File(".");// This directory
 		String endCommit = "HEAD";
 		String jiraJSessionId = "-";
 		String jiraApi = "https://jira.ihtsdotools.org/rest/api/latest";
@@ -31,7 +31,7 @@ public class ReleaseNoteHelper {
 
 
 		try {
-			Process process = Runtime.getRuntime().exec("git log " + startCommit + ".." + endCommit, new String[]{}, new File(codeDirectory));
+			Process process = Runtime.getRuntime().exec("git log " + startCommit + ".." + endCommit, new String[]{}, codeDirectory);
 			ExecutorService executorService = Executors.newCachedThreadPool();
 			executorService.submit(new StreamGobbler(process.getErrorStream(), System.err::println));
 			int i = process.waitFor();
