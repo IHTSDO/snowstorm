@@ -15,10 +15,10 @@ public class EquivalentConcepts {
 	@Field
 	private String internalId;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String classificationId;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private Set<String> conceptIds;
 
 	public EquivalentConcepts() {

@@ -1,9 +1,9 @@
 package org.snomed.snowstorm.extension;
 
 import io.kaicode.elasticvc.api.BranchService;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
@@ -21,15 +21,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 
 import static org.junit.Assert.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
+class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 
 	@Autowired
 	private ExtensionAdditionalLanguageRefsetUpgradeService extensionAdditionalLanguageRefsetUpgradeService;
@@ -53,8 +53,8 @@ public class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends Abstrac
 
 	private CodeSystem snomedctNZ;
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	void setUp() throws Exception {
 		snomedct = new CodeSystem("SNOMEDCT", "MAIN");
 		codeSystemService.createCodeSystem(snomedct);
 		ReferenceSetMember enGbLanguageMember = new ReferenceSetMember(null,null, true,
@@ -140,7 +140,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends Abstrac
 	}
 
 	@Test
-	public void testGenerateAdditionalLanguageRefsetsWithCompleteCopy() {
+	void testGenerateAdditionalLanguageRefsetsWithCompleteCopy() {
 		// check extension is upgraded to the dependent release
 		MemberSearchRequest enGbSearchRequest = new MemberSearchRequest();
 		enGbSearchRequest.referenceSet("900000000000508004");
@@ -190,7 +190,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends Abstrac
 
 
 	@Test
-	public void testGenerateAdditionalLanguageRefsetsWithDeltaOnly() {
+	void testGenerateAdditionalLanguageRefsetsWithDeltaOnly() {
 		// check extension is upgraded to the dependent release
 		MemberSearchRequest enGbSearchRequest = new MemberSearchRequest();
 		enGbSearchRequest.referenceSet("900000000000508004");

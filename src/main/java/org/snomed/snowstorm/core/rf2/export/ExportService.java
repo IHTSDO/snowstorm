@@ -22,9 +22,10 @@ import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
@@ -243,10 +244,10 @@ public class ExportService {
 
 			// Stream components into zip
 			try (ExportWriter<T> writer = getExportWriter(componentClass, zipOutputStream, extraFieldNames);
-					CloseableIterator<T> componentStream = elasticsearchTemplate.stream(getNativeSearchQuery(contentQuery), componentClass)) {
+					SearchHitsIterator<T> componentStream = elasticsearchTemplate.searchForStream(getNativeSearchQuery(contentQuery), componentClass)) {
 				writer.setTransientEffectiveTime(transientEffectiveTime);
 				writer.writeHeader();
-				componentStream.forEachRemaining(writer::write);
+				componentStream.forEachRemaining(hit -> writer.write(hit.getContent()));
 				return writer.getContentLinesWritten();
 			} finally {
 				// Close zip entry
@@ -275,11 +276,12 @@ public class ExportService {
 
 	private List<ReferenceSetType> getReferenceSetTypes(QueryBuilder branchCriteria) {
 		BoolQueryBuilder contentQuery = getContentQuery(RF2Type.SNAPSHOT, null, null, branchCriteria);
-		return elasticsearchTemplate.queryForList(new NativeSearchQueryBuilder()
+		return elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 				.withQuery(contentQuery)
 				.withSort(SortBuilders.fieldSort(ReferenceSetType.Fields.NAME))
 				.withPageable(LARGE_PAGE)
-				.build(), ReferenceSetType.class);
+				.build(), ReferenceSetType.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 	}
 
 	private NativeSearchQuery getNativeSearchQuery(BoolQueryBuilder contentQuery) {

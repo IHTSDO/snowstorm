@@ -28,26 +28,26 @@ public class CodeSystem implements CodeSystemCreate {
 	}
 
 	@Id
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	@NotNull
 	private String shortName;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String name;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String countryCode;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String maintainerType;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String defaultLanguageCode;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String[] defaultLanguageReferenceSets;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	@NotNull
 	@Pattern(regexp = "MAIN.*")
 	private String branchPath;

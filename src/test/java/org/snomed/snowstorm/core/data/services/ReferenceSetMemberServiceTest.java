@@ -2,12 +2,11 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Commit;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
@@ -17,17 +16,16 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Arrays;
 
 import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = TestConfig.class)
-public class ReferenceSetMemberServiceTest extends AbstractTest {
+@ExtendWith(SpringExtension.class)
+class ReferenceSetMemberServiceTest extends AbstractTest {
 
 	@Autowired
 	private ReferenceSetMemberService memberService;
@@ -44,8 +42,8 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	private static final String MAIN = "MAIN";
 	private static final PageRequest PAGE = PageRequest.of(0, 10);
 
-	@Before
-	public void setup() throws ServiceException {
+	@BeforeEach
+	void setup() throws ServiceException {
 		conceptService.deleteAll();
 		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), MAIN);
 		conceptService.create(new Concept(Concepts.ISA)
@@ -59,7 +57,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void createFindDeleteMember() {
+	void createFindDeleteMember() {
 		assertEquals(0, memberService.findMembers(MAIN, Concepts.CLINICAL_FINDING, PAGE).getTotalElements());
 
 		memberService.createMember(
@@ -77,7 +75,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void findMemberByOwlExpressionConceptId() {
+	void findMemberByOwlExpressionConceptId() {
 		memberService.createMember(MAIN,
 				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, "90253000")
 						.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION,
@@ -95,7 +93,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void findMemberByOwlExpressionGCI() {
+	void findMemberByOwlExpressionGCI() {
 		memberService.createMember(MAIN,
 				new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, "90253000")
 						.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION,
@@ -143,7 +141,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void createFindUpdateMember() {
+	void createFindUpdateMember() {
 		assertEquals(0, memberService.findMembers(MAIN, Concepts.CLINICAL_FINDING, PAGE).getTotalElements());
 
 		ReferenceSetMember axiom = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, Concepts.CLINICAL_FINDING);
@@ -167,7 +165,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void updatePublishedMember() {
+	void updatePublishedMember() {
 		ReferenceSetMember simpleRefset = savePublishedSimpleMember(MAIN);
 		ReferenceSetMember saved = memberService.findMember(MAIN, simpleRefset.getMemberId());
 		assertEquals("800aa109-431f-4407-a431-6fe65e9db161", saved.getMemberId());
@@ -199,8 +197,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void revertUpdatingPublishedMember() {
-
+	void revertUpdatingPublishedMember() {
 		updatePublishedMember();
 		ReferenceSetMember simpleRefset = memberService.findMember(MAIN,"800aa109-431f-4407-a431-6fe65e9db161");
 		assertEquals(false, simpleRefset.isActive());
@@ -216,28 +213,29 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void forceDeletePublishedMember() {
+	void forceDeletePublishedMember() {
 		ReferenceSetMember simpleMember = savePublishedSimpleMember(MAIN);
 		memberService.deleteMember(MAIN, simpleMember.getMemberId(), true);
 		assertNull(memberService.findMember(MAIN, simpleMember.getMemberId()));
 	}
 
-	@Test(expected = IllegalStateException.class)
-	public void deletePublishedMemberWithoutForce() {
+	@Test
+	void deletePublishedMemberWithoutForce() {
 		ReferenceSetMember simpleMember = savePublishedSimpleMember(MAIN);
-		memberService.deleteMember(MAIN, simpleMember.getMemberId(), false);
-	}
-
-	@Test(expected = IllegalStateException.class)
-	public void updateUnpublishedInactiveMember() {
-		ReferenceSetMember simple = new ReferenceSetMember("900000000000207008", "723264001", "731819006");
-		memberService.createMember(MAIN, simple);
-		simple.setActive(false);
-		memberService.updateMember(MAIN, simple);
+		String memberId = simpleMember.getMemberId();
+		assertThrows(IllegalStateException.class, () -> memberService.deleteMember(MAIN, memberId, false));
 	}
 
 	@Test
-	public void testAggregationsWithActiveAndInactiveMembers() {
+	void updateUnpublishedInactiveMember() {
+		ReferenceSetMember simple = new ReferenceSetMember("900000000000207008", "723264001", "731819006");
+		memberService.createMember(MAIN, simple);
+		simple.setActive(false);
+		assertThrows(IllegalStateException.class, () -> memberService.updateMember(MAIN, simple));
+	}
+
+	@Test
+	void testAggregationsWithActiveAndInactiveMembers() {
 		//create an inactive simple reference set member
 		ReferenceSetMember saved = savePublishedSimpleMember(MAIN);
 		saved.setActive(false);
@@ -273,7 +271,7 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testAggregationsWithTwoReferenceSets() {
+	void testAggregationsWithTwoReferenceSets() {
 		//create an inactive simple reference set member
 		ReferenceSetMember saved = savePublishedSimpleMember(MAIN);
 		saved.setActive(false);
@@ -308,8 +306,8 @@ public class ReferenceSetMemberServiceTest extends AbstractTest {
 	}
 
 
-	@After
-	public void tearDown() {
+	@AfterEach
+	void tearDown() {
 		conceptService.deleteAll();
 	}
 

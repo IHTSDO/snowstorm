@@ -1,21 +1,21 @@
 package org.snomed.snowstorm.core.data.services.identifier;
 
-import org.junit.After;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.ComponentType;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class IdentifierCacheManagerTest extends AbstractTest {
+class IdentifierCacheManagerTest extends AbstractTest {
 	
 	private static final int TEST_NAMESPACE = 1234500;
 	private static final String TEST_PARTITION = "10";
@@ -27,8 +27,8 @@ public class IdentifierCacheManagerTest extends AbstractTest {
 
 	private IdentifierCache testCache;
 	
-	@Before
-	public void stopCacheManager() {
+	@BeforeEach
+	void stopCacheManager() {
 		//Stop the background task so it's not topping up while we're working with the data
 		cacheManager.stopBackgroundTask();
 		cacheManager.addCache(TEST_NAMESPACE, TEST_PARTITION, TEST_CAPACITY);
@@ -36,7 +36,7 @@ public class IdentifierCacheManagerTest extends AbstractTest {
 	}
 	
 	@Test
-	public void testTopUp() throws ServiceException, InterruptedException {
+	void testTopUp() throws ServiceException, InterruptedException {
 		Assert.assertEquals(0, testCache.identifiersAvailable());
 		
 		//Since the cache is below critical level, asking for identifiers will trigger a top up + additional required
@@ -66,8 +66,8 @@ public class IdentifierCacheManagerTest extends AbstractTest {
 		Assert.assertNull(IdentifierService.isValidId(sctid.toString(), ComponentType.Concept));
 	}
 	
-	@After
-	public void restartCacheManager() {
+	@AfterEach
+	void restartCacheManager() {
 		cacheManager.startBackgroundTask();
 	}
 }

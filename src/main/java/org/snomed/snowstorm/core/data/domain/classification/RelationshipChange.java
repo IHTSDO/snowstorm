@@ -24,28 +24,28 @@ public class RelationshipChange {
 	@Field(type = FieldType.Integer)
 	private int sortNumber;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String classificationId;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String relationshipId;
 
 	@Field(type = FieldType.Boolean)
 	private boolean active;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String sourceId;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String destinationId;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private int group;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String typeId;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String modifierId;
 
 	@Field(type = FieldType.Boolean)

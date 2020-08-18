@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.rest;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
@@ -12,10 +12,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
 
-public class AdminControllerSecurityTest extends AbstractControllerSecurityTest {
+class AdminControllerSecurityTest extends AbstractControllerSecurityTest {
 
 	@Test
-	public void rebuildDescriptionIndexForLanguage() throws URISyntaxException {
+	void rebuildDescriptionIndexForLanguage() throws URISyntaxException {
 		RequestEntity<Object> request = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/actions/rebuild-description-index-for-language?languageCode=it"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, request);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, request);
@@ -24,7 +24,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void rebuildBranchTransitiveClosure() throws URISyntaxException {
+	void rebuildBranchTransitiveClosure() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN" + "/actions/rebuild-semantic-index"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -39,7 +39,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void updateDefinitionStatuses() throws URISyntaxException {
+	void updateDefinitionStatuses() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN" + "/actions/update-definition-statuses"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -54,7 +54,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void endDonatedContent() throws URISyntaxException {
+	void endDonatedContent() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN" + "/actions/end-donated-content"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -72,7 +72,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void findDuplicateAndHideParentVersion() throws URISyntaxException {
+	void findDuplicateAndHideParentVersion() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN/ProjectA" + "/actions/find-duplicate-hide-parent-version"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -87,7 +87,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void rollbackCommit() throws URISyntaxException {
+	void rollbackCommit() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN" + "/actions/rollback-commit?commitHeadTime=123"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -103,7 +103,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void hardDeleteBranch() throws URISyntaxException {
+	void hardDeleteBranch() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.DELETE, new URI(url + "/admin/" + "MAIN/ProjectA" + "/actions/hard-delete"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -118,7 +118,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void restoreGroupNumberOfInactiveRelationships() throws URISyntaxException {
+	void restoreGroupNumberOfInactiveRelationships() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN" + "/actions/inactive-relationships-restore-group-number?currentEffectiveTime=200731&previousReleaseBranch=MAIN/2020-07-31"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -133,7 +133,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void deleteExtraInferredRelationships() throws URISyntaxException, IOException {
+	void deleteExtraInferredRelationships() throws URISyntaxException, IOException {
 		HttpHeaders httpHeaders = new HttpHeaders();
 		httpHeaders.setContentType(MediaType.MULTIPART_FORM_DATA);
 		MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
@@ -153,7 +153,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void promoteReleaseFix() throws URISyntaxException {
+	void promoteReleaseFix() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN" + "/actions/promote-release-fix"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -168,7 +168,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void cloneChildBranch() throws URISyntaxException {
+	void cloneChildBranch() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN/ProjectA" + "/actions/clone-child-branch?newBranch=MAIN/ProjectA1"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -183,7 +183,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void updateMRCMDomainTemplatesAndAttributeRules() throws URISyntaxException {
+	void updateMRCMDomainTemplatesAndAttributeRules() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN" + "/actions/update-mrcm-domain-templates-and-attribute-rules"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -192,7 +192,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void findExtraConceptsInSemanticIndex() throws URISyntaxException {
+	void findExtraConceptsInSemanticIndex() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN" + "/actions/find-extra-concepts-in-semantic-index"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -207,7 +207,7 @@ public class AdminControllerSecurityTest extends AbstractControllerSecurityTest 
 	}
 
 	@Test
-	public void restoreReleasedStatus() throws URISyntaxException {
+	void restoreReleasedStatus() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN" + "/actions/restore-released-status?conceptId=123"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);

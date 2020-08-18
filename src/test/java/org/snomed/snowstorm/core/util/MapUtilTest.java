@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.core.util;
 
 import com.google.common.collect.Sets;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -10,10 +10,10 @@ import java.util.Set;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-public class MapUtilTest {
+class MapUtilTest {
 
 	@Test
-	public void collectMissingKeyValues() throws Exception {
+	void collectMissingKeyValues() throws Exception {
 		assertTrue(MapUtil.collectMissingKeyValues(null, null).isEmpty());
 		assertTrue(MapUtil.collectMissingKeyValues(new HashMap<>(), null).isEmpty());
 		assertTrue(MapUtil.collectMissingKeyValues(new HashMap<>(), new HashMap<>()).isEmpty());

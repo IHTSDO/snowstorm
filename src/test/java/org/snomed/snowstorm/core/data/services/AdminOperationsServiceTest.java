@@ -3,8 +3,9 @@ package org.snomed.snowstorm.core.data.services;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.search.sort.SortBuilders;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
@@ -16,22 +17,24 @@ import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.Date;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.Assert.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = TestConfig.class)
-public class AdminOperationsServiceTest extends AbstractTest {
+@ExtendWith(SpringExtension.class)
+class AdminOperationsServiceTest extends AbstractTest {
 
 	@Autowired
 	private AdminOperationsService operationsService;
@@ -55,7 +58,7 @@ public class AdminOperationsServiceTest extends AbstractTest {
 	private ElasticsearchOperations elasticsearchOperations;
 
 	@Test
-	public void testPromoteReleaseFix() throws Exception {
+	void testPromoteReleaseFix() throws Exception {
 
 		// Create international code system
 		String mainBranch = "MAIN";
@@ -115,10 +118,11 @@ public class AdminOperationsServiceTest extends AbstractTest {
 		assertFalse(conv19Concept.isReleased());
 		assertNull(conv19Concept.getEffectiveTime());
 
-		List<Description> incisionOfMiddleEarDescriptions = elasticsearchOperations.queryForList(new NativeSearchQueryBuilder().withQuery(
+		List<Description> incisionOfMiddleEarDescriptions = elasticsearchOperations.search(new NativeSearchQueryBuilder().withQuery(
 				boolQuery()
 						.must(versionControlHelper.getBranchCriteria(releaseBranchPath).getEntityBranchCriteria(Description.class))
-						.must(termQuery(Description.Fields.DESCRIPTION_ID, "728558011"))).build(), Description.class);
+						.must(termQuery(Description.Fields.DESCRIPTION_ID, "728558011"))).build(), Description.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(1, incisionOfMiddleEarDescriptions.size());
 
 		printAllVersionsOfConcept(conceptToDeleteAsFix, "before promotion");
@@ -160,15 +164,16 @@ public class AdminOperationsServiceTest extends AbstractTest {
 		conceptForNewCycle = conceptService.find("131148009", releaseBranchPath);
 		assertNull(conceptForNewCycle);
 
-		incisionOfMiddleEarDescriptions = elasticsearchOperations.queryForList(new NativeSearchQueryBuilder().withQuery(
+		incisionOfMiddleEarDescriptions = elasticsearchOperations.search(new NativeSearchQueryBuilder().withQuery(
 				boolQuery()
 						.must(versionControlHelper.getBranchCriteria(releaseBranchPath).getEntityBranchCriteria(Description.class))
-						.must(termQuery(Description.Fields.DESCRIPTION_ID, "728558011"))).build(), Description.class);
+						.must(termQuery(Description.Fields.DESCRIPTION_ID, "728558011"))).build(), Description.class)
+				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(1, incisionOfMiddleEarDescriptions.size());
 	}
 
 	@Test
-	public void testPromoteReleaseFix_deletionsOnly() throws Exception {
+	void testPromoteReleaseFix_deletionsOnly() throws Exception {
 		// Create international code system
 		String mainBranch = "MAIN";
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", mainBranch, "International Edition", "");
@@ -241,8 +246,11 @@ public class AdminOperationsServiceTest extends AbstractTest {
 
 	private void printAllVersionsOfConcept(String conceptId, String event) {
 		System.out.println("All versions of concept " + conceptId + ", " + event);
-		elasticsearchOperations.queryForList(new NativeSearchQueryBuilder().withQuery(termQuery(Concept.Fields.CONCEPT_ID, conceptId)).withSort(SortBuilders.fieldSort("start")).build(), Concept.class)
-				.forEach(c -> System.out.println(String.format("start:%s end:%s path:%s", getTimeLong(c.getStart()), getTimeLong(c.getEnd()), c.getPath())));
+		elasticsearchOperations.search(new NativeSearchQueryBuilder().withQuery(termQuery(Concept.Fields.CONCEPT_ID, conceptId)).withSort(SortBuilders.fieldSort("start")).build(), Concept.class)
+				.forEach(hit -> {
+					Concept c = hit.getContent();
+					System.out.println(String.format("start:%s end:%s path:%s", getTimeLong(c.getStart()), getTimeLong(c.getEnd()), c.getPath()));
+				});
 		System.out.println("--");
 	}
 

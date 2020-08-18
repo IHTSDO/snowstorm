@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.domain.classification;
 
+import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -18,34 +19,35 @@ public class Classification {
 		String CREATION_DATE = "creationDate";
 	}
 
-	@Field(type = FieldType.keyword)
+	@Id
+	@Field(type = FieldType.Keyword)
 	private String id;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String path;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private ClassificationStatus status;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String errorMessage;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String reasonerId;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String userId;
 
-	@Field(type = FieldType.Date)
+	@Field(type = FieldType.Long)
 	private Date creationDate;
 
-	@Field(type = FieldType.Date)
+	@Field(type = FieldType.Long)
 	private Date completionDate;
 
-	@Field(type = FieldType.Date)
+	@Field(type = FieldType.Long)
 	private Date lastCommitDate;
 
-	@Field(type = FieldType.Date)
+	@Field(type = FieldType.Long)
 	private Date saveDate;
 
 	@Field(type = FieldType.Boolean)

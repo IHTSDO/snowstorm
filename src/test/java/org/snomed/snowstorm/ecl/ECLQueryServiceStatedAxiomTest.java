@@ -3,8 +3,8 @@ package org.snomed.snowstorm.ecl;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.ComponentService;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
@@ -20,13 +20,13 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.*;
  * In this test suite we run all the same ECL query tests again against the stated form
  * but the data is set up using axioms without any stated relationships.
  */
-public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
+class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
 
-	@Before
-	public void setup() throws ServiceException {
+	@BeforeEach
+	void setup() throws ServiceException {
 		List<Concept> allConcepts = new ArrayList<>();
 
 		allConcepts.add(new Concept(SNOMEDCT_ROOT));
@@ -174,7 +174,7 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 
 	@Test
 	// In axioms all non is-a attributes in group 0 become self grouped unless the MRCM Attribute Domain reference set explicitly states that they should never be grouped
-	public void attributeGroupCardinality() {
+	void attributeGroupCardinality() {
 		assertEquals(
 				"Match clinical finding with at least one grouped finding site attributes.",
 				Sets.newHashSet(PENTALOGY_OF_FALLOT, PENTALOGY_OF_FALLOT_INCORRECT_GROUPING, BLEEDING_SKIN),
@@ -202,7 +202,7 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 	}
 	
 	@Test
-	public void attributeGroupDisjunction() {
+	void attributeGroupDisjunction() {
 		//This test has been overridden from the base class because the serialisation of axioms into the axiom reference
 		//set causes attributes to be grouped where this is required by the MRCM.
 		//As such, Bleeding and Bleeding skin - which are created with ungrouped attributes above, will
@@ -214,7 +214,7 @@ public class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 	}
 
 	@Test
-	public void selectMemberOfReferenceSet() {
+	void selectMemberOfReferenceSet() {
 		// Member of x
 		assertEquals(
 				Sets.newHashSet(CLINICAL_FINDING, BODY_STRUCTURE),

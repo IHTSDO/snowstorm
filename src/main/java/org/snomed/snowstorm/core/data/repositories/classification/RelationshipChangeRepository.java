@@ -3,9 +3,9 @@ package org.snomed.snowstorm.core.data.repositories.classification;
 import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
+import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 
-public interface RelationshipChangeRepository extends ElasticsearchCrudRepository<RelationshipChange, String> {
+public interface RelationshipChangeRepository extends ElasticsearchRepository<RelationshipChange, String> {
 
 	Page<RelationshipChange> findByClassificationId(String classificationId, Pageable pageRequest);
 

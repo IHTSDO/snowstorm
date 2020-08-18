@@ -4,9 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchService;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -23,7 +22,6 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.context.junit4.SpringRunner;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -34,9 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-@RunWith(SpringRunner.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
-public class ConceptControllerTest extends AbstractTest {
+class ConceptControllerTest extends AbstractTest {
 
 	@LocalServerPort
 	private int port;
@@ -61,8 +58,8 @@ public class ConceptControllerTest extends AbstractTest {
 
 	private Date timepointWithOneRelationship;
 
-	@Before
-	public void setup() throws ServiceException, InterruptedException {
+	@BeforeEach
+	void setup() throws ServiceException, InterruptedException {
 		// Create dummy concept with descriptions containing quotes
 		String conceptId = "257751006";
 		Concept concept = conceptService.create(
@@ -110,10 +107,11 @@ public class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	public void testLoadConceptTimepoints() {
+	void testLoadConceptTimepoints() {
 		// Load initial version of dummy concept
 		String timepoint = "@-";
 		Concept initialConceptVersion = this.restTemplate.getForObject("http://localhost:" + port + "/browser/MAIN/projectA" + timepoint + "/concepts/257751006", Concept.class);
+		assertEquals("257751006", initialConceptVersion.getConceptId());
 		assertEquals(0, initialConceptVersion.getRelationships().size());
 		assertEquals(2, initialConceptVersion.getDescriptions().size());
 
@@ -138,7 +136,7 @@ public class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	public void testQuotesEscapedAllConceptEndpoints() {
+	void testQuotesEscapedAllConceptEndpoints() {
 		// Browser Concept
 		String responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/browser/MAIN/concepts/257751006", String.class);
 		System.out.println(responseBody);
@@ -169,7 +167,7 @@ public class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-	public void testConceptEndpointFields() throws IOException {
+	void testConceptEndpointFields() throws IOException {
 		// Browser Concept
 		String responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/browser/MAIN/concepts/257751006", String.class);
 		checkFields(responseBody);
@@ -199,7 +197,7 @@ public class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
-    public void testConceptSearchWithCSVResults() throws IOException {
+    void testConceptSearchWithCSVResults() throws IOException {
         HttpHeaders headers = new HttpHeaders();
         headers.add("Accept", "text/csv");
         ResponseEntity<String> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/projectA/concepts",
@@ -216,7 +214,7 @@ public class ConceptControllerTest extends AbstractTest {
     }
 
     @Test
-    public void testConceptSearchWithLanguageRefsets() throws JSONException {
+    void testConceptSearchWithLanguageRefsets() throws JSONException {
         String conceptId = "257751006";
 
 		// Expected 1 concept found for US_EN language refset

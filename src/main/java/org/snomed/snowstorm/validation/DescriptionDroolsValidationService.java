@@ -17,6 +17,7 @@ import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.validation.domain.DroolsDescription;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
@@ -80,7 +81,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 						.must(termQuery("term", exactTerm))
 				)
 				.build();
-		List<Description> matches = elasticsearchTemplate.queryForList(query, Description.class);
+		List<Description> matches = elasticsearchTemplate.search(query, Description.class).get().map(SearchHit::getContent).collect(Collectors.toList());
 		return matches.stream()
 				.filter(description -> description.getTerm().equals(exactTerm))
 				.map(DroolsDescription::new).collect(Collectors.toSet());
@@ -148,7 +149,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 						.mustNot(termQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.TAG, termSemanticTag))
 				)
 				.build();
-		List<Description> descriptions = elasticsearchTemplate.queryForList(query, Description.class);
+		List<Description> descriptions = elasticsearchTemplate.search(query, Description.class).get().map(SearchHit::getContent).collect(Collectors.toList());
 		return descriptions.stream().map(Description::getConceptId).collect(Collectors.toSet());
 	}
 
@@ -204,7 +205,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 								.must(termQuery("destinationId", Concepts.SNOMEDCT_ROOT)))
 						.withPageable(PageRequest.of(0, 1000))
 						.build();
-				List<Relationship> relationships = elasticsearchTemplate.queryForList(query, Relationship.class);
+				List<Relationship> relationships = elasticsearchTemplate.search(query, Relationship.class).get().map(SearchHit::getContent).collect(Collectors.toList());
 				hierarchyRootIds = relationships.stream().map(Relationship::getSourceId).collect(Collectors.toSet());
 			}
 		}

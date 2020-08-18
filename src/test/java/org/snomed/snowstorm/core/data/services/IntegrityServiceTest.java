@@ -3,8 +3,8 @@ package org.snomed.snowstorm.core.data.services;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -13,7 +13,7 @@ import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -21,9 +21,9 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.*;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class IntegrityServiceTest extends AbstractTest {
+class IntegrityServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
@@ -50,7 +50,7 @@ public class IntegrityServiceTest extends AbstractTest {
 	/*
 		Test the method that checks all the components visible on the branch.
 	 */
-	public void testFindAllComponentsWithBadIntegrity() throws ServiceException {
+	void testFindAllComponentsWithBadIntegrity() throws ServiceException {
 		branchService.create("MAIN/project");
 
 		branchService.create("MAIN/project/test1");
@@ -142,7 +142,7 @@ public class IntegrityServiceTest extends AbstractTest {
 		Test the method that checks only the components changed on the branch.
 		The purpose of this method is to check only what's changed for speed but to block promotion until changes are fixed.
 	 */
-	public void testFindChangedComponentsWithBadIntegrity() throws ServiceException {
+	void testFindChangedComponentsWithBadIntegrity() throws ServiceException {
 		branchService.create("MAIN/project");
 
 		branchService.create("MAIN/project/test1");
@@ -235,7 +235,7 @@ public class IntegrityServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testIntegrityCommitHook() throws Exception {
+	void testIntegrityCommitHook() throws Exception {
 		String path = "MAIN/project";
 		Branch branch = branchService.create(path);
 		// invalid relationship

@@ -15,7 +15,6 @@ import io.kaicode.elasticvc.domain.DomainEntity;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.search.sort.SortBuilders;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,14 +28,15 @@ import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.data.services.pojo.SAxiomRepresentation;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
+import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.*;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
+import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -91,7 +91,7 @@ public class ConceptService extends ComponentService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private ElasticsearchOperations elasticsearchTemplate;
+	private ElasticsearchRestTemplate elasticsearchTemplate;
 
 	@Autowired
 	private TraceabilityLogService traceabilityLogService;
@@ -152,11 +152,11 @@ public class ConceptService extends ComponentService {
 				.must(termsQuery("conceptId", ids));
 
 		Set<String> conceptsNotFound = new HashSet<>(ids);
-		try (final CloseableIterator<Concept> conceptStream = elasticsearchTemplate.stream(new NativeSearchQueryBuilder()
+		try (final SearchHitsIterator<Concept> conceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(builder)
 				.withPageable(LARGE_PAGE)
 				.build(), Concept.class)) {
-			conceptStream.forEachRemaining(concept -> conceptsNotFound.remove(concept.getConceptId()));
+			conceptStream.forEachRemaining(hit -> conceptsNotFound.remove(hit.getContent().getConceptId()));
 		}
 		return conceptsNotFound;
 	}
@@ -216,7 +216,7 @@ public class ConceptService extends ComponentService {
 		}
 		Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, pageRequest, false, false);
 		Map<String, Concept> conceptMap = new HashMap<>();
-		for (Concept concept : concepts.getContent()) {
+		for (Concept concept : concepts) {
 			String id = concept.getId();
 			Concept existingValue = conceptMap.put(id, concept);
 			if (existingValue != null) {
@@ -267,25 +267,30 @@ public class ConceptService extends ComponentService {
 								.must(termsQuery("conceptId", conceptIdsToFindSegment))
 						)
 						.withPageable(PageRequest.of(0, conceptIdsToFindSegment.size()));
-				Page<Concept> page = elasticsearchTemplate.queryForPage(queryBuilder.build(), Concept.class);
-				allConcepts.addAll(page.getContent());
-				total = page.getTotalElements();
+				SearchHits<Concept> searchHits = elasticsearchTemplate.search(queryBuilder.build(), Concept.class);
+				allConcepts.addAll(searchHits.stream().map(SearchHit::getContent).collect(Collectors.toList()));
+				total = searchHits.getTotalHits();
 			}
 			concepts = new PageImpl<>(allConcepts, pageRequest, total);
 		} else {
-			NativeSearchQueryBuilder conceptQueryBuilder = new NativeSearchQueryBuilder()
+			Query conceptQuery = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(Concept.class)))
-					.withSort(SortBuilders.fieldSort(Concept.Fields.CONCEPT_ID))// Needed to support searchAfter
-					.withPageable(pageRequest);
-			concepts = elasticsearchTemplate.queryForPage(conceptQueryBuilder.build(), Concept.class);
-		}
-		for (Concept concept : concepts) {
-			concept.setRequestedLanguageDialects(languageDialects);
+					.withPageable(pageRequest)
+					.build();
+			conceptQuery.setTrackTotalHits(true);
+			SearchHits<Concept> searchHits;
+			if (pageRequest instanceof SearchAfterPageRequest) {
+				searchHits = elasticsearchTemplate.searchAfter(((SearchAfterPageRequest) pageRequest).getSearchAfter(), conceptQuery, Concept.class);
+			} else {
+				searchHits = elasticsearchTemplate.search(conceptQuery, Concept.class);
+			}
+			concepts = PageHelper.toSearchAfterPage(searchHits, pageRequest);
 		}
 		timer.checkpoint("find concept");
 
 		Map<String, Concept> conceptIdMap = new HashMap<>();
 		for (Concept concept : concepts) {
+			concept.setRequestedLanguageDialects(languageDialects);
 			conceptIdMap.put(concept.getConceptId(), concept);
 			concept.getDescriptions().clear();
 			concept.getRelationships().clear();
@@ -300,8 +305,9 @@ public class ConceptService extends ComponentService {
 						.must(termsQuery("sourceId", conceptIds))
 						.must(branchCriteria.getEntityBranchCriteria(Relationship.class)))
 						.withPageable(LARGE_PAGE);
-				try (final CloseableIterator<Relationship> relationships = elasticsearchTemplate.stream(queryBuilder.build(), Relationship.class)) {
-					relationships.forEachRemaining(relationship -> {
+				try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(queryBuilder.build(), Relationship.class)) {
+					relationships.forEachRemaining(hit -> {
+						Relationship relationship = hit.getContent();
 						// Join Relationships
 						conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
 
@@ -321,8 +327,8 @@ public class ConceptService extends ComponentService {
 						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class)))
 						.withPageable(LARGE_PAGE);
 
-				try (final CloseableIterator<ReferenceSetMember> axiomMembers = elasticsearchTemplate.stream(queryBuilder.build(), ReferenceSetMember.class)) {
-					axiomMembers.forEachRemaining(axiomMember -> joinAxiom(axiomMember, conceptIdMap, conceptMiniMap, languageDialects));
+				try (final SearchHitsIterator<ReferenceSetMember> axiomMembers = elasticsearchTemplate.searchForStream(queryBuilder.build(), ReferenceSetMember.class)) {
+					axiomMembers.forEachRemaining(axiomMember -> joinAxiom(axiomMember.getContent(), conceptIdMap, conceptMiniMap, languageDialects));
 				}
 			}
 			timer.checkpoint("get axioms " + getFetchCount(conceptIdMap.size()));
@@ -334,9 +340,10 @@ public class ConceptService extends ComponentService {
 					.must(termsQuery("conceptId", conceptIds))
 					.must(branchCriteria.getEntityBranchCriteria(Concept.class)))
 					.withPageable(LARGE_PAGE);
-			try (final CloseableIterator<Concept> conceptsForMini = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
-				conceptsForMini.forEachRemaining(concept ->
+			try (final SearchHitsIterator<Concept> conceptsForMini = elasticsearchTemplate.searchForStream(queryBuilder.build(), Concept.class)) {
+				conceptsForMini.forEachRemaining(hit ->
 				{
+					Concept concept = hit.getContent();
 					ConceptMini conceptMini = conceptMiniMap.get(concept.getConceptId());
 					conceptMini.setDefinitionStatusId(concept.getDefinitionStatusId());
 					conceptMini.setModuleId(concept.getModuleId());
@@ -671,8 +678,8 @@ public class ConceptService extends ComponentService {
 				.withPageable(LARGE_PAGE)
 				.withFields(Concept.Fields.CONCEPT_ID);
 		List<Long> ids = new LongArrayList();
-		try (CloseableIterator<Concept> conceptStream = elasticsearchTemplate.stream(queryBuilder.build(), Concept.class)) {
-			conceptStream.forEachRemaining(c -> ids.add(c.getConceptIdAsLong()));
+		try (SearchHitsIterator<Concept> conceptStream = elasticsearchTemplate.searchForStream(queryBuilder.build(), Concept.class)) {
+			conceptStream.forEachRemaining(c -> ids.add(c.getContent().getConceptIdAsLong()));
 		}
 
 		return ids;

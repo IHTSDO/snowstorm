@@ -23,7 +23,7 @@ public class PermissionRecord {
 	}
 
 	@Id
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String key;
 
 	@JsonView(value = View.Component.class)
@@ -31,16 +31,16 @@ public class PermissionRecord {
 	private boolean global;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String role;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String path;
 
 	// These may or may not be of type Role.
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private Set<String> userGroups;
 
 	// For Jackson

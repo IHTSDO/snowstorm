@@ -3,10 +3,8 @@ package org.snomed.snowstorm.core.data.services.classification;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -22,8 +20,6 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -39,9 +35,7 @@ import static org.junit.Assert.*;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.COMPLETED;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.SAVED;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = TestConfig.class)
-public class ClassificationServiceTest extends AbstractTest {
+class ClassificationServiceTest extends AbstractTest {
 
 	@Autowired
 	private ClassificationService classificationService;
@@ -62,7 +56,7 @@ public class ClassificationServiceTest extends AbstractTest {
 	private BranchService branchService;
 
 	@Test
-	public void testSaveRelationshipChanges() throws IOException, ServiceException {
+	void testSaveRelationshipChanges() throws IOException, ServiceException {
 		// Create concept with some stated modeling in an axiom
 		conceptService.create(
 				new Concept("123123123001")
@@ -99,7 +93,7 @@ public class ClassificationServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testSaveRelationshipChangesInExtension() throws IOException, ServiceException, InterruptedException {
+	void testSaveRelationshipChangesInExtension() throws IOException, ServiceException, InterruptedException {
 		// Create concept with some stated modeling in an axiom
 		conceptService.create(
 				new Concept("123123123001")
@@ -133,7 +127,7 @@ public class ClassificationServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRemoveNotReleasedRedundantRelationships() throws IOException, ServiceException, InterruptedException {
+	void testRemoveNotReleasedRedundantRelationships() throws IOException, ServiceException, InterruptedException {
 		// Create concept with some stated modeling in an axiom
 		String path = "MAIN";
 		String conceptId = "123123123001";
@@ -164,7 +158,7 @@ public class ClassificationServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRemoveReleasedRedundantRelationships() throws IOException, ServiceException, InterruptedException {
+	void testRemoveReleasedRedundantRelationships() throws IOException, ServiceException, InterruptedException {
 		// Create concept with some stated modeling in an axiom
 		String path = "MAIN";
 		String conceptId = "123123123001";
@@ -204,7 +198,7 @@ public class ClassificationServiceTest extends AbstractTest {
 		assertNull(inactiveRelationship.getEffectiveTime());
 	}
 
-	public Classification createClassification(String path, String classificationId) {
+	Classification createClassification(String path, String classificationId) {
 		Classification classification = new Classification();
 		classification.setId(classificationId);
 		classification.setPath(path);
@@ -215,7 +209,7 @@ public class ClassificationServiceTest extends AbstractTest {
 		return classification;
 	}
 
-	public ClassificationStatus saveClassificationAndWaitForCompletion(String path, String classificationId) throws InterruptedException {
+	ClassificationStatus saveClassificationAndWaitForCompletion(String path, String classificationId) throws InterruptedException {
 		classificationService.saveClassificationResultsToBranch(path, classificationId, SecurityContextHolder.getContext());
 		Set<ClassificationStatus> inProgressStatuses = Sets.newHashSet(COMPLETED, ClassificationStatus.SAVING_IN_PROGRESS);
 		for (int i = 0; inProgressStatuses.contains(classificationService.findClassification(path, classificationId).getStatus()) && i < 20; i++) {

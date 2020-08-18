@@ -28,7 +28,7 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 	protected boolean active;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String moduleId;
@@ -36,14 +36,14 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 	@Field(type = FieldType.Integer)
 	private Integer effectiveTimeI;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	@JsonView(value = View.Component.class)
 	private boolean released;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String releaseHash;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	@JsonView(value = View.Component.class)
 	private Integer releasedEffectiveTime;
 

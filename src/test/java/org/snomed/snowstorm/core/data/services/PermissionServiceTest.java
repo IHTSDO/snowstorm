@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.security.PermissionRecord;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
@@ -16,14 +16,14 @@ import static com.google.common.collect.Sets.newHashSet;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
-public class PermissionServiceTest {
+class PermissionServiceTest {
 
 	private PermissionService permissionService;
 	private List<PermissionRecord> allPermissionRecords;
 	private List<String> codeSystemBranches;
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 		permissionService = new PermissionService();
 		allPermissionRecords = new ArrayList<>();
 
@@ -44,7 +44,7 @@ public class PermissionServiceTest {
 	}
 
 	@Test
-	public void test() {
+	void test() {
 		// Test what roles a user has on each branch if they are in the following user groups.
 
 		// Global roles work on any branch or code system

@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.*;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.springframework.http.*;
 
 import ca.uhn.fhir.parser.DataFormatException;
@@ -13,10 +13,10 @@ import static org.junit.Assert.assertNull;
 
 import java.io.InputStream;
 
-public class ValueSetProviderScrudTest extends AbstractFHIRTest {
+class ValueSetProviderScrudTest extends AbstractFHIRTest {
 	
 	@Test
-	public void testValueSetCrudOperations() throws Exception {
+	void testValueSetCrudOperations() throws Exception {
 		String testURL = "http://some.test";
 		String testId = "test";
 		ValueSet testVS = new ValueSet();
@@ -70,7 +70,7 @@ public class ValueSetProviderScrudTest extends AbstractFHIRTest {
 	}
 	
 	@Test
-	public void testValueSetExpansion() {
+	void testValueSetExpansion() {
 		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
 		InputStream is = classloader.getResourceAsStream("dummy-fhir-content/exampleVS_ECL.json");
 		assertNotNull(is);
@@ -98,7 +98,7 @@ public class ValueSetProviderScrudTest extends AbstractFHIRTest {
 	}
 
 	@Test
-	public void testValueSetExample() {
+	void testValueSetExample() {
 		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
 		InputStream is = classloader.getResourceAsStream("dummy-fhir-content/exampleVS.json");
 		assertNotNull(is);
@@ -115,7 +115,7 @@ public class ValueSetProviderScrudTest extends AbstractFHIRTest {
 	}
 	
 	@Test
-	public void testValueSetSearchWithCode() {
+	void testValueSetSearchWithCode() {
 		//We do not allow expanding all ValueSets to search for a concept - too costly
 		String url = baseUrl + "?code=foo";
 		ResponseEntity<String> response = restTemplate.exchange(url,HttpMethod.GET, null, String.class);

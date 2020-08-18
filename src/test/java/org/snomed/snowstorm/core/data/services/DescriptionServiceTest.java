@@ -3,9 +3,9 @@ package org.snomed.snowstorm.core.data.services;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.common.util.set.Sets;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
@@ -15,7 +15,7 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -26,9 +26,9 @@ import static org.junit.Assert.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.services.DescriptionService.SearchMode.REGEX;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class DescriptionServiceTest extends AbstractTest {
+class DescriptionServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
@@ -50,13 +50,13 @@ public class DescriptionServiceTest extends AbstractTest {
 
 	private ServiceTestUtil testUtil;
 
-	@Before
-	public void setup() {
+	@BeforeEach
+	void setup() {
 		testUtil = new ServiceTestUtil(conceptService);
 	}
 
 	@Test
-	public void testDescriptionSearch() throws ServiceException {
+	void testDescriptionSearch() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTerm("MAIN", "100001", "Heart");
 		testUtil.createConceptWithPathIdAndTerm("MAIN", "100002", "Lung");
 		testUtil.createConceptWithPathIdAndTerms("MAIN", "100006", "Foot cramps", "Foot cramp");
@@ -87,7 +87,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionSearchCharacterFolding() throws ServiceException {
+	void testDescriptionSearchCharacterFolding() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100001", "Heart", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100002", "Lung", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100003", "Foot cramps", "en");
@@ -121,7 +121,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionSearchWithNonAlphanumericCharacters() throws ServiceException {
+	void testDescriptionSearchWithNonAlphanumericCharacters() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100001", "Urine micr.: leucs - % polys", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100002", "Spinal fusion of atlas-axis,test (procedure)", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100003", "test procedure", "en");
@@ -147,7 +147,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionSearchWithEdgeCases() throws ServiceException {
+	void testDescriptionSearchWithEdgeCases() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100001", "Man (person)", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100002", "Elderly man (person)", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100003", "1.5%/epinephrine substance", "en");
@@ -170,7 +170,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionSearchWithExtendedCharacters() throws ServiceException {
+	void testDescriptionSearchWithExtendedCharacters() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100001", "Tübingen", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100002", "Tubingen", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100003", "Köln, Löwchen", "en");
@@ -211,7 +211,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionSearchAggregations() throws ServiceException {
+	void testDescriptionSearchAggregations() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
@@ -263,7 +263,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionSearchGroupByConcept() throws ServiceException {
+	void testDescriptionSearchGroupByConcept() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
@@ -283,7 +283,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionSearchWithRegex() throws ServiceException {
+	void testDescriptionSearchWithRegex() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
@@ -308,7 +308,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionSearchAggregationsSemanticTagFilter() throws ServiceException {
+	void testDescriptionSearchAggregationsSemanticTagFilter() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept food_1 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
@@ -354,7 +354,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionSearchAggregationsActiveConcept() throws ServiceException {
+	void testDescriptionSearchAggregationsActiveConcept() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
@@ -387,7 +387,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionSearchAggregationsRefsetFilter() throws ServiceException {
+	void testDescriptionSearchAggregationsRefsetFilter() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
@@ -417,7 +417,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionSearchTypeFilter() throws ServiceException {
+	void testDescriptionSearchTypeFilter() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Food (food)");
@@ -448,7 +448,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testDescriptionSearchAcceptabilityFilter() throws ServiceException {
+	void testDescriptionSearchAcceptabilityFilter() throws ServiceException {
 		String path = "MAIN";
 		Concept root = new Concept(SNOMEDCT_ROOT);
 		Concept pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
@@ -517,7 +517,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testVersionControlOnChildOfMainBranch() throws ServiceException {
+	void testVersionControlOnChildOfMainBranch() throws ServiceException {
 		branchService.create("MAIN/A");
 		Concept concept = testUtil.createConceptWithPathIdAndTerm("MAIN/A", "100001", "Heart");
 
@@ -535,7 +535,7 @@ public class DescriptionServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testVersionControlOnMainBranch() throws ServiceException {
+	void testVersionControlOnMainBranch() throws ServiceException {
 		Concept concept = testUtil.createConceptWithPathIdAndTerm("MAIN", "100001", "Heart");
 
 		assertEquals(Collections.emptySet(), branchService.findLatest("MAIN").getVersionsReplaced().get("Description"));

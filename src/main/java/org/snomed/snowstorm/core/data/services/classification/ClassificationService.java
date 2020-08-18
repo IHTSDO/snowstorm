@@ -41,9 +41,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.query.GetQuery;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.util.CloseableIterator;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -130,7 +131,7 @@ public class ClassificationService {
 	private void init() throws ServiceException {
 
 		try {
-			if (!elasticsearchOperations.indexExists(Concept.class)) {
+			if (!elasticsearchOperations.indexOps(Concept.class).exists()) {
 				throw new StartupException("Elasticsearch Concept index does not exist.");
 			}
 		} catch (UncategorizedExecutionException e) {
@@ -144,8 +145,9 @@ public class ClassificationService {
 
 		// Mark running classifications as failed. This could be improved in the future.
 		final long[] failedCount = {0};
-		try (CloseableIterator<Classification> runningClassifications = elasticsearchOperations.stream(queryBuilder.build(), Classification.class)) {
-			runningClassifications.forEachRemaining(classification -> {
+		try (SearchHitsIterator<Classification> runningClassifications = elasticsearchOperations.searchForStream(queryBuilder.build(), Classification.class)) {
+			runningClassifications.forEachRemaining(hit -> {
+				Classification classification = hit.getContent();
 				classification.setStatus(ClassificationStatus.FAILED);
 				classification.setErrorMessage("Termserver restarted.");
 				classificationRepository.save(classification);
@@ -269,15 +271,14 @@ public class ClassificationService {
 				.withQuery(termQuery(Classification.Fields.PATH, path))
 				.withSort(SortBuilders.fieldSort(Classification.Fields.CREATION_DATE).order(SortOrder.ASC))
 				.withPageable(PAGE_FIRST_1K);
-		Page<Classification> classifications = elasticsearchOperations.queryForPage(queryBuilder.build(), Classification.class);
-		updateStatusIfStale(classifications.getContent(), path);
-		return classifications;
+		SearchHits<Classification> searchHits = elasticsearchOperations.search(queryBuilder.build(), Classification.class);
+		List<Classification>classifications = searchHits.stream().map(SearchHit::getContent).collect(Collectors.toList());
+		updateStatusIfStale(classifications, path);
+		return new PageImpl<>(classifications, PAGE_FIRST_1K, searchHits.getTotalHits());
 	}
 
 	public Classification findClassification(String path, String classificationId) {
-		GetQuery getQuery = new GetQuery();
-		getQuery.setId(classificationId);
-		Classification classification = elasticsearchOperations.queryForObject(getQuery, Classification.class);
+		Classification classification = elasticsearchOperations.get(classificationId, Classification.class);
 		if (classification == null || !path.equals(classification.getPath())) {
 			throw new NotFoundException("Classification not found on branch.");
 		}
@@ -352,12 +353,12 @@ public class ClassificationService {
 								.withSort(new FieldSortBuilder(RelationshipChange.Fields.GROUP))
 								.withSort(new FieldSortBuilder(RelationshipChange.Fields.SORT_NUMBER))// This gives a guaranteed sort order for a reliable stateless stream
 								.withPageable(LARGE_PAGE);
-						try (CloseableIterator<RelationshipChange> relationshipChangeStream = elasticsearchOperations.statelessStream(queryBuilder.build(), RelationshipChange.class)) {
+						try (SearchHitsIterator<RelationshipChange> relationshipChangeStream = elasticsearchOperations.searchForStream(queryBuilder.build(), RelationshipChange.class)) {
 							while (relationshipChangeStream.hasNext()) {
 								List<RelationshipChange> changesBatch = new ArrayList<>();
 								int i = 0;
 								while (i++ < 10_000 && relationshipChangeStream.hasNext()) {
-									changesBatch.add(relationshipChangeStream.next());
+									changesBatch.add(relationshipChangeStream.next().getContent());
 								}
 
 								// Group changes by concept
@@ -614,7 +615,7 @@ public class ClassificationService {
 			}
 
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(classification.getPath());
-			try (CloseableIterator<QueryConcept> semanticIndexConcepts = elasticsearchOperations.stream(
+			try (SearchHitsIterator<QueryConcept> semanticIndexConcepts = elasticsearchOperations.searchForStream(
 					new NativeSearchQueryBuilder()
 							.withQuery(boolQuery()
 									.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
@@ -623,14 +624,14 @@ public class ClassificationService {
 							.withPageable(LARGE_PAGE).build(),
 					QueryConcept.class)) {
 
-				semanticIndexConcepts.forEachRemaining(semanticIndexConcept -> {
+				semanticIndexConcepts.forEachRemaining(hit -> {
 					// One or more inferred attributes or parents do not exist on this stated semanticIndexConcept
-					List<RelationshipChange> conceptChanges = activeConceptChanges.get(semanticIndexConcept.getConceptIdL());
+					List<RelationshipChange> conceptChanges = activeConceptChanges.get(hit.getContent().getConceptIdL());
 					if (conceptChanges != null) {
-						Map<String, Set<String>> conceptAttributes = semanticIndexConcept.getAttr();
+						Map<String, Set<String>> conceptAttributes = hit.getContent().getAttr();
 						for (RelationshipChange relationshipChange : conceptChanges) {
 							if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
-								if (!semanticIndexConcept.getParents().contains(parseLong(relationshipChange.getDestinationId()))) {
+								if (!hit.getContent().getParents().contains(parseLong(relationshipChange.getDestinationId()))) {
 									relationshipChange.setInferredNotStated(true);
 								}
 							} else {

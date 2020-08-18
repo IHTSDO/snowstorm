@@ -5,9 +5,9 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
@@ -19,7 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.*;
 import java.util.*;
@@ -29,9 +29,9 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.*;
 import static org.snomed.snowstorm.mrcm.MRCMUpdateService.DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class ImportServiceTest extends AbstractTest {
+class ImportServiceTest extends AbstractTest {
 
 	@Autowired
 	private ImportService importService;
@@ -60,8 +60,8 @@ public class ImportServiceTest extends AbstractTest {
 	private File rf2Archive;
 	private File completeOwlRf2Archive;
 
-	@Before
-	public void setup() throws IOException {
+	@BeforeEach
+	void setup() throws IOException {
 		codeSystemService.init();
 		referenceSetMemberService.init();
 		rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/RF2Release");
@@ -69,7 +69,7 @@ public class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testImportFull() throws ReleaseImportException, FileNotFoundException, ServiceException {
+	void testImportFull() throws ReleaseImportException, FileNotFoundException, ServiceException {
 		final String branchPath = "MAIN";
 		Assert.assertEquals(1, branchService.findAll().size());
 
@@ -237,7 +237,7 @@ public class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testImportSnapshotThenDelta() throws ReleaseImportException, FileNotFoundException {
+	void testImportSnapshotThenDelta() throws ReleaseImportException, FileNotFoundException {
 		final String branchPath = "MAIN";
 
 		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
@@ -332,7 +332,7 @@ public class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testImportSnapshotThenUpgradeToCompleteOWL() throws ReleaseImportException, FileNotFoundException {
+	void testImportSnapshotThenUpgradeToCompleteOWL() throws ReleaseImportException, FileNotFoundException {
 		final String branchPath = "MAIN";
 
 		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
@@ -377,7 +377,7 @@ public class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testImportSnapshotOnlyModelModule() throws ReleaseImportException, FileNotFoundException, ServiceException {
+	void testImportSnapshotOnlyModelModule() throws ReleaseImportException, FileNotFoundException, ServiceException {
 		final String branchPath = "MAIN";
 
 		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
@@ -399,7 +399,7 @@ public class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testImportOnlyComponentsWithBlankOrLaterEffectiveTime() throws IOException, ReleaseImportException {
+	void testImportOnlyComponentsWithBlankOrLaterEffectiveTime() throws IOException, ReleaseImportException {
 
 		// The content in these zips is not correct or meaningful. We are just using rows to test how the import function behaves with effectiveTimes.
 
@@ -491,7 +491,7 @@ public class ImportServiceTest extends AbstractTest {
 
 
 	@Test
-	public void testImportWithEffectiveTimeCleared() throws IOException, ReleaseImportException {
+	void testImportWithEffectiveTimeCleared() throws IOException, ReleaseImportException {
 		// The content in these zips is for the daily build and the effective time needs to be cleared
 		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-daily-build/DailyBuild_Day1");
 		String importId = importService.createJob(RF2Type.DELTA, "MAIN", false, true);
@@ -507,7 +507,7 @@ public class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testImportWithBlankEffectiveTime() throws IOException, ReleaseImportException {
+	void testImportWithBlankEffectiveTime() throws IOException, ReleaseImportException {
 
 		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/blankEffectiveTimeTest");
 		String importId = importService.createJob(RF2Type.DELTA, "MAIN", false, false);
@@ -551,7 +551,7 @@ public class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testImportMemberWithMultipleBlankTrailingFields() throws IOException, ReleaseImportException {
+	void testImportMemberWithMultipleBlankTrailingFields() throws IOException, ReleaseImportException {
 		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/multipleTrailingBlankFields");
 		String importId = importService.createJob(RF2Type.DELTA, "MAIN", false, false);
 		importService.importArchive(importId, new FileInputStream(zipFile));
@@ -561,7 +561,7 @@ public class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testSimplestRefsetImport() throws IOException, ReleaseImportException {
+	void testSimplestRefsetImport() throws IOException, ReleaseImportException {
 		assertNull(referenceSetMemberService.findMember("MAIN", "01a78d22-ad0b-5e76-8fd4-9fed481e5de5"));
 
 		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/refset-snapshot-import");

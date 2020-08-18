@@ -1,39 +1,39 @@
 package org.snomed.snowstorm.rest.converter;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
 import static org.junit.Assert.*;
 
-public class SearchAfterHelperTests {
+class SearchAfterHelperTest {
 
 	private String FOO = "foo";
 	private String BAR = "bar";
 	private String [] testArray;
 	private String expectedToken = "WyJmb28iLCJiYXIiXQ==";
 
-	@Before 
-	public void before() {
+	@BeforeEach
+	void before() {
 		testArray = new String[] { FOO, BAR };
 	}
 
 	@Test
-	public void toSearchAfterToken() {
+	void toSearchAfterToken() {
 		String token = SearchAfterHelper.toSearchAfterToken(testArray);
 		assertEquals(expectedToken, token);
 	}
 
 	@Test
-	public void fromSearchAfterToken() {
+	void fromSearchAfterToken() {
 		Object[] arr = SearchAfterHelper.fromSearchAfterToken(expectedToken);
 		assertEquals(FOO, arr[0]);
 		assertEquals(BAR, arr[1]);
 	}
 
 	@Test
-	public void testConvertInt() {
+	void testConvertInt() {
 		Object[] before = new Object[]{123, 456};
 		String token = SearchAfterHelper.toSearchAfterToken(before);
 		Object[] after = SearchAfterHelper.fromSearchAfterToken(token);
@@ -41,7 +41,7 @@ public class SearchAfterHelperTests {
 	}
 
 	@Test
-	public void testConvertLongFails() {
+	void testConvertLongFails() {
 		Object[] before = new Object[]{123L, 456L};
 		String token = SearchAfterHelper.toSearchAfterToken(before);
 		Object[] after = SearchAfterHelper.fromSearchAfterToken(token);

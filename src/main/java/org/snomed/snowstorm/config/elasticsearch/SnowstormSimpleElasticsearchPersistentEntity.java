@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.config.elasticsearch;
 
+import org.springframework.data.elasticsearch.core.mapping.IndexCoordinates;
 import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchPersistentEntity;
 import org.springframework.data.util.TypeInformation;
 
@@ -15,8 +16,8 @@ public class SnowstormSimpleElasticsearchPersistentEntity<T> extends SimpleElast
 	}
 
 	@Override
-	public String getIndexName() {
-		return indexNamePrefix + super.getIndexName();
+	public IndexCoordinates getIndexCoordinates() {
+		return IndexCoordinates.of(indexNamePrefix + super.getIndexCoordinates().getIndexName());
 	}
 
 	@Override

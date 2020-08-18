@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.fhir.repositories;
 
 import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
-import org.springframework.data.elasticsearch.repository.ElasticsearchCrudRepository;
+import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 
-public interface FHIRValuesetRepository extends ElasticsearchCrudRepository<ValueSetWrapper, String> {
+public interface FHIRValuesetRepository extends ElasticsearchRepository<ValueSetWrapper, String> {
 
 }

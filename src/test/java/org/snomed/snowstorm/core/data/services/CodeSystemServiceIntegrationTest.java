@@ -2,8 +2,8 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
@@ -13,7 +13,7 @@ import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -25,9 +25,9 @@ import java.util.Set;
 
 import static org.junit.Assert.*;
 
-@RunWith(SpringJUnit4ClassRunner.class)
+@ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class CodeSystemServiceIntegrationTest extends AbstractTest {
+class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
@@ -52,7 +52,7 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 	// We import an extension directly under MAIN at the timepoint when 20180731 was created.
 	// We then upgrade the extension to international version 20190131 which contains concept 18736003 that has been donated from the extension.
 	// We check that the donated concept is in the correct module.
-	public void testCodeSystemUpgradeProcessDonatedContent() throws IOException, ReleaseImportException, ServiceException {
+	void testCodeSystemUpgradeProcessDonatedContent() throws IOException, ReleaseImportException, ServiceException {
 		// Create international code system
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN", "International Edition", ""));
 
@@ -114,7 +114,7 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 	@Test
 	// We set up content for the international edition and an extension.
 	// We inactivate an international concept then see the extension break when it's upgraded.
-	public void testCodeSystemUpgradeFindBrokenRelationships() throws IOException, ReleaseImportException, ServiceException {
+	void testCodeSystemUpgradeFindBrokenRelationships() throws IOException, ReleaseImportException, ServiceException {
 		// Create international code system
 		String snomedct = "SNOMEDCT";
 		codeSystemService.createCodeSystem(new CodeSystem(snomedct, "MAIN", "International Edition", ""));
@@ -187,7 +187,7 @@ public class CodeSystemServiceIntegrationTest extends AbstractTest {
 	// We set up content for the international edition and an extension.
 	// We inactivate an international concept then see the extension break when it's upgraded.
 	@Test
-	public void createCodeSystemsWithContentTestingUpgrade() throws IOException, ReleaseImportException, ServiceException {
+	void createCodeSystemsWithContentTestingUpgrade() throws IOException, ReleaseImportException, ServiceException {
 		// Create international code system
 		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN", "International Edition", ""));
 

@@ -32,33 +32,39 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword, store = true)
+	@Field(type = FieldType.Keyword, store = true)
 	@Size(min = 5, max = 18)
 	private String conceptId;
 
+	@Transient
 	@JsonIgnore
 	private Set<ReferenceSetMember> inactivationIndicatorMembers;
 
 	@JsonIgnore
 	// Populated when requesting an update
+	@Transient
 	private String inactivationIndicatorName;
 
 	@JsonIgnore
+	@Transient
 	private Set<ReferenceSetMember> associationTargetMembers;
 
 	@JsonIgnore
 	// Populated when requesting an update
+	@Transient
 	private Map<String, Set<String>> associationTargetStrings;
 
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String definitionStatusId;
 
 	@Valid
+	@Transient
 	private Set<Description> descriptions;
 
 	@Valid
+	@Transient
 	private Set<Relationship> relationships;
 
 	@Transient

@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.domain;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.domain.DomainEntity;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -26,7 +27,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		String ATTR = "attr";
 		String ATTR_MAP = "attrMap";
 	}
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String conceptIdForm;
 
 	@Field(type = FieldType.Long, store = true)
@@ -44,11 +45,12 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	@Field(type = FieldType.Object)
 	private Map<String, Set<String>> attr;
 
-	@Field(type = FieldType.keyword, index = false, store = true)
+	@Field(type = FieldType.Keyword, index = false, store = true)
 	// Format:
 	// groupNo:attr=value:attr=value,value|groupNo:attr=value:attr=value,value
 	private String attrMap;
 
+	@Transient
 	private Map<Integer, Map<String, List<String>>> groupedAttributesMap;
 
 	public QueryConcept() {
@@ -99,11 +101,14 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	@JsonIgnore
 	public Map<Integer, Map<String, List<String>>> getGroupedAttributesMap() {
+		if (groupedAttributesMap == null && this.attrMap != null) {
+			return GroupedAttributesMapSerializer.deserializeMap(this.attrMap);
+		}
 		return groupedAttributesMap;
 	}
 
 	public Map<String, Set<String>> getAttr() {
-		return GroupedAttributesMapSerializer.serializeFlatMap(groupedAttributesMap);
+		return GroupedAttributesMapSerializer.serializeFlatMap(getGroupedAttributesMap());
 	}
 
 	public void setAttr(Map attr) {
@@ -111,11 +116,20 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	}
 
 	public String getAttrMap() {
-		return GroupedAttributesMapSerializer.serializeMap(groupedAttributesMap);
+		if (this.attrMap == null) {
+			return GroupedAttributesMapSerializer.serializeMap(getGroupedAttributesMap());
+		}
+		return this.attrMap;
+	}
+
+	public void serializeGroupedAttributesMap() {
+		setAttrMap(GroupedAttributesMapSerializer.serializeMap(getGroupedAttributesMap()));
+		setAttr(GroupedAttributesMapSerializer.serializeFlatMap(getGroupedAttributesMap()));
 	}
 
 	public void setAttrMap(String attrMap) {
-		groupedAttributesMap = GroupedAttributesMapSerializer.deserializeMap(attrMap);
+		this.attrMap = attrMap;
+		groupedAttributesMap = GroupedAttributesMapSerializer.deserializeMap(this.attrMap);
 	}
 
 	private void updateConceptIdForm() {

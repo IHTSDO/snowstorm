@@ -54,23 +54,23 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	}
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	private String memberId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword)
+	@Field(type = FieldType.Keyword)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String refsetId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.keyword, store = true)
+	@Field(type = FieldType.Keyword, store = true)
 	@NotNull
 	@Size(min = 5, max = 18)
 	private String referencedComponentId;
 
 	// Used when the member can be considered to be part of a concept referencedComponentId is a concept or description
-	@Field(type = FieldType.keyword, store = true)
+	@Field(type = FieldType.Keyword, store = true)
 	private String conceptId;
 
 	@JsonView(value = View.Component.class)

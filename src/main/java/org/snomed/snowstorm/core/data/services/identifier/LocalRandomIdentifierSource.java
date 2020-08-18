@@ -8,7 +8,7 @@ import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchTemplate;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
 import java.util.Collection;
@@ -24,11 +24,11 @@ import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
  */
 public class LocalRandomIdentifierSource implements IdentifierSource {
 
-	private final ElasticsearchTemplate elasticsearchTemplate;
+	private final ElasticsearchRestTemplate elasticsearchTemplate;
 
 	private ItemIdProvider itemIdProvider;
 
-	public LocalRandomIdentifierSource(ElasticsearchTemplate elasticsearchTemplate) {
+	public LocalRandomIdentifierSource(ElasticsearchRestTemplate elasticsearchTemplate) {
 		this.elasticsearchTemplate = elasticsearchTemplate;
 		itemIdProvider = new RandomItemIdProvider();
 	}
@@ -80,8 +80,8 @@ public class LocalRandomIdentifierSource implements IdentifierSource {
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(termsQuery(idField, identifiers))
 				.withPageable(PageRequest.of(0, identifiers.size()));
-		return elasticsearchTemplate.queryForList(queryBuilder.build(), snomedComponentClass)
-				.stream().map(c -> Long.parseLong(c.getId())).collect(Collectors.toList());
+		return elasticsearchTemplate.search(queryBuilder.build(), snomedComponentClass)
+				.stream().map(hit -> Long.parseLong(hit.getContent().getId())).collect(Collectors.toList());
 	}
 
 	@Override

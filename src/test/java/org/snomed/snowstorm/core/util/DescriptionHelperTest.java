@@ -1,7 +1,7 @@
 package org.snomed.snowstorm.core.util;
 
 import com.google.common.collect.Sets;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
@@ -14,10 +14,10 @@ import static org.junit.Assert.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.GB_EN_LANG_REFSET;
 import static org.snomed.snowstorm.core.data.domain.Concepts.US_EN_LANG_REFSET;
 
-public class DescriptionHelperTest {
+class DescriptionHelperTest {
 
 	@Test
-	public void foldTerm() {
+	void foldTerm() {
 		HashSet<Character> charactersNotFolded = Sets.newHashSet('å', 'ä', 'ö', 'Å', 'Ä', 'Ö');
 
 		// Swedish character ä not folded
@@ -31,7 +31,7 @@ public class DescriptionHelperTest {
 	}
 
 	@Test
-	public void combinedCharactersNotFolded() {
+	void combinedCharactersNotFolded() {
 		HashSet<Character> charactersNotFolded = Sets.newHashSet('æ');
 
 		// æ is not folded
@@ -39,7 +39,7 @@ public class DescriptionHelperTest {
 	}
 
 	@Test
-	public void testGetPtDescription() {
+	void testGetPtDescription() {
 		String danishLanguageReferenceSet = "554461000005103";
 
 		Set<Description> descriptions = Sets.newHashSet(
@@ -67,7 +67,7 @@ public class DescriptionHelperTest {
 	}
 
 	@Test
-	public void testPickFSNUsingLangOnlyWhenNoLangRefset() {
+	void testPickFSNUsingLangOnlyWhenNoLangRefset() {
 		final HashSet<Description> descriptionWithNoAcceptability = Sets.newHashSet(new Description("Neoplasm and/or hamartoma reference set (foundation metadata concept)").setTypeId(Concepts.FSN));
 		assertEquals("Pick FSN with correct language when only language requested.",
 				"Neoplasm and/or hamartoma reference set (foundation metadata concept)", getFSNTerm("en", descriptionWithNoAcceptability));

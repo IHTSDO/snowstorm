@@ -6,11 +6,9 @@ import io.kaicode.elasticvc.domain.Commit;
 import org.assertj.core.util.Lists;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.Assert;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.Test;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.rf2.RF2Type;
@@ -18,8 +16,6 @@ import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -32,9 +28,7 @@ import static org.junit.Assert.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.CORE_MODULE;
 
-@RunWith(SpringJUnit4ClassRunner.class)
-@ContextConfiguration(classes = TestConfig.class)
-public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
+class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 
 	private  String MAIN = "MAIN";
 
@@ -57,7 +51,7 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 	private BranchMetadataHelper branchMetadataHelper;
 
 	@Test
-	public void testNewConceptAuthoring() throws ServiceException {
+	void testNewConceptAuthoring() throws ServiceException {
 		//create a new concept with class axiom
 		final Concept concept = new Concept("50960005", 20020131, true, Concepts.CORE_MODULE, "900000000000074008");
 		concept.addAxiom(new Axiom(null, Concepts.FULLY_DEFINED, Sets.newHashSet(new Relationship(Concepts.ISA, "10000100"), new Relationship("10000200", "10000300"))).setModuleId(CORE_MODULE));
@@ -80,7 +74,7 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testAxiomRefsetMemberUpdate() throws ServiceException {
+	void testAxiomRefsetMemberUpdate() throws ServiceException {
 		//create new concept with class axiom
 		final Concept concept = new Concept("50960005", 20020131, true, Concepts.CORE_MODULE, Concepts.FULLY_DEFINED);
 		concept.addAxiom(new Axiom(null, Concepts.FULLY_DEFINED, Sets.newHashSet(new Relationship(Concepts.ISA, "10000100"), new Relationship("10000200", "10000300"))).setModuleId(CORE_MODULE));
@@ -119,7 +113,7 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testClassAxiomRefsetDeletion() throws ServiceException {
+	void testClassAxiomRefsetDeletion() throws ServiceException {
 		//create a new concept with class axiom
 		final Concept concept = new Concept("50960005", 20020131, true, Concepts.CORE_MODULE, Concepts.FULLY_DEFINED);
 		concept.addAxiom(new Axiom(null, Concepts.FULLY_DEFINED, Sets.newHashSet(new Relationship(Concepts.ISA, "10000100"), new Relationship("10000200", "10000300"))).setModuleId(CORE_MODULE));
@@ -137,7 +131,7 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void testRevertingClassAxiomRefsetUpdate() throws ServiceException {
+	void testRevertingClassAxiomRefsetUpdate() throws ServiceException {
 		//create new concept with class axiom
 		final Concept concept = new Concept("50960005", 20020131, true, Concepts.CORE_MODULE, Concepts.FULLY_DEFINED);
 		concept.addAxiom(new Axiom(null, Concepts.FULLY_DEFINED, Sets.newHashSet(new Relationship(Concepts.ISA, "10000100"), new Relationship("10000200", "10000300"))).setModuleId(CORE_MODULE));
@@ -182,7 +176,7 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void importStatedSnapshotThenCompleteOwl() throws IOException, ReleaseImportException, ServiceException {
+	void importStatedSnapshotThenCompleteOwl() throws IOException, ReleaseImportException, ServiceException {
 		File rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/RF2Release");
 		File completeOwlRf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/conversion-to-complete-owl");
 
@@ -211,7 +205,7 @@ public class ConceptDefinitionStatusUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	public void updatePublishedClassAxiom() throws ServiceException {
+	void updatePublishedClassAxiom() throws ServiceException {
 		//create a published concept with class axiom
 		final Concept concept = new Concept("50960005", 20020131, true, Concepts.CORE_MODULE, "900000000000074008");
 		concept.addAxiom(new Axiom(null, Concepts.FULLY_DEFINED, Sets.newHashSet(new Relationship(Concepts.ISA, "10000100"), new Relationship("10000200", "10000300"))).setModuleId(CORE_MODULE));
