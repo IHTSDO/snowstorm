@@ -79,7 +79,7 @@ class ConceptControllerTest extends AbstractTest {
 		// Create a project branch and add a relationship to the dummy concept
 		branchService.create("MAIN/projectA");
 		concept.getRelationships().add(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING));
-		concept = conceptService.update(concept, "MAIN/projectA");
+		conceptService.update(concept, "MAIN/projectA");
 
 		Thread.sleep(1_000);
 
