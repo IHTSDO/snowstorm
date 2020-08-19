@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
@@ -125,10 +126,32 @@ public class RelationshipService extends ComponentService {
 			return Collections.emptyList();
 		}
 
+		Set<Long> destinationIds = new LongArraySet();
+		if (sourceConceptIds == null) {
+			NativeSearchQuery query = constructDestinationSearchQuery(sourceConceptIds, attributeTypeIds, branchCriteria, stated);
+			try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(query, Relationship.class)) {
+				stream.forEachRemaining(hit -> destinationIds.add(parseLong(hit.getContent().getDestinationId())));
+			}
+		} else {
+			for (List<Long> batch : Iterables.partition(sourceConceptIds, CLAUSE_LIMIT)) {
+				NativeSearchQuery query = constructDestinationSearchQuery(batch, attributeTypeIds, branchCriteria, stated);
+				try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(query, Relationship.class)) {
+					stream.forEachRemaining(hit -> destinationIds.add(parseLong(hit.getContent().getDestinationId())));
+				}
+			}
+		}
+		// Stream search doesn't sort for us
+		// Sorting meaningless but supports deterministic pagination
+		List<Long> sortedIds = new LongArrayList(destinationIds);
+		sortedIds.sort(LongComparators.OPPOSITE_COMPARATOR);
+		return sortedIds;
+	}
+
+	private NativeSearchQuery constructDestinationSearchQuery(Collection<Long> sourceConceptIds, Collection<Long> attributeTypeIds, BranchCriteria branchCriteria, boolean stated) {
 		BoolQueryBuilder boolQuery = boolQuery()
 				.must(branchCriteria.getEntityBranchCriteria(Relationship.class))
 				.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, stated ? Concepts.STATED_RELATIONSHIP : Concepts.INFERRED_RELATIONSHIP))
-				.must(termsQuery(Relationship.Fields.ACTIVE, true));
+				.must(termQuery(Relationship.Fields.ACTIVE, true));
 
 		if (attributeTypeIds != null) {
 			boolQuery.must(termsQuery(Relationship.Fields.TYPE_ID, attributeTypeIds));
@@ -138,21 +161,11 @@ public class RelationshipService extends ComponentService {
 			boolQuery.must(termsQuery(Relationship.Fields.SOURCE_ID, sourceConceptIds));
 		}
 
-		NativeSearchQuery query = new NativeSearchQueryBuilder()
+		return new NativeSearchQueryBuilder()
 				.withQuery(boolQuery)
+				.withFields(Relationship.Fields.DESTINATION_ID)
 				.withPageable(LARGE_PAGE)
 				.build();
-
-		Set<Long> destinationIds = new LongArraySet();
-		try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(query, Relationship.class)) {
-			stream.forEachRemaining(hit -> destinationIds.add(parseLong(hit.getContent().getDestinationId())));
-		}
-
-		// Stream search doesn't sort for us
-		// Sorting meaningless but supports deterministic pagination
-		List<Long> sortedIds = new LongArrayList(destinationIds);
-		sortedIds.sort(LongComparators.OPPOSITE_COMPARATOR);
-		return sortedIds;
 	}
 
 	/**
