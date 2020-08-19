@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageRequest;
 
 import java.util.*;
 
+import static com.google.common.collect.Sets.newHashSet;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
@@ -44,6 +45,15 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			return Optional.empty();
 		}
 		return SExpressionConstraintHelper.select(this, refinementBuilder);
+	}
+
+	@Override
+	public Set<String> getConceptIds() {
+		Set<String> conceptIds = newHashSet(this.getConceptId());
+		if (nestedExpressionConstraint != null) {
+			conceptIds.addAll(((SExpressionConstraint) nestedExpressionConstraint).getConceptIds());
+		}
+		return conceptIds;
 	}
 
 	@Override

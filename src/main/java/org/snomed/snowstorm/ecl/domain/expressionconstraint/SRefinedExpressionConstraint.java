@@ -10,10 +10,9 @@ import org.snomed.snowstorm.ecl.domain.refinement.SEclRefinement;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+
+import static com.google.common.collect.Sets.newHashSet;
 
 public class SRefinedExpressionConstraint extends RefinedExpressionConstraint implements SExpressionConstraint {
 
@@ -29,6 +28,19 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 	@Override
 	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
 		return SExpressionConstraintHelper.select(this, refinementBuilder);
+	}
+
+	@Override
+	public Set<String> getConceptIds() {
+		Set<String> conceptIds = newHashSet();
+		if (subexpressionConstraint != null) {
+			conceptIds.addAll(((SSubExpressionConstraint) subexpressionConstraint).getConceptIds());
+		}
+		if (eclRefinement != null) {
+			// TODO: move getConceptIds to SRefinement interface
+			// conceptIds.addAll(((SEclRefinement)this.getEclRefinement()).findConceptIds());
+		}
+		return conceptIds;
 	}
 
 	@Override
