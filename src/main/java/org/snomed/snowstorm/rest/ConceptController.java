@@ -20,8 +20,8 @@ import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
-import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.ecl.validation.EclValidator;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +71,9 @@ public class ConceptController {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
+	@Autowired
+	private EclValidator eclValidator;
+
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
 
@@ -119,6 +122,7 @@ public class ConceptController {
 
 		boolean stated = true;
 		if (ecl != null && !ecl.isEmpty()) {
+			eclValidator.validateEcl(ecl, branch);
 			stated = false;
 		} else {
 			ecl = statedEcl;
@@ -142,8 +146,7 @@ public class ConceptController {
 
 		PageRequest pageRequest = getPageRequestWithSort(offset, limit, searchAfter, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
 		if (returnIdOnly) {
-			SearchAfterPage<Long> conceptIdPage = queryService.searchForIds(queryBuilder, branch, pageRequest);
-			return new ItemsPage<>(conceptIdPage);
+			return new ItemsPage<>(queryService.searchForIds(queryBuilder, branch, pageRequest));
 		} else {
 			return new ItemsPage<>(queryService.search(queryBuilder, branch, pageRequest));
 		}
