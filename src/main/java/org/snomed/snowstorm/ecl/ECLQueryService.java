@@ -22,7 +22,7 @@ import java.util.Optional;
 public class ECLQueryService {
 
 	@Autowired
-	private ECLQueryBuilder queryBuilder;
+	private ECLQueryBuilder eclQueryBuilder;
 
 	@Autowired
 	private QueryService queryService;
@@ -40,7 +40,7 @@ public class ECLQueryService {
 
 	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest) throws ECLException {
 		TimerUtil eclSlowQueryTimer = getEclSlowQueryTimer();
-		SExpressionConstraint expressionConstraint = (SExpressionConstraint) queryBuilder.createQuery(ecl);
+		SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
 
 		// TODO: Attempt to simplify queries here.
 		// Changing something like "(id) AND (<<id OR >>id)"  to  "(id AND <<id) OR (id AND >>id)" will run in a fraction of the time because there will be no large fetches

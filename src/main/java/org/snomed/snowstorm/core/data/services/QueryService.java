@@ -256,8 +256,8 @@ public class QueryService implements ApplicationContextAware {
 			List<Long> filteredConceptIds = filterByDefinitionStatus(allConceptIds.getContent(), conceptQuery.definitionStatusFilter, branchCriteria, new LongArrayList());
 			return PageHelper.fullListToPage(filteredConceptIds, pageRequest, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		} else {
-			return PageHelper.toSearchAfterPage(eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, pageRequest),
-					CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
+			Page<Long> conceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, pageRequest);
+			return PageHelper.toSearchAfterPage(conceptIds, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		}
 	}
 
