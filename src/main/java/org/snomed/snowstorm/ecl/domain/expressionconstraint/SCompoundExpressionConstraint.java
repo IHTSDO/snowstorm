@@ -11,9 +11,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
+import static com.google.common.collect.Sets.newHashSet;
+import static java.util.stream.Collectors.toSet;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
+import static org.springframework.util.CollectionUtils.isEmpty;
 
 public class SCompoundExpressionConstraint extends CompoundExpressionConstraint implements SExpressionConstraint {
 
@@ -25,6 +30,29 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 	@Override
 	public Optional<Page<Long>> select(RefinementBuilder refinementBuilder) {
 		return SExpressionConstraintHelper.select(this, refinementBuilder);
+	}
+
+	@Override
+	public Set<String> getConceptIds() {
+		Set<String> conceptIds = newHashSet();
+		if (!isEmpty(conjunctionExpressionConstraints)) {
+			conceptIds.addAll(getConceptIds(conjunctionExpressionConstraints));
+		}
+		if (!isEmpty(disjunctionExpressionConstraints)) {
+			conceptIds.addAll(getConceptIds(disjunctionExpressionConstraints));
+		}
+		if (exclusionExpressionConstraint != null) {
+			conceptIds.addAll(((SSubExpressionConstraint) exclusionExpressionConstraint).getConceptIds());
+		}
+		return conceptIds;
+	}
+
+	private Set<String> getConceptIds(List<SubExpressionConstraint> subExpressionConstraints) {
+		return subExpressionConstraints.stream()
+				.map(SSubExpressionConstraint.class::cast)
+				.map(SSubExpressionConstraint::getConceptIds)
+				.flatMap(Set::stream)
+				.collect(toSet());
 	}
 
 	public void addCriteria(RefinementBuilder refinementBuilder) {
