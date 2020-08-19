@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -40,6 +41,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static io.kaicode.elasticvc.api.ComponentService.CLAUSE_LIMIT;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -222,20 +224,21 @@ public class QueryService implements ApplicationContextAware {
 			return filteredConceptIds;
 		}
 
-		NativeSearchQueryBuilder conceptDefinitionQuery = new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, definitionStatus))
-				)
-				.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
-				.withFields(Concept.Fields.CONCEPT_ID)
-				.withSort(getDefaultSortForConcept())
-				.withPageable(LARGE_PAGE);
+		for (List<Long> batch : Iterables.partition(conceptIds, CLAUSE_LIMIT)) {
+			NativeSearchQueryBuilder conceptDefinitionQuery = new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+							.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, definitionStatus))
+					)
+					.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, batch))
+					.withFields(Concept.Fields.CONCEPT_ID)
+					.withSort(getDefaultSortForConcept())
+					.withPageable(LARGE_PAGE);
 
-		try (SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(conceptDefinitionQuery.build(), Concept.class)) {
-			stream.forEachRemaining(hit -> filteredConceptIds.add(hit.getContent().getConceptIdAsLong()));
+			try (SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(conceptDefinitionQuery.build(), Concept.class)) {
+				stream.forEachRemaining(hit -> filteredConceptIds.add(hit.getContent().getConceptIdAsLong()));
+			}
 		}
-
 		return filteredConceptIds;
 	}
 

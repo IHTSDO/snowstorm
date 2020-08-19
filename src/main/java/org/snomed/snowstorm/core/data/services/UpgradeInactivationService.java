@@ -84,7 +84,7 @@ public class UpgradeInactivationService {
 
 			List<Long> descriptionIdsWithIndicators = new LongArrayList();
 			try (SearchHitsIterator<ReferenceSetMember> memberResults = elasticsearchTemplate.searchForStream(descriptionInactivationQuery, ReferenceSetMember.class)) {
-				memberResults.forEachRemaining(hit -> descriptionIdsWithIndicators.add(new Long(hit.getContent().getReferencedComponentId())));
+				memberResults.forEachRemaining(hit -> descriptionIdsWithIndicators.add(Long.parseLong(hit.getContent().getReferencedComponentId())));
 			}
 
 			// find active descriptions without description inactivation indicators for inactive concepts
