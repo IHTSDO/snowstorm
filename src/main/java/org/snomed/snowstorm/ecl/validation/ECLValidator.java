@@ -4,17 +4,19 @@ import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.QueryService.ConceptQueryBuilder;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
 import java.util.List;
 import java.util.Set;
 
-import static java.util.stream.Collectors.joining;
+import static com.google.common.collect.Lists.newArrayList;
 import static java.util.stream.Collectors.toList;
+import static org.apache.commons.collections4.CollectionUtils.subtract;
+import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Service
 public class ECLValidator {
@@ -35,12 +37,20 @@ public class ECLValidator {
 
     private void validateConceptIds(ExpressionConstraint expressionConstraint, String branch) {
         Set<String> conceptIds = ((SExpressionConstraint) expressionConstraint).getConceptIds();
-        QueryService.ConceptQueryBuilder conceptQueryBuilder = queryService.createQueryBuilder(false).activeFilter(false).conceptIds(conceptIds);
+        ConceptQueryBuilder conceptQueryBuilder = queryService.createQueryBuilder(false).conceptIds(conceptIds);
         Page<ConceptMini> conceptMiniPage = queryService.search(conceptQueryBuilder, branch, PageRequest.of(0, 1000));
-        List<ConceptMini> inactiveConcepts = conceptMiniPage.getContent().stream().filter(conceptMini -> !conceptMini.getActive()).collect(toList());
-        if (!CollectionUtils.isEmpty(inactiveConcepts)) {
-            String inactiveConceptIds = inactiveConcepts.stream().map(ConceptMini::getConceptId).collect(joining());
-            throw new IllegalArgumentException("Concepts in the ECL request do not exist or are inactive on branch " + branch + ": " + inactiveConceptIds + ".");
+        List<String> inactiveConceptIds = conceptMiniPage.getContent().stream().filter(conceptMini -> !conceptMini.getActive()).map(ConceptMini::getConceptId).collect(toList());
+        List<String> nonexistentConceptIds = (List<String>) subtract(conceptIds, conceptMiniPage.getContent().stream().map(ConceptMini::getConceptId).collect(toList()));
+        throwsIllegalArgumentException(inactiveConceptIds, nonexistentConceptIds, branch);
+    }
+
+    private void throwsIllegalArgumentException(List<String> inactiveConceptIds, List<String> nonexistentConceptIds, String branch) {
+        if (!isEmpty(inactiveConceptIds) || !isEmpty(nonexistentConceptIds)) {
+            List<String> invalidConceptIds = newArrayList();
+            invalidConceptIds.addAll(inactiveConceptIds);
+            invalidConceptIds.addAll(nonexistentConceptIds);
+            throw new IllegalArgumentException("Concepts in the ECL request do not exist or are inactive on branch " + branch + ": " +
+                    String.join(", ", invalidConceptIds) + ".");
         }
     }
 }
