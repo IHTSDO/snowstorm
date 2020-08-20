@@ -21,7 +21,7 @@ import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
-import org.snomed.snowstorm.ecl.validation.EclValidator;
+import org.snomed.snowstorm.ecl.validation.ECLValidator;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +41,7 @@ import javax.validation.Valid;
 import java.util.*;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.snomed.snowstorm.core.pojo.BranchTimepoint.BRANCH_CREATION_TIMEPOINT;
 import static org.snomed.snowstorm.rest.ControllerHelper.parseBranchTimepoint;
 import static org.springframework.util.CollectionUtils.isEmpty;
@@ -72,7 +73,7 @@ public class ConceptController {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private EclValidator eclValidator;
+	private ECLValidator eclValidator;
 
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
@@ -121,7 +122,7 @@ public class ConceptController {
 		}
 
 		boolean stated = true;
-		if (ecl != null && !ecl.isEmpty()) {
+		if (isNotBlank(ecl)) {
 			eclValidator.validateEcl(ecl, branch);
 			stated = false;
 		} else {
