@@ -270,4 +270,18 @@ class ConceptControllerTest extends AbstractTest {
 		JSONObject jsonObject = new JSONObject(responseBody);
 		assertEquals("Concepts in the ECL request do not exist or are inactive on branch MAIN: 257751006.", jsonObject.get("message"));
 	}
+
+	@Test
+	void testFailsConceptSearchWithNonexistentConceptIdInEclExpression() throws JSONException {
+		String conceptId = "257751006";
+		conceptService.deleteConceptAndComponents(conceptId, "MAIN", true);
+		String eclExpressionWithNonexistentConcept = "257751006 |Clinical finding|";
+
+		ResponseEntity<String> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?ecl=" + eclExpressionWithNonexistentConcept,
+				HttpMethod.GET, new HttpEntity<>(null), String.class);
+		assertEquals(400, responseEntity.getStatusCode().value());
+		String responseBody = responseEntity.getBody();
+		JSONObject jsonObject = new JSONObject(responseBody);
+		assertEquals("Concepts in the ECL request do not exist or are inactive on branch MAIN: 257751006.", jsonObject.get("message"));
+	}
 }
