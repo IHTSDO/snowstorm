@@ -9,6 +9,8 @@ import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
 
 import java.util.Set;
 
+import static java.util.Collections.emptySet;
+
 public class SEclAttributeGroup extends EclAttributeGroup implements SRefinement {
 
 	@Override
@@ -18,6 +20,11 @@ public class SEclAttributeGroup extends EclAttributeGroup implements SRefinement
 
 		BoolQueryBuilder attributesQueryForSingleGroup = new BoolQueryBuilder();
 		((SEclAttributeSet)attributeSet).addCriteria(new SubRefinementBuilder(refinementBuilder, attributesQueryForSingleGroup));
+	}
+
+	@Override
+	public Set<String> getConceptIds() {
+		return attributeSet == null ? emptySet() : ((SEclAttributeSet) attributeSet).getConceptIds();
 	}
 
 	boolean isMatch(MatchContext matchContext) {

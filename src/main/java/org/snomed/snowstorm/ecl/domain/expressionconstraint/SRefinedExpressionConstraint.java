@@ -37,8 +37,7 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 			conceptIds.addAll(((SSubExpressionConstraint) subexpressionConstraint).getConceptIds());
 		}
 		if (eclRefinement != null) {
-			// TODO: move getConceptIds to SRefinement interface
-			// conceptIds.addAll(((SEclRefinement)this.getEclRefinement()).findConceptIds());
+			conceptIds.addAll(((SEclRefinement) eclRefinement).getConceptIds());
 		}
 		return conceptIds;
 	}
