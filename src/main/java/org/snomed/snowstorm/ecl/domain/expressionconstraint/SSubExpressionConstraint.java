@@ -49,7 +49,10 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 	@Override
 	public Set<String> getConceptIds() {
-		Set<String> conceptIds = newHashSet(this.getConceptId());
+		Set<String> conceptIds = newHashSet();
+		if (conceptId != null) {
+			conceptIds.add(conceptId);
+		}
 		if (nestedExpressionConstraint != null) {
 			conceptIds.addAll(((SExpressionConstraint) nestedExpressionConstraint).getConceptIds());
 		}
