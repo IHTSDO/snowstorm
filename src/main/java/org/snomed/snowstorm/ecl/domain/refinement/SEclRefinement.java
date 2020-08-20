@@ -8,7 +8,13 @@ import org.snomed.snowstorm.ecl.domain.SRefinement;
 import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
 
+import java.util.List;
+import java.util.Set;
+
+import static com.google.common.collect.Sets.newHashSet;
+import static java.util.stream.Collectors.toSet;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
+import static org.springframework.util.CollectionUtils.isEmpty;
 
 public class SEclRefinement extends EclRefinement implements SRefinement {
 
@@ -30,6 +36,29 @@ public class SEclRefinement extends EclRefinement implements SRefinement {
 				((SSubRefinement)disjunctionSubRefinement).addCriteria(new SubRefinementBuilder(refinementBuilder, shouldQuery));
 			}
 		}
+	}
+
+	@Override
+	public Set<String> getConceptIds() {
+		Set<String> conceptIds = newHashSet();
+		if (subRefinement != null) {
+			conceptIds.addAll(((SSubRefinement) subRefinement).getConceptIds());
+		}
+		if (!isEmpty(conjunctionSubRefinements)) {
+			conceptIds.addAll(getConceptIds(conjunctionSubRefinements));
+		}
+		if (!isEmpty(disjunctionSubRefinements)) {
+			conceptIds.addAll(getConceptIds(disjunctionSubRefinements));
+		}
+		return conceptIds;
+	}
+
+	private Set<String> getConceptIds(List<SubRefinement> subRefinements) {
+		return subRefinements.stream()
+				.map(SSubRefinement.class::cast)
+				.map(SSubRefinement::getConceptIds)
+				.flatMap(Set::stream)
+				.collect(toSet());
 	}
 
 	public boolean isMatch(MatchContext matchContext) {
