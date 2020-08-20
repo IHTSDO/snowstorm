@@ -9,11 +9,12 @@ import org.snomed.snowstorm.ecl.domain.SRefinement;
 import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
+import java.util.*;
 
+import static com.google.common.collect.Sets.newHashSet;
+import static java.util.stream.Collectors.toSet;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
+import static org.springframework.util.CollectionUtils.isEmpty;
 
 public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 
@@ -42,6 +43,30 @@ public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 				((SSubAttributeSet)attributeSet).addCriteria(new SubRefinementBuilder(refinementBuilder, additionalShouldQuery));
 			}
 		}
+	}
+
+	@Override
+	public Set<String> getConceptIds() {
+		Set<String> conceptIds = newHashSet();
+		// parentGroup only has reference to this class, so no need to get parentGroup conceptIds
+		if (subAttributeSet != null) {
+			conceptIds.addAll(((SSubAttributeSet) subAttributeSet).getConceptIds());
+		}
+		if (!isEmpty(conjunctionAttributeSet)) {
+			conceptIds.addAll(getConceptIds(conjunctionAttributeSet));
+		}
+		if (!isEmpty(disjunctionAttributeSet)) {
+			conceptIds.addAll(getConceptIds(disjunctionAttributeSet));
+		}
+		return conceptIds;
+	}
+
+	private Collection<? extends String> getConceptIds(List<SubAttributeSet> subAttributeSets) {
+		return subAttributeSets.stream()
+				.map(SSubAttributeSet.class::cast)
+				.map(SSubAttributeSet::getConceptIds)
+				.flatMap(Set::stream)
+				.collect(toSet());
 	}
 
 	boolean isMatch(MatchContext matchContext) {

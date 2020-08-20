@@ -16,6 +16,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.Sets.newHashSet;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class SEclAttribute extends EclAttribute implements SRefinement {
@@ -177,6 +178,18 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 				}
 			}
 		}
+	}
+
+	@Override
+	public Set<String> getConceptIds() {
+		Set<String> conceptIds = newHashSet();
+		if (attributeName != null) {
+			conceptIds.addAll(((SSubExpressionConstraint) attributeName).getConceptIds());
+		}
+		if (value != null) {
+			conceptIds.addAll(((SSubExpressionConstraint) value).getConceptIds());
+		}
+		return conceptIds;
 	}
 
 	private boolean isZero(Integer i) {
