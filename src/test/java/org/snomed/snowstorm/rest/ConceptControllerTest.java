@@ -63,11 +63,7 @@ class ConceptControllerTest extends AbstractTest {
 
 	@BeforeEach
 	void setup() throws ServiceException, InterruptedException {
-		// Create dummy concept with descriptions containing quotString branch = "MAIN";
-		//		conceptService.create(new Concept("100001", null, true, "10000111", Concepts.PRIMITIVE), branch);
-		//		conceptService.create(new Concept("100002", null, false, "10000111", Concepts.PRIMITIVE), branch);String branch = "MAIN";
-		//		conceptService.create(new Concept("100001", null, true, "10000111", Concepts.PRIMITIVE), branch);
-		//		conceptService.create(new Concept("100002", null, false, "10000111", Concepts.PRIMITIVE), branch);es
+		// Create dummy concept with descriptions containing quotes
 		String conceptId = "257751006";
 		Concept concept = conceptService.create(
 				new Concept(conceptId)
@@ -191,7 +187,7 @@ class ConceptControllerTest extends AbstractTest {
 
 		// Simple Concept ECL
 		HashMap<String, Object> urlVariables = new HashMap<>();
-		urlVariables.put("ecl", "257751006 |Clinical finding|");
+		urlVariables.put("ecl", "257751006");
 		responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/MAIN/concepts", String.class, urlVariables);
 		checkFields(responseBody);
 	}
@@ -245,14 +241,12 @@ class ConceptControllerTest extends AbstractTest {
     }
 
 	@Test
-	void testConceptSearchWithValidEclExpression() throws JSONException {
+	void testConceptSearchWithValidEclExpression() {
 		String validEclExpression = "257751006 |Clinical finding|";
 
-		HashMap<String, Object> urlVariables = new HashMap<>();
-		urlVariables.put("ecl", validEclExpression);
-		String responseBody = this.restTemplate.getForObject("http://localhost:" + port + "/MAIN/concepts", String.class, urlVariables);
-		JSONObject jsonObject = new JSONObject(responseBody);
-		assertEquals(1, jsonObject.get("total"));
+		ResponseEntity<String> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?ecl=" + validEclExpression,
+				HttpMethod.GET, new HttpEntity<>(null), String.class);
+		assertEquals(200, responseEntity.getStatusCode().value());
 	}
 
 	@Test
