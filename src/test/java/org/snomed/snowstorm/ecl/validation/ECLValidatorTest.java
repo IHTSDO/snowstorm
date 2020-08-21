@@ -8,6 +8,7 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import static java.lang.String.join;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -17,6 +18,8 @@ class ECLValidatorTest extends AbstractTest {
     private static final String BRANCH = "MAIN";
 
     private static final String EXCEPTION_MESSAGE = "Concepts in the ECL request do not exist or are inactive on branch " + BRANCH + ": ";
+
+    private static final String CONCEPT_IDS_DELIMITER = ", ";
 
     @Autowired
     private ConceptService conceptService;
@@ -29,7 +32,7 @@ class ECLValidatorTest extends AbstractTest {
         createActiveConcept("415360003");
 
         String eclExpression = "415360003 |GenSevere acute respiratory syndrome-related coronavirus (organism)|";
-        assertThatCode(() -> eclValidator.validateEcl(eclExpression, BRANCH)).doesNotThrowAnyException();
+        assertThatCode(() -> eclValidator.validate(eclExpression, BRANCH)).doesNotThrowAnyException();
     }
 
     @Test
@@ -38,7 +41,7 @@ class ECLValidatorTest extends AbstractTest {
         oneExistingConcept("387517004");
 
         String eclExpression = "* : 246075003 |Causative agent| = 387517004 |Paracetamol|";
-        assertThatCode(() -> eclValidator.validateEcl(eclExpression, BRANCH)).doesNotThrowAnyException();
+        assertThatCode(() -> eclValidator.validate(eclExpression, BRANCH)).doesNotThrowAnyException();
     }
 
     @Test
@@ -83,12 +86,12 @@ class ECLValidatorTest extends AbstractTest {
         nonexistentConcept("249999999101");
 
         String eclExpression = "< 105590001 |Substance|: R 127489000 |Has active ingredient| = 249999999101 |TRIPHASIL tablet|";
-        assertException(eclExpression, "105590001", "127489000", "249999999101");
+        assertException(eclExpression, "127489000", "105590001", "249999999101");
     }
 
     private void assertException(String eclExpression, String... conceptIds) {
-        String exceptionMessage = EXCEPTION_MESSAGE + String.join(", ", conceptIds) + ".";
-        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> eclValidator.validateEcl(eclExpression, BRANCH));
+        String exceptionMessage = EXCEPTION_MESSAGE + join(CONCEPT_IDS_DELIMITER, conceptIds) + ".";
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () -> eclValidator.validate(eclExpression, BRANCH));
         assertThat(exception.getMessage()).isEqualTo(exceptionMessage);
     }
 
