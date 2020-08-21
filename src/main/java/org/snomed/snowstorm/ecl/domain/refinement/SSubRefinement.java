@@ -7,8 +7,6 @@ import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
 
 import java.util.Set;
 
-import static com.google.common.collect.Sets.newHashSet;
-
 public class SSubRefinement extends SubRefinement implements SRefinement {
 
 	@Override
@@ -24,17 +22,13 @@ public class SSubRefinement extends SubRefinement implements SRefinement {
 
 	@Override
 	public Set<String> getConceptIds() {
-		Set<String> conceptIds = newHashSet();
 		if (eclAttributeSet != null) {
-			conceptIds.addAll(((SEclAttributeSet) eclAttributeSet).getConceptIds());
+			return ((SEclAttributeSet) eclAttributeSet).getConceptIds();
+		} else if (eclAttributeGroup != null) {
+			return ((SEclAttributeGroup) eclAttributeGroup).getConceptIds();
+		} else {
+			return ((SEclRefinement) eclRefinement).getConceptIds();
 		}
-		if (eclAttributeGroup != null) {
-			conceptIds.addAll(((SEclAttributeGroup) eclAttributeGroup).getConceptIds());
-		}
-		if (eclRefinement != null) {
-			conceptIds.addAll(((SEclRefinement) eclRefinement).getConceptIds());
-		}
-		return conceptIds;
 	}
 
 	boolean isMatch(MatchContext matchContext) {

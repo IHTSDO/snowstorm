@@ -183,12 +183,8 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 	@Override
 	public Set<String> getConceptIds() {
 		Set<String> conceptIds = newHashSet();
-		if (attributeName != null) {
-			conceptIds.addAll(((SSubExpressionConstraint) attributeName).getConceptIds());
-		}
-		if (value != null) {
-			conceptIds.addAll(((SSubExpressionConstraint) value).getConceptIds());
-		}
+		conceptIds.addAll(((SSubExpressionConstraint) attributeName).getConceptIds());
+		conceptIds.addAll(((SSubExpressionConstraint) value).getConceptIds());
 		return conceptIds;
 	}
 

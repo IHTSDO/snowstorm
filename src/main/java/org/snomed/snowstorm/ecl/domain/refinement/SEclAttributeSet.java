@@ -47,11 +47,7 @@ public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 
 	@Override
 	public Set<String> getConceptIds() {
-		Set<String> conceptIds = newHashSet();
-		// parentGroup only has reference to this class, so no need to get parentGroup conceptIds
-		if (subAttributeSet != null) {
-			conceptIds.addAll(((SSubAttributeSet) subAttributeSet).getConceptIds());
-		}
+		Set<String> conceptIds = newHashSet(((SSubAttributeSet) subAttributeSet).getConceptIds());
 		if (!isEmpty(conjunctionAttributeSet)) {
 			conceptIds.addAll(getConceptIds(conjunctionAttributeSet));
 		}
