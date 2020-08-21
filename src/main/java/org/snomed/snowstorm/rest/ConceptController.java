@@ -123,7 +123,7 @@ public class ConceptController {
 
 		boolean stated = true;
 		if (isNotBlank(ecl)) {
-			eclValidator.validateEcl(ecl, branch);
+			eclValidator.validate(ecl, branch);
 			stated = false;
 		} else {
 			ecl = statedEcl;
