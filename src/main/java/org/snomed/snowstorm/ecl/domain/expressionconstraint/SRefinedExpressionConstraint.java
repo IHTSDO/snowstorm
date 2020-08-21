@@ -33,12 +33,8 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 	@Override
 	public Set<String> getConceptIds() {
 		Set<String> conceptIds = newHashSet();
-		if (subexpressionConstraint != null) {
-			conceptIds.addAll(((SSubExpressionConstraint) subexpressionConstraint).getConceptIds());
-		}
-		if (eclRefinement != null) {
-			conceptIds.addAll(((SEclRefinement) eclRefinement).getConceptIds());
-		}
+		conceptIds.addAll(((SSubExpressionConstraint) subexpressionConstraint).getConceptIds());
+		conceptIds.addAll(((SEclRefinement) eclRefinement).getConceptIds());
 		return conceptIds;
 	}
 

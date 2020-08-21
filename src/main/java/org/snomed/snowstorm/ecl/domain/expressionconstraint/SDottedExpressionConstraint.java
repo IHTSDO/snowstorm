@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
-import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import org.snomed.langauges.ecl.domain.expressionconstraint.DottedExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
@@ -14,6 +13,7 @@ import org.springframework.data.domain.Slice;
 
 import java.util.*;
 
+import static com.google.common.collect.Sets.newHashSet;
 import static java.util.stream.Collectors.toSet;
 
 public class SDottedExpressionConstraint extends DottedExpressionConstraint implements SExpressionConstraint {
@@ -54,18 +54,14 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 
 	@Override
 	public Set<String> getConceptIds() {
-		Set<String> conceptIds = Sets.newHashSet();
-		if (subExpressionConstraint != null) {
-			conceptIds.addAll(((SSubExpressionConstraint) subExpressionConstraint).getConceptIds());
-		}
-		if (!dottedAttributes.isEmpty()) {
-			Set<String> dottedAttributesConceptIds = dottedAttributes.stream()
-					.map(SSubExpressionConstraint.class::cast)
-					.map(SSubExpressionConstraint::getConceptIds)
-					.flatMap(Set::stream)
-					.collect(toSet());
-			conceptIds.addAll(dottedAttributesConceptIds);
-		}
+		Set<String> conceptIds = newHashSet();
+		conceptIds.addAll(((SSubExpressionConstraint) subExpressionConstraint).getConceptIds());
+		Set<String> dottedAttributesConceptIds = dottedAttributes.stream()
+				.map(SSubExpressionConstraint.class::cast)
+				.map(SSubExpressionConstraint::getConceptIds)
+				.flatMap(Set::stream)
+				.collect(toSet());
+		conceptIds.addAll(dottedAttributesConceptIds);
 		return conceptIds;
 	}
 

@@ -40,10 +40,7 @@ public class SEclRefinement extends EclRefinement implements SRefinement {
 
 	@Override
 	public Set<String> getConceptIds() {
-		Set<String> conceptIds = newHashSet();
-		if (subRefinement != null) {
-			conceptIds.addAll(((SSubRefinement) subRefinement).getConceptIds());
-		}
+		Set<String> conceptIds = newHashSet(((SSubRefinement) subRefinement).getConceptIds());
 		if (!isEmpty(conjunctionSubRefinements)) {
 			conceptIds.addAll(getConceptIds(conjunctionSubRefinements));
 		}
