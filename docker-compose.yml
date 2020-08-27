@@ -39,5 +39,5 @@ services:
 networks:
   elastic:
 
-volumes: 
+volumes:
   elastic:
