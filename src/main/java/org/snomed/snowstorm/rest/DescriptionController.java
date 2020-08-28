@@ -26,6 +26,11 @@ import org.springframework.web.bind.annotation.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.Sets.newHashSet;
+import static java.util.Collections.unmodifiableSet;
+import static org.apache.commons.collections4.CollectionUtils.isEmpty;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
+
 @RestController
 @Api(tags = "Descriptions", description = "-")
 @RequestMapping(produces = "application/json")
@@ -148,11 +153,16 @@ public class DescriptionController {
 	@RequestMapping(value = "{branch}/descriptions", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
 	public ItemsPage<Description> findDescriptions(@PathVariable String branch,
-			@RequestParam(required = false) @ApiParam("The concept id to match") String concept,
+			@RequestParam(required = false) @ApiParam("The concept id to match") String conceptId,
+			@RequestParam(required = false) @ApiParam("Set of concept ids to match") Set<String> conceptIds,
 			@RequestParam(defaultValue = "0") int offset, @RequestParam(defaultValue = "50") int limit) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-		return new ItemsPage<>(descriptionService.findDescriptions(branch, null, null, Collections.singleton(concept), ControllerHelper.getPageRequest(offset, limit)));
+		conceptIds = isEmpty(conceptIds) ? newHashSet() : conceptIds;
+		if(isNotBlank(conceptId)) {
+			conceptIds.add(conceptId);
+		}
+		return new ItemsPage<>(descriptionService.findDescriptions(branch, null, null, unmodifiableSet(conceptIds), ControllerHelper.getPageRequest(offset, limit)));
 	}
 
 	@RequestMapping(value = "{branch}/descriptions/{descriptionId}", method = RequestMethod.GET)
