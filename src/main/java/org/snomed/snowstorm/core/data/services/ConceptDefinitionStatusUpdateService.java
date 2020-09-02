@@ -82,12 +82,14 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 		Set<Long> conceptIdsToUpdate = allConcepts ? getAllConceptsWithActiveAxioms(commit) : getConceptsWithAxiomsChanged(commit);
 		if (!conceptIdsToUpdate.isEmpty()) {
 			logger.info("Checking {} concepts.", conceptIdsToUpdate.size());
-			Set<Long> conceptsWithDefinedAxiomStatus = getConceptsWithDefinedAxiomStatus(allConcepts, conceptIdsToUpdate, commit);
-			logger.info("{} concepts found with defined axioms.", conceptsWithDefinedAxiomStatus.size());
-			Collection<Concept> conceptsToUpdate = findAndFixConceptsNeedingDefinitionUpdate(conceptIdsToUpdate, conceptsWithDefinedAxiomStatus, commit);
-			logger.info("{} concepts need updating.", conceptsToUpdate.size());
-			if (!conceptsToUpdate.isEmpty()) {
-				saveChanges(conceptsToUpdate, commit);
+			for (List<Long> batch : Iterables.partition(conceptIdsToUpdate, CLAUSE_LIMIT)) {
+				Set<Long> conceptsWithDefinedAxiomStatus = getConceptsWithDefinedAxiomStatus(batch, commit);
+				logger.info("{} concepts found with defined axioms.", conceptsWithDefinedAxiomStatus.size());
+				Collection<Concept> conceptsToUpdate = findAndFixConceptsNeedingDefinitionUpdate(batch, conceptsWithDefinedAxiomStatus, commit);
+				logger.info("{} concepts need updating.", conceptsToUpdate.size());
+				if (!conceptsToUpdate.isEmpty()) {
+					saveChanges(conceptsToUpdate, commit);
+				}
 			}
 		}
 	}
@@ -109,7 +111,7 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 		return result;
 	}
 
-	private Set<Long> getConceptsWithDefinedAxiomStatus(boolean allConcepts, Set<Long> conceptIdsWithAxiomChange, Commit commit) {
+	private Set<Long> getConceptsWithDefinedAxiomStatus(Collection<Long> conceptIdsWithAxiomChange, Commit commit) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 		Set<Long> result = new LongOpenHashSet();
 		BoolQueryBuilder must = boolQuery()
@@ -117,7 +119,7 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 				.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
 				.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
 				.must(matchPhrasePrefixQuery(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_FIELD_PATH, DEFINED_CLASS_AXIOM_PREFIX));
-		if (!allConcepts) {
+		if (conceptIdsWithAxiomChange != null) {
 			must.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIdsWithAxiomChange));
 		}
 		try (final SearchHitsIterator<ReferenceSetMember> changedAxioms = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
@@ -146,7 +148,7 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 		return result;
 	}
 
-	private Collection<Concept> findAndFixConceptsNeedingDefinitionUpdate(Set<Long> conceptIdsWithAxiomChange, Set<Long> conceptIdsWithDefinedAxiomStatus, Commit commit) {
+	private Collection<Concept> findAndFixConceptsNeedingDefinitionUpdate(Collection<Long> conceptIdsWithAxiomChange, Set<Long> conceptIdsWithDefinedAxiomStatus, Commit commit) {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 
 		// Find primitive concepts which should be fully defined
@@ -173,6 +175,7 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 				.collect(Collectors.toSet());
 
 		// Find fully defined concepts which should be primitive
+
 		NativeSearchQuery primitiveQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))

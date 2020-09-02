@@ -29,6 +29,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -196,23 +197,28 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		timer.checkpoint("Update graph using relationships of concepts with changed modelling.");
 
 		if (form.isStated()) {
-			try (final SearchHitsIterator<ReferenceSetMember> activeAxioms = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
-					.withQuery(boolQuery()
-							.must(branchCriteriaIncludingOpenCommit.getEntityBranchCriteria(ReferenceSetMember.class))
-							.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
-							.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
-							.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, updatedConceptIds))
-					)
-					.withSort(SortBuilders.fieldSort(Relationship.Fields.EFFECTIVE_TIME))
-					.withSort(SortBuilders.fieldSort(Relationship.Fields.ACTIVE))
-					.withSort(SortBuilders.fieldSort("start"))
-					.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {
-				axiomStreamToRelationshipStream(activeAxioms, relationship -> true, relationshipConsumer);
+			for (List<Long> batch : Iterables.partition(updatedConceptIds, CLAUSE_LIMIT)) {
+				try (final SearchHitsIterator<ReferenceSetMember> activeAxioms = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								.must(branchCriteriaIncludingOpenCommit.getEntityBranchCriteria(ReferenceSetMember.class))
+								.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
+								.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+								.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, batch))
+						)
+						.withSort(SortBuilders.fieldSort(Relationship.Fields.EFFECTIVE_TIME))
+						.withSort(SortBuilders.fieldSort(Relationship.Fields.ACTIVE))
+						.withSort(SortBuilders.fieldSort("start"))
+						.withPageable(ConceptService.LARGE_PAGE).build(), ReferenceSetMember.class)) {
+					axiomStreamToRelationshipStream(activeAxioms, relationship -> true, relationshipConsumer);
+				}
 			}
 			timer.checkpoint("Update graph using axioms of concepts with changed modelling.");
 		}
 
-		Set<Long> inactiveOrMissingConceptIds = getInactiveOrMissingConceptIds(requiredActiveConcepts, branchCriteriaIncludingOpenCommit);
+		Set<Long> inactiveOrMissingConceptIds = new LongOpenHashSet();
+		for (List<Long> batch : Iterables.partition(requiredActiveConcepts, CLAUSE_LIMIT)) {
+			inactiveOrMissingConceptIds.addAll(getInactiveOrMissingConceptIds(Sets.newHashSet(batch), branchCriteriaIncludingOpenCommit));
+		}
 		if (!inactiveOrMissingConceptIds.isEmpty()) {
 			logger.warn("The following concepts have been referred to in relationships but are missing or inactive: " + inactiveOrMissingConceptIds);
 		}
@@ -284,7 +290,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 			// Delete query concepts which have no parents
 			queryConceptsToSave.stream().filter(c -> c.getParents().isEmpty() && !c.getConceptIdL().toString().equals(Concepts.SNOMEDCT_ROOT)).forEach(Entity::markDeleted);
-			queryConceptsToSave.stream().forEach(QueryConcept::serializeGroupedAttributesMap);
+			queryConceptsToSave.forEach(QueryConcept::serializeGroupedAttributesMap);
 
 			// Save in batches
 			for (List<QueryConcept> queryConcepts : Iterables.partition(queryConceptsToSave, Config.BATCH_SAVE_SIZE)) {
@@ -613,16 +619,18 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// We can't select the concepts which are not there!
 		// For speed first we will count the concepts which are there and active
 		// If the count doesn't match we load the ids of the concepts which are there so we can work out those which are not.
-
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 						.filter(termsQuery(Concept.Fields.CONCEPT_ID, requiredActiveConcepts))
 				)
+				.withFields(Concept.Fields.CONCEPT_ID)
 				.withPageable(PageRequest.of(0, 1));
 
-		SearchHits<Concept> concepts = elasticsearchTemplate.search(queryBuilder.build(), Concept.class);
+		Query activeQuery = queryBuilder.build();
+		activeQuery.setTrackTotalHits(true);
+		SearchHits<Concept> concepts = elasticsearchTemplate.search(activeQuery, Concept.class);
 		if (concepts.getTotalHits() == requiredActiveConcepts.size()) {
 			return Collections.emptySet();
 		}
@@ -630,10 +638,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// Some concepts are missing - let's collect them
 
 		// Update query to collect concept ids efficiently
-		queryBuilder
-				.withFields(Concept.Fields.CONCEPT_ID)// Trigger mapping optimisation
-				.withPageable(LARGE_PAGE);
-
+		queryBuilder.withPageable(LARGE_PAGE);
 		Set<Long> missingConceptIds = new LongOpenHashSet(requiredActiveConcepts);
 		try (SearchHitsIterator<Concept> stream = elasticsearchTemplate.searchForStream(queryBuilder.build(), Concept.class)) {
 			stream.forEachRemaining(hit -> missingConceptIds.remove(hit.getContent().getConceptIdAsLong()));

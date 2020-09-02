@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.fasterxml.jackson.annotation.JsonView;
+import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -22,6 +23,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
+import static io.kaicode.elasticvc.api.ComponentService.CLAUSE_LIMIT;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -69,18 +71,21 @@ public class ContentReportService {
 		// Gather ids of concepts with historical associations
 		List<Long> conceptsWithAssociations = new LongArrayList();
 		List<Long> allHistoricalAssociations = eclQueryService.selectConceptIds("<" + Concepts.REFSET_HISTORICAL_ASSOCIATION, branchCriteria, branchPath, true, LARGE_PAGE).getContent();
-		try (SearchHitsIterator<ReferenceSetMember> memberStream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
-						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, allHistoricalAssociations))
-						.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
-				)
-				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
-				.withPageable(LARGE_PAGE)
-				.build(), ReferenceSetMember.class)) {
-			memberStream.forEachRemaining(hit -> conceptsWithAssociations.add(parseLong(hit.getContent().getReferencedComponentId())));
+		for (List<Long> batch : Iterables.partition(conceptIds, CLAUSE_LIMIT)) {
+			try (SearchHitsIterator<ReferenceSetMember> memberStream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+							.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+							.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, allHistoricalAssociations))
+							.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, batch))
+					)
+					.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+					.withPageable(LARGE_PAGE)
+					.build(), ReferenceSetMember.class)) {
+				memberStream.forEachRemaining(hit -> conceptsWithAssociations.add(parseLong(hit.getContent().getReferencedComponentId())));
+			}
 		}
+
 
 		List<Long> conceptsWithoutAssociations = new LongArrayList(conceptIds);
 		conceptsWithoutAssociations.removeAll(conceptsWithAssociations);
@@ -90,19 +95,21 @@ public class ContentReportService {
 
 		// Inactivation indicators
 		Map<Long, List<Long>> conceptsByIndicator = new Long2ObjectOpenHashMap<>();
-		try (SearchHitsIterator<ReferenceSetMember> memberStream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
-				.withQuery(boolQuery()
-						.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET))
-						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
-						.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptsWithoutAssociations))
-				)
-				.withPageable(LARGE_PAGE)
-				.build(), ReferenceSetMember.class)) {
-			memberStream.forEachRemaining(hit ->
-					conceptsByIndicator.computeIfAbsent(
-							parseLong(hit.getContent().getAdditionalField("valueId")), key -> new LongArrayList())
-							.add(parseLong(hit.getContent().getReferencedComponentId())));
+		for (List<Long> batch : Iterables.partition(conceptsWithoutAssociations, CLAUSE_LIMIT)) {
+			try (SearchHitsIterator<ReferenceSetMember> memberStream = elasticsearchOperations.searchForStream(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+							.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET))
+							.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+							.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, batch))
+					)
+					.withPageable(LARGE_PAGE)
+					.build(), ReferenceSetMember.class)) {
+				memberStream.forEachRemaining(hit ->
+						conceptsByIndicator.computeIfAbsent(
+								parseLong(hit.getContent().getAdditionalField("valueId")), key -> new LongArrayList())
+								.add(parseLong(hit.getContent().getReferencedComponentId())));
+			}
 		}
 
 		Map<String, ConceptMini> minis = conceptService.findConceptMinis(branchCriteria, conceptsByIndicator.keySet(), DEFAULT_LANGUAGE_DIALECTS).getResultsMap();

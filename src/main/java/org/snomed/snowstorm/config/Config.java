@@ -15,7 +15,9 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
-import org.elasticsearch.client.*;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.common.settings.Settings;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
@@ -23,7 +25,9 @@ import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.snowstorm.config.elasticsearch.IndexConfig;
 import org.snomed.snowstorm.config.elasticsearch.SnowstormElasticsearchMappingContext;
-import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
 import org.snomed.snowstorm.core.data.domain.classification.EquivalentConcepts;
 import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
@@ -253,12 +257,12 @@ public abstract class Config {
 	}
 
 
-	protected void updateIndexMaxTermsSettingForQueryConcept() {
-		IndexOperations indexOperations = elasticsearchTemplate.indexOps(elasticsearchTemplate.getIndexCoordinatesFor(QueryConcept.class));
+	protected void updateIndexMaxTermsSetting(Class domainEntityClass) {
+		IndexOperations indexOperations = elasticsearchTemplate.indexOps(elasticsearchTemplate.getIndexCoordinatesFor(domainEntityClass));
 		String existing = (String) indexOperations.getSettings().get(INDEX_MAX_TERMS_COUNT);
 		if (existing == null || indexMaxTermsCount != Integer.parseInt(existing)) {
 			Settings settings = Settings.builder().put(INDEX_MAX_TERMS_COUNT, indexMaxTermsCount).build();
-			String indexName = elasticsearchTemplate.getIndexCoordinatesFor(QueryConcept.class).getIndexName();
+			String indexName = elasticsearchTemplate.getIndexCoordinatesFor(domainEntityClass).getIndexName();
 			UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(settings, indexName);
 			try {
 				indexMaxTermsCount = indexMaxTermsCount <= 65536 ? 65536 : indexMaxTermsCount;
