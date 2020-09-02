@@ -57,7 +57,7 @@ public class PermissionService {
 	}
 
 	public List<PermissionRecord> findByBranchPath(String branchPath) {
-		return repository.findByPath(escapeBranchPath(branchPath), PAGE_REQUEST).getContent();
+		return repository.findByPath(branchPath, PAGE_REQUEST).getContent();
 	}
 
 	public boolean userHasRoleOnBranch(String role, String branchPath, Authentication authentication) {
@@ -157,11 +157,7 @@ public class PermissionService {
 	}
 
 	private Optional<PermissionRecord> findByGlobalPathAndRole(boolean global, String branch, String role) {
-		return repository.findByGlobalAndPathAndRole(global, escapeBranchPath(branch), role);
-	}
-
-	private String escapeBranchPath(String branch) {
-		return branch != null ? branch.replace("/", "\\/") : null;
+		return repository.findByGlobalAndPathAndRole(global, branch, role);
 	}
 
 	private String getUsername(Authentication authentication) {
