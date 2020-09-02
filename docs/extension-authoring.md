@@ -20,6 +20,11 @@ Branch metadata can be set using the update branch endpoint in the API.
 | previousRelease | Used by the [RVF](https://github.com/IHTSDO/release-validation-framework). Effective time of the previous extension release. | "20190930" |
 | dependencyRelease | Used by the [RVF](https://github.com/IHTSDO/release-validation-framework). Effective time of the edition or extension which this extension extends. | "20190731" |
 
+## Identifier Generation
+New SNOMED components (concepts, descriptions and relationships) must have an SCTID SNOMED identifier created. Snowstorm has an SCTID generator built in which is used by default. The internal generator creates valid SCTIDs using the namespace configured in the branch metadata (see above) with the correct partition id and check digit. These identifiers are non sequential and Snowstorm checks that new identifiers are unique across all branches as part of the generation process.
+
+Alternatively the dedicated [Component Identifier Service](https://github.com/IHTSDO/component-identifier-service) can be used although this is a more complex setup with little benefit. 
+
 ## Upgrading to a new International Release
 At some point you will want to upgrade the extension to use a newer International Edition. 
 
