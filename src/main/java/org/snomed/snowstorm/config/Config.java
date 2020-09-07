@@ -28,6 +28,7 @@ import org.snomed.snowstorm.config.elasticsearch.SnowstormElasticsearchMappingCo
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
 import org.snomed.snowstorm.core.data.domain.classification.EquivalentConcepts;
 import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
@@ -256,6 +257,11 @@ public abstract class Config {
 		return new ElasticsearchRestTemplate(elasticsearchRestClient().rest(), elasticsearchConverter());
 	}
 
+	protected void updateIndexMaxTermsSettingForAllSnomedComponents() {
+		for (Class<? extends SnomedComponent> componentClass : domainEntityConfiguration.getComponentTypeRepositoryMap().keySet()) {
+			updateIndexMaxTermsSetting(componentClass);
+		}
+	}
 
 	protected void updateIndexMaxTermsSetting(Class domainEntityClass) {
 		IndexOperations indexOperations = elasticsearchTemplate.indexOps(elasticsearchTemplate.getIndexCoordinatesFor(domainEntityClass));

@@ -5,7 +5,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
-import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.StartupException;
@@ -77,7 +76,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 			initialiseIndices(deleteIndices);
 
 			updateIndexMaxTermsSetting(QueryConcept.class);
-			updateIndexMaxTermsSetting(Relationship.class);
+			updateIndexMaxTermsSettingForAllSnomedComponents();
 
 			codeSystemService.init();
 			referenceSetMemberService.init();
