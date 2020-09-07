@@ -41,3 +41,4 @@ networks:
 
 volumes:
   elastic:
+  
