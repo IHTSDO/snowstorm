@@ -119,12 +119,13 @@ public class BranchController {
 	@RequestMapping(value = "/branches/{branch}/actions/unlock", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void unlockBranch(@PathVariable String branch) {
+		branch = BranchPathUriUtil.decodePath(branch);
 		Date partialCommitTimestamp = sBranchService.getPartialCommitTimestamp(branch);
 		if (partialCommitTimestamp != null) {
 			throw new IllegalStateException("There is a partial commit on this branch. " +
 					"Please wait for the commit to complete, or if you are sure that it has failed use the rollback partial commit admin function.");
 		}
-		branchService.unlock(BranchPathUriUtil.decodePath(branch));
+		branchService.unlock(branch);
 	}
 
 	@RequestMapping(value = "/reviews", method = RequestMethod.POST)

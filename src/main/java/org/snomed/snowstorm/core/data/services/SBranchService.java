@@ -92,19 +92,25 @@ public class SBranchService {
 		// Temporarily complete partial commit to support rollback.
 		// This does not complete the commit properly because we don't know what content is missing.
 		// Rollback is still the best option.
-		Date now = new Date();
-		latest.setEnd(now);
+		latest.setEnd(partialCommitTimestamp);
 		Branch tempCompleteCommit = new Branch(branchPath);
+		tempCompleteCommit.setCreation(latest.getCreation());
 		tempCompleteCommit.setBase(latest.getBase());
-		tempCompleteCommit.setStart(latest.getHead());
-		tempCompleteCommit.setHead(now);
+		tempCompleteCommit.setStart(partialCommitTimestamp);
+		tempCompleteCommit.setHead(partialCommitTimestamp);
 		tempCompleteCommit.setMetadata(latest.getMetadata());
+		tempCompleteCommit.setContainsContent(true);
 		branchRepository.save(tempCompleteCommit);
 		branchRepository.save(latest);
 
-		logger.info("Found partial commit on {} at {}. Closing the branch at {} and then rolling back.", branchPath, partialCommitTimestamp.getTime(), now.getTime());
+		logger.info("Found partial commit on {} at {}. Closing the branch at {} and then rolling back.", branchPath, partialCommitTimestamp.getTime(), partialCommitTimestamp.getTime());
 
-		rollbackCommit(branchPath, now.getTime());
+		rollbackCommit(branchPath, partialCommitTimestamp.getTime());
+
+		latest = branchService.findBranchOrThrow(branchPath);
+		if (latest.isLocked()) {
+			branchService.unlock(branchPath);
+		}
 	}
 
 	public Date getPartialCommitTimestamp(String branchPath) {
