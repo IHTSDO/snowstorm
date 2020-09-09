@@ -169,14 +169,6 @@ public class AdminOperationsService {
 		return fixesApplied;
 	}
 
-	public void rollbackCommit(String branchPath, long timepoint) {
-		Branch branchVersion = branchService.findAtTimepointOrThrow(branchPath, new Date(timepoint));
-		if (branchVersion.getEnd() != null) {
-			throw new IllegalStateException(format("Branch %s at timepoint %s is already ended, it's not the latest commit.", branchPath, timepoint));
-		}
-		branchService.rollbackCompletedCommit(branchVersion, new ArrayList<>(domainEntityConfiguration.getAllDomainEntityTypes()));
-	}
-
 	public void restoreGroupNumberOfInactiveRelationships(String branchPath, String currentEffectiveTime, String previousReleaseBranch) {
 		logger.info("Restoring group number of inactive relationships on branch {}.", branchPath);
 

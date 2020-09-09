@@ -25,11 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.*;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
@@ -40,6 +36,9 @@ public class BranchController {
 
 	@Autowired
 	private BranchService branchService;
+
+	@Autowired
+	private SBranchService sBranchService;
 
 	@Autowired
 	private BranchMetadataHelper branchMetadataHelper;
@@ -120,6 +119,11 @@ public class BranchController {
 	@RequestMapping(value = "/branches/{branch}/actions/unlock", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void unlockBranch(@PathVariable String branch) {
+		Date partialCommitTimestamp = sBranchService.getPartialCommitTimestamp(branch);
+		if (partialCommitTimestamp != null) {
+			throw new IllegalStateException("There is a partial commit on this branch. " +
+					"Please wait for the commit to complete, or if you are sure that it has failed use the rollback partial commit admin function.");
+		}
 		branchService.unlock(BranchPathUriUtil.decodePath(branch));
 	}
 

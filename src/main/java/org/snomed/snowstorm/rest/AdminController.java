@@ -36,6 +36,9 @@ public class AdminController {
 	@Autowired
 	private IntegrityService integrityService;
 
+	@Autowired
+	private SBranchService sBranchService;
+
 	@ApiOperation(value = "Rebuild the description index.",
 			notes = "Use this if the search configuration for international character handling of a language has been " +
 					"set or updated after importing content of that language. " +
@@ -99,7 +102,16 @@ public class AdminController {
 	@RequestMapping(value = "/{branch}/actions/rollback-commit", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void rollbackCommit(@PathVariable String branch, @RequestParam long commitHeadTime) {
-		adminOperationsService.rollbackCommit(BranchPathUriUtil.decodePath(branch), commitHeadTime);
+		sBranchService.rollbackCommit(BranchPathUriUtil.decodePath(branch), commitHeadTime);
+	}
+
+	@ApiOperation(value = "Rollback a partial commit on a branch.",
+			notes = "Use with extreme caution! Only rollback a partial commit which you know has failed and is no longer in progress."
+	)
+	@RequestMapping(value = "/{branch}/actions/rollback-partial-commit", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
+	public void rollbackPartialCommit(@PathVariable String branch) {
+		sBranchService.rollbackPartialCommit(BranchPathUriUtil.decodePath(branch));
 	}
 
 	@ApiOperation(value = "Hard delete a branch including its content and history.",
