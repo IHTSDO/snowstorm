@@ -263,7 +263,9 @@ public class DescriptionService extends ComponentService {
 				.addAggregation(AggregationBuilders.terms("module").field(Description.Fields.MODULE_ID))
 				.addAggregation(AggregationBuilders.terms("language").field(Description.Fields.LANGUAGE_CODE))
 				.withPageable(pageRequest);
-		SearchHits<Description> descriptions = elasticsearchTemplate.search(addTermSort(queryBuilder.build()), Description.class);
+		NativeSearchQuery aggregateQuery = addTermSort(queryBuilder.build());
+		aggregateQuery.setTrackTotalHits(true);
+		SearchHits<Description> descriptions = elasticsearchTemplate.search(aggregateQuery, Description.class);
 		allAggregations.addAll(descriptions.getAggregations().asList());
 		timer.checkpoint("Fetch descriptions including module and language aggregations");
 		timer.finish();

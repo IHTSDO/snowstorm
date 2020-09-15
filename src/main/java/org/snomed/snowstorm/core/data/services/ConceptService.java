@@ -269,7 +269,7 @@ public class ConceptService extends ComponentService {
 						.withPageable(PageRequest.of(0, conceptIdsToFindSegment.size()));
 				SearchHits<Concept> searchHits = elasticsearchTemplate.search(queryBuilder.build(), Concept.class);
 				allConcepts.addAll(searchHits.stream().map(SearchHit::getContent).collect(Collectors.toList()));
-				total = searchHits.getTotalHits();
+				total += searchHits.getTotalHits();
 			}
 			concepts = new PageImpl<>(allConcepts, pageRequest, total);
 		} else {
