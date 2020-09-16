@@ -88,7 +88,7 @@ public class DescriptionService extends ComponentService {
 	private int aggregationMaxProcessableResultsSize;
 
 	public enum SearchMode {
-		STANDARD, REGEX
+		STANDARD, REGEX, WHOLE_WORD
 	}
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -690,6 +690,9 @@ public class DescriptionService extends ComponentService {
 						BoolQueryBuilder languageQuery = boolQuery()
 								.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
 										.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));
+						if (SearchMode.WHOLE_WORD == searchMode) {
+							languageQuery = boolQuery().filter(matchPhraseQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm));
+						}
 						if (!languageCode.isEmpty()) {
 							languageQuery.must(termQuery(Description.Fields.LANGUAGE_CODE, languageCode));
 						}
