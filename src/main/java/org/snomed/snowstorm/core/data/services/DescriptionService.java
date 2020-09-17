@@ -687,11 +687,12 @@ public class DescriptionService extends ComponentService {
 						if (foldedSearchTerm.isEmpty()) {
 							continue;
 						}
-						BoolQueryBuilder languageQuery = boolQuery()
-								.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
-										.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));
+						BoolQueryBuilder languageQuery = boolQuery();
 						if (SearchMode.WHOLE_WORD == searchMode) {
-							languageQuery = boolQuery().filter(matchPhraseQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm));
+							languageQuery.filter(matchQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm).operator(Operator.AND));
+						} else {
+							languageQuery.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
+											.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));
 						}
 						if (!languageCode.isEmpty()) {
 							languageQuery.must(termQuery(Description.Fields.LANGUAGE_CODE, languageCode));

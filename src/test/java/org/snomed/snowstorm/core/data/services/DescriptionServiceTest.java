@@ -25,6 +25,7 @@ import static java.lang.Long.parseLong;
 import static org.junit.Assert.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.services.DescriptionService.SearchMode.REGEX;
+import static org.snomed.snowstorm.core.data.services.DescriptionService.SearchMode.WHOLE_WORD;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -549,6 +550,28 @@ class DescriptionServiceTest extends AbstractTest {
 		}
 
 		assertEquals(Collections.emptySet(), branchService.findLatest("MAIN").getVersionsReplaced().get("Description"));
+	}
+
+	@Test
+	void testDescriptionSearchMatchingWord() throws ServiceException {
+		String path = "MAIN";
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		Concept concept_1 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Place (environment)");
+		Concept concept_2 = new Concept("100003").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Placental structure (body structure)").addDescription(new Description("Placenta"));
+		Concept concept_3 = new Concept("100004").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Place of accident (attribute)").addDescription(new Description("The origin place of accident"));
+		Concept concept_4 = new Concept("100005").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Place of origin (observable entity)");
+		List<Concept> concepts = newArrayList(root, concept_1, concept_2, concept_3, concept_4);
+		conceptService.batchCreate(concepts, path);
+
+		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
+				.searchMode(WHOLE_WORD)
+				.groupByConcept(false);
+
+		assertEquals(4, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria.term("place"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(4, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria.term("Place"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria.term("Placenta"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria.term("place origin"), PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(2, descriptionService.findDescriptionsWithAggregations(path, descriptionCriteria.term("origin place"), PageRequest.of(0, 10)).getTotalElements());
 	}
 
 	private String getAggregationString(String name, Map<String, Map<String, Long>> buckets) {
