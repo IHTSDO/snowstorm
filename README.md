@@ -1,4 +1,5 @@
 ![Snowstorm Terminology Server](docs/images/SNOWSTORM-logo.svg)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FIHTSDO%2Fsnowstorm.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2FIHTSDO%2Fsnowstorm?ref=badge_shield)
 
 [![Build Status](https://travis-ci.org/IHTSDO/snowstorm.svg?branch=master)](https://travis-ci.org/IHTSDO/snowstorm) [![Language grade: Java](https://img.shields.io/lgtm/grade/java/g/IHTSDO/snowstorm.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/IHTSDO/snowstorm/context:java) [![codecov](https://codecov.io/gh/IHTSDO/snowstorm/branch/master/graph/badge.svg)](https://codecov.io/gh/IHTSDO/snowstorm)
 
@@ -50,3 +51,6 @@ If you could like to make a code contribution please fork the repository and cre
 Apache 2.0
 
 See the included LICENSE file for details.
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2FIHTSDO%2Fsnowstorm.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2FIHTSDO%2Fsnowstorm?ref=badge_large)
