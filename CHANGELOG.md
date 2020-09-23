@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## 5.0.2 Release - 2020-09-22 - Major Release for Elasticsearch 7
+New major release to support Elasticsearch 7 because Elasticsearch 6 is due to reach End Of Life.
+
+Upgrade hints: Snapshot backup from Elasticsearch 6 can be restored into an Elasticsearch 7 cluster.
+See [Elasticsearch upgrading documentation](https://www.elastic.co/guide/en/cloud/current/ec-upgrading-v7.html) for further information.
+
+### Breaking
+- Elasticsearch 7.6.x or greater MUST be used with this release.
+
+### Features
+- Support for Elasticsearch 7.x
+
+### Improvements
+- New section in Extension setup documentation for SNOMED Identifier Generation.
+- Handle Elasticsearch timeout exception gracefully during content commit.
+
+### Fixes
+- Minor fixes to FHIR documentation links.
+
 ## 4.13.0 Release - 2020-08-11 - Minor Improvement Release
 
 Minor improvement release before the next major release with Elasticsearch 7 support.
