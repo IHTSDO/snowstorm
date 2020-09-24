@@ -51,3 +51,7 @@ If you could like to make a code contribution please fork the repository and cre
 Apache 2.0
 
 See the included LICENSE file for details.
+
+## Tools
+
+For Java performance profiling we recommend the JProfiler [Java profiler](https://www.ej-technologies.com/products/jprofiler/overview.html).
