@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 @RestController
 @Api(tags = "Admin", description = "-")
@@ -91,6 +92,16 @@ public class AdminController {
 	public Map<String, Object> findDuplicateAndHideParentVersion(@PathVariable String branch) {
 		Map<String, Object> response = new HashMap<>();
 		Map<Class, Set<String>> fixes = adminOperationsService.findDuplicateAndHideParentVersion(BranchPathUriUtil.decodePath(branch));
+		response.put("fixesApplied", fixes);
+		return response;
+	}
+
+	@ApiOperation(value = "Remove any redundant entries from the versions replaced map on a branch in version control.")
+	@RequestMapping(value = "/{branch}/actions/remove-redundant-versions-replaced", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
+	public Map<String, Object> reduceVersionsReplaced(@PathVariable String branch) {
+		Map<String, Object> response = new HashMap<>();
+		Map<Class, AtomicLong> fixes = adminOperationsService.reduceVersionsReplaced(BranchPathUriUtil.decodePath(branch));
 		response.put("fixesApplied", fixes);
 		return response;
 	}

@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
@@ -165,6 +166,37 @@ public class AdminOperationsService {
 
 		logger.info("Completed hiding parent version of duplicate content on {}.", branch);
 		return fixesApplied;
+	}
+
+	public Map<Class, AtomicLong> reduceVersionsReplaced(String branch) {
+		// For all entries in the versionsReplaced map check if the document is from a child branch. If so remove from the set.
+		Branch latest = branchService.findBranchOrThrow(branch);
+		Map<Class, AtomicLong> reducedByType = new HashMap<>();
+		Map<String, Set<String>> versionsReplaced = latest.getVersionsReplaced();
+		final Map<Class<? extends DomainEntity>, ElasticsearchRepository> componentTypeRepoMap = domainEntityConfiguration.getAllTypeRepositoryMap();
+		for (Class<? extends DomainEntity> type : componentTypeRepoMap.keySet()) {
+			Set<String> toRemove = new HashSet<>();
+			Set<String> versionsReplacedForType = versionsReplaced.getOrDefault(type.getSimpleName(), Collections.emptySet());
+			for (List<String> versionsReplacedSegment : Iterables.partition(versionsReplacedForType, 1_000)) {
+				try (final SearchHitsIterator<? extends DomainEntity> entitiesReplaced = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								.must(prefixQuery("path", branch + "/"))
+								.must(termsQuery("_id", versionsReplacedSegment))
+						)
+						.withPageable(ConceptService.LARGE_PAGE)
+						.build(), type)) {
+
+					entitiesReplaced.forEachRemaining(entity -> toRemove.add(entity.getId()));
+				}
+			}
+			if (!toRemove.isEmpty()) {
+				versionsReplacedForType.removeAll(toRemove);
+				reducedByType.computeIfAbsent(type, (t) -> new AtomicLong(0)).addAndGet(toRemove.size());
+			}
+		}
+		latest.setVersionsReplaced(versionsReplaced);
+		branchRepository.save(latest);
+		return reducedByType;
 	}
 
 	public void restoreGroupNumberOfInactiveRelationships(String branchPath, String currentEffectiveTime, String previousReleaseBranch) {
