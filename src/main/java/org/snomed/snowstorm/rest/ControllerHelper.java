@@ -10,6 +10,7 @@ import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.rest.pojo.ConceptMiniNestedFsn;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -79,13 +80,17 @@ public class ControllerHelper {
 	}
 
 	public static PageRequest getPageRequest(int offset, int limit) {
+		return getPageRequest(offset, limit, null);
+	}
+
+	public static PageRequest getPageRequest(int offset, int limit, Sort sort) {
 		if (offset % limit != 0) {
 			throw new IllegalArgumentException("Offset must be a multiplication of the limit param in order to map to Spring pages.");
 		}
 
 		int page = ((offset + limit) / limit) - 1;
 		int size = limit;
-		return PageRequest.of(page, size);
+		return sort == null ? PageRequest.of(page, size) : PageRequest.of(page, size, sort);
 	}
 
 	//use parseAcceptLanguageHeader and work with LanguageDialects instead

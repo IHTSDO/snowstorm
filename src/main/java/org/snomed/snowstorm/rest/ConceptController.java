@@ -469,7 +469,7 @@ public class ConceptController {
 			}
 			pageRequest = SearchAfterPageRequest.of(SearchAfterHelper.fromSearchAfterToken(searchAfter), size, sort);
 		} else {
-			pageRequest = PageRequest.of(offset, size, sort);
+			pageRequest = ControllerHelper.getPageRequest(offset, size, sort);
 		}
 		return pageRequest;
 	}
