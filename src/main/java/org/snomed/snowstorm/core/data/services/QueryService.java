@@ -107,10 +107,12 @@ public class QueryService implements ApplicationContextAware {
 		Optional<SearchAfterPage<Long>> conceptIdPageOptional = doSearchForIds(conceptQuery, branchPath, branchCriteria, pageRequest);
 		return conceptIdPageOptional.orElseGet(() -> {
 			// No ids - return page of all concept ids
-			NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+			NativeSearchQuery query = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(branchCriteria.getEntityBranchCriteria(Concept.class)))
-					.withPageable(pageRequest);
-			SearchHits<Concept> searchHits = elasticsearchTemplate.search(queryBuilder.build(), Concept.class);
+					.withPageable(pageRequest)
+					.build();
+			query.setTrackTotalHits(true);
+			SearchHits<Concept> searchHits = elasticsearchTemplate.search(query, Concept.class);
 			return PageHelper.toSearchAfterPage(searchHits, Concept::getConceptIdAsLong, pageRequest);
 		});
 	}
