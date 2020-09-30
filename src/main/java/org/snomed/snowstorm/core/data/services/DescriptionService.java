@@ -146,10 +146,12 @@ public class DescriptionService extends ComponentService {
 		if (exactTerm != null && !exactTerm.isEmpty()) {
 			query.must(termQuery(Description.Fields.TERM, exactTerm));
 		}
-		SearchHits<Description> descriptions = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(query)
 				.withPageable(pageRequest)
-				.build(), Description.class);
+				.build();
+		searchQuery.setTrackTotalHits(true);
+		SearchHits<Description> descriptions = elasticsearchTemplate.search(searchQuery, Description.class);
 		List<Description> content = descriptions.get().map(SearchHit::getContent).collect(Collectors.toList());
 		joinLangRefsetMembers(branchCriteria,
 				content.stream().map(Description::getConceptId).collect(Collectors.toSet()),

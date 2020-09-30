@@ -101,11 +101,13 @@ public class RelationshipService extends ComponentService {
 			query.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, characteristicType.getConceptId()));
 		}
 
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+		NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(query)
-				.withPageable(page);
+				.withPageable(page)
+				.build();
+		searchQuery.setTrackTotalHits(true);
 
-		SearchHits<Relationship> searchHits = elasticsearchOperations.search(queryBuilder.build(), Relationship.class);
+		SearchHits<Relationship> searchHits = elasticsearchOperations.search(searchQuery, Relationship.class);
 		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), page, searchHits.getTotalHits());
 	}
 
