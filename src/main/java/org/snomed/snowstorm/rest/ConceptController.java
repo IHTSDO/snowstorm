@@ -205,6 +205,11 @@ public class ConceptController {
 			@RequestParam(required = false) String searchAfter,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
+		if (!Strings.isNullOrEmpty(searchAfter)) {
+			if (!allowUnlimitedConceptPagination) {
+				throw new IllegalArgumentException("Unlimited pagination of the full concept representation is disabled in this deployment.");
+			}
+		}
 		PageRequest pageRequest = getPageRequestWithSort(number, size, searchAfter, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
 		conceptIds = PageHelper.subList(conceptIds, number, size);
 
@@ -464,9 +469,6 @@ public class ConceptController {
 		ControllerHelper.validatePageSize(offset, size);
 		PageRequest pageRequest;
 		if (!Strings.isNullOrEmpty(searchAfter)) {
-			if (!allowUnlimitedConceptPagination) {
-				throw new IllegalArgumentException("Unlimited pagination of the full concept representation is disabled in this deployment.");
-			}
 			pageRequest = SearchAfterPageRequest.of(SearchAfterHelper.fromSearchAfterToken(searchAfter), size, sort);
 		} else {
 			pageRequest = ControllerHelper.getPageRequest(offset, size, sort);
