@@ -14,10 +14,14 @@ import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
+import org.snomed.snowstorm.loadtest.ItemsPagePojo;
+import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -26,14 +30,10 @@ import org.springframework.http.ResponseEntity;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
 class ConceptControllerTest extends AbstractTest {
@@ -277,5 +277,34 @@ class ConceptControllerTest extends AbstractTest {
 		String responseBody = responseEntity.getBody();
 		JSONObject jsonObject = new JSONObject(responseBody);
 		assertEquals("Concepts in the ECL request do not exist or are inactive on branch MAIN: 257751006.", jsonObject.get("message"));
+	}
+
+	@Test
+	void testECLSearchAfter() throws ServiceException {
+		conceptService.create(new Concept(Concepts.CLINICAL_FINDING), "MAIN");
+		assertEquals(2, conceptService.findAll("MAIN", PageRequest.of(1, 100)).getTotalElements());
+
+		// Fetch first page
+		ResponseEntity<ItemsPagePojo<ConceptMini>> responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&limit=1",
+				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ItemsPagePojo<ConceptMini>>() {});
+		assertEquals(200, responseEntity.getStatusCode().value());
+		ItemsPagePojo<ConceptMini> page = responseEntity.getBody();
+		assertNotNull(page);
+		assertEquals(2L, page.getTotal());
+		assertEquals(1, page.getItems().size());
+		String conceptIdFromFirstPage = page.getItems().iterator().next().getConceptId();
+		String searchAfterFromFirstPage = page.getSearchAfter();
+		assertNotNull(searchAfterFromFirstPage);
+
+		// Fetch second page
+		System.out.println("searchAfter '" + searchAfterFromFirstPage + "'");
+		responseEntity = this.restTemplate.exchange("http://localhost:" + port + "/MAIN/concepts?activeFilter=true&limit=1&searchAfter=" + searchAfterFromFirstPage,
+				HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ItemsPagePojo<ConceptMini>>() {});
+		assertEquals(200, responseEntity.getStatusCode().value());
+		page = responseEntity.getBody();
+		assertNotNull(page);
+		assertEquals(1, page.getItems().size());
+		String conceptIdFromSecondPage = page.getItems().iterator().next().getConceptId();
+		assertNotEquals(conceptIdFromFirstPage, conceptIdFromSecondPage);
 	}
 }

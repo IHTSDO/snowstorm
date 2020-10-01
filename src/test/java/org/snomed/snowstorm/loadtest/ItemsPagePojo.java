@@ -2,13 +2,13 @@ package org.snomed.snowstorm.loadtest;
 
 import java.util.List;
 
-class ItemsPagePojo<T> {
+public class ItemsPagePojo<T> {
 
 	private List<T> items;
 	private long total;
 	private long limit;
 	private Long offset;
-	private String searchAfterToken;
+	private String searchAfter;
 
 	public ItemsPagePojo() {
 	}
@@ -45,11 +45,11 @@ class ItemsPagePojo<T> {
 		this.offset = offset;
 	}
 
-	public String getSearchAfterToken() {
-		return searchAfterToken;
+	public String getSearchAfter() {
+		return searchAfter;
 	}
 
-	public void setSearchAfterToken(String searchAfterToken) {
-		this.searchAfterToken = searchAfterToken;
+	public void setSearchAfter(String searchAfter) {
+		this.searchAfter = searchAfter;
 	}
 }
