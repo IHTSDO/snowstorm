@@ -34,7 +34,7 @@ public class SearchAfterHelper {
 		try {
 			return objectMapper.readValue(Base64.getDecoder().decode(searchAfterToken), OBJECT_ARRAY_TYPE_REF);
 		} catch (IOException e) {
-			throw new IllegalArgumentException("Failed to deserialize 'searchAfter' token", e);
+			throw new IllegalArgumentException(String.format("Failed to deserialize 'searchAfter' token: '%s'", searchAfterToken), e);
 		}
 	}
 
