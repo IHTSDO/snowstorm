@@ -278,12 +278,7 @@ public class ConceptService extends ComponentService {
 					.withPageable(pageRequest)
 					.build();
 			conceptQuery.setTrackTotalHits(true);
-			SearchHits<Concept> searchHits;
-			if (pageRequest instanceof SearchAfterPageRequest) {
-				searchHits = elasticsearchTemplate.searchAfter(((SearchAfterPageRequest) pageRequest).getSearchAfter(), conceptQuery, Concept.class);
-			} else {
-				searchHits = elasticsearchTemplate.search(conceptQuery, Concept.class);
-			}
+			SearchHits<Concept> searchHits = elasticsearchTemplate.search(conceptQuery, Concept.class);
 			concepts = PageHelper.toSearchAfterPage(searchHits, pageRequest);
 		}
 		timer.checkpoint("find concept");

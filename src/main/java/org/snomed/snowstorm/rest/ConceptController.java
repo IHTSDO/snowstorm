@@ -146,6 +146,9 @@ public class ConceptController {
 		queryBuilder.getDescriptionCriteria().preferredOrAcceptableValues(preferredOrAcceptableIn, preferredIn, acceptableIn);
 
 		PageRequest pageRequest = getPageRequestWithSort(offset, limit, searchAfter, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
+		if (ecl != null) {
+			pageRequest = getPageRequestWithSort(offset, limit, searchAfter, Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending());
+		}
 		if (returnIdOnly) {
 			return new ItemsPage<>(queryService.searchForIds(queryBuilder, branch, pageRequest));
 		} else {

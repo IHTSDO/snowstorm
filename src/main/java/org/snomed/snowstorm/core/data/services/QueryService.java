@@ -276,12 +276,7 @@ public class QueryService implements ApplicationContextAware {
 	public Page<QueryConcept> queryForPage(NativeSearchQuery searchQuery) {
 		searchQuery.setTrackTotalHits(true);
 		Pageable pageable = searchQuery.getPageable();
-		SearchHits<QueryConcept> searchHits;
-		if (pageable instanceof SearchAfterPageRequest) {
-			searchHits = elasticsearchTemplate.searchAfter(((SearchAfterPageRequest) pageable).getSearchAfter(), searchQuery, QueryConcept.class);
-		} else {
-			searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
-		}
+		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(searchQuery, QueryConcept.class);
 		return PageHelper.toSearchAfterPage(searchHits, pageable);
 	}
 
