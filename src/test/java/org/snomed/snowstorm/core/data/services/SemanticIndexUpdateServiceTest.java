@@ -16,6 +16,7 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilderException;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -31,8 +32,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
@@ -402,6 +402,35 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		Page<ConceptMini> concepts = queryService.eclSearch(">1000012", true, "MAIN/A", PageRequest.of(0, 10));
 		assertEquals("[138875005, 1000013, 1000011]", concepts.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toList()).toString());
+	}
+
+	@Test
+	void testCircularReferenceCreatedDuringNormalCommits() throws ServiceException {
+		// On MAIN
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		Concept cA = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept cB = new Concept("1000012").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		// C -> B
+		Concept cC = new Concept("1000013").addRelationship(new Relationship(ISA, cB.getId()));
+		conceptService.batchCreate(Lists.newArrayList(root, cA, cB, cC), "MAIN");
+
+		// On MAIN
+		// B -> A
+		cB.addRelationship(new Relationship(ISA, cA.getId()));
+		conceptService.update(cB, "MAIN");
+
+		// On MAIN
+		// A -> C
+		// Commit causes the loop
+		cA.addRelationship(new Relationship(ISA, cC.getId()));
+		try {
+			conceptService.update(cA, "MAIN");
+			fail("Should have thrown IllegalStateException > GraphBuilderException");
+		} catch (IllegalStateException e) {
+			GraphBuilderException graphBuilderException = (GraphBuilderException) e.getCause();
+			assertEquals("Loop found in transitive closure for concept 1000011 on branch MAIN. " +
+					"The concept 1000011 is in its own set of ancestors: [1000013, 1000012, 1000011, 138875005]", graphBuilderException.getMessage());
+		}
 	}
 
 	@Test
