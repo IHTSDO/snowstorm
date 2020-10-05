@@ -47,9 +47,9 @@ public class AuthoringStatsService {
 
 		// New concepts
 		PageRequest pageOfOne = PageRequest.of(0, 1);
-		SearchHits<Concept> newConceptsPage = elasticsearchOperations.search(getNewConceptCriteria(branchCriteria)
+		SearchHits<Concept> newConceptsPage = elasticsearchOperations.search(withTotalHitsTracking(getNewConceptCriteria(branchCriteria)
 				.withPageable(pageOfOne)
-				.build(), Concept.class);
+				.build()), Concept.class);
 		timer.checkpoint("new concepts");
 		authoringStatsSummary.setNewConceptsCount(newConceptsPage.getTotalHits());
 
