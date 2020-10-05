@@ -15,6 +15,7 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -53,47 +54,47 @@ public class AuthoringStatsService {
 		authoringStatsSummary.setNewConceptsCount(newConceptsPage.getTotalHits());
 
 		// Inactivated concepts
-		SearchHits<Concept> inactivatedConceptsPage = elasticsearchOperations.search(getInactivatedConceptsCriteria(branchCriteria)
+		SearchHits<Concept> inactivatedConceptsPage = elasticsearchOperations.search(withTotalHitsTracking(getInactivatedConceptsCriteria(branchCriteria)
 				.withPageable(pageOfOne)
-				.build(), Concept.class);
+				.build()), Concept.class);
 		timer.checkpoint("inactivated concepts");
 		authoringStatsSummary.setInactivatedConceptsCount(inactivatedConceptsPage.getTotalHits());
 
 		// Reactivated concepts
-		SearchHits<Concept> reactivatedConceptsPage = elasticsearchOperations.search(getReactivatedConceptsCriteria(branchCriteria)
+		SearchHits<Concept> reactivatedConceptsPage = elasticsearchOperations.search(withTotalHitsTracking(getReactivatedConceptsCriteria(branchCriteria)
 				.withPageable(pageOfOne)
-				.build(), Concept.class);
+				.build()), Concept.class);
 		timer.checkpoint("reactivated concepts");
 		authoringStatsSummary.setReactivatedConceptsCount(reactivatedConceptsPage.getTotalHits());
 
 		// Changed FSNs
-		SearchHits<Description> changedFSNsPage = elasticsearchOperations.search(getChangedFSNsCriteria(branchCriteria)
+		SearchHits<Description> changedFSNsPage = elasticsearchOperations.search(withTotalHitsTracking(getChangedFSNsCriteria(branchCriteria)
 				.withPageable(pageOfOne)
-				.build(), Description.class);
+				.build()), Description.class);
 		timer.checkpoint("changed FSNs");
 		authoringStatsSummary.setChangedFsnCount(changedFSNsPage.getTotalHits());
 
 		// Inactivated synonyms
-		SearchHits<Description> inactivatedSynonyms = elasticsearchOperations.search(getInactivatedSynonymCriteria(branchCriteria)
+		SearchHits<Description> inactivatedSynonyms = elasticsearchOperations.search(withTotalHitsTracking(getInactivatedSynonymCriteria(branchCriteria)
 				.withFields(Description.Fields.CONCEPT_ID)
 				.withPageable(pageOfOne)
-				.build(), Description.class);
+				.build()), Description.class);
 		timer.checkpoint("inactivated descriptions");
 		authoringStatsSummary.setInactivatedSynonymsCount(inactivatedSynonyms.getTotalHits());
 
 		// New synonyms for existing concepts
-		SearchHits<Description> newSynonymsForExistingConcepts = elasticsearchOperations.search(getNewSynonymsOnExistingConceptsCriteria(branchCriteria, timer)
+		SearchHits<Description> newSynonymsForExistingConcepts = elasticsearchOperations.search(withTotalHitsTracking(getNewSynonymsOnExistingConceptsCriteria(branchCriteria, timer)
 				.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
 				.withPageable(pageOfOne)
-				.build(), Description.class);
+				.build()), Description.class);
 		timer.checkpoint("new synonyms for existing concepts");
 		authoringStatsSummary.setNewSynonymsForExistingConceptsCount(newSynonymsForExistingConcepts.getTotalHits());
 
 		// Reactivated synonyms
-		SearchHits<Description> reactivatedSynonyms = elasticsearchOperations.search(getReactivatedSynonymsCriteria(branchCriteria)
+		SearchHits<Description> reactivatedSynonyms = elasticsearchOperations.search(withTotalHitsTracking(getReactivatedSynonymsCriteria(branchCriteria)
 				.withFields(Description.Fields.CONCEPT_ID)
 				.withPageable(pageOfOne)
-				.build(), Description.class);
+				.build()), Description.class);
 		timer.checkpoint("reactivated descriptions");
 		authoringStatsSummary.setReactivatedSynonymsCount(reactivatedSynonyms.getTotalHits());
 
@@ -276,5 +277,10 @@ public class AuthoringStatsService {
 	private List<ConceptMicro> getConceptMicros(List<Long> conceptIds, List<LanguageDialect> languageDialects, BranchCriteria branchCriteria) {
 		return conceptService.findConceptMinis(branchCriteria, conceptIds, languageDialects).getResultsMap().values().stream()
 				.map(ConceptMicro::new).sorted(Comparator.comparing(ConceptMicro::getTerm)).collect(Collectors.toList());
+	}
+
+	private Query withTotalHitsTracking(Query query) {
+		query.setTrackTotalHits(true);
+		return query;
 	}
 }
