@@ -5,26 +5,22 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,6 +28,7 @@ import java.util.stream.Collectors;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 
 @ExtendWith(SpringExtension.class)
 class AdminOperationsServiceTest extends AbstractTest {
@@ -242,6 +239,33 @@ class AdminOperationsServiceTest extends AbstractTest {
 
 		// assert contents after promotion
 		assertEquals(17, conceptService.findAll(releaseBranchPath, PageRequest.of(0, 1)).getTotalElements());
+	}
+
+
+	@Test
+	void testCloneTaskWith2KConcepts() throws ServiceException {
+		branchService.create("MAIN/A");
+		conceptService.create(new Concept(SNOMEDCT_ROOT), "MAIN/A");
+		List<Concept> concepts = new ArrayList<>();
+		final int twoThousand = 2_000;
+		for (int i = 0; i < twoThousand; i++) {
+			concepts.add(
+					new Concept(null, Concepts.CORE_MODULE)
+							.addDescription(new Description("Concept " + i))
+							.addDescription(new Description("Concept " + i + "(finding)"))
+							.addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT))
+			);
+		}
+		String sourceBranch = "MAIN/A";
+		conceptService.batchCreate(concepts, sourceBranch);
+		Page<Concept> conceptPage = conceptService.findAll(sourceBranch, PageRequest.of(0, 10));
+		assertEquals(2001, conceptPage.getTotalElements());
+
+		String clonedBranch = "MAIN/A-Clone";
+		operationsService.cloneChildBranch("MAIN/A", clonedBranch);
+		branchService.exists(clonedBranch);
+		conceptPage = conceptService.findAll(clonedBranch, PageRequest.of(0, 10));
+		assertEquals(2001, conceptPage.getTotalElements());
 	}
 
 	private void printAllVersionsOfConcept(String conceptId, String event) {

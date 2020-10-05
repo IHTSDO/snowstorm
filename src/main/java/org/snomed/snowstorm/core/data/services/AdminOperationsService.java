@@ -21,14 +21,12 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.*;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.Query;
+import org.springframework.data.elasticsearch.core.query.UpdateQuery;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
 import org.springframework.stereotype.Service;
 
@@ -567,7 +565,6 @@ public class AdminOperationsService {
 
 		List<Branch> sourceBranchCommits = branchService.findAllVersions(sourceBranchPath, LARGE_PAGE).getContent();
 		int commitNumber = 0;
-		PageRequest pageSize = PageRequest.of(0, 1_000);
 		for (Branch sourceBranchCommit : sourceBranchCommits) {
 			commitNumber++;
 			logger.info("Cloning branch {} to {}, commit {} of {}, timepoint {}:{}.", sourceBranchPath, destinationBranchPath, commitNumber, sourceBranchCommits.size(),
@@ -582,27 +579,30 @@ public class AdminOperationsService {
 			Map<Class<? extends DomainEntity>, ElasticsearchRepository> allTypeRepositoryMap = domainEntityConfiguration.getAllTypeRepositoryMap();
 			for (Map.Entry<Class<? extends DomainEntity>, ElasticsearchRepository> entry : allTypeRepositoryMap.entrySet()) {
 				ElasticsearchRepository elasticsearchRepository = entry.getValue();
-				Page<? extends DomainEntity> page;
-				do {
-					SearchHits<? extends DomainEntity> searchHits = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
-							.withQuery(boolQuery()
-									.must(termQuery("path", sourceBranchPath))
-									.must(termQuery("start", sourceBranchCommit.getStart().getTime()))
-							)
-							.withPageable(pageSize)
-							.build(), entry.getKey());
-					page = new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageSize, searchHits.getTotalHits());
-
-					List<? extends DomainEntity> content = page.getContent();
+				List<DomainEntity> content = new ArrayList<>();
+				try (SearchHitsIterator<? extends DomainEntity> searchHitsStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								.must(termQuery("path", sourceBranchPath))
+								.must(termQuery("start", sourceBranchCommit.getStart().getTime()))
+						)
+						.withPageable(LARGE_PAGE)
+						.build(), entry.getKey())) {
+					searchHitsStream.forEachRemaining(searchHit -> {
+						DomainEntity domainEntity = searchHit.getContent();
+						domainEntity.setPath(destinationBranchPath);
+						domainEntity.clearInternalId();// ES will create a new document rather than updating.
+						content.add(domainEntity);
+						if (content.size() == 1_000) {
+							logger.info("Cloning {} {}s", content.size(), entry.getKey().getSimpleName());
+							elasticsearchRepository.saveAll(content);
+							content.clear();
+						}
+					});
 					if (!content.isEmpty()) {
 						logger.info("Cloning {} {}s", content.size(), entry.getKey().getSimpleName());
-						content.forEach(domainEntity -> {
-							domainEntity.setPath(destinationBranchPath);
-							domainEntity.clearInternalId();// ES will create a new document rather than updating.
-						});
 						elasticsearchRepository.saveAll(content);
 					}
-				} while (!page.isLast());
+				}
 			}
 		}
 	}
