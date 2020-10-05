@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 
 public class Node {
@@ -21,10 +22,10 @@ public class Node {
 	}
 
 	public Set<Long> getTransitiveClosure(String path, boolean throwExceptionIfLoopFound) throws GraphBuilderException {
-		LongOpenHashSet parentIds = new LongOpenHashSet();
+		Set<Long> parentIds = throwExceptionIfLoopFound ? new LinkedHashSet<>() : new LongOpenHashSet();
 		getTransitiveClosure(parentIds);
 		if (parentIds.contains(id)) {
-			String message = String.format("Loop found in transitive closure for concept %s on branch %s.", id, path);
+			String message = String.format("Loop found in transitive closure for concept %s on branch %s. The concept %s is in its own set of ancestors: %s", id, path, id, parentIds);
 			if (throwExceptionIfLoopFound) {
 				throw new GraphBuilderException(message);
 			} else {
