@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.PrintStream;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -27,6 +28,7 @@ public class Node {
 		if (parentIds.contains(id)) {
 			String message = String.format("Loop found in transitive closure for concept %s on branch %s. The concept %s is in its own set of ancestors: %s", id, path, id, parentIds);
 			if (throwExceptionIfLoopFound) {
+				dumpTransitiveClosure();
 				throw new GraphBuilderException(message);
 			} else {
 				LOGGER.warn(message);
@@ -77,6 +79,32 @@ public class Node {
 
 	public Set<Node> getParents() {
 		return parents;
+	}
+
+	private void dumpTransitiveClosure() {
+		Set<Long> covered = new HashSet<>();
+		PrintStream printStream = System.out;
+		printStream.println();
+		printStream.println("Dumping transitive closure for concept " + id + ", order is BOTTOM UP!");
+		doDumpTransitiveClosure(covered, "- ", printStream);
+		printStream.println();
+	}
+
+	private void doDumpTransitiveClosure(Set<Long> covered, String indent, PrintStream printStream) {
+		printStream.print(indent + id);
+		if (covered.contains(id)) {
+			if (!parents.isEmpty()) {
+				printStream.print("(parents already output)");
+			}
+			printStream.println();
+		} else {
+			covered.add(id);
+			indent = "|" + indent;
+			printStream.println();
+			for (Node parent : parents) {
+				parent.doDumpTransitiveClosure(covered, indent, printStream);
+			}
+		}
 	}
 
 	@Override
