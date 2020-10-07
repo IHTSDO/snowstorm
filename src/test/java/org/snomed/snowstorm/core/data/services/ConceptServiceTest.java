@@ -620,6 +620,30 @@ class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testCreateDataAttribute() throws ServiceException {
+		conceptService.create(new Concept(CONCEPT_MODEL_DATA_ATTRIBUTE)
+						.addFSN("Concept model data attribute (attribute)")
+						.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(ISA, CONCEPT_MODEL_ATTRIBUTE))))
+				, "MAIN");
+
+		Concept newAttributeConcept = new Concept("10123456789001")
+				.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(ISA, CONCEPT_MODEL_DATA_ATTRIBUTE))))
+				.addFSN("New data attribute (attribute)");
+		newAttributeConcept = conceptService.create(newAttributeConcept, "MAIN");
+		Axiom axiom = newAttributeConcept.getClassAxioms().iterator().next();
+		assertEquals("SubDataPropertyOf(:10123456789001 :762706009)", axiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
+		assertEquals(PRIMITIVE, axiom.getDefinitionStatusId());
+
+		Concept newChildDataAttributeConcept = new Concept("20123456789001")
+				.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(ISA, "10123456789001"))))
+				.addFSN("New child data attribute (attribute)");
+		newChildDataAttributeConcept = conceptService.create(newChildDataAttributeConcept, "MAIN");
+		axiom = newChildDataAttributeConcept.getClassAxioms().iterator().next();
+		assertEquals("SubDataPropertyOf(:20123456789001 :10123456789001)", axiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
+		assertEquals(PRIMITIVE, axiom.getDefinitionStatusId());
+	}
+
+	@Test
 	void testSaveConceptWithDescriptionAndAcceptabilityTogether() throws ServiceException {
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
