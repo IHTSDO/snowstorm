@@ -18,6 +18,7 @@ import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
+import org.snomed.snowstorm.core.util.StreamUtil;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
@@ -437,7 +438,8 @@ public class QueryService implements ApplicationContextAware {
 		if (concepts.isEmpty()) {
 			return;
 		}
-		Map<Long, ConceptMini> conceptMap = concepts.stream().map(mini -> mini.setLeaf(form, true)).collect(Collectors.toMap(mini -> Long.parseLong(mini.getConceptId()), Function.identity()));
+		Map<Long, ConceptMini> conceptMap = concepts.stream().map(mini -> mini.setLeaf(form, true))
+				.collect(Collectors.toMap(mini -> Long.parseLong(mini.getConceptId()), Function.identity(), StreamUtil.MERGE_FUNCTION));
 		Set<Long> conceptIdsToFind = new HashSet<>(conceptMap.keySet());
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(new BoolQueryBuilder()
