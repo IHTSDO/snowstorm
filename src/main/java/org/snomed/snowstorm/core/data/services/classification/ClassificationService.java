@@ -264,6 +264,7 @@ public class ClassificationService {
 	@PreDestroy
 	public void shutdownPolling() {
 		shutdownRequested = true;
+		classificationProcessingExecutor.shutdown();
 	}
 
 	public Page<Classification> findClassifications(String path) {

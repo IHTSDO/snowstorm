@@ -654,6 +654,7 @@ public class ConceptService extends ComponentService {
 		for (int i = 0; i < futures.size(); i++) {
 			getFutureWithTimeoutOrCancel(futures.get(i), i);
 		}
+		executorService.shutdown();
 	}
 
 	private void getFutureWithTimeoutOrCancel(Future<?> future, int index) {

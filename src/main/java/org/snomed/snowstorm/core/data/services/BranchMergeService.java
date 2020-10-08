@@ -30,7 +30,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
@@ -87,7 +86,9 @@ public class BranchMergeService {
 
 	private BranchReviewService branchReviewService;
 
-	private final ExecutorService executorService = Executors.newCachedThreadPool();
+	@Autowired
+	private ExecutorService executorService;
+
 	private static final String USE_MERGE_REVIEW = "The target branch is diverged, please use the merge review endpoint instead.";
 	private static final Logger logger = LoggerFactory.getLogger(BranchMergeService.class);
 

@@ -34,7 +34,6 @@ import javax.annotation.PostConstruct;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -74,7 +73,8 @@ public class BranchReviewService {
 	@Autowired
 	private ObjectMapper objectMapper;
 
-	private final ExecutorService executorService = Executors.newCachedThreadPool();
+	@Autowired
+	private ExecutorService executorService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 

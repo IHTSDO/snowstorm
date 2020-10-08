@@ -69,7 +69,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	}
 
 	@Override
-	public void run(ApplicationArguments applicationArguments) {
+	public void run(ApplicationArguments applicationArguments) throws InterruptedException {
 		try {
 			boolean deleteIndices = applicationArguments.containsOption(DELETE_INDICES_FLAG);
 			if (deleteIndices) logger.warn("Deleting existing Elasticsearch Indices");
@@ -103,6 +103,8 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 			if (applicationArguments.containsOption(EXIT)) {
 				logger.info("Exiting application.");
 				((ConfigurableApplicationContext)applicationContext).close();
+				Thread.sleep(5_000);// Allow graceful shutdown
+				System.exit(0);
 			}
 		} catch (Exception e) {
 			// Logging and rethrowing because Spring does not seem to log this

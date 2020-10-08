@@ -8,6 +8,7 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -51,7 +52,12 @@ public class IdentifierCacheManager implements Runnable {
 		cacheDaemon = new Thread(this, "IdentifierCacheManagerDaemon");
 		cacheDaemon.start();
 	}
-	
+
+	@PreDestroy
+	public void shutdownPolling() {
+		stopBackgroundTask();
+	}
+
 	public void run() {
 		logger.info("Identifier cache manager polling commencing with {} second period.", pollingIntervalMinutes);
 		long pollingIntervalMillis = pollingIntervalMinutes * (long)1000;
