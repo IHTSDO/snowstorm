@@ -6,6 +6,6 @@ import java.util.function.BinaryOperator;
 
 public class StreamUtil {
 	public static final BinaryOperator<ConceptMini> MERGE_FUNCTION = (u, v) -> {
-		throw new IllegalStateException(String.format("Duplicate key %s", u));
+		throw new IllegalStateException(String.format("Duplicate key %s", u.getConceptId()));
 	};
 }
