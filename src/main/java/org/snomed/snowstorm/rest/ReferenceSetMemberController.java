@@ -27,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -173,10 +174,14 @@ public class ReferenceSetMemberController {
 	@RequestMapping(value = "/{branch}/members", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
-	public ReferenceSetMemberView createMember(@PathVariable String branch, @RequestBody @Valid ReferenceSetMemberView member) {
+	public ResponseEntity<ReferenceSetMemberView> createMember(@PathVariable String branch, @RequestBody @Valid ReferenceSetMemberView member) {
 		ControllerHelper.requiredParam(member.getReferencedComponentId(), "referencedComponentId");
 		ControllerHelper.requiredParam(member.getRefsetId(), "refsetId");
-		return memberService.createMember(BranchPathUriUtil.decodePath(branch), (ReferenceSetMember) member);
+		ReferenceSetMember createdMember = memberService.createMember(BranchPathUriUtil.decodePath(branch), (ReferenceSetMember) member);
+		if (createdMember == null) {
+			throw new IllegalStateException("Member creation failed. No object returned from member service.");
+		}
+		return new ResponseEntity<>(createdMember, ControllerHelper.getCreatedLocationHeaders(createdMember.getId()), HttpStatus.CREATED);
 	}
 
 	@ApiOperation("Update a reference set member.")

@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.rest;
 
+import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
@@ -15,8 +16,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
+import org.springframework.util.Assert;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+import org.springframework.web.util.UriComponents;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -47,11 +54,22 @@ public class ControllerHelper {
 	}
 
 	static ResponseEntity<Void> getCreatedResponse(String id) {
-		HttpHeaders httpHeaders = new HttpHeaders();
-		httpHeaders.setLocation(ServletUriComponentsBuilder
-				.fromCurrentRequest().path("/{id}")
-				.buildAndExpand(id).toUri());
+		HttpHeaders httpHeaders = getCreatedLocationHeaders(id);
 		return new ResponseEntity<>(httpHeaders, HttpStatus.CREATED);
+	}
+
+	static HttpHeaders getCreatedLocationHeaders(String id) {
+		RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+		Assert.state(attrs instanceof ServletRequestAttributes, "No current ServletRequestAttributes");
+		HttpServletRequest request = ((ServletRequestAttributes) attrs).getRequest();
+
+		String requestUrl = request.getRequestURL().toString();
+		// Decode branch path
+		requestUrl = requestUrl.replace("%7C", "/");
+
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setLocation(ServletUriComponentsBuilder.fromPath(requestUrl).path("/{id}").buildAndExpand(id).toUri());
+		return httpHeaders;
 	}
 
 	static List<ConceptMiniNestedFsn> nestConceptMiniFsn(Collection<ConceptMini> minis) {
