@@ -88,6 +88,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	private ConceptMini referencedComponent;
 
 	public ReferenceSetMember() {
+		active = true;
 		moduleId = Concepts.CORE_MODULE;
 		additionalFields = new HashMap<>();
 	}
