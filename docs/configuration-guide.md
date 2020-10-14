@@ -9,7 +9,7 @@ See also:
 
 ## Default Configuration Options
 
-The full list of the configuration options, their defaults and an explanation of each option can be found in [src/main/resources/**application.properties**](src/main/resources/application.properties). 
+The full list of the configuration options, their defaults and an explanation of each option can be found in [src/main/resources/**application.properties**](/src/main/resources/application.properties). 
 
 ## Override the default
 
