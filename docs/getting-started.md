@@ -21,7 +21,10 @@ Update the configuration file _config/jvm.options_ with the memory options `-Xms
 ### Get Snowstorm Application Jar
 Download the latest release jar from the [releases page](https://github.com/IHTSDO/snowstorm/releases).
 
-**Or** build Snowstorm from the source code using maven:
+**Or** build Snowstorm from the source code. 
+Docker must be running for the unit tests, they use an Elasticsearch container.
+
+Then use maven:
 ```bash
 mvn clean package
 ```
