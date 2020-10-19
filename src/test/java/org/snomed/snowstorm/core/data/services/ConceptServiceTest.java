@@ -11,11 +11,9 @@ import org.elasticsearch.common.collect.MapBuilder;
 import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
@@ -26,8 +24,6 @@ import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.IOException;
 import java.util.*;
@@ -1044,6 +1040,42 @@ class ConceptServiceTest extends AbstractTest {
 
 		PersistedComponents persistedComponents = conceptService.createUpdate(Arrays.asList(actualConcept), "MAIN");
 		assertEquals(2, persistedComponents.getPersistedDescriptions().iterator().next().getInactivationIndicatorMembers().size());
+	}
+
+	@Test
+	void testConceptSaveWithTypeAndTargetSetRelationships() throws Exception {
+		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), "MAIN");
+		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), "MAIN");
+
+		Concept concept = conceptService.create(
+				new Concept("100001")
+						.addRelationship(new Relationship("100001", ISA, SNOMEDCT_ROOT))
+				, "MAIN");
+
+		concept = conceptService.find(concept.getConceptId(), "MAIN");
+		assertNotNull(concept);
+		Relationship relationship = concept.getRelationship("100001");
+		assertNotNull(relationship.getTarget());
+		assertNotNull(relationship.getType());
+		// Use repository directly to make sure transient fields are not stored
+		Relationship storedRelationship = relationshipService.findRelationship("MAIN", "100001");
+		assertNotNull(storedRelationship);
+		assertNull(storedRelationship.getTarget());
+		assertNull(storedRelationship.getType());
+
+		// update concept with relationships fully loaded
+		conceptService.update(concept, "MAIN");
+		// make sure transient files are not stored after updating
+		storedRelationship = relationshipService.findRelationship("MAIN", "100001");
+		assertNotNull(storedRelationship);
+		assertNull(storedRelationship.getTarget());
+		assertNull(storedRelationship.getType());
+
+		// make sure view is not affected
+		concept = conceptService.find(concept.getConceptId(), "MAIN");
+		relationship = concept.getRelationship("100001");
+		assertNotNull(relationship.getTarget());
+		assertNotNull(relationship.getType());
 	}
 
 	private void printAllDescriptions(String path) throws TooCostlyException {

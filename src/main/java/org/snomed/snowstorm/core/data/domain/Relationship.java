@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.rest.View;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -84,16 +85,21 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@Size(min = 5, max = 18)
 	private String modifierId;
 
+	@Transient
 	private ConceptMini source;
 
+	@Transient
 	private ConceptMini type;
 
+	@Transient
 	private ConceptMini target;
 
 	@JsonIgnore
+	@Transient
 	private Short attributeOrder;
 
 	@JsonIgnore
+	@Transient
 	private Integer groupOrder;
 
 	public Relationship() {
