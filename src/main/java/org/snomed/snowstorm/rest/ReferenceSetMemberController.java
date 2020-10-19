@@ -181,7 +181,7 @@ public class ReferenceSetMemberController {
 		if (createdMember == null) {
 			throw new IllegalStateException("Member creation failed. No object returned from member service.");
 		}
-		return new ResponseEntity<>(createdMember, ControllerHelper.getCreatedLocationHeaders(createdMember.getId()), HttpStatus.CREATED);
+		return new ResponseEntity<>(createdMember, ControllerHelper.getCreatedLocationHeaders(createdMember.getId()), HttpStatus.OK);
 	}
 
 	@ApiOperation("Update a reference set member.")
