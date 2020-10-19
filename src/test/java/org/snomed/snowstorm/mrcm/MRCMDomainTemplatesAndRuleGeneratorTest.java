@@ -3,11 +3,12 @@ package org.snomed.snowstorm.mrcm;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.snomed.langauges.ecl.ECLQueryBuilder;
+import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
 import org.snomed.langauges.ecl.domain.refinement.Operator;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.ServiceTestUtil;
 import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
@@ -18,14 +19,13 @@ import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
 class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 	@Autowired
 	private MRCMDomainTemplatesAndRuleGenerator generator;
-
-	private ServiceTestUtil testUtil;
 
 	private Map<String, List<AttributeDomain>> attributeToDomainsMap;
 
@@ -36,17 +36,19 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 	@Autowired
 	private ConceptService conceptService;
 
+	@Autowired
+	private ECLQueryBuilder eclQueryBuilder;
+
 	@BeforeEach
 	void setUp() {
 		attributeToDomainsMap = new HashMap<>();
 		attributeToRangesMap = new HashMap<>();
 		conceptToPtMap = new HashMap<>();
-		testUtil = new ServiceTestUtil(conceptService);
 	}
 
 
 	@Test
-	void testPrecoodinationDomainTemplateWithParentDomain() throws Exception {
+	void testPreCoordinationDomainTemplateWithParentDomain() throws Exception {
 		Domain bodyStructure = new Domain("273f1341-03c9-44a1-9797-9b5106c07e8", "", true, "123037004",
 				new Constraint("<< 123037004 |Body structure (body structure)|", "123037004", Operator.descendantorselfof),
 				"",
@@ -91,7 +93,7 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		domainsByDomainIdMap.put("91723000", anatomical);
 
 		Map<String, List<AttributeDomain>> domainToAttributesMap = new HashMap<>();
-		domainToAttributesMap.put("723264001", Arrays.asList(laterality));
+		domainToAttributesMap.put("723264001", Collections.singletonList(laterality));
 		domainToAttributesMap.put("123037004", Arrays.asList(systemicPartOf, lateralHalfOf, allOrPartOf, constitutionalPartOf, regionalPartOf, properPartOf));
 
 		Map<String, List<AttributeRange>> attributeToRangeMap = new HashMap<>();
@@ -117,13 +119,13 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		AttributeRange properPartOfRange = new AttributeRange("", "", true, "774081006",
 				"<< 123037004|Body structure (body structure)|", "", RuleStrength.MANDATORY, ContentType.ALL);
 
-		attributeToRangeMap.put("272741003", Arrays.asList(lateralityRange));
-		attributeToRangeMap.put("733928003", Arrays.asList(allOrPartOfRange));
-		attributeToRangeMap.put("733931002", Arrays.asList(constitutionalPartOfRange));
-		attributeToRangeMap.put("733930001", Arrays.asList(regionalPartOfRange));
-		attributeToRangeMap.put("733933004", Arrays.asList(lateralhalfOfRange));
-		attributeToRangeMap.put("733932009", Arrays.asList(systemicPartOfRange));
-		attributeToRangeMap.put("774081006", Arrays.asList(properPartOfRange));
+		attributeToRangeMap.put("272741003", Collections.singletonList(lateralityRange));
+		attributeToRangeMap.put("733928003", Collections.singletonList(allOrPartOfRange));
+		attributeToRangeMap.put("733931002", Collections.singletonList(constitutionalPartOfRange));
+		attributeToRangeMap.put("733930001", Collections.singletonList(regionalPartOfRange));
+		attributeToRangeMap.put("733933004", Collections.singletonList(lateralhalfOfRange));
+		attributeToRangeMap.put("733932009", Collections.singletonList(systemicPartOfRange));
+		attributeToRangeMap.put("774081006", Collections.singletonList(properPartOfRange));
 
 		conceptToPtMap.put("272741003", "Laterality");
 		conceptToPtMap.put("733928003", "All or part of");
@@ -175,7 +177,7 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		AttributeRange range = new AttributeRange("", null, true, "255234002",
 				"<< 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)| OR << 272379006 |Event (event)|",
 				" ", RuleStrength.MANDATORY, ContentType.ALL);
-		attributeToRangesMap.put("255234002", Arrays.asList(range));
+		attributeToRangesMap.put("255234002", Collections.singletonList(range));
 		conceptToPtMap.put("255234002", "After");
 		conceptToPtMap.put("272379006", "Event (event)");
 		conceptToPtMap.put("404684003", "Clinical finding (finding)");
@@ -189,7 +191,7 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 				"404684003", new Constraint("<< 404684003 |Clinical finding (finding)|", "404684003", Operator.descendantorselfof),
 				"",null, "", "", ""));
 
-		List<AttributeRange> attributeRanges = generator.generateAttributeRule(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap);
+		List<AttributeRange> attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.emptyList());
 		assertEquals(1, attributeRanges.size());
 		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
 		String expected = "(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)|): [0..*] { [0..1] 255234002 |After| = (<< 272379006 |Event (event)| " +
@@ -216,15 +218,15 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 				null,true, "405815000", "363787002", true,
 				new Cardinality("0..1"), new Cardinality("1..1"), RuleStrength.OPTIONAL, ContentType.ALL);
 
-		AttributeDomain procedure_precoordinated = new AttributeDomain("016dbf3a-4665-4b44-908e-2040dc8ccf5d", null,
+		AttributeDomain procedurePreCoordinated = new AttributeDomain("016dbf3a-4665-4b44-908e-2040dc8ccf5d", null,
 				true, "405815000", "71388002", true,
 				new Cardinality("1..*"), new Cardinality("0..1"), RuleStrength.MANDATORY, ContentType.PRECOORDINATED);
 
-		attributeToDomainsMap.put("405815000", Arrays.asList(procedure, observable, observable_optional, procedure_precoordinated));
+		attributeToDomainsMap.put("405815000", Arrays.asList(procedure, observable, observable_optional, procedurePreCoordinated));
 		AttributeRange range = new AttributeRange("b41253a7-7b17-4acf-96a1-d784ad0a6c04", null, true, "405815000",
 				"<< 49062001 |Device (physical object)|",
 				" ", RuleStrength.MANDATORY, ContentType.ALL);
-		attributeToRangesMap.put("405815000", Arrays.asList(range));
+		attributeToRangesMap.put("405815000", Collections.singletonList(range));
 		conceptToPtMap.put("405815000", "Procedure device");
 
 		Map<String, Domain> domainsByDomainIdMap = new HashMap<>();
@@ -236,16 +238,103 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 				"363787002", new Constraint("<< 363787002 |Observable entity (observable entity)|", "363787002", Operator.descendantorselfof),
 				"",null, "", "", ""));
 
-		List<AttributeRange> attributeRanges = generator.generateAttributeRule(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap);
+		List<AttributeRange> attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.emptyList());
 		assertEquals(1, attributeRanges.size());
-		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
+		assertNotNull(attributeRanges.get(0).getAttributeRule());
 		assertEquals("(<< 363787002 |Observable entity (observable entity)|: [0..*] { [0..1] 405815000 |Procedure device| = << 49062001 |Device (physical object)| }) OR " +
 						"(<< 71388002 |Procedure (procedure)|: [0..*] { [0..*] 405815000 |Procedure device| = << 49062001 |Device (physical object)| })",
 				attributeRanges.get(0).getAttributeRule());
 	}
 
+
 	@Test
-	void testPrecordinationDomainTemplate() throws Exception {
+	void testAttributeRuleAndConstraintWithConcreteValueRange() throws Exception{
+		AttributeDomain biologicProduct = new AttributeDomain("", null,
+				true, "3264475007", "373873005", true,
+				new Cardinality("0..*"), new Cardinality("0..1"), RuleStrength.MANDATORY, ContentType.ALL);
+
+		attributeToDomainsMap.put("3264475007", Collections.singletonList(biologicProduct));
+		AttributeRange range = new AttributeRange("", null, true, "3264475007",
+				"dec(>#0..)",
+				" ", RuleStrength.MANDATORY, ContentType.ALL);
+		attributeToRangesMap.put("3264475007", Collections.singletonList(range));
+		conceptToPtMap.put("3264475007", "CD has presentation strength numerator value");
+		conceptToPtMap.put("373873005", "Pharmaceutical / biologic product (product)");
+
+		Map<String, Domain> domainsByDomainIdMap = new HashMap<>();
+		domainsByDomainIdMap.put("373873005", new Domain("718bd028-e0c6-4b22-a7d4-58327c6d9b59", null, true,
+				"373873005", new Constraint("<< 373873005 |Pharmaceutical / biologic product (product)|", "373873005", Operator.descendantorselfof),
+				"",null, "", "", ""));
+
+		List<AttributeRange> attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf("3264475007")));
+		assertEquals(1, attributeRanges.size());
+		assertEquals("dec(>#0..)", attributeRanges.get(0).getRangeConstraint());
+		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
+		String expected = "<< 373873005 |Pharmaceutical / biologic product (product)|: [0..*] { [0..1] 3264475007 |CD has presentation strength numerator value| > #0 }";
+		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
+
+		// without sign
+		range.setRangeConstraint("int(#0..)");
+		attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf("3264475007")));
+		assertEquals(1, attributeRanges.size());
+		assertEquals("int(#0..)", attributeRanges.get(0).getRangeConstraint());
+		assertNotNull(attributeRanges.get(0).getAttributeRule());
+		expected = "<< 373873005 |Pharmaceutical / biologic product (product)|: [0..*] { [0..1] 3264475007 |CD has presentation strength numerator value| >= #0 }";
+		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
+
+		// with both min and max constraints
+		range.setRangeConstraint("int(#10..#20)");
+		attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf("3264475007")));
+		assertEquals(1, attributeRanges.size());
+		assertEquals("int(#10..#20)", attributeRanges.get(0).getRangeConstraint());
+		assertNotNull(attributeRanges.get(0).getAttributeRule());
+		expected = "<< 373873005 |Pharmaceutical / biologic product (product)|: [0..*] { [0..1] 3264475007 |CD has presentation strength numerator value| >= #10, [0..1] 3264475007 |CD has presentation strength numerator value| <= #20 }";
+		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
+	}
+
+
+	@Test
+	void testAttributeRuleWithConcreteValues() throws Exception {
+		AttributeDomain biologicProduct = new AttributeDomain("", null, true, "3264475007", "373873005", true, new Cardinality("0..*"), new Cardinality("0..1"), RuleStrength.MANDATORY, ContentType.ALL);
+
+		attributeToDomainsMap.put("3264475007", Collections.singletonList(biologicProduct));
+		AttributeRange range = new AttributeRange("", null, true, "3264475007", "int(#10)", " ", RuleStrength.MANDATORY, ContentType.ALL);
+		attributeToRangesMap.put("3264475007", Collections.singletonList(range));
+		conceptToPtMap.put("3264475007", "CD has presentation strength numerator value");
+		conceptToPtMap.put("373873005", "Pharmaceutical / biologic product (product)");
+
+		Map<String, Domain> domainsByDomainIdMap = new HashMap<>();
+		domainsByDomainIdMap.put("373873005", new Domain("718bd028-e0c6-4b22-a7d4-58327c6d9b59", null, true, "373873005", new Constraint("<< 373873005 |Pharmaceutical / biologic product (product)|", "373873005", Operator.descendantorselfof), "", null, "", "", ""));
+
+		// one value
+		List<AttributeRange> attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf("3264475007")));
+		assertEquals(1, attributeRanges.size());
+		assertEquals("int(#10)", attributeRanges.get(0).getRangeConstraint());
+		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
+		String expected = "<< 373873005 |Pharmaceutical / biologic product (product)|: [0..*] { [0..1] 3264475007 |CD has presentation strength numerator value| = #10 }";
+		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
+
+		// multiple with OR
+		range.setRangeConstraint("int(#10 #20)");
+		attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf("3264475007")));
+		assertEquals(1, attributeRanges.size());
+		assertEquals("int(#10 #20)", attributeRanges.get(0).getRangeConstraint());
+		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
+		expected = "<< 373873005 |Pharmaceutical / biologic product (product)|: [0..*] { [0..1] 3264475007 |CD has presentation strength numerator value| = #10 OR [0..1] 3264475007 |CD has presentation strength numerator value| = #20 }";
+		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
+
+		// multiple with AND
+		range.setRangeConstraint("str(\"a\",\"b\")");
+		attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf("3264475007")));
+		assertEquals(1, attributeRanges.size());
+		assertEquals("str(\"a\",\"b\")", attributeRanges.get(0).getRangeConstraint());
+		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
+		expected = "<< 373873005 |Pharmaceutical / biologic product (product)|: [0..*] { [0..1] 3264475007 |CD has presentation strength numerator value| = \"a\" AND [0..1] 3264475007 |CD has presentation strength numerator value| = \"b\" }";
+		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
+	}
+
+	@Test
+	void testPreCoordinationDomainTemplate() throws Exception {
 		Domain substance = new Domain("19d3f679-5369-42fb-9543-8795fdee5dce", null, true, "105590001",
 				new Constraint("<< 105590001 |Substance (substance)|", "105590001", Operator.descendantorselfof),
 				"", new Constraint("<< 105590001 |Substance (substance)|", "105590001", Operator.descendantorselfof),
@@ -269,8 +358,8 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		AttributeRange isModificationRange = new AttributeRange("", "", true,
 				"738774007", "<< 105590001 |Substance (substance)|",
 				"", RuleStrength.MANDATORY, ContentType.ALL);
-		attributeToRangeMap.put("726542003", Arrays.asList(hasDispositionRange));
-		attributeToRangeMap.put("738774007", Arrays.asList(isModificationRange));
+		attributeToRangeMap.put("726542003", Collections.singletonList(hasDispositionRange));
+		attributeToRangeMap.put("738774007", Collections.singletonList(isModificationRange));
 
 		conceptToPtMap.put("738774007", "Is modification of");
 		conceptToPtMap.put("726542003", "Has disposition");
@@ -294,4 +383,40 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 				generator.sortExpressionConstraintByConceptId(rangeConstraint, "1a9b01ce-6385-11ea-9b6e-3c15c2c6e32e"));
 	}
 
+
+	@Test
+	void testECLWithConcreteValues() {
+
+		String validEcl = "< 27658006 |Amoxicillin| :411116001 |Has dose form| = << 385055001 |Tablet dose form| ," +
+				"{179999999100 |Has basis of strength| = (219999999102 |Amoxicillin only| :189999999103 |Has strength magnitude| >= #500," +
+				" 189999999103 |Has strength magnitude| <= #800, 199999999101 |Has strength unit| = 258684004 |mg| )}";
+		ExpressionConstraint constraint = eclQueryBuilder.createQuery(validEcl);
+		assertNotNull(constraint);
+
+		String rangeRule = "<< 373873005 |Pharmaceutical / biologic product (product)|:" +
+				" [0..*] { ([0..1] 3264475007 |CD has presentation strength numerator value| >= #10 AND " +
+				"[0..1] 3264475007 |CD has presentation strength numerator value| <= #20) }";
+		constraint = eclQueryBuilder.createQuery(rangeRule);
+		assertNotNull(constraint);
+
+		String numberValueRule = "<< 373873005 |Pharmaceutical / biologic product (product)|: " +
+				"[0..*] { ([0..1] 3264475007 |CD has presentation strength numerator value| = #10 " +
+				"OR [0..1] 3264475007 |CD has presentation strength numerator value| = #20) }";
+		constraint = eclQueryBuilder.createQuery(numberValueRule);
+		assertNotNull(constraint);
+
+		String valueRule = "<< 373873005 |Pharmaceutical / biologic product (product)|:" +
+				" (3264475007 |CD has presentation strength numerator value| = \"ten\"" + " OR " +
+				"3264475007 |CD has presentation strength numerator value| = \"twenty\")";
+
+		constraint = eclQueryBuilder.createQuery(valueRule);
+		assertNotNull(constraint);
+
+		// grouped
+		String grouped = "<< 373873005 |Pharmaceutical / biologic product (product)|: " +
+				"[0..*] { ([0..1] 3264475007 |CD has presentation strength numerator value| = #10 " +
+				"OR [0..1] 3264475007 |CD has presentation strength numerator value| = #20) }";
+		constraint = eclQueryBuilder.createQuery(grouped);
+		assertNotNull(constraint);
+	}
 }

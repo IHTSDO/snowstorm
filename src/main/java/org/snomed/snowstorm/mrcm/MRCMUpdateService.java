@@ -12,6 +12,7 @@ import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.mrcm.model.AttributeDomain;
 import org.snomed.snowstorm.mrcm.model.AttributeRange;
 import org.snomed.snowstorm.mrcm.model.Domain;
@@ -56,12 +57,15 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	@Autowired
 	private MRCMDomainTemplatesAndRuleGenerator generator;
 
+	@Autowired
+	private ECLQueryService eclQueryService;
+
 	private Logger logger = LoggerFactory.getLogger(MRCMUpdateService.class);
 
 	public static final String DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY = "disableMrcmAutoUpdate";
 
 	@Override
-	public void preCommitCompletion(Commit commit) throws IllegalStateException {
+	public void preCommitCompletion(Commit commit) {
 		 boolean isMRCMAutoUpdatedDisabled = commit.getBranch().getMetadata() != null
 				&& "true".equals(commit.getBranch().getMetadata().get(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY));
 		if (isMRCMAutoUpdatedDisabled) {
@@ -96,7 +100,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 												   Map<String, String> conceptToTermMap) {
 
 		List<Domain> updatedDomains = generator.generateDomainTemplates(domainMapByDomainId, domainToAttributesMap, domainToRangesMap, conceptToTermMap);
-		if (updatedDomains.size() > 0) {
+		if (!updatedDomains.isEmpty()) {
 			logger.info("{} domain templates updated.", updatedDomains.size());
 		}
 		// add diff report if required
@@ -163,8 +167,9 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		}
 
 		List<ReferenceSetMember> toUpdate = new ArrayList<>();
+		List<Long> dataAttributes = getDataAttributes(branchCriteria, branchPath);
 		// Attribute rule
-		toUpdate.addAll(updateAttributeRules(commit, domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap));
+		toUpdate.addAll(updateAttributeRules(commit, domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap, dataAttributes));
 		// domain templates
 		toUpdate.addAll(updateDomainTemplates(commit, domainMapByDomainId, domainToAttributesMap, attributeToRangesMap, conceptToTermMap));
 		// update effective time
@@ -183,18 +188,18 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 
 		// saving in batch
 		toUpdate.removeAll(editedMembers);
-		if (toUpdate.size() > 0) {
+		if (!toUpdate.isEmpty()) {
 			logger.info("{} reference set members updated in batch", toUpdate.size());
+			referenceSetMemberService.doSaveBatchMembers(toUpdate, commit);
 		}
-		referenceSetMemberService.doSaveBatchMembers(toUpdate, commit);
 	}
 
 	private List<ReferenceSetMember> updateAttributeRules(Commit commit, Map<String,Domain> domainMapByDomainId,
 														  Map<String,List<AttributeDomain>> attributeToDomainsMap,
 														  Map<String, List<AttributeRange>> attributeToRangesMap,
-														  Map<String,String> conceptToTermMap) {
+														  Map<String,String> conceptToTermMap, List<Long> dataAttributes) {
 
-		List<AttributeRange> attributeRanges = generator.generateAttributeRule(domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap);
+		List<AttributeRange> attributeRanges = generator.generateAttributeRules(domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap, dataAttributes);
 		if (attributeRanges.size() > 0) {
 			logger.info("{} changes generated for attribute rules.", attributeRanges.size());
 		}
@@ -232,7 +237,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 								.should(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL))
 						)
 				)
-				.withPageable(ConceptService.LARGE_PAGE)
+				.withPageable(LARGE_PAGE)
 				.withFields(ReferenceSetMember.Fields.MEMBER_ID)
 				.build(), ReferenceSetMember.class)) {
 			mrcmMembers.forEachRemaining(hit -> result.add(hit.getContent().getMemberId()));
@@ -269,5 +274,9 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			elasticsearchTemplate.bulkUpdate(updateQueries, elasticsearchTemplate.getIndexCoordinatesFor(ReferenceSetMember.class));
 			elasticsearchTemplate.indexOps(ReferenceSetMember.class).refresh();
 		}
+	}
+
+	private List<Long> getDataAttributes(BranchCriteria branchCriteria, String branchPath) {
+		return eclQueryService.selectConceptIds("<<" + Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, branchCriteria, branchPath, true, LARGE_PAGE).getContent();
 	}
 }

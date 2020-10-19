@@ -26,12 +26,12 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 
 	@Override
 	public void setNumericComparisonOperator(String numericComparisonOperator) {
-		throw new UnsupportedOperationException("Only the ExpressionComparisonOperator is supported. NumericComparisonOperator and StringComparisonOperator are not supported.");
+		super.setNumericComparisonOperator(numericComparisonOperator);
 	}
 
 	@Override
 	public void setStringComparisonOperator(String stringComparisonOperator) {
-		throw new UnsupportedOperationException("Only the ExpressionComparisonOperator is supported. NumericComparisonOperator and StringComparisonOperator are not supported.");
+		super.setStringComparisonOperator(stringComparisonOperator);
 	}
 
 	@Override
