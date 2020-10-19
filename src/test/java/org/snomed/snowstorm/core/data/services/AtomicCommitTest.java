@@ -9,15 +9,22 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilderException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Map;
+import java.util.Optional;
 
+import static java.util.Arrays.asList;
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
+import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 
 /**
  * This class checks that making updates within a commit happen atomically.
@@ -35,6 +42,9 @@ class AtomicCommitTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private CodeSystemService codeSystemService;
 
 	@BeforeEach
 	void setup() {
@@ -69,7 +79,70 @@ class AtomicCommitTest extends AbstractTest {
 
 		assertNull("Concept 1 should not exist after the attempted commit " +
 				"because although there is nothing wrong with that concepts the whole commit should be rolled back.", conceptService.find("1", branch));
+	}
 
+	@Test
+	void testRollbackOfComponentsAlreadyChangedOnSameBranch() throws ServiceException {
+		// On MAIN
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		// A -> root
+		Concept cA = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		// B -> root
+		Concept cB = new Concept("1000012").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		// C -> B
+		Concept cC = new Concept("1000013").addRelationship(new Relationship(ISA, cB.getId()));
+		conceptService.batchCreate(Lists.newArrayList(root, cA, cB, cC), "MAIN");
+
+		// On MAIN
+		// B -> A
+		cB.addRelationship(new Relationship(ISA, cA.getId()));
+		conceptService.update(cB, "MAIN");
+
+		// Version content
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT"), 20200731, "A version");
+
+		// On Branch
+		String myBranch = "MAIN/my-branch";
+		branchService.create(myBranch);
+
+		// Inactivate B -> root relationship
+		cB = conceptService.find(cB.getId(), myBranch);
+		Optional<Relationship> bToRootRelationship = cB.getRelationships().stream().filter(r -> r.getDestinationId().equals(SNOMEDCT_ROOT)).findFirst();
+		assertTrue(bToRootRelationship.isPresent());
+		bToRootRelationship.get().setActive(false);
+		conceptService.update(cB, myBranch);
+
+		// Check B -> root relationship still has published flag
+		cB = conceptService.find(cB.getId(), myBranch);
+		bToRootRelationship = cB.getRelationships().stream().filter(r -> r.getDestinationId().equals(SNOMEDCT_ROOT)).findFirst();
+		assertTrue(bToRootRelationship.isPresent());
+		assertTrue(bToRootRelationship.get().isReleased());
+		assertEquals(myBranch, bToRootRelationship.get().getPath());
+
+		// Restore B -> root relationship
+		// and create A -> C relationship which causes a transitive closure loop and triggers rollback
+		cB = conceptService.find(cB.getId(), myBranch);
+		bToRootRelationship = cB.getRelationships().stream().filter(r -> r.getDestinationId().equals(SNOMEDCT_ROOT)).findFirst();
+		assertTrue(bToRootRelationship.isPresent());
+		bToRootRelationship.get().setActive(true);
+		cA.addRelationship(new Relationship(ISA, cC.getId()));
+		try {
+			conceptService.createUpdate(asList(cB, cA), myBranch);
+			fail("Should have thrown IllegalStateException > GraphBuilderException");
+		} catch (IllegalStateException e) {
+			GraphBuilderException graphBuilderException = (GraphBuilderException) e.getCause();
+			assertEquals("Loop found in transitive closure for concept 1000013 on branch MAIN/my-branch. " +
+					"The concept 1000013 is in its own set of ancestors: [1000012, 1000011, 1000013, 138875005]", graphBuilderException.getMessage());
+		}
+
+		// Check B -> root relationship still has published flag and is not ended
+		cB = conceptService.find(cB.getId(), myBranch);
+		bToRootRelationship = cB.getRelationships().stream().filter(r -> r.getDestinationId().equals(SNOMEDCT_ROOT)).findFirst();
+		assertTrue(bToRootRelationship.isPresent());
+		assertTrue(bToRootRelationship.get().isReleased());
+		assertFalse(bToRootRelationship.get().isActive());
+		assertNull(bToRootRelationship.get().getEnd());
 	}
 
 	@Test
