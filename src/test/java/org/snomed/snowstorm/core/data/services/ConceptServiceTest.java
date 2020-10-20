@@ -1043,37 +1043,47 @@ class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testConceptSaveWithTypeAndTargetSetRelationships() throws Exception {
+	void testTypeAndTargetWhenSavingRelationship() throws Exception {
 		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), "MAIN");
 		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), "MAIN");
 
 		Concept concept = conceptService.create(
 				new Concept("100001")
 						.addRelationship(new Relationship("100001", ISA, SNOMEDCT_ROOT))
+						.addRelationship(new Relationship("100002", ISA, CLINICAL_FINDING))
 				, "MAIN");
 
 		concept = conceptService.find(concept.getConceptId(), "MAIN");
 		assertNotNull(concept);
-		Relationship relationship = concept.getRelationship("100001");
+		Relationship relationship = concept.getRelationship("100002");
 		assertNotNull(relationship.getTarget());
 		assertNotNull(relationship.getType());
 		// Use repository directly to make sure transient fields are not stored
-		Relationship storedRelationship = relationshipService.findRelationship("MAIN", "100001");
+		Relationship storedRelationship = relationshipService.findRelationship("MAIN", "100002");
 		assertNotNull(storedRelationship);
 		assertNull(storedRelationship.getTarget());
 		assertNull(storedRelationship.getType());
 
 		// update concept with relationships fully loaded
+		relationship.setActive(false);
+		relationship.setRelationshipGroup(1);
+		relationship.setGroupOrder(2);
+		relationship.setAttributeOrder(Short.valueOf("1"));
+		relationship.setSource(new ConceptMini("100001", DEFAULT_LANGUAGE_DIALECTS));
 		conceptService.update(concept, "MAIN");
-		// make sure transient files are not stored after updating
-		storedRelationship = relationshipService.findRelationship("MAIN", "100001");
+		// make sure transient fields are not stored after updating
+		storedRelationship = relationshipService.findRelationship("MAIN", "100002");
 		assertNotNull(storedRelationship);
 		assertNull(storedRelationship.getTarget());
 		assertNull(storedRelationship.getType());
+		assertNull(storedRelationship.getSource());
+		assertNull(storedRelationship.getAttributeOrder());
+		// when group order is null and the value returned is the relationship group
+		assertEquals(storedRelationship.getRelationshipGroup(), storedRelationship.getGroupOrder());
 
 		// make sure view is not affected
 		concept = conceptService.find(concept.getConceptId(), "MAIN");
-		relationship = concept.getRelationship("100001");
+		relationship = concept.getRelationship("100002");
 		assertNotNull(relationship.getTarget());
 		assertNotNull(relationship.getType());
 	}
