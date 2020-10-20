@@ -211,6 +211,8 @@ public class ClassificationService {
 
 									if (newStatusFinal == COMPLETED) {
 										try {
+											logger.info("Classification {} remote step complete after {} seconds. Processing results...", classification.getId(), getSecondsSince(classification.getCreationDate()));
+
 											downloadRemoteResults(classification);
 
 											Boolean inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(),
@@ -232,7 +234,7 @@ public class ClassificationService {
 									}
 
 									classificationRepository.save(classification);
-									logger.info("Classification {} {}.", classification.getId(), classification.getStatus());
+									logger.info("Classification {} {} after {} seconds.", classification.getId(), classification.getStatus(), getSecondsSince(classification.getCreationDate()));
 								});
 							}
 							if (shutdownRequested) {
@@ -259,6 +261,10 @@ public class ClassificationService {
 		});
 		classificationStatusPollingThread.setName("classification-status-polling");
 		classificationStatusPollingThread.start();
+	}
+
+	private long getSecondsSince(Date saveDate) {
+		return (new Date().getTime() - saveDate.getTime()) / 1_000;
 	}
 
 	@PreDestroy
