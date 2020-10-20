@@ -51,4 +51,14 @@ public class MRCMController {
 		return new ItemsPage<>(mrcmService.retrieveAttributeValues(contentType, attributeId, termPrefix, branch, parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)));
 	}
 
+	@ApiOperation("Retrieve all active concept model attributes in a hierarchical structure.")
+	@RequestMapping(value = "/mrcm/{branch}/concept-model-attribute-hierarchy", method = RequestMethod.GET)
+	public ConceptMini retrieveConceptModelAttributeHierarchy(
+			@PathVariable String branch,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		branch = BranchPathUriUtil.decodePath(branch);
+		return mrcmService.retrieveConceptModelAttributeHierarchy(branch, parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
+	}
+
 }
