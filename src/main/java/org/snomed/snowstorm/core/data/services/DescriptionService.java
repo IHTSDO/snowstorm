@@ -508,7 +508,9 @@ public class DescriptionService extends ComponentService {
 				.withQuery(descriptionQuery)
 				.withSourceFilter(new FetchSourceFilter(new String[] {Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, new String[]{}));
 
-		long totalElements = elasticsearchTemplate.search(searchQueryBuilder.withPageable(PAGE_OF_ONE).build(), Description.class).getTotalHits();
+		NativeSearchQuery query = searchQueryBuilder.withPageable(PAGE_OF_ONE).build();
+		query.setTrackTotalHits(true);
+		long totalElements = elasticsearchTemplate.search(query, Description.class).getTotalHits();
 		if (totalElements > aggregationMaxProcessableResultsSize) {
 			throw new TooCostlyException(String.format("There are over %s results. Aggregating these results would be too costly.", aggregationMaxProcessableResultsSize));
 		}

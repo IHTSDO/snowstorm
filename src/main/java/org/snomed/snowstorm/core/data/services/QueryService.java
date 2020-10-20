@@ -144,11 +144,13 @@ public class QueryService implements ApplicationContextAware {
 			} else {
 				// Concept id search
 				BoolQueryBuilder conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
-				SearchHits<Concept> searchHits = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
+				NativeSearchQuery query = new NativeSearchQueryBuilder()
 						.withQuery(conceptBoolQuery)
 						.withFields(Concept.Fields.CONCEPT_ID)
 						.withPageable(pageRequest)
-						.build(), Concept.class);
+						.build();
+				query.setTrackTotalHits(true);
+				SearchHits<Concept> searchHits = elasticsearchTemplate.search(query, Concept.class);
 				conceptIdPage = PageHelper.toSearchAfterPage(searchHits, Concept::getConceptIdAsLong, pageRequest);
 			}
 

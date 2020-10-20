@@ -77,6 +77,7 @@ public class MultiSearchService {
 			queryBuilder.withFilter(boolQuery().must(termsQuery(Description.Fields.CONCEPT_ID, conceptsToFetch)));
 		}
 		NativeSearchQuery query = queryBuilder.build();
+		query.setTrackTotalHits(true);
 		DescriptionService.addTermSort(query);
 		SearchHits<Description> searchHits = elasticsearchTemplate.search(query, Description.class);
 		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
