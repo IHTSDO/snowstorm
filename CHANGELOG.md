@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## 5.0.6 Release - 2020-10-16 - Fixes and Improvements
+
+### Features
+- New description search mode for whole words in addition to the word prefix and regex modes.
+- #145 ECL query concept validation. If any concept in the query is not present and active on the branch 400 (Bad Request) is returned. Thank you to @jbarcas for this.
+- #142 Allow description bulk fetch by conceptId. Thanks again to @jbarcas !
+
+### Improvements
+- Add extension preferred terms to concept TSV download.
+- Docker documentation improvements.
+
+### Fixes
+- Many pagination and search results totals fixes including #161
+- #132 Fix FHIR Medication response.
+- #164 Fix docker config. Don't expose Elasticsearch port.
+- #167 Enforce shutdown when `--exit` flag used.
+- Admin function to clean up partial commit and unlock branch.
+
+
 ## 5.0.2 Release - 2020-09-22 - Major Release for Elasticsearch 7
 New major release to support Elasticsearch 7 because Elasticsearch 6 is due to reach End Of Life.
 
@@ -56,7 +75,7 @@ See [Security Configuration Guide](docs/security-configuration.md).
 ### Fixes
 - Add flag to opt in to content automations when upgrading extensions (only required in authoring environments).
 - Authentication session memory leak fixed from previous RBAC solution.
-- Fix for release-fix-branch promotion function when deletions are the only change. 
+- Fix for release-fix-branch promotion function when deletions are the only change.
 - Allow batch job status to be access immediately after creation.
 
 #### FHIR API Fixes
@@ -99,7 +118,7 @@ See "Upgrading to a new International Release" in [Extension Authoring](docs/ext
 
 ## 4.10.2 Release - 2020-05-27
 
-This release features many new capabilities and improvements to the FHIR API as well as some other general improvements and minor fixes. 
+This release features many new capabilities and improvements to the FHIR API as well as some other general improvements and minor fixes.
 
 ### Features
 - FHIR
@@ -180,7 +199,7 @@ This release also includes some important stability fixes for extension manageme
 ### Fixes
 - Upgrading extensions with 300K+ refset members (e.g. US Edition) no longer fails. Better batch processing.
 - Daily Build fixes
-  - Local filesystem source configuration fixed. 
+  - Local filesystem source configuration fixed.
   - Process no longer reverts an extension upgrade commit.
   - Process no longer reverts an extension creation commit.
 - RF2 import no longer fails if reference set member has multiple trailing empty columns.
@@ -221,9 +240,9 @@ I am very pleased to announce that we have now gone live with Snowstorm as the T
 
 As usual we have also had plenty of engagement from the community with many questions, issues and pull requests coming through. Thank you.
 
-Please note the new approach to importing and upgrading extensions. The Code System _migrate_ function is now deprecated in favour of the new _upgrade_ function. 
-Code System branches should be created directly under `MAIN` rather than under a version branch. For example `MAIN/SNOMEDCT-US`. 
-Using the _upgrade_ function Snowstorm will rebase the Code System branch to the a specific point on the timeline of the parent branch where the requested version 
+Please note the new approach to importing and upgrading extensions. The Code System _migrate_ function is now deprecated in favour of the new _upgrade_ function.
+Code System branches should be created directly under `MAIN` rather than under a version branch. For example `MAIN/SNOMEDCT-US`.
+Using the _upgrade_ function Snowstorm will rebase the Code System branch to the a specific point on the timeline of the parent branch where the requested version
 was created, without having to use release branches like `MAIN/2019-07-31`.
 
 I hope you find this release useful and as always please just reach out or raise an issue if you have questions.
@@ -300,18 +319,18 @@ I hope you find this release useful and as always please just reach out or raise
 This major version includes the API for the SNOMED International public SNOMEDCT browser!
 The browser descriptions endpoint is now faster and includes the full set of aggregations and filters to support the browser search.
 
-Another new feature is enhanced character matching for non-english languages. 
-Diacritic characters which are considered as additional letters in the alphabet of a language can be added to configuration to have them indexed correctly for search. 
+Another new feature is enhanced character matching for non-english languages.
+Diacritic characters which are considered as additional letters in the alphabet of a language can be added to configuration to have them indexed correctly for search.
 For example the Swedish language uses the characters 'å', 'ä' and 'ö' as additional letters in their alphabet, these letters are not just accented versions of 'a' and 'o'.
-Thank you to Daniel Karlsson for educating us about this and providing an initial proof of concept. 
+Thank you to Daniel Karlsson for educating us about this and providing an initial proof of concept.
 
 Thank you to everyone who asked questions and provided feedback during another great release.
 
 _Note: The old public browser API project "sct-snapshot-rest-api" has now been archived in favour of the Snowstorm terminology server._
 
 ### Breaking
-- Description index mapping has been updated with better support for non-english languages. 
-Please migrate existing data to the new mapping using the [reindexing guide](docs/index-mapping-changes.md) then run 
+- Description index mapping has been updated with better support for non-english languages.
+Please migrate existing data to the new mapping using the [reindexing guide](docs/index-mapping-changes.md) then run
 the new admin "Rebuild the description index" function found in the swagger API docs.
 
 ### Features
@@ -329,7 +348,7 @@ the new admin "Rebuild the description index" function found in the swagger API 
 - Browser description search:
   - Faster aggregations.
   - New search parameters: active, semanticTag, module, conceptRefset.
-  - New options: group by concept. 
+  - New options: group by concept.
   - New search mode for regular expressions.
 - Browser:
   - Browser Concept JSON format made consistent with Snow Owl (minor changes made on both sides).
@@ -378,7 +397,7 @@ the new admin "Rebuild the description index" function found in the swagger API 
   - Use translated FSN and PT in concept browser response.
   - Fix concept search when combining ECL and definition status.
   - Concept search using concept id can now return inactive concepts.
-  - Fix active flag concept filter. 
+  - Fix active flag concept filter.
 - Version Control:
   - Fix branch rebase issue where multiple versions of a component could survive.   
   - Fix performance issue when promoting a large amount of changes to MAIN.
