@@ -4,12 +4,16 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.Authorization;
 import io.swagger.annotations.AuthorizationScope;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportJob;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.core.rf2.rf2import.RF2ImportConfiguration;
 import org.snomed.snowstorm.rest.pojo.ImportCreationRequest;
 import org.snomed.snowstorm.rest.pojo.ImportPatchCreationRequest;
+import org.snomed.snowstorm.rest.pojo.LocalFileImportCreationRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -19,6 +23,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 
 @RestController
@@ -28,6 +35,8 @@ public class ImportController {
 
 	@Autowired
 	private ImportService importService;
+
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@ApiOperation(value = "Create an import job.",
 			notes = "Creates an import job ready for an archive to be uploaded. The 'location' header has the identifier of the new resource. Use the upload archive function next.")
@@ -41,6 +50,42 @@ public class ImportController {
 		importConfiguration.setCreateCodeSystemVersion(importRequest.getCreateCodeSystemVersion());
 		String id = importService.createJob(importConfiguration);
 		return ControllerHelper.getCreatedResponse(id);
+	}
+
+	@ApiOperation(value = "Create and start a local file import.",
+			notes = "Creates and starts an import using a file on the filesystem local to the server. " +
+					"PLEASE NOTE this is an asynchronous call, this function starts the import but does not wait for it to complete. " +
+					"The 'location' header has the identifier of the new resource. Use this to check the status of the import until it is COMPLETED or FAILED.")
+	@RequestMapping(value = "start-local-file-import", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('AUTHOR', #importRequest.branchPath)")
+	public ResponseEntity<Void> createAndStartLocalFileImport(@RequestBody LocalFileImportCreationRequest importRequest) {
+		ControllerHelper.requiredParam(importRequest.getType(), "type");
+		ControllerHelper.requiredParam(importRequest.getBranchPath(), "branchPath");
+		String filePath = importRequest.getFilePath();
+		ControllerHelper.requiredParam(filePath, "filePath");
+
+		File localFile = new File(filePath);
+		if (!localFile.isFile()) {
+			handleFileNotFound(filePath, localFile);
+		}
+
+		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(importRequest.getType(), importRequest.getBranchPath());
+		importConfiguration.setCreateCodeSystemVersion(importRequest.getCreateCodeSystemVersion());
+		String id = importService.createJob(importConfiguration);
+
+		try {
+			importService.importArchiveAsync(id, importRequest.getBranchPath(), new FileInputStream(localFile));
+		} catch (FileNotFoundException e) {
+			handleFileNotFound(filePath, localFile);
+		}
+
+		return ControllerHelper.getCreatedResponse(id);
+	}
+
+	private void handleFileNotFound(String filePath, File localFile) {
+		// Absolute path only revealed in log for security.
+		logger.warn(String.format("File with absolute path '%s' not found on local filesystem.", localFile.getAbsolutePath()));
+		throw new NotFoundException(String.format("File '%s' not found on local filesystem.", filePath));
 	}
 
 	@ApiOperation(value = "Apply a release patch.",
