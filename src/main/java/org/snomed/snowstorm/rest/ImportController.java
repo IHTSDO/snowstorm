@@ -29,6 +29,8 @@ public class ImportController {
 	@Autowired
 	private ImportService importService;
 
+	@ApiOperation(value = "Create an import job.",
+			notes = "Creates an import job ready for an archive to be uploaded. The 'location' header has the identifier of the new resource. Use the upload archive function next.")
 	@RequestMapping(method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('AUTHOR', #importRequest.branchPath)")
 	public ResponseEntity<Void> createImportJob(@RequestBody ImportCreationRequest importRequest) {
@@ -41,6 +43,10 @@ public class ImportController {
 		return ControllerHelper.getCreatedResponse(id);
 	}
 
+	@ApiOperation(value = "Apply a release patch.",
+			notes = "This endpoint is only used to support the International authoring process. " +
+					"Small content changes and additions gathered during the Beta Feedback process can be applied to content after it has been versioned and before the release is published. " +
+					"PLEASE NOTE this function does not support content deletions.")
 	@RequestMapping(value = "/release-patch", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('AUTHOR', #importPatchRequest.branchPath)")
 	public ResponseEntity<Void> createReleasePatchImportJob(@RequestBody ImportPatchCreationRequest importPatchRequest) {
@@ -56,11 +62,17 @@ public class ImportController {
 		return new ResponseEntity<>(httpHeaders, HttpStatus.CREATED);
 	}
 
+	@ApiOperation(value = "Retrieve an import job.",
+			notes = "Retrieves the latest state of an import job. Used to view the import configuration and check its status.")
 	@RequestMapping(value = "/{importId}", method = RequestMethod.GET)
 	public ImportJob getImportJob(@PathVariable String importId) {
 		return importService.getImportJobOrThrow(importId);
 	}
 
+	@ApiOperation(value = "Upload SNOMED CT release archive.",
+			notes = "Uploads a SNOMED CT RF2 release archive for an import job. The import job must already exist and have a status of WAITING_FOR_FILE. " +
+					"PLEASE NOTE this is an asynchronous call, this function starts the import but does not wait for it to complete. " +
+					"Retrieve the import to check the status until it is COMPLETED or FAILED.")
 	@RequestMapping(value = "/{importId}/archive", method = RequestMethod.POST, consumes = "multipart/form-data")
 	public void uploadImportRf2Archive(@PathVariable String importId, @RequestParam MultipartFile file) {
 		ImportJob importJob = importService.getImportJobOrThrow(importId);
