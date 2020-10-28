@@ -1,25 +1,41 @@
-package org.snomed.snowstorm;
+package org.snomed.snowstorm.commitexplorer;
 
-import com.google.common.base.Strings;
 import io.kaicode.elasticvc.domain.Branch;
+import org.apache.http.HttpHost;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
+import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.config.ElasticsearchConfig;
+import org.snomed.snowstorm.config.elasticsearch.DateToLongConverter;
 import org.snomed.snowstorm.config.elasticsearch.IndexConfig;
+import org.snomed.snowstorm.config.elasticsearch.LongToDateConverter;
 import org.snomed.snowstorm.config.elasticsearch.SnowstormElasticsearchMappingContext;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
+import org.snomed.snowstorm.core.data.services.DomainEntityConfiguration;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
+import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.annotations.Document;
-import org.springframework.data.elasticsearch.client.ClientConfiguration;
-import org.springframework.data.elasticsearch.client.RestClients;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.convert.ElasticsearchCustomConversions;
 import org.springframework.data.elasticsearch.core.convert.MappingElasticsearchConverter;
 import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchMappingContext;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+
+import java.util.Arrays;
 
 import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
@@ -58,9 +74,10 @@ public class CommitExplorer {
 	}
 
 	private CommitExplorer(String indexPrefix, String elasticsearchClusterHost) {
-		indexNamePrefix = indexPrefix;
+		ApplicationContext applicationContext = SpringApplication.run(Config.class, "--elasticsearch.urls=" + elasticsearchClusterHost, "--elasticsearch.index.prefix=" + indexPrefix);
+		template = applicationContext.getBean(ElasticsearchRestTemplate.class);
+		this.indexNamePrefix = indexPrefix;
 		this.elasticsearchClusterHost = elasticsearchClusterHost;
-		template = elasticsearchTemplate(indexNamePrefix, this.elasticsearchClusterHost);
 	}
 
 	/**
@@ -132,13 +149,16 @@ public class CommitExplorer {
 		}
 	}
 
-	public ElasticsearchRestTemplate elasticsearchTemplate(String indexNamePrefix, String host) {
-		short indexShards = 3;// Assuming this won't be used because the indices already exist.
-		SimpleElasticsearchMappingContext mappingContext = new SnowstormElasticsearchMappingContext(new IndexConfig(indexNamePrefix, indexShards, indexShards));
-		return new ElasticsearchRestTemplate(
-				RestClients.create(ClientConfiguration.create(host)).rest(),
-				new MappingElasticsearchConverter(mappingContext)
-		);
+	@TestConfiguration
+	@SpringBootApplication(
+			exclude = {
+					ElasticsearchDataAutoConfiguration.class,
+					ElasticsearchRestClientAutoConfiguration.class,
+					ContextStackAutoConfiguration.class
+			}
+	)
+	public static class Config extends ElasticsearchConfig {
+
 	}
 
 }
