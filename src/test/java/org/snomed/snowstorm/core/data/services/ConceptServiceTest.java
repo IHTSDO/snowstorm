@@ -1112,6 +1112,26 @@ class ConceptServiceTest extends AbstractTest {
 		assertNotNull(relationship.getType());
 	}
 
+	@Test
+	public void testDuplicateAxiomsDoNotReplaceEachOther() throws ServiceException {
+		conceptService.create(new Concept(ISA).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("Is a (attribute)")), "MAIN");
+		conceptService.create(new Concept(SNOMEDCT_ROOT).setDefinitionStatusId(PRIMITIVE).addDescription(fsn("SNOMED CT Concept")), "MAIN");
+
+		Concept concept = conceptService.create(
+				new Concept("100001")
+						.addDescription(new Description("Event (event)").setTypeId(Concepts.FSN))
+						.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				, "MAIN");
+
+		concept = conceptService.find(concept.getConceptId(), "MAIN");
+		assertEquals(1, concept.getClassAxioms().size());
+
+		concept.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT));
+		conceptService.update(concept, "MAIN");
+		concept = conceptService.find(concept.getConceptId(), "MAIN");
+		assertEquals(2, concept.getClassAxioms().size());
+	}
+
 	private void printAllDescriptions(String path) throws TooCostlyException {
 		final Page<Description> descriptions = descriptionService.findDescriptionsWithAggregations(path, new DescriptionCriteria(), ServiceTestUtil.PAGE_REQUEST);
 		logger.info("Description on " + path);

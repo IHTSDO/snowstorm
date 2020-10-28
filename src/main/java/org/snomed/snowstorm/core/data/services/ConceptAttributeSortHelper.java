@@ -58,7 +58,8 @@ public class ConceptAttributeSortHelper {
 		Set<Relationship> relsA = a.getRelationships();
 		Set<Relationship> relsB = b.getRelationships();
 		if (relsA.isEmpty() && relsB.isEmpty()) {
-			return 0;
+			// Fall back to comparing axiom id. We can't return 0 otherwise one axiom will be deleted in a sorted set.
+			return a.getAxiomId().compareTo(b.getAxiomId());
 		} else if (relsA.isEmpty()) {
 			return -1;
 		} else if (relsB.isEmpty()) {
@@ -78,7 +79,8 @@ public class ConceptAttributeSortHelper {
 				}
 			}
 		}
-		return 0;
+		// Fall back to comparing axiom id.
+		return a.getAxiomId().compareTo(b.getAxiomId());
 	};
 
 	@PostConstruct
