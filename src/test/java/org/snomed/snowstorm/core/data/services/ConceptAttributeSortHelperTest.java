@@ -9,10 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 import static org.junit.Assert.assertEquals;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
@@ -48,6 +45,7 @@ class ConceptAttributeSortHelperTest {
 						relationship(2, "363714003", "299332000", "Knee joint - range of movement (observable entity)"),
 						relationship(3, "363698007", "10200004", "Liver structure (body structure)")
 				);
+		concept.getClassAxioms().forEach(a -> a.setAxiomId(UUID.randomUUID().toString()));
 		conceptAttributeSortHelper.sortAttributes(Collections.singleton(concept));
 
 		ArrayList<Axiom> axioms = new ArrayList<>(concept.getClassAxioms());
