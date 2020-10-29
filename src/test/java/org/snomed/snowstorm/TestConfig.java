@@ -52,7 +52,7 @@ public class TestConfig extends Config {
 				LOGGER.error("No docker client available to run integration tests.");
 				LOGGER.info("Integration tests use the TestContainers framework.(https://www.testcontainers.org)");
 				LOGGER.info("TestContainers framework requires docker to be installed.(https://www.testcontainers.org/supported_docker_environment)");
-				LOGGER.info("You can download docker via (https://docs.docker.com/get-docker)");
+				LOGGER.info("You can download docker(2.3.0.4) via (https://docs.docker.com/get-docker)");
 				System.exit(-1);
 			}
 			elasticsearchContainer = new SnowstormElasticsearchContainer();
