@@ -226,7 +226,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	private Page<ConceptMini> eclSearch(String ecl, String branch) {
-		return queryService.search(queryService.createQueryBuilder(true).ecl(ecl), branch, LARGE_PAGE);
+		return queryService.search(queryService.createQueryBuilder(false).ecl(ecl), branch, LARGE_PAGE);
 	}
 
 	@Test
@@ -361,7 +361,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		n14 = conceptService.update(n14, branch);
 
 		assertTC(n14, branch, n12, n11, root);
-		assertEquals(1, queryService.eclSearch(">!" + n14.getId(), true, branch, LARGE_PAGE).getTotalElements());
+		assertEquals(1, queryService.eclSearch(">!" + n14.getId(), false, branch, LARGE_PAGE).getTotalElements());
 	}
 
 	@Test
@@ -400,7 +400,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		// Rebase causes the loop
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
 
-		Page<ConceptMini> concepts = queryService.eclSearch(">1000012", true, "MAIN/A", PageRequest.of(0, 10));
+		Page<ConceptMini> concepts = queryService.eclSearch(">1000012", false, "MAIN/A", PageRequest.of(0, 10));
 		assertEquals("[138875005, 1000013, 1000011]", concepts.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toList()).toString());
 	}
 
@@ -434,30 +434,68 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void inactiveConceptsNotAdded() throws ServiceException {
+	void inactiveConceptsNotAddedToStatedIndex() throws ServiceException {
 		String path = "MAIN";
 		conceptService.create(new Concept(SNOMEDCT_ROOT), path);
-		Concept ambulanceman = new Concept().addFSN("Ambulanceman").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept ambulanceman = new Concept().addFSN("Ambulanceman")
+				// Stated relationship
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(false));
 		ambulanceman.setActive(false);
 		conceptService.create(ambulanceman, path);
 
-		Page<ConceptMini> concepts = queryService.search(queryService.createQueryBuilder(true).ecl("<" + SNOMEDCT_ROOT), path, PAGE_REQUEST);
+		boolean stated = true;
+		Page<ConceptMini> concepts = queryService.search(queryService.createQueryBuilder(stated).ecl("<" + SNOMEDCT_ROOT), path, PAGE_REQUEST);
 		assertEquals(0, concepts.getTotalElements());
 	}
 
 	@Test
-	void inactiveConceptsRemoved() throws ServiceException {
+	void inactiveRelationshipsNotAddedToInferredIndex() throws ServiceException {
 		String path = "MAIN";
 		conceptService.create(new Concept(SNOMEDCT_ROOT), path);
-		Concept ambulanceman = conceptService.create(new Concept("10000123").addFSN("Ambulanceman").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)), path);
+		Concept ambulanceman = new Concept().addFSN("Ambulanceman").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		ambulanceman.setActive(false);
+		ambulanceman.getRelationships().forEach(r -> r.setActive(false));
+		conceptService.create(ambulanceman, path);
 
-		Page<ConceptMini> concepts = queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT).descriptionTerm("Amb"), path, PAGE_REQUEST);
+		boolean stated = false;
+		Page<ConceptMini> concepts = queryService.search(queryService.createQueryBuilder(stated).ecl("<" + SNOMEDCT_ROOT), path, PAGE_REQUEST);
+		assertEquals(0, concepts.getTotalElements());
+	}
+
+	@Test
+	void inactiveConceptsRemovedFromStatedIndex() throws ServiceException {
+		String path = "MAIN";
+		conceptService.create(new Concept(SNOMEDCT_ROOT), path);
+		Concept ambulanceman = conceptService.create(new Concept("10000123").addFSN("Ambulanceman")
+				// Stated relationship
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(false)),
+				path);
+
+		boolean stated = true;
+		Page<ConceptMini> concepts = queryService.search(queryService.createQueryBuilder(stated).ecl("<<" + SNOMEDCT_ROOT).descriptionTerm("Amb"), path, PAGE_REQUEST);
 		assertEquals(1, concepts.getTotalElements());
 
 		ambulanceman.setActive(false);
 		conceptService.update(ambulanceman, path);
 
-		concepts = queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT).descriptionTerm("Amb"), path, PAGE_REQUEST);
+		concepts = queryService.search(queryService.createQueryBuilder(stated).ecl("<<" + SNOMEDCT_ROOT).descriptionTerm("Amb"), path, PAGE_REQUEST);
+		assertEquals(0, concepts.getTotalElements());
+	}
+
+	@Test
+	void inactiveInferredRelationshipsRemoved() throws ServiceException {
+		String path = "MAIN";
+		conceptService.create(new Concept(SNOMEDCT_ROOT), path);
+		Concept ambulanceman = conceptService.create(new Concept("10000123").addFSN("Ambulanceman").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)), path);
+
+		Page<ConceptMini> concepts = queryService.search(queryService.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT).descriptionTerm("Amb"), path, PAGE_REQUEST);
+		assertEquals(1, concepts.getTotalElements());
+
+		// The classification process would usually do this
+		ambulanceman.getRelationships().forEach(r -> r.setActive(false));
+		conceptService.update(ambulanceman, path);
+
+		concepts = queryService.search(queryService.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT).descriptionTerm("Amb"), path, PAGE_REQUEST);
 		assertEquals(0, concepts.getTotalElements());
 	}
 
@@ -479,7 +517,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		String branch = "MAIN";
 		conceptService.batchCreate(concepts, branch);
 
-		Page<ConceptMini> page = queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT), branch, QueryService.PAGE_OF_ONE);
+		Page<ConceptMini> page = queryService.search(queryService.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT), branch, QueryService.PAGE_OF_ONE);
 		assertEquals(conceptCount + 1, page.getTotalElements());
 	}
 
@@ -495,7 +533,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		String branch = "MAIN";
 		conceptService.batchCreate(concepts, branch);
 
-		assertEquals("Total concepts should be 51", 51, queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT), branch, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals("Total concepts should be 51", 51, queryService.search(queryService.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT), branch, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		List<Relationship> relationshipVersions = new ArrayList<>();
 		for (int conceptId = 0; conceptId < 50; conceptId++) {
@@ -514,7 +552,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 			commit.markSuccessful();
 		}
 
-		assertEquals("Total concepts should be 51", 51, queryService.search(queryService.createQueryBuilder(true).ecl("<<" + SNOMEDCT_ROOT), branch, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals("Total concepts should be 51", 51, queryService.search(queryService.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT), branch, QueryService.PAGE_OF_ONE).getTotalElements());
 	}
 
 	@Test
@@ -524,20 +562,20 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		concepts.add(new Concept(SNOMEDCT_ROOT));
 		concepts.add(new Concept("116680003")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
 		);
 		concepts.add(new Concept("39607008")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
 		);
 		concepts.add(new Concept("363698007")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
 		);
 
 		conceptService.batchCreate(concepts, path);
 		concepts.clear();
 
 		concepts.add(new Concept("34020007")
-				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT).setInferred(true))
+				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT))
 				.addRelationship(new Relationship("756906025", 20040731, false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
 				.addRelationship(new Relationship("3250849023", 20100131, false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
 				.addRelationship(new Relationship("3332956025", 20150731, false, "900000000000207008", "34020007", "39607008", 2, "363698007", "900000000000011006", "900000000000451002"))
@@ -558,20 +596,20 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		concepts.add(new Concept(SNOMEDCT_ROOT));
 		concepts.add(new Concept("116680003")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
 		);
 		concepts.add(new Concept("39607008")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
 		);
 		concepts.add(new Concept("363698007")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
 		);
 
 		conceptService.batchCreate(concepts, path);
 		concepts.clear();
 
 		concepts.add(new Concept("34020007")
-				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT).setInferred(true))
+				.addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT))
 				.addRelationship(new Relationship("3332956025", 20150731, false, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
 				.addRelationship(new Relationship("5963641025", 20150731, true, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002"))
 		);
@@ -623,7 +661,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// Create concept with US relationship
 		Concept concept = new Concept("272379006").setModuleId(internationalCoreModule)
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setModuleId(usModule).setInferred(true));
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setModuleId(usModule));
 		concepts.add(concept);
 		conceptService.batchCreate(concepts, path);
 		concepts.clear();
@@ -631,7 +669,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// Add Int relationship
-		concept.getRelationships().add(new Relationship(ISA, SNOMEDCT_ROOT).setModuleId(internationalCoreModule).setInferred(true));
+		concept.getRelationships().add(new Relationship(ISA, SNOMEDCT_ROOT).setModuleId(internationalCoreModule));
 		conceptService.update(concept, path);
 
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
@@ -667,7 +705,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		// Create child branch
 		branchService.create(extensionBranch);
 		assertEquals("Concept exists on child branch",
-				1, queryService.search(queryService.createQueryBuilder(true).ecl("<" + CLINICAL_FINDING), extensionBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+				1, queryService.search(queryService.createQueryBuilder(false).ecl("<" + CLINICAL_FINDING), extensionBranch, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// On the parent branch inactivate the concept parents and add another
 		concept.getRelationships().forEach(relationship -> relationship.setActive(false));
@@ -681,7 +719,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 				.filter(relationship -> relationship.getDestinationId().equals(SNOMEDCT_ROOT)).forEach(relationship -> relationship.setActive(false));
 		conceptService.update(extensionVersionConcept, extensionBranch);
 
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(true).ecl("<" + CLINICAL_FINDING), extensionBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<" + CLINICAL_FINDING), extensionBranch, QueryService.PAGE_OF_ONE).getTotalElements());
 	}
 
 	@Test
@@ -716,7 +754,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		// Create grandchild branch
 		branchService.create(extensionProjectBranch);
 		assertEquals("Concept exists on grandchild branch",
-				1, queryService.search(queryService.createQueryBuilder(true).ecl("<" + CLINICAL_FINDING), extensionProjectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+				1, queryService.search(queryService.createQueryBuilder(false).ecl("<" + CLINICAL_FINDING), extensionProjectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// Grandchild branch is still on the original version of the concept.
 		// Make the relationship to root inactive - should still have the parent to clinical finding after that
@@ -725,7 +763,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 				.filter(relationship -> relationship.getDestinationId().equals(SNOMEDCT_ROOT)).forEach(relationship -> relationship.setActive(false));
 		conceptService.update(extensionVersionConcept, extensionProjectBranch);
 
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(true).ecl("<" + CLINICAL_FINDING), extensionProjectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<" + CLINICAL_FINDING), extensionProjectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
 	}
 
 	@Test
@@ -806,7 +844,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 	private void assertTC(Concept concept, String branch, Concept... ancestors) {
 		Set<Long> expectedAncestors = Arrays.stream(ancestors).map(Concept::getConceptIdAsLong).collect(Collectors.toSet());
-		assertEquals(expectedAncestors, queryService.findAncestorIds(concept.getId(), branch, true));
+		assertEquals(expectedAncestors, queryService.findAncestorIds(concept.getId(), branch, false));
 	}
 
 	@AfterEach
