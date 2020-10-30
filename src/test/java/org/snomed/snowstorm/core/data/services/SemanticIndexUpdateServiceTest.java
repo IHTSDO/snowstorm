@@ -699,6 +699,65 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(true).ecl("<" + CLINICAL_FINDING), extensionProjectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
 	}
 
+	@Test
+	void testRebuildRestoresParentVisibility() throws ServiceException {
+		String path = "MAIN";
+		String projectBranch = "MAIN/TEST1";
+		List<Concept> concepts = new ArrayList<>();
+
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		concepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true)));
+		concepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true)));
+		concepts.add(new Concept("100100000001")
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
+				.addRelationship(new Relationship(FINDING_SITE, "100200000001").setInferred(true))
+		);
+		concepts.add(new Concept("100200000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true)));
+		concepts.add(new Concept("100300000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true)));
+
+		conceptService.batchCreate(concepts, path);
+		concepts.clear();
+
+		// Create child branch
+		branchService.create(projectBranch);
+		assertEquals("Concept exists on child branch",
+				1, queryService.search(queryService.createQueryBuilder(false).ecl("100100000001"), projectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+
+		// On the child branch add another attribute
+		Concept concept = conceptService.find("100100000001", projectBranch);
+		concept.getRelationships().add(new Relationship(FINDING_SITE, "100300000001").setInferred(true));
+		conceptService.update(concept, projectBranch);
+
+		assertEquals("Concept exists on child branch",
+				1, queryService.search(queryService.createQueryBuilder(false).ecl("100100000001"), projectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals("Concept has attribute in semantic index on child branch",
+				1, queryService.search(queryService.createQueryBuilder(false).ecl("100100000001 : " + FINDING_SITE + " = 100300000001"), projectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+
+		// Remove attribute from concept
+		concept = conceptService.find("100100000001", projectBranch);
+		concept.setRelationships(concept.getRelationships().stream()
+				.filter(r -> !r.getDestinationId().equals("100300000001"))
+				.collect(Collectors.toSet()));
+		conceptService.update(concept, projectBranch);
+
+		assertEquals("Concept exists on child branch",
+				1, queryService.search(queryService.createQueryBuilder(false).ecl("100100000001"), projectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals("Concept does not have attribute in semantic index on child branch",
+				0, queryService.search(queryService.createQueryBuilder(false).ecl("100100000001 : " + FINDING_SITE + " = 100300000001"), projectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+
+		// Make a commit on MAIN
+		conceptService.create(new Concept("100400000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true)), path);
+
+		// Rebase the child branch
+		try (Commit rebaseCommit = branchService.openRebaseCommit(projectBranch)) {
+			rebaseCommit.markSuccessful();
+		}
+
+		// This fails before the fix for MAINT-1501
+		assertEquals("Concept exists on child branch",
+				1, queryService.search(queryService.createQueryBuilder(false).ecl("100100000001"), projectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+	}
+
 	private void simulateRF2Import(String path, List<Concept> concepts) {
 		try (Commit commit = branchService.openCommit(path)) {
 			concepts.forEach(Concept::markChanged);

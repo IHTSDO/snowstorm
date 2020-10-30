@@ -597,9 +597,11 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		versionControlHelper.endAllVersionsOnThisBranch(QueryConcept.class, null, commit, queryConceptRepository);
 
 		// Restore versions from parent branches which were ended on this branch
-		Set<String> versionsReplaced = commit.getBranch().getVersionsReplaced(QueryConcept.class);
-		int parentVersionsRestored = versionsReplaced.size();
-		versionsReplaced.clear();
+		Branch branch = commit.getBranch();
+		int parentVersionsRestored = branch.getVersionsReplaced(QueryConcept.class).size();
+		Map<String, Set<String>> versionsReplaced = branch.getVersionsReplaced();
+		versionsReplaced.put(QueryConcept.class.getSimpleName(), new HashSet<>());
+		branch.setVersionsReplaced(versionsReplaced);
 		logger.info("Restored visibility of {} query concepts from parents", parentVersionsRestored);
 	}
 
