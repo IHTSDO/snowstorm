@@ -113,7 +113,7 @@ public class ConceptUpdateHelper extends ComponentService {
 					concept.setInactivationIndicator(null);
 					concept.setAssociationTargets(null);
 				} else {
-					// Make stated relationships and axioms inactive
+					// Make stated relationships and axioms inactive. We use the classification process to inactivate the inferred relationships.
 					concept.getRelationships().forEach(relationship -> {
 						if (Concepts.STATED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId())) {
 							relationship.setActive(false);

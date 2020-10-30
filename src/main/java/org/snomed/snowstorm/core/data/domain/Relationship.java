@@ -101,7 +101,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 		setModuleId(Concepts.CORE_MODULE);
 		destinationId = "";
 		typeId = "";
-		characteristicTypeId = Concepts.STATED_RELATIONSHIP;
+		characteristicTypeId = Concepts.INFERRED_RELATIONSHIP;
 		modifierId = Concepts.EXISTENTIAL;
 	}
 

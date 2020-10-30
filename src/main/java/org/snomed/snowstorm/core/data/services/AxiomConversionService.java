@@ -104,7 +104,10 @@ public class AxiomConversionService {
 
 		return relationships.values().stream()
 				.flatMap(Collection::stream)
-				.map(r -> new Relationship(r.getTypeId() + "", r.getDestinationId() + "").setSourceId(sourceId != null ? sourceId.toString() : null).setGroupId(r.getGroup()))
+				.map(r -> new Relationship(r.getTypeId() + "", r.getDestinationId() + "")
+						.setSourceId(sourceId != null ? sourceId.toString() : null)
+						.setGroupId(r.getGroup())
+						.setInferred(false))
 				.collect(Collectors.toSet());
 	}
 
