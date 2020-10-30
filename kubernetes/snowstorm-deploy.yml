@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: snowstorm-elasticsearch
-        image: docker.elastic.co/elasticsearch/elasticsearch:6.4.2
+        image: docker.elastic.co/elasticsearch/elasticsearch:7.7.0
         volumeMounts:
           - name: elasticsearch-data
             mountPath: /usr/share/elasticsearch/data
@@ -36,7 +36,7 @@ spec:
           periodSeconds: 10
           failureThreshold: 60
       - name: snowstorm-front
-        image: snomedinternational/snowstorm:latest 
+        image: snomedinternational/snowstorm:5.0.7 
         env:
         - name: ES_JAVA_OPTS
           value: "-Xms2g -Xmx4g"
