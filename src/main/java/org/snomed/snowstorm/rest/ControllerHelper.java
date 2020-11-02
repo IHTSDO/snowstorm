@@ -52,11 +52,19 @@ public class ControllerHelper {
 	}
 
 	static ResponseEntity<Void> getCreatedResponse(String id) {
-		HttpHeaders httpHeaders = getCreatedLocationHeaders(id);
+		return getCreatedResponse(id, null);
+	}
+
+	static ResponseEntity<Void> getCreatedResponse(String id, String removePathPart) {
+		HttpHeaders httpHeaders = getCreatedLocationHeaders(id, removePathPart);
 		return new ResponseEntity<>(httpHeaders, HttpStatus.CREATED);
 	}
 
 	static HttpHeaders getCreatedLocationHeaders(String id) {
+		return getCreatedLocationHeaders(id, null);
+	}
+
+	static HttpHeaders getCreatedLocationHeaders(String id, String removePathPart) {
 		RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
 		Assert.state(attrs instanceof ServletRequestAttributes, "No current ServletRequestAttributes");
 		HttpServletRequest request = ((ServletRequestAttributes) attrs).getRequest();
@@ -64,6 +72,9 @@ public class ControllerHelper {
 		String requestUrl = request.getRequestURL().toString();
 		// Decode branch path
 		requestUrl = requestUrl.replace("%7C", "/");
+		if (!Strings.isNullOrEmpty(removePathPart)) {
+			requestUrl = requestUrl.replace(removePathPart, "");
+		}
 
 		HttpHeaders httpHeaders = new HttpHeaders();
 		httpHeaders.setLocation(ServletUriComponentsBuilder.fromHttpUrl(requestUrl).path("/{id}").buildAndExpand(id).toUri());

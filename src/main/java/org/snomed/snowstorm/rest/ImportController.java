@@ -2,8 +2,6 @@ package org.snomed.snowstorm.rest;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.Authorization;
-import io.swagger.annotations.AuthorizationScope;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -81,7 +79,7 @@ public class ImportController {
 			handleFileNotFound(filePath, localFile);
 		}
 
-		return ControllerHelper.getCreatedResponse(id);
+		return ControllerHelper.getCreatedResponse(id, "/start-local-file-import");
 	}
 
 	private void handleFileNotFound(String filePath, File localFile) {
