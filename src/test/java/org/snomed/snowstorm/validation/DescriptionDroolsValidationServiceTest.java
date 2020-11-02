@@ -62,9 +62,17 @@ class DescriptionDroolsValidationServiceTest extends AbstractTest {
     @BeforeEach
     void setup() throws ServiceException {
         root = new Concept(SNOMEDCT_ROOT);
-        bodyStructureAncestor = new Concept("123037004").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setCharacteristicTypeId(Concepts.INFERRED_RELATIONSHIP)).addFSN("Body structure (body structure)");
-        bodyStructureDescendant1 = new Concept("442083009").addRelationship(new Relationship(ISA, bodyStructureAncestor.getId())).addFSN("Anatomical or acquired body structure (body structure)");
-        bodyStructureDescendant2 = new Concept("302509004").addRelationship(new Relationship(ISA, bodyStructureDescendant1.getId())).addFSN("Entire heart (body structure)").addDescription(new Description("444221019", 20170731, true, "900000000000207008", "302509004", "en", "900000000000013009", "Entire heart", "900000000000448009"));
+        bodyStructureAncestor = new Concept("123037004")
+				.addAxiom(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addFSN("Body structure (body structure)");
+        bodyStructureDescendant1 = new Concept("442083009")
+				.addAxiom(new Relationship(ISA, bodyStructureAncestor.getId()))
+				.addFSN("Anatomical or acquired body structure (body structure)");
+        bodyStructureDescendant2 = new Concept("302509004")
+				.addAxiom(new Relationship(ISA, bodyStructureDescendant1.getId()))
+				.addFSN("Entire heart (body structure)")
+				.addDescription(new Description("444221019", 20170731, true, "900000000000207008", "302509004", "en", "900000000000013009", "Entire heart", "900000000000448009"));
 
         conceptService.batchCreate(Lists.newArrayList(root, bodyStructureAncestor, bodyStructureDescendant1, bodyStructureDescendant2), PATH);
 
@@ -73,9 +81,8 @@ class DescriptionDroolsValidationServiceTest extends AbstractTest {
 
     @Test
     void findMatchingDescriptionInHierarchy() {
-
         Concept concept = new Concept("1760555000");
-        concept.addRelationship(new Relationship(ISA, bodyStructureDescendant1.getId()));
+        concept.addAxiom(new Relationship(ISA, bodyStructureDescendant1.getId()));
 
         Description description = new Description("5582049016", null, true, "900000000000207008", "1760555000", "en", "900000000000013009", "Entire heart", "900000000000448009");
         org.ihtsdo.drools.domain.Concept droolConcept = new DroolsConcept(concept);

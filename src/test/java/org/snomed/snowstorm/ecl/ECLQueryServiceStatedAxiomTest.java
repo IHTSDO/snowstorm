@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -224,6 +225,15 @@ class ECLQueryServiceStatedAxiomTest extends ECLQueryServiceTest {
 		// Member of any reference set
 		// All concepts with axioms are members
 		assertEquals(allConceptIds.stream().filter(id -> !id.equals(Concepts.SNOMEDCT_ROOT)).collect(Collectors.toSet()), strings(selectConceptIds("^*")));
+	}
+
+	protected Collection<Long> selectConceptIds(String ecl) {
+		return selectConceptIds(ecl, null);
+	}
+
+	protected Collection<Long> selectConceptIds(String ecl, PageRequest pageRequest) {
+		boolean stated = true;
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, stated, pageRequest).getContent();
 	}
 
 }

@@ -48,34 +48,37 @@ class QueryServiceTest extends AbstractTest {
 		reallyCheesyPizza_4 = new Concept("100008").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza");
 		reallyCheesyPizza_5 = new Concept("100003").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("So Cheesy Pizza")
 				.addDescription(new Description("Cheesy Pizza"));
-		inactivePizza_6 = (Concept) new Concept("100006").addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId())).addFSN("Inactive Pizza")
-				.addDescription( new Description("additional pizza")).setActive(false);
+		inactivePizza_6 = new Concept("100006")
+				.addRelationship(new Relationship(ISA, reallyCheesyPizza_4.getId()).setActive(false))
+				.addFSN("Inactive Pizza")
+				.addDescription(new Description("additional pizza"))
+				.setActive(false);
 		conceptService.batchCreate(Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5, inactivePizza_6), PATH);
 	}
 
 	@Test
 	void testSearchResultOrdering() {
-		List<ConceptMini> matches = service.search(service.createQueryBuilder(true).activeFilter(true).descriptionTerm("Piz"), PATH, PAGE_REQUEST).getContent();
+		List<ConceptMini> matches = service.search(service.createQueryBuilder(false).activeFilter(true).descriptionTerm("Piz"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(4, matches.size());
 		assertEquals("Pizza", matches.get(0).getFsnTerm());
 		assertEquals("Cheese Pizza", matches.get(1).getFsnTerm());
 		assertEquals("So Cheesy Pizza", matches.get(2).getFsnTerm());
 		assertEquals("Really Cheesy Pizza", matches.get(3).getFsnTerm());
 
-		matches = service.search(service.createQueryBuilder(true).ecl("<" + SNOMEDCT_ROOT).descriptionTerm("Piz"), PATH, PAGE_REQUEST).getContent();
+		matches = service.search(service.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT).descriptionTerm("Piz"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(4, matches.size());
 		assertEquals("Pizza", matches.get(0).getFsnTerm());
 		assertEquals("Cheese Pizza", matches.get(1).getFsnTerm());
 		assertEquals("So Cheesy Pizza", matches.get(2).getFsnTerm());
 		assertEquals("Really Cheesy Pizza", matches.get(3).getFsnTerm());
 
-		matches = service.search(service.createQueryBuilder(true).ecl("<" + pizza_2.getConceptId()).descriptionTerm("Piz"), PATH, PAGE_REQUEST).getContent();
+		matches = service.search(service.createQueryBuilder(false).ecl("<" + pizza_2.getConceptId()).descriptionTerm("Piz"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(3, matches.size());
 		assertEquals("Cheese Pizza", matches.get(0).getFsnTerm());
 		assertEquals("So Cheesy Pizza", matches.get(1).getFsnTerm());
 		assertEquals("Really Cheesy Pizza", matches.get(2).getFsnTerm());
 
-		matches = service.search(service.createQueryBuilder(true).ecl("<" + pizza_2.getConceptId()).descriptionTerm("Cheesy"), PATH, PAGE_REQUEST).getContent();
+		matches = service.search(service.createQueryBuilder(false).ecl("<" + pizza_2.getConceptId()).descriptionTerm("Cheesy"), PATH, PAGE_REQUEST).getContent();
 		assertEquals(2, matches.size());
 		assertEquals("So Cheesy Pizza", matches.get(0).getFsnTerm());
 		assertEquals("Really Cheesy Pizza", matches.get(1).getFsnTerm());
@@ -84,42 +87,42 @@ class QueryServiceTest extends AbstractTest {
 	@Test
 	void testFindInactiveConcept() {
 		Set<String> inactiveConceptId = Collections.singleton(inactivePizza_6.getId());
-		List<ConceptMini> content = service.search(service.createQueryBuilder(true).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent();
+		List<ConceptMini> content = service.search(service.createQueryBuilder(false).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent();
 		assertEquals(1, content.size());
 		assertEquals("Inactive Pizza", content.get(0).getFsnTerm());
 
-		assertEquals(1, service.search(service.createQueryBuilder(true).descriptionTerm("Inacti").definitionStatusFilter(Concepts.PRIMITIVE).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
-		assertEquals(0, service.search(service.createQueryBuilder(true).descriptionTerm("Not").definitionStatusFilter(Concepts.PRIMITIVE).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
-		assertEquals(0, service.search(service.createQueryBuilder(true).definitionStatusFilter(Concepts.FULLY_DEFINED).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
+		assertEquals(1, service.search(service.createQueryBuilder(false).descriptionTerm("Inacti").definitionStatusFilter(Concepts.PRIMITIVE).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
+		assertEquals(0, service.search(service.createQueryBuilder(false).descriptionTerm("Not").definitionStatusFilter(Concepts.PRIMITIVE).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
+		assertEquals(0, service.search(service.createQueryBuilder(false).definitionStatusFilter(Concepts.FULLY_DEFINED).conceptIds(inactiveConceptId), PATH, PAGE_REQUEST).getContent().size());
 	}
 
 
 	@Test
 	void testFindConceptsByTerm() {
 
-		Page<ConceptMini> activeSearch = service.search(service.createQueryBuilder(true).descriptionTerm("pizza").activeFilter(true), PATH, PAGE_REQUEST);
+		Page<ConceptMini> activeSearch = service.search(service.createQueryBuilder(false).descriptionTerm("pizza").activeFilter(true), PATH, PAGE_REQUEST);
 		assertEquals(4, activeSearch.getNumberOfElements());
 
-		Page<ConceptMini> inactiveSearch = service.search(service.createQueryBuilder(true).descriptionTerm("pizza").activeFilter(false), PATH, PAGE_REQUEST);
+		Page<ConceptMini> inactiveSearch = service.search(service.createQueryBuilder(false).descriptionTerm("pizza").activeFilter(false), PATH, PAGE_REQUEST);
 		assertEquals(1, inactiveSearch.getNumberOfElements());
 
-		Page<ConceptMini> page = service.search(service.createQueryBuilder(true).descriptionTerm("pizza"), PATH, PAGE_REQUEST);
+		Page<ConceptMini> page = service.search(service.createQueryBuilder(false).descriptionTerm("pizza"), PATH, PAGE_REQUEST);
 		assertEquals(5, page.getNumberOfElements());
 	}
 
 	@Test
 	void testFindConceptsByTermUsingConceptId() {
-		Page<ConceptMini> activeSearch = service.search(service.createQueryBuilder(true).descriptionTerm("100003").activeFilter(true), PATH, PAGE_REQUEST);
+		Page<ConceptMini> activeSearch = service.search(service.createQueryBuilder(false).descriptionTerm("100003").activeFilter(true), PATH, PAGE_REQUEST);
 		assertEquals(1, activeSearch.getNumberOfElements());
 	}
 
 	@Test
 	void testDefinitionStatusFilter() {
-		QueryService.ConceptQueryBuilder query = service.createQueryBuilder(true)
+		QueryService.ConceptQueryBuilder query = service.createQueryBuilder(false)
 				.ecl(pizza_2.getConceptId())
 				.definitionStatusFilter(Concepts.SUFFICIENTLY_DEFINED);
 		assertEquals(0, service.search(query, PATH, PAGE_REQUEST).getTotalElements());
-		QueryService.ConceptQueryBuilder query2 = service.createQueryBuilder(true)
+		QueryService.ConceptQueryBuilder query2 = service.createQueryBuilder(false)
 				.ecl(pizza_2.getConceptId())
 				.definitionStatusFilter(Concepts.PRIMITIVE);
 		assertEquals(1, service.search(query2, PATH, PAGE_REQUEST).getTotalElements());
@@ -127,7 +130,7 @@ class QueryServiceTest extends AbstractTest {
 
 	@Test
 	void testPagination() {
-		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(true).activeFilter(true);
+		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
 		Page<ConceptMini> page = service.search(queryBuilder, PATH, PageRequest.of(0, 2));
 		assertEquals(5, page.getTotalElements());
 	}

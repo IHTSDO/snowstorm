@@ -162,6 +162,11 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		return inactivationIndicatorName;
 	}
 
+	@Override
+	public Concept setActive(boolean active) {
+		return (Concept) super.setActive(active);
+	}
+
 	public Concept setInactivationIndicator(String inactivationIndicatorName) {
 		this.inactivationIndicatorName = inactivationIndicatorName;
 		return this;
@@ -234,7 +239,10 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public Concept addAxiom(Relationship... axiomFragments) {
 		Axiom axiom = new Axiom(getModuleId(), true, Concepts.PRIMITIVE, Sets.newHashSet(axiomFragments));
-		axiom.getRelationships().forEach(r -> r.setSourceId(this.conceptId));
+		axiom.getRelationships().forEach(r -> {
+			r.setSourceId(this.conceptId);
+			r.setInferred(false);
+		});
 		classAxioms.add(axiom);
 		return this;
 	}

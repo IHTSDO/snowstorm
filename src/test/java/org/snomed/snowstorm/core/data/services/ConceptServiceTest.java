@@ -515,8 +515,11 @@ class ConceptServiceTest extends AbstractTest {
 		Description inactiveDescriptionCreate = new Description("Another");
 		inactiveDescriptionCreate.setActive(false);
 		concept.addDescription(inactiveDescriptionCreate);
-		concept.addRelationship(new Relationship(ISA, "107658001"));
+		concept.addAxiom(new Relationship(ISA, "107658001"));
 		Concept savedConcept = conceptService.create(concept, path);
+
+		CodeSystem snomedct = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(snomedct, 20200131, "");
 
 		savedConcept.setActive(false);
 
@@ -573,10 +576,9 @@ class ConceptServiceTest extends AbstractTest {
 		assertTrue("One description is still inactive", inactiveDescription.isPresent());
 		assertEquals("Inactive description automatically has inactivation indicator", "CONCEPT_NON_CURRENT", inactiveDescription.get().getInactivationIndicator());
 
-		assertFalse("Relationship is inactive.", inactiveConcept.getRelationships().iterator().next().isActive());
+		assertFalse("Axiom is inactive.", inactiveConcept.getClassAxioms().iterator().next().isActive());
 
-		CodeSystem snomedct = codeSystemService.find("SNOMEDCT");
-		codeSystemService.createVersion(snomedct, 20200131, "");
+		codeSystemService.createVersion(snomedct, 20200731, "");
 
 		inactiveConcept = conceptService.find(inactiveConcept.getId(), path);
 		inactiveConcept.getInactivationIndicatorMembers().clear();
@@ -942,21 +944,21 @@ class ConceptServiceTest extends AbstractTest {
 					new Concept(null, Concepts.CORE_MODULE)
 							.addDescription(new Description("Concept " + i))
 							.addDescription(new Description("Concept " + i + "(finding)"))
-							.addRelationship(new Relationship(Concepts.ISA, SNOMEDCT_ROOT))
+							.addAxiom(new Relationship(Concepts.ISA, SNOMEDCT_ROOT))
 			);
 		}
 
 		final Iterable<Concept> conceptsCreated = conceptService.batchCreate(concepts, "MAIN/A");
 
 		final Page<Concept> page = conceptService.findAll("MAIN/A", PageRequest.of(0, 100));
-		assertEquals(concepts.size() + 1, page.getTotalElements());
+		assertEquals(tenThousand + 1, page.getTotalElements());
 		assertEquals(Concepts.CORE_MODULE, page.getContent().get(50).getModuleId());
 
 		Page<ConceptMini> conceptDescendants = queryService.search(queryService.createQueryBuilder(true).ecl("<" + SNOMEDCT_ROOT), "MAIN/A", PageRequest.of(0, 50));
-		assertEquals(10 * 1000, conceptDescendants.getTotalElements());
+		assertEquals(tenThousand, conceptDescendants.getTotalElements());
 
-		List<Relationship> inboundRelationships = relationshipService.findInboundRelationships(SNOMEDCT_ROOT, "MAIN/A", Relationship.CharacteristicType.stated).getContent();
-		assertEquals(10 * 1000, inboundRelationships.size());
+		Page<Description> descriptions = descriptionService.findDescriptions("MAIN/A", null, null, null, PageRequest.of(0, 50));
+		assertEquals(20_000, descriptions.getTotalElements());
 
 		final String anotherModule = "123123";
 		List<Concept> toUpdate = new ArrayList<>();
@@ -974,7 +976,7 @@ class ConceptServiceTest extends AbstractTest {
 			someConcept = pageAfterUpdate.getContent().get(51);
 		}
 		assertEquals(anotherModule, someConcept.getModuleId());
-		assertEquals(1, someConcept.getRelationships().size());
+		assertEquals(1, someConcept.getClassAxioms().size());
 	}
 
 	@Test

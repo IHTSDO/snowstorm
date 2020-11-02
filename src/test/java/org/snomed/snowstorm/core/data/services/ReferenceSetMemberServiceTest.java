@@ -47,23 +47,23 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 		conceptService.deleteAll();
 		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), MAIN);
 		conceptService.create(new Concept(Concepts.ISA)
-				.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
 		conceptService.create(new Concept(Concepts.CLINICAL_FINDING)
-				.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
 		conceptService.create(new Concept(Concepts.REFSET_HISTORICAL_ASSOCIATION)
-				.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
 		conceptService.create(new Concept(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION)
-				.addRelationship(new Relationship(Concepts.ISA, Concepts.REFSET_HISTORICAL_ASSOCIATION)), MAIN);
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET_HISTORICAL_ASSOCIATION)), MAIN);
 	}
 
 	@Test
 	void createFindDeleteMember() {
-		assertEquals(0, memberService.findMembers(MAIN, Concepts.CLINICAL_FINDING, PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(MAIN, Concepts.HEART_STRUCTURE, PAGE).getTotalElements());
 
 		memberService.createMember(
-				MAIN, new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION, Concepts.CLINICAL_FINDING));
+				MAIN, new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION, Concepts.HEART_STRUCTURE));
 
-		Page<ReferenceSetMember> members = memberService.findMembers(MAIN, Concepts.CLINICAL_FINDING, PAGE);
+		Page<ReferenceSetMember> members = memberService.findMembers(MAIN, Concepts.HEART_STRUCTURE, PAGE);
 		assertEquals(1, members.getTotalElements());
 
 		assertEquals(0, memberService.findMembers(MAIN, new MemberSearchRequest().active(true).referenceSet(Concepts.REFSET_HISTORICAL_ASSOCIATION), PAGE).getTotalElements());
@@ -71,7 +71,7 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 
 		memberService.deleteMember(MAIN, members.getContent().get(0).getMemberId());
 
-		assertEquals(0, memberService.findMembers(MAIN, Concepts.CLINICAL_FINDING, PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(MAIN, Concepts.HEART_STRUCTURE, PAGE).getTotalElements());
 	}
 
 	@Test
@@ -142,10 +142,10 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 
 	@Test
 	void createFindUpdateMember() {
-		assertEquals(0, memberService.findMembers(MAIN, Concepts.CLINICAL_FINDING, PAGE).getTotalElements());
+		assertEquals(0, memberService.findMembers(MAIN, Concepts.HEART_STRUCTURE, PAGE).getTotalElements());
 
-		ReferenceSetMember axiom = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, Concepts.CLINICAL_FINDING);
-		axiom.setAdditionalField("owlExpression", "SubClassOf(:404684003 :138875005)");
+		ReferenceSetMember axiom = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, Concepts.HEART_STRUCTURE);
+		axiom.setAdditionalField("owlExpression", "SubClassOf(:80891009 :138875005)");// Junk axiom for test
 		axiom = memberService.createMember(MAIN, axiom);
 
 		ReferenceSetMember found = memberService.findMember(MAIN, axiom.getMemberId());
@@ -154,12 +154,12 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 		assertEquals(axiom.getAdditionalField("owlExpression"), found.getAdditionalField("owlExpression"));
 
 		ReferenceSetMember updatedMember = new ReferenceSetMember(axiom.getModuleId(), axiom.getRefsetId(), axiom.getReferencedComponentId());
-		updatedMember.setAdditionalField("owlExpression", "SubClassOf(:404684003 :100138875005)");
+		updatedMember.setAdditionalField("owlExpression", "SubClassOf(:80891009 :100138875005)");
 		updatedMember.setMemberId(axiom.getMemberId());
 		updatedMember = memberService.updateMember(MAIN, updatedMember);
 
 		ReferenceSetMember result = memberService.findMember(MAIN, updatedMember.getMemberId());
-		assertEquals("SubClassOf(:404684003 :100138875005)", result.getAdditionalField("owlExpression"));
+		assertEquals("SubClassOf(:80891009 :100138875005)", result.getAdditionalField("owlExpression"));
 		assertEquals(updatedMember.getRefsetId(), result.getRefsetId());
 		assertEquals(updatedMember.getMemberId(), result.getMemberId());
 	}
@@ -253,13 +253,14 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 		assertNotNull(allResults);
 		String key = allResults.getBuckets().keySet().iterator().next();
 
-		assertEquals(2, allResults.getBuckets().get(key).values().size());
+		assertEquals(3, allResults.getBuckets().get(key).values().size());
 		assertEquals(1, allResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
 		assertEquals(2, allResults.getBuckets().get(key).get("723264001").intValue());
+		assertEquals(4, allResults.getBuckets().get(key).get(Concepts.OWL_AXIOM_REFERENCE_SET).intValue());
 
 		PageWithBucketAggregations<ReferenceSetMember> activeResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), new MemberSearchRequest().active(true));
 		assertNotNull(activeResults);
-		assertEquals(2, activeResults.getBuckets().get(key).values().size());
+		assertEquals(3, activeResults.getBuckets().get(key).values().size());
 		assertEquals(1, activeResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
 		assertEquals(1, activeResults.getBuckets().get(key).get("723264001").intValue());
 
@@ -283,16 +284,16 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 
 		PageWithBucketAggregations<ReferenceSetMember> allResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 10), new MemberSearchRequest());
 		assertNotNull(allResults);
-		assertEquals(2, allResults.getBuckets().get(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET).size());
+		assertEquals(3, allResults.getBuckets().get(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET).size());
 		String key = allResults.getBuckets().keySet().iterator().next();
 
-		assertEquals(2, allResults.getBuckets().get(key).values().size());
+		assertEquals(3, allResults.getBuckets().get(key).values().size());
 		assertEquals(1, allResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
 		assertEquals(1, allResults.getBuckets().get(key).get("723264001").intValue());
 
 		PageWithBucketAggregations<ReferenceSetMember> activeResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), new MemberSearchRequest().active(true));
 		assertNotNull(activeResults);
-		assertEquals(1, activeResults.getBuckets().get(key).values().size());
+		assertEquals(2, activeResults.getBuckets().get(key).values().size());
 		assertEquals(1, activeResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
 
 		PageWithBucketAggregations<ReferenceSetMember> inActiveResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), new MemberSearchRequest().active(false));

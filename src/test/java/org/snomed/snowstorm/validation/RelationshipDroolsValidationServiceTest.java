@@ -29,9 +29,8 @@ class RelationshipDroolsValidationServiceTest extends AbstractTest {
 	@BeforeEach
 	void setup() throws ServiceException {
 		String branchPath = "MAIN";
-		conceptService.create(new Concept("100001").addRelationship(
-				new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
-				branchPath);
+		conceptService.create(new Concept("100001")
+						.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), branchPath);
 
 		service = new RelationshipDroolsValidationService(branchPath, versionControlHelper.getBranchCriteria(branchPath), queryService);
 	}

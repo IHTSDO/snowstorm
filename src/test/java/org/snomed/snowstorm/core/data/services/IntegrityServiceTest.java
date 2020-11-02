@@ -57,21 +57,21 @@ class IntegrityServiceTest extends AbstractTest {
 
 		conceptService.create(new Concept("100001"), "MAIN/project");
 		// Valid relationship on MAIN/project
-		conceptService.create(new Concept("10000101").addRelationship(new Relationship("10000101", "100001")), "MAIN/project");
+		conceptService.create(new Concept("10000101").addRelationship(new Relationship("10000101", "100001").setInferred(false)), "MAIN/project");
 		// Valid relationship on MAIN/project
-		conceptService.create(new Concept("100002").addRelationship(new Relationship("10000101", "100001")), "MAIN/project");
+		conceptService.create(new Concept("100002").addRelationship(new Relationship("10000101", "100001").setInferred(false)), "MAIN/project");
 		// Missing Type on MAIN/project
-		conceptService.create(new Concept("100003").addRelationship(new Relationship("10000102", "100002")), "MAIN/project");
+		conceptService.create(new Concept("100003").addRelationship(new Relationship("10000102", "100002").setInferred(false)), "MAIN/project");
 		// Missing Destination on MAIN/project
-		conceptService.create(new Concept("100004").addRelationship(new Relationship("10000101", "100001000")), "MAIN/project");
+		conceptService.create(new Concept("100004").addRelationship(new Relationship("10000101", "100001000").setInferred(false)), "MAIN/project");
 		// Valid relationship on MAIN/project
-		conceptService.create(new Concept("100005").addRelationship(new Relationship("10000101", "100002")), "MAIN/project");
+		conceptService.create(new Concept("100005").addRelationship(new Relationship("10000101", "100002").setInferred(false)), "MAIN/project");
 
 		branchService.create("MAIN/project/test2");
 		// Valid relationship on MAIN/project/test2
-		conceptService.create(new Concept("100006").addRelationship(new Relationship("10000101", "100005")), "MAIN/project/test2");
+		conceptService.create(new Concept("100006").addRelationship(new Relationship("10000101", "100005").setInferred(false)), "MAIN/project/test2");
 		// Missing Destination on MAIN/project/test2
-		conceptService.create(new Concept("100007").addRelationship(new Relationship("10000101", "100001000")), "MAIN/project/test2");
+		conceptService.create(new Concept("100007").addRelationship(new Relationship("10000101", "100001000").setInferred(false)), "MAIN/project/test2");
 
 		// Two bad relationships are on MAIN/project
 		IntegrityIssueReport reportProject = integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN/project"), true);
@@ -151,25 +151,25 @@ class IntegrityServiceTest extends AbstractTest {
 		conceptService.create(new Concept("100001"), "MAIN/project");
 		conceptService.create(new Concept("609096000"), "MAIN/project");
 		// Valid relationship on MAIN/project
-		conceptService.create(new Concept("10000101").addRelationship(new Relationship("10000101", "100001")), "MAIN/project");
+		conceptService.create(new Concept("10000101").addRelationship(new Relationship("10000101", "100001").setInferred(false)), "MAIN/project");
 		// Valid relationship on MAIN/project
-		conceptService.create(new Concept("100002").addRelationship(new Relationship("10000101", "100001")), "MAIN/project");
+		conceptService.create(new Concept("100002").addRelationship(new Relationship("10000101", "100001").setInferred(false)), "MAIN/project");
 		// Missing Type on MAIN/project
-		conceptService.create(new Concept("100003").addRelationship(new Relationship("10000102", "100002")), "MAIN/project");
+		conceptService.create(new Concept("100003").addRelationship(new Relationship("10000102", "100002").setInferred(false)), "MAIN/project");
 		// Missing Destination on MAIN/project
-		conceptService.create(new Concept("100004").addRelationship(new Relationship("10000101", "100001000")), "MAIN/project");
+		conceptService.create(new Concept("100004").addRelationship(new Relationship("10000101", "100001000").setInferred(false)), "MAIN/project");
 		// Missing Destination on MAIN/project - axiom
 		conceptService.create(new Concept("100104").addAxiom(new Relationship(Concepts.ISA, "100002"), new Relationship("10000101", "100001000")), "MAIN/project");
 		// Valid relationship on MAIN/project
-		conceptService.create(new Concept("100005").addRelationship(new Relationship("10000101", "100002")), "MAIN/project");
+		conceptService.create(new Concept("100005").addRelationship(new Relationship("10000101", "100002").setInferred(false)), "MAIN/project");
 
 		branchService.create("MAIN/project/test2");
 		// Valid relationship on MAIN/project/test2
-		conceptService.create(new Concept("100006").addRelationship(new Relationship("10000101", "100005")), "MAIN/project/test2");
+		conceptService.create(new Concept("100006").addRelationship(new Relationship("10000101", "100005").setInferred(false)), "MAIN/project/test2");
 		// Valid axiom on MAIN/project/test2
 		conceptService.create(new Concept("101006").addAxiom(new Relationship(Concepts.ISA, "100002"), new Relationship("10000101", "100005")), "MAIN/project/test2");
 		// Missing Destination on MAIN/project/test2
-		conceptService.create(new Concept("100007").addRelationship(new Relationship("10000101", "100001000")), "MAIN/project/test2");
+		conceptService.create(new Concept("100007").addRelationship(new Relationship("10000101", "100001000").setInferred(false)), "MAIN/project/test2");
 
 		try {
 			integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest("MAIN"));
@@ -239,7 +239,7 @@ class IntegrityServiceTest extends AbstractTest {
 		String path = "MAIN/project";
 		Branch branch = branchService.create(path);
 		// invalid relationship
-		conceptService.create(new Concept("10000101").addRelationship(new Relationship("100002", "100001")), path);
+		conceptService.create(new Concept("10000101").addRelationship(new Relationship("100002", "100001").setInferred(false)), path);
 
 		// Two bad relationships are on project
 		IntegrityIssueReport reportProject = integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest(path));
