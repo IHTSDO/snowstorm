@@ -105,17 +105,17 @@ class BranchReviewServiceTest extends AbstractTest {
 		conceptService.update(concept, "MAIN/A");
 
 
-		// Update concept 10000500 relationship only on B
+		// Update concept 10000500 axiom only on B
 		concept = conceptService.find("10000500", "MAIN/B");
-		concept.getRelationships().iterator().next().setGroupId(1);
+		concept.getClassAxioms().iterator().next().getRelationships().add(new Relationship(Concepts.ISA, "10000400"));
 		conceptService.update(concept, "MAIN/B");
 
-		// Update concept 10000600 stated relationship on B and A
+		// Update concept 10000600 axiom 'relationship' on B and A
 		concept = conceptService.find("10000600", "MAIN/B");
-		concept.getRelationships().iterator().next().setGroupId(1);
+		concept.getClassAxioms().iterator().next().getRelationships().add(new Relationship(Concepts.ISA, "10000400"));
 		conceptService.update(concept, "MAIN/B");
 		concept = conceptService.find("10000600", "MAIN/A");
-		concept.getRelationships().iterator().next().setGroupId(1);
+		concept.getClassAxioms().iterator().next().getRelationships().add(new Relationship(Concepts.ISA, "10000500"));
 		conceptService.update(concept, "MAIN/A");
 
 

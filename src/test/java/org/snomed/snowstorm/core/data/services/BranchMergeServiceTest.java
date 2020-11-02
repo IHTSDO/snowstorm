@@ -369,7 +369,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// MAIN: 100002 -> 100001
 		System.out.println("// MAIN: 100002 -> 100001");
-		conceptService.create(new Concept("100002").addRelationship(new Relationship(Concepts.ISA, "100001")), "MAIN");
+		conceptService.create(new Concept("100002").addAxiom(new Relationship(Concepts.ISA, "100001")), "MAIN");
 
 		// Rebase MAIN/A
 		System.out.println("// Rebase MAIN/A");
@@ -378,16 +378,16 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// MAIN: 4 -> 1
 		System.out.println("// MAIN: 100004 -> 100001");
-		conceptService.create(new Concept("100004").addRelationship(new Relationship(Concepts.ISA, "100001")), "MAIN");
+		conceptService.create(new Concept("100004").addAxiom(new Relationship(Concepts.ISA, "100001")), "MAIN");
 
 		// MAIN: 2 -> 4
 		System.out.println("// MAIN: 100002 -> 100004");
-		conceptService.update(new Concept("100002").addRelationship(new Relationship(Concepts.ISA, "100004")), "MAIN");
+		conceptService.update(new Concept("100002").addAxiom(new Relationship(Concepts.ISA, "100004")), "MAIN");
 		Assert.assertEquals(Sets.newHashSet(100001L, 100004L), queryService.findAncestorIds("100002", "MAIN", true));
 
 		// MAIN/A: 3 -> 2
 		System.out.println("// MAIN/A: 100003 -> 100002");
-		conceptService.create(new Concept("100003").addRelationship(new Relationship(Concepts.ISA, "100002")), "MAIN/A");
+		conceptService.create(new Concept("100003").addAxiom(new Relationship(Concepts.ISA, "100002")), "MAIN/A");
 		Assert.assertEquals(Sets.newHashSet(100001L, 100002L), queryService.findAncestorIds("100003", "MAIN/A", true));
 
 		// Rebase MAIN/A
@@ -417,10 +417,10 @@ class BranchMergeServiceTest extends AbstractTest {
 		// Create concepts to be used in relationships
 		conceptService.createUpdate(Lists.newArrayList(
 				new Concept(Concepts.SNOMEDCT_ROOT),
-				new Concept(Concepts.ISA).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
-				new Concept(Concepts.CLINICAL_FINDING).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
-				new Concept("131148009").addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
-				new Concept("313413008").addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT))
+				new Concept(Concepts.ISA).addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept(Concepts.CLINICAL_FINDING).addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept("131148009").addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept("313413008").addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT))
 		), "MAIN");
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", Collections.emptySet());
@@ -432,17 +432,15 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		Concept leftConcept = new Concept(conceptId, "100009002")
 				.addDescription(description)
-				.addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING))
-				.addRelationship(new Relationship(Concepts.ISA, "131148009"));
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING), new Relationship(Concepts.ISA, "131148009"));
 		setupConflictSituation(
 				new Concept(conceptId, "100009001")
 						.addDescription(description)
-						.addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING)),
+						.addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING)),
 				leftConcept,
 				new Concept(conceptId, "100009003")
 						.addDescription(description)
-						.addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING))
-						.addRelationship(new Relationship(Concepts.ISA, "313413008"))
+						.addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING), new Relationship(Concepts.ISA, "313413008"))
 		);
 
 		// Rebase the diverged branch supplying the manually merged concept
@@ -468,10 +466,10 @@ class BranchMergeServiceTest extends AbstractTest {
 		String conceptBId = "313413008";
 		conceptService.createUpdate(Lists.newArrayList(
 				new Concept(Concepts.SNOMEDCT_ROOT),
-				new Concept(Concepts.ISA).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
-				new Concept(Concepts.CLINICAL_FINDING).addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
-				new Concept(conceptAId).addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING)).addDescription(new Description("thingamajig")),
-				new Concept(conceptBId).addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING))
+				new Concept(Concepts.ISA).addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept(Concepts.CLINICAL_FINDING).addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept(conceptAId).addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING)).addDescription(new Description("thingamajig")),
+				new Concept(conceptBId).addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING))
 		), "MAIN");
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
 		String taskA1 = "MAIN/A/A1";
@@ -508,7 +506,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(1, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// Promote task A1
-		assertEquals(0, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
+		assertEquals(1, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
 		branchMergeService.mergeBranchSync(taskA1, "MAIN/A", Collections.emptySet());
 		assertEquals(2, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
 		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());

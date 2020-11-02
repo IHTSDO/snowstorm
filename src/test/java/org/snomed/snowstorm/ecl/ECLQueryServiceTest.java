@@ -77,7 +77,7 @@ class ECLQueryServiceTest extends AbstractTest {
 	protected static final String NON_EXISTENT_CONCEPT = "12345001";
 
 	protected static final String MAIN = "MAIN";
-	protected static final boolean STATED = true;
+	protected static final boolean INFERRED = false;
 
 	@Autowired
 	protected ECLQueryService eclQueryService;
@@ -665,7 +665,7 @@ class ECLQueryServiceTest extends AbstractTest {
 		return selectConceptIds(ecl, null);
 	}
 
-	private Collection<Long> selectConceptIds(String ecl, PageRequest pageRequest) {
-		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, STATED, pageRequest).getContent();
+	protected Collection<Long> selectConceptIds(String ecl, PageRequest pageRequest) {
+		return eclQueryService.selectConceptIds(ecl, branchCriteria, MAIN, INFERRED, pageRequest).getContent();
 	}
 }

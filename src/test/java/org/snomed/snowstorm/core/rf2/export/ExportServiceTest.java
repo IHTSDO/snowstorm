@@ -62,7 +62,7 @@ class ExportServiceTest extends AbstractTest {
 		Concept langRefsetConcept = new Concept(Concepts.LANG_REFSET).addDescription(new Description("640588126141710019", "Language refset"));
 		concepts.add(langRefsetConcept);
 
-		Concept gbLangRefsetConcept = new Concept(Concepts.GB_EN_LANG_REFSET).addRelationship(new Relationship(Concepts.ISA, Concepts.LANG_REFSET));
+		Concept gbLangRefsetConcept = new Concept(Concepts.GB_EN_LANG_REFSET).addRelationship(new Relationship(Concepts.ISA, Concepts.LANG_REFSET).setInferred(false));
 		concepts.add(gbLangRefsetConcept);
 
 		Concept owlExpressionRefsetConcept = new Concept(Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET);
@@ -83,7 +83,9 @@ class ExportServiceTest extends AbstractTest {
 		releaseService.createVersion(20100131, path);
 
 		// A concept against another dummy version
-		conceptService.create(new Concept(Concepts.OWL_AXIOM_REFERENCE_SET).addDescription(new Description("3494181019", "OWL axiom reference set")).addRelationship(new Relationship(Concepts.ISA, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET)), path);
+		conceptService.create(new Concept(Concepts.OWL_AXIOM_REFERENCE_SET)
+				.addDescription(new Description("3494181019", "OWL axiom reference set"))
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET).setInferred(false)), path);
 		releaseService.createVersion(20190131, path);
 
 		String conceptId = "123001";
@@ -343,9 +345,9 @@ class ExportServiceTest extends AbstractTest {
 			assertEquals(4, lines.size());
 			line = 0;
 			assertEquals(RF2Constants.DESCRIPTION_HEADER, lines.get(line++));
-			assertEquals("640588126141710019\t20100131\t1\t900000000000207008\t900000000000506000\ten\t900000000000013009\tLanguage refset\t900000000000448009", lines.get(line++));
-			assertEquals("3494181019\t20190131\t1\t900000000000207008\t733073007\ten\t900000000000013009\tOWL axiom reference set\t900000000000448009", lines.get(line++));
-			assertEquals("124011\t\t1\t900000000000207008\t123001\ten\t900000000000003001\tBleeding (finding)\t900000000000448009", lines.get(line++));
+			assertTrue(lines.contains("3494181019\t20190131\t1\t900000000000207008\t733073007\ten\t900000000000013009\tOWL axiom reference set\t900000000000448009"));
+			assertTrue(lines.contains("640588126141710019\t20100131\t1\t900000000000207008\t900000000000506000\ten\t900000000000013009\tLanguage refset\t900000000000448009"));
+			assertTrue(lines.contains("124011\t\t1\t900000000000207008\t123001\ten\t900000000000003001\tBleeding (finding)\t900000000000448009"));
 		}
 
 	}

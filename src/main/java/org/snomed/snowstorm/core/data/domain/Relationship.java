@@ -192,6 +192,11 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return relationshipId;
 	}
 
+	@Override
+	public Relationship setActive(boolean active) {
+		return (Relationship) super.setActive(active);
+	}
+
 	@JsonView(value = View.Component.class)
 	public ConceptMini source() {
 		return source;
