@@ -11,9 +11,11 @@ import org.apache.commons.lang3.SerializationUtils;
 import org.elasticsearch.common.util.set.Sets;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMemberView;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
@@ -21,7 +23,6 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.RefSetMemberPageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
-import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -33,6 +34,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @RestController
@@ -47,7 +49,7 @@ public class ReferenceSetMemberController {
 	private ConceptService conceptService;
 
 	@Autowired
-	private ECLQueryService eclQueryService;
+	private DescriptionService descriptionService;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -129,16 +131,18 @@ public class ReferenceSetMemberController {
 			@RequestParam(defaultValue = "50") int limit,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
+		ControllerHelper.validatePageSize(offset, limit);
+		branch = BranchPathUriUtil.decodePath(branch);
 		Page<ReferenceSetMember> members = memberService.findMembers(
-				BranchPathUriUtil.decodePath(branch),
+				branch,
 				new MemberSearchRequest()
-					.active(active)
-					.referenceSet(referenceSet)
-					.referencedComponentId(referencedComponentId)
-					.targetComponentId(targetComponent)
-					.mapTarget(mapTarget)
-					.owlExpressionConceptId(owlExpressionConceptId)
-					.owlExpressionGCI(owlExpressionGCI)
+						.active(active)
+						.referenceSet(referenceSet)
+						.referencedComponentId(referencedComponentId)
+						.targetComponentId(targetComponent)
+						.mapTarget(mapTarget)
+						.owlExpressionConceptId(owlExpressionConceptId)
+						.owlExpressionGCI(owlExpressionGCI)
 				,
 				ControllerHelper.getPageRequest(offset, limit)
 		);
@@ -148,11 +152,26 @@ public class ReferenceSetMemberController {
 
 	private void joinReferencedComponents(List<ReferenceSetMember> members, List<LanguageDialect> languageDialects, String branch) {
 		Set<String> conceptIds = members.stream().map(ReferenceSetMember::getReferencedComponentId).filter(IdentifierService::isConceptId).collect(Collectors.toSet());
-		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(BranchPathUriUtil.decodePath(branch), conceptIds, languageDialects).getResultsMap();
+		Set<String> descriptionIds = members.stream().map(ReferenceSetMember::getReferencedComponentId).filter(IdentifierService::isDescriptionId).collect(Collectors.toSet());
+		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, conceptIds, languageDialects).getResultsMap();
+
+		Map<String, Description> descriptions;
+		if (!descriptionIds.isEmpty()) {
+			Page<Description> descriptionsPage = descriptionService.findDescriptions(branch, null, descriptionIds, null, PageRequest.of(0, descriptionIds.size()));
+			descriptions = descriptionsPage.stream().collect(Collectors.toMap(Description::getId, Function.identity()));
+		} else {
+			descriptions = new HashMap<>();
+		}
+
 		members.forEach(member -> {
 			ConceptMini conceptMini = conceptMinis.get(member.getReferencedComponentId());
 			if (conceptMini != null) {
-				member.setReferencedComponent(conceptMini);
+				member.setReferencedComponentConceptMini(conceptMini);
+			}
+
+			Description description = descriptions.get(member.getReferencedComponentId());
+			if (description != null) {
+				member.setReferencedComponent(description);
 			}
 		});
 	}
