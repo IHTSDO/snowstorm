@@ -1,8 +1,10 @@
 package org.snomed.snowstorm.core.data.domain;
 
+import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.rest.View;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -77,9 +79,13 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	@Field(type = FieldType.Object)
 	private Map<String, String> additionalFields;
 
-	// Transient property
+	@Transient
+	@JsonIgnore
+	private ConceptMini referencedComponentConceptMini;
+
+	@Transient
 	@JsonView(value = View.Component.class)
-	private ConceptMini referencedComponent;
+	private SnomedComponent<?> referencedComponent;
 
 	public ReferenceSetMember() {
 		active = true;
@@ -137,11 +143,19 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		return this;
 	}
 
-	public ConceptMini getReferencedComponent() {
-		return referencedComponent;
+	public void setReferencedComponentConceptMini(ConceptMini referencedComponentConceptMini) {
+		this.referencedComponentConceptMini = referencedComponentConceptMini;
 	}
 
-	public void setReferencedComponent(ConceptMini referencedComponent) {
+	public Object getReferencedComponent() {
+		if (this.referencedComponent != null) {
+			return this.referencedComponent;
+		}
+
+		return this.referencedComponentConceptMini;
+	}
+
+	public void setReferencedComponent(SnomedComponent<?> referencedComponent) {
 		this.referencedComponent = referencedComponent;
 	}
 
