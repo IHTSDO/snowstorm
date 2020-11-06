@@ -1,15 +1,21 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class MemberSearchRequest {
 
 	private Boolean active;
 	private String referenceSet;
 	private String module;
 	private String referencedComponentId;
-	private String targetComponentId;
-	private String mapTarget;
 	private String owlExpressionConceptId;
 	private Boolean owlExpressionGCI;
+	private final Map<String, String> additionalFields;
+
+	public MemberSearchRequest() {
+		additionalFields = new HashMap<>();
+	}
 
 	/**
 	 * @param active  Filter by the active field.
@@ -60,24 +66,23 @@ public class MemberSearchRequest {
 	 * @param targetComponentId  Filter by the targetComponentId field. Not all reference set types have this field.
 	 */
 	public MemberSearchRequest targetComponentId(String targetComponentId) {
-		this.targetComponentId = targetComponentId;
-		return this;
-	}
-
-	public String getTargetComponentId() {
-		return targetComponentId;
+		return additionalField("targetComponentId", targetComponentId);
 	}
 
 	/**
 	 * @param mapTarget  Filter by the mapTarget field. Not all reference set types have this field.
 	 */
 	public MemberSearchRequest mapTarget(String mapTarget) {
-		this.mapTarget = mapTarget;
-		return this;
+		return additionalField("mapTarget", mapTarget);
 	}
 
-	public String getMapTarget() {
-		return mapTarget;
+	/**
+	 * @param fieldName Filter by an additional field with this name and value combination.
+	 * @param fieldValue Filter by an additional field with this name and value combination.
+	 */
+	public MemberSearchRequest additionalField(String fieldName, String fieldValue) {
+		additionalFields.put(fieldName, fieldValue);
+		return this;
 	}
 
 	/**
@@ -102,5 +107,9 @@ public class MemberSearchRequest {
 
 	public Boolean getOwlExpressionGCI() {
 		return owlExpressionGCI;
+	}
+
+	public Map<String, String> getAdditionalFields() {
+		return additionalFields;
 	}
 }
