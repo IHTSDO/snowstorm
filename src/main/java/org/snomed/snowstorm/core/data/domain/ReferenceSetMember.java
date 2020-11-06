@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.domain;
 
-import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.rest.View;
@@ -90,8 +89,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 	private ConceptMini referencedComponentConceptMini;
 
 	@Transient
-	@JsonView(value = View.Component.class)
-	private SnomedComponent<?> referencedComponent;
+	private SnomedComponent<?> referencedComponentSnomedComponent;
 
 	public ReferenceSetMember() {
 		active = true;
@@ -153,16 +151,17 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		this.referencedComponentConceptMini = referencedComponentConceptMini;
 	}
 
+	@JsonView(value = View.Component.class)
 	public Object getReferencedComponent() {
-		if (this.referencedComponent != null) {
-			return this.referencedComponent;
+		if (this.referencedComponentSnomedComponent != null) {
+			return this.referencedComponentSnomedComponent;
 		}
 
 		return this.referencedComponentConceptMini;
 	}
 
-	public void setReferencedComponent(SnomedComponent<?> referencedComponent) {
-		this.referencedComponent = referencedComponent;
+	public void setReferencedComponentSnomedComponent(SnomedComponent<?> referencedComponent) {
+		this.referencedComponentSnomedComponent = referencedComponent;
 	}
 
 	@Override
