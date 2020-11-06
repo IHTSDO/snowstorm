@@ -126,13 +126,9 @@ public class ReferenceSetMemberService extends ComponentService {
 		if (!Strings.isNullOrEmpty(referencedComponentId)) {
 			query.must(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, referencedComponentId));
 		}
-		String targetComponentId = searchRequest.getTargetComponentId();
-		if (!Strings.isNullOrEmpty(targetComponentId)) {
-			query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping("targetComponentId"), targetComponentId));
-		}
-		String mapTarget = searchRequest.getMapTarget();
-		if (!Strings.isNullOrEmpty(mapTarget)) {
-			query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping("mapTarget"), mapTarget));
+		Map<String, String> additionalFields = searchRequest.getAdditionalFields();
+		for (String additionalFieldName : additionalFields.keySet()) {
+			query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(additionalFieldName), additionalFields.get(additionalFieldName)));
 		}
 		String owlExpressionConceptId = searchRequest.getOwlExpressionConceptId();
 		if (!Strings.isNullOrEmpty(owlExpressionConceptId)) {
