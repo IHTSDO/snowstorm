@@ -26,12 +26,20 @@ class ExpressionRepositoryServiceTest extends AbstractTest {
 		assertEquals("<<< 83152002",
 				expressionRepository.createExpression("<<<  83152002 |Oophorectomy|").getCloseToUserForm());
 
+		// Multiple focus concepts
+		assertEquals("=== 421720008 + 7946007",
+				expressionRepository.createExpression("421720008 |Spray dose form| + 7946007 |Drug suspension|").getCloseToUserForm());
+		// Same concepts stated in reverse order to test concept sorting
+		assertEquals("=== 421720008 + 7946007",
+				expressionRepository.createExpression("7946007 |Drug suspension| + 421720008 |Spray dose form|").getCloseToUserForm());
+
+
 		// With single refinement
 		assertEquals("=== 83152002 : 405815000 = 122456005",
 				expressionRepository.createExpression("    83152002 |Oophorectomy| :  405815000 |Procedure device|  =  122456005 |Laser device|").getCloseToUserForm());
 
-		// With multiple refinements
-		assertEquals("=== 71388002 : 405815000 = 122456005, 260686004 = 129304002, 405813007 = 15497006",
+		// With multiple refinements, attributes are sorted
+		assertEquals("=== 71388002 : 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005",
 				expressionRepository.createExpression("   71388002 |Procedure| :" +
 						"       405815000 |Procedure device|  =  122456005 |Laser device| ," +
 						"       260686004 |Method|  =  129304002 |Excision - action| ," +
