@@ -39,7 +39,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 	private static final Pattern REFINEMENT_PART_TWO_PATTERN = Pattern.compile("^\\[\\[\\+id\\((.*)\\)\\]\\]");
 
 	public List<Domain> generateDomainTemplates(Map<String, Domain> domainsByDomainIdMap, Map<String, List<AttributeDomain>> domainToAttributesMap,
-	                                            Map<String, List<AttributeRange>> attributeToRangesMap, Map<String, String> conceptToFsnMap) {
+											Map<String, List<AttributeRange>> attributeToRangesMap, Map<String, String> conceptToFsnMap) {
 
 		List<Domain> updatedDomains = new ArrayList<>();
 		logger.debug("Checking and updating templates for {} domains.", domainsByDomainIdMap.keySet().size());
@@ -64,9 +64,10 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		return updatedDomains;
 	}
 
-	public List<AttributeRange> generateAttributeRules(Map<String, Domain> domainMapByDomainId, Map<String, List<AttributeDomain>> attributeToDomainsMap,
-	                                                   Map<String, List<AttributeRange>> attributeToRangesMap,
-	                                                   Map<String, String> conceptToFsnMap, List<Long> dataAttributes) {
+	public List<AttributeRange> generateAttributeRules(Map<String, Domain> domainMapByDomainId,
+														Map<String, List<AttributeDomain>> attributeToDomainsMap,
+														Map<String, List<AttributeRange>> attributeToRangesMap,
+														Map<String, String> conceptToFsnMap, List<Long> dataAttributes) {
 
 		List<AttributeRange> updatedRanges = new ArrayList<>();
 		for (Map.Entry<String, List<AttributeDomain>> entry : attributeToDomainsMap.entrySet()) {
@@ -246,7 +247,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 
 	private String constructValueRule(AttributeRange range, AttributeDomain attributeDomain, String attributeFsn, ConcreteValueRangeConstraint valueConstraint) {
 		StringBuilder ruleBuilder = new StringBuilder();
-		String[]  values = valueConstraint.getConstraint().split(ConcreteValueRangeConstraint.OR_OPERATOR);
+		String[] values = valueConstraint.getConstraint().split(ConcreteValueRangeConstraint.OR_OPERATOR);
 		if (values.length > 1) {
 			// add or
 			for (int i = 0; i < values.length; i++) {
@@ -306,7 +307,8 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		return ruleBuilder.toString();
 	}
 
-	private String constructNumericRangeRule(AttributeRange range, AttributeDomain attributeDomain, String attributeFsn, ConcreteValueRangeConstraint valueConstraint) {
+	private String constructNumericRangeRule(AttributeRange range,
+			AttributeDomain attributeDomain, String attributeFsn, ConcreteValueRangeConstraint valueConstraint) {
 		StringBuilder ruleBuilder = new StringBuilder();
 		if (valueConstraint.haveBothMinimumAndMaximum()) {
 			ruleBuilder.append(" ");

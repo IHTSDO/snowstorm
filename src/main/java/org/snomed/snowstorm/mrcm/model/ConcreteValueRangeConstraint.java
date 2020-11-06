@@ -9,6 +9,10 @@ public class ConcreteValueRangeConstraint {
 	private static final Pattern NUMERIC_RANGE_PATTERN = Pattern.compile("(.*)(\\.\\.)(.*)");
 	public static final String OR_OPERATOR = "\\s";
 	public static final String AND_OPERATOR = ",";
+	public static final String HASH_SYMBOL = "#";
+	private static final Pattern NUMERIC_MIN_VALUE_PATTERN = Pattern.compile("(>?)(#.*)");
+	private static final Pattern NUMERIC_MAX_VALUE_PATTERN = Pattern.compile("(<?)(#.*)");
+	public static final String NUMBER_CONSTRAINT_MISSING_SYMBOL = "Number constraint %s is missing %s";
 
 	private enum Type {
 		INTEGER("int"),
@@ -53,6 +57,7 @@ public class ConcreteValueRangeConstraint {
 			maxValue = numericRangeMatcher.group(3);
 			isRangeConstraint = true;
 		}
+		validateConstraint();
 	}
 
 	public boolean isNumber() {
@@ -91,5 +96,93 @@ public class ConcreteValueRangeConstraint {
 	}
 
 
+	private void validateConstraint() {
+		if (this.constraint.trim().isEmpty()) {
+			throw new IllegalArgumentException("Constraint contains no value.");
+		}
+		if (isNumber()) {
+			if (isRangeConstraint()) {
+				validateNumberRangeConstraint(minValue, maxValue, this.type);
+			} else {
+				String[] values = this.constraint.split(OR_OPERATOR);
+				if (values.length > 1) {
+					Arrays.stream(values).forEach(value -> validateNumberConstraint(this.type, value));
+					return;
+				}
+				values = constraint.split(AND_OPERATOR);
+				if (values.length > 1) {
+					Arrays.stream(values).forEach(value -> validateNumberConstraint(this.type, value));
+					return;
+				}
+				validateNumberConstraint(this.type, this.constraint);
+			}
+		}
+	}
+
+	private void validateNumberRangeConstraint(String minValue, String maxValue, Type type) {
+		if (!minValue.isEmpty()) {
+			validateMinimumConstraint(type, minValue);
+		} else if (!maxValue.isEmpty()) {
+			validateMaximumConstraint(type, maxValue);
+		} else {
+			throw new IllegalArgumentException(String.format("Both minimum and maximum range values are missing %s", constraint));
+		}
+		if (!minValue.isEmpty() && !maxValue.isEmpty()) {
+			String errorMsg = String.format("Minimum value of %s can not be great than the maximum value of %s", minValue.substring(1), maxValue.substring(1));
+			if (Type.INTEGER == type && (Integer.parseInt(minValue.substring(1)) > Integer.parseInt(maxValue.substring(1)))) {
+					throw new IllegalArgumentException(errorMsg);
+			} else if (Type.DECIMAL == type && (Float.parseFloat(minValue.substring(1)) > Float.parseFloat(maxValue.substring(1)))) {
+					throw new IllegalArgumentException(errorMsg);
+			}
+		}
+	}
+
+	private void validateMinimumConstraint(Type type, String constraint) {
+		Matcher matcher = NUMERIC_MIN_VALUE_PATTERN.matcher(constraint);
+		if (!matcher.matches()) {
+			if (constraint.contains(HASH_SYMBOL)) {
+				throw new IllegalArgumentException(String.format("Only > is allowed before the minimum value but got %s", constraint));
+			} else {
+				throw new IllegalArgumentException(String.format(NUMBER_CONSTRAINT_MISSING_SYMBOL, constraint, HASH_SYMBOL));
+			}
+		} else {
+			String numberStr = matcher.group(2);
+			validateNumberConstraint(type, numberStr);
+		}
+	}
+
+
+	private void validateMaximumConstraint(Type type, String constraint) {
+		Matcher matcher = NUMERIC_MAX_VALUE_PATTERN.matcher(constraint);
+		if (!matcher.matches()) {
+			if (constraint.contains(HASH_SYMBOL)) {
+				throw new IllegalArgumentException(String.format("Only < is allowed before the maximum value but got %s", constraint));
+			} else {
+				throw new IllegalArgumentException(String.format("Number constraint %s does not have %s", constraint, HASH_SYMBOL));
+			}
+		} else {
+			String numberStr = matcher.group(2);
+			validateNumberConstraint(type, numberStr);
+		}
+	}
+
+	private void validateNumberConstraint(Type type, String constraint) {
+		if (!constraint.startsWith(HASH_SYMBOL)) {
+			throw new IllegalArgumentException(String.format("Number constraint %s does not start with %s", constraint, HASH_SYMBOL));
+		}
+		if (constraint.length() == 1) {
+			throw new IllegalArgumentException(String.format("Number constraint contains no value after %s", HASH_SYMBOL));
+		}
+		String numberInStr = constraint.substring(1);
+		try {
+			if (Type.INTEGER == type) {
+				Integer.parseInt(numberInStr);
+			} else if (Type.DECIMAL == type) {
+				Float.parseFloat(numberInStr);
+			}
+		} catch(NumberFormatException e) {
+			throw new IllegalArgumentException(String.format("%s is not a type of %s", numberInStr, type.value));
+		}
+	}
 }
 
