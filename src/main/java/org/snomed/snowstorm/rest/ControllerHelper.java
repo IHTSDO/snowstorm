@@ -107,6 +107,7 @@ public class ControllerHelper {
 	}
 
 	public static PageRequest getPageRequest(int offset, int limit) {
+		validatePageSize(offset, limit);
 		return getPageRequest(offset, limit, null);
 	}
 
