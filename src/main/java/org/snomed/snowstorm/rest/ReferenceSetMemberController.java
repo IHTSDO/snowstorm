@@ -171,7 +171,7 @@ public class ReferenceSetMemberController {
 
 			Description description = descriptions.get(member.getReferencedComponentId());
 			if (description != null) {
-				member.setReferencedComponent(description);
+				member.setReferencedComponentSnomedComponent(description);
 			}
 		});
 	}
@@ -183,7 +183,8 @@ public class ReferenceSetMemberController {
 			@PathVariable String uuid,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		ReferenceSetMember member = memberService.findMember(BranchPathUriUtil.decodePath(branch), uuid);
+		branch = BranchPathUriUtil.decodePath(branch);
+		ReferenceSetMember member = memberService.findMember(branch, uuid);
 		ControllerHelper.throwIfNotFound("Member", member);
 		joinReferencedComponents(Collections.singletonList(member), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch);
 		return member;
@@ -196,7 +197,9 @@ public class ReferenceSetMemberController {
 	public ResponseEntity<ReferenceSetMemberView> createMember(@PathVariable String branch, @RequestBody @Valid ReferenceSetMemberView member) {
 		ControllerHelper.requiredParam(member.getReferencedComponentId(), "referencedComponentId");
 		ControllerHelper.requiredParam(member.getRefsetId(), "refsetId");
-		ReferenceSetMember createdMember = memberService.createMember(BranchPathUriUtil.decodePath(branch), (ReferenceSetMember) member);
+		branch = BranchPathUriUtil.decodePath(branch);
+
+		ReferenceSetMember createdMember = memberService.createMember(branch, (ReferenceSetMember) member);
 		if (createdMember == null) {
 			throw new IllegalStateException("Member creation failed. No object returned from member service.");
 		}
@@ -213,9 +216,11 @@ public class ReferenceSetMemberController {
 
 		ControllerHelper.requiredParam(member.getRefsetId(), "refsetId");
 		ControllerHelper.requiredParam(member.getReferencedComponentId(), "referencedComponentId");
+		branch = BranchPathUriUtil.decodePath(branch);
+
 		ReferenceSetMember toUpdate = (ReferenceSetMember) member;
 		toUpdate.setMemberId(uuid);
-		return memberService.updateMember(BranchPathUriUtil.decodePath(branch), toUpdate);
+		return memberService.updateMember(branch, toUpdate);
 	}
 
 	@ApiOperation("Delete a reference set member.")
