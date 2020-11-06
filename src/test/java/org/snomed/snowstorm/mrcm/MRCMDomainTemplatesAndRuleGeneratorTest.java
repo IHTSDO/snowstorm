@@ -9,6 +9,7 @@ import org.snomed.langauges.ecl.domain.refinement.Operator;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
@@ -20,6 +21,7 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -248,24 +250,9 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 
 
 	@Test
-	void testAttributeRuleAndConstraintWithConcreteValueRange() throws Exception{
-		AttributeDomain biologicProduct = new AttributeDomain("", null,
-				true, "3264475007", "373873005", true,
-				new Cardinality("0..*"), new Cardinality("0..1"), RuleStrength.MANDATORY, ContentType.ALL);
-
-		attributeToDomainsMap.put("3264475007", Collections.singletonList(biologicProduct));
-		AttributeRange range = new AttributeRange("", null, true, "3264475007",
-				"dec(>#0..)",
-				" ", RuleStrength.MANDATORY, ContentType.ALL);
-		attributeToRangesMap.put("3264475007", Collections.singletonList(range));
-		conceptToPtMap.put("3264475007", "CD has presentation strength numerator value");
-		conceptToPtMap.put("373873005", "Pharmaceutical / biologic product (product)");
-
-		Map<String, Domain> domainsByDomainIdMap = new HashMap<>();
-		domainsByDomainIdMap.put("373873005", new Domain("718bd028-e0c6-4b22-a7d4-58327c6d9b59", null, true,
-				"373873005", new Constraint("<< 373873005 |Pharmaceutical / biologic product (product)|", "373873005", Operator.descendantorselfof),
-				"",null, "", "", ""));
-
+	void testAttributeRuleAndConstraintWithConcreteValueRange() throws Exception {
+		String attributeId = "3264475007";
+		Map<String, Domain> domainsByDomainIdMap = constructConcreteDomainTestData(attributeId, "dec(>#0..)");
 		List<AttributeRange> attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf("3264475007")));
 		assertEquals(1, attributeRanges.size());
 		assertEquals("dec(>#0..)", attributeRanges.get(0).getRangeConstraint());
@@ -274,6 +261,7 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
 
 		// without sign
+		AttributeRange range = attributeToRangesMap.get(attributeId).get(0);
 		range.setRangeConstraint("int(#0..)");
 		attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf("3264475007")));
 		assertEquals(1, attributeRanges.size());
@@ -292,22 +280,112 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
 	}
 
+	@Test
+	void testInvalidConstraints() throws ServiceException {
+		String attributeId = "3264475007";
+		// missing #
+		Map<String, Domain> domainsByDomainIdMap = constructConcreteDomainTestData(attributeId, "int(10)");
+		Exception exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
+		assertEquals("Number constraint 10 does not start with #", exceptionThrown.getMessage());
+
+		// missing both
+		AttributeRange range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("int(..)");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))),
+				"");
+		assertEquals("Both minimum and maximum range values are missing ..", exceptionThrown.getMessage());
+
+		// minimum range missing #
+		range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("int(10..)");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
+		assertEquals("Number constraint 10 is missing #", exceptionThrown.getMessage());
+
+		// minimum range with >=
+		range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("int(>=10..)");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
+		assertEquals("Number constraint >=10 is missing #", exceptionThrown.getMessage());
+
+		// minimum range with >=
+		range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("int(>=#10..)");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
+		assertEquals("Only > is allowed before the minimum value but got >=#10", exceptionThrown.getMessage());
+
+		// minimum range with <
+		range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("int(<#10..)");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
+		assertEquals("Only > is allowed before the minimum value but got <#10", exceptionThrown.getMessage());
+
+		// maximum range missing #
+		range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("int(..10)");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))),
+				"");
+		assertEquals("Number constraint 10 does not have #", exceptionThrown.getMessage());
+
+		// maximum range with <=
+		range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("int(..<=#20)");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
+		assertEquals("Only < is allowed before the maximum value but got <=#20", exceptionThrown.getMessage());
+
+		// maximum range with >
+		range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("int(..>#20)");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
+		assertEquals("Only < is allowed before the maximum value but got >#20", exceptionThrown.getMessage());
+
+		// no number
+		range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("int(#..#)");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))),
+				"");
+		assertEquals("Number constraint contains no value after #", exceptionThrown.getMessage());
+
+		// empty value
+		range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("str( )");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))),
+				"");
+		assertEquals("Constraint contains no value.", exceptionThrown.getMessage());
+
+		// invalid value type
+		range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("int(#1.00..#10)");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))),
+				"");
+		assertEquals("1.00 is not a type of int", exceptionThrown.getMessage());
+
+		// invalid value type
+		range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("dec(#10..#5.05)");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))),
+				"");
+		assertEquals("Minimum value of 10 can not be great than the maximum value of 5.05", exceptionThrown.getMessage());
+	}
 
 	@Test
 	void testAttributeRuleWithConcreteValues() throws Exception {
-		AttributeDomain biologicProduct = new AttributeDomain("", null, true, "3264475007", "373873005", true, new Cardinality("0..*"), new Cardinality("0..1"), RuleStrength.MANDATORY, ContentType.ALL);
-
-		attributeToDomainsMap.put("3264475007", Collections.singletonList(biologicProduct));
-		AttributeRange range = new AttributeRange("", null, true, "3264475007", "int(#10)", " ", RuleStrength.MANDATORY, ContentType.ALL);
-		attributeToRangesMap.put("3264475007", Collections.singletonList(range));
-		conceptToPtMap.put("3264475007", "CD has presentation strength numerator value");
-		conceptToPtMap.put("373873005", "Pharmaceutical / biologic product (product)");
-
-		Map<String, Domain> domainsByDomainIdMap = new HashMap<>();
-		domainsByDomainIdMap.put("373873005", new Domain("718bd028-e0c6-4b22-a7d4-58327c6d9b59", null, true, "373873005", new Constraint("<< 373873005 |Pharmaceutical / biologic product (product)|", "373873005", Operator.descendantorselfof), "", null, "", "", ""));
-
+		String attributeId = "3264475007";
+		Map<String, Domain> domainsByDomainIdMap = constructConcreteDomainTestData(attributeId, "int(#10)");
 		// one value
-		List<AttributeRange> attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf("3264475007")));
+		List<AttributeRange> attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId)));
 		assertEquals(1, attributeRanges.size());
 		assertEquals("int(#10)", attributeRanges.get(0).getRangeConstraint());
 		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
@@ -315,8 +393,9 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		assertEquals(expected, attributeRanges.get(0).getAttributeRule());
 
 		// multiple with OR
+		AttributeRange range = attributeToRangesMap.get(attributeId).get(0);
 		range.setRangeConstraint("int(#10 #20)");
-		attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf("3264475007")));
+		attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId)));
 		assertEquals(1, attributeRanges.size());
 		assertEquals("int(#10 #20)", attributeRanges.get(0).getRangeConstraint());
 		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
@@ -325,7 +404,7 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 
 		// multiple with AND
 		range.setRangeConstraint("str(\"a\",\"b\")");
-		attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf("3264475007")));
+		attributeRanges = generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId)));
 		assertEquals(1, attributeRanges.size());
 		assertEquals("str(\"a\",\"b\")", attributeRanges.get(0).getRangeConstraint());
 		assertTrue(attributeRanges.get(0).getAttributeRule() != null);
@@ -418,5 +497,24 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 				"OR [0..1] 3264475007 |CD has presentation strength numerator value| = #20) }";
 		constraint = eclQueryBuilder.createQuery(grouped);
 		assertNotNull(constraint);
+	}
+
+	private Map<String, Domain> constructConcreteDomainTestData(String attributeId, String rangeConstraint) throws ServiceException {
+		AttributeDomain biologicProduct = new AttributeDomain("", null,
+				true, attributeId, "373873005", true,
+				new Cardinality("0..*"), new Cardinality("0..1"), RuleStrength.MANDATORY, ContentType.ALL);
+
+		attributeToDomainsMap.put(attributeId, Collections.singletonList(biologicProduct));
+		AttributeRange range = new AttributeRange("", null, true, attributeId,
+				rangeConstraint," ", RuleStrength.MANDATORY, ContentType.ALL);
+		attributeToRangesMap.put(attributeId, Collections.singletonList(range));
+		conceptToPtMap.put(attributeId, "CD has presentation strength numerator value");
+		conceptToPtMap.put("373873005", "Pharmaceutical / biologic product (product)");
+
+		Map<String, Domain> domainsByDomainIdMap = new HashMap<>();
+		domainsByDomainIdMap.put("373873005", new Domain("718bd028-e0c6-4b22-a7d4-58327c6d9b59", null, true,
+				"373873005", new Constraint("<< 373873005 |Pharmaceutical / biologic product (product)|", "373873005", Operator.descendantorselfof),
+				"",null, "", "", ""));
+		return domainsByDomainIdMap;
 	}
 }
