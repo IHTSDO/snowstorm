@@ -323,18 +323,17 @@ class ExportServiceTest extends AbstractTest {
 			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Concept_Snapshot_INT_20190904.txt", concepts.getName());
 			List<String> lines = getLines(zipInputStream);
 			assertEquals(9, lines.size());
-			int line = 0;
 			printLines(lines);
 
-			assertEquals(RF2Constants.CONCEPT_HEADER, lines.get(line++));
-			assertEquals("900000000000506000\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
-			assertEquals("900000000000508004\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
-			assertEquals("762676003\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
-			assertEquals("446609009\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
-			assertEquals("900000000000538005\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
-			assertEquals("723589008\t20100131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
-			assertEquals("733073007\t20190131\t1\t900000000000207008\t900000000000074008", lines.get(line++));
-			assertEquals("123001\t\t1\t900000000000207008\t900000000000074008", lines.get(line++));
+			assertEquals(RF2Constants.CONCEPT_HEADER, lines.get(0));
+			assertTrue(lines.contains("123001\t\t1\t900000000000207008\t900000000000074008"));
+			assertTrue(lines.contains("733073007\t20190131\t1\t900000000000207008\t900000000000074008"));
+			assertTrue(lines.contains("900000000000508004\t20100131\t1\t900000000000207008\t900000000000074008"));
+			assertTrue(lines.contains("900000000000506000\t20100131\t1\t900000000000207008\t900000000000074008"));
+			assertTrue(lines.contains("723589008\t20100131\t1\t900000000000207008\t900000000000074008"));
+			assertTrue(lines.contains("762676003\t20100131\t1\t900000000000207008\t900000000000074008"));
+			assertTrue(lines.contains("446609009\t20100131\t1\t900000000000207008\t900000000000074008"));
+			assertTrue(lines.contains("900000000000538005\t20100131\t1\t900000000000207008\t900000000000074008"));
 
 			// Descriptions
 			ZipEntry descriptions = zipInputStream.getNextEntry();
@@ -343,8 +342,7 @@ class ExportServiceTest extends AbstractTest {
 			printLines(lines);
 
 			assertEquals(4, lines.size());
-			line = 0;
-			assertEquals(RF2Constants.DESCRIPTION_HEADER, lines.get(line++));
+			assertEquals(RF2Constants.DESCRIPTION_HEADER, lines.get(0));
 			assertTrue(lines.contains("3494181019\t20190131\t1\t900000000000207008\t733073007\ten\t900000000000013009\tOWL axiom reference set\t900000000000448009"));
 			assertTrue(lines.contains("640588126141710019\t20100131\t1\t900000000000207008\t900000000000506000\ten\t900000000000013009\tLanguage refset\t900000000000448009"));
 			assertTrue(lines.contains("124011\t\t1\t900000000000207008\t123001\ten\t900000000000003001\tBleeding (finding)\t900000000000448009"));
