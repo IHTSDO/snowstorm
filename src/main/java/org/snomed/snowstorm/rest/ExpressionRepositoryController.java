@@ -1,22 +1,19 @@
 package org.snomed.snowstorm.rest;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
 import org.snomed.snowstorm.core.data.services.postcoordination.PostCoordinatedExpression;
 import org.snomed.snowstorm.rest.pojo.CreatePostCoordinatedExpressionRequest;
+import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Collection;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @Api(tags = "Expression Repository", description = "-")
-@RequestMapping(value = "expressions", produces = "application/json")
+@RequestMapping(produces = "application/json")
 public class ExpressionRepositoryController {
 
 	@Autowired
@@ -26,15 +23,21 @@ public class ExpressionRepositoryController {
 	private ExpressionRepositoryService expressionRepository;
 
 	@ApiOperation("Retrieve all postcoordinated expressions")
-	@RequestMapping(value = "/", method = RequestMethod.GET)
-	public Collection<PostCoordinatedExpression> retrieveAllExpressions() {
-		return expressionRepository.findAll();
+	@RequestMapping(value = "/{branch}/expressions", method = RequestMethod.GET)
+	public ItemsPage<PostCoordinatedExpression> retrieveAllExpressions(
+			@PathVariable String branch,
+			@RequestParam(required = false, defaultValue = "0") int offset,
+			@RequestParam(required = false, defaultValue = "1000") int limit) {
+
+		branch = BranchPathUriUtil.decodePath(branch);
+
+		return new ItemsPage<>(expressionRepository.findAll(branch, ControllerHelper.getPageRequest(offset, limit)));
 	}
 
-	@RequestMapping(value = "/", method = RequestMethod.POST)
-	public PostCoordinatedExpression createExpression(@RequestBody CreatePostCoordinatedExpressionRequest request) {
-		String closeToUserForm = request.getCloseToUserForm();
-		return expressionRepository.createExpression(closeToUserForm);
+	@RequestMapping(value = "/{branch}/expressions", method = RequestMethod.POST)
+	public PostCoordinatedExpression createExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) {
+		branch = BranchPathUriUtil.decodePath(branch);
+		return expressionRepository.createExpression(branch, request.getCloseToUserForm(), request.getModuleId());
 	}
 
 }
