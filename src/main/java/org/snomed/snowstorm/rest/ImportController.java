@@ -39,7 +39,9 @@ public class ImportController {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@ApiOperation(value = "Create an import job.",
-			notes = "Creates an import job ready for an archive to be uploaded. The 'location' header has the identifier of the new resource. Use the upload archive function next.")
+			notes = "Creates an import job ready for an archive to be uploaded. " +
+					"The 'location' response header contain the URL, including the identifier, of the new resource. " +
+					"Use the upload archive function next.")
 	@RequestMapping(method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('AUTHOR', #importRequest.branchPath)")
 	public ResponseEntity<Void> createImportJob(@RequestBody ImportCreationRequest importRequest) {

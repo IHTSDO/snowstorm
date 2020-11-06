@@ -21,7 +21,9 @@ public class ExportController {
 	@Autowired
 	private ExportService exportService;
 
-	@ApiOperation(value = "Create an export job.")
+	@ApiOperation(value = "Create an export job.",
+			notes = "Create a job to export an RF2 archive. " +
+					"The 'location' response header contain the URL, including the identifier, of the new resource.")
 	@RequestMapping(method = RequestMethod.POST)
 	public ResponseEntity<Void> createExportJob(@Valid @RequestBody ExportRequestView exportConfiguration) {
 		String id = exportService.createJob(exportConfiguration);
