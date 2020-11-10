@@ -471,7 +471,8 @@ public class BranchMergeService {
 				entityRepository.saveAll(saveSegment);
 			}
 
-			commit.getEntityVersionsReplaced().getOrDefault(entityClassName, Collections.emptySet()).removeAll(toEnd.stream().map(Entity::getInternalId).collect(Collectors.toList()));
+			// Reduce versionsReplaced map by removing those component versions which have now been ended on the parent branch.
+			commit.getVersionsReplacedForPromotion().getOrDefault(entityClassName, Collections.emptySet()).removeAll(toEnd.stream().map(Entity::getInternalId).collect(Collectors.toList()));
 
 			logger.debug("Ended {} {}", versionsReplaced.size(), entityClassName);
 		}

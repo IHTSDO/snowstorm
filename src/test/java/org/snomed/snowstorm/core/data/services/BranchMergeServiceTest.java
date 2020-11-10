@@ -1139,6 +1139,79 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals("All expected branches not returned by the pages", 0, expectedBranches.size());
 	}
 
+	@Test
+	void testVersionReplacedMapReducedDuringPromotionToMAIN() throws ServiceException {
+		final String conceptId = "10000100";
+
+		// Create concept on MAIN
+		Concept concept = new Concept(conceptId).addDescription(new Description("One"));
+		concept.setModuleId("100000000");
+		conceptService.create(concept, "MAIN");
+
+		// Update concept on MAIN/G
+		branchService.create("MAIN/G");
+		concept.setModuleId("200000000");
+		conceptService.update(concept, "MAIN/G");
+
+		// Update concept on MAIN/G/G1
+		branchService.create("MAIN/G/G1");
+		concept.setModuleId("300000000");
+		conceptService.update(concept, "MAIN/G/G1");
+
+		assertEquals(1, branchService.findBranchOrThrow("MAIN/G/G1").getVersionsReplacedCounts().get("Concept").intValue());
+		assertEquals(1, branchService.findBranchOrThrow("MAIN/G").getVersionsReplacedCounts().get("Concept").intValue());
+		assertEquals(0, branchService.findBranchOrThrow("MAIN").getVersionsReplacedCounts().get("Concept").intValue());
+
+		// Blind promote MAIN/G/G1
+		branchMergeService.mergeBranchSync("MAIN/G/G1", "MAIN/G", null);
+		assertNull(branchService.findBranchOrThrow("MAIN/G/G1").getVersionsReplacedCounts().get("Concept"));
+		assertEquals(1, branchService.findBranchOrThrow("MAIN/G").getVersionsReplacedCounts().get("Concept").intValue());
+		assertEquals(0, branchService.findBranchOrThrow("MAIN").getVersionsReplacedCounts().get("Concept").intValue());
+
+		// Blind promote MAIN/G
+		branchMergeService.mergeBranchSync("MAIN/G", "MAIN", null);
+		assertNull(branchService.findBranchOrThrow("MAIN/G/G1").getVersionsReplacedCounts().get("Concept"));
+		assertNull(branchService.findBranchOrThrow("MAIN/G").getVersionsReplacedCounts().get("Concept"));
+		assertEquals(0, branchService.findBranchOrThrow("MAIN").getVersionsReplacedCounts().get("Concept").intValue());
+	}
+
+	@Test
+	void testVersionReplacedMapReducedDuringPromotionToExtensionBranch() throws ServiceException {
+		final String conceptId = "10000100";
+
+		// Create concept on MAIN/SNOMEDCT-DK
+		Concept concept = new Concept(conceptId).addDescription(new Description("One"));
+		concept.setModuleId("100000000");
+		branchService.create("MAIN/SNOMEDCT-DK");
+		conceptService.create(concept, "MAIN/SNOMEDCT-DK");
+
+		// Update concept on MAIN/SNOMEDCT-DK/G
+		branchService.create("MAIN/SNOMEDCT-DK/G");
+		concept.setModuleId("200000000");
+		conceptService.update(concept, "MAIN/SNOMEDCT-DK/G");
+
+		// Update concept on MAIN/SNOMEDCT-DK/G/G1
+		branchService.create("MAIN/SNOMEDCT-DK/G/G1");
+		concept.setModuleId("300000000");
+		conceptService.update(concept, "MAIN/SNOMEDCT-DK/G/G1");
+
+		assertEquals(1, branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK/G/G1").getVersionsReplacedCounts().get("Concept").intValue());
+		assertEquals(1, branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK/G").getVersionsReplacedCounts().get("Concept").intValue());
+		assertEquals(0, branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK").getVersionsReplacedCounts().get("Concept").intValue());
+
+		// Blind promote MAIN/SNOMEDCT-DK/G/G1
+		branchMergeService.mergeBranchSync("MAIN/SNOMEDCT-DK/G/G1", "MAIN/SNOMEDCT-DK/G", null);
+		assertNull(branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK/G/G1").getVersionsReplacedCounts().get("Concept"));
+		assertEquals(1, branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK/G").getVersionsReplacedCounts().get("Concept").intValue());
+		assertEquals(0, branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK").getVersionsReplacedCounts().get("Concept").intValue());
+
+		// Blind promote MAIN/SNOMEDCT-DK/G
+		branchMergeService.mergeBranchSync("MAIN/SNOMEDCT-DK/G", "MAIN/SNOMEDCT-DK", null);
+		assertNull(branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK/G/G1").getVersionsReplacedCounts().get("Concept"));
+		assertNull(branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK/G").getVersionsReplacedCounts().get("Concept"));
+		assertEquals(0, branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK").getVersionsReplacedCounts().get("Concept").intValue());
+	}
+
 	private MergeReview getMergeReviewInCurrentState(String source, String target) throws InterruptedException {
 		MergeReview review = reviewService.createMergeReview(source, target);
 
