@@ -120,18 +120,22 @@ public class ConcreteValueRangeConstraint {
 	}
 
 	private void validateNumberRangeConstraint(String minValue, String maxValue, Type type) {
-		if (!minValue.isEmpty()) {
-			validateMinimumConstraint(type, minValue);
-		} else if (!maxValue.isEmpty()) {
-			validateMaximumConstraint(type, maxValue);
-		} else {
+		if (minValue.isEmpty() && maxValue.isEmpty()) {
 			throw new IllegalArgumentException(String.format("Both minimum and maximum range values are missing %s", constraint));
 		}
-		if (!minValue.isEmpty() && !maxValue.isEmpty()) {
-			String errorMsg = String.format("Minimum value of %s can not be great than the maximum value of %s", minValue.substring(1), maxValue.substring(1));
-			if (Type.INTEGER == type && (Integer.parseInt(minValue.substring(1)) > Integer.parseInt(maxValue.substring(1)))) {
+		if (!minValue.isEmpty()) {
+			validateMinimumConstraint(type, minValue);
+		}
+		if (!maxValue.isEmpty()) {
+			validateMaximumConstraint(type, maxValue);
+		}
+		if (!minValue.trim().isEmpty() && !maxValue.trim().isEmpty()) {
+			String minStr = minValue.substring(minValue.indexOf(HASH_SYMBOL) + 1);
+			String maxStr = maxValue.substring(maxValue.indexOf(HASH_SYMBOL) + 1);
+			String errorMsg = String.format("Minimum value of %s can not be great than the maximum value of %s", minStr, maxStr);
+			if (Type.INTEGER == type && (Integer.parseInt(minStr) > Integer.parseInt(maxStr))) {
 					throw new IllegalArgumentException(errorMsg);
-			} else if (Type.DECIMAL == type && (Float.parseFloat(minValue.substring(1)) > Float.parseFloat(maxValue.substring(1)))) {
+			} else if (Type.DECIMAL == type && (Float.parseFloat(minStr) > Float.parseFloat(maxStr))) {
 					throw new IllegalArgumentException(errorMsg);
 			}
 		}

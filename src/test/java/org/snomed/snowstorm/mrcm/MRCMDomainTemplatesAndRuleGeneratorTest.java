@@ -329,8 +329,7 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		range = attributeToRangesMap.get(attributeId).get(0);
 		range.setRangeConstraint("int(..10)");
 		exceptionThrown = assertThrows(IllegalArgumentException.class,
-				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))),
-				"");
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
 		assertEquals("Number constraint 10 does not have #", exceptionThrown.getMessage());
 
 		// maximum range with <=
@@ -351,33 +350,36 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		range = attributeToRangesMap.get(attributeId).get(0);
 		range.setRangeConstraint("int(#..#)");
 		exceptionThrown = assertThrows(IllegalArgumentException.class,
-				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))),
-				"");
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
 		assertEquals("Number constraint contains no value after #", exceptionThrown.getMessage());
 
 		// empty value
 		range = attributeToRangesMap.get(attributeId).get(0);
 		range.setRangeConstraint("str( )");
 		exceptionThrown = assertThrows(IllegalArgumentException.class,
-				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))),
-				"");
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
 		assertEquals("Constraint contains no value.", exceptionThrown.getMessage());
 
 		// invalid value type
 		range = attributeToRangesMap.get(attributeId).get(0);
 		range.setRangeConstraint("int(#1.00..#10)");
 		exceptionThrown = assertThrows(IllegalArgumentException.class,
-				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))),
-				"");
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
 		assertEquals("1.00 is not a type of int", exceptionThrown.getMessage());
 
 		// invalid value type
 		range = attributeToRangesMap.get(attributeId).get(0);
 		range.setRangeConstraint("dec(#10..#5.05)");
 		exceptionThrown = assertThrows(IllegalArgumentException.class,
-				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))),
-				"");
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
 		assertEquals("Minimum value of 10 can not be great than the maximum value of 5.05", exceptionThrown.getMessage());
+
+		// invalid value type
+		range = attributeToRangesMap.get(attributeId).get(0);
+		range.setRangeConstraint("int(>#10..#5)");
+		exceptionThrown = assertThrows(IllegalArgumentException.class,
+				() -> generator.generateAttributeRules(domainsByDomainIdMap, attributeToDomainsMap, attributeToRangesMap, conceptToPtMap, Collections.singletonList(Long.valueOf(attributeId))));
+		assertEquals("Minimum value of 10 can not be great than the maximum value of 5", exceptionThrown.getMessage());
 	}
 
 	@Test
