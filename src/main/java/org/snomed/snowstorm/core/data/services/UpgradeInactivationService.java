@@ -67,7 +67,7 @@ public class UpgradeInactivationService {
 		}
 
 		List<ReferenceSetMember> membersToSave = new ArrayList<>();
-		List<Description> descriptionsToDelete = new ArrayList<>();
+
 		// find descriptions with inactivation indicators on the extension branch only
 		BranchCriteria changesOnBranchOnly = versionControlHelper.getChangesOnBranchCriteria(codeSystem.getBranchPath());
 		for (List<Long> batch : Iterables.partition(inactiveConceptIds, CLAUSE_LIMIT)) {
@@ -99,44 +99,29 @@ public class UpgradeInactivationService {
 
 
 			try (SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(descriptionQuery, Description.class)) {
-				descriptions.forEachRemaining(hit -> updateOrDelete(hit.getContent(), membersToSave, descriptionsToDelete));
+				descriptions.forEachRemaining(hit -> {
+					Description description = hit.getContent();
+					// add description inactivation indicators
+					ReferenceSetMember inactivation = new ReferenceSetMember(description.getModuleId(), Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, description.getDescriptionId());
+					inactivation.setAdditionalField("valueId", Concepts.CONCEPT_NON_CURRENT);
+					inactivation.setConceptId(description.getConceptId());
+					inactivation.setCreating(true);
+					inactivation.markChanged();
+					membersToSave.add(inactivation);
+				});
 			}
 		}
 
-		int total = membersToSave.size() + descriptionsToDelete.size();
-		logger.info("{} descriptions found with inactive concepts but without concept non-current indicators", total);
-		if (total > 0) {
+		logger.info("{} descriptions found with inactive concepts but without concept non-current indicators", membersToSave.size());
+		if (!membersToSave.isEmpty()) {
 			try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata("Concept non-current description inactivation"))) {
-				if (!descriptionsToDelete.isEmpty()) {
-					conceptUpdateHelper.doSaveBatchDescriptions(descriptionsToDelete, commit);
-					logger.info("Deleted {} unpublished descriptions having inactive concepts. Description ids: {}", descriptionsToDelete.size(),
-							descriptionsToDelete.stream().map(Description::getDescriptionId).collect(Collectors.toList()));
-				}
-				if (!membersToSave.isEmpty()) {
-					conceptUpdateHelper.doSaveBatchComponents(membersToSave, ReferenceSetMember.class, commit);
-					logger.info("Added {} concept non-current indicators for descriptions having inactive concepts. Member uuids: {}",
-							membersToSave.size(), membersToSave.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList()));
-				}
+				conceptUpdateHelper.doSaveBatchComponents(membersToSave, ReferenceSetMember.class, commit);
+				logger.info("Added {} concept non-current indicators for descriptions having inactive concepts. Member uuids: {}",
+						membersToSave.size(), membersToSave.stream().map(ReferenceSetMember::getMemberId).collect(Collectors.toList()));
 				commit.markSuccessful();
 			}
 		}
 		logger.info("Completed description inactivation for inactive concepts for code system {} on branch {}", codeSystem.getShortName(), branchPath);
-	}
-
-	private void updateOrDelete(Description description, List<ReferenceSetMember> inactivationMembersToSave, List<Description> descriptionsToDelete) {
-		if (description.isReleased()) {
-			// add description inactivation indicators
-			ReferenceSetMember inactivation = new ReferenceSetMember(description.getModuleId(), Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, description.getDescriptionId());
-			inactivation.setAdditionalField("valueId", Concepts.CONCEPT_NON_CURRENT);
-			inactivation.setConceptId(description.getConceptId());
-			inactivation.setCreating(true);
-			inactivation.markChanged();
-			inactivationMembersToSave.add(inactivation);
-		} else {
-			// delete descriptions if not published
-			description.markDeleted();
-			descriptionsToDelete.add(description);
-		}
 	}
 
 	public void findAndUpdateLanguageRefsets(CodeSystem codeSystem) {
