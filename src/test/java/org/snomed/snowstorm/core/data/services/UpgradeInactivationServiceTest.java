@@ -15,7 +15,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.Assert.*;
@@ -89,7 +91,7 @@ class UpgradeInactivationServiceTest extends AbstractTest {
 
 		upgradeInactivationService.findAndUpdateDescriptionsInactivation(SNOMEDCT);
 		members = referenceSetMemberService.findMembers(MAIN, new MemberSearchRequest().referenceSet("900000000000490003"), PageRequest.of(0, 10));
-		assertEquals(1, members.getContent().size());
+		assertEquals(2, members.getContent().size());
 
 		// verify inactivation refset member
 		ReferenceSetMember inactivationMember = members.getContent().get(0);
@@ -105,13 +107,10 @@ class UpgradeInactivationServiceTest extends AbstractTest {
 
 		// make sure published description is still active and published and unpublished description is deleted.
 		conceptA = conceptService.find(conceptA.getConceptId(), SNOMEDCT.getBranchPath());
-		descriptions = conceptA.getDescriptions();
-		assertEquals(1, descriptions.size());
-		Description remaining = descriptions.iterator().next();
-		assertEquals(publishedDescription.getDescriptionId(), remaining.getDescriptionId());
-		assertEquals(publishedDescription.getConceptId(), remaining.getConceptId());
-		assertTrue(remaining.isActive());
-		assertTrue(remaining.isReleased());
+		List<Description> descriptionList = new ArrayList<>(conceptA.getDescriptions());
+		assertEquals(2, descriptionList.size());
+		assertTrue(descriptionList.get(0).isActive());
+		assertTrue(descriptionList.get(1).isActive());
 	}
 
 	@Test

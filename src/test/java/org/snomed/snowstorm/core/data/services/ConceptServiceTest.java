@@ -521,6 +521,11 @@ class ConceptServiceTest extends AbstractTest {
 		CodeSystem snomedct = codeSystemService.find("SNOMEDCT");
 		codeSystemService.createVersion(snomedct, 20200131, "");
 
+		// Add description after versioning and before making inactive
+		savedConcept.addDescription(new Description("Unversioned description"));
+		savedConcept = conceptService.update(savedConcept, path);
+
+		// Make concept inactive
 		savedConcept.setActive(false);
 
 		// Set inactivation indicator using strings
@@ -567,9 +572,18 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals("87100004", associationTargetMember.getAdditionalField("targetComponentId"));
 
 		Set<Description> descriptions = inactiveConcept.getDescriptions();
-		Optional<Description> activeDescription = descriptions.stream().filter(Description::isActive).findFirst();
-		assertTrue("One description is still active", activeDescription.isPresent());
-		assertEquals("Active description automatically has inactivation indicator", "CONCEPT_NON_CURRENT", activeDescription.get().getInactivationIndicator());
+		List<Description> activeDescriptions = descriptions.stream().filter(Description::isActive).sorted(Comparator.comparing(Description::getTerm)).collect(Collectors.toList());
+		assertEquals("Two descriptions are still active",
+				2, activeDescriptions.size());
+		assertEquals("Active descriptions automatically have inactivation indicator",
+				"CONCEPT_NON_CURRENT", activeDescriptions.get(0).getInactivationIndicator());
+		assertEquals("Active descriptions automatically have inactivation indicator",
+				"CONCEPT_NON_CURRENT", activeDescriptions.get(1).getInactivationIndicator());
+		Description unversionedDescription = activeDescriptions.get(1);
+		assertEquals("Unversioned description is still active and has not been deleted",
+				"Unversioned description", unversionedDescription.getTerm());
+		assertTrue("Unversioned description is still active and has not been deleted",
+				unversionedDescription.isActive());
 
 		// Assert that inactive descriptions also have concept non current indicator applied automatically too.
 		Optional<Description> inactiveDescription = descriptions.stream().filter(d -> !d.isActive()).findFirst();

@@ -40,7 +40,7 @@ public class CodeSystemUpgradeService {
 	private DailyBuildService dailyBuildService;
 
 	@Autowired
-	private  IntegrityService integrityService;
+	private IntegrityService integrityService;
 
 	@Autowired
 	private UpgradeInactivationService upgradeInactivationService;
