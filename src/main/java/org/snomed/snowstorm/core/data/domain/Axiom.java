@@ -110,6 +110,11 @@ public class Axiom implements IdAndEffectiveTimeComponent {
 	}
 
 	public Axiom setRelationships(Set<Relationship> relationships) {
+		if (relationships != null) {
+			for (Relationship relationship : relationships) {
+				relationship.setInferred(false);
+			}
+		}
 		this.relationships = relationships;
 		return this;
 	}
