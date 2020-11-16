@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## 5.1.0 Release - 2020-11-16 - Minor Improvements and Fixes
+
+### Features
+- MAINT-1492 Add API to create and start a server-local file import in a single call.
+- MRCMMT-253 Add API to return all MRCM attributes as hierarchical structure.
+- MAINT-1455 Add API to convert ECL string to JSON language model. To support ECL builder frontend implementations.
+
+### Improvements
+- #178 MAINT-1509 Improve export API Swagger documentation.
+- MAINT-1502 Include descriptions as `referencedComponent` in listing of language reference set members API.
+- API: New reference set members default active=true.
+- API returns location header when creating concepts or refset members.
+- MAINT-1413 Clear code system cache using release fix merge function.
+- MAINT-1467 Performance fix: remove redundant versions replaced during branch promotion.
+- MAINT-1473 Authoring: More detail in transitive closure loop error message.
+- MAINT-1488 Log seconds taken by remote classification and overall.
+- Improve unit tests: phase out use of stated relationships in favour of inferred relationships and axioms.
+- Maven Pom: Remove old Nexus repository which has been retired.
+
+### Fixes
+- MAINT-1378 Extension maintenance: stop deleting unpublished extension descriptions when concept becomes inactive during International upgrade. 
+- MAINT-1498 Fix sorting of active and inactive axioms on same concept with same model.
+- Fix utility class CommitExplorer after ES7 upgrade.
+- MAINT-1503 Make export unit test stable; don't expect specific row order.
+
+
 ## 5.0.8 Release - 2020-10-30 - Fix release
 
 ### Improvements
@@ -14,6 +40,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - MAINT-1487 Remove redundant fields stored in the Relationship index. 
 - MAINT-1458 Authoring version control: commit rollback bug fix.
 - MAINT-1501 Semantic index bug: parent versions not restored during rebase since ES7.
+
 
 ## 5.0.6 Release - 2020-10-16 - Fixes and Improvements
 
