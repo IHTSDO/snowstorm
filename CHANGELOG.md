@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## 5.0.8 Release - 2020-10-30 - Fix release
+
+### Improvements
+- Improve Docker support and documentation.
+
+### Fixes
+- Fix concept search total count when using active filter.
+- MAINT-1487 Remove redundant fields stored in the Relationship index. 
+- MAINT-1458 Authoring version control: commit rollback bug fix.
+- MAINT-1501 Semantic index bug: parent versions not restored during rebase since ES7.
+
 ## 5.0.6 Release - 2020-10-16 - Fixes and Improvements
 
 ### Features
