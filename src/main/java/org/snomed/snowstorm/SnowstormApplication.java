@@ -60,7 +60,7 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 		} catch (BeanCreationException e) {
 			logger.error("Error creating Snowstorm Spring context:", e);
 			logger.error("Snowstorm failed to start. Cause: {}", e.getMessage());
-			System.exit(0);
+			System.exit(1);
 		}
 	}
 
