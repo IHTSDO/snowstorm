@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
-public class StartupException extends ServiceException {
+public class StartupException extends RuntimeException {
 	public StartupException(String message) {
 		super(message);
 	}
