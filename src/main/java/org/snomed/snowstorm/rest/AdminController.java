@@ -199,11 +199,16 @@ public class AdminController {
 	@ApiOperation(value = "Restore the 'released' flag and other fields of a concept.",
 			notes = "Restore the 'released' flag as well as the internal fields 'effectiveTimeI' and 'releaseHash' of all components of a concept. " +
 					"Makes a new commit on the specified branch. Will restore any deleted components as inactive. " +
-					"Looks up the code system and latest release branch automatically. ")
+					"Looks up the code system and latest release branch automatically. " +
+					"The optional parameter 'alternateSourceBranch' can be used to specify an alternate location to find the released version to restore.")
 	@RequestMapping(value = "/{branch}/actions/restore-released-status", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
-	public Concept restoreReleasedStatus(@PathVariable String branch, @RequestParam String conceptId) {
-		return adminOperationsService.restoreReleasedStatus(BranchPathUriUtil.decodePath(branch), conceptId);
+	public Concept restoreReleasedStatus(
+			@PathVariable String branch, @RequestParam(required = false) String alternateSourceBranch,
+			@RequestParam String conceptId, @RequestParam(defaultValue = "true") boolean setDeletedComponentsToInactive) {
+
+		return adminOperationsService.restoreReleasedStatus(BranchPathUriUtil.decodePath(branch), BranchPathUriUtil.decodePath(alternateSourceBranch),
+				conceptId, setDeletedComponentsToInactive);
 	}
 
 }
