@@ -64,6 +64,14 @@ public class ExpressionRepositoryService {
 
 	public Page<PostCoordinatedExpression> findAll(String branch, PageRequest pageRequest) {
 		Page<ReferenceSetMember> membersPage = memberService.findMembers(branch, new MemberSearchRequest().referenceSet(ANNOTATION_REFSET), pageRequest);
+		return getPostCoordinatedExpressions(pageRequest, membersPage);
+	}
+
+	public Page<PostCoordinatedExpression> findByCanonicalCloseToUserForm(String branch, String expression, PageRequest pageRequest) {
+		return getPostCoordinatedExpressions(pageRequest, memberService.findMembers(branch, new MemberSearchRequest().additionalField(ANNOTATION_FIELD, expression), pageRequest));
+	}
+
+	private PageImpl<PostCoordinatedExpression> getPostCoordinatedExpressions(PageRequest pageRequest, Page<ReferenceSetMember> membersPage) {
 		List<PostCoordinatedExpression> expressions = membersPage.getContent().stream()
 				.map(this::toExpression).collect(Collectors.toList());
 		return new PageImpl<>(expressions, pageRequest, membersPage.getTotalElements());

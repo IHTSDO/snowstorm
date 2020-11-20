@@ -8,6 +8,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
@@ -106,10 +107,10 @@ class ExpressionRepositoryServiceTest extends AbstractTest {
 
 		Page<PostCoordinatedExpression> page = expressionRepository.findAll(branch, PageRequest.of(0, 10));
 		assertEquals(7, page.getTotalElements());
-		List<PostCoordinatedExpression> expressions = page.getContent().stream()
-				.sorted(Comparator.comparing(PostCoordinatedExpression::getCloseToUserForm).reversed())
-				.collect(Collectors.toList());
-		assertEquals("=== 83152002 : 405815000 = 122456005", expressions.get(0).getCloseToUserForm());
+
+		Page<PostCoordinatedExpression> results = expressionRepository.findByCanonicalCloseToUserForm(branch, "=== 83152002 : 405815000 = 122456005", PageRequest.of(0, 1));
+		assertEquals(1, results.getTotalElements());
+		assertEquals("=== 83152002 : 405815000 = 122456005", results.getContent().get(0).getCloseToUserForm());
 	}
 
 	@Test
