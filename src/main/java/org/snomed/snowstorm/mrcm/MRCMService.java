@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.mrcm.model.MRCM.IS_A_ATTRIBUTE_DOMAIN;
 
 @Service
 public class MRCMService {
@@ -55,12 +56,6 @@ public class MRCMService {
 	private ElasticsearchRestTemplate elasticsearchTemplate;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-
-	// Hardcoded Is a (attribute)
-	// 'Is a' is not really an attribute at all but it's convenient for implementations to have this.
-	private static final AttributeDomain IS_A_ATTRIBUTE_DOMAIN = new AttributeDomain(null, null, true, Concepts.ISA, Concepts.SNOMEDCT_ROOT, false,
-			new Cardinality(1, null), new Cardinality(0, 0), RuleStrength.MANDATORY, ContentType.ALL);
-	private static final AttributeRange IS_A_ATTRIBUTE_RANGE = new AttributeRange(null, null, true, Concepts.ISA, "*", "*", RuleStrength.MANDATORY, ContentType.ALL);
 
 	public Collection<ConceptMini> retrieveDomainAttributes(ContentType contentType, boolean proximalPrimitiveModeling, Set<Long> parentIds, String branchPath,
 			List<LanguageDialect> languageDialects) throws ServiceException {
@@ -135,18 +130,12 @@ public class MRCMService {
 
 	public Collection<ConceptMini> retrieveAttributeValues(ContentType contentType, String attributeId, String termPrefix, String branchPath, List<LanguageDialect> languageDialects) throws ServiceException {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-
 		MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+		return retrieveAttributeValues(contentType, attributeId, termPrefix, branchPath, languageDialects, branchMRCM, branchCriteria);
+	}
 
-		Set<AttributeRange> attributeRanges;
-		if (Concepts.ISA.equals(attributeId)) {
-			attributeRanges = Collections.singleton(IS_A_ATTRIBUTE_RANGE);
-		} else {
-			attributeRanges = branchMRCM.getAttributeRanges().stream()
-					.filter(attributeRange -> attributeRange.getContentType().ruleAppliesToContentType(contentType)
-							&& attributeRange.getRuleStrength() == RuleStrength.MANDATORY
-							&& attributeRange.getReferencedComponentId().equals(attributeId)).collect(Collectors.toSet());
-		}
+	public Collection<ConceptMini> retrieveAttributeValues(ContentType contentType, String attributeId, String termPrefix, String branchPath, List<LanguageDialect> languageDialects, MRCM branchMRCM, BranchCriteria branchCriteria) throws ServiceException {
+		Set<AttributeRange> attributeRanges = branchMRCM.getMandatoryAttributeRanges(attributeId, contentType);
 
 		if (attributeRanges.isEmpty()) {
 			throw new IllegalArgumentException("No MRCM Attribute Range found with Mandatory rule strength for given content type and attributeId.");
@@ -168,6 +157,10 @@ public class MRCMService {
 		}
 
 		return queryService.search(conceptQuery, branchPath, RESPONSE_PAGE_SIZE).getContent();
+	}
+
+	public MRCM loadActiveMRCM(String branch, BranchCriteria branchCriteria) throws ServiceException {
+		return mrcmLoader.loadActiveMRCM(branch, branchCriteria);
 	}
 
 	public ConceptMini retrieveConceptModelAttributeHierarchy(String branch, List<LanguageDialect> languageDialects) {
@@ -218,5 +211,4 @@ public class MRCMService {
 	private List<ConceptMini> ecl(String ecl, String branch, List<LanguageDialect> languageDialects) {
 		return queryService.search(queryService.createQueryBuilder(false).resultLanguageDialects(languageDialects).ecl(ecl), branch, PageRequest.of(0, 1_000)).getContent();
 	}
-
 }
