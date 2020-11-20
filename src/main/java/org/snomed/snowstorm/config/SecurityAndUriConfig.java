@@ -144,7 +144,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 	@Override
 	protected void configure(HttpSecurity http) throws Exception {
-		http.csrf().disable();
+		http.csrf().disable();// lgtm [java/spring-disabled-csrf-protection]
 
 		if (restApiReadOnly) {
 			// Read-ony mode
