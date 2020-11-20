@@ -353,7 +353,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			return codingA;
 		} else if (codingB != null && codingA != null && codingA.getSystem() == null) {
 			return codingB;
-		} else if (!codingA.getSystem().equals(codingB.getSystem())) {
+		} else if (codingA != null && codingB != null && !codingA.getSystem().equals(codingB.getSystem())) {
 			throw new FHIROperationException(IssueType.CONFLICT, "CodeSystem defined in codingA must match that in codingB");
 		}
 		//Here both are present and they're the same system, so return either
