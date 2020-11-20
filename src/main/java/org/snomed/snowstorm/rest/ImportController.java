@@ -64,7 +64,7 @@ public class ImportController {
 		String filePath = importRequest.getFilePath();
 		ControllerHelper.requiredParam(filePath, "filePath");
 
-		File localFile = new File(filePath);
+		File localFile = new File(filePath);// lgtm [java/path-injection]
 		if (!localFile.isFile()) {
 			handleFileNotFound(filePath, localFile);
 		}
@@ -73,10 +73,12 @@ public class ImportController {
 		importConfiguration.setCreateCodeSystemVersion(importRequest.getCreateCodeSystemVersion());
 		String id = importService.createJob(importConfiguration);
 
-		try {
-			importService.importArchiveAsync(id, importRequest.getBranchPath(), new FileInputStream(localFile));
+		try (FileInputStream releaseFileStream = new FileInputStream(localFile)) {
+			importService.importArchiveAsync(id, importRequest.getBranchPath(), releaseFileStream);
 		} catch (FileNotFoundException e) {
 			handleFileNotFound(filePath, localFile);
+		} catch (IOException e) {
+			logger.error("Failed to close input file {}", localFile.getAbsolutePath());
 		}
 
 		return ControllerHelper.getCreatedResponse(id, "/start-local-file-import");

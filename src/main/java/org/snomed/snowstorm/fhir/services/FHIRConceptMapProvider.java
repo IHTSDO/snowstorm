@@ -183,9 +183,9 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		boolean matchFound = false;
 		for (String permitted : permittedValues) {
 			switch (mode) {
-				case EQUALS : if (actual.equals(permitted)) matchFound = true;
+				case EQUALS : if (actual != null && actual.equals(permitted)) matchFound = true;
 					break;
-				case STARTS_WITH : if (actual.startsWith(permitted)) matchFound = true;
+				case STARTS_WITH : if (actual != null && actual.startsWith(permitted)) matchFound = true;
 					break;
 			}
 		}

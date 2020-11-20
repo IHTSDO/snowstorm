@@ -38,7 +38,7 @@ public class DialectConfigurationService {
 		dialects = new HashMap<>();
 		for (String key : config.keySet()) {
 			String dialectCode = key.substring(key.lastIndexOf(".") + 1);
-			Long languageRefsetId = Long.parseLong(config.get(key));
+			long languageRefsetId = Long.parseLong(config.get(key));
 			dialects.put(dialectCode, new DialectConfiguration(dialectCode, languageRefsetId));
 			logger.info("Known dialect " + dialectCode + " - refset: " + languageRefsetId);
 		}

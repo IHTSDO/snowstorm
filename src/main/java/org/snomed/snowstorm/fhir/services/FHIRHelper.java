@@ -405,7 +405,7 @@ public class FHIRHelper implements FHIRConstants {
 		}
 
 		//If we've specified a search term but the target element is not populated, that's not a match
-		if (searchTerm.getValue() != null && value == null) {
+		if (value == null) {
 			return false;
 		}
 
