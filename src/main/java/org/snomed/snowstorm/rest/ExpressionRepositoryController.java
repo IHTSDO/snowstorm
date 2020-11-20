@@ -4,6 +4,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
 import org.snomed.snowstorm.core.data.services.postcoordination.PostCoordinatedExpression;
 import org.snomed.snowstorm.rest.pojo.CreatePostCoordinatedExpressionRequest;
@@ -35,7 +36,7 @@ public class ExpressionRepositoryController {
 	}
 
 	@RequestMapping(value = "/{branch}/expressions", method = RequestMethod.POST)
-	public PostCoordinatedExpression createExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) {
+	public PostCoordinatedExpression createExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) throws ServiceException {
 		branch = BranchPathUriUtil.decodePath(branch);
 		return expressionRepository.createExpression(branch, request.getCloseToUserForm(), request.getModuleId());
 	}

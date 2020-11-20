@@ -1,0 +1,1 @@
+id	effectiveTime	active	moduleId	definitionStatusId

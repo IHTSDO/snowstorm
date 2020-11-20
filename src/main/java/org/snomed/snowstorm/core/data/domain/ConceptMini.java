@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
+import com.google.common.base.Strings;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
@@ -92,6 +93,15 @@ public class ConceptMini implements Serializable {
 	@JsonIgnore
 	public String getFsnTerm() {
 		return getFsn().getTerm();
+	}
+
+	public String getIdAndFsnTerm() {
+		String fsnTerm = getFsnTerm();
+		if (Strings.isNullOrEmpty(fsnTerm)) {
+			return getConceptId();
+		} else {
+			return String.format("%s | %s |", getConceptId(), fsnTerm);
+		}
 	}
 
 	@JsonView(value = View.Component.class)
