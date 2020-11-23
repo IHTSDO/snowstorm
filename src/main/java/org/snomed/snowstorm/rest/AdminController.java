@@ -207,7 +207,7 @@ public class AdminController {
 			@PathVariable String branch, @RequestParam(required = false) String alternateSourceBranch,
 			@RequestParam String conceptId, @RequestParam(defaultValue = "true") boolean setDeletedComponentsToInactive) {
 
-		return adminOperationsService.restoreReleasedStatus(BranchPathUriUtil.decodePath(branch), BranchPathUriUtil.decodePath(alternateSourceBranch),
+		return adminOperationsService.restoreReleasedStatus(BranchPathUriUtil.decodePath(branch), alternateSourceBranch != null ? BranchPathUriUtil.decodePath(alternateSourceBranch) : null,
 				conceptId, setDeletedComponentsToInactive);
 	}
 
