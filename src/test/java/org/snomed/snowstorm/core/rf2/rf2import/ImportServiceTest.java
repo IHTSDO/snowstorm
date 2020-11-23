@@ -595,4 +595,96 @@ class ImportServiceTest extends AbstractTest {
 		return longs;
 	}
 
+	@Test
+	public void importArchive_ShouldSuccessfullyImportConcreteRelationship_WhenImportingDelta() throws IOException, ReleaseImportException {
+		//given
+		final String branchPath = "MAIN/CDI-29";
+		branchService.create(branchPath);
+		final String importJobId = importService.createJob(RF2Type.DELTA, branchPath, false, false);
+		final File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2");
+		final FileInputStream releaseFileStream = new FileInputStream(zipFile);
+
+		//when
+		importService.importArchive(importJobId, releaseFileStream);
+		final Relationship firstRelationship = relationshipService.findRelationship(branchPath, "222010001");
+		final Relationship secondRelationship = relationshipService.findRelationship(branchPath, "222010002");
+		final Relationship thirdRelationship = relationshipService.findRelationship(branchPath, "222010003");
+		final Relationship fourthRelationship = relationshipService.findRelationship(branchPath, "222010004");
+		final Relationship fifthRelationship = relationshipService.findRelationship(branchPath, "222010005");
+
+		//then
+		assertNotNull(firstRelationship);
+		assertNotNull(secondRelationship);
+		assertNotNull(thirdRelationship);
+		assertNotNull(fourthRelationship);
+		assertNotNull(fifthRelationship);
+
+		assertEquals("#1", firstRelationship.getValue());
+		assertEquals("#2.2", secondRelationship.getValue());
+		assertEquals("#3", thirdRelationship.getValue());
+		assertEquals("\"Before bed\"", fourthRelationship.getValue());
+		assertEquals("\"Daily\"", fifthRelationship.getValue());
+	}
+
+	@Test
+	public void importArchive_ShouldSuccessfullyImportConcreteRelationship_WhenImportingSnapshot() throws IOException, ReleaseImportException {
+		//given
+		final String branchPath = "MAIN/CDI-29";
+		branchService.create(branchPath);
+		final String importJobId = importService.createJob(RF2Type.SNAPSHOT, branchPath, false, false);
+		final File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2");
+		final FileInputStream releaseFileStream = new FileInputStream(zipFile);
+
+		//when
+		importService.importArchive(importJobId, releaseFileStream);
+		final Relationship firstRelationship = relationshipService.findRelationship(branchPath, "222010001");
+		final Relationship secondRelationship = relationshipService.findRelationship(branchPath, "222010002");
+		final Relationship thirdRelationship = relationshipService.findRelationship(branchPath, "222010003");
+		final Relationship fourthRelationship = relationshipService.findRelationship(branchPath, "222010004");
+		final Relationship fifthRelationship = relationshipService.findRelationship(branchPath, "222010005");
+
+		//then
+		assertNotNull(firstRelationship);
+		assertNotNull(secondRelationship);
+		assertNotNull(thirdRelationship);
+		assertNotNull(fourthRelationship);
+		assertNotNull(fifthRelationship);
+
+		assertEquals("#1", firstRelationship.getValue());
+		assertEquals("#2.2", secondRelationship.getValue());
+		assertEquals("#3", thirdRelationship.getValue());
+		assertEquals("\"Before bed\"", fourthRelationship.getValue());
+		assertEquals("\"Daily\"", fifthRelationship.getValue());
+	}
+
+	@Test
+	public void importArchive_ShouldSuccessfullyImportConcreteRelationship_WhenImportingFull() throws IOException, ReleaseImportException {
+		//given
+		final String branchPath = "MAIN/CDI-29";
+		branchService.create(branchPath);
+		final String importJobId = importService.createJob(RF2Type.FULL, branchPath, false, false);
+		final File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2");
+		final FileInputStream releaseFileStream = new FileInputStream(zipFile);
+
+		//when
+		importService.importArchive(importJobId, releaseFileStream);
+		final Relationship firstRelationship = relationshipService.findRelationship(branchPath, "222010001");
+		final Relationship secondRelationship = relationshipService.findRelationship(branchPath, "222010002");
+		final Relationship thirdRelationship = relationshipService.findRelationship(branchPath, "222010003");
+		final Relationship fourthRelationship = relationshipService.findRelationship(branchPath, "222010004");
+		final Relationship fifthRelationship = relationshipService.findRelationship(branchPath, "222010005");
+
+		//then
+		assertNotNull(firstRelationship);
+		assertNotNull(secondRelationship);
+		assertNotNull(thirdRelationship);
+		assertNotNull(fourthRelationship);
+		assertNotNull(fifthRelationship);
+
+		assertEquals("#1", firstRelationship.getValue());
+		assertEquals("#2.2", secondRelationship.getValue());
+		assertEquals("#3", thirdRelationship.getValue());
+		assertEquals("\"Before bed\"", fourthRelationship.getValue());
+		assertEquals("\"Daily\"", fifthRelationship.getValue());
+	}
 }
