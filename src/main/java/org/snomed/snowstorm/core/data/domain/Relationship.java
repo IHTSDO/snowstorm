@@ -41,6 +41,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 		String RELATIONSHIP_ID = "relationshipId";
 		String SOURCE_ID = "sourceId";
 		String DESTINATION_ID = "destinationId";
+		String VALUE = "value";
 		String RELATIONSHIP_GROUP = "relationshipGroup";
 		String TYPE_ID = "typeId";
 		String CHARACTERISTIC_TYPE_ID = "characteristicTypeId";
