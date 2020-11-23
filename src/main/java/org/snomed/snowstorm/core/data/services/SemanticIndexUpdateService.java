@@ -186,6 +186,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						.must(branchCriteriaIncludingOpenCommit.getEntityBranchCriteria(Relationship.class))
 						.must(termQuery(Relationship.Fields.ACTIVE, true))
 						.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, form.getCharacteristicTypeIds()))
+						.must(existsQuery(Relationship.Fields.DESTINATION_ID)) //todo Fix for Concrete ECL
 						.filter(termsQuery(Relationship.Fields.SOURCE_ID, updatedConceptIds))
 				)
 				.withSort(SortBuilders.fieldSort(Relationship.Fields.EFFECTIVE_TIME))
