@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.elasticsearch.common.Strings;
@@ -55,11 +56,13 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@Field(type = FieldType.Keyword, store = true)
 	private String sourceId;
 
+	@JsonInclude(JsonInclude.Include.NON_EMPTY)
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Keyword)
 	@Size(min = 5, max = 18)
 	private String destinationId;
 
+	@JsonInclude(JsonInclude.Include.NON_EMPTY)
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Keyword)
 	@Size(min = 5, max = 18)
