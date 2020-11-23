@@ -249,6 +249,19 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	}
 
 	@Override
+	public void newConcreteRelationshipState(String id, String effectiveTime, String active, String moduleId, String sourceId, String value,
+											 String relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
+		Integer effectiveTimeI = getEffectiveTimeI(effectiveTime);
+		final Relationship relationship = new Relationship(id, effectiveTimeI, isActive(active), moduleId, sourceId,
+				value, Integer.parseInt(relationshipGroup), typeId, characteristicTypeId, modifierId);
+		if (effectiveTimeI != null) {
+			relationship.release(effectiveTimeI);
+		}
+
+		relationshipPersistBuffer.save(relationship);
+	}
+
+	@Override
 	public void newDescriptionState(String id, String effectiveTime, String active, String moduleId, String conceptId, String languageCode,
 			String typeId, String term, String caseSignificanceId) {
 
