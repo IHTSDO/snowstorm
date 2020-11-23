@@ -657,9 +657,14 @@ public class AdminOperationsService {
 		} else {
 			sourceBranch = alternateSourceBranch;
 		}
+		logger.info("Restoring components of {} on branch {} from branch {}.", conceptId, branchPath, sourceBranch);
 
 		Concept releasedConcept = conceptService.find(conceptId, sourceBranch);
 		Concept conceptToFix = conceptService.find(conceptId, branchPath);
+
+		if (releasedConcept == null) {
+			throw new IllegalArgumentException("Concept not found on source branch.");
+		}
 
 		try (Commit commit = branchService.openCommit(branchPath)) {
 			if (!conceptToFix.isReleased()) {
