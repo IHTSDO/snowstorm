@@ -57,9 +57,13 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Keyword)
-	@NotNull
 	@Size(min = 5, max = 18)
 	private String destinationId;
+
+	@JsonView(value = View.Component.class)
+	@Field(type = FieldType.Keyword)
+	@Size(min = 5, max = 18)
+	private String value;
 
 	@Field(type = FieldType.Integer)
 	private int relationshipGroup;
@@ -130,7 +134,17 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.active = active;
 		setModuleId(moduleId);
 		this.sourceId = sourceId;
-		this.destinationId = destinationId;
+
+		if (destinationId != null) {
+			if (destinationId.startsWith("#") || destinationId.startsWith("\"")) {
+				this.value = destinationId;
+				this.destinationId = null;
+			} else {
+				this.value = null;
+				this.destinationId = destinationId;
+			}
+		}
+
 		this.relationshipGroup = relationshipGroup;
 		this.typeId = typeId;
 		this.characteristicTypeId = characteristicTypeId;
@@ -290,6 +304,14 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.destinationId = destinationId;
 	}
 
+	public String getValue() {
+		return value;
+	}
+
+	public void setValue(String value) {
+		this.value = value;
+	}
+
 	public int getRelationshipGroup() {
 		return relationshipGroup;
 	}
@@ -378,6 +400,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 				", moduleId='" + getModuleId() + '\'' +
 				", sourceId='" + sourceId + '\'' +
 				", destinationId='" + destinationId + '\'' +
+				", value='" + value + '\'' +
 				", relationshipGroup='" + relationshipGroup + '\'' +
 				", typeId='" + typeId + '\'' +
 				", characteristicTypeId='" + characteristicTypeId + '\'' +
