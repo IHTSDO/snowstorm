@@ -76,7 +76,7 @@ public class ReferenceSetMemberService extends ComponentService {
 	@Autowired
 	private ApplicationContext applicationContext;
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Page<ReferenceSetMember> findMembers(String branch,
 			String referencedComponentId,
@@ -154,8 +154,8 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	public ReferenceSetMember findMember(String branch, String uuid) {
-		List<ReferenceSetMember> result = findMembers(branch, Arrays.asList(uuid));
-		if (result != null && result.size() > 1) {
+		List<ReferenceSetMember> result = findMembers(branch, Collections.singletonList(uuid));
+		if (result.size() > 1) {
 			throw new IllegalStateException(String.format("Found more than one referenceSetMembers with uuid %s on branch %s", uuid, branch));
 		}
 		if (!result.isEmpty()) {
@@ -384,7 +384,7 @@ public class ReferenceSetMemberService extends ComponentService {
 		if (existingMember.isComponentChanged(member)) {
 			try (Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata("Updating reference set member " + member.getMemberId()))) {
 				member.markChanged();
-				doSaveBatchMembers(Arrays.asList(member), commit);
+				doSaveBatchMembers(Collections.singletonList(member), commit);
 				commit.markSuccessful();
 			}
 		}
