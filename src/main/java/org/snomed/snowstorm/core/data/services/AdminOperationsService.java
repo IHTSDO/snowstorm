@@ -721,6 +721,21 @@ public class AdminOperationsService {
 				componentsToSave.add(componentToFix);
 				System.out.println(format("Restoring deleted component %s %s.", componentClass.getSimpleName(), componentToFix.getId()));
 			} else {
+				String moduleId = componentToFix.getModuleId();
+				if (!Concepts.CORE_MODULE.equals(moduleId) && !Concepts.MODEL_MODULE.equals(moduleId) && !releasedComponent.getModuleId().equals(moduleId)) {
+					// Try restoring the previously released moduleId to see if that restores the effectiveTime
+					componentToFix.setModuleId(releasedComponent.getModuleId());
+					componentToFix.copyReleaseDetails(releasedComponent);
+					componentToFix.updateEffectiveTime();
+					if (componentToFix.getEffectiveTime() != null) {
+						System.out.println(format("Setting previously released module restored the effectiveTime on %s %s.", componentClass.getSimpleName(), componentToFix.getId()));
+						componentToFix.markChanged();
+						componentsToSave.add(componentToFix);
+					} else {
+						// There is a change in this cycle, put the moduleId back
+						componentToFix.setModuleId(moduleId);
+					}
+				}
 				if (!componentToFix.isReleased()) {
 					componentToFix.copyReleaseDetails(releasedComponent);
 					componentToFix.updateEffectiveTime();
