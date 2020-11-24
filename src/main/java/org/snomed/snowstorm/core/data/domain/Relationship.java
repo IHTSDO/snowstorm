@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.elasticsearch.common.Strings;
@@ -41,6 +42,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 		String RELATIONSHIP_ID = "relationshipId";
 		String SOURCE_ID = "sourceId";
 		String DESTINATION_ID = "destinationId";
+		String VALUE = "value";
 		String RELATIONSHIP_GROUP = "relationshipGroup";
 		String TYPE_ID = "typeId";
 		String CHARACTERISTIC_TYPE_ID = "characteristicTypeId";
@@ -54,11 +56,16 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@Field(type = FieldType.Keyword, store = true)
 	private String sourceId;
 
+	@JsonInclude(JsonInclude.Include.NON_EMPTY)
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Keyword)
-	@NotNull
 	@Size(min = 5, max = 18)
 	private String destinationId;
+
+	@JsonInclude(JsonInclude.Include.NON_EMPTY)
+	@JsonView(value = View.Component.class)
+	@Field(type = FieldType.Keyword)
+	private String value;
 
 	@Field(type = FieldType.Integer)
 	private int relationshipGroup;
@@ -122,14 +129,24 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.destinationId = destinationId;
 	}
 
-	public Relationship(String id, Integer effectiveTime, boolean active, String moduleId, String sourceId, String destinationId, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
+	public Relationship(String id, Integer effectiveTime, boolean active, String moduleId, String sourceId, String destinationIdOrValue, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
 		this();
 		this.relationshipId = id;
 		setEffectiveTimeI(effectiveTime);
 		this.active = active;
 		setModuleId(moduleId);
 		this.sourceId = sourceId;
-		this.destinationId = destinationId;
+
+		if (destinationIdOrValue != null) {
+			if (destinationIdOrValue.startsWith("#") || destinationIdOrValue.startsWith("\"")) {
+				this.value = destinationIdOrValue;
+				this.destinationId = null;
+			} else {
+				this.value = null;
+				this.destinationId = destinationIdOrValue;
+			}
+		}
+
 		this.relationshipGroup = relationshipGroup;
 		this.typeId = typeId;
 		this.characteristicTypeId = characteristicTypeId;
@@ -289,6 +306,14 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.destinationId = destinationId;
 	}
 
+	public String getValue() {
+		return value;
+	}
+
+	public void setValue(String value) {
+		this.value = value;
+	}
+
 	public int getRelationshipGroup() {
 		return relationshipGroup;
 	}
@@ -377,6 +402,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 				", moduleId='" + getModuleId() + '\'' +
 				", sourceId='" + sourceId + '\'' +
 				", destinationId='" + destinationId + '\'' +
+				", value='" + value + '\'' +
 				", relationshipGroup='" + relationshipGroup + '\'' +
 				", typeId='" + typeId + '\'' +
 				", characteristicTypeId='" + characteristicTypeId + '\'' +
