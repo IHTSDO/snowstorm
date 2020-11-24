@@ -129,7 +129,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.destinationId = destinationId;
 	}
 
-	public Relationship(String id, Integer effectiveTime, boolean active, String moduleId, String sourceId, String destinationId, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
+	public Relationship(String id, Integer effectiveTime, boolean active, String moduleId, String sourceId, String destinationIdOrValue, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
 		this();
 		this.relationshipId = id;
 		setEffectiveTimeI(effectiveTime);
@@ -137,13 +137,13 @@ public class Relationship extends SnomedComponent<Relationship> {
 		setModuleId(moduleId);
 		this.sourceId = sourceId;
 
-		if (destinationId != null) {
-			if (destinationId.startsWith("#") || destinationId.startsWith("\"")) {
-				this.value = destinationId;
+		if (destinationIdOrValue != null) {
+			if (destinationIdOrValue.startsWith("#") || destinationIdOrValue.startsWith("\"")) {
+				this.value = destinationIdOrValue;
 				this.destinationId = null;
 			} else {
 				this.value = null;
-				this.destinationId = destinationId;
+				this.destinationId = destinationIdOrValue;
 			}
 		}
 
