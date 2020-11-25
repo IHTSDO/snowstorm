@@ -17,6 +17,8 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
@@ -54,21 +56,42 @@ public class ExpressionRepositoryService {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
-	// Temporary workaround until postcoordinated expression reference set is created.
-	private static final String ANNOTATION_REFSET = "900000000000516008";
-	private static final String ANNOTATION_FIELD = "annotation";
+	@Autowired
+	private LocalRandomIdentifierSource identifierSource;
+
+	// 1119435002 | Canonical close to user form expression reference set (foundation metadata concept) |
+	// referencedComponentId - a generated SCTID for expression
+	// expression - the close to user form expression
+	// substrate - the URI of the SNOMED CT Edition and release the expression was authored against
+
+	// 1119468009 | Classifiable form expression reference set (foundation metadata concept) |
+	// referencedComponentId - the SCTID matching the close-to-user form expression
+	// expression - the classifiable form expression, created by transforming the close-to-user form expression.
+	// substrate - the URI of the SNOMED CT Edition and release that was used to transform close-to-user form expression to the classifiable form expression.
+
+	private static final String CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET = "1119435002";
+	private static final String CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET = "1119468009";
+	private static final String EXPRESSION_FIELD = "expression";
+	private static final String SUBSTRATE_FIELD = "substrate";
 
 	public ExpressionRepositoryService() {
 		expressionParser = new SCGExpressionParser(new SCGObjectFactory());
 	}
 
 	public Page<PostCoordinatedExpression> findAll(String branch, PageRequest pageRequest) {
-		Page<ReferenceSetMember> membersPage = memberService.findMembers(branch, new MemberSearchRequest().referenceSet(ANNOTATION_REFSET), pageRequest);
+		Page<ReferenceSetMember> membersPage = memberService.findMembers(branch,
+				new MemberSearchRequest()
+						.referenceSet(CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET),
+				pageRequest);
 		return getPostCoordinatedExpressions(pageRequest, membersPage);
 	}
 
 	public Page<PostCoordinatedExpression> findByCanonicalCloseToUserForm(String branch, String expression, PageRequest pageRequest) {
-		return getPostCoordinatedExpressions(pageRequest, memberService.findMembers(branch, new MemberSearchRequest().additionalField(ANNOTATION_FIELD, expression), pageRequest));
+		return getPostCoordinatedExpressions(pageRequest, memberService.findMembers(branch,
+				new MemberSearchRequest()
+						.referenceSet(CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET)
+						.additionalField(EXPRESSION_FIELD, expression),
+				pageRequest));
 	}
 
 	private PageImpl<PostCoordinatedExpression> getPostCoordinatedExpressions(PageRequest pageRequest, Page<ReferenceSetMember> membersPage) {
@@ -87,8 +110,11 @@ public class ExpressionRepositoryService {
 			// Validate expression against MRCM
 			mrcmAttributeRangeValidation(expression, branch);
 
-			ReferenceSetMember member = memberService.createMember(branch, new ReferenceSetMember(moduleId, ANNOTATION_REFSET, getFirstFocusConceptOrRoot(expression))
-					.setAdditionalField(ANNOTATION_FIELD, expression.toString()));
+			List<Long> expressionIds = identifierSource.reserveIds(0, LocalRandomIdentifierSource.POSTCOORDINATED_EXPRESSION_PARTITION_ID, 1);
+			Long expressionId = expressionIds.get(0);
+			ReferenceSetMember member = memberService.createMember(branch,
+					new ReferenceSetMember(moduleId, CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, expressionId.toString())
+							.setAdditionalField(EXPRESSION_FIELD, expression.toString()));
 			return toExpression(member);
 		} catch (SCGException e) {
 			throw new IllegalArgumentException("Failed to parse expression: " + e.getMessage(), e);
@@ -96,12 +122,7 @@ public class ExpressionRepositoryService {
 	}
 
 	private PostCoordinatedExpression toExpression(ReferenceSetMember member) {
-		return new PostCoordinatedExpression(member.getAdditionalField(ANNOTATION_FIELD));
-	}
-
-	private String getFirstFocusConceptOrRoot(Expression expression) {
-		List<String> focusConcepts = expression.getFocusConcepts();
-		return focusConcepts != null && !focusConcepts.isEmpty() ? focusConcepts.get(0) : Concepts.SNOMEDCT_ROOT;
+		return new PostCoordinatedExpression(member.getReferencedComponentId(), member.getAdditionalField(EXPRESSION_FIELD));
 	}
 
 	private void mrcmAttributeRangeValidation(Expression expression, String branch) throws ServiceException {
