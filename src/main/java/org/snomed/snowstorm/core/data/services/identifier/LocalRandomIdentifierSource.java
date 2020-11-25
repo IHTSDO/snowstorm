@@ -3,10 +3,7 @@ package org.snomed.snowstorm.core.data.services.identifier;
 import com.google.common.collect.Lists;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.SnomedComponent;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -23,6 +20,8 @@ import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
  * The store is queried to check that the numbers are unique.
  */
 public class LocalRandomIdentifierSource implements IdentifierSource {
+
+	public static final String POSTCOORDINATED_EXPRESSION_PARTITION_ID = "06";
 
 	private final ElasticsearchRestTemplate elasticsearchTemplate;
 
@@ -64,6 +63,10 @@ public class LocalRandomIdentifierSource implements IdentifierSource {
 						case "12":
 							// Relationship identifier
 							alreadyExistingIdentifiers.addAll(findExistingIdentifiersInAnyBranch(newIdentifierBatch, Relationship.class, Relationship.Fields.RELATIONSHIP_ID));
+							break;
+						case "06":
+							// Expression identifier
+							alreadyExistingIdentifiers.addAll(findExistingIdentifiersInAnyBranch(newIdentifierBatch, ReferenceSetMember.class, ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID));
 							break;
 					}
 				}
