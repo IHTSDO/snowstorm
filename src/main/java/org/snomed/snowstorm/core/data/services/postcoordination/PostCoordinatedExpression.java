@@ -4,13 +4,19 @@ import java.util.Objects;
 
 public class PostCoordinatedExpression {
 
+	private String id;
 	private String closeToUserForm;
 
 	public PostCoordinatedExpression() {
 	}
 
-	public PostCoordinatedExpression(String closeToUserForm) {
+	public PostCoordinatedExpression(String id, String closeToUserForm) {
+		this.id = id;
 		this.closeToUserForm = closeToUserForm;
+	}
+
+	public String getId() {
+		return id;
 	}
 
 	public String getCloseToUserForm() {
@@ -22,11 +28,12 @@ public class PostCoordinatedExpression {
 		if (this == o) return true;
 		if (o == null || getClass() != o.getClass()) return false;
 		PostCoordinatedExpression that = (PostCoordinatedExpression) o;
-		return Objects.equals(closeToUserForm, that.closeToUserForm);
+		return id.equals(that.id) &&
+				closeToUserForm.equals(that.closeToUserForm);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(closeToUserForm);
+		return Objects.hash(id, closeToUserForm);
 	}
 }

@@ -4,14 +4,13 @@ import com.google.common.collect.Lists;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestTemplate;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,12 +20,9 @@ import org.springframework.data.domain.PageRequest;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 
@@ -74,6 +70,12 @@ class ExpressionRepositoryServiceTest extends AbstractTest {
 	public void createExpression() throws ServiceException {
 		String branch = "MAIN";
 
+		PostCoordinatedExpression expression = expressionRepository.createExpression(branch, "83152002 |Oophorectomy|", "");
+		String expressionId = expression.getId();
+		System.out.println("Expression ID is " + expressionId);
+		assertEquals("06", LocalRandomIdentifierSource.POSTCOORDINATED_EXPRESSION_PARTITION_ID);
+		assertEquals("06", expressionId.substring(expressionId.length() - 3, expressionId.length() - 1));
+
 		// Single concept
 		assertEquals("=== 83152002",
 				expressionRepository.createExpression(branch, "83152002 |Oophorectomy|", "").getCloseToUserForm());
@@ -106,7 +108,7 @@ class ExpressionRepositoryServiceTest extends AbstractTest {
 						"       405813007 |Procedure site - direct|  =  15497006 |Ovarian structure|", "").getCloseToUserForm());
 
 		Page<PostCoordinatedExpression> page = expressionRepository.findAll(branch, PageRequest.of(0, 10));
-		assertEquals(7, page.getTotalElements());
+		assertEquals(8, page.getTotalElements());
 
 		Page<PostCoordinatedExpression> results = expressionRepository.findByCanonicalCloseToUserForm(branch, "=== 83152002 : 405815000 = 122456005", PageRequest.of(0, 1));
 		assertEquals(1, results.getTotalElements());
