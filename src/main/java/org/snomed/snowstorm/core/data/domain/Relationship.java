@@ -62,10 +62,14 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@Size(min = 5, max = 18)
 	private String destinationId;
 
+	@Field(type = FieldType.Keyword)
+	@JsonIgnore
+	private String value;
+
 	@JsonInclude(JsonInclude.Include.NON_EMPTY)
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.Keyword)
-	private String value;
+	@Transient
+	private ConceptValue conceptValue;
 
 	@Field(type = FieldType.Integer)
 	private int relationshipGroup;
@@ -312,6 +316,20 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public void setValue(String value) {
 		this.value = value;
+	}
+
+	public ConceptValue getConceptValue() {
+		if (this.value == null) {
+			return null;
+		}
+
+		this.conceptValue = new ConceptValue(this.value);
+		this.value = null;
+		return this.conceptValue;
+	}
+
+	public void setConceptValue(ConceptValue conceptValue) {
+		this.conceptValue = conceptValue;
 	}
 
 	public int getRelationshipGroup() {
