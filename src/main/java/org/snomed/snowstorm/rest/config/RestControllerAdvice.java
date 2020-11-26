@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.rest.config;
 
 import io.kaicode.elasticvc.api.BranchNotFoundException;
+import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -76,6 +77,14 @@ public class RestControllerAdvice {
 		result.put("error", HttpStatus.FORBIDDEN);
 		result.put("message", exception.getMessage());
 		return result;
+	}
+
+	@ExceptionHandler(ClientAbortException.class)
+	@ResponseStatus(HttpStatus.OK)
+	@ResponseBody
+	public void handleClientAbortException(Exception exception) {
+		logger.info("A client aborted an HTTP connection, probably a page refresh during loading.");
+		logger.debug("ClientAbortException.", exception);
 	}
 
 	@ExceptionHandler(Exception.class)
