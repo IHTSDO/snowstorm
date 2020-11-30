@@ -324,12 +324,17 @@ public class Relationship extends SnomedComponent<Relationship> {
 		}
 
 		this.concreteValue = new ConcreteValue(this.value);
-		this.value = null;
 		return this.concreteValue;
 	}
 
 	public void setConcreteValue(ConcreteValue concreteValue) {
 		this.concreteValue = concreteValue;
+	}
+
+	public void setConcreteValue(String value) {
+		if (value != null) {
+			this.concreteValue = new ConcreteValue(value);
+		}
 	}
 
 	public int getRelationshipGroup() {
