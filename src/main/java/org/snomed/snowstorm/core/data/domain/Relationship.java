@@ -335,6 +335,10 @@ public class Relationship extends SnomedComponent<Relationship> {
 		if (value != null) {
 			this.concreteValue = new ConcreteValue(value);
 		}
+
+		this.destinationId = null;
+		this.value = value;
+		this.target = null;
 	}
 
 	public int getRelationshipGroup() {
