@@ -64,7 +64,6 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	@Field(type = FieldType.Keyword)
 	@Size(min = 2, max = 4096)
-	@JsonIgnore
 	private String value;
 
 	@JsonInclude(JsonInclude.Include.NON_EMPTY)
