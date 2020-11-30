@@ -46,29 +46,13 @@ public final class ConcreteValue {
             throw new IllegalArgumentException(value + " is not a concrete value.");
         }
 
-        DataType dataType = null;
         if (isConcreteString) {
-            dataType = DataType.STRING;
+            this.dataType = DataType.STRING;
         } else {
-            value = value.replaceFirst("#", "");
-            try {
-                Integer.parseInt(value);
-                dataType = DataType.INTEGER;
-            } catch (final NumberFormatException e) {
-                //ignore
-            }
-
-            if (dataType == null) {
-                try {
-                    Double.parseDouble(value);
-                    dataType = DataType.DECIMAL;
-                } catch (final NumberFormatException e) {
-                    //ignore
-                }
-            }
+            value = value.substring(1);
+            this.dataType = value.contains(".") ? DataType.DECIMAL : DataType.INTEGER;
         }
 
-        this.dataType = dataType;
         this.value = value;
     }
 
