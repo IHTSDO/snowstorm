@@ -69,7 +69,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 	@JsonInclude(JsonInclude.Include.NON_EMPTY)
 	@JsonView(value = View.Component.class)
 	@Transient
-	private ConceptValue conceptValue;
+	private ConcreteValue concreteValue;
 
 	@Field(type = FieldType.Integer)
 	private int relationshipGroup;
@@ -318,18 +318,18 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.value = value;
 	}
 
-	public ConceptValue getConceptValue() {
+	public ConcreteValue getConcreteValue() {
 		if (this.value == null) {
 			return null;
 		}
 
-		this.conceptValue = new ConceptValue(this.value);
+		this.concreteValue = new ConcreteValue(this.value);
 		this.value = null;
-		return this.conceptValue;
+		return this.concreteValue;
 	}
 
-	public void setConceptValue(ConceptValue conceptValue) {
-		this.conceptValue = conceptValue;
+	public void setConcreteValue(ConcreteValue concreteValue) {
+		this.concreteValue = concreteValue;
 	}
 
 	public int getRelationshipGroup() {
