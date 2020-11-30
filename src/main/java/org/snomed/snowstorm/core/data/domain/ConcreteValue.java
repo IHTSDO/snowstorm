@@ -11,7 +11,7 @@ import org.springframework.data.annotation.Transient;
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JsonView(value = View.Component.class)
-public final class ConcreteValue {
+public class ConcreteValue {
     @Transient
     private final ConcreteValue.DataType dataType;
 
