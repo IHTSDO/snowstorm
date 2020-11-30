@@ -63,6 +63,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 	private String destinationId;
 
 	@Field(type = FieldType.Keyword)
+	@Size(min = 2, max = 4096)
 	@JsonIgnore
 	private String value;
 
