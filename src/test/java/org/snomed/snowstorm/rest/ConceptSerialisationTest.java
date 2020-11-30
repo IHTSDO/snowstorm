@@ -134,11 +134,11 @@ class ConceptSerialisationTest {
 		//when
 		final String result = storeObjectMapper.writeValueAsString(relationship);
 		final boolean containsDestinationId = result.contains("destinationId");
-		final boolean containsConceptValue = result.contains("conceptValue");
+		final boolean containsConcreteValue = result.contains("concreteValue");
 
 		//then
 		assertTrue(containsDestinationId);
-		assertFalse(containsConceptValue);
+		assertFalse(containsConcreteValue);
 	}
 
 	@Test
@@ -149,10 +149,10 @@ class ConceptSerialisationTest {
 		//when
 		final String result = storeObjectMapper.writeValueAsString(relationship);
 		final boolean containsDestinationId = result.contains("destinationId");
-		final boolean containsConceptValue = result.contains("conceptValue");
+		final boolean containsConcreteValue = result.contains("concreteValue");
 
 		//then
-		assertTrue(containsConceptValue);
+		assertTrue(containsConcreteValue);
 		assertFalse(containsDestinationId);
 	}
 
@@ -164,10 +164,10 @@ class ConceptSerialisationTest {
 		//when
 		final String result = storeObjectMapper.writeValueAsString(relationship);
 		final boolean containsDestinationId = result.contains("destinationId");
-		final boolean containsConceptValue = result.contains("conceptValue");
+		final boolean containsConcreteValue = result.contains("concreteValue");
 
 		//then
-		assertTrue(containsConceptValue);
+		assertTrue(containsConcreteValue);
 		assertFalse(containsDestinationId);
 	}
 
@@ -179,10 +179,10 @@ class ConceptSerialisationTest {
 		//when
 		final String result = storeObjectMapper.writeValueAsString(relationship);
 		final boolean containsDestinationId = result.contains("destinationId");
-		final boolean containsConceptValue = result.contains("conceptValue");
+		final boolean containsConcreteValue = result.contains("concreteValue");
 
 		//then
-		assertTrue(containsConceptValue);
+		assertTrue(containsConcreteValue);
 		assertFalse(containsDestinationId);
 	}
 }

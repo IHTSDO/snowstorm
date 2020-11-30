@@ -11,9 +11,9 @@ import org.springframework.data.annotation.Transient;
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JsonView(value = View.Component.class)
-public final class ConceptValue {
+public final class ConcreteValue {
     @Transient
-    private final ConceptValue.DataType dataType;
+    private final ConcreteValue.DataType dataType;
 
     @Transient
     private final String value;
@@ -34,7 +34,7 @@ public final class ConceptValue {
         }
     }
 
-    public ConceptValue(String value) {
+    public ConcreteValue(String value) {
         if (value == null || value.length() < 2) {
             throw new IllegalArgumentException("Value cannot be null.");
         }
@@ -72,7 +72,7 @@ public final class ConceptValue {
         this.value = value;
     }
 
-    public ConceptValue.DataType getDataType() {
+    public ConcreteValue.DataType getDataType() {
         return this.dataType;
     }
 
