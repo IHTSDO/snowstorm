@@ -24,6 +24,7 @@ import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.function.Function;
@@ -120,7 +121,11 @@ public class ConceptUpdateHelper extends ComponentService {
 						}
 					});
 					newVersionOwlAxiomMembers.forEach(axiom -> axiom.setActive(false));
-					concept.getDescriptions().forEach(description -> description.setInactivationIndicator(inactivationIndicatorNames.get(Concepts.CONCEPT_NON_CURRENT)));
+					concept.getDescriptions().forEach(description -> {
+							if (StringUtils.isEmpty(description.getInactivationIndicator())) {
+								description.setInactivationIndicator(inactivationIndicatorNames.get(Concepts.CONCEPT_NON_CURRENT));
+							}
+					});
 				}
 			}
 
