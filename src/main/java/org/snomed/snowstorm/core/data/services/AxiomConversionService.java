@@ -102,12 +102,25 @@ public class AxiomConversionService {
 	private Set<Relationship> mapToInternalRelationshipType(Long sourceId, Map<Integer, List<org.snomed.otf.owltoolkit.domain.Relationship>> relationships) {
 		if (relationships == null) return null;
 
-		return relationships.values().stream()
+		return relationships
+				.values()
+				.stream()
 				.flatMap(Collection::stream)
-				.map(r -> new Relationship(r.getTypeId() + "", r.getDestinationId() + "")
-						.setSourceId(sourceId != null ? sourceId.toString() : null)
-						.setGroupId(r.getGroup())
-						.setInferred(false))
+				.map(externalRelationship -> {
+					final long externalRelationshipTypeId = externalRelationship.getTypeId();
+					final long externalRelationshipDestinationId = externalRelationship.getDestinationId();
+					final Relationship internalRelationship = new Relationship(externalRelationshipTypeId + "", externalRelationshipDestinationId + "");
+					internalRelationship.setSourceId(sourceId != null ? sourceId.toString() : null);
+					internalRelationship.setGroupId(externalRelationship.getGroup());
+					internalRelationship.setInferred(false);
+
+					final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue externalConcreteValue = externalRelationship.getValue();
+					if (externalConcreteValue != null) {
+						internalRelationship.setConcreteValue(externalConcreteValue.getRF2Value());
+					}
+
+					return internalRelationship;
+				})
 				.collect(Collectors.toSet());
 	}
 

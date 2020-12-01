@@ -126,33 +126,63 @@ class ConceptSerialisationTest {
 
 	}
 
-    @Test
-    public void writeValueAsString_ShouldReturnCorrectString_WhenWritingOldDomain() throws JsonProcessingException {
-        //given
-        final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "138875005", 0, "116680003", "900000000000011006", "900000000000451002");
+	@Test
+	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingOldDomain() throws JsonProcessingException {
+		//given
+		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "138875005", 0, "116680003", "900000000000011006", "900000000000451002");
 
-        //when
-        final String result = storeObjectMapper.writeValueAsString(relationship);
-        final boolean isOld = result.contains("destinationId");
-        final boolean isConcrete = result.contains("value");
+		//when
+		final String result = storeObjectMapper.writeValueAsString(relationship);
+		final boolean containsDestinationId = result.contains("destinationId");
+		final boolean containsConcreteValue = result.contains("concreteValue");
 
-        //then
-        assertTrue(isOld);
-        assertFalse(isConcrete);
-    }
+		//then
+		assertTrue(containsDestinationId);
+		assertFalse(containsConcreteValue);
+	}
 
-    @Test
-    public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteDomain() throws JsonProcessingException {
-        //given
-        final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "\"Two pills two times a day.\"", 0, "116680003", "900000000000011006", "900000000000451002");
+	@Test
+	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteString() throws JsonProcessingException {
+		//given
+		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "\"Two pills two times a day.\"", 0, "116680003", "900000000000011006", "900000000000451002");
 
-        //when
-        final String result = storeObjectMapper.writeValueAsString(relationship);
-        final boolean isConcrete = result.contains("value");
-        final boolean isOld = result.contains("destinationId");
+		//when
+		final String result = storeObjectMapper.writeValueAsString(relationship);
+		final boolean containsDestinationId = result.contains("destinationId");
+		final boolean containsConcreteValue = result.contains("concreteValue");
 
-        //then
-        assertTrue(isConcrete);
-        assertFalse(isOld);
-    }
+		//then
+		assertTrue(containsConcreteValue);
+		assertFalse(containsDestinationId);
+	}
+
+	@Test
+	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteInteger() throws JsonProcessingException {
+		//given
+		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#2", 0, "116680003", "900000000000011006", "900000000000451002");
+
+		//when
+		final String result = storeObjectMapper.writeValueAsString(relationship);
+		final boolean containsDestinationId = result.contains("destinationId");
+		final boolean containsConcreteValue = result.contains("concreteValue");
+
+		//then
+		assertTrue(containsConcreteValue);
+		assertFalse(containsDestinationId);
+	}
+
+	@Test
+	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteDecimal() throws JsonProcessingException {
+		//given
+		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#3.14", 0, "116680003", "900000000000011006", "900000000000451002");
+
+		//when
+		final String result = storeObjectMapper.writeValueAsString(relationship);
+		final boolean containsDestinationId = result.contains("destinationId");
+		final boolean containsConcreteValue = result.contains("concreteValue");
+
+		//then
+		assertTrue(containsConcreteValue);
+		assertFalse(containsDestinationId);
+	}
 }
