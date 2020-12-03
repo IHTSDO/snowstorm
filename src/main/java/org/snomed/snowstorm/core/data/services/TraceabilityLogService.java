@@ -97,7 +97,7 @@ public class TraceabilityLogService implements CommitListener {
 	}
 
 	/**
-	 * Logs the activity that is associate to the commit. It should be noted
+	 * Logs the activity that is associated to the commit. It should be noted
 	 * that some services call this method explicitly so that means they will
 	 * have the states in memory for checking whether the component is changed
 	 * or deleted, both of these fields are classified as {@code Transient} so
@@ -120,7 +120,7 @@ public class TraceabilityLogService implements CommitListener {
 	}
 
 	/**
-	 * Logs the activity that is associate to the commit. It should be noted
+	 * Logs the activity that is associated to the commit. It should be noted
 	 * that some services call this method explicitly so that means they will
 	 * have the states in memory for checking whether the component is changed
 	 * or deleted, both of these fields are classified as {@code Transient} so
@@ -244,7 +244,6 @@ public class TraceabilityLogService implements CommitListener {
 			conceptsWithNoChange.stream().map(Object::toString).forEach(changes::remove);
 		}
 
-		// adjust commit comment here
 		activity.setCommitComment(createCommitComment(userId, commit, concepts, anyStatedChanges, importType));
 
 		if (activityMap.size() > inferredMax) {
