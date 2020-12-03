@@ -19,7 +19,6 @@ import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
-import org.snomed.snowstorm.core.data.services.persistedcomponent.DefaultPersistedComponentLoaderChainService;
 import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.snomed.snowstorm.core.rf2.RF2Type;
@@ -59,7 +58,7 @@ public class TraceabilityLogService implements CommitListener {
 	private int inferredMax;
 
 	@Autowired
-	private DefaultPersistedComponentLoaderChainService persistedComponentLoaderChainService;
+	private TraceabilityLogServiceHelper traceabilityLogServiceHelper;
 
 	private Consumer<Activity> activityConsumer;
 
@@ -79,13 +78,13 @@ public class TraceabilityLogService implements CommitListener {
 		// Most commits don't use this because ConceptService calls logActivity directly.
 
 		PersistedComponents persistedComponents = null;
-		String importType = null;
+		String commitPrefix = null;
 		final Map<String, String> metadata = commit.getBranch().getMetadata();
 		if (metadata != null && metadata.containsKey(ImportService.IMPORT_TYPE_KEY)) {
-			importType = metadata.get(ImportService.IMPORT_TYPE_KEY);
-			if (commit.getCommitType() == CONTENT && RF2Type.DELTA.getName().equals(importType)) {
+			commitPrefix = metadata.get(ImportService.IMPORT_TYPE_KEY);
+			if (commit.getCommitType() == CONTENT && RF2Type.DELTA.getName().equals(commitPrefix)) {
 				// RF2 Delta import
-				persistedComponents = persistedComponentLoaderChainService.load(commit);
+				persistedComponents = buildPersistedComponents(commit);
 			}
 		} else {
 			// Rebase or Promotion
@@ -93,23 +92,19 @@ public class TraceabilityLogService implements CommitListener {
 			persistedComponents = new PersistedComponents();
 		}
 
-		logActivity(SecurityUtil.getUsername(), commit, persistedComponents, false, importType);
+		logActivity(SecurityUtil.getUsername(), commit, persistedComponents, false, commitPrefix);
+	}
+
+	private PersistedComponents buildPersistedComponents(final Commit commit) {
+		return PersistedComponents.newBuilder().withPersistedConcepts(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, Concept.class))
+				.withPersistedDescriptions(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, Description.class))
+				.withPersistedRelationships(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, Relationship.class))
+				.withPersistedReferenceSetMembers(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, ReferenceSetMember.class)).build();
 	}
 
 	/**
-	 * Logs the activity that is associated to the commit. It should be noted
-	 * that some services call this method explicitly so that means they will
-	 * have the states in memory for checking whether the component is changed
-	 * or deleted, both of these fields are classified as {@code Transient} so
-	 * the states will not be persisted when retrieved from the data store.
-	 * In the case where this method is called implicitly through the
-	 * {@link CommitListener}, by performing a {@link RF2Type#DELTA} import,
-	 * it will load the components from the data store so the {@code changed}
-	 * and {@code deleted} states will not be persisted which means that the
-	 * <code>useChangeFlag == false</code> so that other checks are ignored when
-	 * doing the comparison between what has changed. It's worth noting when doing
-	 * a {@link RF2Type#DELTA} import, it will show all the changes inside the
-	 * traceability log.
+	 * This method may be called by a service class as an optimisation. In this case
+	 * the transient change and delete flags may be populated.
 	 *
 	 * @param userId                       The Id of the user.
 	 * @param commit                       The commit which contains the {@link RF2Type#DELTA} import.
@@ -120,28 +115,18 @@ public class TraceabilityLogService implements CommitListener {
 	}
 
 	/**
-	 * Logs the activity that is associated to the commit. It should be noted
-	 * that some services call this method explicitly so that means they will
-	 * have the states in memory for checking whether the component is changed
-	 * or deleted, both of these fields are classified as {@code Transient} so
-	 * the states will not be persisted when retrieved from the data store.
-	 * In the case where this method is called implicitly through the
-	 * {@link CommitListener}, by performing a {@link RF2Type#DELTA} import,
-	 * it will load the components from the data store so the {@code changed}
-	 * and {@code deleted} states will not be persisted which means that the
-	 * <code>useChangeFlag == false</code> so that other checks are ignored when
-	 * doing the comparison between what has changed. It's worth noting when doing
-	 * a {@link RF2Type#DELTA} import, it will show all the changes inside the
-	 * traceability log.
+	 * This method may be called by a service class as an optimisation. In this
+	 * case the transient change and delete flags may be populated and depending
+	 * on these states, the <code>useChangeFlag</code> should be set accordingly.
 	 *
 	 * @param userId                       The Id of the user.
 	 * @param commit                       The commit which contains the {@link RF2Type#DELTA} import.
 	 * @param batchSavePersistedComponents Contains all the persisted components.
 	 * @param useChangeFlag                Used to determine whether the {@code changed} and
 	 *                                     {@code deleted} should be used when doing comparison between what has changed.
-	 * @param importType                   The type of import.
+	 * @param commitPrefix                 The prefix of the commit.
 	 */
-	void logActivity(String userId, final Commit commit, final PersistedComponents batchSavePersistedComponents, boolean useChangeFlag, final String importType) {
+	void logActivity(String userId, final Commit commit, final PersistedComponents batchSavePersistedComponents, boolean useChangeFlag, final String commitPrefix) {
 
 		if (!enabled) {
 			return;
@@ -244,7 +229,7 @@ public class TraceabilityLogService implements CommitListener {
 			conceptsWithNoChange.stream().map(Object::toString).forEach(changes::remove);
 		}
 
-		activity.setCommitComment(createCommitComment(userId, commit, concepts, anyStatedChanges, importType));
+		activity.setCommitComment(createCommitComment(userId, commit, concepts, anyStatedChanges, commitPrefix));
 
 		if (activityMap.size() > inferredMax) {
 			// Limit the number of inferred changes recorded
@@ -271,9 +256,9 @@ public class TraceabilityLogService implements CommitListener {
 		activityConsumer.accept(activity);
 	}
 
-	String createCommitComment(final String userId, final Commit commit, final Collection<Concept> concepts, final boolean anyStatedChanges, final String importType) {
+	String createCommitComment(final String userId, final Commit commit, final Collection<Concept> concepts, final boolean anyStatedChanges, final String commitPrefix) {
 		Commit.CommitType commitType = commit.getCommitType();
-		final String commitCommentPrefix = RF2Type.DELTA.getName().equals(importType) ? "RF2 Import - " : "";
+		final String commitCommentPrefix = RF2Type.DELTA.getName().equals(commitPrefix) ? "RF2 Import - " : "";
 		if (commitType == CONTENT) {
 			if (!anyStatedChanges) {
 				return "Classified ontology.";
