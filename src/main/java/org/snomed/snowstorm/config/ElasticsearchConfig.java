@@ -87,7 +87,13 @@ public class ElasticsearchConfig {
 
 	@Bean
 	public RestClients.ElasticsearchRestClient elasticsearchRestClient() {
-		RestClientBuilder restClientBuilder = RestClient.builder(getHttpHosts(elasticsearchProperties().getUrls()));
+		final String[] urls = elasticsearchProperties().getUrls();
+		for (String url : urls) {
+			logger.info("Elasticsearch host: {}", url);
+		}
+		logger.info("Elasticsearch index prefix: {}", indexNamePrefix);
+
+		RestClientBuilder restClientBuilder = RestClient.builder(getHttpHosts(urls));
 		restClientBuilder.setRequestConfigCallback(builder -> {
 			builder.setConnectionRequestTimeout(0); //Disable lease handling for the connection pool! See https://github.com/elastic/elasticsearch/issues/24069
 			return builder;
