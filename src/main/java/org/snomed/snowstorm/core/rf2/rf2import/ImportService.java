@@ -189,38 +189,12 @@ public class ImportService {
 		branchService.updateMetadata(branchPath, metaData);
 	}
 
-	/**
-	 * Imports the full history of every component. This means that all versions which existed before and at the
-	 * release date are included in the release import.
-	 *
-	 * @param releaseFileStream The release ZIP files.
-	 * @param branchPath        Path to the {@link Branch}.
-	 * @param releaseImporter   Used to import the files.
-	 * @param loadingProfile    Used when finding the release files to import.
-	 * @return {@code null} as the full import operation contains the full history of components.
-	 * @throws ReleaseImportException If an error occurs while trying to import the {@link RF2Type#FULL}
-	 *                                release files.
-	 */
 	private Integer fullImport(final InputStream releaseFileStream, final String branchPath, final ReleaseImporter releaseImporter,
 			final LoadingProfile loadingProfile) throws ReleaseImportException {
 		releaseImporter.loadFullReleaseFiles(releaseFileStream, loadingProfile, getFullImportComponentFactory(branchPath));
 		return null;
 	}
 
-	/**
-	 * Imports only the current version of each component in the release.
-	 *
-	 * @param releaseFileStream   The release ZIP files.
-	 * @param branchPath          Path to the {@link Branch}.
-	 * @param patchReleaseVersion The version of the patch release.
-	 * @param releaseImporter     Used to import the files.
-	 * @param loadingProfile      Used when finding the release files to import.
-	 * @return The max effective time which specifies the date that a specific version of a component was
-	 * released. A component may be versioned over time, but only one version of each component can be valid
-	 * at a specific point in time.
-	 * @throws ReleaseImportException If an error occurs while trying to import the {@link RF2Type#SNAPSHOT}
-	 *                                release files.
-	 */
 	private Integer snapshotImport(final InputStream releaseFileStream, final String branchPath, final Integer patchReleaseVersion,
 			final ReleaseImporter releaseImporter, final LoadingProfile loadingProfile) throws ReleaseImportException {
 		final ImportComponentFactoryImpl importComponentFactory =
@@ -229,23 +203,6 @@ public class ImportService {
 		return importComponentFactory.getMaxEffectiveTime();
 	}
 
-	/**
-	 * Imports only the additions and changes since the previous release.
-	 *
-	 * @param releaseFileStream   The release ZIP files.
-	 * @param job                 Used to determine whether <code>org.snomed.snowstorm.core.rf2.rf2import.ImportJob#isCreateCodeSystemVersion() == false</code>
-	 *                            and if <code>org.snomed.snowstorm.core.rf2.rf2import.ImportJob#isClearEffectiveTimes() == true</code> when
-	 *                            doing a delta import.
-	 * @param branchPath          Path to the {@link Branch}.
-	 * @param patchReleaseVersion The version of the patch release.
-	 * @param releaseImporter     Used to import the files.
-	 * @param loadingProfile      Used when finding the release files to import.
-	 * @return The max effective time which specifies the date that a specific version of a component was
-	 * released. A component may be versioned over time, but only one version of each component can be valid
-	 * at a specific point in time.
-	 * @throws ReleaseImportException If an error occurs while trying to import the {@link RF2Type#DELTA}
-	 *                                release files.
-	 */
 	private Integer deltaImport(final InputStream releaseFileStream, final ImportJob job, final String branchPath, final Integer patchReleaseVersion,
 			final ReleaseImporter releaseImporter, final LoadingProfile loadingProfile) throws ReleaseImportException {
 		// If we are not creating a new version copy the release fields from the existing components

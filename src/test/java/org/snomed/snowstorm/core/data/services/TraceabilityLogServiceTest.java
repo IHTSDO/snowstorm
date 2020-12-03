@@ -8,7 +8,6 @@ import com.google.common.collect.ImmutableMap;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
-import org.junit.Assert;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +36,7 @@ import java.util.Stack;
 import static junit.framework.TestCase.assertNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -170,7 +170,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testDeltaImportWithOneAdditionChange() {
+	void testDeltaImportWithOneAdditionChange() throws InterruptedException {
 		activitiesLogged.clear();
 		final Commit commit = new Commit(branchService.create("MAIN/RF2DeltaImport"), Commit.CommitType.CONTENT, null, null);
 		final PersistedComponents persistedComponents =
@@ -179,11 +179,13 @@ class TraceabilityLogServiceTest extends AbstractTest {
 								   .withPersistedDescriptions(Collections.singleton(new Description("8635753033", 1, true, "900000000000012033", "3311481044",
 																									"en", "900000000000013044", "Test term", "900000000000448022"))).build();
 		traceabilityLogService.logActivity(null, commit, persistedComponents, false, "Delta");
-		activitiesLogged.stream().map(activity -> activity.getCommitComment().contains("RF2 Import - Updating concept Test FSN")).forEach(Assert::assertTrue);
+		final Activity activity = getActivityWithTimeout(2);
+		assertNotNull(activity);
+		assertTrue(activity.getCommitComment().contains("RF2 Import - Updating concept Test FSN"));
 	}
 
 	@Test
-	void testDeltaImportWithTwoAdditionChange() {
+	void testDeltaImportWithTwoAdditionChange() throws InterruptedException {
 		activitiesLogged.clear();
 		final Commit commit = new Commit(branchService.create("MAIN/RF2DeltaImport"), Commit.CommitType.CONTENT, null, null);
 		final PersistedComponents persistedComponents =
@@ -194,6 +196,8 @@ class TraceabilityLogServiceTest extends AbstractTest {
 																			new Description("8635753033", 1, true, "900000000000012033", "3311483055",
 																							"en", "900000000000013044", "Test term", "900000000000448022"))).build();
 		traceabilityLogService.logActivity(null, commit, persistedComponents, false, "Delta");
-		activitiesLogged.stream().map(activity -> activity.getCommitComment().contains("RF2 Import - Bulk update to 2 concepts.")).forEach(Assert::assertTrue);
+		final Activity activity = getActivityWithTimeout(2);
+		assertNotNull(activity);
+		assertTrue(activity.getCommitComment().contains("RF2 Import - Bulk update to 2 concepts."));
 	}
 }
