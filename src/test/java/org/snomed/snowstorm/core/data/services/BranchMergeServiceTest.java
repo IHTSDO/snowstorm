@@ -44,6 +44,7 @@ import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 import static org.junit.Assert.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
+import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION;
 import static org.snomed.snowstorm.core.data.domain.review.ReviewStatus.CURRENT;
 import static org.snomed.snowstorm.core.data.domain.review.ReviewStatus.PENDING;
 
@@ -592,6 +593,79 @@ class BranchMergeServiceTest extends AbstractTest {
 		members.getContent().forEach(System.out::println);
 		assertEquals(2, members.getTotalElements());
 		assertEquals(1, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+	}
+
+	@Test
+	void testAutomaticMergeOfConceptDoubleInactivationSameReasonsOneReleased() throws ServiceException, JsonProcessingException {
+		// The same concept is made inactive on two different branches with the same inactivation reasons and historical associations.
+		// The first concept is promoted and released.
+		// During merge the user attempts to keep the task version and replace the released version.
+		// The released version must be kept despite the users intention.
+
+		// Create concepts to be used in test
+		String conceptAId = "131148009";
+		String conceptBId = "313413008";
+		conceptService.createUpdate(Lists.newArrayList(
+				new Concept(Concepts.SNOMEDCT_ROOT),
+				new Concept(Concepts.ISA).addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept(Concepts.CLINICAL_FINDING).addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept(conceptAId).addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING)).addDescription(new Description("thingamajig")),
+				new Concept(conceptBId).addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING))
+		), "MAIN");
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+		String taskA1 = "MAIN/A/A1";
+		branchMergeService.mergeBranchSync("MAIN/A", taskA1, Collections.emptySet());
+		String taskA2 = "MAIN/A/A2";
+		branchMergeService.mergeBranchSync("MAIN/A", taskA2, Collections.emptySet());
+
+		// On branch A1 inactivate conceptA with AMBIGUOUS reason and Equivalent association
+		Concept concept = conceptService.find(conceptAId, taskA1);
+		concept.setActive(false);
+		concept.setInactivationIndicator("AMBIGUOUS");
+		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(conceptBId)));
+		conceptService.update(concept, taskA1);
+
+		System.out.println("All members");
+		for (ReferenceSetMember referenceSetMember : memberService.findMembers(taskA1, new MemberSearchRequest(), LARGE_PAGE).getContent()) {
+			System.out.println(referenceSetMember.getReferencedComponentId() + " - " + referenceSetMember.getRefsetId() + " - " + referenceSetMember.toString());
+		}
+		System.out.println("All members end");
+
+		assertEquals(2, memberService.findMembers(taskA1, conceptAId, LARGE_PAGE).getTotalElements());
+		MemberSearchRequest descriptionInactivationMemberSearchRequest = new MemberSearchRequest()
+				.referenceSet(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET)
+				.referencedComponentId(concept.getDescriptions().iterator().next().getId());
+		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+
+		// On branch A2 inactivate conceptA with OUTDATED reason and
+		concept = conceptService.find(conceptAId, taskA2);
+		concept.setActive(false);
+		concept.setInactivationIndicator("AMBIGUOUS");
+		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(conceptBId)));
+		conceptService.update(concept, taskA2);
+		assertEquals(2, memberService.findMembers(taskA2, conceptAId, LARGE_PAGE).getTotalElements());
+		assertEquals(1, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+
+		// Promote task A1
+		assertEquals(1, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
+		branchMergeService.mergeBranchSync(taskA1, "MAIN/A", Collections.emptySet());
+		assertEquals(2, memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getTotalElements());
+		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+
+		// Create and version code system
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-A", "MAIN/A"));
+		CodeSystem codeSystem = codeSystemService.find("SNOMEDCT-A");
+		codeSystemService.createVersion(codeSystem, 20210131, "Version");
+		assertEquals("20210131", memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getContent().get(0).getEffectiveTime());
+
+		// Rebase the diverged branch supplying the unversioned task concept version as the manually merged concept
+		// Serialise and deserialise to simulate transfer over REST. References to specific refset members will be lost.
+		concept = simulateRestTransfer(concept);
+		branchMergeService.mergeBranchSync("MAIN/A", taskA2, Collections.singleton(concept));
+		Page<ReferenceSetMember> members = memberService.findMembers(taskA2, new MemberSearchRequest().referenceSet(REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION), LARGE_PAGE);
+		members.getContent().forEach(System.out::println);
+		assertEquals(1, members.getTotalElements());
+		assertEquals("Already versioned content must be kept.", "20210131", members.getContent().get(0).getEffectiveTime());
 	}
 
 	private Concept simulateRestTransfer(Concept concept) throws JsonProcessingException {
