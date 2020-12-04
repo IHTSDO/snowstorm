@@ -646,9 +646,11 @@ class ConceptServiceTest extends AbstractTest {
 	@Test
 	public void testCreateConceptWithConcreteIntValue() throws ServiceException {
 		//given
-		final Relationship relationship = Relationship.newConcrete("1234567891011", "#1");
 		final Concept inConcept = new Concept("12345678910");
-		inConcept.addAxiom(relationship);
+		inConcept.addAxiom(
+				new Relationship(ISA, "12345"),
+				Relationship.newConcrete("1234567891011", "#1")
+		);
 
 		//when
 		conceptService.create(inConcept, "MAIN");
@@ -665,9 +667,11 @@ class ConceptServiceTest extends AbstractTest {
 	@Test
 	public void testCreateConceptWithConcreteDecValue() throws ServiceException {
 		//given
-		final Relationship relationship = Relationship.newConcrete("1234567891011", "#3.14");
 		final Concept inConcept = new Concept("12345678910");
-		inConcept.addAxiom(relationship);
+		inConcept.addAxiom(
+				new Relationship(ISA, "12345"),
+				Relationship.newConcrete("1234567891011", "#3.14")
+		);
 
 		//when
 		conceptService.create(inConcept, "MAIN");
