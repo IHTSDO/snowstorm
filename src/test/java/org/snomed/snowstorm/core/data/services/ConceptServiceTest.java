@@ -646,7 +646,7 @@ class ConceptServiceTest extends AbstractTest {
 	@Test
 	public void testCreateConceptWithConcreteIntValue() throws ServiceException {
 		//given
-		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#1", 0, "116680003", "900000000000011006", "900000000000451002");
+		final Relationship relationship = Relationship.newConcrete("1234567891011", "#1");
 		final Concept inConcept = new Concept("12345678910");
 		inConcept.addAxiom(relationship);
 
@@ -665,7 +665,7 @@ class ConceptServiceTest extends AbstractTest {
 	@Test
 	public void testCreateConceptWithConcreteDecValue() throws ServiceException {
 		//given
-		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#3.14", 0, "116680003", "900000000000011006", "900000000000451002");
+		final Relationship relationship = Relationship.newConcrete("1234567891011", "#3.14");
 		final Concept inConcept = new Concept("12345678910");
 		inConcept.addAxiom(relationship);
 
