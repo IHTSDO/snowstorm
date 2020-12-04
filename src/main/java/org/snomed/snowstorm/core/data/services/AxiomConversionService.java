@@ -125,13 +125,36 @@ public class AxiomConversionService {
 	}
 
 	private AxiomRepresentation mapFromInternalRelationshipType(String conceptId, String definitionStatusId, Set<Relationship> relationships, boolean namedConceptOnLeft) {
-		AxiomRepresentation axiomRepresentation = new AxiomRepresentation();
 		HashMap<Integer, List<org.snomed.otf.owltoolkit.domain.Relationship>> map = new HashMap<>();
 		for (Relationship relationship : relationships) {
-			org.snomed.otf.owltoolkit.domain.Relationship rel = new org.snomed.otf.owltoolkit.domain.Relationship(
-					relationship.getGroupId(), parseLong(relationship.getTypeId()), parseLong(relationship.getDestinationId()));
-			map.computeIfAbsent(rel.getGroup(), g -> new ArrayList<>()).add(rel);
+			final int internalRelationshipGroupId = relationship.getGroupId();
+			final String internalRelationshipTypeIdString = relationship.getTypeId();
+			final long internalRelationshipTypeId = internalRelationshipTypeIdString == null ? 0 : parseLong(internalRelationshipTypeIdString);
+
+			if (relationship.isConcrete()) {
+				final String value = relationship.getValue();
+				final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue concreteValue = new org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue(value);
+				final org.snomed.otf.owltoolkit.domain.Relationship externalConcreteRelationship = new org.snomed.otf.owltoolkit.domain.Relationship(
+						internalRelationshipGroupId,
+						internalRelationshipTypeId,
+						concreteValue
+				);
+
+				map.computeIfAbsent(externalConcreteRelationship.getGroup(), g -> new ArrayList<>()).add(externalConcreteRelationship);
+			} else {
+				final String internalDestinationIdString = relationship.getDestinationId();
+				final long internalDestinationId = internalDestinationIdString == null ? 0 : parseLong(internalDestinationIdString);
+				final org.snomed.otf.owltoolkit.domain.Relationship externalRelationship = new org.snomed.otf.owltoolkit.domain.Relationship(
+						internalRelationshipGroupId,
+						internalRelationshipTypeId,
+						internalDestinationId
+				);
+
+				map.computeIfAbsent(externalRelationship.getGroup(), g -> new ArrayList<>()).add(externalRelationship);
+			}
 		}
+
+		AxiomRepresentation axiomRepresentation = new AxiomRepresentation();
 		axiomRepresentation.setPrimitive(Concepts.PRIMITIVE.equals(definitionStatusId));
 		if (namedConceptOnLeft) {
 			axiomRepresentation.setLeftHandSideNamedConcept(parseLong(conceptId));

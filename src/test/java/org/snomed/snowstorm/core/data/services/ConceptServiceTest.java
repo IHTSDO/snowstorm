@@ -644,6 +644,63 @@ class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testCreateConceptWithConcreteIntValue() throws ServiceException {
+		//given
+		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#1", 0, "116680003", "900000000000011006", "900000000000451002");
+		final Concept inConcept = new Concept("12345678910");
+		inConcept.addAxiom(relationship);
+
+		//when
+		conceptService.create(inConcept, "MAIN");
+		final Concept outConcept = conceptService.find("12345678910", "MAIN");
+		final Set<Axiom> classAxioms = outConcept.getClassAxioms();
+		final int size = classAxioms.size();
+		final String value = classAxioms.iterator().next().getRelationships().iterator().next().getValue();
+
+		//then
+		assertEquals(1, size);
+		assertEquals("#1", value);
+	}
+
+	@Test
+	public void testCreateConceptWithConcreteDecValue() throws ServiceException {
+		//given
+		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#3.14", 0, "116680003", "900000000000011006", "900000000000451002");
+		final Concept inConcept = new Concept("12345678910");
+		inConcept.addAxiom(relationship);
+
+		//when
+		conceptService.create(inConcept, "MAIN");
+		final Concept outConcept = conceptService.find("12345678910", "MAIN");
+		final Set<Axiom> classAxioms = outConcept.getClassAxioms();
+		final int size = classAxioms.size();
+		final String value = classAxioms.iterator().next().getRelationships().iterator().next().getValue();
+
+		//then
+		assertEquals(1, size);
+		assertEquals("#3.14", value);
+	}
+
+	@Test
+	public void testCreateConceptWithConcreteStrValue() throws ServiceException {
+		//given
+		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "\"Two tablets before bed\"", 0, "116680003", "900000000000011006", "900000000000451002");
+		final Concept inConcept = new Concept("12345678910");
+		inConcept.addAxiom(relationship);
+
+		//when
+		conceptService.create(inConcept, "MAIN");
+		final Concept outConcept = conceptService.find("12345678910", "MAIN");
+		final Set<Axiom> classAxioms = outConcept.getClassAxioms();
+		final int size = classAxioms.size();
+		final String value = classAxioms.iterator().next().getRelationships().iterator().next().getValue();
+
+		//then
+		assertEquals(1, size);
+		assertEquals("\"Two tablets before bed \"", value);
+	}
+
+	@Test
 	void testSaveConceptWithDescriptionAndAcceptabilityTogether() throws ServiceException {
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
