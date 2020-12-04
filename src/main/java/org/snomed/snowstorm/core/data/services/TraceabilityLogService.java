@@ -159,18 +159,27 @@ public class TraceabilityLogService implements CommitListener {
 			}
 		}
 		for (Description description : persistedDescriptions) {
+			final long conceptId = parseLong(description.getConceptId());
 			if (!useChangeFlag || (description.isChanged() || description.isDeleted())) {
-				activityMap.get(parseLong(description.getConceptId())).addComponentChange(getChange(description)).statedChange();
+				final Activity.ComponentChange change = getChange(description);
+				final Activity.ConceptActivity conceptActivity = activityMap.get(conceptId);
+				if (conceptActivity != null) {
+					conceptActivity.addComponentChange(change).statedChange();
+				}
 			}
-			componentToConceptIdMap.put(parseLong(description.getDescriptionId()), parseLong(description.getConceptId()));
+			componentToConceptIdMap.put(parseLong(description.getDescriptionId()), conceptId);
 		}
 		for (Relationship relationship : persistedRelationships) {
+			final long sourceId = parseLong(relationship.getSourceId());
 			if (!useChangeFlag || (relationship.isChanged() || relationship.isDeleted())) {
-				activityMap.get(parseLong(relationship.getSourceId()))
-						.addComponentChange(getChange(relationship))
-						.addStatedChange(!Concepts.INFERRED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId()));
+				final Activity.ConceptActivity conceptActivity = activityMap.get(sourceId);
+				if (conceptActivity != null) {
+					conceptActivity
+							.addComponentChange(getChange(relationship))
+							.addStatedChange(!Concepts.INFERRED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId()));
+				}
 			}
-			componentToConceptIdMap.put(parseLong(relationship.getRelationshipId()), parseLong(relationship.getSourceId()));
+			componentToConceptIdMap.put(parseLong(relationship.getRelationshipId()), sourceId);
 		}
 		for (ReferenceSetMember refsetMember : persistedReferenceSetMembers) {
 			if (!useChangeFlag || (refsetMember.isChanged() || refsetMember.isDeleted())) {
