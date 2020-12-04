@@ -59,7 +59,9 @@ public class DescriptionController {
 					"Accept-Language header still controls result FSN and PT language selection.")
 			@RequestParam(required = false) Set<String> language,
 
-			@ApiParam(value = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
+			@ApiParam(value = "Set of description type ids to use include. Defaults to any. " +
+					"Pick descendants of '900000000000446008 | Description type (core metadata concept) |'. " +
+					"Examples: 900000000000003001 (FSN), 900000000000013009 (Synonym), 900000000000550004 (Definition)")
 			@RequestParam(required = false) Set<Long> type,
 
 			@Deprecated

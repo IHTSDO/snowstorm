@@ -1,7 +1,5 @@
 package org.snomed.snowstorm.rest.pojo;
 
-import org.springframework.web.bind.annotation.RequestParam;
-
 import java.util.Set;
 
 public class ConceptSearchRequest {
@@ -9,6 +7,7 @@ public class ConceptSearchRequest {
 	private String termFilter;
 	private Boolean termActive;
 	private Boolean activeFilter;
+	private Set<Long> descriptionType;
 	private Set<String> language;
 	private Set<Long> preferredIn;
 	private Set<Long> acceptableIn;
@@ -49,6 +48,14 @@ public class ConceptSearchRequest {
 
 	public void setActiveFilter(Boolean activeFilter) {
 		this.activeFilter = activeFilter;
+	}
+
+	public Set<Long> getDescriptionType() {
+		return descriptionType;
+	}
+
+	public void setDescriptionType(Set<Long> descriptionType) {
+		this.descriptionType = descriptionType;
 	}
 
 	public Set<String> getLanguage() {
