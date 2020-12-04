@@ -361,21 +361,26 @@ public class ConceptUpdateHelper extends ComponentService {
 
 	private ReferenceSetMember getBestRefsetMember(String refsetId, String additionalFieldKey, String additionalFieldValue, Set<ReferenceSetMember> newVersionMembers, Set<ReferenceSetMember> existingVersionMembers) {
 		ReferenceSetMember bestMember = null;
-		bestMember = getBestRefsetMemberInSetOrKeep(refsetId, additionalFieldKey, additionalFieldValue, existingVersionMembers, bestMember);
-		bestMember = getBestRefsetMemberInSetOrKeep(refsetId, additionalFieldKey, additionalFieldValue, newVersionMembers, bestMember);
+		if (existingVersionMembers != null) {
+			bestMember = getBestRefsetMemberInSetOrKeep(refsetId, additionalFieldKey, additionalFieldValue, existingVersionMembers, bestMember);
+		}
+		if (newVersionMembers != null) {
+			bestMember = getBestRefsetMemberInSetOrKeep(refsetId, additionalFieldKey, additionalFieldValue, newVersionMembers, bestMember);
+		}
 		return bestMember;
 	}
 
-	private ReferenceSetMember getBestRefsetMemberInSetOrKeep(String refsetId, String additionalFieldKey, String requiredValue, Set<ReferenceSetMember> members, ReferenceSetMember candidate) {
-		if (members != null) {
-			for (ReferenceSetMember newVersionMember : members) {
-				final String actualValue = newVersionMember.getAdditionalField(additionalFieldKey);
-				if (refsetId.equals(newVersionMember.getRefsetId()) && requiredValue.equals(actualValue)) {
-					if (candidate != null) {
-						// return original candidate if it is stronger in terms released and active flags
-						return REFERENCE_SET_MEMBER_COMPARATOR_BY_RELEASED.compare(candidate, newVersionMember) > 0 ? candidate : newVersionMember;
+	private ReferenceSetMember getBestRefsetMemberInSetOrKeep(String refsetId, String additionalFieldKey, String requiredValue, Collection<ReferenceSetMember> members, ReferenceSetMember candidate) {
+		for (ReferenceSetMember newVersionMember : members) {
+			final String actualValue = newVersionMember.getAdditionalField(additionalFieldKey);
+			if (refsetId.equals(newVersionMember.getRefsetId()) && requiredValue.equals(actualValue)) {
+				if (candidate == null) {
+					candidate = newVersionMember;
+				} else {
+					// only replace candidate if it is stronger in terms released and active flags
+					if (REFERENCE_SET_MEMBER_COMPARATOR_BY_RELEASED.compare(candidate, newVersionMember) < 0) {
+						candidate = newVersionMember;
 					}
-					return newVersionMember;
 				}
 			}
 		}
