@@ -30,7 +30,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -85,8 +84,16 @@ public class ConceptController {
 			@PathVariable String branch,
 			@RequestParam(required = false) Boolean activeFilter,
 			@RequestParam(required = false) String definitionStatusFilter,
+
+			@ApiParam(value = "Search term to match against concept descriptions using a case-insensitive multi-prefix matching strategy.")
 			@RequestParam(required = false) String term,
+
 			@RequestParam(required = false) Boolean termActive,
+
+			@ApiParam(value = "Set of description type ids to use for the term search. Defaults to any. " +
+					"Pick descendants of '900000000000446008 | Description type (core metadata concept) |'. " +
+					"Examples: 900000000000003001 (FSN), 900000000000013009 (Synonym), 900000000000550004 (Definition)")
+			@RequestParam(required = false) Set<Long> descriptionType,
 
 			@ApiParam(value = "Set of two character language codes to match. " +
 					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
@@ -139,6 +146,7 @@ public class ConceptController {
 						.active(termActive)
 						.term(term)
 						.searchLanguageCodes(language)
+						.type(descriptionType)
 				)
 				.definitionStatusFilter(definitionStatusFilter)
 				.ecl(ecl)
@@ -182,6 +190,7 @@ public class ConceptController {
 				searchRequest.getDefinitionStatusFilter(),
 				searchRequest.getTermFilter(),
 				searchRequest.getTermActive(),
+				searchRequest.getDescriptionType(),
 				searchRequest.getLanguage(),
 				searchRequest.getPreferredIn(),
 				searchRequest.getAcceptableIn(),
@@ -288,7 +297,15 @@ public class ConceptController {
 	}
 
 	private ItemsPage<?> findConceptsWithECL(String ecl, boolean stated, String branch, String acceptLanguageHeader, int offset, int limit) {
-		return findConcepts(branch, null, null, null, null, null, null, null, null, !stated ? ecl : null, stated ? ecl : null, null, false, offset, limit, null, acceptLanguageHeader);
+		final ConceptSearchRequest searchRequest = new ConceptSearchRequest();
+		if (stated) {
+			searchRequest.setEclFilter(ecl);
+		} else {
+			searchRequest.setStatedEclFilter(ecl);
+		}
+		searchRequest.setOffset(offset);
+		searchRequest.setLimit(limit);
+		return search(branch, searchRequest, acceptLanguageHeader);
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/inbound-relationships", method = RequestMethod.GET)
