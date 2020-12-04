@@ -157,6 +157,14 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.modifierId = modifierId;
 	}
 
+	public static Relationship newConcrete(String typeId, String value) {
+		final Relationship relationship = new Relationship();
+		relationship.setTypeId(typeId);
+		relationship.setValue(value);
+
+		return relationship;
+	}
+
 	@Override
 	public String getIdField() {
 		return Fields.RELATIONSHIP_ID;
@@ -176,6 +184,33 @@ public class Relationship extends SnomedComponent<Relationship> {
 	
 	public boolean isGrouped () {
 		return relationshipGroup > 0;
+	}
+
+	public ConcreteValue getConcreteValue() {
+		if (this.value == null) {
+			return null;
+		}
+
+		this.concreteValue = new ConcreteValue(this.value);
+		return this.concreteValue;
+	}
+
+	public void setConcreteValue(ConcreteValue concreteValue) {
+		this.concreteValue = concreteValue;
+	}
+
+	public void setConcreteValue(String value) {
+		if (value != null) {
+			this.concreteValue = new ConcreteValue(value);
+		}
+
+		this.destinationId = null;
+		this.value = value;
+		this.target = null;
+	}
+
+	public boolean isConcrete() {
+		return this.value != null && this.destinationId == null;
 	}
 
 	@Override
@@ -307,6 +342,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 	}
 
 	public void setDestinationId(String destinationId) {
+		this.value = null;
 		this.destinationId = destinationId;
 	}
 
@@ -315,30 +351,8 @@ public class Relationship extends SnomedComponent<Relationship> {
 	}
 
 	public void setValue(String value) {
-		this.value = value;
-	}
-
-	public ConcreteValue getConcreteValue() {
-		if (this.value == null) {
-			return null;
-		}
-
-		this.concreteValue = new ConcreteValue(this.value);
-		return this.concreteValue;
-	}
-
-	public void setConcreteValue(ConcreteValue concreteValue) {
-		this.concreteValue = concreteValue;
-	}
-
-	public void setConcreteValue(String value) {
-		if (value != null) {
-			this.concreteValue = new ConcreteValue(value);
-		}
-
 		this.destinationId = null;
 		this.value = value;
-		this.target = null;
 	}
 
 	public int getRelationshipGroup() {
@@ -353,8 +367,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return typeId;
 	}
 
-	public void setTypeId(String typeId) {
+	public Relationship setTypeId(String typeId) {
 		this.typeId = typeId;
+		return this;
 	}
 
 	public String getCharacteristicTypeId() {
