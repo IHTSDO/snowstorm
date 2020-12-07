@@ -157,7 +157,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 
 		BiConsumer<SnomedComponent, Relationship> relationshipConsumer = (component, relationship) -> {
-			if (activeNow(component, timeSlice)) {
+			if (!relationship.isConcrete() && activeNow(component, timeSlice)) {
 				long conceptId = parseLong(relationship.getSourceId());
 				int groupId = relationship.getGroupId();
 				long type = parseLong(relationship.getTypeId());
@@ -381,7 +381,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 							// for each
 							(component, relationship) -> {
 								updateSource.add(parseLong(relationship.getSourceId()));
-								if (relationship.getTypeId().equals(Concepts.ISA)) {
+								if (!relationship.isConcrete() && relationship.getTypeId().equals(Concepts.ISA)) {
 									updateDestination.add(parseLong(relationship.getDestinationId()));
 								}
 							});

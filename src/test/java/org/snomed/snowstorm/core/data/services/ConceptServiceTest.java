@@ -644,6 +644,48 @@ class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
+	public void testCreateConceptWithConcreteIntValue() throws ServiceException {
+		//given
+		final Concept inConcept = new Concept("12345678910");
+		inConcept.addAxiom(
+				new Relationship(ISA, "12345"),
+				Relationship.newConcrete("1234567891011", "#1")
+		);
+
+		//when
+		conceptService.create(inConcept, "MAIN");
+		final Concept outConcept = conceptService.find("12345678910", "MAIN");
+		final Set<Axiom> classAxioms = outConcept.getClassAxioms();
+		final int size = classAxioms.size();
+		final String value = classAxioms.iterator().next().getRelationships().iterator().next().getValue();
+
+		//then
+		assertEquals(1, size);
+		assertEquals("#1", value);
+	}
+
+	@Test
+	public void testCreateConceptWithConcreteDecValue() throws ServiceException {
+		//given
+		final Concept inConcept = new Concept("12345678910");
+		inConcept.addAxiom(
+				new Relationship(ISA, "12345"),
+				Relationship.newConcrete("1234567891011", "#3.14")
+		);
+
+		//when
+		conceptService.create(inConcept, "MAIN");
+		final Concept outConcept = conceptService.find("12345678910", "MAIN");
+		final Set<Axiom> classAxioms = outConcept.getClassAxioms();
+		final int size = classAxioms.size();
+		final String value = classAxioms.iterator().next().getRelationships().iterator().next().getValue();
+
+		//then
+		assertEquals(1, size);
+		assertEquals("#3.14", value);
+	}
+
+	@Test
 	void testSaveConceptWithDescriptionAndAcceptabilityTogether() throws ServiceException {
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
 		concept.addDescription(
