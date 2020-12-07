@@ -105,7 +105,7 @@ public class ImportService {
 		String branchPath = job.getBranchPath();
 		Integer patchReleaseVersion = job.getPatchReleaseVersion();
 		Map<String, String> metaData = branchService.findLatest(branchPath).getMetadata();
-		updateMetadata(branchPath, importType, (metaData == null ? new HashMap<>() : metaData));
+		setImportMetadata(branchPath, importType, (metaData == null ? new HashMap<>() : metaData));
 		try {
 			Date start = new Date();
 			logger.info("Starting RF2 {}{} import on branch {}. ID {}", importType, patchReleaseVersion != null ? " RELEASE PATCH on effectiveTime " + patchReleaseVersion : "", branchPath, importId);
@@ -131,11 +131,7 @@ public class ImportService {
 			job.setStatus(ImportJob.ImportStatus.FAILED);
 			throw e;
 		} finally {
-			metaData = branchService.findLatest(branchPath).getMetadata();
-			if (metaData != null) {
-				metaData.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
-				branchService.updateMetadata(branchPath, metaData);
-			}
+			clearImportMetadata(branchPath);
 		}
 	}
 
@@ -183,10 +179,20 @@ public class ImportService {
 	 * @param importType Being performed.
 	 * @param metaData   Being updated.
 	 */
-	private void updateMetadata(final String branchPath, final RF2Type importType, final Map<String, String> metaData) {
+	private void setImportMetadata(final String branchPath, final RF2Type importType, final Map<String, String> metaData) {
 		metaData.put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
 		metaData.put(IMPORT_TYPE_KEY, importType.getName());
 		branchService.updateMetadata(branchPath, metaData);
+	}
+
+	private void clearImportMetadata(String branchPath) {
+		Map<String, String> metaData;
+		metaData = branchService.findLatest(branchPath).getMetadata();
+		if (metaData != null) {
+			metaData.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
+			metaData.remove(IMPORT_TYPE_KEY);
+			branchService.updateMetadata(branchPath, metaData);
+		}
 	}
 
 	private Integer fullImport(final InputStream releaseFileStream, final String branchPath, final ReleaseImporter releaseImporter,
