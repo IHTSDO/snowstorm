@@ -320,6 +320,7 @@ public class ConceptUpdateHelper extends ComponentService {
 				ReferenceSetMember bestMember = getBestRefsetMember(associationRefsetId, ReferenceSetMember.AssociationFields.TARGET_COMP_ID, associationValue, newVersionMembers, existingVersionMembers);
 				if (bestMember != null) {
 					// Keep
+					bestMember.setActive(true);
 					membersToKeep.add(bestMember);
 				} else {
 					// Create new
@@ -327,7 +328,6 @@ public class ConceptUpdateHelper extends ComponentService {
 					bestMember.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, associationValue);
 					membersToCreate.add(bestMember);
 				}
-				bestMember.setActive(true);
 				newComponentVersion.addAssociationTargetMember(bestMember);
 			}
 		}
