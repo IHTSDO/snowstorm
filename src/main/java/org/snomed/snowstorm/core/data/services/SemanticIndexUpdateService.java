@@ -157,27 +157,23 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 
 		BiConsumer<SnomedComponent, Relationship> relationshipConsumer = (component, relationship) -> {
-			if (!relationship.isConcrete() && activeNow(component, timeSlice)) {
+			if (activeNow(component, timeSlice)) {
 				long conceptId = parseLong(relationship.getSourceId());
 				int groupId = relationship.getGroupId();
 				long type = parseLong(relationship.getTypeId());
-				long value = parseLong(relationship.getDestinationId());
+				String value = relationship.getValue();
+				if (!relationship.isConcrete()) {
+					value = relationship.getDestinationId();
+					requiredActiveConcepts.add(parseLong(value));
+				}
 				Integer effectiveTime = component.getEffectiveTimeI();
 				if (type == IS_A_TYPE) {
-					graphBuilder.addParent(conceptId, value);
-
-					// Concept model object attribute is not linked to the concept hierarchy by any axiom
-					// however we want the link in the semantic index so let's add it here.
-					// TODO: Remove this - there is an axiom for this link now.
-					if (value == CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG) {
-						graphBuilder.addParent(CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG, CONCEPT_MODEL_ATTRIBUTE_LONG);
-					}
+					graphBuilder.addParent(conceptId, parseLong(value));
 				} else {
 					conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value);
 				}
 				requiredActiveConcepts.add(conceptId);
 				requiredActiveConcepts.add(type);
-				requiredActiveConcepts.add(value);
 			}
 		};
 
@@ -186,7 +182,6 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						.must(branchCriteriaIncludingOpenCommit.getEntityBranchCriteria(Relationship.class))
 						.must(termQuery(Relationship.Fields.ACTIVE, true))
 						.must(termsQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, form.getCharacteristicTypeIds()))
-						.must(existsQuery(Relationship.Fields.DESTINATION_ID)) //todo Fix for Concrete ECL
 						.filter(termsQuery(Relationship.Fields.SOURCE_ID, updatedConceptIds))
 				)
 				.withSort(SortBuilders.fieldSort(Relationship.Fields.EFFECTIVE_TIME))
@@ -661,7 +656,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			changes = new ArrayList<>();
 		}
 
-		private void addAttribute(Integer effectiveTime, int groupId, Long type, Long value) {
+		private void addAttribute(Integer effectiveTime, int groupId, Long type, String value) {
 			changes.add(new AttributeChange(effectiveTime, groupId, type, value));
 		}
 
@@ -683,9 +678,9 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		private final int effectiveTime;
 		private final int group;
 		private final long type;
-		private final long value;
+		private final String value;
 
-		private AttributeChange(Integer effectiveTime, int group, long type, long value) {
+		private AttributeChange(Integer effectiveTime, int group, long type, String value) {
 			if (effectiveTime == null) {
 				effectiveTime = 90000000;
 			}
@@ -707,7 +702,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			return type;
 		}
 
-		private long getValue() {
+		private String getValue() {
 			return value;
 		}
 

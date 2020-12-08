@@ -70,15 +70,15 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		}
 	}
 
-	public void addAttribute(int group, Long type, Long value) {
+	public void addAttribute(int group, Long type, String value) {
 		if (groupedAttributesMap == null) {
 			groupedAttributesMap = new HashMap<>();
 		}
 		groupedAttributesMap.computeIfAbsent(group, (g) -> new HashMap<>())
-				.computeIfAbsent(type.toString(), (t) -> new ArrayList<>()).add(value.toString());
+				.computeIfAbsent(type.toString(), (t) -> new ArrayList<>()).add(value);
 	}
 
-	public void removeAttribute(int group, Long type, Long value) {
+	public void removeAttribute(int group, Long type, String value) {
 		if (groupedAttributesMap == null) {
 			groupedAttributesMap = new HashMap<>();
 		}
