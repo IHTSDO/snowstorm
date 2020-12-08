@@ -299,9 +299,9 @@ public class ConceptController {
 	private ItemsPage<?> findConceptsWithECL(String ecl, boolean stated, String branch, String acceptLanguageHeader, int offset, int limit) {
 		final ConceptSearchRequest searchRequest = new ConceptSearchRequest();
 		if (stated) {
-			searchRequest.setEclFilter(ecl);
-		} else {
 			searchRequest.setStatedEclFilter(ecl);
+		} else {
+			searchRequest.setEclFilter(ecl);
 		}
 		searchRequest.setOffset(offset);
 		searchRequest.setLimit(limit);
