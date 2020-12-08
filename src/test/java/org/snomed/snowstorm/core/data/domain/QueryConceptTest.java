@@ -35,16 +35,16 @@ class QueryConceptTest {
 		queryConcept.setConceptIdL(123L);
 		queryConcept.setPath("MAIN");
 
-		queryConcept.addAttribute(1, 123L, 456L);
+		queryConcept.addAttribute(1, 123L, "456");
 		assertEquals("1:123=456", queryConcept.getAttrMap());
 
-		queryConcept.addAttribute(1, 123L, 789L);
+		queryConcept.addAttribute(1, 123L, "789");
 		assertEquals("1:123=456,789", queryConcept.getAttrMap());
 
-		queryConcept.addAttribute(1, 1234L, 123L);
+		queryConcept.addAttribute(1, 1234L, "123");
 		assertEquals("1:123=456,789:1234=123", queryConcept.getAttrMap());
 
-		queryConcept.addAttribute(3, 123L, 456L);
+		queryConcept.addAttribute(3, 123L, "456");
 		assertEquals("1:123=456,789:1234=123|3:123=456", queryConcept.getAttrMap());
 
 		Map<Integer, Map<String, List<String>>> groupedAttributesMap = queryConcept.getGroupedAttributesMap();

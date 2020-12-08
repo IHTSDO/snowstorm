@@ -929,6 +929,34 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		conceptService.update(concept, branch);
 	}
 
+	@Test
+	void testRebuildSemanticIndexWithConcreteValues() throws ServiceException, InterruptedException {
+		String path = "MAIN";
+		List<Concept> concepts = new ArrayList<>();
+
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		concepts.add(new Concept("116680003").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("396070080").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("363698007").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+
+		conceptService.batchCreate(concepts, path);
+		concepts.clear();
+
+		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship("3332956025", null, true, "900000000000207008", "34020007", "#50", 1, "396070080", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("5963641025", null, true, "900000000000207008", "34020007", "39607008", 1, "363698007", "900000000000011006", "900000000000451002")));
+
+		// Use low level component save to prevent effectiveTimes being stripped by concept service
+		simulateRF2Import(path, concepts);
+
+		assertEquals(4, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007=*"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(5, queryService.search(queryService.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080=*"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		// TODO CDI-47 will fix this
+		// assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080=#50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+	}
+
 	private void simulateRF2Import(String path, List<Concept> concepts) {
 		try (Commit commit = branchService.openCommit(path)) {
 			concepts.forEach(Concept::markChanged);
