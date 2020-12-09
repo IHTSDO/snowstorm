@@ -1,6 +1,9 @@
 package org.snomed.snowstorm.mrcm;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.CommitListener;
+import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
@@ -25,7 +28,7 @@ import java.util.Map;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 
 @Service
-public class MRCMLoader {
+public class MRCMLoader implements CommitListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(MRCMLoader.class);
 
     private final Map<String, MRCM> cache = new HashMap<>();
@@ -35,6 +38,16 @@ public class MRCMLoader {
 
     @Autowired
     private ReferenceSetMemberService memberService;
+
+    @Override
+    public void preCommitCompletion(final Commit commit) throws IllegalStateException {
+        if (!this.cache.isEmpty()) {
+            final Branch branch = commit.getBranch();
+            final String branchPath = branch.getPath();
+
+            this.cache.remove(branchPath);
+        }
+    }
 
     // TODO: Make this work for MRCM extensions. Ask Guillermo how he is extending the MRCM in Extensions TermMed are maintaining.
     public MRCM loadActiveMRCM(String branchPath, BranchCriteria branchCriteria) throws ServiceException {

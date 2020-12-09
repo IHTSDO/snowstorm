@@ -27,6 +27,7 @@ import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierS
 import org.snomed.snowstorm.core.data.services.identifier.SnowstormCISClient;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
+import org.snomed.snowstorm.mrcm.MRCMLoader;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -128,11 +129,15 @@ public abstract class Config extends ElasticsearchConfig {
 	@Autowired
 	private IntegrityService integrityService;
 
+	@Autowired
+	private MRCMLoader mrcmLoader;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
 	public void configureCommitListeners() {
 		// Commit listeners will be called in this order
+		branchService.addCommitListener(mrcmLoader);
 		branchService.addCommitListener(conceptDefinitionStatusUpdateService);
 		branchService.addCommitListener(semanticIndexUpdateService);
 		branchService.addCommitListener(mrcmUpdateService);
