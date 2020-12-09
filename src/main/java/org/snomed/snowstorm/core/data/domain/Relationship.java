@@ -187,11 +187,6 @@ public class Relationship extends SnomedComponent<Relationship> {
 	}
 
 	public ConcreteValue getConcreteValue() {
-		if (this.value == null) {
-			return null;
-		}
-
-		this.concreteValue = new ConcreteValue(this.value);
 		return this.concreteValue;
 	}
 
@@ -199,14 +194,13 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.concreteValue = concreteValue;
 	}
 
-	public void setConcreteValue(String value) {
-		if (value != null) {
-			this.concreteValue = new ConcreteValue(value);
+	public void setConcreteValueFromExternal(org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue concreteValue) {
+		if (concreteValue != null) {
+			this.concreteValue = ConcreteValue.from(concreteValue);
+			this.value = concreteValue.getRF2Value();
+			this.destinationId = null;
+			this.target = null;
 		}
-
-		this.destinationId = null;
-		this.value = value;
-		this.target = null;
 	}
 
 	public boolean isConcrete() {

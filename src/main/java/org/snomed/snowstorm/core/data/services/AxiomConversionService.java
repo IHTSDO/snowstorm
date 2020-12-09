@@ -115,11 +115,7 @@ public class AxiomConversionService {
 					internalRelationship.setSourceId(sourceId != null ? sourceId.toString() : null);
 					internalRelationship.setGroupId(externalRelationship.getGroup());
 					internalRelationship.setInferred(false);
-
-					final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue externalConcreteValue = externalRelationship.getValue();
-					if (externalConcreteValue != null) {
-						internalRelationship.setConcreteValue(externalConcreteValue.getRF2Value());
-					}
+					internalRelationship.setConcreteValueFromExternal(externalRelationship.getValue());
 
 					return internalRelationship;
 				})
