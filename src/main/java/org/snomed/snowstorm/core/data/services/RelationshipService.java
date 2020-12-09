@@ -11,8 +11,13 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.ConcreteValue;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.mrcm.MRCMLoader;
+import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -33,6 +38,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class RelationshipService extends ComponentService {
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
@@ -46,9 +52,49 @@ public class RelationshipService extends ComponentService {
 	@Autowired
 	private ConceptUpdateHelper conceptUpdateHelper;
 
+	@Autowired
+	private MRCMLoader mrcmLoader;
+
 	public Relationship findRelationship(String branchPath, String relationshipId) {
-		Page<Relationship> relationships = findRelationships(branchPath, relationshipId, null, null, null, null, null, null, null, null, PageRequest.of(0, 1));
-		return relationships.getTotalElements() > 0 ? relationships.getContent().get(0) : null;
+		final Page<Relationship> relationships = findRelationships(branchPath, relationshipId, null, null, null, null, null, null, null, null, PageRequest.of(0, 1));
+		if (relationships.isEmpty()) {
+			return null;
+		}
+
+		final Relationship relationship = relationships.getContent().get(0);
+		setConcreteValueFromMRCM(relationship, branchPath);
+
+		return relationship;
+	}
+
+	private void setConcreteValueFromMRCM(final Relationship relationship,
+										  final String branchPath) {
+		final boolean isConcrete = relationship.isConcrete();
+		final boolean isInferred = relationship.getCharacteristicTypeId().equals(Relationship.CharacteristicType.inferred.getConceptId());
+		if (isConcrete && isInferred) {
+			try {
+				final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+				final MRCM mrcm = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+				final List<AttributeRange> attributeRanges = mrcm.getAttributeRanges();
+				final String typeId = relationship.getTypeId();
+				final String value = relationship.getValue();
+
+				for (AttributeRange attributeRange : attributeRanges) {
+					final String referencedComponentId = attributeRange.getReferencedComponentId();
+					if (typeId.equals(referencedComponentId)) {
+						final String rangeConstraint = attributeRange.getRangeConstraint();
+						final String shorthandDataType = rangeConstraint.substring(0, 3);
+
+						relationship.setConcreteValue(
+								ConcreteValue.fromShorthand(value, shorthandDataType)
+						);
+					}
+				}
+			} catch (final ServiceException e) {
+				logger.debug("Trouble loading active MRCM data.", e);
+				throw new ServiceError(e.getMessage());
+			}
+		}
 	}
 
 	public Page<Relationship> findInboundRelationships(String conceptId, String branchPath, Relationship.CharacteristicType characteristicType) {
