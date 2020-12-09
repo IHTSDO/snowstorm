@@ -110,7 +110,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 	public Relationship() {
 		active = true;
 		setModuleId(Concepts.CORE_MODULE);
-		destinationId = "";
+		destinationId = null;
 		typeId = "";
 		characteristicTypeId = Concepts.INFERRED_RELATIONSHIP;
 		modifierId = Concepts.EXISTENTIAL;
@@ -187,11 +187,6 @@ public class Relationship extends SnomedComponent<Relationship> {
 	}
 
 	public ConcreteValue getConcreteValue() {
-		if (this.value == null) {
-			return null;
-		}
-
-		this.concreteValue = new ConcreteValue(this.value);
 		return this.concreteValue;
 	}
 
@@ -199,13 +194,10 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.concreteValue = concreteValue;
 	}
 
-	public void setConcreteValue(String value) {
-		if (value != null) {
-			this.concreteValue = new ConcreteValue(value);
-		}
-
-		this.destinationId = null;
+	public void setConcreteValue(String value, String dataTypeName) {
+		this.concreteValue = ConcreteValue.from(value, dataTypeName);
 		this.value = value;
+		this.destinationId = null;
 		this.target = null;
 	}
 
@@ -348,6 +340,11 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public String getValue() {
 		return value;
+	}
+
+	@JsonIgnore
+	public String getValueWithoutConcretePrefix() {
+		return ConcreteValue.removeConcretePrefix(this.value);
 	}
 
 	public void setValue(String value) {

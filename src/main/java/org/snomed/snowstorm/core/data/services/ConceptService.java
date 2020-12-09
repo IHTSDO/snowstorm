@@ -99,6 +99,9 @@ public class ConceptService extends ComponentService {
 	@Autowired
 	private ConceptAttributeSortHelper conceptAttributeSortHelper;
 
+	@Autowired
+	private RelationshipService relationshipService;
+
 	private final Cache<String, AsyncConceptChangeBatch> batchConceptChanges;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -171,12 +174,12 @@ public class ConceptService extends ComponentService {
 
 	private Page<Concept> doFind(Collection<?> conceptIds, List<LanguageDialect> languageDialects, Commit commit, PageRequest pageRequest) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true);
+		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true, null);
 	}
 
 	private Page<Concept> doFind(Collection<?> conceptIds, List<LanguageDialect> languageDialects, BranchTimepoint branchTimepoint, PageRequest pageRequest) {
 		final BranchCriteria branchCriteria = getBranchCriteria(branchTimepoint);
-		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true);
+		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true, branchTimepoint.getBranchPath());
 	}
 
 	protected BranchCriteria getBranchCriteria(BranchTimepoint branchTimepoint) {
@@ -214,7 +217,7 @@ public class ConceptService extends ComponentService {
 		if (conceptIds != null && conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
-		Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, pageRequest, false, false);
+		Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, pageRequest, false, false, null);
 		Map<String, Concept> conceptMap = new HashMap<>();
 		for (Concept concept : concepts) {
 			String id = concept.getId();
@@ -234,7 +237,7 @@ public class ConceptService extends ComponentService {
 	private void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate, List<LanguageDialect> languageDialects) {
 		if (!minisToPopulate.isEmpty()) {
 			Set<String> conceptIds = minisToPopulate.keySet();
-			Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false);
+			Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false, null);
 			concepts.getContent().forEach(c -> {
 				ConceptMini conceptMini = minisToPopulate.get(c.getConceptId());
 				conceptMini.setDefinitionStatus(c.getDefinitionStatus());
@@ -249,7 +252,8 @@ public class ConceptService extends ComponentService {
 			BranchCriteria branchCriteria,
 			PageRequest pageRequest,
 			boolean includeRelationships,
-			boolean includeDescriptionInactivationInfo) {
+			boolean includeDescriptionInactivationInfo,
+			String branchPath) {
 
 		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
 		timer.checkpoint("get branch criteria");
@@ -302,7 +306,11 @@ public class ConceptService extends ComponentService {
 						.withPageable(LARGE_PAGE);
 				try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(queryBuilder.build(), Relationship.class)) {
 					relationships.forEachRemaining(hit -> {
+						//Set concrete value
 						Relationship relationship = hit.getContent();
+						if (branchPath != null) {
+							relationshipService.setConcreteValueFromMRCM(branchPath, relationship);
+						}
 						// Join Relationships
 						conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
 

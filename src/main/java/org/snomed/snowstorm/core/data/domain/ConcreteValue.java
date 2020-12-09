@@ -6,8 +6,7 @@ import org.snomed.snowstorm.rest.View;
 import org.springframework.data.annotation.Transient;
 
 /**
- * Represent the Value of a Concrete Relationship
- * in API response.
+ * Represent a concrete value.
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JsonView(value = View.Component.class)
@@ -19,41 +18,79 @@ public class ConcreteValue {
     private final String value;
 
     public enum DataType {
-        DECIMAL("DECIMAL"),
-        INTEGER("INTEGER"),
-        STRING("STRING");
+        DECIMAL("dec"),
+        INTEGER("int"),
+        STRING("str");
 
-        private final String value;
+        private final String shorthand;
 
-        DataType(final String value) {
-            this.value = value;
+        DataType(String shorthand) {
+            this.shorthand = shorthand;
         }
 
-        public String getValue() {
-            return this.value;
+        public String getShorthand() {
+            return this.shorthand;
+        }
+
+        /**
+         * Create instance of DataType.
+         *
+         * @param dataType Shorthand data type for concrete value.
+         * @return Instance of DataType.
+         */
+        public static DataType fromShorthand(String dataType) {
+            if (dataType == null) {
+                throw new IllegalArgumentException("'dataType' cannot be null.");
+            }
+
+            for (DataType type : DataType.values()) {
+                if (type.getShorthand().equals(dataType)) {
+                    return type;
+                }
+            }
+
+            return null;
         }
     }
 
-    public ConcreteValue(String value) {
-        if (value == null || value.length() < 2) {
-            throw new IllegalArgumentException("Value cannot be null.");
+    /**
+     * Create instance of ConcreteValue.
+     *
+     * @param value    Concrete value with concrete prefix.
+     * @param dataType Data type for concrete value.
+     * @return Instance of ConcreteValue.
+     * @throws IllegalArgumentException If dataType is not recognised.
+     */
+    public static ConcreteValue from(String value, String dataType) {
+        if (value == null || dataType == null) {
+            throw new IllegalArgumentException();
         }
 
-        final boolean isConcreteNumber = value.startsWith("#");
-        final boolean isConcreteString = value.startsWith("\"");
+        return new ConcreteValue(
+                ConcreteValue.removeConcretePrefix(value),
+                DataType.fromShorthand(dataType)
+        );
+    }
 
-        if (!isConcreteNumber && !isConcreteString) {
-            throw new IllegalArgumentException(value + " is not a concrete value.");
+    /**
+     * Return new String with concrete prefix removed.
+     *
+     * @param value Concrete value with concrete prefix.
+     * @return String with concrete prefix removed.
+     */
+    public static String removeConcretePrefix(String value) {
+        String valueWithoutPrefix = value;
+        valueWithoutPrefix = valueWithoutPrefix.substring(1);
+        if (valueWithoutPrefix.endsWith("\"")) {
+            valueWithoutPrefix = valueWithoutPrefix.substring(0, valueWithoutPrefix.length() - 1);
         }
 
-        if (isConcreteString) {
-            this.dataType = DataType.STRING;
-        } else {
-            value = value.substring(1);
-            this.dataType = value.contains(".") ? DataType.DECIMAL : DataType.INTEGER;
-        }
+        return valueWithoutPrefix;
+    }
 
+    public ConcreteValue(String value, ConcreteValue.DataType dataType) {
         this.value = value;
+        this.dataType = dataType;
     }
 
     public ConcreteValue.DataType getDataType() {
