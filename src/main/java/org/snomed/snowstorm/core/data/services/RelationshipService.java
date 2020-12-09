@@ -11,8 +11,13 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.ConcreteValue;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.mrcm.MRCMLoader;
+import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -33,7 +38,6 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class RelationshipService extends ComponentService {
-
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
 
@@ -46,9 +50,55 @@ public class RelationshipService extends ComponentService {
 	@Autowired
 	private ConceptUpdateHelper conceptUpdateHelper;
 
+	@Autowired
+	private MRCMLoader mrcmLoader;
+
 	public Relationship findRelationship(String branchPath, String relationshipId) {
-		Page<Relationship> relationships = findRelationships(branchPath, relationshipId, null, null, null, null, null, null, null, null, PageRequest.of(0, 1));
-		return relationships.getTotalElements() > 0 ? relationships.getContent().get(0) : null;
+		final Page<Relationship> relationships = findRelationships(branchPath, relationshipId, null, null, null, null, null, null, null, null, PageRequest.of(0, 1));
+		if (relationships.isEmpty()) {
+			return null;
+		}
+
+		final Relationship relationship = relationships.getContent().get(0);
+		setConcreteValueFromMRCM(branchPath, relationship);
+
+		return relationship;
+	}
+
+	/**
+	 * Set the ConcreteValue of each Relationship.
+	 *
+	 * @param branchPath    The branchPath to load active MRCM data from.
+	 * @param relationships The Relationships to update.
+	 * @throws RuntimeServiceException When there is an issue reading MRCM.
+	 */
+	public void setConcreteValueFromMRCM(String branchPath, Relationship... relationships) {
+		MRCM mrcm;
+		try {
+			mrcm = mrcmLoader.loadActiveMRCMFromCache(branchPath);
+		} catch (ServiceException e) {
+			throw new RuntimeServiceException("Trouble loading active MRCM data.", e);
+		}
+
+		boolean isConcrete;
+		boolean isInferred;
+		List<AttributeRange> attributeRanges = mrcm.getAttributeRanges();
+		for (Relationship relationship : relationships) {
+			isConcrete = relationship.isConcrete();
+			isInferred = relationship.getCharacteristicTypeId().equals(Relationship.CharacteristicType.inferred.getConceptId());
+			if (isConcrete && isInferred) {
+				String typeId = relationship.getTypeId();
+				for (AttributeRange attributeRange : attributeRanges) {
+					String referencedComponentId = attributeRange.getReferencedComponentId();
+					if (typeId.equals(referencedComponentId)) {
+						relationship.setConcreteValue(
+								new ConcreteValue(relationship.getValueWithoutConcretePrefix(), attributeRange.getDataType())
+						);
+						break;
+					}
+				}
+			}
+		}
 	}
 
 	public Page<Relationship> findInboundRelationships(String conceptId, String branchPath, Relationship.CharacteristicType characteristicType) {

@@ -83,9 +83,12 @@ public class RelationshipController {
 	private void expandSourceTypeAndDestination(String branch, List<Relationship> relationships, List<LanguageDialect> languageDialects) {
 		Set<String> allIds = new HashSet<>();
 		relationships.forEach(r -> {
+			final String destinationId = r.getDestinationId();
+			if (destinationId != null) {
+				allIds.add(destinationId);
+			}
 			allIds.add(r.getSourceId());
 			allIds.add(r.getTypeId());
-			allIds.add(r.getDestinationId());
 		});
 		
 		Map<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branch, allIds, languageDialects).getResultsMap();
