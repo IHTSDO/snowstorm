@@ -210,7 +210,11 @@ public class Relationship extends SnomedComponent<Relationship> {
 	}
 
 	public boolean isConcrete() {
-		return this.value != null && this.destinationId == null;
+		final boolean hasValue = this.value != null;
+		final boolean hasConcreteValue = this.concreteValue != null;
+		final boolean hasNoDestinationId = this.destinationId == null || this.destinationId.isEmpty();
+
+		return (hasValue && hasNoDestinationId) || (hasConcreteValue && hasNoDestinationId);
 	}
 
 	@Override
