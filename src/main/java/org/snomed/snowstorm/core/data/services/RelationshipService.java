@@ -88,6 +88,7 @@ public class RelationshipService extends ComponentService {
 						relationship.setConcreteValue(
 								ConcreteValue.fromShorthand(value, shorthandDataType)
 						);
+						break;
 					}
 				}
 			} catch (final ServiceException e) {
