@@ -110,7 +110,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 	public Relationship() {
 		active = true;
 		setModuleId(Concepts.CORE_MODULE);
-		destinationId = "";
+		destinationId = null;
 		typeId = "";
 		characteristicTypeId = Concepts.INFERRED_RELATIONSHIP;
 		modifierId = Concepts.EXISTENTIAL;
@@ -204,11 +204,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 	}
 
 	public boolean isConcrete() {
-		final boolean hasValue = this.value != null;
-		final boolean hasConcreteValue = this.concreteValue != null;
-		final boolean hasNoDestinationId = this.destinationId == null || this.destinationId.isEmpty();
-
-		return (hasValue && hasNoDestinationId) || (hasConcreteValue && hasNoDestinationId);
+		return this.value != null && this.destinationId == null;
 	}
 
 	@Override
