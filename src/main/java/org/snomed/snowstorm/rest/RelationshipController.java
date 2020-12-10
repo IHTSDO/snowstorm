@@ -84,7 +84,7 @@ public class RelationshipController {
 		Set<String> allIds = new HashSet<>();
 		relationships.forEach(r -> {
 			final String destinationId = r.getDestinationId();
-			if(destinationId != null){
+			if (destinationId != null) {
 				allIds.add(destinationId);
 			}
 			allIds.add(r.getSourceId());
