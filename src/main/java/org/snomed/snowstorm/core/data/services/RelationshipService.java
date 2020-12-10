@@ -92,8 +92,7 @@ public class RelationshipService extends ComponentService {
 					}
 				}
 			} catch (final ServiceException e) {
-				logger.debug("Trouble loading active MRCM data.", e);
-				throw new RuntimeServiceException(e.getMessage());
+				throw new RuntimeServiceException("Trouble loading active MRCM data.", e);
 			}
 		}
 	}
