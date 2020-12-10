@@ -10,48 +10,6 @@ import static org.junit.Assert.*;
 
 class ConcreteValueTest {
     @Test
-    public void dataTypeFrom_ShouldThrowException_WhenGivenNull() {
-        //then
-        assertThrows(IllegalArgumentException.class, () -> ConcreteValue.DataType.from(null));
-    }
-
-    @Test
-    public void dataTypeFrom_ShouldReturnInternalDataType_WhenGivenExternalConcreteDecimal() {
-        //given
-        final Relationship.ConcreteValue.Type concreteType = Relationship.ConcreteValue.Type.DECIMAL;
-
-        //when
-        final ConcreteValue.DataType result = ConcreteValue.DataType.from(concreteType);
-
-        //then
-        assertNotNull(result);
-    }
-
-    @Test
-    public void dataTypeFrom_ShouldReturnInternalDataType_WhenGivenExternalConcreteInteger() {
-        //given
-        final Relationship.ConcreteValue.Type concreteType = Relationship.ConcreteValue.Type.INTEGER;
-
-        //when
-        final ConcreteValue.DataType result = ConcreteValue.DataType.from(concreteType);
-
-        //then
-        assertNotNull(result);
-    }
-
-    @Test
-    public void dataTypeFrom_ShouldReturnInternalDataType_WhenGivenExternalConcreteString() {
-        //given
-        final Relationship.ConcreteValue.Type concreteType = Relationship.ConcreteValue.Type.STRING;
-
-        //when
-        final ConcreteValue.DataType result = ConcreteValue.DataType.from(concreteType);
-
-        //then
-        assertNotNull(result);
-    }
-
-    @Test
     public void dataTypeFromName_ShouldReturnExpectedDataType_WhenGivenExternalConcreteDecimal() {
         //given
         final String name = "decimal";
@@ -154,98 +112,119 @@ class ConcreteValueTest {
     }
 
     @Test
-    public void concreteValueFrom_ShouldThrowException_WhenGivenNull() {
+    public void concreteValueFrom_ShouldThrowException_WhenValueDoesNotHaveConcretePrefixForString() {
+        //given
+        final String value = "\"A Promised Land\" is a memoir by Barack Obama.";
+        final String dataType = "string";
+
         //then
-        assertThrows(IllegalArgumentException.class, () -> ConcreteValue.from(null));
+        assertThrows(IllegalArgumentException.class, () -> ConcreteValue.from(value, dataType));
     }
 
     @Test
-    //todo - check with Kai; seems to be missing quotes.
-    public void concreteValueFrom_ShouldReturnExpectedValue_WhenGivenConcreteString() {
+    public void concreteValueFrom_ShouldThrowException_WhenValueDoesNotHaveConcretePrefixForInteger() {
         //given
-        final String concreteValue = "\"\"A Promised Land\" is a memoir by Barack Obama.\"";
-        final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue inputConcreteValue = new Relationship.ConcreteValue(concreteValue);
-
-        //when
-        final ConcreteValue outputConcreteValue = ConcreteValue.from(inputConcreteValue);
-        final String result = outputConcreteValue.getValue();
-        final String expectedResult = "\"A Promised Land\" is a memoir by Barack Obama.";
+        final String value = "5";
+        final String dataType = "integer";
 
         //then
-        assertEquals(expectedResult, result);
+        assertThrows(IllegalArgumentException.class, () -> ConcreteValue.from(value, dataType));
     }
 
     @Test
-    public void concreteValueFrom_ShouldReturnExpectedDataType_WhenGivenConcreteString() {
+    public void concreteValueFrom_ShouldThrowException_WhenValueDoesNotHaveConcretePrefixForDecimal() {
         //given
-        final String concreteValue = "\"\"A Promised Land\" is a memoir by Barack Obama.\"";
-        final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue inputConcreteValue = new Relationship.ConcreteValue(concreteValue);
-
-        //when
-        final ConcreteValue outputConcreteValue = ConcreteValue.from(inputConcreteValue);
-        final ConcreteValue.DataType result = outputConcreteValue.getDataType();
+        final String value = "3.14";
+        final String dataType = "decimal";
 
         //then
-        assertEquals(ConcreteValue.DataType.STRING, result);
+        assertThrows(IllegalArgumentException.class, () -> ConcreteValue.from(value, dataType));
     }
 
     @Test
-    public void concreteValueFrom_ShouldReturnExpectedValue_WhenGivenConcreteInteger() {
+    public void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteString() {
         //given
-        final String concreteValue = "#5";
-        final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue inputConcreteValue = new Relationship.ConcreteValue(concreteValue);
+        final String inValue = "\"Two pills in the morning.\"";
+        final String inDataType = "string";
 
         //when
-        final ConcreteValue outputConcreteValue = ConcreteValue.from(inputConcreteValue);
-        final String result = outputConcreteValue.getValue();
-        final String expectedResult = "5";
+        final ConcreteValue concreteValue = ConcreteValue.from(inValue, inDataType);
+        final String outValue = concreteValue.getValue();
+        final ConcreteValue.DataType outDataType = concreteValue.getDataType();
 
         //then
-        assertEquals(expectedResult, result);
+        assertEquals("Two pills in the morning.", outValue);
+        assertEquals(ConcreteValue.DataType.STRING, outDataType);
     }
 
     @Test
-    public void concreteValueFrom_ShouldReturnExpectedDataType_WhenGivenConcreteInteger() {
+    public void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteStringWithNestedQuote() {
         //given
-        final String concreteValue = "#5";
-        final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue inputConcreteValue = new Relationship.ConcreteValue(concreteValue);
+        final String inValue = "\"\"A Promised Land\" is a memoir by Barack Obama.\"";
+        final String inDataType = "string";
 
         //when
-        final ConcreteValue outputConcreteValue = ConcreteValue.from(inputConcreteValue);
-        final ConcreteValue.DataType result = outputConcreteValue.getDataType();
+        final ConcreteValue concreteValue = ConcreteValue.from(inValue, inDataType);
+        final String outValue = concreteValue.getValue();
+        final ConcreteValue.DataType outDataType = concreteValue.getDataType();
 
         //then
-        assertEquals(ConcreteValue.DataType.INTEGER, result);
+        assertEquals("\"A Promised Land\" is a memoir by Barack Obama.", outValue);
+        assertEquals(ConcreteValue.DataType.STRING, outDataType);
     }
 
     @Test
-    public void concreteValueFrom_ShouldReturnExpectedValue_WhenGivenConcreteDecimal() {
+    public void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteInteger() {
         //given
-        final String concreteValue = "#3.14";
-        final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue inputConcreteValue = new Relationship.ConcreteValue(concreteValue);
+        final String inValue = "#5";
+        final String inDataType = "integer";
 
         //when
-        final ConcreteValue outputConcreteValue = ConcreteValue.from(inputConcreteValue);
-        final String result = outputConcreteValue.getValue();
-        final String expectedResult = "3.14";
+        final ConcreteValue concreteValue = ConcreteValue.from(inValue, inDataType);
+        final String outValue = concreteValue.getValue();
+        final ConcreteValue.DataType outDataType = concreteValue.getDataType();
 
         //then
-        assertEquals(expectedResult, result);
+        assertEquals("5", outValue);
+        assertEquals(ConcreteValue.DataType.INTEGER, outDataType);
     }
 
     @Test
-    public void concreteValueFrom_ShouldReturnExpectedDataType_WhenGivenConcreteDecimal() {
+    public void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteDecimal() {
         //given
-        final String concreteValue = "#3.14";
-        final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue inputConcreteValue = new Relationship.ConcreteValue(concreteValue);
+        final String inValue = "#3.14";
+        final String inDataType = "decimal";
 
         //when
-        final ConcreteValue outputConcreteValue = ConcreteValue.from(inputConcreteValue);
-        final ConcreteValue.DataType result = outputConcreteValue.getDataType();
+        final ConcreteValue concreteValue = ConcreteValue.from(inValue, inDataType);
+        final String outValue = concreteValue.getValue();
+        final ConcreteValue.DataType outDataType = concreteValue.getDataType();
 
         //then
-        assertEquals(ConcreteValue.DataType.DECIMAL, result);
+        assertEquals("3.14", outValue);
+        assertEquals(ConcreteValue.DataType.DECIMAL, outDataType);
     }
+
+    /*
+     * Testing dataType is the same as given dataType, i.e.
+     * same as use case for using MRCM.
+     * */
+    @Test
+    public void concreteValueFrom_ShouldReturnConcreteValueWithSameDataTypeAsInput() {
+        //given
+        final String inValue = "#3"; //Doesn't look like a Decimal.
+        final String inDataType = "decimal"; //But source states it is.
+
+        //when
+        final ConcreteValue concreteValue = ConcreteValue.from(inValue, inDataType);
+        final String outValue = concreteValue.getValue();
+        final ConcreteValue.DataType outDataType = concreteValue.getDataType();
+
+        //then
+        assertEquals("3", outValue);
+        assertEquals(ConcreteValue.DataType.DECIMAL, outDataType);
+    }
+
 
     @Test
     public void concreteValueFromShorthand_ShouldThrowException_WhenValueDoesNotHaveConcretePrefixForString() {

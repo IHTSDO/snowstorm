@@ -194,13 +194,11 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.concreteValue = concreteValue;
 	}
 
-	public void setConcreteValueFromExternal(org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue concreteValue) {
-		if (concreteValue != null) {
-			this.concreteValue = ConcreteValue.from(concreteValue);
-			this.value = concreteValue.getRF2Value();
-			this.destinationId = null;
-			this.target = null;
-		}
+	public void setConcreteValue(String value, String dataTypeName) {
+		this.concreteValue = ConcreteValue.from(value, dataTypeName);
+		this.value = value;
+		this.destinationId = null;
+		this.target = null;
 	}
 
 	public boolean isConcrete() {

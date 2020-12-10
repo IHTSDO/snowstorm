@@ -40,15 +40,13 @@ public class ConcreteValue {
             return this.shorthand;
         }
 
-        public static DataType from(final Relationship.ConcreteValue.Type type) {
-            if (type == null) {
-                throw new IllegalArgumentException("'type' cannot be null.");
-            }
-
-            final String typeName = type.getName();
-            return DataType.valueOf(typeName);
-        }
-
+        /**
+         * Create instance of DataType.
+         *
+         * @param name Data type for concrete value.
+         * @return Instance of DataType.
+         * @throws IllegalArgumentException If name is not recognised.
+         */
         public static DataType fromName(final String name) {
             if (name == null) {
                 throw new IllegalArgumentException("'dataType' cannot be null.");
@@ -66,6 +64,13 @@ public class ConcreteValue {
             }
         }
 
+        /**
+         * Create instance of DataType.
+         *
+         * @param dataType Shorthand data type for concrete value.
+         * @return Instance of DataType.
+         * @throws IllegalArgumentException If name is not recognised.
+         */
         public static DataType fromShorthand(final String dataType) {
             if (dataType == null) {
                 throw new IllegalArgumentException("'dataType' cannot be null.");
@@ -85,20 +90,30 @@ public class ConcreteValue {
     }
 
     /**
-     * Create instance of ConcreteValue from source.
+     * Create instance of ConcreteValue.
      *
-     * @param concreteValue External type to be converted to internal type.
-     * @return Instance of internal ConcreteValue type.
+     * @param value    Concrete value with concrete prefix.
+     * @param dataType Data type for concrete value.
+     * @return Instance of ConcreteValue.
+     * @throws IllegalArgumentException If value does not have concrete prefix.
      */
-    public static ConcreteValue from(final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue concreteValue) {
-        if (concreteValue == null) {
-            throw new IllegalArgumentException("'concreteValue' cannot be null.");
+    public static ConcreteValue from(String value,
+                                     final String dataType) {
+        if (value == null || dataType == null) {
+            throw new IllegalArgumentException();
         }
 
-        final Relationship.ConcreteValue.Type externalType = concreteValue.getType();
-        final DataType dataType = DataType.from(externalType);
-        final String value = concreteValue.asString();
-        return new ConcreteValue(value, dataType);
+        if (value.startsWith("#")) {
+            value = value.substring(1);
+        } else if (value.startsWith("\"") && value.endsWith("\"")) {
+            value = value.substring(1);
+            value = value.substring(0, value.length() - 1);
+        } else {
+            throw new IllegalArgumentException("No concrete prefix present.");
+        }
+
+        final DataType dT = DataType.fromName(dataType);
+        return new ConcreteValue(value, dT);
     }
 
     /**
@@ -107,6 +122,7 @@ public class ConcreteValue {
      * @param value    Concrete value with concrete prefix.
      * @param dataType Shorthand data type for concrete value.
      * @return Instance of ConcreteValue.
+     * @throws IllegalArgumentException If value does not have concrete prefix.
      */
     public static ConcreteValue fromShorthand(String value,
                                               final String dataType) {
