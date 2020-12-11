@@ -2,7 +2,6 @@ package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonView;
-import org.snomed.otf.owltoolkit.domain.Relationship;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.annotation.Transient;
 
@@ -19,21 +18,14 @@ public class ConcreteValue {
     private final String value;
 
     public enum DataType {
-        DECIMAL("DECIMAL", "dec"),
-        INTEGER("INTEGER", "int"),
-        STRING("STRING", "str");
+        DECIMAL("dec"),
+        INTEGER("int"),
+        STRING("str");
 
-        private final String name;
         private final String shorthand;
 
-        DataType(final String name,
-                 final String shorthand) {
-            this.name = name;
+        DataType(String shorthand) {
             this.shorthand = shorthand;
-        }
-
-        public String getName() {
-            return this.name;
         }
 
         public String getShorthand() {
@@ -43,49 +35,21 @@ public class ConcreteValue {
         /**
          * Create instance of DataType.
          *
-         * @param name Data type for concrete value.
-         * @return Instance of DataType.
-         * @throws IllegalArgumentException If name is not recognised.
-         */
-        public static DataType fromName(final String name) {
-            if (name == null) {
-                throw new IllegalArgumentException("'dataType' cannot be null.");
-            }
-
-            switch (name.toUpperCase()) {
-                case "DECIMAL":
-                    return DataType.DECIMAL;
-                case "INTEGER":
-                    return DataType.INTEGER;
-                case "STRING":
-                    return DataType.STRING;
-                default:
-                    throw new IllegalArgumentException("Unknown name: " + name);
-            }
-        }
-
-        /**
-         * Create instance of DataType.
-         *
          * @param dataType Shorthand data type for concrete value.
          * @return Instance of DataType.
-         * @throws IllegalArgumentException If name is not recognised.
          */
-        public static DataType fromShorthand(final String dataType) {
+        public static DataType fromShorthand(String dataType) {
             if (dataType == null) {
                 throw new IllegalArgumentException("'dataType' cannot be null.");
             }
 
-            switch (dataType.toLowerCase()) {
-                case "dec":
-                    return DataType.DECIMAL;
-                case "int":
-                    return DataType.INTEGER;
-                case "str":
-                    return DataType.STRING;
-                default:
-                    throw new IllegalArgumentException("Unknown data type: " + dataType);
+            for (DataType type : DataType.values()) {
+                if (type.getShorthand().equals(dataType)) {
+                    return type;
+                }
             }
+
+            return null;
         }
     }
 
@@ -95,52 +59,33 @@ public class ConcreteValue {
      * @param value    Concrete value with concrete prefix.
      * @param dataType Data type for concrete value.
      * @return Instance of ConcreteValue.
-     * @throws IllegalArgumentException If value does not have concrete prefix.
+     * @throws IllegalArgumentException If dataType is not recognised.
      */
-    public static ConcreteValue from(String value,
-                                     final String dataType) {
+    public static ConcreteValue from(String value, String dataType) {
         if (value == null || dataType == null) {
             throw new IllegalArgumentException();
         }
 
-        if (value.startsWith("#")) {
-            value = value.substring(1);
-        } else if (value.startsWith("\"") && value.endsWith("\"")) {
-            value = value.substring(1);
-            value = value.substring(0, value.length() - 1);
-        } else {
-            throw new IllegalArgumentException("No concrete prefix present.");
-        }
-
-        final DataType dT = DataType.fromName(dataType);
-        return new ConcreteValue(value, dT);
+        return new ConcreteValue(
+                ConcreteValue.removeConcretePrefix(value),
+                DataType.valueOf(dataType)
+        );
     }
 
     /**
-     * Create instance of ConcreteValue.
+     * Return new String with concrete prefix removed.
      *
-     * @param value    Concrete value with concrete prefix.
-     * @param dataType Shorthand data type for concrete value.
-     * @return Instance of ConcreteValue.
-     * @throws IllegalArgumentException If value does not have concrete prefix.
+     * @param value Concrete value with concrete prefix.
+     * @return String with concrete prefix removed.
      */
-    public static ConcreteValue fromShorthand(String value,
-                                              final String dataType) {
-        if (value == null || dataType == null) {
-            throw new IllegalArgumentException();
+    public static String removeConcretePrefix(String value) {
+        String valueWithoutPrefix = value;
+        valueWithoutPrefix = valueWithoutPrefix.substring(1);
+        if (valueWithoutPrefix.endsWith("\"")) {
+            valueWithoutPrefix = valueWithoutPrefix.substring(0, valueWithoutPrefix.length() - 1);
         }
 
-        if (value.startsWith("#")) {
-            value = value.substring(1);
-        } else if (value.startsWith("\"") && value.endsWith("\"")) {
-            value = value.substring(1);
-            value = value.substring(0, value.length() - 1);
-        } else {
-            throw new IllegalArgumentException("No concrete prefix present.");
-        }
-
-        final DataType dT = DataType.fromShorthand(dataType);
-        return new ConcreteValue(value, dT);
+        return valueWithoutPrefix;
     }
 
     public ConcreteValue(String value, ConcreteValue.DataType dataType) {
