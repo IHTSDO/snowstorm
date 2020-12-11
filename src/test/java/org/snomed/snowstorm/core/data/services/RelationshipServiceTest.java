@@ -131,6 +131,58 @@ class RelationshipServiceTest extends AbstractTest {
         assertEquals(ConcreteValue.DataType.DECIMAL, dataType);
     }
 
+    @Test
+    public void setConcreteValueFromMRCM_ShouldReturnRelationshipWithConcreteDataTypeString_WhenMRCMIsString() throws ServiceException {
+        //given
+        givenBranchExists();
+        givenConceptExistsOnBranch();
+        givenReferenceSetMemberExistsOnBranchWithRangeConstraint("str(\"PANADOL\" \"TYLENOL\" \"HERRON\")");
+        final Relationship relationship = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
+
+        //when
+        relationshipService.setConcreteValueFromMRCM("MAIN/CDI-90", relationship);
+        final ConcreteValue concreteValue = relationship.getConcreteValue();
+        final ConcreteValue.DataType dataType = concreteValue.getDataType();
+
+        //then
+        assertEquals(ConcreteValue.DataType.STRING, dataType);
+    }
+
+    @Test
+    public void setConcreteValueFromMRCM_ShouldReturnRelationshipWithConcreteDataTypeInteger_WhenMRCMIsInteger() throws ServiceException {
+        //given
+        givenBranchExists();
+        givenConceptExistsOnBranch();
+        givenReferenceSetMemberExistsOnBranchWithRangeConstraint("int(#2)");
+        final Relationship relationship = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
+
+        //when
+        relationshipService.setConcreteValueFromMRCM("MAIN/CDI-90", relationship);
+        final ConcreteValue concreteValue = relationship.getConcreteValue();
+        final ConcreteValue.DataType dataType = concreteValue.getDataType();
+
+        //then
+        assertEquals(ConcreteValue.DataType.INTEGER, dataType);
+    }
+
+    @Test
+    public void setConcreteValueFromMRCM_ShouldReturnRelationshipWithConcreteDataTypeDecimal_WhenMRCMIsDecimal() throws ServiceException {
+        //given
+        givenBranchExists();
+        givenConceptExistsOnBranch();
+        givenReferenceSetMemberExistsOnBranchWithRangeConstraint("dec(#2)"); //purposely missing decimal point
+        final Relationship relationship = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
+
+        //when
+        relationshipService.setConcreteValueFromMRCM("MAIN/CDI-90", relationship);
+        final ConcreteValue concreteValue = relationship.getConcreteValue();
+        final ConcreteValue.DataType dataType = concreteValue.getDataType();
+
+        //then
+        assertEquals(ConcreteValue.DataType.DECIMAL, dataType);
+    }
+
+
 	public List<Relationship> findAll() {
 		return relationshipService.findRelationships(MAIN, null, null, null, null, null, null, null, null, null, PageRequest.of(0, 10)).getContent();
 	}

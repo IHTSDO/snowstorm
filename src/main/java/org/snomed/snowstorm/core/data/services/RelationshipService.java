@@ -60,33 +60,44 @@ public class RelationshipService extends ComponentService {
 		}
 
 		final Relationship relationship = relationships.getContent().get(0);
-		setConcreteValueFromMRCM(relationship, branchPath);
+		setConcreteValueFromMRCM(branchPath, relationship);
 
 		return relationship;
 	}
 
-	private void setConcreteValueFromMRCM(final Relationship relationship, final String branchPath) {
-		final boolean isConcrete = relationship.isConcrete();
-		final boolean isInferred = relationship.getCharacteristicTypeId().equals(Relationship.CharacteristicType.inferred.getConceptId());
-		if (isConcrete && isInferred) {
-			try {
-				final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
-				final MRCM mrcm = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
-				final List<AttributeRange> attributeRanges = mrcm.getAttributeRanges();
-				final String typeId = relationship.getTypeId();
-				final String value = relationship.getValueWithoutConcretePrefix();
+	/**
+	 * Set the ConcreteValue of each Relationship.
+	 *
+	 * @param branchPath    The branchPath to load active MRCM data from.
+	 * @param relationships The Relationships to update.
+	 * @throws RuntimeServiceException When there is an issue reading MRCM.
+	 */
+	public void setConcreteValueFromMRCM(String branchPath, Relationship... relationships) {
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		MRCM mrcm;
+		try {
+			mrcm = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+		} catch (ServiceException e) {
+			throw new RuntimeServiceException("Trouble loading active MRCM data.", e);
+		}
 
+		boolean isConcrete;
+		boolean isInferred;
+		List<AttributeRange> attributeRanges = mrcm.getAttributeRanges();
+		for (Relationship relationship : relationships) {
+			isConcrete = relationship.isConcrete();
+			isInferred = relationship.getCharacteristicTypeId().equals(Relationship.CharacteristicType.inferred.getConceptId());
+			if (isConcrete && isInferred) {
+				String typeId = relationship.getTypeId();
 				for (AttributeRange attributeRange : attributeRanges) {
-					final String referencedComponentId = attributeRange.getReferencedComponentId();
+					String referencedComponentId = attributeRange.getReferencedComponentId();
 					if (typeId.equals(referencedComponentId)) {
 						relationship.setConcreteValue(
-								new ConcreteValue(value, attributeRange.getDataType())
+								new ConcreteValue(relationship.getValueWithoutConcretePrefix(), attributeRange.getDataType())
 						);
 						break;
 					}
 				}
-			} catch (final ServiceException e) {
-				throw new RuntimeServiceException("Trouble loading active MRCM data.", e);
 			}
 		}
 	}
