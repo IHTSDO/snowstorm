@@ -11,6 +11,7 @@ import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint
 import org.snomed.langauges.ecl.domain.expressionconstraint.RefinedExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.ConcreteValue;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
@@ -134,15 +135,17 @@ public class MRCMLoader implements CommitListener {
         for (ReferenceSetMember member : attributeRangeMembers) {
             // id	effectiveTime	active	moduleId	refsetId	referencedComponentId	rangeConstraint	attributeRule	ruleStrengthId	contentTypeId
             if (member.isActive()) {
+                String rangeConstraint = member.getAdditionalField("rangeConstraint");
                 attributeRanges.add(new AttributeRange(
                         member.getMemberId(),
                         member.getEffectiveTime(),
                         member.isActive(),
                         member.getReferencedComponentId(),
-                        member.getAdditionalField("rangeConstraint"),
+                        rangeConstraint,
                         member.getAdditionalField("attributeRule"),
                         RuleStrength.lookupByConceptId(member.getAdditionalField("ruleStrengthId")),
-                        ContentType.lookupByConceptId(member.getAdditionalField("contentTypeId"))
+                        ContentType.lookupByConceptId(member.getAdditionalField("contentTypeId")),
+                        getConcreteValueDataType(rangeConstraint)
                 ));
             }
         }
@@ -168,6 +171,16 @@ public class MRCMLoader implements CommitListener {
         } else {
             LOGGER.error("Unable to process MRCM constraint '{}' in member {}.", constraint, mrcmMember.getMemberId());
         }
+        return null;
+    }
+
+    private ConcreteValue.DataType getConcreteValueDataType(String rangeConstraint) {
+        int length = rangeConstraint.length();
+        if (length >= 3) {
+            rangeConstraint = rangeConstraint.substring(0, 3);
+            return ConcreteValue.DataType.fromShorthand(rangeConstraint);
+        }
+
         return null;
     }
 
