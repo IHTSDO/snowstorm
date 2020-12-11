@@ -68,7 +68,7 @@ public class ConcreteValue {
 
         return new ConcreteValue(
                 ConcreteValue.removeConcretePrefix(value),
-                DataType.valueOf(dataType)
+                DataType.fromShorthand(dataType)
         );
     }
 

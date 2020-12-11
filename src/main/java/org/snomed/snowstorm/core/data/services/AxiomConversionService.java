@@ -119,7 +119,7 @@ public class AxiomConversionService {
 					final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue concreteValue = externalRelationship.getValue();
 					if (concreteValue != null) {
 						final String rf2Value = concreteValue.getRF2Value();
-						final String typeName = concreteValue.getType().getName();
+						final String typeName = concreteValue.getType().getShorthand();
 						internalRelationship.setConcreteValue(rf2Value, typeName);
 					}
 

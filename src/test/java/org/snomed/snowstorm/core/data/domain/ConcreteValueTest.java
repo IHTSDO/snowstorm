@@ -55,7 +55,7 @@ class ConcreteValueTest {
     public void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteString() {
         //given
         final String inValue = "\"Two pills in the morning.\"";
-        final String inDataType = "STRING";
+        final String inDataType = "str";
 
         //when
         final ConcreteValue concreteValue = ConcreteValue.from(inValue, inDataType);
@@ -71,7 +71,7 @@ class ConcreteValueTest {
     public void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteStringWithNestedQuote() {
         //given
         final String inValue = "\"\"A Promised Land\" is a memoir by Barack Obama.\"";
-        final String inDataType = "STRING";
+        final String inDataType = "str";
 
         //when
         final ConcreteValue concreteValue = ConcreteValue.from(inValue, inDataType);
@@ -87,7 +87,7 @@ class ConcreteValueTest {
     public void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteInteger() {
         //given
         final String inValue = "#5";
-        final String inDataType = "INTEGER";
+        final String inDataType = "int";
 
         //when
         final ConcreteValue concreteValue = ConcreteValue.from(inValue, inDataType);
@@ -103,7 +103,7 @@ class ConcreteValueTest {
     public void concreteValueFrom_ShouldReturnExpectedConcreteValue_WhenGivenConcreteDecimal() {
         //given
         final String inValue = "#3.14";
-        final String inDataType = "DECIMAL";
+        final String inDataType = "dec";
 
         //when
         final ConcreteValue concreteValue = ConcreteValue.from(inValue, inDataType);
@@ -123,7 +123,7 @@ class ConcreteValueTest {
     public void concreteValueFrom_ShouldReturnConcreteValueWithSameDataTypeAsInput() {
         //given
         final String inValue = "#3"; //Doesn't look like a Decimal.
-        final String inDataType = "DECIMAL"; //But source states it is.
+        final String inDataType = "dec"; //But source states it is.
 
         //when
         final ConcreteValue concreteValue = ConcreteValue.from(inValue, inDataType);
