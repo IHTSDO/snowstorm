@@ -342,6 +342,11 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return value;
 	}
 
+	@JsonIgnore
+	public String getValueWithoutConcretePrefix() {
+		return ConcreteValue.removeConcretePrefix(this.value);
+	}
+
 	public void setValue(String value) {
 		this.destinationId = null;
 		this.value = value;
