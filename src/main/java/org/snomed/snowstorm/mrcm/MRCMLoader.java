@@ -41,12 +41,7 @@ public class MRCMLoader implements CommitListener {
 
     @Override
     public void preCommitCompletion(final Commit commit) throws IllegalStateException {
-        if (!this.cache.isEmpty()) {
-            final Branch branch = commit.getBranch();
-            final String branchPath = branch.getPath();
-
-            this.cache.remove(branchPath);
-        }
+        this.cache.remove(commit.getBranch().getPath());
     }
 
     // TODO: Make this work for MRCM extensions. Ask Guillermo how he is extending the MRCM in Extensions TermMed are maintaining.
