@@ -73,10 +73,9 @@ public class RelationshipService extends ComponentService {
 	 * @throws RuntimeServiceException When there is an issue reading MRCM.
 	 */
 	public void setConcreteValueFromMRCM(String branchPath, Relationship... relationships) {
-		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		MRCM mrcm;
 		try {
-			mrcm = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+			mrcm = mrcmLoader.loadActiveMRCMFromCache(branchPath);
 		} catch (ServiceException e) {
 			throw new RuntimeServiceException("Trouble loading active MRCM data.", e);
 		}
