@@ -38,8 +38,6 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class RelationshipService extends ComponentService {
-	private final Logger logger = LoggerFactory.getLogger(getClass());
-
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
 
@@ -67,8 +65,7 @@ public class RelationshipService extends ComponentService {
 		return relationship;
 	}
 
-	private void setConcreteValueFromMRCM(final Relationship relationship,
-										  final String branchPath) {
+	private void setConcreteValueFromMRCM(final Relationship relationship, final String branchPath) {
 		final boolean isConcrete = relationship.isConcrete();
 		final boolean isInferred = relationship.getCharacteristicTypeId().equals(Relationship.CharacteristicType.inferred.getConceptId());
 		if (isConcrete && isInferred) {
@@ -77,16 +74,13 @@ public class RelationshipService extends ComponentService {
 				final MRCM mrcm = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
 				final List<AttributeRange> attributeRanges = mrcm.getAttributeRanges();
 				final String typeId = relationship.getTypeId();
-				final String value = relationship.getValue();
+				final String value = relationship.getValueWithoutConcretePrefix();
 
 				for (AttributeRange attributeRange : attributeRanges) {
 					final String referencedComponentId = attributeRange.getReferencedComponentId();
 					if (typeId.equals(referencedComponentId)) {
-						final String rangeConstraint = attributeRange.getRangeConstraint();
-						final String shorthandDataType = rangeConstraint.substring(0, 3);
-
 						relationship.setConcreteValue(
-								ConcreteValue.fromShorthand(value, shorthandDataType)
+								new ConcreteValue(value, attributeRange.getDataType())
 						);
 						break;
 					}
