@@ -2,7 +2,7 @@ package org.snomed.snowstorm.mrcm;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.CommitListener;
-import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,13 +40,42 @@ public class MRCMLoader implements CommitListener {
     @Autowired
     private ReferenceSetMemberService memberService;
 
+    @Autowired
+    private VersionControlHelper versionControlHelper;
+
     @Override
     public void preCommitCompletion(final Commit commit) throws IllegalStateException {
         this.cache.remove(commit.getBranch().getPath());
     }
 
+    /**
+     * Retrieve the latest MRCM for the given branch.
+     *
+     * @param branchPath     The branch to read MRCM data from.
+     * @param branchCriteria The branch criteria to use for querying the target branch.
+     * @return The MRCM for the given branch.
+     * @throws ServiceException When there is an issue reading MRCM.
+     */
     // TODO: Make this work for MRCM extensions. Ask Guillermo how he is extending the MRCM in Extensions TermMed are maintaining.
     public MRCM loadActiveMRCM(String branchPath, BranchCriteria branchCriteria) throws ServiceException {
+        final TimerUtil timer = new TimerUtil("MRCM");
+        final List<Domain> domains = getDomains(branchPath, branchCriteria, timer);
+        final List<AttributeDomain> attributeDomains = getAttributeDomains(branchPath, branchCriteria, timer);
+        final List<AttributeRange> attributeRanges = getAttributeRanges(branchPath, branchCriteria, timer);
+
+        return new MRCM(domains, attributeDomains, attributeRanges);
+    }
+
+    /**
+     * Retrieve the latest MRCM for the given branch. If the MRCM has been read
+     * for the given branch, then the data is read from an internal cache. The cache will
+     * subsequently be cleared whenever the MRCM is updated.
+     *
+     * @param branchPath The branch to read MRCM data from.
+     * @return The MRCM for the given branch.
+     * @throws ServiceException When there is an issue reading MRCM.
+     */
+    public MRCM loadActiveMRCMFromCache(String branchPath) throws ServiceException {
         LOGGER.debug("Checking cache for MRCM.");
         final MRCM cachedMRCM = cache.get(branchPath);
         if (cachedMRCM != null) {
@@ -55,6 +84,7 @@ public class MRCMLoader implements CommitListener {
         }
         LOGGER.debug("MRCM not present in cache; loading MRCM.");
 
+        final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
         final TimerUtil timer = new TimerUtil("MRCM");
         final List<Domain> domains = getDomains(branchPath, branchCriteria, timer);
         final List<AttributeDomain> attributeDomains = getAttributeDomains(branchPath, branchCriteria, timer);
