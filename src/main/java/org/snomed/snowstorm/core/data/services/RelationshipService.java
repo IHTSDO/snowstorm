@@ -11,13 +11,12 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongArraySet;
 import it.unimi.dsi.fastutil.longs.LongComparators;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ConcreteValue;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.mrcm.MRCMLoader;
-import org.snomed.snowstorm.mrcm.model.*;
+import org.snomed.snowstorm.mrcm.model.AttributeRange;
+import org.snomed.snowstorm.mrcm.model.MRCM;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -182,13 +181,21 @@ public class RelationshipService extends ComponentService {
 		if (sourceConceptIds == null) {
 			NativeSearchQuery query = constructDestinationSearchQuery(sourceConceptIds, attributeTypeIds, branchCriteria, stated);
 			try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(query, Relationship.class)) {
-				stream.forEachRemaining(hit -> destinationIds.add(parseLong(hit.getContent().getDestinationId())));
+				stream.forEachRemaining(hit -> {
+					if (hit.getContent().getDestinationId() != null) {
+						destinationIds.add(parseLong(hit.getContent().getDestinationId()));
+					}
+				});
 			}
 		} else {
 			for (List<Long> batch : Iterables.partition(sourceConceptIds, CLAUSE_LIMIT)) {
 				NativeSearchQuery query = constructDestinationSearchQuery(batch, attributeTypeIds, branchCriteria, stated);
 				try (SearchHitsIterator<Relationship> stream = elasticsearchOperations.searchForStream(query, Relationship.class)) {
-					stream.forEachRemaining(hit -> destinationIds.add(parseLong(hit.getContent().getDestinationId())));
+					stream.forEachRemaining(hit -> {
+						if (hit.getContent().getDestinationId() != null) {
+							destinationIds.add(parseLong(hit.getContent().getDestinationId()));
+						}
+					});
 				}
 			}
 		}
