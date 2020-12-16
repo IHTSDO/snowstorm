@@ -12,10 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.QueryConcept;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilderException;
 import org.snomed.snowstorm.mrcm.MRCMLoader;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
@@ -465,6 +462,47 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testSwapParentsMustNotCreateCircularReference() throws ServiceException {
+		// On MAIN
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		Concept isA = new Concept(ISA).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		// A -> root
+		Concept cA = new Concept("1001000").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		// B -> A
+		Concept cB = new Concept("1002000").addRelationship(new Relationship(ISA, cA.getId()));
+		// C -> A
+		Concept cC = new Concept("1003000").addRelationship(new Relationship(ISA, cA.getId()));
+
+		conceptService.batchCreate(Lists.newArrayList(root, isA, cA, cB, cC), "MAIN");
+
+		// On MAIN/A
+		// C -> B
+		branchService.create("MAIN/A");
+		cC.addRelationship(new Relationship(ISA, cB.getId()));
+		conceptService.update(cC, "MAIN/A");
+
+		// On MAIN
+		// B -> C
+		cB.addRelationship(new Relationship(ISA, cC.getId()));
+		conceptService.update(cB, "MAIN");
+
+		// Rebase MAIN/A
+		// Introduces a transitive closure loop but will be fixed in MAIN/A
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+
+		// Update from C -> B -> A
+		// Update to   B -> C -> A
+		/// Remove C -> B
+		cC.getRelationships().forEach(relationship -> relationship.setActive(false));
+		/// C -> A
+		cC.addRelationship(new Relationship(ISA, cA.getId()));
+		conceptService.update(cC, "MAIN/A");
+
+		Page<ConceptMini> concepts = queryService.eclSearch(">! " + cB.getId(), false, "MAIN/A", PageRequest.of(0, 10));
+		assertEquals("[" + cC.getId() + ", 1001000]", concepts.getContent().stream().map(ConceptMini::getConceptId).collect(Collectors.toList()).toString());
+	}
+
+	@Test
 	void inactiveConceptsRemovedFromStatedIndex() throws ServiceException {
 		String path = "MAIN";
 		conceptService.create(new Concept(SNOMEDCT_ROOT), path);
@@ -775,14 +813,14 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		List<Concept> concepts = new ArrayList<>();
 
 		concepts.add(new Concept(SNOMEDCT_ROOT));
-		concepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true)));
-		concepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true)));
+		concepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		concepts.add(new Concept("100100000001")
-				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true))
-				.addRelationship(new Relationship(FINDING_SITE, "100200000001").setInferred(true))
+				.addRelationship(new Relationship(ISA, SNOMEDCT_ROOT))
+				.addRelationship(new Relationship(FINDING_SITE, "100200000001"))
 		);
-		concepts.add(new Concept("100200000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true)));
-		concepts.add(new Concept("100300000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true)));
+		concepts.add(new Concept("100200000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("100300000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 
 		conceptService.batchCreate(concepts, path);
 		concepts.clear();
@@ -794,7 +832,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// On the child branch add another attribute
 		Concept concept = conceptService.find("100100000001", projectBranch);
-		concept.getRelationships().add(new Relationship(FINDING_SITE, "100300000001").setInferred(true));
+		concept.getRelationships().add(new Relationship(FINDING_SITE, "100300000001"));
 		conceptService.update(concept, projectBranch);
 
 		assertEquals("Concept exists on child branch",
@@ -815,7 +853,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 				0, queryService.search(queryService.createQueryBuilder(false).ecl("100100000001 : " + FINDING_SITE + " = 100300000001"), projectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// Make a commit on MAIN
-		conceptService.create(new Concept("100400000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT).setInferred(true)), path);
+		conceptService.create(new Concept("100400000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)), path);
 
 		// Rebase the child branch
 		try (Commit rebaseCommit = branchService.openRebaseCommit(projectBranch)) {
@@ -825,6 +863,70 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		// This fails before the fix for MAINT-1501
 		assertEquals("Concept exists on child branch",
 				1, queryService.search(queryService.createQueryBuilder(false).ecl("100100000001"), projectBranch, QueryService.PAGE_OF_ONE).getTotalElements());
+	}
+
+	@Test
+	public void testAutoMergeAttributeOnLeftTCChangeOnRight() throws ServiceException {
+		List<Concept> concepts = new ArrayList<>();
+
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		concepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("100000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("200000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("300000001").addRelationship(new Relationship(ISA, "200000001")));
+
+		conceptService.batchCreate(concepts, "MAIN");
+
+		branchService.create("MAIN/A");
+
+		// Add an attribute to concept 3 in MAIN
+		addRelationship("300000001", FINDING_SITE, CLINICAL_FINDING, "MAIN");
+
+		// Change transitive closure of concept 3 (via concept 2) in project
+		addRelationship("200000001", ISA, "100000001", "MAIN/A");
+
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+
+		assertEquals(0, eclSearch("<100000001 AND 300000001", "MAIN").getTotalElements());
+		assertEquals(1, eclSearch("300000001:" + FINDING_SITE + "=*", "MAIN").getTotalElements());
+		assertEquals(1, eclSearch("<100000001 AND 300000001", "MAIN/A").getTotalElements());
+		assertEquals(1, eclSearch("300000001:" + FINDING_SITE + "=*", "MAIN/A").getTotalElements());
+	}
+
+	@Test
+	public void testAutoMergeTCChangeOnRightAttributeOnLeft() throws ServiceException {
+		List<Concept> concepts = new ArrayList<>();
+
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		concepts.add(new Concept(CLINICAL_FINDING).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept(FINDING_SITE).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("100000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("200000001").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("300000001").addRelationship(new Relationship(ISA, "200000001")));
+
+		conceptService.batchCreate(concepts, "MAIN");
+
+		branchService.create("MAIN/A");
+
+		// Add an attribute to concept 3 in project
+		addRelationship("300000001", FINDING_SITE, CLINICAL_FINDING, "MAIN/A");
+
+		// Change transitive closure of concept 3 (via concept 2) in MAIN
+		addRelationship("200000001", ISA, "100000001", "MAIN");
+
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
+
+		assertEquals(1, eclSearch("<100000001 AND 300000001", "MAIN").getTotalElements());
+		assertEquals(0, eclSearch("300000001:" + FINDING_SITE + "=*", "MAIN").getTotalElements());
+		assertEquals(1, eclSearch("<100000001 AND 300000001", "MAIN/A").getTotalElements());
+		assertEquals(1, eclSearch("300000001:" + FINDING_SITE + "=*", "MAIN/A").getTotalElements());
+	}
+
+	private void addRelationship(String conceptId, String type, String target, String branch) throws ServiceException {
+		final Concept concept = conceptService.find(conceptId, branch);
+		concept.addRelationship(new Relationship(type, target));
+		conceptService.update(concept, branch);
 	}
 
 	private void simulateRF2Import(String path, List<Concept> concepts) {
