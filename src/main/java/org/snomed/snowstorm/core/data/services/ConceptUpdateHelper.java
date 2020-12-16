@@ -79,7 +79,7 @@ public class ConceptUpdateHelper extends ComponentService {
 	@Autowired
 	private BranchService branchService;
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	PersistedComponents saveNewOrUpdatedConcepts(Collection<Concept> concepts, Commit commit, Map<String, Concept> existingConceptsMap) throws ServiceException {
 		final boolean savingMergedConcepts = commit.isRebase();
@@ -320,7 +320,6 @@ public class ConceptUpdateHelper extends ComponentService {
 				ReferenceSetMember bestMember = getBestRefsetMember(associationRefsetId, ReferenceSetMember.AssociationFields.TARGET_COMP_ID, associationValue, newVersionMembers, existingVersionMembers);
 				if (bestMember != null) {
 					// Keep
-					bestMember.setActive(true);
 					membersToKeep.add(bestMember);
 				} else {
 					// Create new
@@ -362,7 +361,7 @@ public class ConceptUpdateHelper extends ComponentService {
 	private ReferenceSetMember getBestRefsetMember(String refsetId, String additionalFieldKey, String additionalFieldValue, Set<ReferenceSetMember> newVersionMembers, Set<ReferenceSetMember> existingVersionMembers) {
 		ReferenceSetMember bestMember = null;
 		if (existingVersionMembers != null) {
-			bestMember = getBestRefsetMemberInSetOrKeep(refsetId, additionalFieldKey, additionalFieldValue, existingVersionMembers, bestMember);
+			bestMember = getBestRefsetMemberInSetOrKeep(refsetId, additionalFieldKey, additionalFieldValue, existingVersionMembers, null);
 		}
 		if (newVersionMembers != null) {
 			bestMember = getBestRefsetMemberInSetOrKeep(refsetId, additionalFieldKey, additionalFieldValue, newVersionMembers, bestMember);
