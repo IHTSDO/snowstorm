@@ -29,6 +29,9 @@ public class ExportConfiguration {
 	@ApiModelProperty(value = "false")
 	private boolean conceptsAndRelationshipsOnly;
 
+	@ApiModelProperty(value = "false")
+	private boolean unpromotedChangesOnly;
+
 	@ApiModelProperty(notes = "Format: yyyymmdd. Add a transient effectiveTime to rows of content which are not yet versioned.")
 	@Pattern(regexp = "[0-9]{8}")
 	private String transientEffectiveTime;
@@ -77,6 +80,14 @@ public class ExportConfiguration {
 
 	public void setConceptsAndRelationshipsOnly(boolean conceptsAndRelationshipsOnly) {
 		this.conceptsAndRelationshipsOnly = conceptsAndRelationshipsOnly;
+	}
+
+	public boolean isUnpromotedChangesOnly() {
+		return unpromotedChangesOnly;
+	}
+
+	public void setUnpromotedChangesOnly(boolean unpromotedChangesOnly) {
+		this.unpromotedChangesOnly = unpromotedChangesOnly;
 	}
 
 	public String getId() {
