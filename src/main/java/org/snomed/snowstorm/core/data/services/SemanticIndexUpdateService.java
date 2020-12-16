@@ -42,11 +42,12 @@ import java.util.stream.Collectors;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.CONCEPT_MODEL_OBJECT_ATTRIBUTE;
 
 @Service
 public class SemanticIndexUpdateService extends ComponentService implements CommitListener {
 
-	private static final long CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG = parseLong(Concepts.CONCEPT_MODEL_OBJECT_ATTRIBUTE);
+	private static final long CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG = parseLong(CONCEPT_MODEL_OBJECT_ATTRIBUTE);
 	private static final long CONCEPT_MODEL_ATTRIBUTE_LONG = parseLong(Concepts.CONCEPT_MODEL_ATTRIBUTE);
 
 	@Value("${commit-hook.semantic-indexing.enabled:true}")
@@ -169,6 +170,12 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 				Integer effectiveTime = component.getEffectiveTimeI();
 				if (type == IS_A_TYPE) {
 					graphBuilder.addParent(conceptId, parseLong(value));
+
+					// Concept model object attribute is not linked to the concept hierarchy by any axiom
+					// however we want the link in the semantic index so let's add it here.
+					if (CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG == parseLong(value)) {
+						graphBuilder.addParent(CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG, CONCEPT_MODEL_ATTRIBUTE_LONG);
+					}
 				} else {
 					conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value);
 				}

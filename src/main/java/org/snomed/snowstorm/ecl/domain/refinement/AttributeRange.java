@@ -5,20 +5,19 @@ import org.springframework.data.domain.Page;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
-
-import static java.lang.Long.parseLong;
 
 class AttributeRange {
 
 	private final boolean attributeTypeWildcard;
 	private final Set<String> possibleAttributeTypes;
-	private final List<Long> possibleAttributeValues;
+	private final List<String> possibleAttributeValues;
 	private final Integer cardinalityMin;
 	private final Integer cardinalityMax;
 	private final Optional<Page<Long>> attributeTypesOptional;
+	private String concreteValueComparator;
+	private boolean isNumeric;
 
-	AttributeRange(boolean attributeTypeWildcard, Optional<Page<Long>> attributeTypesOptional, Set<String> possibleAttributeTypes, List<Long> possibleAttributeValues, Integer cardinalityMin, Integer cardinalityMax) {
+	AttributeRange(boolean attributeTypeWildcard, Optional<Page<Long>> attributeTypesOptional, Set<String> possibleAttributeTypes, List<String> possibleAttributeValues, Integer cardinalityMin, Integer cardinalityMax) {
 		this.attributeTypeWildcard = attributeTypeWildcard;
 		this.attributeTypesOptional = attributeTypesOptional;
 		this.possibleAttributeTypes = possibleAttributeTypes;
@@ -32,7 +31,47 @@ class AttributeRange {
 	}
 
 	boolean isValueWithinRange(String conceptAttributeValue) {
-		return possibleAttributeValues == null || possibleAttributeValues.contains(parseLong(conceptAttributeValue));
+		if (possibleAttributeValues == null) {
+			return true;
+		}
+		if (getConcreteValueComparator() == null) {
+			return possibleAttributeValues.contains(conceptAttributeValue);
+		}
+		// concrete value comparison
+		if (isNumeric()) {
+			if (!conceptAttributeValue.startsWith("#")) {
+				return false;
+			}
+			Float concreteValue = Float.valueOf(conceptAttributeValue.substring(1));
+			for (String value : possibleAttributeValues) {
+				// TODO make this better
+				Float floatValue = Float.valueOf(value);
+				if (">".equals(getConcreteValueComparator())) {
+					return concreteValue > floatValue;
+				} else if (">=".equals(getConcreteValueComparator())) {
+					return concreteValue >= floatValue;
+				} else if ("<=".equals(getConcreteValueComparator())) {
+					return concreteValue <= floatValue;
+				} else if ("<".equals(getConcreteValueComparator())) {
+					return concreteValue < floatValue;
+				} else if ("!=".equals(getConcreteValueComparator())) {
+					return concreteValue > floatValue || concreteValue < floatValue;
+				}
+			}
+		} else {
+			if (conceptAttributeValue.startsWith("#")) {
+				return false;
+			}
+			// must be !=
+			if ("!=".equals(getConcreteValueComparator())) {
+				for (String value : possibleAttributeValues) {
+					return !value.equals(conceptAttributeValue);
+				}
+			} else {
+				throw new IllegalArgumentException(String.format("String value comparison operator %s is not supported", getConcreteValueComparator()));
+			}
+		}
+		return false;
 	}
 
 	Optional<Page<Long>> getAttributeTypesOptional() {
@@ -43,7 +82,7 @@ class AttributeRange {
 		return possibleAttributeTypes;
 	}
 
-	List<Long> getPossibleAttributeValues() {
+	List<String> getPossibleAttributeValues() {
 		return possibleAttributeValues;
 	}
 
@@ -55,4 +94,19 @@ class AttributeRange {
 		return cardinalityMax;
 	}
 
+	public void setConcreteValueComparator(String comparator) {
+		this.concreteValueComparator = comparator;
+	}
+
+	public String getConcreteValueComparator() {
+		return concreteValueComparator;
+	}
+
+	public boolean isNumeric() {
+		return isNumeric;
+	}
+
+	public void setIsNumeric(boolean isNumeric) {
+		this.isNumeric = isNumeric;
+	}
 }

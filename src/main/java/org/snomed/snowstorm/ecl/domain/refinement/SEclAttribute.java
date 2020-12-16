@@ -47,18 +47,18 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		boolean stated = refinementBuilder.isStated();
 
 		if (reverse) {
-			// Reverse flag
+			if (!isConcreteValueQuery()) {
+				// Reverse flag for concept constraint query
+				AttributeRange attributeRange = getAttributeRange();
 
-			AttributeRange attributeRange = getAttributeRange();
-
-			// Fetch the relationship destination concepts
-			if (attributeRange.getPossibleAttributeValues() == null) {
-				throw new UnsupportedOperationException("Returning the attribute values of all concepts is not supported.");
+				// Fetch the relationship destination concepts
+				if (attributeRange.getPossibleAttributeValues() == null) {
+					throw new UnsupportedOperationException("Returning the attribute values of all concepts is not supported.");
+				}
+				Collection<Long> destinationConceptIds = refinementBuilder.getQueryService()
+						.findRelationshipDestinationIds(attributeRange.getPossibleAttributeValues().stream().map(Long::parseLong).collect(Collectors.toList()), attributeRange.getAttributeTypesOptional().map(Slice::getContent).orElse(null), branchCriteria, stated);
+				query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, destinationConceptIds));
 			}
-			Collection<Long> destinationConceptIds = refinementBuilder.getQueryService()
-					.findRelationshipDestinationIds(attributeRange.getPossibleAttributeValues(), attributeRange.getAttributeTypesOptional().map(Slice::getContent).orElse(null), branchCriteria, stated);
-			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, destinationConceptIds));
-
 		} else {
 			// Not reverse flag
 
@@ -112,10 +112,10 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			}
 
 
-			boolean equalsOperator = expressionComparisonOperator.equals("=");
+			boolean equalsOperator = isEqualOperator();
 
 			AttributeRange attributeRange = getAttributeRange();
-			List<Long> possibleAttributeValues = attributeRange.getPossibleAttributeValues();
+			List<String> possibleAttributeValues = attributeRange.getPossibleAttributeValues();
 			Set<String> attributeTypeProperties = attributeRange.getPossibleAttributeTypes();
 			if (possibleAttributeValues == null) {
 				if (mustOccur || mustNotOccur) {
@@ -180,11 +180,19 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		}
 	}
 
+	private boolean isEqualOperator() {
+		return "=".equals(expressionComparisonOperator)
+				|| "=".equals(getNumericComparisonOperator())
+				|| "=".equals(getStringComparisonOperator());
+	}
+
 	@Override
 	public Set<String> getConceptIds() {
 		Set<String> conceptIds = newHashSet();
 		conceptIds.addAll(((SSubExpressionConstraint) attributeName).getConceptIds());
-		conceptIds.addAll(((SSubExpressionConstraint) value).getConceptIds());
+		if (!isConcreteValueQuery()) {
+			conceptIds.addAll(((SSubExpressionConstraint) value).getConceptIds());
+		}
 		return conceptIds;
 	}
 
@@ -213,18 +221,45 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 				}
 			}
 
-			List<Long> possibleAttributeValues_ = ((SSubExpressionConstraint) value).select(refinementBuilder).map(Slice::getContent).orElse(null);
-
-			attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, possibleAttributeValues_, cardinalityMin, cardinalityMax);
+			if (!isConcreteValueQuery()) {
+				List<Long> possibleAttributeValues_ = ((SSubExpressionConstraint) value).select(refinementBuilder).map(Slice::getContent).orElse(null);
+				List<String> possibleAttributeValues = possibleAttributeValues_ != null ? possibleAttributeValues_.stream().map(String::valueOf).collect(Collectors.toList()) : null;
+				attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, possibleAttributeValues, cardinalityMin, cardinalityMax);
+			} else {
+				List<String> concreteValues = getConcreteValues();
+				attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, concreteValues, cardinalityMin, cardinalityMax);
+				String comparator = null;
+				boolean isNumeric = false;
+				if (getNumericComparisonOperator() != null) {
+					comparator = getNumericComparisonOperator();
+					isNumeric = true;
+				} else if (getStringComparisonOperator() != null) {
+					comparator = getStringComparisonOperator();
+				}
+				attributeRange.setConcreteValueComparator(comparator);
+				attributeRange.setIsNumeric(isNumeric);
+			}
 		}
 		return attributeRange;
+	}
+
+	private List<String> getConcreteValues() {
+		if (getStringComparisonOperator() != null && getStringValue() != null) {
+			// TODO remove this debug
+			System.out.println("string value = " + getStringValue());
+			return Arrays.asList(getStringValue());
+		}
+		if (getNumericComparisonOperator() != null && getNumericValue() != null) {
+			return Arrays.asList(getNumericValue());
+		}
+		return null;
 	}
 
 	void checkConceptConstraints(MatchContext matchContext) {
 		attributeRange = getAttributeRange();
 		Map<Integer, Map<String, List<String>>> conceptAttributes = matchContext.getConceptAttributes();
 		boolean withinGroup = matchContext.isWithinGroup();
-		boolean equalsOperator = expressionComparisonOperator.equals("=");
+		boolean equalsOperator = isConcreteValueQuery() ? true : isEqualOperator();
 
 		// Count occurrence of this attribute within each group
 		final AtomicInteger attributeMatchCount = new AtomicInteger(0);
@@ -277,4 +312,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		return QueryConcept.Fields.ATTR + "." + attributeTypeProperty;
 	}
 
+	private boolean isConcreteValueQuery() {
+		return getNumericComparisonOperator() != null || getStringComparisonOperator() != null;
+	}
 }
