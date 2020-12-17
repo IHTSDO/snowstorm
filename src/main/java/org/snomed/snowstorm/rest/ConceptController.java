@@ -15,6 +15,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
+import org.snomed.snowstorm.core.data.services.pojo.ConceptHistory;
 import org.snomed.snowstorm.core.data.services.pojo.MapPage;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
@@ -75,6 +76,9 @@ public class ConceptController {
 
 	@Autowired
 	private ECLValidator eclValidator;
+
+	@Autowired
+	private CodeSystemService codeSystemService;
 
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
@@ -271,6 +275,21 @@ public class ConceptController {
 			queryService.joinDescendantCount(concept, descendantCountForm, languageDialects, branchTimepoint);
 		}
 		return ControllerHelper.throwIfNotFound("Concept", concept);
+	}
+
+	@ApiOperation(value = "View the history of a Concept.")
+	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/history", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
+	public ConceptHistory viewConceptHistory(@PathVariable String branch, @PathVariable String conceptId, @RequestParam(required = false, defaultValue = "false") boolean showFutureVersions) {
+		branch = BranchPathUriUtil.decodePath(branch);
+		if (!conceptService.exists(conceptId, branch)) {
+			throw new NotFoundException("Concept '" + conceptId + "' not found on branch '" + branch + "'.");
+		}
+
+		CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branch, false);
+		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), showFutureVersions);
+		ConceptHistory conceptHistory = conceptService.loadConceptHistory(conceptId, codeSystemVersions);
+
+		return ControllerHelper.throwIfNotFound("conceptHistory", conceptHistory);
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}/descriptions", method = RequestMethod.GET)
