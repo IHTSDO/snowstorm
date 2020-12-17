@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.util;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -12,7 +13,7 @@ public class SetUtils {
 	 * @param itemsToRemove	The set of items to remove.
 	 * @return A new set containing the items in the first set after items from the second set are removed.
 	 */
-	public static <T> Set<T> remainder(Set<T> items, Set<T> itemsToRemove) {
+	public static <T> Set<T> remainder(Collection<T> items, Collection<T> itemsToRemove) {
 		if (items == null) {
 			return Collections.emptySet();
 		}

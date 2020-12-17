@@ -688,11 +688,11 @@ public class AdminOperationsService {
 		Set<ReferenceSetMember> members = new HashSet<>();
 		for (Description description : descriptions) {
 			members.addAll(description.getLangRefsetMembers().values());
-			Set<ReferenceSetMember> inactivationIndicatorMembers = description.getInactivationIndicatorMembers();
+			Collection<ReferenceSetMember> inactivationIndicatorMembers = description.getInactivationIndicatorMembers();
 			if (inactivationIndicatorMembers != null) {
 				members.addAll(inactivationIndicatorMembers);
 			}
-			Set<ReferenceSetMember> associationTargetMembers = description.getAssociationTargetMembers();
+			Collection<ReferenceSetMember> associationTargetMembers = description.getAssociationTargetMembers();
 			if (associationTargetMembers != null) {
 				members.addAll(associationTargetMembers);
 			}

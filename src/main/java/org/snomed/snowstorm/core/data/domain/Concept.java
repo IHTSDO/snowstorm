@@ -38,7 +38,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	@Transient
 	@JsonIgnore
-	private Set<ReferenceSetMember> inactivationIndicatorMembers;
+	private final List<ReferenceSetMember> inactivationIndicatorMembers;
 
 	@JsonIgnore
 	// Populated when requesting an update
@@ -47,7 +47,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	@JsonIgnore
 	@Transient
-	private Set<ReferenceSetMember> associationTargetMembers;
+	private List<ReferenceSetMember> associationTargetMembers;
 
 	@JsonIgnore
 	// Populated when requesting an update
@@ -88,7 +88,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		relationships = new HashSet<>();
 		classAxioms = new HashSet<>();
 		generalConceptInclusionAxioms = new HashSet<>();
-		inactivationIndicatorMembers = new HashSet<>();
+		inactivationIndicatorMembers = new ArrayList<>();
 	}
 
 	public Concept(String conceptId) {
@@ -151,7 +151,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	@JsonView(value = View.Component.class)
 	public String getInactivationIndicator() {
-		Set<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
+		Collection<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
 		if (inactivationIndicatorMembers != null) {
 			for (ReferenceSetMember inactivationIndicatorMember : inactivationIndicatorMembers) {
 				if (inactivationIndicatorMember.isActive()) {
@@ -174,7 +174,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public void addAssociationTargetMember(ReferenceSetMember member) {
 		if (associationTargetMembers == null) {
-			associationTargetMembers = new HashSet<>();
+			associationTargetMembers = new ArrayList<>();
 		}
 		associationTargetMembers.add(member);
 	}
@@ -201,7 +201,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		this.associationTargetStrings = associationTargetStrings;
 	}
 
-	public Set<ReferenceSetMember> getAssociationTargetMembers() {
+	public List<ReferenceSetMember> getAssociationTargetMembers() {
 		return associationTargetMembers;
 	}
 
@@ -318,7 +318,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	 * There should be at most one inactivation indicator apart from part way through a branch merge.
 	 */
 	@JsonIgnore
-	public Set<ReferenceSetMember> getInactivationIndicatorMembers() {
+	public Collection<ReferenceSetMember> getInactivationIndicatorMembers() {
 		return inactivationIndicatorMembers;
 	}
 

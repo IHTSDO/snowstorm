@@ -36,6 +36,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -527,6 +528,91 @@ class BranchMergeServiceTest extends AbstractTest {
 		members.getContent().forEach(System.out::println);
 		assertEquals(2, members.getTotalElements());
 		assertEquals(1, memberService.findMembers(taskA2, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
+	}
+
+	@Test
+	void testManualMergeOfConceptDoubleInactivationAssociationChange() throws ServiceException, JsonProcessingException {
+		// The concept is already inactive with release two association reasons, one inactive one active
+		// The concept association is changed on two tasks, the first task is promoted, the second rebased
+		// The rebase has a conflict so a merged concept is required
+		// The completed rebase must have only three association refset members,
+		// the two existing released members as inactive and the one new association which survived the merge.
+
+		// Create concepts to be used in test
+		String conceptId = "100000000";
+		String path = "MAIN";
+		conceptService.createUpdate(Lists.newArrayList(
+				new Concept(Concepts.SNOMEDCT_ROOT),
+				new Concept(Concepts.ISA).addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept(Concepts.CLINICAL_FINDING).addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				new Concept(conceptId).addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING)).addDescription(new Description("thingamajig"))
+		), path);
+
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT"), 20190131, "");
+
+		Concept concept = conceptService.find(conceptId, path);
+		concept.setActive(false);
+		concept.setInactivationIndicator("ERRONEOUS");
+		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(Concepts.CLINICAL_FINDING)));
+		conceptService.update(concept, path);
+
+		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT"), 20200131, "");
+
+		assertEquals("One axiom, one published association member, one published historic association.",
+				3, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements());
+
+		branchService.create("MAIN/B");
+		branchService.create("MAIN/B/B1");
+		branchService.create("MAIN/B/B2");
+
+		path = "MAIN/B/B1";
+		concept = conceptService.find(conceptId, path);
+		concept = simulateRestTransfer(concept);
+		concept.setInactivationIndicator("AMBIGUOUS");
+		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(Concepts.SNOMEDCT_ROOT)));
+		conceptService.update(concept, path);
+		for (ReferenceSetMember member : memberService.findMembers(path, conceptId, PageRequest.of(0, 10))) {
+			System.out.println(member.toString());
+		}
+		assertEquals("One axiom, one inactive published association, one inactive published historic association, " +
+				"one new association and one new inactivation reason member.",
+				5, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements());
+
+		path = "MAIN/B/B2";
+		concept = conceptService.find(conceptId, path);
+		concept = simulateRestTransfer(concept);
+		concept.setInactivationIndicator("AMBIGUOUS");
+		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(Concepts.ISA)));
+		conceptService.update(concept, path);
+		assertEquals("One axiom, one inactive published association, one inactive published historic association, " +
+				"one new association and one new inactivation reason member.",
+				5, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements());
+
+		// Promote B2
+		branchMergeService.mergeBranchSync("MAIN/B/B2", "MAIN/B", Collections.emptySet());
+
+		// Rebase B1 with merge
+		path = "MAIN/B/B1";
+		concept = conceptService.find(conceptId, path);
+		concept = simulateRestTransfer(concept);
+		branchMergeService.mergeBranchSync("MAIN/B", "MAIN/B/B1", Collections.singleton(concept));
+
+		for (ReferenceSetMember member : memberService.findMembers(path, conceptId, PageRequest.of(0, 10))) {
+			System.out.println(member.toString());
+		}
+		Page<ReferenceSetMember> members = memberService.findMembers(path, conceptId, PageRequest.of(0, 10));
+
+		// Check for duplicate UUIDs
+		Map<String, AtomicInteger> memberIdCounts = new HashMap<>();
+		members.forEach(member -> memberIdCounts.computeIfAbsent(member.getId(), (id) -> new AtomicInteger()).incrementAndGet());
+		assertFalse("No duplicate refset members.", memberIdCounts.values().stream().anyMatch(value -> value.get() > 1));
+
+		assertEquals("One axiom, one inactive published association, one inactive published historic association, " +
+				"one new association and one new inactivation reason member.", 5, members.getTotalElements());
+		concept = conceptService.find(conceptId, path);
+		assertEquals("AMBIGUOUS", concept.getInactivationIndicator());
+		assertEquals("{POSSIBLY_EQUIVALENT_TO=[138875005]}", concept.getAssociationTargets().toString());
 	}
 
 	@Test
