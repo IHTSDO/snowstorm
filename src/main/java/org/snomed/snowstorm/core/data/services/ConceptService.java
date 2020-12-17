@@ -22,10 +22,7 @@ import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
-import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
-import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
-import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
-import org.snomed.snowstorm.core.data.services.pojo.SAxiomRepresentation;
+import org.snomed.snowstorm.core.data.services.pojo.*;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
@@ -34,7 +31,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.*;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.scheduling.annotation.Async;
@@ -56,6 +56,14 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Service
 public class ConceptService extends ComponentService {
+	private static final Map<ComponentType, Class<? extends DomainEntity<?>>> DOCUMENTS = new HashMap<>();
+
+	static {
+		DOCUMENTS.put(ComponentType.Concept, Concept.class);
+		DOCUMENTS.put(ComponentType.Description, Description.class);
+		DOCUMENTS.put(ComponentType.Relationship, Relationship.class);
+		DOCUMENTS.put(ComponentType.Axiom, ReferenceSetMember.class);
+	}
 
 	@Autowired
 	private ConceptUpdateHelper conceptUpdateHelper;
@@ -141,6 +149,63 @@ public class ConceptService extends ComponentService {
 
 	public Page<Concept> find(List<Long> conceptIds, List<LanguageDialect> languageDialects, String path, PageRequest pageRequest) {
 		return doFind(conceptIds, languageDialects, new BranchTimepoint(path), pageRequest);
+	}
+
+	public ConceptHistory loadConceptHistory(String conceptId, List<CodeSystemVersion> codeSystemVersions) {
+		Map<String, BranchCriteria> branchCriteria = new HashMap<>();
+		for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
+			String branchPath = codeSystemVersion.getBranchPath();
+			branchCriteria.put(branchPath, versionControlHelper.getBranchCriteria(branchPath));
+		}
+
+		Function<String, BoolQueryBuilder> defaultBoolQueryFunction = cId -> {
+			BoolQueryBuilder someReleaseBranch = boolQuery();
+			BoolQueryBuilder boolQueryBuilder = boolQuery();
+			boolQueryBuilder.must(someReleaseBranch);
+			boolQueryBuilder.must(existsQuery(Concept.Fields.EFFECTIVE_TIME));
+			boolQueryBuilder.should(termQuery(Concept.Fields.CONCEPT_ID, cId)); //Find for Concept, Description & Axiom (RefSetMember) documents
+			boolQueryBuilder.should(termQuery(Relationship.Fields.SOURCE_ID, cId)); //Find for Relationship documents
+
+			return boolQueryBuilder;
+		};
+		PageRequest pageRequest = PageRequest.of(0, codeSystemVersions.size() + 1);
+		ConceptHistory conceptHistory = new ConceptHistory(conceptId);
+		for (Map.Entry<ComponentType, Class<? extends DomainEntity<?>>> entrySet : DOCUMENTS.entrySet()) {
+			ComponentType componentType = entrySet.getKey();
+			Class<? extends DomainEntity<?>> document = entrySet.getValue();
+			BoolQueryBuilder boolQueryBuilder = defaultBoolQueryFunction.apply(conceptId);
+
+			if (componentType.equals(ComponentType.Axiom)) {
+				BoolQueryBuilder axiomShoulds = boolQuery();
+				boolQueryBuilder.must(axiomShoulds);
+				boolQueryBuilder.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET));
+			}
+
+			for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
+				boolQueryBuilder
+						.should(
+								boolQuery()
+										.must(branchCriteria.get(codeSystemVersion.getBranchPath()).getEntityBranchCriteria(document))
+										.must(termQuery(Concept.Fields.EFFECTIVE_TIME, codeSystemVersion.getEffectiveDate()))
+						);
+			}
+
+			SearchHits<? extends DomainEntity<?>> searchHits = elasticsearchTemplate.search(
+					new NativeSearchQueryBuilder()
+							.withQuery(boolQueryBuilder)
+							.withPageable(pageRequest)
+							.build(),
+					document
+			);
+			for (SearchHit<? extends DomainEntity<?>> searchHit : searchHits.getSearchHits()) {
+				if (searchHit.getContent() instanceof SnomedComponent<?>) {
+					SnomedComponent<?> snomedComponent = (SnomedComponent<?>) searchHit.getContent();
+					conceptHistory.addToHistory(snomedComponent.getEffectiveTime(), componentType);
+				}
+			}
+		}
+
+		return conceptHistory;
 	}
 
 	public boolean exists(String id, String path) {
