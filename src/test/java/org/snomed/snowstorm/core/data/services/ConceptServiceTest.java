@@ -187,7 +187,7 @@ class ConceptServiceTest extends AbstractTest {
 		Assert.assertEquals(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, inactivationIndicatorMember.getRefsetId());
 		Assert.assertEquals(updatedDescription.getDescriptionId(), inactivationIndicatorMember.getReferencedComponentId());
 		Assert.assertEquals(Concepts.OUTDATED, inactivationIndicatorMember.getAdditionalField("valueId"));
-		Set<ReferenceSetMember> associationTargetMembers = updatedDescription.getAssociationTargetMembers();
+		Collection<ReferenceSetMember> associationTargetMembers = updatedDescription.getAssociationTargetMembers();
 		Assert.assertNotNull(associationTargetMembers);
 		assertEquals(1, associationTargetMembers.size());
 		ReferenceSetMember associationTargetMember = associationTargetMembers.iterator().next();
@@ -561,7 +561,7 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(Collections.singleton("87100004"), associationTargetsAfter.get(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION)));
 
 		// Check association target reference set member was created
-		Set<ReferenceSetMember> associationTargetMembers = inactiveConcept.getAssociationTargetMembers();
+		Collection<ReferenceSetMember> associationTargetMembers = inactiveConcept.getAssociationTargetMembers();
 		assertNotNull(associationTargetMembers);
 		assertEquals(1, associationTargetMembers.size());
 		ReferenceSetMember associationTargetMember = associationTargetMembers.iterator().next();
@@ -636,7 +636,7 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(Concepts.DUPLICATE, inactivationIndicatorMember.getAdditionalField("valueId"));
 
 		// Check association target reference set member was created
-		Set<ReferenceSetMember> associationTargetMembers = concept.getAssociationTargetMembers();
+		Collection<ReferenceSetMember> associationTargetMembers = concept.getAssociationTargetMembers();
 		assertNotNull(associationTargetMembers);
 		assertEquals(1, associationTargetMembers.size());
 		ReferenceSetMember associationTargetMember = associationTargetMembers.iterator().next();
@@ -685,7 +685,7 @@ class ConceptServiceTest extends AbstractTest {
 		concept = conceptService.find(concept.getId(), path);
 
 		assertEquals("DUPLICATE", concept.getInactivationIndicator());
-		final Set<ReferenceSetMember> secondTimeInactivationIndicatorMembers = concept.getInactivationIndicatorMembers();
+		final Collection<ReferenceSetMember> secondTimeInactivationIndicatorMembers = concept.getInactivationIndicatorMembers();
 		assertEquals(1, secondTimeInactivationIndicatorMembers.size());
 		ReferenceSetMember secondTimeInactivationIndicatorMember = secondTimeInactivationIndicatorMembers.iterator().next();
 		assertNotNull(secondTimeInactivationIndicatorMember);

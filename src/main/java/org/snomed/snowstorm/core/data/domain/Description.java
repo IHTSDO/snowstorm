@@ -10,6 +10,7 @@ import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
+
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.*;
@@ -78,11 +79,11 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	@JsonIgnore
 	// Populated manually when loading from store
 	@Transient
-	private Map<String, ReferenceSetMember> langRefsetMembers;
+	private final Map<String, ReferenceSetMember> langRefsetMembers;
 
 	@JsonIgnore
 	@Transient
-	private Set<ReferenceSetMember> inactivationIndicatorMembers;
+	private final List<ReferenceSetMember> inactivationIndicatorMembers;
 
 	@JsonIgnore
 	// Populated when requesting an update
@@ -91,7 +92,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	@JsonIgnore
 	@Transient
-	private Set<ReferenceSetMember> associationTargetMembers;
+	private List<ReferenceSetMember> associationTargetMembers;
 
 	@JsonIgnore
 	// Populated when requesting an update
@@ -109,7 +110,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		caseSignificanceId = Concepts.CASE_INSENSITIVE;
 		acceptabilityMap = new HashMap<>();
 		langRefsetMembers = new HashMap<>();
-		inactivationIndicatorMembers = new HashSet<>();
+		inactivationIndicatorMembers = new ArrayList<>();
 	}
 
 	public Description(String term) {
@@ -258,7 +259,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	@JsonView(value = View.Component.class)
 	public String getInactivationIndicator() {
-		Set<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
+		Collection<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
 		if (inactivationIndicatorMembers != null) {
 			for (ReferenceSetMember inactivationIndicatorMember : inactivationIndicatorMembers) {
 				if (inactivationIndicatorMember.isActive()) {
@@ -275,7 +276,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	@JsonIgnore
 	public ReferenceSetMember getInactivationIndicatorMember() {
-		Set<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
+		Collection<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
 		if (inactivationIndicatorMembers != null) {
 			for (ReferenceSetMember inactivationIndicatorMember : inactivationIndicatorMembers) {
 				if (inactivationIndicatorMember.isActive()) {
@@ -290,7 +291,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	 * There should be at most one inactivation indicator apart from part way through a branch merge.
 	 */
 	@JsonIgnore
-	public Set<ReferenceSetMember> getInactivationIndicatorMembers() {
+	public Collection<ReferenceSetMember> getInactivationIndicatorMembers() {
 		return inactivationIndicatorMembers;
 	}
 
@@ -300,7 +301,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public void addAssociationTargetMember(ReferenceSetMember member) {
 		if (associationTargetMembers == null) {
-			associationTargetMembers = new HashSet<>();
+			associationTargetMembers = new ArrayList<>();
 		}
 		associationTargetMembers.add(member);
 	}
@@ -327,7 +328,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		this.associationTargetStrings = associationTargetStrings;
 	}
 
-	public Set<ReferenceSetMember> getAssociationTargetMembers() {
+	public List<ReferenceSetMember> getAssociationTargetMembers() {
 		return associationTargetMembers;
 	}
 
