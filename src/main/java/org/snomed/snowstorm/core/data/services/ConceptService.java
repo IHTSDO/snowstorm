@@ -56,13 +56,13 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Service
 public class ConceptService extends ComponentService {
-	private static final Map<ComponentType, Class<? extends DomainEntity<?>>> DOCUMENTS = new HashMap<>();
+	private static final Map<ComponentType, Class<? extends DomainEntity<?>>> COMPONENT_DOCUMENT_TYPES = new HashMap<>();
 
 	static {
-		DOCUMENTS.put(ComponentType.Concept, Concept.class);
-		DOCUMENTS.put(ComponentType.Description, Description.class);
-		DOCUMENTS.put(ComponentType.Relationship, Relationship.class);
-		DOCUMENTS.put(ComponentType.Axiom, ReferenceSetMember.class);
+		COMPONENT_DOCUMENT_TYPES.put(ComponentType.Concept, Concept.class);
+		COMPONENT_DOCUMENT_TYPES.put(ComponentType.Description, Description.class);
+		COMPONENT_DOCUMENT_TYPES.put(ComponentType.Relationship, Relationship.class);
+		COMPONENT_DOCUMENT_TYPES.put(ComponentType.Axiom, ReferenceSetMember.class);
 	}
 
 	@Autowired
@@ -170,7 +170,7 @@ public class ConceptService extends ComponentService {
 		};
 		PageRequest pageRequest = PageRequest.of(0, codeSystemVersions.size() + 1);
 		ConceptHistory conceptHistory = new ConceptHistory(conceptId);
-		for (Map.Entry<ComponentType, Class<? extends DomainEntity<?>>> entrySet : DOCUMENTS.entrySet()) {
+		for (Map.Entry<ComponentType, Class<? extends DomainEntity<?>>> entrySet : COMPONENT_DOCUMENT_TYPES.entrySet()) {
 			ComponentType componentType = entrySet.getKey();
 			Class<? extends DomainEntity<?>> document = entrySet.getValue();
 			BoolQueryBuilder boolQueryBuilder = defaultBoolQueryFunction.apply(conceptId);
