@@ -13,6 +13,7 @@ import org.snomed.snowstorm.core.data.services.BranchMergeService;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.pojo.ConceptHistory;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.loadtest.ItemsPagePojo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -377,5 +378,201 @@ class ConceptControllerTest extends AbstractTest {
 		assertEquals(1, page.getItems().size());
 		String conceptIdFromSecondPage = page.getItems().iterator().next().getConceptId();
 		assertNotEquals(conceptIdFromFirstPage, conceptIdFromSecondPage);
+	}
+
+	@Test
+	public void findConceptHistory_ShouldReturnExpectedResponse_WhenConceptCannotBeFound() {
+		//given
+		String requestUrl = "http://localhost:" + port + "/browser/MAIN/concepts/12345/history";
+
+		//when
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ConceptHistory>() {
+		});
+
+		//then
+		assertEquals(404, responseEntity.getStatusCodeValue());
+	}
+
+	@Test
+	public void findConceptHistory_ShouldReturnExpectedResponse_WhenConceptFound() {
+		//given
+		String requestUrl = "http://localhost:" + port + "/browser/MAIN/concepts/257751006/history";
+
+		//when
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ConceptHistory>() {
+		});
+
+		//then
+		assertEquals(200, responseEntity.getStatusCodeValue());
+	}
+
+	@Test
+	public void findConceptHistory_ShouldReturnExpectedConceptHistory_WhenConceptHasHistory() throws Exception {
+		//given
+		String requestUrl = "http://localhost:" + port + "/browser/MAIN/BROWSE-241/concepts/123456789101112/history";
+		Procedure methodTestDataFixture = () -> {
+			String projectBranch = "MAIN/BROWSE-241";
+			String taskBranch = "MAIN/BROWSE-241/TASK-1";
+			//Create project branch
+			CodeSystem codeSystem = new CodeSystem(projectBranch, projectBranch);
+			codeSystemService.createCodeSystem(codeSystem);
+
+			//Add Concepts to branch
+			conceptService.create(
+					new Concept("12345678910")
+							.addDescription(new Description("Computer structure (computer structure)")
+									.setTypeId(Concepts.FSN)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+							.addDescription(new Description("Computer structure")
+									.setTypeId(Concepts.SYNONYM)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+							.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+					projectBranch);
+
+			conceptService.create(
+					new Concept("1234567891011")
+							.addDescription(new Description("Non specific site (computer structure)")
+									.setTypeId(Concepts.FSN)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+							.addDescription(new Description("Non specific site")
+									.setTypeId(Concepts.SYNONYM)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+							.addAxiom(new Relationship(Concepts.ISA, "12345678910")),
+					projectBranch);
+
+			conceptService.create(
+					new Concept("123456789101112")
+							.addDescription(new Description("Specific site (computer structure)")
+									.setTypeId(Concepts.FSN)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+							.addDescription(new Description("Specific site")
+									.setTypeId(Concepts.SYNONYM)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+							.addAxiom(new Relationship(Concepts.ISA, "12345678910"), new Relationship("12345", "12345678910"))
+							.addRelationship(new Relationship(Concepts.ISA, "12345678910")),
+					projectBranch);
+
+			//Version project
+			codeSystemService.createVersion(codeSystem, 20200131, "Release 2020-01-31.");
+
+			//Create task branch
+			branchService.create(taskBranch);
+
+			//Update Concept with new Descriptions on task branch
+			Concept concept = conceptService.find("123456789101112", projectBranch);
+			concept.getDescriptions()
+					.add(
+							new Description("Specific")
+									.setTypeId(Concepts.SYNONYM)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED)
+					);
+			conceptService.update(concept, taskBranch);
+
+			//Promote task
+			branchMergeService.mergeBranchSync(taskBranch, projectBranch, Collections.emptySet());
+
+			//Version project
+			codeSystemService.createVersion(codeSystem, 20200731, "Release 2020-07-31.");
+		};
+		methodTestDataFixture.insert();
+
+		//when
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ConceptHistory>() {
+		});
+		Map<String, Set<ComponentType>> history = responseEntity.getBody().getHistory();
+		Set<ComponentType> januaryRelease = history.get("20200131");
+		Set<ComponentType> julyRelease = history.get("20200731");
+
+		//then
+		assertEquals(200, responseEntity.getStatusCodeValue());
+		assertEquals(2, history.size()); //Concept has changed since previous version.
+		assertEquals(4, januaryRelease.size()); //Concept was created with Description, Relationship & Axiom
+		assertEquals(1, julyRelease.size()); //Description was added
+		for (ComponentType componentType : januaryRelease) {
+			assertTrue(
+					componentType.equals(ComponentType.Concept) ||
+							componentType.equals(ComponentType.Description) ||
+							componentType.equals(ComponentType.Relationship) ||
+							componentType.equals(ComponentType.Axiom)
+			);
+		}
+
+		for (ComponentType componentType : julyRelease) {
+			assertEquals(componentType, ComponentType.Description);
+		}
+	}
+
+	@Test
+	public void findConceptHistory_ShouldReturnExpectedConceptHistory_WhenConceptHasNoHistory() throws Exception {
+		//given
+		String requestUrl = "http://localhost:" + port + "/browser/MAIN/BROWSE-241/concepts/123456789101112/history";
+		Procedure methodTestDataFixture = () -> {
+			String projectBranch = "MAIN/BROWSE-241";
+			//Create project branch
+			CodeSystem codeSystem = new CodeSystem(projectBranch, projectBranch);
+			codeSystemService.createCodeSystem(codeSystem);
+
+			//Add Concepts to branch
+			conceptService.create(
+					new Concept("12345678910")
+							.addDescription(new Description("Computer structure (computer structure)")
+									.setTypeId(Concepts.FSN)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+							.addDescription(new Description("Computer structure")
+									.setTypeId(Concepts.SYNONYM)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+							.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+					projectBranch);
+
+			conceptService.create(
+					new Concept("1234567891011")
+							.addDescription(new Description("Non specific site (computer structure)")
+									.setTypeId(Concepts.FSN)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+							.addDescription(new Description("Non specific site")
+									.setTypeId(Concepts.SYNONYM)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+							.addAxiom(new Relationship(Concepts.ISA, "12345678910")),
+					projectBranch);
+
+			conceptService.create(
+					new Concept("123456789101112")
+							.addDescription(new Description("Specific site (computer structure)")
+									.setTypeId(Concepts.FSN)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+							.addDescription(new Description("Specific site")
+									.setTypeId(Concepts.SYNONYM)
+									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
+							.addAxiom(new Relationship(Concepts.ISA, "12345678910"), new Relationship("12345", "12345678910"))
+							.addRelationship(new Relationship(Concepts.ISA, "12345678910")),
+					projectBranch);
+
+			//Version project
+			codeSystemService.createVersion(codeSystem, 20200131, "Release 2020-01-31.");
+		};
+		methodTestDataFixture.insert();
+
+		//when
+		ResponseEntity<ConceptHistory> responseEntity = this.restTemplate.exchange(requestUrl, HttpMethod.GET, new HttpEntity<>(null), new ParameterizedTypeReference<ConceptHistory>() {
+		});
+		Map<String, Set<ComponentType>> history = responseEntity.getBody().getHistory();
+		Set<ComponentType> januaryRelease = history.get("20200131");
+
+		//then
+		assertEquals(200, responseEntity.getStatusCodeValue());
+		assertEquals(1, history.size()); //Concept has not changed since first release.
+		assertEquals(4, januaryRelease.size()); //Concept was created with Description, Relationship & Axiom
+		for (ComponentType componentType : januaryRelease) {
+			assertTrue(
+					componentType.equals(ComponentType.Concept) ||
+							componentType.equals(ComponentType.Description) ||
+							componentType.equals(ComponentType.Relationship) ||
+							componentType.equals(ComponentType.Axiom)
+			);
+		}
+	}
+
+	protected interface Procedure {
+		void insert() throws Exception;
 	}
 }
