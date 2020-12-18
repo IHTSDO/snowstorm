@@ -172,7 +172,7 @@ public class ConceptService extends ComponentService {
 		ConceptHistory conceptHistory = new ConceptHistory(conceptId);
 		for (Map.Entry<ComponentType, Class<? extends DomainEntity<?>>> entrySet : COMPONENT_DOCUMENT_TYPES.entrySet()) {
 			ComponentType componentType = entrySet.getKey();
-			Class<? extends DomainEntity<?>> document = entrySet.getValue();
+			Class<? extends DomainEntity<?>> documentType = entrySet.getValue();
 			BoolQueryBuilder boolQueryBuilder = defaultBoolQueryFunction.apply(conceptId);
 
 			if (componentType.equals(ComponentType.Axiom)) {
@@ -185,7 +185,7 @@ public class ConceptService extends ComponentService {
 				boolQueryBuilder
 						.should(
 								boolQuery()
-										.must(branchCriteria.get(codeSystemVersion.getBranchPath()).getEntityBranchCriteria(document))
+										.must(branchCriteria.get(codeSystemVersion.getBranchPath()).getEntityBranchCriteria(documentType))
 										.must(termQuery(Concept.Fields.EFFECTIVE_TIME, codeSystemVersion.getEffectiveDate()))
 						);
 			}
@@ -195,7 +195,7 @@ public class ConceptService extends ComponentService {
 							.withQuery(boolQueryBuilder)
 							.withPageable(pageRequest)
 							.build(),
-					document
+					documentType
 			);
 			for (SearchHit<? extends DomainEntity<?>> searchHit : searchHits.getSearchHits()) {
 				if (searchHit.getContent() instanceof SnomedComponent<?>) {
