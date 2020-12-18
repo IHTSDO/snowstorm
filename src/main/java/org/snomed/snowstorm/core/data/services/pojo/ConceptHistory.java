@@ -31,13 +31,6 @@ public class ConceptHistory {
     }
 
     public void addToHistory(String effectiveTime, ComponentType componentType) {
-        Set<ComponentType> componentTypes = this.history.get(effectiveTime);
-        if (componentTypes != null) {
-            componentTypes.add(componentType);
-        } else {
-            componentTypes = new HashSet<>();
-            componentTypes.add(componentType);
-            this.history.put(effectiveTime, componentTypes);
-        }
+        history.computeIfAbsent(effectiveTime, (key) -> new HashSet<>()).add(componentType);
     }
 }
