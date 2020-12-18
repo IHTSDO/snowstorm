@@ -278,7 +278,7 @@ public class ConceptController {
 	}
 
 	@ApiOperation(value = "View the history of a Concept.")
-	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/history", method = RequestMethod.GET, produces = {"application/json", "text/csv"})
+	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/history", method = RequestMethod.GET, produces = {"application/json"})
 	public ConceptHistory viewConceptHistory(@PathVariable String branch, @PathVariable String conceptId, @RequestParam(required = false, defaultValue = "false") boolean showFutureVersions) {
 		branch = BranchPathUriUtil.decodePath(branch);
 		if (!conceptService.exists(conceptId, branch)) {
