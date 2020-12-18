@@ -169,7 +169,6 @@ public class ConceptService extends ComponentService {
 
 			return boolQueryBuilder;
 		};
-		PageRequest pageRequest = PageRequest.of(0, codeSystemVersions.size() + 1);
 		ConceptHistory conceptHistory = new ConceptHistory(conceptId);
 		for (Map.Entry<ComponentType, Class<? extends DomainEntity<?>>> entrySet : COMPONENT_DOCUMENT_TYPES.entrySet()) {
 			ComponentType componentType = entrySet.getKey();
@@ -194,7 +193,7 @@ public class ConceptService extends ComponentService {
 			SearchHits<? extends DomainEntity<?>> searchHits = elasticsearchTemplate.search(
 					new NativeSearchQueryBuilder()
 							.withQuery(boolQueryBuilder)
-							.withPageable(pageRequest)
+							.withPageable(LARGE_PAGE)
 							.build(),
 					documentType
 			);
