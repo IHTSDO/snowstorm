@@ -163,6 +163,7 @@ public class ConceptService extends ComponentService {
 			BoolQueryBuilder boolQueryBuilder = boolQuery();
 			boolQueryBuilder.must(someReleaseBranch);
 			boolQueryBuilder.must(existsQuery(Concept.Fields.EFFECTIVE_TIME));
+			boolQueryBuilder.minimumShouldMatch(1);
 			boolQueryBuilder.should(termQuery(Concept.Fields.CONCEPT_ID, cId)); //Find for Concept, Description & Axiom (RefSetMember) documents
 			boolQueryBuilder.should(termQuery(Relationship.Fields.SOURCE_ID, cId)); //Find for Relationship documents
 
