@@ -51,7 +51,7 @@ public class SemanticIndexService {
 				referenceTypeToConceptMap.computeIfAbsent(Concepts.IS_A_LONG, id -> new LongOpenHashSet())
 						.add(hit.getContent().getConceptIdL());
 			} else {
-				Map<String, Set<String>> attributes = hit.getContent().getAttr();
+				Map<String, Set<Object>> attributes = hit.getContent().getAttr();
 				for (String attributeId : attributes.keySet()) {
 					if (attributeId.equals(QueryConcept.ATTR_TYPE_WILDCARD)) {
 						continue;

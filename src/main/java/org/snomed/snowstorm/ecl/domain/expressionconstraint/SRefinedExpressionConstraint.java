@@ -45,7 +45,7 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 
 		if (refinementBuilder.isInclusionFilterRequired()) {
 			refinementBuilder.setInclusionFilter(queryConcept -> {
-				Map<Integer, Map<String, List<String>>> conceptAttributes = queryConcept.getGroupedAttributesMap();
+				Map<Integer, Map<String, List<Object>>> conceptAttributes = queryConcept.getGroupedAttributesMap();
 				MatchContext matchContext = new MatchContext(conceptAttributes);
 				return ((SEclRefinement) eclRefinement).isMatch(matchContext);
 			});
