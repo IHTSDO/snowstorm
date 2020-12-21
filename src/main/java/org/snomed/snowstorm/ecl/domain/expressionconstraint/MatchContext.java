@@ -7,12 +7,12 @@ import java.util.Set;
 
 public class MatchContext {
 
-	private Map<Integer, Map<String, List<String>>> conceptAttributes;
+	private Map<Integer, Map<String, List<Object>>> conceptAttributes;
 	private boolean withinGroup;
 	private MatchContext parentContext;
 	private Set<Integer> matchingGroups;
 
-	MatchContext(Map<Integer, Map<String, List<String>>> conceptAttributes) {
+	MatchContext(Map<Integer, Map<String, List<Object>>> conceptAttributes) {
 		this.conceptAttributes = conceptAttributes;
 	}
 
@@ -25,7 +25,7 @@ public class MatchContext {
 		return withinGroup;
 	}
 
-	public Map<Integer, Map<String, List<String>>> getConceptAttributes() {
+	public Map<Integer, Map<String, List<Object>>> getConceptAttributes() {
 		return parentContext != null ? parentContext.getConceptAttributes() : conceptAttributes;
 	}
 

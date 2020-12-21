@@ -635,7 +635,7 @@ public class ClassificationService {
 					// One or more inferred attributes or parents do not exist on this stated semanticIndexConcept
 					List<RelationshipChange> conceptChanges = activeConceptChanges.get(hit.getContent().getConceptIdL());
 					if (conceptChanges != null) {
-						Map<String, Set<String>> conceptAttributes = hit.getContent().getAttr();
+						Map<String, Set<Object>> conceptAttributes = hit.getContent().getAttr();
 						for (RelationshipChange relationshipChange : conceptChanges) {
 							if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
 								if (!hit.getContent().getParents().contains(parseLong(relationshipChange.getDestinationId()))) {

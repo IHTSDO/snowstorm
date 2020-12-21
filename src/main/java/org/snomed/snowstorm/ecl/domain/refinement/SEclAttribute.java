@@ -17,22 +17,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
+import static java.util.Collections.singletonList;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class SEclAttribute extends EclAttribute implements SRefinement {
 
 	private AttributeRange attributeRange;
 	private RefinementBuilder refinementBuilder;
-
-	@Override
-	public void setNumericComparisonOperator(String numericComparisonOperator) {
-		super.setNumericComparisonOperator(numericComparisonOperator);
-	}
-
-	@Override
-	public void setStringComparisonOperator(String stringComparisonOperator) {
-		super.setStringComparisonOperator(stringComparisonOperator);
-	}
 
 	@Override
 	public void addCriteria(RefinementBuilder refinementBuilder) {
@@ -47,35 +38,289 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		boolean stated = refinementBuilder.isStated();
 
 		if (reverse) {
-			if (!isConcreteValueQuery()) {
-				// Reverse flag for concept constraint query
-				AttributeRange attributeRange = getAttributeRange();
+			// Reverse flag for concept constraint query
+			AttributeRange range = getAttributeRange();
 
-				// Fetch the relationship destination concepts
-				if (attributeRange.getPossibleAttributeValues() == null) {
-					throw new UnsupportedOperationException("Returning the attribute values of all concepts is not supported.");
-				}
-				Collection<Long> destinationConceptIds = refinementBuilder.getQueryService()
-						.findRelationshipDestinationIds(attributeRange.getPossibleAttributeValues().stream().map(Long::parseLong).collect(Collectors.toList()), attributeRange.getAttributeTypesOptional().map(Slice::getContent).orElse(null), branchCriteria, stated);
-				query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, destinationConceptIds));
+			// Fetch the relationship destination concepts
+			if (range.getPossibleAttributeValues() == null) {
+				throw new UnsupportedOperationException("Returning the attribute values of all concepts is not supported.");
 			}
+			Collection<Long> destinationConceptIds = refinementBuilder.getQueryService()
+					.findRelationshipDestinationIds(range.getPossibleAttributeValues().stream().map(Long::parseLong)
+							.collect(Collectors.toList()), range.getAttributeTypesOptional().map(Slice::getContent).orElse(null), branchCriteria, stated);
+			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, destinationConceptIds));
 		} else {
 			// Not reverse flag
+			CardinalityCriteria cardinalityCriteria = new CardinalityCriteria(cardinalityMin, cardinalityMax);
+			if (cardinalityCriteria.noConstraintRequired) {
+				return;
+			}
+			updateQueryWithCardinalityCriteria(query, cardinalityCriteria);
+		}
+	}
 
-			// The query is not capable of constraining the number of times an attribute occurs, only that it does or does not occur.
-			// Further cardinality checking against fetched index records can be enabled using the specificCardinality flag.
-			boolean specificCardinality = false;
-			boolean mustOccur = false;
-			boolean mustNotOccur = false;
+	private void updateQueryWithCardinalityCriteria(BoolQueryBuilder query, CardinalityCriteria cardinalityCriteria) {
+		boolean mustOccur = cardinalityCriteria.mustOccur;
+		boolean mustNotOccur = cardinalityCriteria.mustNotOccur;
+		boolean specificCardinality = cardinalityCriteria.specificCardinality;
 
+		if (specificCardinality) {
+			refinementBuilder.inclusionFilterRequired();
+		}
+		boolean equalsOperator = isEqualOperator();
+
+		AttributeRange range = getAttributeRange();
+		List<String> possibleAttributeValues = range.getPossibleAttributeValues();
+		Set<String> attributeTypeProperties = range.getPossibleAttributeTypes();
+		if (possibleAttributeValues == null) {
+			if (mustOccur || mustNotOccur) {
+				// Value is wildcard
+				BoolQueryBuilder oneOf = boolQuery();
+				if (mustOccur == equalsOperator) {
+					// Attribute just needs to exist
+					query.must(oneOf);
+				} else {
+					// Attribute must not exist
+					query.mustNot(oneOf);
+				}
+				for (String attributeTypeProperty : attributeTypeProperties) {
+					oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+				}
+			}
+		} else {
+			if (possibleAttributeValues.isEmpty()) {
+				// Attribute value is not a wildcard but empty selection
+				if (mustOccur) {
+					// Force query to return nothing
+					query.must(termQuery("force-nothing", "true"));
+				}
+			} else {
+				// Value range established
+				if (mustOccur) {
+					if (isConcreteValueQuery()) {
+						updateQueryWithConcreteValue(query, possibleAttributeValues, attributeTypeProperties);
+					} else {
+						if (equalsOperator) {
+							// One of the attributes in the range must have a value in the range
+							BoolQueryBuilder oneOf = boolQuery();
+							query.must(oneOf);
+							for (String attributeTypeProperty : attributeTypeProperties) {
+								oneOf.should(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
+							}
+						} else {
+							BoolQueryBuilder oneOf = boolQuery();
+							query.must(oneOf);
+							// One of the attributes in the range must be present.
+							// A concept may have the attribute value twice, one in and one outside the range.
+							// This can not be expressed in this concept level query
+							refinementBuilder.inclusionFilterRequired();
+							for (String attributeTypeProperty : attributeTypeProperties) {
+								oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+							}
+						}
+					}
+				}
+				if (mustNotOccur) {
+					if (equalsOperator) {
+						// None of the attributes in the range may have a value in the range
+						for (String attributeTypeProperty : attributeTypeProperties) {
+							query.mustNot(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
+						}
+					} else {
+						// None of the attributes in the range may have a value outside of the range
+						// This can not be expressed in this concept level query
+						refinementBuilder.inclusionFilterRequired();
+					}
+				}
+			}
+		}
+	}
+
+	private void updateQueryWithConcreteValue(BoolQueryBuilder query, List<String> possibleAttributeValues, Set<String> attributeTypeProperties) {
+		// should just have one concrete value
+		String value = possibleAttributeValues.get(0);
+		if (isEqualOperator()) {
+			// One of the attributes in the range must have a value in the range
+			BoolQueryBuilder oneOf = boolQuery();
+			query.must(oneOf);
+			for (String attributeTypeProperty : attributeTypeProperties) {
+				oneOf.should(termQuery(getAttributeTypeField(attributeTypeProperty), value));
+			}
+		} else {
+			BoolQueryBuilder oneOf = boolQuery();
+			query.must(oneOf);
+			// concrete domain logic here
+			String comparisonOperator = attributeRange.getConcreteValueOperator();
+			for (String attributeTypeProperty : attributeTypeProperties) {
+				if (getAttributeRange().isNumericQuery()) {
+					if (">=".equals(comparisonOperator)) {
+						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).gte(value));
+					} else if (">".equals(comparisonOperator)) {
+						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).gt(value));
+					} else if ("<=".equals(comparisonOperator)) {
+						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).lte(value));
+					} else if ("<".equals(comparisonOperator)) {
+						oneOf.must(rangeQuery(getAttributeTypeField(attributeTypeProperty)).lt(value));
+					} else if ("!=".equals(comparisonOperator)) {
+						oneOf.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+						oneOf.mustNot(termQuery(getAttributeTypeField(attributeTypeProperty), value));
+					}
+				} else {
+					if ("!=".equals(comparisonOperator)) {
+						oneOf.must(existsQuery(getAttributeTypeField(attributeTypeProperty)));
+						oneOf.mustNot(termQuery(getAttributeTypeField(attributeTypeProperty), value));
+					}
+				}
+			}
+		}
+	}
+
+	private boolean isEqualOperator() {
+		return "=".equals(expressionComparisonOperator)
+				|| "=".equals(getNumericComparisonOperator())
+				|| "=".equals(getStringComparisonOperator());
+	}
+
+	@Override
+	public Set<String> getConceptIds() {
+		Set<String> conceptIds = newHashSet();
+		conceptIds.addAll(((SSubExpressionConstraint) attributeName).getConceptIds());
+		if (!isConcreteValueQuery()) {
+			conceptIds.addAll(((SSubExpressionConstraint) value).getConceptIds());
+		}
+		return conceptIds;
+	}
+
+	private AttributeRange getAttributeRange() {
+		if (attributeRange == null) {
+			Optional<Page<Long>> attributeTypesOptional = ((SSubExpressionConstraint) attributeName).select(refinementBuilder);
+
+			boolean attributeTypeWildcard = !attributeTypesOptional.isPresent();
+			Set<String> attributeTypeProperties_;
+			if (attributeTypeWildcard) {
+				attributeTypeProperties_ = Collections.singleton(QueryConcept.ATTR_TYPE_WILDCARD);
+			} else {
+				attributeTypeProperties_ = attributeTypesOptional.get().stream().map(Object::toString).collect(Collectors.toSet());
+				if (attributeTypeProperties_.isEmpty()) {
+					// Attribute type is not a wildcard but empty selection
+					// Force query to return nothing
+					attributeTypeProperties_.add(SExpressionConstraintHelper.MISSING);
+				}
+			}
+
+			if (!isConcreteValueQuery()) {
+				List<Long> possibleAttributeValues_ = ((SSubExpressionConstraint) value).select(refinementBuilder).map(Slice::getContent).orElse(null);
+				List<String> possibleAttributeValues = possibleAttributeValues_ != null ? possibleAttributeValues_.stream().map(String::valueOf).collect(Collectors.toList()) : null;
+				attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, possibleAttributeValues, cardinalityMin, cardinalityMax);
+			} else {
+				String comparator = null;
+				boolean isNumeric = false;
+				if (getNumericComparisonOperator() != null) {
+					comparator = getNumericComparisonOperator();
+					isNumeric = true;
+				} else if (getStringComparisonOperator() != null) {
+					comparator = getStringComparisonOperator();
+				}
+				List<String> concreteValues = getConcreteValues();
+				if (isNumeric) {
+					attributeTypeProperties_ = Collections.singleton(QueryConcept.ATTR_NUMERIC_TYPE_WILDCARD);
+				}
+				attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, concreteValues, cardinalityMin, cardinalityMax);
+
+				attributeRange.setConcreteValueOperator(comparator);
+				attributeRange.setNumericQuery(isNumeric);
+			}
+		}
+		return attributeRange;
+	}
+
+	private List<String> getConcreteValues() {
+		if (getStringComparisonOperator() != null && getStringValue() != null) {
+			return singletonList(getStringValue());
+		}
+		if (getNumericComparisonOperator() != null && getNumericValue() != null) {
+			return singletonList(getNumericValue());
+		}
+		return null;
+	}
+
+	void checkConceptConstraints(MatchContext matchContext) {
+		AttributeRange range = getAttributeRange();
+		Map<Integer, Map<String, List<Object>>> conceptAttributes = matchContext.getConceptAttributes();
+		boolean withinGroup = matchContext.isWithinGroup();
+		boolean equalsOperator = isConcreteValueQuery() ? true : isEqualOperator();
+
+		// Count occurrence of this attribute within each group
+		final AtomicInteger attributeMatchCount = new AtomicInteger(0);
+		final Map<Integer, AtomicInteger> groupAttributeMatchCounts = new HashMap<>();
+
+		for (Map.Entry<Integer, Map<String, List<Object>>> attributeGroup : conceptAttributes.entrySet()) {
+			attributeGroup.getValue().entrySet().stream()
+					.filter(entrySet -> range.isTypeWithinRange(entrySet.getKey()))
+					.forEach((Map.Entry<String, List<Object>> entrySet) ->
+							entrySet.getValue().forEach(conceptAttributeValue -> {
+								if (equalsOperator == range.isValueWithinRange(String.valueOf(conceptAttributeValue))) {
+									// Increment count for attribute match in the concept
+									attributeMatchCount.incrementAndGet();
+									// Increment count for attribute match in this relationship group
+									groupAttributeMatchCounts.computeIfAbsent(attributeGroup.getKey(), i -> new AtomicInteger()).incrementAndGet();
+								}
+							})
+					);
+		}
+
+		// Gather the group number of groups with this attribute
+		Set<Integer> matchingGroups = new HashSet<>();
+
+		if (withinGroup) {
+			// Apply attribute cardinality within each group
+			for (Integer group : groupAttributeMatchCounts.keySet()) {
+				if (group == 0) {
+					continue; // Group 0 is not a group
+					// TODO: Should we let MRCM self-grouped attributes through here?
+				}
+				AtomicInteger inGroupAttributeMatchCount = groupAttributeMatchCounts.get(group);
+				if ((range.getCardinalityMin() == null || range.getCardinalityMin() <= inGroupAttributeMatchCount.get())
+						&& (range.getCardinalityMax() == null || range.getCardinalityMax() >= inGroupAttributeMatchCount.get())) {
+					matchingGroups.add(group);
+				}
+			}
+		} else {
+			// Apply attribute cardinality across whole concept
+			if ((range.getCardinalityMin() == null || range.getCardinalityMin() <= attributeMatchCount.get())
+					&& (range.getCardinalityMax() == null || range.getCardinalityMax() >= attributeMatchCount.get())) {
+
+				matchingGroups.add(-1);
+			}
+		}
+
+		matchContext.setMatchingGroups(matchingGroups);
+	}
+
+	private String getAttributeTypeField(String attributeTypeProperty) {
+		return QueryConcept.Fields.ATTR + "." + attributeTypeProperty;
+	}
+
+	private boolean isConcreteValueQuery() {
+		return getNumericComparisonOperator() != null || getStringComparisonOperator() != null;
+	}
+
+	private static class CardinalityCriteria {
+		// The query is not capable of constraining the number of times an attribute occurs, only that it does or does not occur.
+		// Further cardinality checking against fetched index records can be enabled using the specificCardinality flag.
+		private boolean specificCardinality = false;
+		private boolean mustOccur = false;
+		private boolean mustNotOccur = false;
+		private boolean noConstraintRequired = false;
+
+		CardinalityCriteria(Integer cardinalityMin, Integer cardinalityMax) {
 			// Cardinality scenarios:
-
 			// Unbound
 			// *..* / 0..*
 			if ((cardinalityMin == null && cardinalityMax == null) ||
 					(isZero(cardinalityMin) && cardinalityMax == null)) {
 				// no constraints needed
-				return;
+				noConstraintRequired = true;
 			}
 
 			// Optional but bounded
@@ -106,213 +351,14 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 				// certain number of times
 				specificCardinality = true;
 			}
-
-			if (specificCardinality) {
-				refinementBuilder.inclusionFilterRequired();
-			}
-
-
-			boolean equalsOperator = isEqualOperator();
-
-			AttributeRange attributeRange = getAttributeRange();
-			List<String> possibleAttributeValues = attributeRange.getPossibleAttributeValues();
-			Set<String> attributeTypeProperties = attributeRange.getPossibleAttributeTypes();
-			if (possibleAttributeValues == null) {
-				if (mustOccur || mustNotOccur) {
-					// Value is wildcard
-					BoolQueryBuilder oneOf = boolQuery();
-					if (mustOccur == equalsOperator) {
-						// Attribute just needs to exist
-						query.must(oneOf);
-					} else {
-						// Attribute must not exist
-						query.mustNot(oneOf);
-					}
-					for (String attributeTypeProperty : attributeTypeProperties) {
-						oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
-					}
-				}
-			} else {
-				if (possibleAttributeValues.isEmpty()) {
-					// Attribute value is not a wildcard but empty selection
-					if (mustOccur) {
-						// Force query to return nothing
-						query.must(termQuery("force-nothing", "true"));
-					}
-				} else {
-					// Value range established
-					if (mustOccur) {
-						if (equalsOperator) {
-							// One of the attributes in the range must have a value in the range
-							BoolQueryBuilder oneOf = boolQuery();
-							query.must(oneOf);
-							for (String attributeTypeProperty : attributeTypeProperties) {
-								oneOf.should(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
-							}
-						} else {
-							// One of the attributes in the range must be present.
-							// A concept may have the attribute value twice, one in and one outside the range.
-							// This can not be expressed in this concept level query
-							refinementBuilder.inclusionFilterRequired();
-
-							BoolQueryBuilder oneOf = boolQuery();
-							query.must(oneOf);
-							for (String attributeTypeProperty : attributeTypeProperties) {
-								oneOf.should(existsQuery(getAttributeTypeField(attributeTypeProperty)));
-							}
-						}
-					}
-
-					if (mustNotOccur) {
-						if (equalsOperator) {
-							// None of the attributes in the range may have a value in the range
-							for (String attributeTypeProperty : attributeTypeProperties) {
-								query.mustNot(termsQuery(getAttributeTypeField(attributeTypeProperty), possibleAttributeValues));
-							}
-						} else {
-							// None of the attributes in the range may have a value outside of the range
-							// This can not be expressed in this concept level query
-							refinementBuilder.inclusionFilterRequired();
-						}
-					}
-				}
-			}
-		}
-	}
-
-	private boolean isEqualOperator() {
-		return "=".equals(expressionComparisonOperator)
-				|| "=".equals(getNumericComparisonOperator())
-				|| "=".equals(getStringComparisonOperator());
-	}
-
-	@Override
-	public Set<String> getConceptIds() {
-		Set<String> conceptIds = newHashSet();
-		conceptIds.addAll(((SSubExpressionConstraint) attributeName).getConceptIds());
-		if (!isConcreteValueQuery()) {
-			conceptIds.addAll(((SSubExpressionConstraint) value).getConceptIds());
-		}
-		return conceptIds;
-	}
-
-	private boolean isZero(Integer i) {
-		return i != null && i == 0;
-	}
-
-	private boolean isOneOrMore(Integer i) {
-		return i != null && i > 0;
-	}
-
-	private AttributeRange getAttributeRange() {
-		if (attributeRange == null) {
-			Optional<Page<Long>> attributeTypesOptional = ((SSubExpressionConstraint) attributeName).select(refinementBuilder);
-
-			boolean attributeTypeWildcard = !attributeTypesOptional.isPresent();
-			Set<String> attributeTypeProperties_;
-			if (attributeTypeWildcard) {
-				attributeTypeProperties_ = Collections.singleton(QueryConcept.ATTR_TYPE_WILDCARD);
-			} else {
-				attributeTypeProperties_ = attributeTypesOptional.get().stream().map(Object::toString).collect(Collectors.toSet());
-				if (attributeTypeProperties_.isEmpty()) {
-					// Attribute type is not a wildcard but empty selection
-					// Force query to return nothing
-					attributeTypeProperties_.add(SExpressionConstraintHelper.MISSING);
-				}
-			}
-
-			if (!isConcreteValueQuery()) {
-				List<Long> possibleAttributeValues_ = ((SSubExpressionConstraint) value).select(refinementBuilder).map(Slice::getContent).orElse(null);
-				List<String> possibleAttributeValues = possibleAttributeValues_ != null ? possibleAttributeValues_.stream().map(String::valueOf).collect(Collectors.toList()) : null;
-				attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, possibleAttributeValues, cardinalityMin, cardinalityMax);
-			} else {
-				List<String> concreteValues = getConcreteValues();
-				attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, concreteValues, cardinalityMin, cardinalityMax);
-				String comparator = null;
-				boolean isNumeric = false;
-				if (getNumericComparisonOperator() != null) {
-					comparator = getNumericComparisonOperator();
-					isNumeric = true;
-				} else if (getStringComparisonOperator() != null) {
-					comparator = getStringComparisonOperator();
-				}
-				attributeRange.setConcreteValueComparator(comparator);
-				attributeRange.setIsNumeric(isNumeric);
-			}
-		}
-		return attributeRange;
-	}
-
-	private List<String> getConcreteValues() {
-		if (getStringComparisonOperator() != null && getStringValue() != null) {
-			// TODO remove this debug
-			System.out.println("string value = " + getStringValue());
-			return Arrays.asList(getStringValue());
-		}
-		if (getNumericComparisonOperator() != null && getNumericValue() != null) {
-			return Arrays.asList(getNumericValue());
-		}
-		return null;
-	}
-
-	void checkConceptConstraints(MatchContext matchContext) {
-		attributeRange = getAttributeRange();
-		Map<Integer, Map<String, List<String>>> conceptAttributes = matchContext.getConceptAttributes();
-		boolean withinGroup = matchContext.isWithinGroup();
-		boolean equalsOperator = isConcreteValueQuery() ? true : isEqualOperator();
-
-		// Count occurrence of this attribute within each group
-		final AtomicInteger attributeMatchCount = new AtomicInteger(0);
-		final Map<Integer, AtomicInteger> groupAttributeMatchCounts = new HashMap<>();
-
-		for (Map.Entry<Integer, Map<String, List<String>>> attributeGroup : conceptAttributes.entrySet()) {
-			attributeGroup.getValue().entrySet().stream()
-					.filter(entrySet -> attributeRange.isTypeWithinRange(entrySet.getKey()))
-					.forEach((Map.Entry<String, List<String>> entrySet) ->
-							entrySet.getValue().forEach(conceptAttributeValue -> {
-								if (equalsOperator == attributeRange.isValueWithinRange(conceptAttributeValue)) {
-									// Increment count for attribute match in the concept
-									attributeMatchCount.incrementAndGet();
-									// Increment count for attribute match in this relationship group
-									groupAttributeMatchCounts.computeIfAbsent(attributeGroup.getKey(), i -> new AtomicInteger()).incrementAndGet();
-								}
-							})
-					);
 		}
 
-		// Gather the group number of groups with this attribute
-		Set<Integer> matchingGroups = new HashSet<>();
-
-		if (withinGroup) {
-			// Apply attribute cardinality within each group
-			for (Integer group : groupAttributeMatchCounts.keySet()) {
-				if (group == 0) {
-					continue; // Group 0 is not a group
-					// TODO: Should we let MRCM self-grouped attributes through here?
-				}
-				AtomicInteger inGroupAttributeMatchCount = groupAttributeMatchCounts.get(group);
-				if ((attributeRange.getCardinalityMin() == null || attributeRange.getCardinalityMin() <= inGroupAttributeMatchCount.get())
-						&& (attributeRange.getCardinalityMax() == null || attributeRange.getCardinalityMax() >= inGroupAttributeMatchCount.get())) {
-					matchingGroups.add(group);
-				}
-			}
-		} else {
-			// Apply attribute cardinality across whole concept
-			if ((attributeRange.getCardinalityMin() == null || attributeRange.getCardinalityMin() <= attributeMatchCount.get())
-					&& (attributeRange.getCardinalityMax() == null || attributeRange.getCardinalityMax() >= attributeMatchCount.get())) {
-
-				matchingGroups.add(-1);
-			}
+		private boolean isZero(Integer i) {
+			return i != null && i == 0;
 		}
 
-		matchContext.setMatchingGroups(matchingGroups);
-	}
-
-	private String getAttributeTypeField(String attributeTypeProperty) {
-		return QueryConcept.Fields.ATTR + "." + attributeTypeProperty;
-	}
-
-	private boolean isConcreteValueQuery() {
-		return getNumericComparisonOperator() != null || getStringComparisonOperator() != null;
+		private boolean isOneOrMore(Integer i) {
+			return i != null && i > 0;
+		}
 	}
 }

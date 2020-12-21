@@ -59,6 +59,9 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	@Autowired
 	private ElasticsearchRestTemplate elasticsearchTemplate;
 
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
+
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 
 	@Test
@@ -946,8 +949,13 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
 				.addRelationship(new Relationship("3332956025", null, true, "900000000000207008", "34020007", "#50", 1, "396070080", "900000000000011006", "900000000000451002"))
-				.addRelationship(new Relationship("4332956025", null, true, "900000000000207008", "34020007", "\"test\"", 1, "396070081", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("4332956025", null, true, "900000000000207008", "34020007", "\"123test\"", 1, "396070081", "900000000000011006", "900000000000451002"))
 				.addRelationship(new Relationship("5963641025", null, true, "900000000000207008", "34020007", "396070080", 1, "363698007", "900000000000011006", "900000000000451002")));
+
+		Set<ReferenceSetMember> mrcmRanges = new HashSet<>();
+		mrcmRanges.add(constructMrcmRange("396070080","dec(*..50)"));
+		mrcmRanges.add(constructMrcmRange("396070081","str()"));
+		referenceSetMemberService.createMembers(path, mrcmRanges);
 
 		// Use low level component save to prevent effectiveTimes being stripped by concept service
 		simulateRF2Import(path, concepts);
@@ -955,10 +963,16 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(6, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007 = *"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(7, queryService.search(queryService.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
+
+		// wildcard query to test attr.all field in the semantic index
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* >= #6"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 = *"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* >= #6"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// string query
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 = \"test\""), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 = \"123test\""), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 = \"50\""), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 = \"#50\""), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
@@ -978,6 +992,8 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		// Not equal to query
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 != #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 != #10"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 != \"123test\""), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 != \"test\""), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// no results with dot notation or reverse flag for concrete domain attributes
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl(" <34020006 . 396070080"), path, QueryService.PAGE_OF_ONE).getTotalElements());
@@ -986,6 +1002,15 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		// should work for non concrete domain attributes
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl(" <34020006 . 363698007"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*: R 363698007 = <34020006"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+	}
+
+	private ReferenceSetMember constructMrcmRange(String referencedComponentId, String rangeConstraint) {
+		ReferenceSetMember rangeMember = new ReferenceSetMember("900000000000207008", REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL, referencedComponentId);
+		rangeMember.setAdditionalField("rangeConstraint", rangeConstraint);
+		rangeMember.setAdditionalField("attributeRule", "");
+		rangeMember.setAdditionalField("ruleStrengthId", "723597001");
+		rangeMember.setAdditionalField("contentTypeId", "723596005");
+		return rangeMember;
 	}
 
 	private void simulateRF2Import(String path, List<Concept> concepts) {

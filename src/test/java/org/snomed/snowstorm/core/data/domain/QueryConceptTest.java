@@ -14,6 +14,8 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class QueryConceptTest {
 
@@ -47,19 +49,27 @@ class QueryConceptTest {
 		queryConcept.addAttribute(3, 123L, "456");
 		assertEquals("1:123=456,789:1234=123|3:123=456", queryConcept.getAttrMap());
 
-		Map<Integer, Map<String, List<String>>> groupedAttributesMap = queryConcept.getGroupedAttributesMap();
+		queryConcept.addAttribute(3, 234L, 500L);
+		queryConcept.serializeGroupedAttributesMap();
+		Map<String, Set<Object>> attributeMap = queryConcept.getAttr();
+		assertNotNull(attributeMap.get("234"));
+		assertTrue(attributeMap.get("234").contains(500L));
+
+		Map<Integer, Map<String, List<Object>>> groupedAttributesMap = queryConcept.getGroupedAttributesMap();
 		assertEquals(2, groupedAttributesMap.size());
 
-		Map<String, Set<String>> expectedAttrMap = new HashMap<>();
-		expectedAttrMap.put("all", Sets.newHashSet("123", "456", "789"));
+		Map<String, Set<Object>> expectedAttrMap = new HashMap<>();
+		expectedAttrMap.put("all", Sets.newHashSet("123", "500", "456", "789"));
 		expectedAttrMap.put("123", Sets.newHashSet("456", "789"));
+		expectedAttrMap.put("234", Sets.newHashSet(500L));
 		expectedAttrMap.put("1234", Sets.newHashSet("123"));
+		expectedAttrMap.put("all_number", Sets.newHashSet(500L));
 		assertEquals(expectedAttrMap, queryConcept.getAttr());
 
 		String json = objectMapper.writeValueAsString(queryConcept);
 
 		QueryConcept queryConcept2 = objectMapper.readValue(json, QueryConcept.class);
-		assertEquals("1:123=456,789:1234=123|3:123=456", queryConcept2.getAttrMap());
+		assertEquals("1:123=456,789:1234=123|3:123=456:234=#500", queryConcept2.getAttrMap());
 		assertEquals(groupedAttributesMap, queryConcept2.getGroupedAttributesMap());
 	}
 

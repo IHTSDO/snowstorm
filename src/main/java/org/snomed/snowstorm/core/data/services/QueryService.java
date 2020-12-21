@@ -404,11 +404,11 @@ public class QueryService implements ApplicationContextAware {
 						if (attributeTypeId.equals(Concepts.IS_A_LONG)) {
 							destinationIds.addAll(queryConcept.getParents());
 						} else {
-							queryConcept.getAttr().getOrDefault(attributeTypeId.toString(), Collections.emptySet()).forEach(id -> destinationIds.add(parseLong(id)));
+							queryConcept.getAttr().getOrDefault(attributeTypeId.toString(), Collections.emptySet()).forEach(id -> addDestinationId(id, destinationIds));
 						}
 					}
 				} else {
-					queryConcept.getAttr().values().forEach(destinationSet -> destinationSet.forEach(destinationId -> destinationIds.add(parseLong(destinationId))));
+					queryConcept.getAttr().values().forEach(destinationSet -> destinationSet.forEach(destinationId -> addDestinationId(destinationId, destinationIds)));
 				}
 			});
 		}
@@ -418,6 +418,12 @@ public class QueryService implements ApplicationContextAware {
 		List<Long> sortedIds = new LongArrayList(destinationIds);
 		sortedIds.sort(LongComparators.OPPOSITE_COMPARATOR);
 		return sortedIds;
+	}
+
+	private void addDestinationId(Object destinationId, Set<Long> destinationIds) {
+		if (destinationId instanceof String) {
+			destinationIds.add(parseLong((String)destinationId));
+		}
 	}
 
 	/**

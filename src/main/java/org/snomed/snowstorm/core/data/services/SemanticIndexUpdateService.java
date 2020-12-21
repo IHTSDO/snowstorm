@@ -9,6 +9,7 @@ import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Entity;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -162,22 +163,24 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 				long conceptId = parseLong(relationship.getSourceId());
 				int groupId = relationship.getGroupId();
 				long type = parseLong(relationship.getTypeId());
+				Integer effectiveTime = component.getEffectiveTimeI();
 				String value = relationship.getValue();
 				if (!relationship.isConcrete()) {
+					// use destination concepts
 					value = relationship.getDestinationId();
 					requiredActiveConcepts.add(parseLong(value));
-				}
-				Integer effectiveTime = component.getEffectiveTimeI();
-				if (type == IS_A_TYPE) {
-					graphBuilder.addParent(conceptId, parseLong(value));
-
-					// Concept model object attribute is not linked to the concept hierarchy by any axiom
-					// however we want the link in the semantic index so let's add it here.
-					if (CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG == parseLong(value)) {
-						graphBuilder.addParent(CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG, CONCEPT_MODEL_ATTRIBUTE_LONG);
+					if (type == IS_A_TYPE) {
+						graphBuilder.addParent(conceptId, parseLong(value));
+						// Concept model object attribute is not linked to the concept hierarchy by any axiom
+						// however we want the link in the semantic index so let's add it here.
+						if (CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG == parseLong(value)) {
+							graphBuilder.addParent(CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG, CONCEPT_MODEL_ATTRIBUTE_LONG);
+						}
+					} else {
+						conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value, false);
 					}
 				} else {
-					conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value);
+					conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value, true);
 				}
 				requiredActiveConcepts.add(conceptId);
 				requiredActiveConcepts.add(type);
@@ -590,8 +593,32 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		queryConcept.clearAttributes();
 		AttributeChanges attributeChanges = conceptAttributeChanges.get(conceptId);
 		if (attributeChanges != null) {
-			attributeChanges.getEffectiveSortedChanges().forEach(attributeChange ->
-					queryConcept.addAttribute(attributeChange.getGroup(), attributeChange.getType(), attributeChange.getValue()));
+			attributeChanges.getEffectiveSortedChanges().forEach(attributeChange -> {
+				if (attributeChange.isConcreteValue()) {
+					String concreteValue = attributeChange.getValue();
+					if (concreteValue.startsWith("#")) {
+						String numeric = concreteValue.substring(1);
+						if (!NumberUtils.isParsable(numeric)) {
+							throw new IllegalArgumentException(String.format("%s is not a valid number", numeric));
+						}
+						// number
+						long longValue = NumberUtils.toLong(numeric);
+						if (longValue != 0) {
+							queryConcept.addAttribute(attributeChange.getGroup(), attributeChange.getType(), longValue);
+						} else {
+							float floatValue = NumberUtils.toFloat(numeric, -1.0f);
+							if (floatValue != -1.0f) {
+								queryConcept.addAttribute(attributeChange.getGroup(), attributeChange.getType(), floatValue);
+							}
+						}
+					} else {
+						// String concrete value
+						queryConcept.addAttribute(attributeChange.getGroup(), attributeChange.getType(), attributeChange.getValue());
+					}
+				} else {
+					queryConcept.addAttribute(attributeChange.getGroup(), attributeChange.getType(), attributeChange.getValue());
+				}
+			});
 		}
 	}
 
@@ -663,8 +690,8 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			changes = new ArrayList<>();
 		}
 
-		private void addAttribute(Integer effectiveTime, int groupId, Long type, String value) {
-			changes.add(new AttributeChange(effectiveTime, groupId, type, value));
+		private void addAttribute(Integer effectiveTime, int groupId, Long type, String value, boolean isConcreteValue) {
+			changes.add(new AttributeChange(effectiveTime, groupId, type, value, isConcreteValue));
 		}
 
 		private List<AttributeChange> getEffectiveSortedChanges() {
@@ -686,8 +713,9 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		private final int group;
 		private final long type;
 		private final String value;
+		private final boolean isConcreteValue;
 
-		private AttributeChange(Integer effectiveTime, int group, long type, String value) {
+		private AttributeChange(Integer effectiveTime, int group, long type, String value, boolean isConcreteValue) {
 			if (effectiveTime == null) {
 				effectiveTime = 90000000;
 			}
@@ -695,6 +723,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			this.group = group;
 			this.type = type;
 			this.value = value;
+			this.isConcreteValue = isConcreteValue;
 		}
 
 		private int getEffectiveTime() {
@@ -713,6 +742,10 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			return value;
 		}
 
+		private boolean isConcreteValue() {
+			return this.isConcreteValue;
+		}
+
 		@Override
 		public String toString() {
 			return "AttributeChange{" +
@@ -720,6 +753,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 					", group=" + group +
 					", type=" + type +
 					", value=" + value +
+					", isConcreteValue=" + isConcreteValue +
 					'}';
 		}
 	}
