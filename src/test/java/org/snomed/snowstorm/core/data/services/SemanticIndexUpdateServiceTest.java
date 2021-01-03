@@ -941,6 +941,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		concepts.add(new Concept("116680003").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		concepts.add(new Concept("396070080").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		concepts.add(new Concept("396070081").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("396070082").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		concepts.add(new Concept("363698007").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 		concepts.add(new Concept("34020006").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
 
@@ -949,27 +950,21 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
 				.addRelationship(new Relationship("3332956025", null, true, "900000000000207008", "34020007", "#50", 1, "396070080", "900000000000011006", "900000000000451002"))
-				.addRelationship(new Relationship("4332956025", null, true, "900000000000207008", "34020007", "\"123test\"", 1, "396070081", "900000000000011006", "900000000000451002"))
-				.addRelationship(new Relationship("5963641025", null, true, "900000000000207008", "34020007", "396070080", 1, "363698007", "900000000000011006", "900000000000451002")));
-
-		Set<ReferenceSetMember> mrcmRanges = new HashSet<>();
-		mrcmRanges.add(constructMrcmRange("396070080","dec(*..50)"));
-		mrcmRanges.add(constructMrcmRange("396070081","str()"));
-		referenceSetMemberService.createMembers(path, mrcmRanges);
+				.addRelationship(new Relationship("3332956026", null, true, "900000000000207008", "34020007", "#20", 1, "396070082", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("4332956027", null, true, "900000000000207008", "34020007", "\"123test\"", 1, "396070081", "900000000000011006", "900000000000451002"))
+				.addRelationship(new Relationship("5963641028", null, true, "900000000000207008", "34020007", "396070080", 1, "363698007", "900000000000011006", "900000000000451002")));
 
 		// Use low level component save to prevent effectiveTimes being stripped by concept service
 		simulateRF2Import(path, concepts);
 
-		assertEquals(6, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007 = *"), path, QueryService.PAGE_OF_ONE).getTotalElements());
-		assertEquals(7, queryService.search(queryService.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
-
 		// wildcard query to test attr.all field in the semantic index
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* >= #6"), path, QueryService.PAGE_OF_ONE).getTotalElements());
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 = *"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 >= #0"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* >= #6"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 = *"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 = *"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// string query
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 = \"123test\""), path, QueryService.PAGE_OF_ONE).getTotalElements());
@@ -978,7 +973,8 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// number query
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
-		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 = #10"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 = #20"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070082 = #20"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// range queries
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 >= #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
@@ -996,11 +992,11 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 != \"test\""), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// no results with dot notation or reverse flag for concrete domain attributes
-		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl(" <34020006 . 396070080"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("<34020006 . 396070080"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*: R 396070080 = <34020006"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// should work for non concrete domain attributes
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl(" <34020006 . 363698007"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<34020006 . 363698007"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*: R 363698007 = <34020006"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 	}
 

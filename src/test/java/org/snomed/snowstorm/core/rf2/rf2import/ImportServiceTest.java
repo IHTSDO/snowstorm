@@ -681,10 +681,10 @@ class ImportServiceTest extends AbstractTest {
 		assertNotNull(fourthRelationship);
 		assertNotNull(fifthRelationship);
 
-		assertEquals("#1", firstRelationship.getValue());
-		assertEquals("#2.2", secondRelationship.getValue());
-		assertEquals("#3", thirdRelationship.getValue());
-		assertEquals("\"Before bed\"", fourthRelationship.getValue());
-		assertEquals("\"Daily\"", fifthRelationship.getValue());
+		assertEquals("#2", firstRelationship.getValue());
+		assertEquals("#3.2", secondRelationship.getValue());
+		assertEquals("#4", thirdRelationship.getValue());
+		assertEquals("\"before bed\"", fourthRelationship.getValue());
+		assertEquals("\"daily\"", fifthRelationship.getValue());
 	}
 }

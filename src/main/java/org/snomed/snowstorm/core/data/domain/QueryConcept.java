@@ -19,7 +19,9 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	public static final String ATTR_TYPE_WILDCARD = "all";
 
-	public static final String ATTR_NUMERIC_TYPE_WILDCARD = "all_number";
+	public static final String ATTR_NUMERIC_TYPE_WILDCARD = "all_numeric";
+
+	public static final String NUMERIC_TYPE = "_numeric";
 
 	public interface Fields {
 		String CONCEPT_ID_FORM = "conceptIdForm";
@@ -54,7 +56,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	private String attrMap;
 
 	@Transient
-	private Map<Integer, Map<String, List<Object>>> groupedAttributesMap;
+	private Map<Integer, Map<String, List<String>>> groupedAttributesMap;
 
 	public QueryConcept() {
 	}
@@ -73,7 +75,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		}
 	}
 
-	public void addAttribute(int group, Long type, Object value) {
+	public void addAttribute(int group, Long type, String value) {
 		if (groupedAttributesMap == null) {
 			groupedAttributesMap = new HashMap<>();
 		}
@@ -81,14 +83,15 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 				.computeIfAbsent(type.toString(), (t) -> new ArrayList<>()).add(value);
 	}
 
+
 	public void removeAttribute(int group, Long type, String value) {
 		if (groupedAttributesMap == null) {
 			groupedAttributesMap = new HashMap<>();
 		}
-		Map<String, List<Object>> groupAttributes = groupedAttributesMap.get(group);
+		Map<String, List<String>> groupAttributes = groupedAttributesMap.get(group);
 		if (groupAttributes != null) {
 
-			List<Object> typeValues = groupAttributes.get(type.toString());
+			List<String> typeValues = groupAttributes.get(type.toString());
 			if (typeValues != null) {
 				typeValues.remove(value.toString());
 				if (typeValues.isEmpty()) {
@@ -103,7 +106,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	}
 
 	@JsonIgnore
-	public Map<Integer, Map<String, List<Object>>> getGroupedAttributesMap() {
+	public Map<Integer, Map<String, List<String>>> getGroupedAttributesMap() {
 		if (groupedAttributesMap == null && this.attrMap != null) {
 			return GroupedAttributesMapSerializer.deserializeMap(this.attrMap);
 		}
@@ -226,23 +229,20 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	private static final class GroupedAttributesMapSerializer {
 
-		private static String serializeMap(Map<Integer, Map<String, List<Object>>> groupedAttributesMap) {
+		private static String serializeMap(Map<Integer, Map<String, List<String>>> groupedAttributesMap) {
 			if (groupedAttributesMap == null) {
 				return "";
 			}
 			final StringBuilder builder = new StringBuilder();
 			for (Integer groupNo : groupedAttributesMap.keySet()) {
-				Map<String, List<Object>> attributes = groupedAttributesMap.get(groupNo);
+				Map<String, List<String>> attributes = groupedAttributesMap.get(groupNo);
 				builder.append(groupNo);
 				builder.append(":");
 				for (String type : attributes.keySet()) {
 					builder.append(type);
 					builder.append("=");
-					for (Object value : attributes.get(type)) {
-						if (!(value instanceof String) && NumberUtils.isParsable(String.valueOf(value))) {
-							builder.append("#");
-						}
-						builder.append(String.valueOf(value));
+					for (String value : attributes.get(type)) {
+						builder.append(value);
 						builder.append(",");
 					}
 					deleteLastCharacter(builder);
@@ -262,8 +262,8 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 			return builder;
 		}
 
-		private static Map<Integer, Map<String, List<Object>>> deserializeMap(String attrMap) {
-			Map<Integer, Map<String, List<Object>>> groupedAttributesMap = new HashMap<>();
+		private static Map<Integer, Map<String, List<String>>> deserializeMap(String attrMap) {
+			Map<Integer, Map<String, List<String>>> groupedAttributesMap = new HashMap<>();
 			if (attrMap.isEmpty()) {
 				return groupedAttributesMap;
 			}
@@ -271,20 +271,20 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 			for (String group : groups) {
 				String[] attributes = group.split(":");
 				int groupNo = Integer.parseInt(attributes[0]);
-				Map<String, List<Object>> attributeMap = new HashMap<>();
+				Map<String, List<String>> attributeMap = new HashMap<>();
 				for (int i = 1; i < attributes.length; i++) {
 					String attribute = attributes[i];
 					String[] attrParts = attribute.split("=");
 					String type = attrParts[0];
 					String[] values = attrParts[1].split(",");
-					attributeMap.put(type, checkAndTransformConcreteValues(values));
+					attributeMap.put(type, Arrays.asList(values));
 				}
 				groupedAttributesMap.put(groupNo, attributeMap);
 			}
 			return groupedAttributesMap;
 		}
 
-		private static List<Object> checkAndTransformConcreteValues(String[] values) {
+		private static List<Object> checkAndTransformConcreteValues(List<String> values) {
 			List<Object> transformed = new ArrayList<>();
 			for (String value : values) {
 				if (value.startsWith("#")) {
@@ -309,19 +309,27 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 			return transformed;
 		}
 
-		private static Map<String, Set<Object>> serializeFlatMap(Map<Integer, Map<String, List<Object>>> groupedAttributesMap) {
+		private static Map<String, Set<Object>> serializeFlatMap(Map<Integer, Map<String, List<String>>> groupedAttributesMap) {
 			Map<String, Set<Object>> attributesMap = new HashMap<>();
 			Set<Object> allValues = new HashSet<>();
+			Set<Object> numericValues = new HashSet<>();
 			if (groupedAttributesMap != null) {
 				groupedAttributesMap.forEach((group, attributes) -> {
 					attributes.forEach((type, values) -> {
+						List<Object> converted = checkAndTransformConcreteValues(values);
+						// add numeric fields for concrete values with #
+						Object numericValue = converted.stream().filter(v -> !(v instanceof String)).findFirst().orElse(null);
+						if (numericValue != null) {
+							Set<Object> valueList = attributesMap.computeIfAbsent(type + NUMERIC_TYPE, (t) -> new HashSet<>());
+							valueList.addAll(converted);
+							numericValues.addAll(converted);
+						}
 						Set<Object> valueList = attributesMap.computeIfAbsent(type, (t) -> new HashSet<>());
 						valueList.addAll(values);
 						allValues.addAll(values);
 					});
 				});
 			}
-			Set<Object> numericValues = allValues.stream().filter(v -> !(v instanceof String)).collect(Collectors.toSet());
 			attributesMap.put(ATTR_TYPE_WILDCARD, allValues.stream().map(String::valueOf).collect(Collectors.toSet()));
 			attributesMap.put(ATTR_NUMERIC_TYPE_WILDCARD, numericValues);
 			return attributesMap;

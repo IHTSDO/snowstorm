@@ -35,3 +35,9 @@ id	effectiveTime	active	moduleId	definitionStatusId
 
 # Diabetes mellitus - this version is active although it exists in the extension with earlier effective time
 73211009	20170131	1	900000000000207008	900000000000074008
+
+# Count of active ingredient
+3311486008	20170131	1	900000000000207008	900000000000074008
+
+# Meningitis C vaccine
+871866001	20200731	1	900000000000207008	900000000000074008

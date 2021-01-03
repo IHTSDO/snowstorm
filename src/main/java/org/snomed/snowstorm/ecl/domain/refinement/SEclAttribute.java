@@ -150,7 +150,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			BoolQueryBuilder oneOf = boolQuery();
 			query.must(oneOf);
 			// concrete domain logic here
-			String comparisonOperator = attributeRange.getConcreteValueOperator();
+			String comparisonOperator = getAttributeRange().getConcreteValueOperator();
 			for (String attributeTypeProperty : attributeTypeProperties) {
 				if (getAttributeRange().isNumericQuery()) {
 					if (">=".equals(comparisonOperator)) {
@@ -213,21 +213,23 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 				List<String> possibleAttributeValues = possibleAttributeValues_ != null ? possibleAttributeValues_.stream().map(String::valueOf).collect(Collectors.toList()) : null;
 				attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, possibleAttributeValues, cardinalityMin, cardinalityMax);
 			} else {
-				String comparator = null;
+				String operator = null;
 				boolean isNumeric = false;
 				if (getNumericComparisonOperator() != null) {
-					comparator = getNumericComparisonOperator();
+					operator = getNumericComparisonOperator();
 					isNumeric = true;
+					Set<String> numericTypes = new HashSet<>();
+					attributeTypeProperties_.stream().forEach(type -> numericTypes.add(type + QueryConcept.NUMERIC_TYPE));
+					attributeTypeProperties_ = numericTypes;
 				} else if (getStringComparisonOperator() != null) {
-					comparator = getStringComparisonOperator();
+					operator = getStringComparisonOperator();
 				}
 				List<String> concreteValues = getConcreteValues();
-				if (isNumeric) {
+				if (isNumeric && attributeTypeWildcard) {
 					attributeTypeProperties_ = Collections.singleton(QueryConcept.ATTR_NUMERIC_TYPE_WILDCARD);
 				}
 				attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, concreteValues, cardinalityMin, cardinalityMax);
-
-				attributeRange.setConcreteValueOperator(comparator);
+				attributeRange.setConcreteValueOperator(operator);
 				attributeRange.setNumericQuery(isNumeric);
 			}
 		}
@@ -246,18 +248,17 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 
 	void checkConceptConstraints(MatchContext matchContext) {
 		AttributeRange range = getAttributeRange();
-		Map<Integer, Map<String, List<Object>>> conceptAttributes = matchContext.getConceptAttributes();
+		Map<Integer, Map<String, List<String>>> conceptAttributes = matchContext.getConceptAttributes();
 		boolean withinGroup = matchContext.isWithinGroup();
-		boolean equalsOperator = isConcreteValueQuery() ? true : isEqualOperator();
-
+		boolean equalsOperator = isEqualOperator();
 		// Count occurrence of this attribute within each group
 		final AtomicInteger attributeMatchCount = new AtomicInteger(0);
 		final Map<Integer, AtomicInteger> groupAttributeMatchCounts = new HashMap<>();
 
-		for (Map.Entry<Integer, Map<String, List<Object>>> attributeGroup : conceptAttributes.entrySet()) {
+		for (Map.Entry<Integer, Map<String, List<String>>> attributeGroup : conceptAttributes.entrySet()) {
 			attributeGroup.getValue().entrySet().stream()
 					.filter(entrySet -> range.isTypeWithinRange(entrySet.getKey()))
-					.forEach((Map.Entry<String, List<Object>> entrySet) ->
+					.forEach((Map.Entry<String, List<String>> entrySet) ->
 							entrySet.getValue().forEach(conceptAttributeValue -> {
 								if (equalsOperator == range.isValueWithinRange(String.valueOf(conceptAttributeValue))) {
 									// Increment count for attribute match in the concept
