@@ -179,12 +179,12 @@ public class ControllerHelper {
 	}
 
 	static void validatePageSize(long offset, int limit) {
-        if (limit < 1) {
-            throw new IllegalArgumentException("Limit must be greater than 0.");
-        }
+		if (limit < 1) {
+			throw new IllegalArgumentException("Limit must be greater than 0.");
+		}
 
-        if ((offset + limit) > 10_000) {
-            throw new IllegalArgumentException("Maximum offset + page size is 10,000.");
-        }
+		if ((offset + limit) > 10_000) {
+			throw new IllegalArgumentException("Maximum offset + page size is 10,000.");
+		}
 	}
 }

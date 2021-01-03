@@ -808,7 +808,7 @@ class ConceptServiceTest extends AbstractTest {
 		final Concept inConcept = new Concept("12345678910");
 		inConcept.addAxiom(
 				new Relationship(ISA, "12345"),
-				Relationship.newConcrete("1234567891011", "\"Two tablets in morning.\"")
+				Relationship.newConcrete("1234567891012", "\"Two tablets in morning.\"")
 		);
 
 		//when

@@ -4,6 +4,7 @@ import io.kaicode.elasticvc.api.BranchNotFoundException;
 import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.langauges.ecl.ECLException;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.springframework.http.HttpStatus;
@@ -33,7 +34,8 @@ public class RestControllerAdvice {
 			HttpMediaTypeNotSupportedException.class,
 			MethodArgumentNotValidException.class,
 			MethodArgumentTypeMismatchException.class,
-			MissingServletRequestParameterException.class
+			MissingServletRequestParameterException.class,
+			ECLException.class
 	})
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	@ResponseBody
