@@ -59,9 +59,6 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	@Autowired
 	private ElasticsearchRestTemplate elasticsearchTemplate;
 
-	@Autowired
-	private ReferenceSetMemberService referenceSetMemberService;
-
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 
 	@Test

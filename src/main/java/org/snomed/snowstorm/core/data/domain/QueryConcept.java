@@ -9,7 +9,6 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Represents an active concept with fields to assist logical searching.
@@ -20,8 +19,6 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	public static final String ATTR_TYPE_WILDCARD = "all";
 
 	public static final String ATTR_NUMERIC_TYPE_WILDCARD = "all_numeric";
-
-	public static final String NUMERIC_TYPE = "_numeric";
 
 	public interface Fields {
 		String CONCEPT_ID_FORM = "conceptIdForm";
@@ -312,26 +309,28 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		private static Map<String, Set<Object>> serializeFlatMap(Map<Integer, Map<String, List<String>>> groupedAttributesMap) {
 			Map<String, Set<Object>> attributesMap = new HashMap<>();
 			Set<Object> allValues = new HashSet<>();
-			Set<Object> numericValues = new HashSet<>();
+			Set<Object> allNumericValues = new HashSet<>();
 			if (groupedAttributesMap != null) {
 				groupedAttributesMap.forEach((group, attributes) -> {
 					attributes.forEach((type, values) -> {
+						Set<Object> valueList = attributesMap.computeIfAbsent(type, (t) -> new HashSet<>());
 						List<Object> converted = checkAndTransformConcreteValues(values);
 						// add numeric fields for concrete values with #
 						Object numericValue = converted.stream().filter(v -> !(v instanceof String)).findFirst().orElse(null);
 						if (numericValue != null) {
-							Set<Object> valueList = attributesMap.computeIfAbsent(type + NUMERIC_TYPE, (t) -> new HashSet<>());
 							valueList.addAll(converted);
-							numericValues.addAll(converted);
+							allNumericValues.addAll(converted);
+						} else {
+							valueList.addAll(values);
+							allValues.addAll(values);
 						}
-						Set<Object> valueList = attributesMap.computeIfAbsent(type, (t) -> new HashSet<>());
-						valueList.addAll(values);
-						allValues.addAll(values);
 					});
 				});
 			}
-			attributesMap.put(ATTR_TYPE_WILDCARD, allValues.stream().map(String::valueOf).collect(Collectors.toSet()));
-			attributesMap.put(ATTR_NUMERIC_TYPE_WILDCARD, numericValues);
+			attributesMap.put(ATTR_TYPE_WILDCARD, allValues);
+			if (!allNumericValues.isEmpty()) {
+				attributesMap.put(ATTR_NUMERIC_TYPE_WILDCARD, allNumericValues);
+			}
 			return attributesMap;
 		}
 	}

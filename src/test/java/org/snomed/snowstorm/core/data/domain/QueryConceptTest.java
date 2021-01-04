@@ -59,12 +59,11 @@ class QueryConceptTest {
 		assertEquals(3, groupedAttributesMap.size());
 
 		Map<String, Set<Object>> expectedAttrMap = new HashMap<>();
-		expectedAttrMap.put("all", Sets.newHashSet("123", "#500", "456", "789", "\"test\""));
+		expectedAttrMap.put("all", Sets.newHashSet("123", "456", "789", "\"test\""));
 		expectedAttrMap.put("123", Sets.newHashSet("456", "789"));
-		expectedAttrMap.put("234", Sets.newHashSet("#500"));
+		expectedAttrMap.put("234", Sets.newHashSet(500L));
 		expectedAttrMap.put("2345", Sets.newHashSet("\"test\""));
 		expectedAttrMap.put("1234", Sets.newHashSet("123"));
-		expectedAttrMap.put("234_numeric", Sets.newHashSet(500L));
 		expectedAttrMap.put("all_numeric", Sets.newHashSet(500L));
 		assertEquals(expectedAttrMap, queryConcept.getAttr());
 
