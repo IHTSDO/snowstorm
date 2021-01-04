@@ -218,9 +218,6 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 				if (getNumericComparisonOperator() != null) {
 					operator = getNumericComparisonOperator();
 					isNumeric = true;
-					Set<String> numericTypes = new HashSet<>();
-					attributeTypeProperties_.stream().forEach(type -> numericTypes.add(type + QueryConcept.NUMERIC_TYPE));
-					attributeTypeProperties_ = numericTypes;
 				} else if (getStringComparisonOperator() != null) {
 					operator = getStringComparisonOperator();
 				}
