@@ -12,7 +12,6 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 public class RelationshipChange {
 
 	public interface Fields {
-		String SORT_NUMBER = "sortNumber";
 		String SOURCE_ID = "sourceId";
 		String GROUP = "group";
 	}
@@ -20,9 +19,6 @@ public class RelationshipChange {
 	@Id
 	@Field
 	private String internalId;
-
-	@Field(type = FieldType.Integer)
-	private int sortNumber;
 
 	@Field(type = FieldType.Keyword)
 	private String classificationId;
@@ -63,10 +59,9 @@ public class RelationshipChange {
 	public RelationshipChange() {
 	}
 
-	public RelationshipChange(int sortNumber, String classificationId, String relationshipId, boolean active,
 							  String sourceId, String destinationId, int group,
 							  String typeId, String modifierId, boolean inferredNotStated) {
-		this.sortNumber = sortNumber;
+	public RelationshipChange(String classificationId, String relationshipId, boolean active,
 		this.classificationId = classificationId;
 		this.relationshipId = relationshipId;
 		this.active = active;
@@ -100,10 +95,6 @@ public class RelationshipChange {
 
 	public String getInternalId() {
 		return internalId;
-	}
-
-	public int getSortNumber() {
-		return sortNumber;
 	}
 
 	public void setInternalId(String internalId) {
@@ -214,7 +205,6 @@ public class RelationshipChange {
 	public String toString() {
 		return "RelationshipChange{" +
 				"internalId='" + internalId + '\'' +
-				", sortNumber='" + sortNumber + '\'' +
 				", classificationId='" + classificationId + '\'' +
 				", relationshipId='" + relationshipId + '\'' +
 				", active=" + active +

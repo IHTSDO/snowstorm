@@ -120,7 +120,7 @@ public class ClassificationService {
 
 	private static final PageRequest PAGE_FIRST_1K = PageRequest.of(0, 1000);
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private static final SimpleDateFormat SIMPLE_DATE_FORMAT = new SimpleDateFormat("yyyyMMdd");
 
 	public ClassificationService() {
@@ -358,7 +358,7 @@ public class ClassificationService {
 								.withQuery(termQuery("classificationId", classificationId))
 								.withSort(new FieldSortBuilder(RelationshipChange.Fields.SOURCE_ID))
 								.withSort(new FieldSortBuilder(RelationshipChange.Fields.GROUP))
-								.withSort(new FieldSortBuilder(RelationshipChange.Fields.SORT_NUMBER))// This gives a guaranteed sort order for a reliable stateless stream
+								.withSort(new FieldSortBuilder("_id"))// This gives a guaranteed sort order for a reliable stateless stream
 								.withPageable(LARGE_PAGE);
 						try (SearchHitsIterator<RelationshipChange> relationshipChangeStream = elasticsearchOperations.searchForStream(queryBuilder.build(), RelationshipChange.class)) {
 							while (relationshipChangeStream.hasNext()) {
@@ -560,7 +560,6 @@ public class ClassificationService {
 		reader.readLine(); // Read and discard header line
 
 		List<RelationshipChange> relationshipChanges = new ArrayList<>();
-		int recordSortNumber = 0;
 		String line;
 		long activeRows = 0;
 		boolean active;
@@ -569,7 +568,6 @@ public class ClassificationService {
 			// Header id	effectiveTime	active	moduleId	sourceId	destinationId	relationshipGroup	typeId	characteristicTypeId	modifierId
 			active = "1".equals(values[RelationshipFieldIndexes.active]);
 			relationshipChanges.add(new RelationshipChange(
-					recordSortNumber++,
 					classification.getId(),
 					values[RelationshipFieldIndexes.id],
 					active,
