@@ -12,7 +12,8 @@ import org.snomed.snowstorm.core.data.repositories.config.RelationshipStoreMixIn
 
 import java.io.IOException;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 class ConceptSerialisationTest {
 
@@ -145,44 +146,69 @@ class ConceptSerialisationTest {
 	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteString() throws JsonProcessingException {
 		//given
 		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "\"Two pills two times a day.\"", 0, "116680003", "900000000000011006", "900000000000451002");
+		relationship.setConcreteValue("\"Two pills two times a day.\"", "str");
 
 		//when
 		final String result = storeObjectMapper.writeValueAsString(relationship);
 		final boolean containsDestinationId = result.contains("destinationId");
-		final boolean containsValue = result.contains("value");
+		final boolean containsConcreteValue = result.contains("concreteValue");
 
 		//then
-		assertTrue(containsValue);
 		assertFalse(containsDestinationId);
+		assertTrue(containsConcreteValue);
 	}
 
 	@Test
 	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteInteger() throws JsonProcessingException {
 		//given
-		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#2", 0, "116680003", "900000000000011006", "900000000000451002");
+		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#3.14", 0, "116680003", "900000000000011006", "900000000000451002");
+		relationship.setConcreteValue("#2", "int");
 
 		//when
 		final String result = storeObjectMapper.writeValueAsString(relationship);
 		final boolean containsDestinationId = result.contains("destinationId");
-		final boolean containsValue = result.contains("value");
+		final boolean containsConcreteValue = result.contains("concreteValue");
 
 		//then
-		assertTrue(containsValue);
 		assertFalse(containsDestinationId);
+		assertTrue(containsConcreteValue);
 	}
 
 	@Test
 	public void writeValueAsString_ShouldReturnCorrectString_WhenWritingConcreteDecimal() throws JsonProcessingException {
 		//given
 		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#3.14", 0, "116680003", "900000000000011006", "900000000000451002");
+		relationship.setConcreteValue("#3.14", "dec");
 
 		//when
 		final String result = storeObjectMapper.writeValueAsString(relationship);
 		final boolean containsDestinationId = result.contains("destinationId");
-		final boolean containsValue = result.contains("value");
+		final boolean containsConcreteValue = result.contains("concreteValue");
 
 		//then
-		assertTrue(containsValue);
 		assertFalse(containsDestinationId);
+		assertTrue(containsConcreteValue);
+	}
+
+	/*
+	 * When deserializing a Relationship with a concrete value,
+	 * the Relationship.Value field should not be present.
+	 * This is difficult to assert as 'value' is ambiguous with
+	 * Relationship.ConcreteValue.Value.
+	 *
+	 * Therefore, the assertion is for the format of Relationship.Value.
+	 * */
+	@Test
+	public void writeValueAsString_ShouldNotReturnRelationshipValueField_WhenWritingConcreteData() throws JsonProcessingException {
+		//given
+		final Relationship relationship = new Relationship("200001001", 20170131, true, "900000000000012004", "900000000000441003", "#3.14", 0, "116680003", "900000000000011006", "900000000000451002");
+		relationship.setConcreteValue("#3.14", "dec");
+
+		//when
+		final String result = storeObjectMapper.writeValueAsString(relationship);
+		final boolean containsValue = result.contains("\"value\":\"#3.14\"");
+
+		//then
+		assertFalse(containsValue);
 	}
 }
