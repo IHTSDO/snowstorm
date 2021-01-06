@@ -22,4 +22,7 @@ public abstract class RelationshipStoreMixIn {
 	@JsonIgnore
 	abstract String getCharacteristicType();
 
+	@JsonIgnore
+	abstract String getValue();
+
 }
