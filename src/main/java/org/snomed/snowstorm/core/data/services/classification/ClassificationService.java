@@ -437,7 +437,7 @@ public class ClassificationService {
 								true,
 								concept.getModuleId(),
 								null,
-								relationshipChange.getDestinationId(),
+								relationshipChange.getDestinationOrValue(),
 								relationshipChange.getGroup(),
 								relationshipChange.getTypeId(),
 								relationshipChange.getCharacteristicTypeId(),
@@ -544,7 +544,10 @@ public class ClassificationService {
 			ZipEntry zipEntry;
 			while ((zipEntry = rf2ResultsZipStream.getNextEntry()) != null) {
 				if (zipEntry.getName().contains("sct2_Relationship_Delta")) {
-					saveRelationshipChanges(classification, rf2ResultsZipStream);
+					saveRelationshipChanges(classification, rf2ResultsZipStream, false);
+				}
+				if (zipEntry.getName().contains("sct2_RelationshipConcreteValues_Delta")) {
+					saveRelationshipChanges(classification, rf2ResultsZipStream, true);
 				}
 				if (zipEntry.getName().contains("der2_sRefset_EquivalentConceptSimpleMapDelta")) {
 					saveEquivalentConcepts(classification.getId(), rf2ResultsZipStream);
@@ -553,7 +556,7 @@ public class ClassificationService {
 		}
 	}
 
-	void saveRelationshipChanges(Classification classification, InputStream rf2Stream) throws IOException, ElasticsearchException {
+	void saveRelationshipChanges(Classification classification, InputStream rf2Stream, boolean concrete) throws IOException, ElasticsearchException {
 		// Leave the stream open after use.
 		BufferedReader reader = new BufferedReader(new InputStreamReader(rf2Stream));
 
@@ -564,19 +567,25 @@ public class ClassificationService {
 		long activeRows = 0;
 		boolean active;
 		while ((line = reader.readLine()) != null) {
+
+			// Relationship Header:
+			// id	effectiveTime	active	moduleId	sourceId	destinationId	relationshipGroup	typeId	characteristicTypeId	modifierId
+
+			// Concrete Relationship Header:
+			// id	effectiveTime	active	moduleId	sourceId	value	relationshipGroup	typeId	characteristicTypeId	modifierId
+
 			String[] values = line.split("\\t");
-			// Header id	effectiveTime	active	moduleId	sourceId	destinationId	relationshipGroup	typeId	characteristicTypeId	modifierId
 			active = "1".equals(values[RelationshipFieldIndexes.active]);
 			relationshipChanges.add(new RelationshipChange(
 					classification.getId(),
 					values[RelationshipFieldIndexes.id],
 					active,
 					values[RelationshipFieldIndexes.sourceId],
-					values[RelationshipFieldIndexes.destinationId],
+					values[RelationshipFieldIndexes.destinationId],// destination or value depending on value of concrete flag
 					Integer.parseInt(values[RelationshipFieldIndexes.relationshipGroup]),
 					values[RelationshipFieldIndexes.typeId],
 					values[RelationshipFieldIndexes.modifierId],
-					false));
+					concrete));
 			if (active) {
 				activeRows++;
 			}
@@ -603,7 +612,7 @@ public class ClassificationService {
 					if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
 						conceptQuery.mustNot(termQuery(QueryConcept.Fields.PARENTS, relationshipChange.getDestinationId()));
 					} else {
-						conceptQuery.mustNot(termQuery(QueryConcept.Fields.ATTR + "." + relationshipChange.getTypeId(), relationshipChange.getDestinationId()));
+						conceptQuery.mustNot(termQuery(QueryConcept.Fields.ATTR + "." + relationshipChange.getTypeId(), relationshipChange.getDestinationOrValueWithoutPrefix()));
 					}
 					allConceptsQuery.should(conceptQuery);
 					activeConceptChanges.computeIfAbsent(sourceId, id -> new ArrayList<>()).add(relationshipChange);
@@ -640,7 +649,8 @@ public class ClassificationService {
 									relationshipChange.setInferredNotStated(true);
 								}
 							} else {
-								if (!conceptAttributes.getOrDefault(relationshipChange.getTypeId(), Collections.emptySet()).contains(relationshipChange.getDestinationId())) {
+								if (!conceptAttributes.getOrDefault(relationshipChange.getTypeId(), Collections.emptySet())
+                                        .contains(relationshipChange.getDestinationOrRawValue())) {
 									relationshipChange.setInferredNotStated(true);
 								}
 							}

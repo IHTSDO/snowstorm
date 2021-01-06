@@ -2,11 +2,14 @@ package org.snomed.snowstorm.core.data.domain.classification;
 
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.ConcreteValue;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
+
+import java.io.Serializable;
 
 @Document(indexName = "classification-relationship-change")
 public class RelationshipChange {
@@ -36,6 +39,9 @@ public class RelationshipChange {
 	private String destinationId;
 
 	@Field(type = FieldType.Keyword)
+	private String value;
+
+	@Field(type = FieldType.Keyword)
 	private int group;
 
 	@Field(type = FieldType.Keyword)
@@ -59,18 +65,54 @@ public class RelationshipChange {
 	public RelationshipChange() {
 	}
 
-							  String sourceId, String destinationId, int group,
-							  String typeId, String modifierId, boolean inferredNotStated) {
 	public RelationshipChange(String classificationId, String relationshipId, boolean active,
+							  String sourceId, String destinationIdOrValue, int group,
+							  String typeId, String modifierId, boolean concrete) {
 		this.classificationId = classificationId;
 		this.relationshipId = relationshipId;
 		this.active = active;
 		this.sourceId = sourceId;
-		this.destinationId = destinationId;
+		if (concrete) {
+			this.value = destinationIdOrValue;
+		} else {
+			this.destinationId = destinationIdOrValue;
+		}
 		this.group = group;
 		this.typeId = typeId;
 		this.modifierId = modifierId;
-		this.inferredNotStated = inferredNotStated;
+	}
+
+	public boolean isConcrete() {
+		return this.value != null;
+	}
+
+	public String getDestinationOrValue() {
+		return destinationId != null ? destinationId : value;
+	}
+
+	public String getDestinationOrValueWithoutPrefix() {
+	    if (destinationId != null) {
+	        return destinationId;
+        } else if (value != null) {
+            return ConcreteValue.removeConcretePrefix(value);
+        }
+		return null;
+	}
+
+	public Serializable getDestinationOrRawValue() {
+	    if (destinationId != null) {
+	        return destinationId;
+        } else if (value != null) {
+            final String valueRaw = ConcreteValue.removeConcretePrefix(this.value);
+            if (value.startsWith("#")) {
+                if (valueRaw.contains(".")) {
+                    return Float.parseFloat(valueRaw);
+                }
+                return Integer.parseInt(valueRaw);
+            }
+            return value;
+        }
+		return null;
 	}
 
 	public String getSourceFsn() {
@@ -189,6 +231,14 @@ public class RelationshipChange {
 		return destination;
 	}
 
+	public String getValue() {
+		return value;
+	}
+
+	public void setValue(String value) {
+		this.value = value;
+	}
+
 	public void setType(ConceptMini type) {
 		this.type = type;
 	}
@@ -210,6 +260,7 @@ public class RelationshipChange {
 				", active=" + active +
 				", sourceId='" + sourceId + '\'' +
 				", destinationId='" + destinationId + '\'' +
+				", value='" + value + '\'' +
 				", relationshipGroup='" + group + '\'' +
 				", typeId='" + typeId + '\'' +
 				", modifierId='" + modifierId + '\'' +
