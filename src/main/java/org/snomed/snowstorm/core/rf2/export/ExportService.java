@@ -158,13 +158,23 @@ public class ExportService {
 						relationshipQuery, transientEffectiveTime, null);
 				logger.info("{} stated relationship states exported", statedRelationshipLines);
 
-				// Write Inferred Relationships
+				// Write Inferred non-concrete Relationships
 				relationshipQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, relationshipBranchCritera);
 				// Not 'stated' will include inferred and additional
 				relationshipQuery.mustNot(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
+				relationshipQuery.must(existsQuery(Relationship.Fields.DESTINATION_ID));
 				int inferredRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_Relationship_", filenameEffectiveDate, exportType, zipOutputStream,
 						relationshipQuery, transientEffectiveTime, null);
-				logger.info("{} inferred and additional relationship states exported", inferredRelationshipLines);
+				logger.info("{} inferred (non-concrete) and additional relationship states exported", inferredRelationshipLines);
+
+				// Write Concrete Inferred Relationships
+				relationshipQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, relationshipBranchCritera);
+				relationshipQuery.must(termQuery("characteristicTypeId", Concepts.INFERRED_RELATIONSHIP));
+				relationshipQuery.must(existsQuery(Relationship.Fields.VALUE));
+				int inferredConcreteRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_RelationshipConcreteValues_", filenameEffectiveDate, exportType,
+                        zipOutputStream,
+						relationshipQuery, transientEffectiveTime, null);
+				logger.info("{} concrete inferred relationship states exported", inferredConcreteRelationshipLines);
 
 				// Write Reference Sets
 				List<ReferenceSetType> referenceSetTypes = getReferenceSetTypes(allContentBranchCriteria.getEntityBranchCriteria(ReferenceSetType.class)).stream()
@@ -244,7 +254,7 @@ public class ExportService {
 			zipOutputStream.putNextEntry(new ZipEntry(componentFilePath));
 
 			// Stream components into zip
-			try (ExportWriter<T> writer = getExportWriter(componentClass, zipOutputStream, extraFieldNames);
+			try (ExportWriter<T> writer = getExportWriter(componentClass, zipOutputStream, extraFieldNames, entryFilenamePrefix.contains("Concrete"));
 					SearchHitsIterator<T> componentStream = elasticsearchTemplate.searchForStream(getNativeSearchQuery(contentQuery), componentClass)) {
 				writer.setTransientEffectiveTime(transientEffectiveTime);
 				writer.writeHeader();
@@ -259,7 +269,7 @@ public class ExportService {
 		}
 	}
 
-	private <T> ExportWriter<T> getExportWriter(Class<T> componentClass, OutputStream outputStream, List<String> extraFieldNames) throws IOException {
+	private <T> ExportWriter<T> getExportWriter(Class<T> componentClass, OutputStream outputStream, List<String> extraFieldNames, boolean concrete) throws IOException {
 		if (componentClass.equals(Concept.class)) {
 			return (ExportWriter<T>) new ConceptExportWriter(getBufferedWriter(outputStream));
 		}
@@ -267,7 +277,7 @@ public class ExportService {
 			return (ExportWriter<T>) new DescriptionExportWriter(getBufferedWriter(outputStream));
 		}
 		if (componentClass.equals(Relationship.class)) {
-			return (ExportWriter<T>) new RelationshipExportWriter(getBufferedWriter(outputStream));
+			return (ExportWriter<T>) (concrete ? new ConcreteRelationshipExportWriter(getBufferedWriter(outputStream)) : new RelationshipExportWriter(getBufferedWriter(outputStream)));
 		}
 		if (componentClass.equals(ReferenceSetMember.class)) {
 			return (ExportWriter<T>) new ReferenceSetMemberExportWriter(getBufferedWriter(outputStream), extraFieldNames);
