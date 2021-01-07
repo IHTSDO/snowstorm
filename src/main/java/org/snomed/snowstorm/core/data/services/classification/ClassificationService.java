@@ -485,7 +485,9 @@ public class ClassificationService {
 		for (RelationshipChange relationshipChange : relationshipChanges) {
 			if (fetchDescriptions) {
 				relationshipChange.setSource(conceptMiniMap.computeIfAbsent(relationshipChange.getSourceId(), conceptId -> new ConceptMini(conceptId, languageDialects)));
-				relationshipChange.setDestination(conceptMiniMap.computeIfAbsent(relationshipChange.getDestinationId(), conceptId -> new ConceptMini(conceptId, languageDialects)));
+				if (!relationshipChange.isConcrete()) {
+                    relationshipChange.setDestination(conceptMiniMap.computeIfAbsent(relationshipChange.getDestinationId(), conceptId -> new ConceptMini(conceptId, languageDialects)));
+                }
 				relationshipChange.setType(conceptMiniMap.computeIfAbsent(relationshipChange.getTypeId(), conceptId -> new ConceptMini(conceptId, languageDialects)));
 			}
 		}
