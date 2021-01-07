@@ -577,13 +577,13 @@ public class ConceptService extends ComponentService {
 
 	private PersistedComponents doSave(Collection<Concept> concepts, Branch branch) throws ServiceException {
 		try (final Commit commit = branchService.openCommit(branch.getPath(), branchMetadataHelper.getBranchLockMetadata(String.format("Saving %s concepts.", concepts.size())))) {
-			final PersistedComponents persistedComponents = updateWithinCommit(concepts, commit);
+			final PersistedComponents persistedComponents = updateWithinCommit(concepts, commit, true);
 			commit.markSuccessful();
 			return persistedComponents;
 		}
 	}
 
-	public PersistedComponents updateWithinCommit(Collection<Concept> concepts, Commit commit) throws ServiceException {
+	public PersistedComponents updateWithinCommit(Collection<Concept> concepts, Commit commit, boolean logTraceability) throws ServiceException {
 		if (concepts.isEmpty()) {
 			return new PersistedComponents();
 		}
@@ -591,7 +591,7 @@ public class ConceptService extends ComponentService {
 		PersistedComponents persistedComponents = conceptUpdateHelper.saveNewOrUpdatedConcepts(concepts, commit, getExistingConceptsForSave(concepts, commit));
 
 		// Log traceability activity
-		if (traceabilityLogService.isEnabled()) {
+		if (logTraceability && traceabilityLogService.isEnabled()) {
 			joinComponentsToConcepts(persistedComponents, null, null);
 			traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit, persistedComponents);
 		}
