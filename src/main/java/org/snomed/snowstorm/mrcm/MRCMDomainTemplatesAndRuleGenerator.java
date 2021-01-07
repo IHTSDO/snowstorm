@@ -39,20 +39,20 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 	private static final Pattern REFINEMENT_PART_TWO_PATTERN = Pattern.compile("^\\[\\[\\+id\\((.*)\\)\\]\\]");
 
 	public List<Domain> generateDomainTemplates(Map<String, Domain> domainsByDomainIdMap, Map<String, List<AttributeDomain>> domainToAttributesMap,
-											Map<String, List<AttributeRange>> attributeToRangesMap, Map<String, String> conceptToFsnMap) {
+											Map<String, List<AttributeRange>> attributeToRangesMap, Map<String, String> conceptToFsnMap, List<Long> dataAttributes) {
 
 		List<Domain> updatedDomains = new ArrayList<>();
 		logger.debug("Checking and updating templates for {} domains.", domainsByDomainIdMap.keySet().size());
 		for (Map.Entry<String, Domain> entry : domainsByDomainIdMap.entrySet()) {
 			Domain domain = entry.getValue();
 			List<String> parentDomainIds = findParentDomains(domain, domainsByDomainIdMap);
-			String preCoordinated = generateDomainTemplate(domain, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, ContentType.PRECOORDINATED);
+			String preCoordinated = generateDomainTemplate(domain, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, dataAttributes, ContentType.PRECOORDINATED);
 			boolean isChanged = false;
 			if (!preCoordinated.equals(domain.getDomainTemplateForPrecoordination())) {
 				domain.setDomainTemplateForPrecoordination(preCoordinated);
 				isChanged = true;
 			}
-			String postCoordinated = generateDomainTemplate(domain, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, ContentType.POSTCOORDINATED);
+			String postCoordinated = generateDomainTemplate(domain, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, dataAttributes, ContentType.POSTCOORDINATED);
 			if (!postCoordinated.equals(domain.getDomainTemplateForPostcoordination())) {
 				domain.setDomainTemplateForPostcoordination(postCoordinated);
 				isChanged = true;
@@ -214,7 +214,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 
 		// constraint rule
 		if (isDataAttribute) {
-			ruleBuilder.append(constructValueConstraintRule(range, attributeDomain, conceptToFsnMap.get(range.getReferencedComponentId())));
+			ruleBuilder.append(constructConcreteAttributeConstraintRule(range, attributeDomain, conceptToFsnMap.get(range.getReferencedComponentId())));
 		} else {
 			ruleBuilder.append(" ");
 			ruleBuilder.append(range.getReferencedComponentId());
@@ -235,7 +235,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		return ruleBuilder.toString();
 	}
 
-	private String constructValueConstraintRule(AttributeRange range, AttributeDomain attributeDomain, String attributeFsn) {
+	private String constructConcreteAttributeConstraintRule(AttributeRange range, AttributeDomain attributeDomain, String attributeFsn) {
 		// https://confluence.ihtsdotools.org/display/mag/MRCM+for+Concrete+Domains
 		ConcreteValueRangeConstraint valueConstraint = new ConcreteValueRangeConstraint(range.getRangeConstraint());
 		if (valueConstraint.isNumber() && valueConstraint.isRangeConstraint()) {
@@ -367,7 +367,8 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 	public String generateDomainTemplate(Domain domain, Map<String, List<AttributeDomain>> domainToAttributesMap,
 										  Map<String, List<AttributeRange>> attributeToRangesMap,
 										  Map<String, String> conceptToFsnMap,
-										  List<String> parentDomainIds, ContentType type) {
+										  List<String> parentDomainIds, List<Long> dataAttributes,
+										 ContentType type) {
 
 		StringBuilder templateBuilder = new StringBuilder();
 		// proximal primitive domain constraint
@@ -403,18 +404,18 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 
 		List<AttributeDomain> unGrouped = attributeDomains.stream().filter(not(AttributeDomain::isGrouped)).sorted(ATTRIBUTE_DOMAIN_COMPARATOR_BY_ATTRIBUTE_ID).collect(Collectors.toList());
 		// un-grouped first if present
-		constructAttributeRoleGroup(unGrouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, refinements);
+		constructAttributeRoleGroup(unGrouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, dataAttributes, refinements);
 		if (!grouped.isEmpty() && !unGrouped.isEmpty()) {
 			templateBuilder.append(", ");
 		}
 		// grouped
 		// use the proximal primitive refinement to construct the first role group if present
-		constructAttributeRoleGroup(grouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, refinements);
+		constructAttributeRoleGroup(grouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, dataAttributes, refinements);
 
 		// additional optional role group
 		if (hasMeaningfulChangesInRefinement(refinements, attributeToRangesMap, type)) {
 			templateBuilder.append(", ");
-			constructAttributeRoleGroup(grouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, null);
+			constructAttributeRoleGroup(grouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, dataAttributes, null);
 		}
 		return templateBuilder.toString();
 	}
@@ -495,6 +496,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 											 Map<String, List<AttributeRange>> attributeToRangesMap,
 											 Map<String, String> conceptToFsnMap,
 											 ContentType type,
+											 List<Long> dataAttributes,
 											 List<ProximalPrimitiveRefinement> refinements) {
 		if (attributeDomains.isEmpty()) {
 			return;
@@ -587,10 +589,12 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			templateBuilder.append(" |");
 			templateBuilder.append(conceptToFsnMap.get(attributeDomain.getReferencedComponentId()));
 			templateBuilder.append("|");
-			if (ContentType.PRECOORDINATED == type) {
-				templateBuilder.append(" = [[+id(");
-			} else {
-				templateBuilder.append(" = [[+scg(");
+			boolean isDataAttribute = dataAttributes.contains(Long.valueOf(attributeDomain.getReferencedComponentId()));
+			templateBuilder.append(" = [[+");
+			if (ContentType.PRECOORDINATED == type && !isDataAttribute) {
+				templateBuilder.append("id(");
+			} else if (ContentType.POSTCOORDINATED == type && !isDataAttribute) {
+				templateBuilder.append("scg(");
 			}
 
 			if (refinement != null) {
@@ -598,7 +602,10 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			} else {
 				templateBuilder.append(attributeRange.getRangeConstraint());
 			}
-			templateBuilder.append(")]]");
+			if (!isDataAttribute) {
+				templateBuilder.append(")");
+			}
+			templateBuilder.append("]]");
 		}
 		if (isGrouped) {
 			templateBuilder.append(" }");
