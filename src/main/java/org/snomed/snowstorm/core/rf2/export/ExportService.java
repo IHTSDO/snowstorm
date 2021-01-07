@@ -153,7 +153,7 @@ public class ExportService {
 				// Write Stated Relationships
 				BoolQueryBuilder relationshipBranchCritera = selectionBranchCriteria.getEntityBranchCriteria(Relationship.class);
 				BoolQueryBuilder relationshipQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, relationshipBranchCritera);
-				relationshipQuery.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
+				relationshipQuery.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.STATED_RELATIONSHIP));
 				int statedRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_StatedRelationship_", filenameEffectiveDate, exportType, zipOutputStream,
 						relationshipQuery, transientEffectiveTime, null);
 				logger.info("{} stated relationship states exported", statedRelationshipLines);
@@ -161,7 +161,7 @@ public class ExportService {
 				// Write Inferred non-concrete Relationships
 				relationshipQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, relationshipBranchCritera);
 				// Not 'stated' will include inferred and additional
-				relationshipQuery.mustNot(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
+				relationshipQuery.mustNot(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.STATED_RELATIONSHIP));
 				relationshipQuery.must(existsQuery(Relationship.Fields.DESTINATION_ID));
 				int inferredRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_Relationship_", filenameEffectiveDate, exportType, zipOutputStream,
 						relationshipQuery, transientEffectiveTime, null);
@@ -169,7 +169,7 @@ public class ExportService {
 
 				// Write Concrete Inferred Relationships
 				relationshipQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, relationshipBranchCritera);
-				relationshipQuery.must(termQuery("characteristicTypeId", Concepts.INFERRED_RELATIONSHIP));
+				relationshipQuery.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP));
 				relationshipQuery.must(existsQuery(Relationship.Fields.VALUE));
 				int inferredConcreteRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_RelationshipConcreteValues_", filenameEffectiveDate, exportType,
                         zipOutputStream,
@@ -269,7 +269,7 @@ public class ExportService {
 		}
 	}
 
-	private <T> ExportWriter<T> getExportWriter(Class<T> componentClass, OutputStream outputStream, List<String> extraFieldNames, boolean concrete) throws IOException {
+	private <T> ExportWriter<T> getExportWriter(Class<T> componentClass, OutputStream outputStream, List<String> extraFieldNames, boolean concrete) {
 		if (componentClass.equals(Concept.class)) {
 			return (ExportWriter<T>) new ConceptExportWriter(getBufferedWriter(outputStream));
 		}
