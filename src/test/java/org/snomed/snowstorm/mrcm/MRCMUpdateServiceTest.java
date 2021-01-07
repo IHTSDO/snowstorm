@@ -170,7 +170,7 @@ class MRCMUpdateServiceTest extends AbstractTest {
 
 
 	@Test
-	void testDataValueAttribute() throws Exception {
+	void testConcreteValueAttribute() throws Exception {
 		Branch branch = branchService.create("MAIN/MRCM");
 
 		testUtil.createConceptWithPathIdAndTerm(branch.getPath(), Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, "Concept model data attribute (attribute)");
@@ -216,9 +216,9 @@ class MRCMUpdateServiceTest extends AbstractTest {
 				range.getAdditionalField("attributeRule"));
 		biologicProductDomain = memberService.findMember(branch.getPath(), biologicProductDomain.getMemberId());
 		assertNotNull(biologicProductDomain);
-		assertEquals("[[0..*]] { [[0..1]] 3264475007 |CD has presentation strength numerator value| = [[+id(dec(>#0..))]] }",
+		assertEquals("[[0..*]] { [[0..1]] 3264475007 |CD has presentation strength numerator value| = [[+dec(>#0..)]] }",
 				biologicProductDomain.getAdditionalField("domainTemplateForPrecoordination"));
-		assertNotNull("[[0..*]] { [[0..1]] 3264475007 |CD has presentation strength numerator value| = [[+scg(dec(>#0..))]] }",
+		assertNotNull("[[0..*]] { [[0..1]] 3264475007 |CD has presentation strength numerator value| = [[+dec(>#0..)]] }",
 				biologicProductDomain.getAdditionalField("domainTemplateForPostcoordination"));
 		strengthNumeratorAttribute = memberService.findMember(branch.getPath(), strengthNumeratorAttribute.getMemberId());
 		assertNotNull(strengthNumeratorAttribute);

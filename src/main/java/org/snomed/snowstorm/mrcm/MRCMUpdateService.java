@@ -97,9 +97,9 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	private List<ReferenceSetMember> updateDomainTemplates(Commit commit, Map<String, Domain> domainMapByDomainId,
 												   Map<String, List<AttributeDomain>> domainToAttributesMap,
 												   Map<String, List<AttributeRange>> domainToRangesMap,
-												   Map<String, String> conceptToTermMap) {
+												   Map<String, String> conceptToTermMap, List<Long> dataAttributes) {
 
-		List<Domain> updatedDomains = generator.generateDomainTemplates(domainMapByDomainId, domainToAttributesMap, domainToRangesMap, conceptToTermMap);
+		List<Domain> updatedDomains = generator.generateDomainTemplates(domainMapByDomainId, domainToAttributesMap, domainToRangesMap, conceptToTermMap, dataAttributes);
 		if (!updatedDomains.isEmpty()) {
 			logger.info("{} domain templates updated.", updatedDomains.size());
 		}
@@ -171,7 +171,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		// Attribute rule
 		toUpdate.addAll(updateAttributeRules(commit, domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap, dataAttributes));
 		// domain templates
-		toUpdate.addAll(updateDomainTemplates(commit, domainMapByDomainId, domainToAttributesMap, attributeToRangesMap, conceptToTermMap));
+		toUpdate.addAll(updateDomainTemplates(commit, domainMapByDomainId, domainToAttributesMap, attributeToRangesMap, conceptToTermMap, dataAttributes));
 		// update effective time
 		toUpdate.stream().forEach(ReferenceSetMember :: updateEffectiveTime);
 
@@ -195,9 +195,9 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	}
 
 	private List<ReferenceSetMember> updateAttributeRules(Commit commit, Map<String,Domain> domainMapByDomainId,
-														  Map<String,List<AttributeDomain>> attributeToDomainsMap,
+														  Map<String, List<AttributeDomain>> attributeToDomainsMap,
 														  Map<String, List<AttributeRange>> attributeToRangesMap,
-														  Map<String,String> conceptToTermMap, List<Long> dataAttributes) {
+														  Map<String, String> conceptToTermMap, List<Long> dataAttributes) {
 
 		List<AttributeRange> attributeRanges = generator.generateAttributeRules(domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap, dataAttributes);
 		if (attributeRanges.size() > 0) {

@@ -137,7 +137,7 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		conceptToPtMap.put("733932009", "Systemic part of");
 		conceptToPtMap.put("774081006", "Proper part of");
 
-		List<Domain> domains = generator.generateDomainTemplates(domainsByDomainIdMap, domainToAttributesMap, attributeToRangeMap, conceptToPtMap);
+		List<Domain> domains = generator.generateDomainTemplates(domainsByDomainIdMap, domainToAttributesMap, attributeToRangeMap, conceptToPtMap, Collections.emptyList());
 		assertEquals(3, domains.size());
 		Set<Domain> result = domains.stream().filter(d -> "723264001".equals(d.getReferencedComponentId())).collect(Collectors.toSet());
 		assertEquals(1, result.size());
@@ -445,7 +445,7 @@ class MRCMDomainTemplatesAndRuleGeneratorTest extends AbstractTest {
 		conceptToPtMap.put("738774007", "Is modification of");
 		conceptToPtMap.put("726542003", "Has disposition");
 
-		List<Domain> domains = generator.generateDomainTemplates(domainsByDomainIdMap, domainToAttributesMap, attributeToRangeMap, conceptToPtMap);
+		List<Domain> domains = generator.generateDomainTemplates(domainsByDomainIdMap, domainToAttributesMap, attributeToRangeMap, conceptToPtMap, Collections.emptyList());
 		assertEquals(1, domains.size());
 		assertEquals("[[+id(<< 105590001 |Substance (substance)|)]]: [[0..*]] 726542003 |Has disposition| = [[+id(<< 726711005 |Disposition (disposition)|)]]," +
 						" [[0..*]] 738774007 |Is modification of| = [[+id(<< 105590001 |Substance (substance)|)]]",
