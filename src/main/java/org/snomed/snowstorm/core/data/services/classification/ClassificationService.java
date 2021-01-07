@@ -363,7 +363,7 @@ public class ClassificationService {
 
 							PageRequest pageRequest;
 							if (lastId != null) {
-								pageRequest = SearchAfterPageRequest.of(SearchAfterHelper.fromSearchAfterToken(lastId), LARGE_PAGE.getPageSize(), Sort.by("_id"));
+								pageRequest = SearchAfterPageRequest.of(new Object[] {lastId}, LARGE_PAGE.getPageSize(), Sort.by("_id"));
 							} else {
 								pageRequest = SearchAfterPageRequest.of(0, LARGE_PAGE.getPageSize(), Sort.by("_id"));
 							}
