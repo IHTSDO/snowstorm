@@ -14,6 +14,8 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 
+import java.util.Objects;
+
 import static org.snomed.snowstorm.core.data.domain.Concepts.relationshipCharacteristicTypeNames;
 import static org.snomed.snowstorm.core.data.domain.Concepts.relationshipModifierNames;
 
@@ -177,7 +179,8 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return that == null
 				|| active != that.active
 				|| !getModuleId().equals(that.getModuleId())
-				|| !destinationId.equals(that.destinationId)
+				|| (destinationId != null && !destinationId.equals(that.destinationId))
+				|| (value != null && !value.equals(that.value))
 				|| relationshipGroup != that.relationshipGroup
 				|| !typeId.equals(that.typeId)
 				|| !characteristicTypeId.equals(that.characteristicTypeId)
@@ -209,7 +212,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	@Override
 	protected Object[] getReleaseHashObjects() {
-		return new Object[] {active, getModuleId(), destinationId, relationshipGroup, typeId, characteristicTypeId, modifierId};
+		return new Object[] {active, getModuleId(), destinationId != null ? destinationId : value, relationshipGroup, typeId, characteristicTypeId, modifierId};
 	}
 
 	public ConceptMini getSource() {
@@ -414,10 +417,11 @@ public class Relationship extends SnomedComponent<Relationship> {
 		}
 
 		if (relationshipGroup != that.relationshipGroup) return false;
-		if (sourceId != null ? !sourceId.equals(that.sourceId) : that.sourceId != null) return false;
-		if (destinationId != null ? !destinationId.equals(that.destinationId) : that.destinationId != null) return false;
-		if (typeId != null ? !typeId.equals(that.typeId) : that.typeId != null) return false;
-		return characteristicTypeId != null ? characteristicTypeId.equals(that.characteristicTypeId) : that.characteristicTypeId == null;
+		if (!Objects.equals(sourceId, that.sourceId)) return false;
+		if (!Objects.equals(destinationId, that.destinationId)) return false;
+		if (!Objects.equals(value, that.value)) return false;
+		if (!Objects.equals(typeId, that.typeId)) return false;
+		return Objects.equals(characteristicTypeId, that.characteristicTypeId);
 	}
 
 	@Override
@@ -428,6 +432,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 		}
 		result = 31 * result + (sourceId != null ? sourceId.hashCode() : 0);
 		result = 31 * result + (destinationId != null ? destinationId.hashCode() : 0);
+		result = 31 * result + (value != null ? value.hashCode() : 0);
 		result = 31 * result + relationshipGroup;
 		result = 31 * result + (typeId != null ? typeId.hashCode() : 0);
 		result = 31 * result + (characteristicTypeId != null ? characteristicTypeId.hashCode() : 0);
