@@ -102,6 +102,10 @@ public class TraceabilityLogService implements CommitListener {
 				.withPersistedReferenceSetMembers(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, ReferenceSetMember.class)).build();
 	}
 
+	public void logActivityUsingComponentLookup(final String userId, final Commit commit) {
+		logActivity(userId, commit, buildPersistedComponents(commit));
+	}
+
 	/**
 	 * This method may be called by a service class as an optimisation. In this case
 	 * the transient change and delete flags may be populated.

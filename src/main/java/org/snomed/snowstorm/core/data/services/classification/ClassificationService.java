@@ -106,6 +106,9 @@ public class ClassificationService {
 	private ConceptService conceptService;
 
 	@Autowired
+	private TraceabilityLogService traceabilityLogService;
+
+	@Autowired
 	private VersionControlHelper versionControlHelper;
 
 	private final List<Classification> classificationsInProgress;
@@ -384,10 +387,11 @@ public class ClassificationService {
 								}
 
 								// Update concepts
-								conceptService.updateWithinCommit(concepts, commit);
+								conceptService.updateWithinCommit(concepts, commit, false);
 							}
 						}
 
+						traceabilityLogService.logActivityUsingComponentLookup(SecurityUtil.getUsername(), commit);
 						commit.getBranch().getMetadata().remove(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY);
 						commit.markSuccessful();
 						classification.setStatus(SAVED);
