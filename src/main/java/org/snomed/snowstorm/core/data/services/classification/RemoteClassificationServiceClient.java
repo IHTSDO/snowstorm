@@ -18,15 +18,14 @@ import org.springframework.web.client.RestTemplate;
 
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Collections;
 
 @Service
 class RemoteClassificationServiceClient {
 
-	private RestTemplate restTemplate;
+	private final RestTemplate restTemplate;
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private static final HttpHeaders MULTIPART_HEADERS = new HttpHeaders();
 	static {
@@ -80,20 +79,20 @@ class RemoteClassificationServiceClient {
 	}
 
 	InputStream downloadRf2Results(String classificationId) throws IOException {
-		final Path tempFile = Files.createTempFile("classification-results", ".zip");
+		final File tempFile = Files.createTempFile("classification-results", ".zip").toFile();
 		ResponseExtractor<Void> responseExtractor = response -> {
-			try (FileOutputStream outputStream = new FileOutputStream(tempFile.toFile())) {
+			try (FileOutputStream outputStream = new FileOutputStream(tempFile)) {
 				Streams.copy(response.getBody(), outputStream, true);
 				return null;
 			}
 		};
 		restTemplate.execute("/classifications/{classificationId}/results/rf2", HttpMethod.GET, clientHttpRequest -> {}, responseExtractor, classificationId);
-		return new FileInputStream(tempFile.toFile()) {
+		return new FileInputStream(tempFile) {
 			@Override
 			public void close() throws IOException {
 				super.close();
-				if (!tempFile.toFile().delete()) {
-					logger.warn("Failed to delete temp file {}", tempFile.toFile().getAbsolutePath());
+				if (tempFile.exists() && !tempFile.delete()) {
+					logger.warn("Failed to delete temp file {}", tempFile.getAbsolutePath());
 				}
 			}
 		};
