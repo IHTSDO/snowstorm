@@ -136,6 +136,13 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.typeId = typeId;
 		this.destinationId = destinationId;
 	}
+	
+	public Relationship(String relationshipId, String typeId, ConcreteValue value) {
+		this(relationshipId);
+		this.typeId = typeId;
+		this.value = value.toString();
+		this.concreteValue = value;
+	}
 
 	public Relationship(String id, Integer effectiveTime, boolean active, String moduleId, String sourceId, String destinationIdOrValue, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
 		this();
@@ -165,7 +172,6 @@ public class Relationship extends SnomedComponent<Relationship> {
 		final Relationship relationship = new Relationship();
 		relationship.setTypeId(typeId);
 		relationship.setValue(value);
-
 		return relationship;
 	}
 
@@ -192,6 +198,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 	}
 
 	public ConcreteValue getConcreteValue() {
+		if (isConcrete() && this.concreteValue == null && value != null) {
+			this.concreteValue = ConcreteValue.from(value);
+		}
 		return this.concreteValue;
 	}
 

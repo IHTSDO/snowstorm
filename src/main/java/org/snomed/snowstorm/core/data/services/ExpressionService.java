@@ -60,7 +60,12 @@ public class ExpressionService {
 		final String attributeTypeId = rel.getTypeId();
 		//Only collect non parent relationships
 		if (!Concepts.ISA.equals(attributeTypeId)) {
-			ExpressionAttribute attribute = new ExpressionAttribute(rel.type(), rel.target());
+			ExpressionAttribute attribute;
+			if (rel.isConcrete()) {
+				attribute = new ExpressionAttribute(rel.type(), rel.getConcreteValue());
+			} else {
+				attribute = new ExpressionAttribute(rel.type(), rel.getTarget());
+			}
 			//Are we adding this attribute grouped or ungrouped?
 			if (rel.isGrouped()) {
 				ExpressionGroup group = expression.getGroup(rel.getGroupId());
