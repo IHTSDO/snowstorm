@@ -33,12 +33,12 @@ public class ConceptAttributeSortHelper {
 
 	private Map<String, Map<Long, Short>> domainAttributeOrderMap;
 
-	private Map<String, String> subHierarchyToTopLevelTagCache = Collections.synchronizedMap(new HashMap<>());
+	private final Map<String, String> subHierarchyToTopLevelTagCache = Collections.synchronizedMap(new HashMap<>());
 
 	private static final Pattern TAG_PATTERN = Pattern.compile("^.*\\((.*)\\)$");
 	private static final List<LanguageDialect> EN_LANGUAGE_DIALECT = Collections.singletonList(new LanguageDialect("en"));
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	private static final Comparator<Relationship> ACTIVE_RELATIONSHIP_COMPARATOR_WITH_GROUP_LAST = Comparator
 			.comparing(Relationship::getAttributeOrder, Comparator.nullsLast(Short::compareTo))
@@ -195,9 +195,9 @@ public class ConceptAttributeSortHelper {
 		for (Relationship relationship : sortedUngroupedRelationships) {
 			int groupId = relationship.getGroupId();
 			if (groupId != 0) {
-				if (!oldGroupToNewGroupMap.keySet().contains(groupId)) {
+				if (!oldGroupToNewGroupMap.containsKey(groupId)) {
 					group++;
-					boolean isSelfGrouped = isSeflGroupedAtrributes(groupId, sortedUngroupedRelationships);
+					boolean isSelfGrouped = isSelfGroupedAttributes(groupId, sortedUngroupedRelationships);
 					oldGroupToNewGroupMap.put(groupId, isSelfGrouped ? group : group + NEXT_GROUP_DEFAULT);
 				}
 			}
@@ -218,7 +218,7 @@ public class ConceptAttributeSortHelper {
 		return new LinkedHashSet<>(sortedRelationships);
 	}
 
-    private boolean isSeflGroupedAtrributes(int groupId, Set<Relationship> relationshipSet) {
+    private boolean isSelfGroupedAttributes(int groupId, Set<Relationship> relationshipSet) {
 	    int count = 0;
         for (Relationship relationship : relationshipSet) {
             if (relationship.getGroupId() == groupId) {
