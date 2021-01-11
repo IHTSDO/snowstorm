@@ -1,36 +1,67 @@
 package org.snomed.snowstorm.fhir.services;
 
-import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
-
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import org.hl7.fhir.r4.model.*;
-import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
-import org.hl7.fhir.r4.model.ValueSet.*;
-import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.*;
-import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
-import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
-import org.snomed.snowstorm.core.pojo.LanguageDialect;
-import org.snomed.snowstorm.fhir.config.FHIRConstants;
-import org.snomed.snowstorm.fhir.domain.*;
-import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.*;
-import org.springframework.stereotype.Component;
-
-import ca.uhn.fhir.rest.annotation.*;
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.rest.annotation.Create;
+import ca.uhn.fhir.rest.annotation.Delete;
+import ca.uhn.fhir.rest.annotation.IdParam;
+import ca.uhn.fhir.rest.annotation.Operation;
+import ca.uhn.fhir.rest.annotation.OperationParam;
+import ca.uhn.fhir.rest.annotation.OptionalParam;
+import ca.uhn.fhir.rest.annotation.Read;
+import ca.uhn.fhir.rest.annotation.ResourceParam;
+import ca.uhn.fhir.rest.annotation.Search;
+import ca.uhn.fhir.rest.annotation.Update;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
+import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.BooleanType;
+import org.hl7.fhir.r4.model.CodeType;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
+import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.UriType;
+import org.hl7.fhir.r4.model.ValueSet;
+import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
+import org.hl7.fhir.r4.model.ValueSet.ValueSetComposeComponent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
+import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
+import org.snomed.snowstorm.fhir.config.FHIRConstants;
+import org.snomed.snowstorm.fhir.domain.BranchPath;
+import org.snomed.snowstorm.fhir.domain.SearchFilter;
+import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
+import org.snomed.snowstorm.fhir.exceptions.MissingParameterException;
+import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.RequestMethod;
+
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
@@ -154,16 +185,18 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 									.withUrl(url)
 									.withVersion(version);
 		return StreamSupport.stream(valuesetRepository.findAll().spliterator(), false)
-				.map(vs -> vs.getValueSet())
+				.map(ValueSetWrapper::getValueSet)
 				.filter(vs -> vsFilter.apply(vs, queryService, fhirHelper))
 				.collect(Collectors.toList());
 	}
-	
-	@Operation(name="$expand", idempotent=true)
+
+	@SuppressWarnings("unchecked")
+	@Operation(name = "$expand", idempotent = true)
 	public ValueSet expandInstance(
 			@IdParam IdType id,
 			HttpServletRequest request,
 			HttpServletResponse response,
+			@ResourceParam String rawBody,
 			@OperationParam(name="url") String url,  //TODO Check how URL gets used with an Id
 			@OperationParam(name="filter") String filter,
 			@OperationParam(name="activeOnly") BooleanType activeType,
@@ -175,15 +208,33 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="system-version") StringType systemVersion,
 			@OperationParam(name="force-system-version") StringType forceSystemVersion) throws FHIROperationException {
-		fhirHelper.notSupported("version", version, "ValueSet $expand operation.  Use system-version or force-system-version parameters instead.");
-		return expand (id, request, response, url, filter, activeType, includeDesignationsType,
-				designations, displayLanguage, offsetStr, countStr, systemVersion, forceSystemVersion);
+		if (request.getMethod().equals(RequestMethod.POST.name())) {
+			final List<Parameters.ParametersParameterComponent> parametersParameterComponents = FhirContext.forR4().newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
+			throwNotSupportedExceptionIfVersionUsed(findParameterOrNull(parametersParameterComponents, "version"));
+			return expand(id, request, response, String.valueOf(findParameterOrThrowException(parametersParameterComponents, "url").getValue()),
+					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "filter").getValue()),
+					(BooleanType) findParameterOrThrowException(parametersParameterComponents, "activeType").getValue(),
+					(BooleanType) findParameterOrThrowException(parametersParameterComponents, "includeDesignations").getValue(),
+					(List<String>) findParameterOrThrowException(parametersParameterComponents, "designation").getValue(),
+					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "displayLanguage").getValue()),
+					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "offset").getValue()),
+					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "count").getValue()),
+					(StringType) findParameterOrThrowException(parametersParameterComponents, "system-version").getValue(),
+					(StringType) findParameterOrThrowException(parametersParameterComponents, "force-system-version").getValue(),
+					(ValueSet) findParameterOrThrowException(parametersParameterComponents, "valueSet").getResource());
+		} else {
+			throwNotSupportedExceptionIfVersionUsed(version);
+			return expand(id, request, response, url, filter, activeType, includeDesignationsType,
+					designations, displayLanguage, offsetStr, countStr, systemVersion, forceSystemVersion, null);
+		}
 	}
-	
-	@Operation(name="$expand", idempotent=true)
+
+	@SuppressWarnings("unchecked")
+	@Operation(name = "$expand", idempotent = true)
 	public ValueSet expandType(
 			HttpServletRequest request,
 			HttpServletResponse response,
+			@ResourceParam String rawBody,
 			@OperationParam(name="url") String url,
 			@OperationParam(name="filter") String filter,
 			@OperationParam(name="activeOnly") BooleanType activeType,
@@ -195,9 +246,37 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="version") StringType version,
 			@OperationParam(name="system-version") StringType systemVersion,
 			@OperationParam(name="force-system-version") StringType forceSystemVersion) throws FHIROperationException {
-		fhirHelper.notSupported("version", version, "ValueSet $expand operation.  Use system-version or force-system-version parameters instead.");
-		return expand(null, request, response, url, filter, activeType, includeDesignationsType,
-				designations, displayLanguage, offsetStr, countStr, systemVersion, forceSystemVersion);
+		if (request.getMethod().equals(RequestMethod.POST.name())) {
+			final List<Parameters.ParametersParameterComponent> parametersParameterComponents = FhirContext.forR4().newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
+			throwNotSupportedExceptionIfVersionUsed(findParameterOrNull(parametersParameterComponents, "version"));
+			return expand(null, request, response, String.valueOf(findParameterOrThrowException(parametersParameterComponents, "url").getValue()),
+					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "filter").getValue()),
+					(BooleanType) findParameterOrThrowException(parametersParameterComponents, "activeType").getValue(),
+					(BooleanType) findParameterOrThrowException(parametersParameterComponents, "includeDesignations").getValue(),
+					(List<String>) findParameterOrThrowException(parametersParameterComponents, "designation").getValue(),
+					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "displayLanguage").getValue()),
+					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "offset").getValue()),
+					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "count").getValue()),
+					(StringType) findParameterOrThrowException(parametersParameterComponents, "system-version").getValue(),
+					(StringType) findParameterOrThrowException(parametersParameterComponents, "force-system-version").getValue(),
+					(ValueSet) findParameterOrThrowException(parametersParameterComponents, "valueSet").getResource());
+		} else {
+			throwNotSupportedExceptionIfVersionUsed(version);
+			return expand(null, request, response, url, filter, activeType, includeDesignationsType,
+					designations, displayLanguage, offsetStr, countStr, systemVersion, forceSystemVersion, null);
+		}
+	}
+
+	private Parameters.ParametersParameterComponent findParameterOrThrowException(final List<Parameters.ParametersParameterComponent> parametersParameterComponents, final String name) {
+		return parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name))
+				.findFirst().orElseThrow(() -> new MissingParameterException("Parameter '" + name + "' was not found when it is required for the expand operation."));
+	}
+	private Parameters.ParametersParameterComponent findParameterOrNull(final List<Parameters.ParametersParameterComponent> parametersParameterComponents, final String name) {
+		return parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name)).findFirst().orElse(null);
+	}
+
+	private <T> void throwNotSupportedExceptionIfVersionUsed(final T version) throws FHIROperationException {
+		fhirHelper.notSupported("version", version, "ValueSet $expand operation. Use system-version or force-system-version parameters instead.");
 	}
 	
 	@Operation(name="$validate-code", idempotent=true)
@@ -334,7 +413,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 
 	
-	private ValueSet expand(@IdParam IdType id,
+	private ValueSet expand(
+			@IdParam IdType id,
 			HttpServletRequest request,
 			HttpServletResponse response,
 			String url,
@@ -345,10 +425,12 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			String displayLanguageStr,
 			String offsetStr,
 			String countStr,
-			StringType systemVersion, StringType forceSystemVersion) throws FHIROperationException {
+			StringType systemVersion,
+			StringType forceSystemVersion,
+			ValueSet vs) throws FHIROperationException {
 		// Are we expanding a specific named Valueset?
-		ValueSet vs = null;
-		if (id != null) {
+
+		if (id != null && vs == null) {
 			logger.info("Expanding '{}'",id.getIdPart());
 			vs = getValueSet(id);
 			if (vs == null) {
