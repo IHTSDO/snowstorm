@@ -10,7 +10,7 @@ import org.springframework.data.annotation.Transient;
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JsonView(value = View.Component.class)
-public class ConcreteValue {
+public class ConcreteValue implements AttributeValue {
     @Transient
     private final ConcreteValue.DataType dataType;
 
@@ -51,6 +51,22 @@ public class ConcreteValue {
 
             return null;
         }
+        
+        /**
+         * Create instance of DataType.
+         * @return Instance of DataType.
+         */
+        public static DataType fromPrefix(String value) {
+            if (value == null || value.length() < 2) {
+                throw new IllegalArgumentException("'value' cannot be null or less than 2 characters long. Received: '" + value + "'");
+            }
+            //We'll have to assume a decimal given a # symbol with no further information
+            switch (value.charAt(0)) {
+                case '\"': return DataType.STRING;
+                case '#': return DataType.DECIMAL;
+                default : throw new IllegalArgumentException("Unrecognised concrete value prefix in  '" + value + "'");
+            }
+        }
     }
 
     /**
@@ -71,7 +87,23 @@ public class ConcreteValue {
                 DataType.fromShorthand(dataType)
         );
     }
+    
+    /**
+     * Create instance of ConcreteValue.
+     * @param value    Concrete value with concrete prefix.
+     * @return Instance of ConcreteValue.
+     * @throws IllegalArgumentException If dataType is not recognised.
+     */
+    public static ConcreteValue from(String value) {
+        if (value == null) {
+            throw new IllegalArgumentException();
+        }
 
+        return new ConcreteValue(
+                ConcreteValue.removeConcretePrefix(value),
+                DataType.fromPrefix(value)
+        );
+    }
     /**
      * Return new String with concrete prefix removed.
      *
@@ -100,4 +132,23 @@ public class ConcreteValue {
     public String getValue() {
         return this.value;
     }
+
+	@Override
+	public String toString(boolean includeTerms) {
+		//includeTerms only applies to Concepts
+		return toString();
+	}
+	
+	@Override
+	public String toString() {
+		switch (dataType) {
+			case STRING : return "\"" + this.value + "\"";
+			default: return "#" + this.value;
+		}
+	}
+
+	@Override
+	public boolean isConcrete() {
+		return true;
+	}
 }
