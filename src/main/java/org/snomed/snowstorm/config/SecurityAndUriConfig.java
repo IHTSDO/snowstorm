@@ -215,7 +215,6 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 						}
 						return false;
 					})
-					.paths(not(regex("/merge.*")))
 					// Also hide endpoints related to authoring
 					.paths(not(regex("/merge.*")))
 					.paths(not(regex("/review.*")))
