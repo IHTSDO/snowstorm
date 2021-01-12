@@ -45,7 +45,7 @@ import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
-import org.snomed.snowstorm.fhir.exceptions.MissingParameterException;
+import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -63,7 +63,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
-import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
 
 @Component
@@ -190,7 +189,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				.collect(Collectors.toList());
 	}
 
-	@SuppressWarnings("unchecked")
 	@Operation(name = "$expand", idempotent = true)
 	public ValueSet expandInstance(
 			@IdParam IdType id,
@@ -211,17 +209,25 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			final List<Parameters.ParametersParameterComponent> parametersParameterComponents = FhirContext.forR4().newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
 			throwNotSupportedExceptionIfVersionUsed(findParameterOrNull(parametersParameterComponents, "version"));
-			return expand(id, request, response, String.valueOf(findParameterOrThrowException(parametersParameterComponents, "url").getValue()),
-					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "filter").getValue()),
-					(BooleanType) findParameterOrThrowException(parametersParameterComponents, "activeType").getValue(),
-					(BooleanType) findParameterOrThrowException(parametersParameterComponents, "includeDesignations").getValue(),
-					(List<String>) findParameterOrThrowException(parametersParameterComponents, "designation").getValue(),
-					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "displayLanguage").getValue()),
-					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "offset").getValue()),
-					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "count").getValue()),
-					(StringType) findParameterOrThrowException(parametersParameterComponents, "system-version").getValue(),
-					(StringType) findParameterOrThrowException(parametersParameterComponents, "force-system-version").getValue(),
-					(ValueSet) findParameterOrThrowException(parametersParameterComponents, "valueSet").getResource());
+
+			final ValueSetExpansionParameters valueSetExpansionParameters =
+					ValueSetExpansionParameters.newBuilder()
+							.withUrl(findParameterOrNull(parametersParameterComponents, "url"))
+							.withFilter(findParameterOrNull(parametersParameterComponents, "filter"))
+							.withActiveType(findParameterOrNull(parametersParameterComponents, "activeType"))
+							.withIncludeDesignationsType(findParameterOrNull(parametersParameterComponents, "includeDesignations"))
+							.withDesignations(findParameterOrNull(parametersParameterComponents, "designation"))
+							.withDisplayLanguage(findParameterOrNull(parametersParameterComponents, "displayLanguage"))
+							.withOffset(findParameterOrNull(parametersParameterComponents, "offset"))
+							.withCount(findParameterOrNull(parametersParameterComponents, "count"))
+							.withSystemVersion(findParameterOrNull(parametersParameterComponents, "system-version"))
+							.withForceSystemVersion(findParameterOrNull(parametersParameterComponents, "force-system-version"))
+							.withValueSet(findParameterOrNull(parametersParameterComponents, "valueSet")).build();
+
+			return expand(id, request, response, valueSetExpansionParameters.getUrl(), valueSetExpansionParameters.getFilter(),
+					valueSetExpansionParameters.getActiveType(), valueSetExpansionParameters.getIncludeDesignationsType(), valueSetExpansionParameters.getDesignations(),
+					valueSetExpansionParameters.getDisplayLanguage(), valueSetExpansionParameters.getOffsetStr(), valueSetExpansionParameters.getCountStr(),
+					valueSetExpansionParameters.getSystemVersion(), valueSetExpansionParameters.getForceSystemVersion(), valueSetExpansionParameters.getValueSet());
 		} else {
 			throwNotSupportedExceptionIfVersionUsed(version);
 			return expand(id, request, response, url, filter, activeType, includeDesignationsType,
@@ -229,7 +235,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		}
 	}
 
-	@SuppressWarnings("unchecked")
 	@Operation(name = "$expand", idempotent = true)
 	public ValueSet expandType(
 			HttpServletRequest request,
@@ -249,17 +254,25 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			final List<Parameters.ParametersParameterComponent> parametersParameterComponents = FhirContext.forR4().newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
 			throwNotSupportedExceptionIfVersionUsed(findParameterOrNull(parametersParameterComponents, "version"));
-			return expand(null, request, response, String.valueOf(findParameterOrThrowException(parametersParameterComponents, "url").getValue()),
-					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "filter").getValue()),
-					(BooleanType) findParameterOrThrowException(parametersParameterComponents, "activeType").getValue(),
-					(BooleanType) findParameterOrThrowException(parametersParameterComponents, "includeDesignations").getValue(),
-					(List<String>) findParameterOrThrowException(parametersParameterComponents, "designation").getValue(),
-					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "displayLanguage").getValue()),
-					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "offset").getValue()),
-					String.valueOf(findParameterOrThrowException(parametersParameterComponents, "count").getValue()),
-					(StringType) findParameterOrThrowException(parametersParameterComponents, "system-version").getValue(),
-					(StringType) findParameterOrThrowException(parametersParameterComponents, "force-system-version").getValue(),
-					(ValueSet) findParameterOrThrowException(parametersParameterComponents, "valueSet").getResource());
+
+			final ValueSetExpansionParameters valueSetExpansionParameters =
+					ValueSetExpansionParameters.newBuilder()
+							.withUrl(findParameterOrNull(parametersParameterComponents, "url"))
+							.withFilter(findParameterOrNull(parametersParameterComponents, "filter"))
+							.withActiveType(findParameterOrNull(parametersParameterComponents, "activeType"))
+							.withIncludeDesignationsType(findParameterOrNull(parametersParameterComponents, "includeDesignations"))
+							.withDesignations(findParameterOrNull(parametersParameterComponents, "designation"))
+							.withDisplayLanguage(findParameterOrNull(parametersParameterComponents, "displayLanguage"))
+							.withOffset(findParameterOrNull(parametersParameterComponents, "offset"))
+							.withCount(findParameterOrNull(parametersParameterComponents, "count"))
+							.withSystemVersion(findParameterOrNull(parametersParameterComponents, "system-version"))
+							.withForceSystemVersion(findParameterOrNull(parametersParameterComponents, "force-system-version"))
+							.withValueSet(findParameterOrNull(parametersParameterComponents, "valueSet")).build();
+
+			return expand(null, request, response, valueSetExpansionParameters.getUrl(), valueSetExpansionParameters.getFilter(),
+					valueSetExpansionParameters.getActiveType(), valueSetExpansionParameters.getIncludeDesignationsType(), valueSetExpansionParameters.getDesignations(),
+					valueSetExpansionParameters.getDisplayLanguage(), valueSetExpansionParameters.getOffsetStr(), valueSetExpansionParameters.getCountStr(),
+					valueSetExpansionParameters.getSystemVersion(), valueSetExpansionParameters.getForceSystemVersion(), valueSetExpansionParameters.getValueSet());
 		} else {
 			throwNotSupportedExceptionIfVersionUsed(version);
 			return expand(null, request, response, url, filter, activeType, includeDesignationsType,
@@ -267,10 +280,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		}
 	}
 
-	private Parameters.ParametersParameterComponent findParameterOrThrowException(final List<Parameters.ParametersParameterComponent> parametersParameterComponents, final String name) {
-		return parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name))
-				.findFirst().orElseThrow(() -> new MissingParameterException("Parameter '" + name + "' was not found when it is required for the expand operation."));
-	}
 	private Parameters.ParametersParameterComponent findParameterOrNull(final List<Parameters.ParametersParameterComponent> parametersParameterComponents, final String name) {
 		return parametersParameterComponents.stream().filter(parametersParameterComponent -> parametersParameterComponent.getName().equals(name)).findFirst().orElse(null);
 	}
