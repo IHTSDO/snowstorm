@@ -236,6 +236,7 @@ public class FHIRHelper implements FHIRConstants {
 		designations.addAll(getLanguageDialects(designationsStr, request));
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		if (displayLanguageStr != null) {
+			//FHIR uses dialect codes as per https://tools.ietf.org/html/bcp47
 			LanguageDialect displayDialect = dialectService.getLanguageDialect(displayLanguageStr);
 			//Ensure the display language is first in our list
 			designations.remove(displayDialect);
@@ -336,8 +337,8 @@ public class FHIRHelper implements FHIRConstants {
 				throw new FHIROperationException(IssueType.NOTSUPPORTED, "Only numeric SNOMED CT identifiers are currently supported");
 			}
 		} else if (code == null && coding != null) {
-			if (coding.getSystem() != null && !coding.getSystem().startsWith(SNOMED_URI)) {
-				throw new FHIROperationException(IssueType.NOTSUPPORTED, "CodeSystem of 'coding' must be based on" + SNOMED_URI);
+			if (coding.getSystem() != null && !coding.getSystem().equals(SNOMED_URI)) {
+				throw new FHIROperationException(IssueType.NOTSUPPORTED, "CodeSystem of 'coding' may only be '" + SNOMED_URI + "'");
 			}
 			conceptId = coding.getCode();
 		} else {
