@@ -44,6 +44,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import javax.annotation.Nullable;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
@@ -151,7 +152,7 @@ public class ConceptService extends ComponentService {
 		return doFind(conceptIds, languageDialects, new BranchTimepoint(path), pageRequest);
 	}
 
-	public ConceptHistory loadConceptHistory(String conceptId, List<CodeSystemVersion> codeSystemVersions) {
+	public ConceptHistory loadConceptHistory(String conceptId, List<CodeSystemVersion> codeSystemVersions, boolean showFutureVersions) {
 		Map<String, BranchCriteria> branchCriteria = new HashMap<>();
 		for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
 			String branchPath = codeSystemVersion.getBranchPath();
@@ -161,6 +162,14 @@ public class ConceptService extends ComponentService {
 		Function<String, BoolQueryBuilder> defaultBoolQueryFunction = cId -> {
 			BoolQueryBuilder someReleaseBranch = boolQuery();
 			BoolQueryBuilder boolQueryBuilder = boolQuery();
+
+			if (!showFutureVersions) {
+				boolQueryBuilder.must(
+						rangeQuery(Concept.Fields.EFFECTIVE_TIME)
+								.lte(Integer.parseInt(new SimpleDateFormat("yyyyMMdd").format(new Date())))
+				);
+			}
+
 			boolQueryBuilder.must(someReleaseBranch);
 			boolQueryBuilder.must(existsQuery(Concept.Fields.EFFECTIVE_TIME));
 			boolQueryBuilder.minimumShouldMatch(1);
@@ -200,7 +209,7 @@ public class ConceptService extends ComponentService {
 			for (SearchHit<? extends DomainEntity<?>> searchHit : searchHits.getSearchHits()) {
 				if (searchHit.getContent() instanceof SnomedComponent<?>) {
 					SnomedComponent<?> snomedComponent = (SnomedComponent<?>) searchHit.getContent();
-					conceptHistory.addToHistory(snomedComponent.getEffectiveTime(), componentType);
+					conceptHistory.addToHistory(snomedComponent.getReleasedEffectiveTime().toString(), snomedComponent.getPath(), componentType);
 				}
 			}
 		}

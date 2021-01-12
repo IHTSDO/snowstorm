@@ -287,7 +287,7 @@ public class ConceptController {
 
 		CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branch, false);
 		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), showFutureVersions);
-		ConceptHistory conceptHistory = conceptService.loadConceptHistory(conceptId, codeSystemVersions);
+		ConceptHistory conceptHistory = conceptService.loadConceptHistory(conceptId, codeSystemVersions, showFutureVersions);
 
 		return ControllerHelper.throwIfNotFound("conceptHistory", conceptHistory);
 	}
