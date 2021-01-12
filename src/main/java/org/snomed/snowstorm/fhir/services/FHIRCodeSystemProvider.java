@@ -25,7 +25,6 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
-import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -177,11 +176,31 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		// And make it the first in the list so we pick it up for the display element
 		fhirHelper.setLanguageOptions (designations, displayLanguage, request);
-		BranchPath branchPath = fhirHelper.getBranchPathFromURI(system);
-		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, designations, branchPath.toString()));
+		Concept fullConcept = null;
+		BranchPath branchPath = null;
+		if (system == null || system.toString().equals(SNOMED_URI)) {
+			//Multisearch is expensive, so we'll try on default branch first 
+			branchPath = fhirHelper.getBranchPathFromURI(system);
+			fullConcept = conceptService.find(conceptId, designations, branchPath.toString());
+			if (fullConcept == null) {
+				ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(conceptId));
+				Page<Concept> concepts = multiSearchService.findConcepts(criteria, PageRequest.of(0, 1));
+				List<Concept> content = concepts.getContent();
+				if (!content.isEmpty()) {
+					Concept concept = content.get(0);
+					branchPath = new BranchPath(concept.getPath());
+					fullConcept = conceptService.find(conceptId, designations, concept.getPath());
+				} else {
+					throw new NotFoundException(conceptId + " not found on any code system version");
+				}
+			}
+		} else {
+			branchPath = fhirHelper.getBranchPathFromURI(system);
+			fullConcept = conceptService.find(conceptId, designations, branchPath.toString());
+		}
 		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + conceptId), branchPath.toString(), LARGE_PAGE);
 		Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
-		return pMapper.mapToFHIR(system, concept, childIds.getContent(), properties, designations);
+		return pMapper.mapToFHIR(system, fullConcept, childIds.getContent(), properties, designations);
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
