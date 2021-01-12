@@ -21,11 +21,11 @@ public class HapiCodeSystemMapper implements FHIRConstants {
 	public CodeSystem mapToFHIR(CodeSystemVersion cv) {
 		CodeSystem c = getStandardCodeSystem();
 		String moduleId = codeSystemConfigurationService.getDefaultModuleId(cv.getShortName());
-		String uri = SNOMED_URI + "/" + moduleId + VERSION + cv.getEffectiveDate();
+		String version = SNOMED_URI + "/" + moduleId + VERSION + cv.getEffectiveDate();
 		String id = "sct_" + moduleId + "_" + cv.getEffectiveDate();
 		c.setId(id);
-		c.setUrl(uri);
-		c.setVersion(cv.getEffectiveDate().toString());
+		c.setUrl(SNOMED_URI);
+		c.setVersion(version);
 		try {
 			c.setDate(sdf.parse(cv.getEffectiveDate().toString()));
 		} catch (Exception e) {}
