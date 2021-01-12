@@ -339,11 +339,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		fhirHelper.mutuallyExclusive("codeA", codeA, "codingA", codingA);
 		fhirHelper.mutuallyExclusive("codeB", codeB, "codingB", codingB);
 		fhirHelper.mutuallyExclusive("codingA", codingA, "system", system);
-		fhirHelper.mutuallyExclusive("codingA", codingA, "version", version);
 		fhirHelper.mutuallyRequired("codeA", codeA, "codeB", codeB);
 		fhirHelper.mutuallyRequired("codingA", codingA, "codingB", codingB);
 		fhirHelper.mutuallyRequired("system", system, "codeA", codeA);
-		fhirHelper.mutuallyRequired("version", version, "codeA", codeA);
 	}
 
 	private Coding validateCodings(Coding codingA, Coding codingB) throws FHIROperationException {
