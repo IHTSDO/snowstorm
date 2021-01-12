@@ -30,10 +30,8 @@ import org.springframework.security.config.annotation.web.configurers.Expression
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
 import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import springfox.documentation.builders.RequestHandlerSelectors;
 import springfox.documentation.service.ApiInfo;
-import springfox.documentation.service.Contact;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.ApiSelectorBuilder;
 import springfox.documentation.spring.web.plugins.Docket;
@@ -42,7 +40,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-import static com.google.common.base.Predicates.not;
+import static org.snomed.snowstorm.core.util.PredicateUtil.not;
 import static springfox.documentation.builders.PathSelectors.regex;
 
 @Configuration
@@ -184,8 +182,8 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	public Docket api() {
 		Docket docket = new Docket(DocumentationType.SWAGGER_2);
         final String version = buildProperties != null ? buildProperties.getVersion() : "DEV";
-        docket.apiInfo(new ApiInfo("Snowstorm", "SNOMED CT Terminology Server REST API", version, null,
-				new Contact("SNOMED International", "https://github.com/IHTSDO/snowstorm", null), "Apache 2.0", "http://www.apache.org/licenses/LICENSE-2.0"));
+		docket.apiInfo(new ApiInfo("Snowstorm", "SNOMED CT Terminology Server REST API", version, null,
+				"SNOMED International (\"https://github.com/IHTSDO/snowstorm\")", "Apache 2.0", "http://www.apache.org/licenses/LICENSE-2.0"));
 		ApiSelectorBuilder apiSelectorBuilder = docket.select();
 
 		if (restApiReadOnly) {
@@ -198,14 +196,13 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 					.apis(requestHandler -> {
 						// Hide POST/PUT/PATCH/DELETE
 						if (requestHandler != null) {
-							RequestMappingInfo requestMapping = requestHandler.getRequestMapping();
 							// Allow FHIR endpoints with GET method (even if endpoint has POST too)
-							if (requestMapping.getPatternsCondition().getPatterns()
+							if (requestHandler.getPatternsCondition().getPatterns()
 									.stream().
 											anyMatch(pattern -> alwaysAllowReadOnlyPostEndpointPrefixes
 													.stream()
-													.anyMatch(pattern::startsWith))
-									&& requestMapping.getMethodsCondition().getMethods().contains(RequestMethod.GET)) {
+													.anyMatch(pattern.toString()::startsWith))
+									&& requestHandler.supportedMethods().contains(RequestMethod.GET)) {
 								return true;
 							}
 							if (requestMapping.getPatternsCondition().getPatterns()
@@ -217,21 +214,22 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 							}
 							if (restApiAllowReadOnlyPostEndpoints) {
 								// Allow specific endpoints with POST method
-								if (requestMapping.getPatternsCondition().getPatterns()
+								if (requestHandler.getPatternsCondition().getPatterns()
 										.stream().
 												anyMatch(pattern -> whenEnabledAllowReadOnlyPostEndpoints
 														.stream()
 														.anyMatch(pattern::equals))
-										&& requestMapping.getMethodsCondition().getMethods().contains(RequestMethod.POST)) {
+										&& requestHandler.supportedMethods().contains(RequestMethod.POST)) {
 									return true;
 								}
 							}
-							Set<RequestMethod> methods = requestMapping.getMethodsCondition().getMethods();
+							Set<RequestMethod> methods = requestHandler.supportedMethods();
 							return !methods.contains(RequestMethod.POST) && !methods.contains(RequestMethod.PUT)
 									&& !methods.contains(RequestMethod.PATCH) && !methods.contains(RequestMethod.DELETE);
 						}
 						return false;
 					})
+					.paths(not(regex("/merge.*")))
 					// Also hide endpoints related to authoring
 					.paths(not(regex("/merge.*")))
 					.paths(not(regex("/review.*")))
