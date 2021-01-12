@@ -12,6 +12,7 @@ import org.hl7.fhir.r4.model.UriType;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.snomed.snowstorm.core.data.services.ExpressionService;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -21,6 +22,9 @@ public class HapiParametersMapper implements FHIRConstants {
 	
 	@Autowired
 	private ExpressionService expressionService;
+	
+	@Autowired
+	private FHIRHelper fhirHelper;
 	
 	public Parameters mapToFHIR(Concept concept, String display) {
 		Parameters parameters = getStandardParameters();
@@ -65,10 +69,10 @@ public class HapiParametersMapper implements FHIRConstants {
 		return parameters;
 	}
 
-	public Parameters mapToFHIR(StringType codeSystem, Concept concept, Collection<Long> childIds, Set<FhirSctProperty> properties) {
+	public Parameters mapToFHIR(StringType codeSystem, Concept concept, Collection<Long> childIds, Set<FhirSctProperty> properties, List<LanguageDialect> designations) {
 		Parameters parameters = getStandardParameters();
 		parameters.addParameter("version", codeSystem.toString());
-		parameters.addParameter("display", concept.getPt().getTerm());
+		parameters.addParameter("display", fhirHelper.getPreferredTerm(concept, designations));
 		addProperties(parameters, concept, properties);
 		addDesignations(parameters, concept);
 		addParents(parameters, concept);

@@ -37,7 +37,7 @@ public class DialectConfigurationService {
 	private void init() {
 		dialects = new HashMap<>();
 		for (String key : config.keySet()) {
-			String dialectCode = key.substring(key.lastIndexOf(".") + 1);
+			String dialectCode = key.substring(key.lastIndexOf(".") + 1).toLowerCase();
 			long languageRefsetId = Long.parseLong(config.get(key));
 			dialects.put(dialectCode, new DialectConfiguration(dialectCode, languageRefsetId));
 			logger.info("Known dialect " + dialectCode + " - refset: " + languageRefsetId);
@@ -62,6 +62,7 @@ public class DialectConfigurationService {
 
 	public LanguageDialect getLanguageDialect(String dialectCode) {
 		//Do we know about this language code?
+		dialectCode = dialectCode.toLowerCase();
 		if (dialects.containsKey(dialectCode)) {
 			String lang = dialectCode.split("-")[0];
 			Long refsetId = findRefsetForDialect(dialectCode);

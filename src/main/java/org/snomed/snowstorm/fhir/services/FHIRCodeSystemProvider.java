@@ -173,14 +173,15 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			String displayLanguage,
 			List<CodeType> propertiesType) throws FHIROperationException {
 		String conceptId = fhirHelper.recoverConceptId(code, coding);
-		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
+		List<LanguageDialect> designations = new ArrayList<>();
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
-		fhirHelper.ensurePresent(displayLanguage, languageDialects);
+		// And make it the first in the list so we pick it up for the display element
+		fhirHelper.setLanguageOptions (designations, displayLanguage, request);
 		BranchPath branchPath = fhirHelper.getBranchPathFromURI(system);
-		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, languageDialects, branchPath.toString()));
+		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, designations, branchPath.toString()));
 		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + conceptId), branchPath.toString(), LARGE_PAGE);
 		Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
-		return pMapper.mapToFHIR(system, concept, childIds.getContent(), properties);
+		return pMapper.mapToFHIR(system, concept, childIds.getContent(), properties, designations);
 	}
 
 	@Operation(name="$validate-code", idempotent=true)

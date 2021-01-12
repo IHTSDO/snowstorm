@@ -449,7 +449,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		BranchPath branchPath = new BranchPath();
 		Page<ConceptMini> conceptMiniPage;
 		List<LanguageDialect> designations = new ArrayList<>();
-		boolean includeDesignations = setLanguageOptions(designations, designationsStr, displayLanguageStr, includeDesignationsType, request);
+		boolean includeDesignations = fhirHelper.setLanguageOptions(designations, designationsStr, displayLanguageStr, includeDesignationsType, request);
 
 		//If we've specified a system version as part of the call, then that overrides whatever is in the compose element or URL
 		//TODO In fact this behaviour needs to be a little more subtle.  The total override is what forceSystemVersion does
@@ -490,35 +490,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		valueSet.getExpansion().setTotal((int)conceptMiniPage.getTotalElements());
 		valueSet.getExpansion().setOffset(offset);
 		return valueSet;
-	}
-
-	private boolean setLanguageOptions(List<LanguageDialect> designations, List<String> designationsStr,
-			String displayLanguageStr, BooleanType includeDesignationsType, HttpServletRequest request) throws FHIROperationException {
-		boolean includeDesignations = false;
-		designations.addAll(fhirHelper.getLanguageDialects(designationsStr, request));
-		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
-		if (displayLanguageStr != null) {
-			LanguageDialect displayDialect = dialectService.getLanguageDialect(displayLanguageStr);
-			//Ensure the display language is first in our list
-			if (contains(designations, displayLanguageStr)) {
-				designations.remove(displayDialect);
-			}
-			designations.add(0, displayDialect);
-		} 
-
-		//If someone specified designations, then include them unless specified not to, in which 
-		//case use only for the displayLanguage because that's the only way to get a langRefsetId specified
-		if (includeDesignationsType != null) {
-			includeDesignations = includeDesignationsType.booleanValue();
-			//If we're including designations but not specified which ones, use the default
-			if (includeDesignations && designations.isEmpty()) {
-				designations.addAll(DEFAULT_LANGUAGE_DIALECTS);
-			}
-		} else {
-			//Otherwise include designations if we've specified one or more
-			includeDesignations = designationsStr != null;
-		}
-		return includeDesignations;
 	}
 
 	/**

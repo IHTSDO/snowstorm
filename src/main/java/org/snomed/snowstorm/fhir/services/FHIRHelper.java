@@ -29,6 +29,7 @@ import ca.uhn.fhir.rest.param.TokenParam;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Component
 public class FHIRHelper implements FHIRConstants {
@@ -207,15 +208,53 @@ public class FHIRHelper implements FHIRConstants {
 				throw new FHIROperationException (IssueType.NOTSUPPORTED , "ValueSet compose filter operation " + op.toCode() + " (" + op.getDisplay() + ") not currently supported");
 		}
 	}
-
-	public void ensurePresent(String langCode, List<LanguageDialect> languageDialects) {
-		if (languageDialects == null) {
-			languageDialects = new ArrayList<>();
+	
+	public void setLanguageOptions(List<LanguageDialect> designations, String displayLanguageStr, HttpServletRequest request) throws FHIROperationException {
+		setLanguageOptions(designations, null, displayLanguageStr, null, request);
+	}
+	
+	public String getPreferredTerm(Concept concept, List<LanguageDialect> designations) {
+		if (designations == null || designations.size() == 0) {
+			return concept.getPt().getTerm();
 		}
-
-		if (langCode != null && !isPresent(languageDialects, langCode)) {
-			languageDialects.add(new LanguageDialect(langCode));
+		
+		for (Description d : concept.getDescriptions()) {
+			if (d.hasAcceptability(Concepts.PREFERRED, designations.get(0)) &&
+					d.getTypeId().equals(Concepts.SYNONYM)) {
+				return d.getTerm();
+			}
 		}
+		return null;
+	}
+	
+	public boolean setLanguageOptions(List<LanguageDialect> designations, 
+			List<String> designationsStr,
+			String displayLanguageStr, 
+			BooleanType includeDesignationsType, 
+			HttpServletRequest request) throws FHIROperationException {
+		boolean includeDesignations = false;
+		designations.addAll(getLanguageDialects(designationsStr, request));
+		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
+		if (displayLanguageStr != null) {
+			LanguageDialect displayDialect = dialectService.getLanguageDialect(displayLanguageStr);
+			//Ensure the display language is first in our list
+			designations.remove(displayDialect);
+			designations.add(0, displayDialect);
+		} 
+
+		//If someone specified designations, then include them unless specified not to, in which 
+		//case use only for the displayLanguage because that's the only way to get a langRefsetId specified
+		if (includeDesignationsType != null) {
+			includeDesignations = includeDesignationsType.booleanValue();
+			//If we're including designations but not specified which ones, use the default
+			if (includeDesignations && designations.isEmpty()) {
+				designations.addAll(DEFAULT_LANGUAGE_DIALECTS);
+			}
+		} else {
+			//Otherwise include designations if we've specified one or more
+			includeDesignations = designationsStr != null;
+		}
+		return includeDesignations;
 	}
 
 	private boolean isPresent(List<LanguageDialect> languageDialects, String langCode) {
