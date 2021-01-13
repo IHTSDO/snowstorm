@@ -82,8 +82,12 @@ public final class ValueSetExpansionParameters {
 		return valueSet;
 	}
 
-	public static Builder newBuilder() {
-		return new Builder();
+	public static BuilderFromPOST newBuilderFromPOST() {
+		return new BuilderFromPOST();
+	}
+
+	public static BuilderFromGET newBuilderFromGET() {
+		return new BuilderFromGET();
 	}
 
 	@Override
@@ -110,7 +114,86 @@ public final class ValueSetExpansionParameters {
 				offsetStr, countStr, systemVersion, forceSystemVersion, valueSet);
 	}
 
-	public static class Builder {
+	public static class BuilderFromGET {
+
+		private String url;
+		private String filter;
+		private BooleanType activeType;
+		private BooleanType includeDesignationsType;
+		private List<String> designations;
+		private String displayLanguage;
+		private String offsetStr;
+		private String countStr;
+		private StringType systemVersion;
+		private StringType forceSystemVersion;
+
+		public final BuilderFromGET withUrl(final String url) {
+			this.url = url;
+			return this;
+		}
+
+		public final BuilderFromGET withFilter(final String filter) {
+			this.filter = filter;
+			return this;
+		}
+
+		public final BuilderFromGET withActiveType(final BooleanType activeType) {
+			this.activeType = activeType;
+			return this;
+		}
+
+		public final BuilderFromGET withIncludeDesignationsType(final BooleanType includeDesignationsType) {
+			this.includeDesignationsType = includeDesignationsType;
+			return this;
+		}
+
+		public final BuilderFromGET withDesignations(final List<String> designations) {
+			this.designations = designations;
+			return this;
+		}
+
+		public final BuilderFromGET withDisplayLanguage(final String displayLanguage) {
+			this.displayLanguage = displayLanguage;
+			return this;
+		}
+
+		public final BuilderFromGET withOffset(final String offsetStr) {
+			this.offsetStr = offsetStr;
+			return this;
+		}
+
+		public final BuilderFromGET withCount(final String countStr) {
+			this.countStr = countStr;
+			return this;
+		}
+
+		public final BuilderFromGET withSystemVersion(final StringType systemVersion) {
+			this.systemVersion = systemVersion;
+			return this;
+		}
+
+		public final BuilderFromGET withForceSystemVersion(final StringType forceSystemVersion) {
+			this.forceSystemVersion = forceSystemVersion;
+			return this;
+		}
+
+		@SuppressWarnings("unchecked")
+		public final ValueSetExpansionParameters build() {
+			return new ValueSetExpansionParameters(url == null ? null : url,
+					filter == null ? null : filter,
+					activeType == null ? null : activeType,
+					includeDesignationsType == null ? null : includeDesignationsType,
+					designations == null ? null : designations,
+					displayLanguage == null ? null : displayLanguage,
+					offsetStr == null ? null : offsetStr,
+					countStr == null ? null : countStr,
+					systemVersion == null ? null : systemVersion,
+					forceSystemVersion == null ? null : forceSystemVersion,
+					null);
+		}
+	}
+
+	public static class BuilderFromPOST {
 
 		private ParametersParameterComponent url;
 		private ParametersParameterComponent filter;
@@ -124,57 +207,57 @@ public final class ValueSetExpansionParameters {
 		private ParametersParameterComponent forceSystemVersion;
 		private ParametersParameterComponent valueSet;
 
-		public final Builder withUrl(final ParametersParameterComponent url) {
+		public final BuilderFromPOST withUrl(final ParametersParameterComponent url) {
 			this.url = url;
 			return this;
 		}
 
-		public final Builder withFilter(final ParametersParameterComponent filter) {
+		public final BuilderFromPOST withFilter(final ParametersParameterComponent filter) {
 			this.filter = filter;
 			return this;
 		}
 
-		public final Builder withActiveType(final ParametersParameterComponent activeType) {
+		public final BuilderFromPOST withActiveType(final ParametersParameterComponent activeType) {
 			this.activeType = activeType;
 			return this;
 		}
 
-		public final Builder withIncludeDesignationsType(final ParametersParameterComponent includeDesignationsType) {
+		public final BuilderFromPOST withIncludeDesignationsType(final ParametersParameterComponent includeDesignationsType) {
 			this.includeDesignationsType = includeDesignationsType;
 			return this;
 		}
 
-		public final Builder withDesignations(final ParametersParameterComponent designations) {
+		public final BuilderFromPOST withDesignations(final ParametersParameterComponent designations) {
 			this.designations = designations;
 			return this;
 		}
 
-		public final Builder withDisplayLanguage(final ParametersParameterComponent displayLanguage) {
+		public final BuilderFromPOST withDisplayLanguage(final ParametersParameterComponent displayLanguage) {
 			this.displayLanguage = displayLanguage;
 			return this;
 		}
 
-		public final Builder withOffset(final ParametersParameterComponent offsetStr) {
+		public final BuilderFromPOST withOffset(final ParametersParameterComponent offsetStr) {
 			this.offsetStr = offsetStr;
 			return this;
 		}
 
-		public final Builder withCount(final ParametersParameterComponent countStr) {
+		public final BuilderFromPOST withCount(final ParametersParameterComponent countStr) {
 			this.countStr = countStr;
 			return this;
 		}
 
-		public final Builder withSystemVersion(final ParametersParameterComponent systemVersion) {
+		public final BuilderFromPOST withSystemVersion(final ParametersParameterComponent systemVersion) {
 			this.systemVersion = systemVersion;
 			return this;
 		}
 
-		public final Builder withForceSystemVersion(final ParametersParameterComponent forceSystemVersion) {
+		public final BuilderFromPOST withForceSystemVersion(final ParametersParameterComponent forceSystemVersion) {
 			this.forceSystemVersion = forceSystemVersion;
 			return this;
 		}
 
-		public final Builder withValueSet(final ParametersParameterComponent valueSet) {
+		public final BuilderFromPOST withValueSet(final ParametersParameterComponent valueSet) {
 			this.valueSet = valueSet;
 			return this;
 		}

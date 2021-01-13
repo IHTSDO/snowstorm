@@ -3,43 +3,6 @@
 ### Implicit ValueSets (ie intensionally defined). 
 See  [https://www.hl7.org/fhir/snomedct.html#implicit]
 
-## POST Method Request Example(s)
-
-#### Expansion of an intentionally defined value set using ECL
-
-```
-{
-    "resourceType": "Parameters",
-    "parameter": [
-        {
-            "name": "valueSet",
-            "resource": {
-                "resourceType": "ValueSet",
-                "compose": {
-                    "include": [
-                        {
-                            "valueSet": "http://snomed.info/sct?fhir_vs=ecl/^ 32570581000036105 : << 263502005 = << 90734009%7CChronic%7C" 
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "name": "displayLanguage",
-            "valueString": "en-GB"
-        },
-        {
-            "name": "offset",
-            "valueString": "1"
-        },
-        {
-            "name": "count",
-            "valueString": "2"
-        }
-    ]
-}
-```
-
 ## GET Method Request Example(s)
 
 #### Expansion of an intentionally defined value set using ECL
@@ -75,4 +38,51 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=e
 #### Refset - list all SNOMED concepts mapped to ICD-O  (ECL here is ^446608001 |ICD-O simple map reference set (foundation metadata concept)|)
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/%5E446608001&count=20
 
+## POST Method Request Example(s)
 
+#### Expansion with filter operation using ECL
+
+```
+curl --location --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "resourceType": "Parameters",
+    "parameter": [
+        {
+            "name": "valueSet",
+            "resource": {
+            	"resourceType": "ValueSet",
+                "compose": {
+                    "include": [
+                        {
+                            "filter": [
+                                {
+                                    "property": "concept",
+                                    "op": "is-a",
+                                    "value": "21351003"
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "system-version",
+            "valueString": "http://snomed.info/sct/900000000000207008/version/20200731"
+        },
+        {
+            "name": "displayLanguage",
+            "valueString": "en-GB"
+        },
+        {
+            "name": "offset",
+            "valueString": "1"
+        },
+        {
+            "name": "count",
+            "valueString": "5"
+        }
+    ]
+}'
+```
