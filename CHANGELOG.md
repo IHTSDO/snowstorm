@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## 6.0.0 Release - 2020-01-13 - Support for concrete domains technical preview
+Added support for concrete domains to host the International Edition Technical Preview. 
+Additions have been made to the concept browser representation to represent concrete relationship values and types but changes are backward compatible.
+Full support for authoring concrete domains is still in development and will be released in the next few months.   
+Note: All concrete domains features rely on having concrete 
+domain content loaded.
+
+
+### Features
+- Ability to import concrete domains from the proposed `sct2_RelationshipConcreteValues_Delta_...txt` RF2 file.
+- Ability to export concrete domains in proposed RF2 format.
+- ECL support for concrete domains, see [ECL refinements with concrete values](https://confluence.ihtsdotools.org/display/DOCECL/6.2+Refinements#id-6.2Refinements-ConcreteValues).
+- Classification of concrete domain content.
+
+
 ## 5.1.0 Release - 2020-11-16 - Minor Improvements and Fixes
 
 ### Features
