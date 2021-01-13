@@ -209,29 +209,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			final List<Parameters.ParametersParameterComponent> parametersParameterComponents = FhirContext.forR4().newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
 			throwNotSupportedExceptionIfVersionUsed(findParameterOrNull(parametersParameterComponents, "version"));
-
-			final ValueSetExpansionParameters valueSetExpansionParameters =
-					ValueSetExpansionParameters.newBuilder()
-							.withUrl(findParameterOrNull(parametersParameterComponents, "url"))
-							.withFilter(findParameterOrNull(parametersParameterComponents, "filter"))
-							.withActiveType(findParameterOrNull(parametersParameterComponents, "activeType"))
-							.withIncludeDesignationsType(findParameterOrNull(parametersParameterComponents, "includeDesignations"))
-							.withDesignations(findParameterOrNull(parametersParameterComponents, "designation"))
-							.withDisplayLanguage(findParameterOrNull(parametersParameterComponents, "displayLanguage"))
-							.withOffset(findParameterOrNull(parametersParameterComponents, "offset"))
-							.withCount(findParameterOrNull(parametersParameterComponents, "count"))
-							.withSystemVersion(findParameterOrNull(parametersParameterComponents, "system-version"))
-							.withForceSystemVersion(findParameterOrNull(parametersParameterComponents, "force-system-version"))
-							.withValueSet(findParameterOrNull(parametersParameterComponents, "valueSet")).build();
-
-			return expand(id, request, response, valueSetExpansionParameters.getUrl(), valueSetExpansionParameters.getFilter(),
-					valueSetExpansionParameters.getActiveType(), valueSetExpansionParameters.getIncludeDesignationsType(), valueSetExpansionParameters.getDesignations(),
-					valueSetExpansionParameters.getDisplayLanguage(), valueSetExpansionParameters.getOffsetStr(), valueSetExpansionParameters.getCountStr(),
-					valueSetExpansionParameters.getSystemVersion(), valueSetExpansionParameters.getForceSystemVersion(), valueSetExpansionParameters.getValueSet());
+			return expand(id, request, getValueSetExpansionParameters(parametersParameterComponents));
 		} else {
 			throwNotSupportedExceptionIfVersionUsed(version);
-			return expand(id, request, response, url, filter, activeType, includeDesignationsType,
-					designations, displayLanguage, offsetStr, countStr, systemVersion, forceSystemVersion, null);
+			return expand(id, request, getValueSetExpansionParameters(url, filter, activeType, includeDesignationsType,
+					designations, displayLanguage, offsetStr, countStr, systemVersion, forceSystemVersion));
 		}
 	}
 
@@ -254,30 +236,42 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		if (request.getMethod().equals(RequestMethod.POST.name())) {
 			final List<Parameters.ParametersParameterComponent> parametersParameterComponents = FhirContext.forR4().newJsonParser().parseResource(Parameters.class, rawBody).getParameter();
 			throwNotSupportedExceptionIfVersionUsed(findParameterOrNull(parametersParameterComponents, "version"));
-
-			final ValueSetExpansionParameters valueSetExpansionParameters =
-					ValueSetExpansionParameters.newBuilder()
-							.withUrl(findParameterOrNull(parametersParameterComponents, "url"))
-							.withFilter(findParameterOrNull(parametersParameterComponents, "filter"))
-							.withActiveType(findParameterOrNull(parametersParameterComponents, "activeType"))
-							.withIncludeDesignationsType(findParameterOrNull(parametersParameterComponents, "includeDesignations"))
-							.withDesignations(findParameterOrNull(parametersParameterComponents, "designation"))
-							.withDisplayLanguage(findParameterOrNull(parametersParameterComponents, "displayLanguage"))
-							.withOffset(findParameterOrNull(parametersParameterComponents, "offset"))
-							.withCount(findParameterOrNull(parametersParameterComponents, "count"))
-							.withSystemVersion(findParameterOrNull(parametersParameterComponents, "system-version"))
-							.withForceSystemVersion(findParameterOrNull(parametersParameterComponents, "force-system-version"))
-							.withValueSet(findParameterOrNull(parametersParameterComponents, "valueSet")).build();
-
-			return expand(null, request, response, valueSetExpansionParameters.getUrl(), valueSetExpansionParameters.getFilter(),
-					valueSetExpansionParameters.getActiveType(), valueSetExpansionParameters.getIncludeDesignationsType(), valueSetExpansionParameters.getDesignations(),
-					valueSetExpansionParameters.getDisplayLanguage(), valueSetExpansionParameters.getOffsetStr(), valueSetExpansionParameters.getCountStr(),
-					valueSetExpansionParameters.getSystemVersion(), valueSetExpansionParameters.getForceSystemVersion(), valueSetExpansionParameters.getValueSet());
+			return expand(null, request, getValueSetExpansionParameters(parametersParameterComponents));
 		} else {
 			throwNotSupportedExceptionIfVersionUsed(version);
-			return expand(null, request, response, url, filter, activeType, includeDesignationsType,
-					designations, displayLanguage, offsetStr, countStr, systemVersion, forceSystemVersion, null);
+			return expand(null, request, getValueSetExpansionParameters(url, filter, activeType, includeDesignationsType,
+					designations, displayLanguage, offsetStr, countStr, systemVersion, forceSystemVersion));
 		}
+	}
+
+	private ValueSetExpansionParameters getValueSetExpansionParameters(final List<Parameters.ParametersParameterComponent> parametersParameterComponents) {
+		return ValueSetExpansionParameters.newBuilderFromPOST()
+				.withUrl(findParameterOrNull(parametersParameterComponents, "url"))
+				.withFilter(findParameterOrNull(parametersParameterComponents, "filter"))
+				.withActiveType(findParameterOrNull(parametersParameterComponents, "activeType"))
+				.withIncludeDesignationsType(findParameterOrNull(parametersParameterComponents, "includeDesignations"))
+				.withDesignations(findParameterOrNull(parametersParameterComponents, "designation"))
+				.withDisplayLanguage(findParameterOrNull(parametersParameterComponents, "displayLanguage"))
+				.withOffset(findParameterOrNull(parametersParameterComponents, "offset"))
+				.withCount(findParameterOrNull(parametersParameterComponents, "count"))
+				.withSystemVersion(findParameterOrNull(parametersParameterComponents, "system-version"))
+				.withForceSystemVersion(findParameterOrNull(parametersParameterComponents, "force-system-version"))
+				.withValueSet(findParameterOrNull(parametersParameterComponents, "valueSet")).build();
+	}
+
+	private ValueSetExpansionParameters getValueSetExpansionParameters(final String url, final String filter, final BooleanType activeType, final BooleanType includeDesignationsType,
+			final List<String> designations, final String displayLanguage, final String offsetStr, final String countStr, final StringType systemVersion, final StringType forceSystemVersion) {
+		return ValueSetExpansionParameters.newBuilderFromGET()
+				.withUrl(url)
+				.withFilter(filter)
+				.withActiveType(activeType)
+				.withIncludeDesignationsType(includeDesignationsType)
+				.withDesignations(designations)
+				.withDisplayLanguage(displayLanguage)
+				.withOffset(offsetStr)
+				.withCount(countStr)
+				.withSystemVersion(systemVersion)
+				.withForceSystemVersion(forceSystemVersion).build();
 	}
 
 	private Parameters.ParametersParameterComponent findParameterOrNull(final List<Parameters.ParametersParameterComponent> parametersParameterComponents, final String name) {
@@ -422,23 +416,11 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 
 	
-	private ValueSet expand(
-			@IdParam IdType id,
-			HttpServletRequest request,
-			HttpServletResponse response,
-			String url,
-			String filter,
-			BooleanType activeType,
-			BooleanType includeDesignationsType,
-			List<String> designationsStr,
-			String displayLanguageStr,
-			String offsetStr,
-			String countStr,
-			StringType systemVersion,
-			StringType forceSystemVersion,
-			ValueSet vs) throws FHIROperationException {
+	private ValueSet expand(final @IdParam IdType id, final HttpServletRequest request, final ValueSetExpansionParameters valueSetExpansionParameters) throws FHIROperationException {
 		// Are we expanding a specific named Valueset?
 
+		ValueSet vs = valueSetExpansionParameters.getValueSet();
+		String url = valueSetExpansionParameters.getUrl();
 		if (id != null && vs == null) {
 			logger.info("Expanding '{}'",id.getIdPart());
 			vs = getValueSet(id);
@@ -451,25 +433,31 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			}
 			url = vs.getUrl();
 		}
-		
+
+		final String offsetStr = valueSetExpansionParameters.getOffsetStr();
 		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
+		final String countStr = valueSetExpansionParameters.getCountStr();
 		int pageSize = (countStr == null || countStr.isEmpty()) ? DEFAULT_PAGESIZE : Integer.parseInt(countStr);
+		final BooleanType activeType = valueSetExpansionParameters.getActiveType();
 		Boolean active = activeType == null ? null : activeType.booleanValue();
 		BranchPath branchPath = new BranchPath();
 		Page<ConceptMini> conceptMiniPage;
 		List<LanguageDialect> designations = new ArrayList<>();
-		boolean includeDesignations = fhirHelper.setLanguageOptions(designations, designationsStr, displayLanguageStr, includeDesignationsType, request);
+		boolean includeDesignations = fhirHelper.setLanguageOptions(designations, valueSetExpansionParameters.getDesignations(),
+				valueSetExpansionParameters.getDisplayLanguage(), valueSetExpansionParameters.getIncludeDesignationsType(), request);
 
 		//If we've specified a system version as part of the call, then that overrides whatever is in the compose element or URL
 		//TODO In fact this behaviour needs to be a little more subtle.  The total override is what forceSystemVersion does
 		//What this parameter needs to do is only specify the version when it is not otherwise specified in the ValueSet
 		//TODO pass this value or forceSystemVersion through to the implicit/explicit expansion methods so they can decide
 		//if they need to use it or not.   It fails too early here if the branch does not exist.
+		final StringType systemVersion = valueSetExpansionParameters.getSystemVersion();
 		if (systemVersion != null && !systemVersion.asStringValue().isEmpty()) {
 			branchPath.set(fhirHelper.getBranchPathFromURI(systemVersion));
 		}
 		
 		boolean branchPathForced = false;
+		final StringType forceSystemVersion = valueSetExpansionParameters.getForceSystemVersion();
 		if (forceSystemVersion != null && !forceSystemVersion.asStringValue().isEmpty()) {
 			branchPathForced = true;
 			branchPath.set(fhirHelper.getBranchPathFromURI(forceSystemVersion));
@@ -479,6 +467,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		//The code system is the URL up to where the parameters start eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/
 		//These calls will also set the branchPath
 		int cutPoint = url == null ? -1 : url.indexOf("?");
+		final String filter = valueSetExpansionParameters.getFilter();
 		if (cutPoint == NOT_SET) {
 			conceptMiniPage = doExplicitExpansion(vs, active, filter, branchPath, designations, offset, pageSize, branchPathForced);
 		} else {
