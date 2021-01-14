@@ -43,7 +43,7 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=e
 #### Expansion with filter operation using ECL
 
 ```
-curl --location --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
+curl --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
 --header 'Content-Type: application/json' \
 --data-raw '{
     "resourceType": "Parameters",
@@ -86,3 +86,4 @@ curl --location --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
     ]
 }'
 ```
+Note that the curl --location flag will cause a POST body to be removed if a 302 redirect is encountered, such as happens when an http call is redirected to https.
