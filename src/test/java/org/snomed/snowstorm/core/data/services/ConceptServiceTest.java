@@ -187,7 +187,7 @@ class ConceptServiceTest extends AbstractTest {
 		Assert.assertEquals(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, inactivationIndicatorMember.getRefsetId());
 		Assert.assertEquals(updatedDescription.getDescriptionId(), inactivationIndicatorMember.getReferencedComponentId());
 		Assert.assertEquals(Concepts.OUTDATED, inactivationIndicatorMember.getAdditionalField("valueId"));
-		Set<ReferenceSetMember> associationTargetMembers = updatedDescription.getAssociationTargetMembers();
+		Collection<ReferenceSetMember> associationTargetMembers = updatedDescription.getAssociationTargetMembers();
 		Assert.assertNotNull(associationTargetMembers);
 		assertEquals(1, associationTargetMembers.size());
 		ReferenceSetMember associationTargetMember = associationTargetMembers.iterator().next();
@@ -507,7 +507,7 @@ class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testConceptInactivation() throws ServiceException {
+	void testConceptInactivationThenVersionThenReasonChange() throws ServiceException {
 		String path = "MAIN";
 		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
 		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
@@ -561,7 +561,7 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(Collections.singleton("87100004"), associationTargetsAfter.get(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION)));
 
 		// Check association target reference set member was created
-		Set<ReferenceSetMember> associationTargetMembers = inactiveConcept.getAssociationTargetMembers();
+		Collection<ReferenceSetMember> associationTargetMembers = inactiveConcept.getAssociationTargetMembers();
 		assertNotNull(associationTargetMembers);
 		assertEquals(1, associationTargetMembers.size());
 		ReferenceSetMember associationTargetMember = associationTargetMembers.iterator().next();
@@ -604,6 +604,123 @@ class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testConceptReinactivationOfVersionedConceptWithSameReasonAndAssociation() throws ServiceException, IOException {
+		String path = "MAIN";
+		conceptService.batchCreate(Lists.newArrayList(new Concept("107658001"), new Concept("116680003")), path);
+		Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002"));
+		concept.addAxiom(new Relationship(ISA, "107658001"));
+		concept = conceptService.create(concept, path);
+
+		// Version code system
+		CodeSystem codeSystem = codeSystemService.find("SNOMEDCT");
+		codeSystemService.createVersion(codeSystem, 20190731, "");
+
+		// Make concept inactive
+		concept.setActive(false);
+		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
+		HashMap<String, Set<String>> associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION), Collections.singleton("87100004"));
+		concept.setAssociationTargets(associationTargetStrings);
+		concept = conceptService.update(concept, path);
+
+		// Check inactivation indicator string
+		concept = conceptService.find(concept.getId(), path);
+		assertEquals("DUPLICATE", concept.getInactivationIndicator());
+
+		// Check inactivation indicator reference set member was created
+		ReferenceSetMember inactivationIndicatorMember = concept.getInactivationIndicatorMember();
+		assertNotNull(inactivationIndicatorMember);
+		assertTrue(inactivationIndicatorMember.isActive());
+		assertEquals(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, inactivationIndicatorMember.getRefsetId());
+		assertEquals(Concepts.DUPLICATE, inactivationIndicatorMember.getAdditionalField("valueId"));
+
+		// Check association target reference set member was created
+		Collection<ReferenceSetMember> associationTargetMembers = concept.getAssociationTargetMembers();
+		assertNotNull(associationTargetMembers);
+		assertEquals(1, associationTargetMembers.size());
+		ReferenceSetMember associationTargetMember = associationTargetMembers.iterator().next();
+		assertTrue(associationTargetMember.isActive());
+		assertEquals(Concepts.REFSET_SAME_AS_ASSOCIATION, associationTargetMember.getRefsetId());
+		assertEquals(concept.getModuleId(), associationTargetMember.getModuleId());
+		assertEquals(concept.getId(), associationTargetMember.getReferencedComponentId());
+		assertEquals("87100004", associationTargetMember.getAdditionalField("targetComponentId"));
+
+		Set<Description> descriptions = concept.getDescriptions();
+		List<Description> activeDescriptions = descriptions.stream().filter(Description::isActive).sorted(Comparator.comparing(Description::getTerm)).collect(Collectors.toList());
+		assertEquals("One descriptions are still active",
+				1, activeDescriptions.size());
+		assertEquals("Active descriptions automatically have inactivation indicator",
+				"CONCEPT_NON_CURRENT", activeDescriptions.get(0).getInactivationIndicator());
+		final ReferenceSetMember descriptionInactivationIndicatorMember = activeDescriptions.get(0).getInactivationIndicatorMember();
+
+		assertFalse("Axiom is inactive.", concept.getClassAxioms().iterator().next().isActive());
+
+		// Version code system
+		codeSystemService.createVersion(codeSystem, 20200131, "");
+
+		// Make concept active again
+		concept = conceptService.find(concept.getId(), path);
+		concept.setActive(true);
+		concept.getInactivationIndicatorMembers().clear();
+		concept.getAssociationTargetMembers().clear();
+		concept.getClassAxioms().iterator().next().setActive(true);
+		conceptService.update(concept, path);
+
+		concept = conceptService.find(concept.getId(), path);
+		assertNull(concept.getInactivationIndicator());
+		assertEquals(1, concept.getInactivationIndicatorMembers().size());
+		assertFalse(concept.getInactivationIndicatorMembers().stream().anyMatch(ReferenceSetMember::isActive));
+		assertEquals(1, concept.getAssociationTargetMembers().size());
+		assertFalse(concept.getAssociationTargetMembers().stream().anyMatch(ReferenceSetMember::isActive));
+
+		// Make concept inactive again to check that the same inactivation reason and association refset members are used
+		concept = convertToJsonAndBack(concept);
+		concept.setActive(false);
+		concept.setInactivationIndicator(Concepts.inactivationIndicatorNames.get(Concepts.DUPLICATE));
+		associationTargetStrings = new HashMap<>();
+		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION), Collections.singleton("87100004"));
+		concept.setAssociationTargets(associationTargetStrings);
+		conceptService.update(concept, path);
+		concept = conceptService.find(concept.getId(), path);
+
+		assertEquals("DUPLICATE", concept.getInactivationIndicator());
+		final Collection<ReferenceSetMember> secondTimeInactivationIndicatorMembers = concept.getInactivationIndicatorMembers();
+		assertEquals(1, secondTimeInactivationIndicatorMembers.size());
+		ReferenceSetMember secondTimeInactivationIndicatorMember = secondTimeInactivationIndicatorMembers.iterator().next();
+		assertNotNull(secondTimeInactivationIndicatorMember);
+		assertTrue(secondTimeInactivationIndicatorMember.isActive());
+		assertEquals(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, secondTimeInactivationIndicatorMember.getRefsetId());
+		assertEquals(Concepts.DUPLICATE, secondTimeInactivationIndicatorMember.getAdditionalField("valueId"));
+		assertEquals("Original inactivation indicator refset member must be reused because the value is the same.",
+				inactivationIndicatorMember.getId(), secondTimeInactivationIndicatorMember.getId());
+
+		final Map<String, Set<String>> associationTargets = concept.getAssociationTargets();
+		assertEquals(1, associationTargets.size());
+		assertEquals("{SAME_AS=[87100004]}", associationTargets.toString());
+		associationTargetMembers = concept.getAssociationTargetMembers();
+		assertNotNull(associationTargetMembers);
+		assertEquals(1, associationTargetMembers.size());
+		ReferenceSetMember secondTimeAssociationTargetMember = associationTargetMembers.iterator().next();
+		assertTrue(secondTimeAssociationTargetMember.isActive());
+		assertEquals(Concepts.REFSET_SAME_AS_ASSOCIATION, secondTimeAssociationTargetMember.getRefsetId());
+		assertEquals(concept.getModuleId(), secondTimeAssociationTargetMember.getModuleId());
+		assertEquals(concept.getId(), secondTimeAssociationTargetMember.getReferencedComponentId());
+		assertEquals("87100004", secondTimeAssociationTargetMember.getAdditionalField("targetComponentId"));
+		assertEquals("Original association refset member must be reused because the value is the same.",
+				associationTargetMember.getId(), secondTimeAssociationTargetMember.getId());
+
+		// Same for the description inactivation indicator
+		activeDescriptions = concept.getDescriptions().stream().filter(Description::isActive).sorted(Comparator.comparing(Description::getTerm)).collect(Collectors.toList());
+		assertEquals(1, activeDescriptions.size());
+		assertEquals("Active descriptions automatically have inactivation indicator",
+				"CONCEPT_NON_CURRENT", activeDescriptions.get(0).getInactivationIndicator());
+		final ReferenceSetMember secondTimeDescriptionInactivationIndicatorMember = activeDescriptions.get(0).getInactivationIndicatorMember();
+		assertEquals("Original inactivation indicator refset member must be reused because the value is the same.",
+				descriptionInactivationIndicatorMember.getId(), secondTimeDescriptionInactivationIndicatorMember.getId());
+	}
+
+	@Test
 	void testCreateObjectAttribute() throws ServiceException {
 		conceptService.create(new Concept(CONCEPT_MODEL_OBJECT_ATTRIBUTE)
 						.addFSN("Concept model object attribute (attribute)")
@@ -617,6 +734,93 @@ class ConceptServiceTest extends AbstractTest {
 		Axiom axiom = newAttributeConcept.getClassAxioms().iterator().next();
 		assertEquals("SubObjectPropertyOf(:813815325507419009 :762705008)", axiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
 		assertEquals(PRIMITIVE, axiom.getDefinitionStatusId());
+	}
+
+	@Test
+	void testCreateDataAttribute() throws ServiceException {
+		conceptService.create(new Concept(CONCEPT_MODEL_DATA_ATTRIBUTE)
+						.addFSN("Concept model data attribute (attribute)")
+						.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(ISA, CONCEPT_MODEL_ATTRIBUTE))))
+				, "MAIN");
+
+		Concept newAttributeConcept = new Concept("10123456789001")
+				.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(ISA, CONCEPT_MODEL_DATA_ATTRIBUTE))))
+				.addFSN("New data attribute (attribute)");
+		newAttributeConcept = conceptService.create(newAttributeConcept, "MAIN");
+		Axiom axiom = newAttributeConcept.getClassAxioms().iterator().next();
+		assertEquals("SubDataPropertyOf(:10123456789001 :762706009)", axiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
+		assertEquals(PRIMITIVE, axiom.getDefinitionStatusId());
+
+		Concept newChildDataAttributeConcept = new Concept("20123456789001")
+				.addAxiom(new Axiom().setRelationships(Collections.singleton(new Relationship(ISA, "10123456789001"))))
+				.addFSN("New child data attribute (attribute)");
+		newChildDataAttributeConcept = conceptService.create(newChildDataAttributeConcept, "MAIN");
+		axiom = newChildDataAttributeConcept.getClassAxioms().iterator().next();
+		assertEquals("SubDataPropertyOf(:20123456789001 :10123456789001)", axiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
+		assertEquals(PRIMITIVE, axiom.getDefinitionStatusId());
+	}
+
+	@Test
+	public void testCreateConceptWithConcreteIntValue() throws ServiceException {
+		//given
+		final Concept inConcept = new Concept("12345678910");
+		inConcept.addAxiom(
+				new Relationship(ISA, "12345"),
+				Relationship.newConcrete("1234567891011", "#1")
+		);
+
+		//when
+		conceptService.create(inConcept, "MAIN");
+		final Concept outConcept = conceptService.find("12345678910", "MAIN");
+		final Set<Axiom> classAxioms = outConcept.getClassAxioms();
+		final int size = classAxioms.size();
+		final String value = classAxioms.iterator().next().getRelationships().iterator().next().getValue();
+
+		//then
+		assertEquals(1, size);
+		assertEquals("#1", value);
+	}
+
+	@Test
+	public void testCreateConceptWithConcreteDecValue() throws ServiceException {
+		//given
+		final Concept inConcept = new Concept("12345678910");
+		inConcept.addAxiom(
+				new Relationship(ISA, "12345"),
+				Relationship.newConcrete("1234567891011", "#3.14")
+		);
+
+		//when
+		conceptService.create(inConcept, "MAIN");
+		final Concept outConcept = conceptService.find("12345678910", "MAIN");
+		final Set<Axiom> classAxioms = outConcept.getClassAxioms();
+		final int size = classAxioms.size();
+		final String value = classAxioms.iterator().next().getRelationships().iterator().next().getValue();
+
+		//then
+		assertEquals(1, size);
+		assertEquals("#3.14", value);
+	}
+
+	@Test
+	public void testCreateConceptWithConcreteStrValue() throws ServiceException {
+		//given
+		final Concept inConcept = new Concept("12345678910");
+		inConcept.addAxiom(
+				new Relationship(ISA, "12345"),
+				Relationship.newConcrete("1234567891012", "\"Two tablets in morning.\"")
+		);
+
+		//when
+		conceptService.create(inConcept, "MAIN");
+		final Concept outConcept = conceptService.find("12345678910", "MAIN");
+		final Set<Axiom> classAxioms = outConcept.getClassAxioms();
+		final int size = classAxioms.size();
+		final String value = classAxioms.iterator().next().getRelationships().iterator().next().getValue();
+
+		//then
+		assertEquals(1, size);
+		assertEquals("\"Two tablets in morning.\"", value);
 	}
 
 	@Test
@@ -1054,7 +1258,7 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(1, actualConcept.getDescriptions().size());
 		assertEquals(2,actualConcept.getDescriptions().iterator().next().getInactivationIndicatorMembers().size());
 
-		PersistedComponents persistedComponents = conceptService.createUpdate(Arrays.asList(actualConcept), "MAIN");
+		PersistedComponents persistedComponents = conceptService.createUpdate(Collections.singletonList(actualConcept), "MAIN");
 		assertEquals(2, persistedComponents.getPersistedDescriptions().iterator().next().getInactivationIndicatorMembers().size());
 	}
 

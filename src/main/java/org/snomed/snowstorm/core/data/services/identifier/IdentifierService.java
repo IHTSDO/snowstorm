@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services.identifier;
 
 import com.google.common.base.Strings;
+import org.apache.commons.collections4.ListUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.ComponentType;
@@ -32,7 +33,10 @@ public class IdentifierService {
 
 	@Value("${cis.registration.enabled}")
 	private boolean registrationEnabled;
-	
+
+	@Value("${cis.registration.chunkSize}")
+	private int registrationChunkSize;
+
 	@Autowired
 	private IdentifierCacheManager cacheManager;
 	
@@ -102,7 +106,9 @@ public class IdentifierService {
 		for (ComponentType componentType : ComponentType.values()) {
 			Collection<Long> idsAssigned = reservedBlock.getIdsAssigned(componentType);
 			if (!idsAssigned.isEmpty()) {
-				identifiersForRegistrationRepository.save(new IdentifiersForRegistration(reservedBlock.getNamespace(), idsAssigned));
+				for (List<Long> idPartition : ListUtils.partition(new ArrayList<>(idsAssigned), registrationChunkSize)) {
+					identifiersForRegistrationRepository.save(new IdentifiersForRegistration(reservedBlock.getNamespace(), idPartition));
+				}
 			}
 		}
 	}

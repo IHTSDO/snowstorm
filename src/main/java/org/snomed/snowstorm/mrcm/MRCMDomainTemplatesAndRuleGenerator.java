@@ -32,29 +32,29 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 	static final Comparator<SubExpressionConstraint> EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID = Comparator
 			.comparing(SubExpressionConstraint::getConceptId, Comparator.nullsFirst(String::compareTo));
 
-	private static final Logger logger = LoggerFactory.getLogger(MRCMUpdateService.class);
+	private static final Logger logger = LoggerFactory.getLogger(MRCMDomainTemplatesAndRuleGenerator.class);
 
 	private static final Pattern REFINEMENT_PART_ONE_PATTERN = Pattern.compile("^\\[\\[(.*)\\]\\]\\s?([0-9]{6,9}).*");
 
 	private static final Pattern REFINEMENT_PART_TWO_PATTERN = Pattern.compile("^\\[\\[\\+id\\((.*)\\)\\]\\]");
 
 	public List<Domain> generateDomainTemplates(Map<String, Domain> domainsByDomainIdMap, Map<String, List<AttributeDomain>> domainToAttributesMap,
-										 Map<String, List<AttributeRange>> attributeToRangesMap, Map<String, String> conceptToFsnMap) {
+											Map<String, List<AttributeRange>> attributeToRangesMap, Map<String, String> conceptToFsnMap, List<Long> dataAttributes) {
 
 		List<Domain> updatedDomains = new ArrayList<>();
 		logger.debug("Checking and updating templates for {} domains.", domainsByDomainIdMap.keySet().size());
-		for (String domainId : domainsByDomainIdMap.keySet()) {
-			Domain domain = new Domain(domainsByDomainIdMap.get(domainId));
+		for (Map.Entry<String, Domain> entry : domainsByDomainIdMap.entrySet()) {
+			Domain domain = entry.getValue();
 			List<String> parentDomainIds = findParentDomains(domain, domainsByDomainIdMap);
-			String precoordinated = generateDomainTemplate(domain, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, ContentType.PRECOORDINATED);
+			String preCoordinated = generateDomainTemplate(domain, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, dataAttributes, ContentType.PRECOORDINATED);
 			boolean isChanged = false;
-			if (!precoordinated.equals(domain.getDomainTemplateForPrecoordination())) {
-				domain.setDomainTemplateForPrecoordination(precoordinated);
+			if (!preCoordinated.equals(domain.getDomainTemplateForPrecoordination())) {
+				domain.setDomainTemplateForPrecoordination(preCoordinated);
 				isChanged = true;
 			}
-			String postcoordinated = generateDomainTemplate(domain, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, ContentType.POSTCOORDINATED);
-			if (!postcoordinated.equals(domain.getDomainTemplateForPostcoordination())) {
-				domain.setDomainTemplateForPostcoordination(postcoordinated);
+			String postCoordinated = generateDomainTemplate(domain, domainToAttributesMap, attributeToRangesMap, conceptToFsnMap, parentDomainIds, dataAttributes, ContentType.POSTCOORDINATED);
+			if (!postCoordinated.equals(domain.getDomainTemplateForPostcoordination())) {
+				domain.setDomainTemplateForPostcoordination(postCoordinated);
 				isChanged = true;
 			}
 			if (isChanged) {
@@ -64,25 +64,31 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		return updatedDomains;
 	}
 
-	public List<AttributeRange> generateAttributeRule(Map<String, Domain> domainMapByDomainId, Map<String, List<AttributeDomain>> attributeToDomainsMap,
-													  Map<String, List<AttributeRange>> attributeToRangesMap,
-													  Map<String, String> conceptToFsnMap) {
+	public List<AttributeRange> generateAttributeRules(Map<String, Domain> domainMapByDomainId,
+														Map<String, List<AttributeDomain>> attributeToDomainsMap,
+														Map<String, List<AttributeRange>> attributeToRangesMap,
+														Map<String, String> conceptToFsnMap, List<Long> dataAttributes) {
 
 		List<AttributeRange> updatedRanges = new ArrayList<>();
-		for (String attributeId : attributeToDomainsMap.keySet()) {
-			if (!attributeToRangesMap.containsKey(attributeId)) {
-				logger.info("No attribute ranges defined in all domains for attribute {}.", attributeId);
+		for (Map.Entry<String, List<AttributeDomain>> entry : attributeToDomainsMap.entrySet()) {
+			if (!attributeToRangesMap.containsKey(entry.getKey())) {
+				logger.info("No attribute ranges defined in any domains for attribute {}.", entry.getKey());
 				continue;
 			}
-			for (AttributeRange range : attributeToRangesMap.get(attributeId)) {
-				String sortedConstraint = sortExpressionConstraintByConceptId(range.getRangeConstraint(), range.getId());
+			for (AttributeRange range : attributeToRangesMap.get(entry.getKey())) {
 				boolean isRangeConstraintChanged = false;
-				if (!range.getRangeConstraint().equals(sortedConstraint)) {
-					isRangeConstraintChanged = true;
-					range.setRangeConstraint(sortedConstraint);
+				// only sort and validate ECL for non data attributes
+				boolean isDataAttribute = dataAttributes.contains(Long.valueOf(range.getReferencedComponentId()));
+				if (!isDataAttribute) {
+					String sortedConstraint = sortExpressionConstraintByConceptId(range.getRangeConstraint(), range.getId());
+					if (!range.getRangeConstraint().equals(sortedConstraint)) {
+						isRangeConstraintChanged = true;
+						range.setRangeConstraint(sortedConstraint);
+					}
 				}
+
 				// attribute domains are mandatory and matched content type
-				List<AttributeDomain> attributeDomains = attributeToDomainsMap.get(attributeId)
+				List<AttributeDomain> attributeDomains = entry.getValue()
 						.stream()
 						.filter(d -> (RuleStrength.MANDATORY == d.getRuleStrength())
 										&& (ContentType.ALL == d.getContentType() || range.getContentType() == d.getContentType()))
@@ -100,18 +106,17 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 				// unGrouped
 				List<AttributeDomain> unGrouped = new ArrayList<>(attributeDomains);
 				unGrouped.removeAll(grouped);
-				Collections.sort(unGrouped, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
-				ruleBuilder.append(constructAttributeRule(unGrouped, domainMapByDomainId, range, conceptToFsnMap));
+				unGrouped.sort(ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
+				ruleBuilder.append(constructAttributeRule(unGrouped, domainMapByDomainId, range, conceptToFsnMap, isDataAttribute));
 
 				// grouped
 				Map<String, String> attributeRuleMappedByDomain = new HashMap<>();
-				for (String group : groupedByCardinality.keySet()) {
-					List<AttributeDomain> sortedAttributeDomains = groupedByCardinality.get(group);
-					Collections.sort(sortedAttributeDomains, ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
+				for (Map.Entry<String, List<AttributeDomain>> groupedEntry : groupedByCardinality.entrySet()) {
+					List<AttributeDomain> sortedAttributeDomains = groupedEntry.getValue();
+					sortedAttributeDomains.sort(ATTRIBUTE_DOMAIN_COMPARATOR_BY_DOMAIN_ID);
 					// generate rule and mapped by domain concept id
-					List<String> domains = sortedAttributeDomains.stream().map(AttributeDomain::getDomainId).collect(Collectors.toList());
-					Collections.sort(domains);
-					attributeRuleMappedByDomain.put(domains.get(0), constructAttributeRule(sortedAttributeDomains, domainMapByDomainId, range, conceptToFsnMap));
+					List<String> domains = sortedAttributeDomains.stream().map(AttributeDomain::getDomainId).sorted().collect(Collectors.toList());
+					attributeRuleMappedByDomain.put(domains.get(0), constructAttributeRule(sortedAttributeDomains, domainMapByDomainId, range, conceptToFsnMap, isDataAttribute));
 				}
 				if (!unGrouped.isEmpty() && !grouped.isEmpty()) {
 					ruleBuilder.insert(0, "(");
@@ -138,8 +143,8 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 					ruleBuilder.append(")");
 				}
 				if (!ruleBuilder.toString().equals(range.getAttributeRule()) || isRangeConstraintChanged) {
-					logger.debug("before = " + range.getAttributeRule());
-					logger.debug("after = " + ruleBuilder.toString());
+					logger.debug("before = {} ", range.getAttributeRule());
+					logger.debug("after =  {} ", ruleBuilder);
 					AttributeRange updated = new AttributeRange(range);
 					eclValidation(ruleBuilder.toString(), range);
 					updated.setAttributeRule(ruleBuilder.toString());
@@ -154,7 +159,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		try {
 			eclQueryBuilder.createQuery(attributeRule);
 		} catch(ECLException e) {
-			logger.info("Attribute range member id " + range.getId());
+			logger.info("Attribute range member id {} ", range.getId());
 			String errorMsg = String.format("Generated attribute rule for attribute %s is not valid ECL: %s", range.getReferencedComponentId(), attributeRule);
 			logger.error(errorMsg);
 			throw new IllegalStateException(errorMsg, e);
@@ -162,7 +167,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 	}
 
 	private String constructAttributeRule(List<AttributeDomain> attributeDomains, Map<String, Domain> domainMapByDomainId,
-										AttributeRange range, Map<String, String> conceptToFsnMap) {
+										AttributeRange range, Map<String, String> conceptToFsnMap, boolean isDataAttribute) {
 		int counter = 0;
 		StringBuilder ruleBuilder = new StringBuilder();
 		if (attributeDomains == null || attributeDomains.isEmpty()) {
@@ -195,17 +200,34 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		// attribute group and attribute cardinality
 		AttributeDomain attributeDomain = attributeDomains.get(0);
 		if (attributeDomain.isGrouped()) {
-			ruleBuilder.append("[" + attributeDomain.getAttributeCardinality().getValue() + "]" + " {");
-			ruleBuilder.append(" [" + attributeDomain.getAttributeInGroupCardinality().getValue() + "]");
+			ruleBuilder.append("[");
+			ruleBuilder.append(attributeDomain.getAttributeCardinality().getValue());
+			ruleBuilder.append("] {");
+			ruleBuilder.append(" [");
+			ruleBuilder.append(attributeDomain.getAttributeInGroupCardinality().getValue());
+			ruleBuilder.append("]");
 		} else {
-			ruleBuilder.append("[" + attributeDomain.getAttributeCardinality().getValue() + "]");
+			ruleBuilder.append("[");
+			ruleBuilder.append(attributeDomain.getAttributeCardinality().getValue());
+			ruleBuilder.append("]");
 		}
-		ruleBuilder.append(" " + range.getReferencedComponentId() + " |" + conceptToFsnMap.get(range.getReferencedComponentId()) + "|" + " = ");
-		// range constraint
-		if (range.getRangeConstraint().contains("OR")) {
-			ruleBuilder.append("(" + range.getRangeConstraint() + ")");
+
+		// constraint rule
+		if (isDataAttribute) {
+			ruleBuilder.append(constructConcreteAttributeConstraintRule(range, attributeDomain, conceptToFsnMap.get(range.getReferencedComponentId())));
 		} else {
-			ruleBuilder.append(range.getRangeConstraint());
+			ruleBuilder.append(" ");
+			ruleBuilder.append(range.getReferencedComponentId());
+			ruleBuilder.append(" |");
+			ruleBuilder.append(conceptToFsnMap.get(range.getReferencedComponentId()));
+			ruleBuilder.append("| = ");
+			if (range.getRangeConstraint().contains("OR")) {
+				ruleBuilder.append("(");
+				ruleBuilder.append(range.getRangeConstraint());
+				ruleBuilder.append(")");
+			} else {
+				ruleBuilder.append(range.getRangeConstraint());
+			}
 		}
 		if (attributeDomain.isGrouped()) {
 			ruleBuilder.append(" }");
@@ -213,10 +235,140 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		return ruleBuilder.toString();
 	}
 
+	private String constructConcreteAttributeConstraintRule(AttributeRange range, AttributeDomain attributeDomain, String attributeFsn) {
+		// https://confluence.ihtsdotools.org/display/mag/MRCM+for+Concrete+Domains
+		ConcreteValueRangeConstraint valueConstraint = new ConcreteValueRangeConstraint(range.getRangeConstraint());
+		if (valueConstraint.isNumber() && valueConstraint.isRangeConstraint()) {
+			return constructNumericRangeRule(range, attributeDomain, attributeFsn, valueConstraint);
+		} else {
+			return constructValueRule(range, attributeDomain, attributeFsn, valueConstraint);
+		}
+	}
+
+	private String constructValueRule(AttributeRange range, AttributeDomain attributeDomain, String attributeFsn, ConcreteValueRangeConstraint valueConstraint) {
+		StringBuilder ruleBuilder = new StringBuilder();
+		String[] values = valueConstraint.getConstraint().split(ConcreteValueRangeConstraint.OR_OPERATOR);
+		if (values.length > 1) {
+			// add or
+			for (int i = 0; i < values.length; i++) {
+				if (i > 0) {
+					ruleBuilder.append(" OR ");
+					if (attributeDomain.isGrouped()) {
+						ruleBuilder.append("[");
+						ruleBuilder.append(attributeDomain.getAttributeInGroupCardinality().getValue());
+						ruleBuilder.append("]");
+					} else {
+						ruleBuilder.append("[");
+						ruleBuilder.append(attributeDomain.getAttributeCardinality().getValue());
+						ruleBuilder.append("]");
+					}
+				}
+				ruleBuilder.append(" ");
+				ruleBuilder.append(range.getReferencedComponentId());
+				ruleBuilder.append(" |");
+				ruleBuilder.append(attributeFsn);
+				ruleBuilder.append("| = ");
+				ruleBuilder.append(values[i]);
+			}
+		} else {
+			values = valueConstraint.getConstraint().split(ConcreteValueRangeConstraint.AND_OPERATOR);
+			if (values.length > 1) {
+				// add and
+				for (int i = 0; i < values.length; i++) {
+					if (i > 0) {
+						ruleBuilder.append(" AND ");
+						if (attributeDomain.isGrouped()) {
+							ruleBuilder.append("[");
+							ruleBuilder.append(attributeDomain.getAttributeInGroupCardinality().getValue());
+							ruleBuilder.append("]");
+						} else {
+							ruleBuilder.append("[");
+							ruleBuilder.append(attributeDomain.getAttributeCardinality().getValue());
+							ruleBuilder.append("]");
+						}
+					}
+					ruleBuilder.append(" ");
+					ruleBuilder.append(range.getReferencedComponentId());
+					ruleBuilder.append(" |");
+					ruleBuilder.append(attributeFsn);
+					ruleBuilder.append("| = ");
+					ruleBuilder.append(values[i]);
+				}
+			} else {
+				// single value
+				ruleBuilder.append(" ");
+				ruleBuilder.append(range.getReferencedComponentId());
+				ruleBuilder.append(" |");
+				ruleBuilder.append(attributeFsn);
+				ruleBuilder.append("| = ");
+				ruleBuilder.append(valueConstraint.getConstraint());
+			}
+		}
+		return ruleBuilder.toString();
+	}
+
+	private String constructNumericRangeRule(AttributeRange range,
+			AttributeDomain attributeDomain, String attributeFsn, ConcreteValueRangeConstraint valueConstraint) {
+		StringBuilder ruleBuilder = new StringBuilder();
+		if (valueConstraint.haveBothMinimumAndMaximum()) {
+			ruleBuilder.append(" ");
+			ruleBuilder.append(range.getReferencedComponentId());
+			ruleBuilder.append(" |");
+			ruleBuilder.append(attributeFsn);
+			ruleBuilder.append("| ");
+			ruleBuilder.append(constructNumericRangeRule(valueConstraint.getMinimumValue(), ">=" ));
+			ruleBuilder.append("," );
+			if (attributeDomain.isGrouped()) {
+				ruleBuilder.append(" [");
+				ruleBuilder.append(attributeDomain.getAttributeInGroupCardinality().getValue());
+				ruleBuilder.append("]");
+			} else {
+				ruleBuilder.append("[");
+				ruleBuilder.append(attributeDomain.getAttributeCardinality().getValue());
+				ruleBuilder.append("]");
+			}
+			ruleBuilder.append(" ");
+			ruleBuilder.append(range.getReferencedComponentId());
+			ruleBuilder.append(" |");
+			ruleBuilder.append(attributeFsn);
+			ruleBuilder.append("| ");
+			ruleBuilder.append(constructNumericRangeRule(valueConstraint.getMaximumValue(), "<="));
+		} else {
+			ruleBuilder.append(" ");
+			ruleBuilder.append(range.getReferencedComponentId());
+			ruleBuilder.append(" |");
+			ruleBuilder.append(attributeFsn);
+			ruleBuilder.append("| ");
+			if (valueConstraint.getMinimumValue() != null && !valueConstraint.getMinimumValue().isEmpty()) {
+				ruleBuilder.append(constructNumericRangeRule(valueConstraint.getMinimumValue(), ">="));
+			} else if (valueConstraint.getMaximumValue() != null && !valueConstraint.getMaximumValue().isEmpty()) {
+				ruleBuilder.append(constructNumericRangeRule(valueConstraint.getMaximumValue(), "<="));
+			} else {
+				// value list
+				ruleBuilder.append("= ");
+				ruleBuilder.append(valueConstraint.getConstraint());
+			}
+		}
+		return ruleBuilder.toString();
+	}
+
+	private String constructNumericRangeRule(String numericRange, String sign) {
+		if (numericRange == null || numericRange.isEmpty()) {
+			return null;
+		}
+		if (numericRange.startsWith("#")) {
+			return sign + " " + numericRange;
+		} else {
+			int index = numericRange.indexOf("#");
+			return numericRange.substring(0, index) + " " + numericRange.substring(index);
+		}
+	}
+
 	public String generateDomainTemplate(Domain domain, Map<String, List<AttributeDomain>> domainToAttributesMap,
 										  Map<String, List<AttributeRange>> attributeToRangesMap,
 										  Map<String, String> conceptToFsnMap,
-										  List<String> parentDomainIds, ContentType type) {
+										  List<String> parentDomainIds, List<Long> dataAttributes,
+										 ContentType type) {
 
 		StringBuilder templateBuilder = new StringBuilder();
 		// proximal primitive domain constraint
@@ -234,10 +386,8 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 		// The following logic requires future improvements
 		List<ProximalPrimitiveRefinement> refinements = processProximalPrimitiveRefinement(domain.getProximalPrimitiveRefinement());
 		List<String> domainIdsToInclude = new ArrayList<>();
-		if (parentDomainIds != null && !parentDomainIds.isEmpty()) {
-			if (!excludeParentDomainAttributes(domain, domainToAttributesMap, refinements)) {
-				domainIdsToInclude.addAll(parentDomainIds);
-			}
+		if (parentDomainIds != null && !parentDomainIds.isEmpty() && !excludeParentDomainAttributes(domain, domainToAttributesMap, refinements)) {
+			domainIdsToInclude.addAll(parentDomainIds);
 		}
 		domainIdsToInclude.add(domain.getReferencedComponentId());
 		// Filter for mandatory and all content type or given type
@@ -250,25 +400,22 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			}
 		}
 
-		List<AttributeDomain> grouped = attributeDomains.stream().filter(AttributeDomain::isGrouped).collect(Collectors.toList());
-		Collections.sort(grouped, ATTRIBUTE_DOMAIN_COMPARATOR_BY_ATTRIBUTE_ID);
+		List<AttributeDomain> grouped = attributeDomains.stream().filter(AttributeDomain::isGrouped).sorted(ATTRIBUTE_DOMAIN_COMPARATOR_BY_ATTRIBUTE_ID).collect(Collectors.toList());
 
-		List<AttributeDomain> unGrouped = attributeDomains.stream().filter(not(AttributeDomain::isGrouped)).collect(Collectors.toList());
-		Collections.sort(unGrouped, ATTRIBUTE_DOMAIN_COMPARATOR_BY_ATTRIBUTE_ID);
-
+		List<AttributeDomain> unGrouped = attributeDomains.stream().filter(not(AttributeDomain::isGrouped)).sorted(ATTRIBUTE_DOMAIN_COMPARATOR_BY_ATTRIBUTE_ID).collect(Collectors.toList());
 		// un-grouped first if present
-		constructAttributeRoleGroup(unGrouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, refinements);
+		constructAttributeRoleGroup(unGrouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, dataAttributes, refinements);
 		if (!grouped.isEmpty() && !unGrouped.isEmpty()) {
 			templateBuilder.append(", ");
 		}
 		// grouped
 		// use the proximal primitive refinement to construct the first role group if present
-		constructAttributeRoleGroup(grouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, refinements);
+		constructAttributeRoleGroup(grouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, dataAttributes, refinements);
 
 		// additional optional role group
 		if (hasMeaningfulChangesInRefinement(refinements, attributeToRangesMap, type)) {
 			templateBuilder.append(", ");
-			constructAttributeRoleGroup(grouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, null);
+			constructAttributeRoleGroup(grouped, templateBuilder, attributeToRangesMap, conceptToFsnMap, type, dataAttributes, null);
 		}
 		return templateBuilder.toString();
 	}
@@ -303,10 +450,9 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			List<AttributeRange> ranges = attributeToRangesMap.get(refinement.getAttributeId());
 			for (AttributeRange range : ranges) {
 				if (RuleStrength.MANDATORY == range.getRuleStrength() &&
-						(ContentType.ALL == range.getContentType() ||  type == range.getContentType())) {
-					if (!range.getRangeConstraint().equals(refinement.getRangeConstraint())) {
-						return true;
-					}
+						(ContentType.ALL == range.getContentType() ||  type == range.getContentType()) &&
+						!range.getRangeConstraint().equals(refinement.getRangeConstraint())) {
+					return true;
 				}
 			}
 		}
@@ -350,6 +496,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 											 Map<String, List<AttributeRange>> attributeToRangesMap,
 											 Map<String, String> conceptToFsnMap,
 											 ContentType type,
+											 List<Long> dataAttributes,
 											 List<ProximalPrimitiveRefinement> refinements) {
 		if (attributeDomains.isEmpty()) {
 			return;
@@ -398,7 +545,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			}
 			List<AttributeRange> ranges = attributeToRangesMap.get(attributeDomain.getReferencedComponentId());
 			if (ranges == null) {
-				logger.warn("No attribute ranges defined for attribute {} in domain ", attributeDomain.getReferencedComponentId(), attributeDomain.getDomainId());
+				logger.warn("No attribute ranges defined for attribute {} in domain {} ", attributeDomain.getReferencedComponentId(), attributeDomain.getDomainId());
 				continue;
 			}
 			AttributeRange attributeRange = null;
@@ -410,8 +557,8 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 				}
 			}
 			if (attributeRange == null || attributeRange.getRangeConstraint() == null || attributeRange.getRangeConstraint().trim().isEmpty()) {
-				logger.warn("No attribute range constraint found for attribute {} with content type or {}",
-						attributeDomain.getReferencedComponentId(), type.getName(), ContentType.ALL.name());
+				logger.warn("No attribute range constraint found for attribute {} with content type {}",
+						attributeDomain.getReferencedComponentId(), type.getName());
 				continue;
 			}
 			counter++;
@@ -438,11 +585,16 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 				templateBuilder.append(attributeDomain.getAttributeCardinality().getValue());
 			}
 			templateBuilder.append("]] ");
-			templateBuilder.append(attributeDomain.getReferencedComponentId() + " |" + conceptToFsnMap.get(attributeDomain.getReferencedComponentId()) + "|");
-			if (ContentType.PRECOORDINATED == type) {
-				templateBuilder.append(" = [[+id(");
-			} else {
-				templateBuilder.append(" = [[+scg(");
+			templateBuilder.append(attributeDomain.getReferencedComponentId());
+			templateBuilder.append(" |");
+			templateBuilder.append(conceptToFsnMap.get(attributeDomain.getReferencedComponentId()));
+			templateBuilder.append("|");
+			boolean isDataAttribute = dataAttributes.contains(Long.valueOf(attributeDomain.getReferencedComponentId()));
+			templateBuilder.append(" = [[+");
+			if (ContentType.PRECOORDINATED == type && !isDataAttribute) {
+				templateBuilder.append("id(");
+			} else if (ContentType.POSTCOORDINATED == type && !isDataAttribute) {
+				templateBuilder.append("scg(");
 			}
 
 			if (refinement != null) {
@@ -450,7 +602,10 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			} else {
 				templateBuilder.append(attributeRange.getRangeConstraint());
 			}
-			templateBuilder.append(")]]");
+			if (!isDataAttribute) {
+				templateBuilder.append(")");
+			}
+			templateBuilder.append("]]");
 		}
 		if (isGrouped) {
 			templateBuilder.append(" }");
@@ -461,7 +616,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 	 *  This is a simplified version to sort range constraint(type of CompoundExpressionConstraint for now only).
 	 *  Tt doesn't cover RefinedExpressionConstraint yet.
 	 * @param rangeConstraint Attribute range constraint
-	 * @param memberId
+	 * @param memberId The refset member uuid
 	 * @return A sorted expression
 	 */
 	public String sortExpressionConstraintByConceptId(String rangeConstraint, String memberId) {
@@ -482,7 +637,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			CompoundExpressionConstraint compound = (CompoundExpressionConstraint) constraint;
 			if (compound.getConjunctionExpressionConstraints() != null) {
 				List<SubExpressionConstraint> conJunctions = compound.getConjunctionExpressionConstraints();
-				Collections.sort(conJunctions, EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
+				conJunctions.sort(EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
 				for (int i = 0; i < conJunctions.size(); i++) {
 					if (i > 0) {
 						expressionBuilder.append( " AND ");
@@ -492,7 +647,7 @@ public class MRCMDomainTemplatesAndRuleGenerator {
 			}
 			if (compound.getDisjunctionExpressionConstraints() != null) {
 				List<SubExpressionConstraint> disJunctions = compound.getDisjunctionExpressionConstraints();
-				Collections.sort(disJunctions, EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
+				disJunctions.sort(EXPRESSION_CONSTRAINT_COMPARATOR_BY_CONCEPT_ID);
 				for (int i = 0; i < disJunctions.size(); i++) {
 					if (i > 0) {
 						expressionBuilder.append( " OR ");

@@ -33,6 +33,7 @@ public interface FHIRConstants {
 	String SNOMED_EDITION = "SNOMED CT International Edition";
 	String SNOMED_INTERNATIONAL = "SNOMED International";
 	String SNOMED_URI = "http://snomed.info/sct";
+	String SNOMED_URI_UNVERSIONED = "http://snomed.info/xsct";
 	String VERSION = "/version/";
 	String SNOMED_URI_DEFAULT_MODULE = "http://snomed.info/sct/900000000000207008";
 	String ICD10 = "ICD-10";

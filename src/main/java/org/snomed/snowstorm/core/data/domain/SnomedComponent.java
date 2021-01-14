@@ -9,6 +9,8 @@ import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
+import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 import java.io.Serializable;
 
 public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAndEffectiveTimeComponent, Serializable {
@@ -24,6 +26,12 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Boolean)
 	protected boolean active;
+
+	@JsonView(value = View.Component.class)
+	@Field(type = FieldType.Keyword)
+	@NotNull
+	@Size(min = 5, max = 18)
+	private String moduleId;
 
 	@Field(type = FieldType.Integer)
 	private Integer effectiveTimeI;
@@ -92,6 +100,16 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 	public SnomedComponent<C> setActive(boolean active) {
 		this.active = active;
 		return this;
+	}
+
+	public String getModuleId() {
+		return moduleId;
+	}
+
+	@SuppressWarnings("unchecked")
+	public C setModuleId(String moduleId) {
+		this.moduleId = moduleId;
+		return (C)this;
 	}
 
 	public boolean isReleased() {

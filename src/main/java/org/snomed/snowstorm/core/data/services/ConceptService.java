@@ -22,10 +22,7 @@ import org.snomed.otf.owltoolkit.conversion.ConversionException;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
-import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
-import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
-import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
-import org.snomed.snowstorm.core.data.services.pojo.SAxiomRepresentation;
+import org.snomed.snowstorm.core.data.services.pojo.*;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
@@ -34,7 +31,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.*;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.scheduling.annotation.Async;
@@ -44,6 +44,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import javax.annotation.Nullable;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Function;
@@ -56,6 +57,14 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Service
 public class ConceptService extends ComponentService {
+	private static final Map<ComponentType, Class<? extends DomainEntity<?>>> COMPONENT_DOCUMENT_TYPES = new HashMap<>();
+
+	static {
+		COMPONENT_DOCUMENT_TYPES.put(ComponentType.Concept, Concept.class);
+		COMPONENT_DOCUMENT_TYPES.put(ComponentType.Description, Description.class);
+		COMPONENT_DOCUMENT_TYPES.put(ComponentType.Relationship, Relationship.class);
+		COMPONENT_DOCUMENT_TYPES.put(ComponentType.Axiom, ReferenceSetMember.class);
+	}
 
 	@Autowired
 	private ConceptUpdateHelper conceptUpdateHelper;
@@ -99,6 +108,9 @@ public class ConceptService extends ComponentService {
 	@Autowired
 	private ConceptAttributeSortHelper conceptAttributeSortHelper;
 
+	@Autowired
+	private RelationshipService relationshipService;
+
 	private final Cache<String, AsyncConceptChangeBatch> batchConceptChanges;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -140,6 +152,71 @@ public class ConceptService extends ComponentService {
 		return doFind(conceptIds, languageDialects, new BranchTimepoint(path), pageRequest);
 	}
 
+	public ConceptHistory loadConceptHistory(String conceptId, List<CodeSystemVersion> codeSystemVersions, boolean showFutureVersions) {
+		Map<String, BranchCriteria> branchCriteria = new HashMap<>();
+		for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
+			String branchPath = codeSystemVersion.getBranchPath();
+			branchCriteria.put(branchPath, versionControlHelper.getBranchCriteria(branchPath));
+		}
+
+		Function<String, BoolQueryBuilder> defaultBoolQueryFunction = cId -> {
+			BoolQueryBuilder someReleaseBranch = boolQuery();
+			BoolQueryBuilder boolQueryBuilder = boolQuery();
+
+			if (!showFutureVersions) {
+				boolQueryBuilder.must(
+						rangeQuery(Concept.Fields.EFFECTIVE_TIME)
+								.lte(Integer.parseInt(new SimpleDateFormat("yyyyMMdd").format(new Date())))
+				);
+			}
+
+			boolQueryBuilder.must(someReleaseBranch);
+			boolQueryBuilder.must(existsQuery(Concept.Fields.EFFECTIVE_TIME));
+			boolQueryBuilder.minimumShouldMatch(1);
+			boolQueryBuilder.should(termQuery(Concept.Fields.CONCEPT_ID, cId)); //Find for Concept, Description & Axiom (RefSetMember) documents
+			boolQueryBuilder.should(termQuery(Relationship.Fields.SOURCE_ID, cId)); //Find for Relationship documents
+
+			return boolQueryBuilder;
+		};
+		ConceptHistory conceptHistory = new ConceptHistory(conceptId);
+		for (Map.Entry<ComponentType, Class<? extends DomainEntity<?>>> entrySet : COMPONENT_DOCUMENT_TYPES.entrySet()) {
+			ComponentType componentType = entrySet.getKey();
+			Class<? extends DomainEntity<?>> documentType = entrySet.getValue();
+			BoolQueryBuilder boolQueryBuilder = defaultBoolQueryFunction.apply(conceptId);
+
+			if (componentType.equals(ComponentType.Axiom)) {
+				BoolQueryBuilder axiomShoulds = boolQuery();
+				boolQueryBuilder.must(axiomShoulds);
+				boolQueryBuilder.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET));
+			}
+
+			for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
+				boolQueryBuilder
+						.should(
+								boolQuery()
+										.must(branchCriteria.get(codeSystemVersion.getBranchPath()).getEntityBranchCriteria(documentType))
+										.must(termQuery(Concept.Fields.EFFECTIVE_TIME, codeSystemVersion.getEffectiveDate()))
+						);
+			}
+
+			SearchHits<? extends DomainEntity<?>> searchHits = elasticsearchTemplate.search(
+					new NativeSearchQueryBuilder()
+							.withQuery(boolQueryBuilder)
+							.withPageable(LARGE_PAGE)
+							.build(),
+					documentType
+			);
+			for (SearchHit<? extends DomainEntity<?>> searchHit : searchHits.getSearchHits()) {
+				if (searchHit.getContent() instanceof SnomedComponent<?>) {
+					SnomedComponent<?> snomedComponent = (SnomedComponent<?>) searchHit.getContent();
+					conceptHistory.addToHistory(snomedComponent.getReleasedEffectiveTime().toString(), snomedComponent.getPath(), componentType);
+				}
+			}
+		}
+
+		return conceptHistory;
+	}
+
 	public boolean exists(String id, String path) {
 		return getNonExistentConceptIds(Collections.singleton(id), path).isEmpty();
 	}
@@ -171,12 +248,12 @@ public class ConceptService extends ComponentService {
 
 	private Page<Concept> doFind(Collection<?> conceptIds, List<LanguageDialect> languageDialects, Commit commit, PageRequest pageRequest) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true);
+		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true, null);
 	}
 
 	private Page<Concept> doFind(Collection<?> conceptIds, List<LanguageDialect> languageDialects, BranchTimepoint branchTimepoint, PageRequest pageRequest) {
 		final BranchCriteria branchCriteria = getBranchCriteria(branchTimepoint);
-		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true);
+		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true, branchTimepoint.getBranchPath());
 	}
 
 	protected BranchCriteria getBranchCriteria(BranchTimepoint branchTimepoint) {
@@ -214,7 +291,7 @@ public class ConceptService extends ComponentService {
 		if (conceptIds != null && conceptIds.isEmpty()) {
 			return new ResultMapPage<>(new HashMap<>(), 0);
 		}
-		Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, pageRequest, false, false);
+		Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, pageRequest, false, false, null);
 		Map<String, Concept> conceptMap = new HashMap<>();
 		for (Concept concept : concepts) {
 			String id = concept.getId();
@@ -234,7 +311,7 @@ public class ConceptService extends ComponentService {
 	private void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate, List<LanguageDialect> languageDialects) {
 		if (!minisToPopulate.isEmpty()) {
 			Set<String> conceptIds = minisToPopulate.keySet();
-			Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false);
+			Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false, null);
 			concepts.getContent().forEach(c -> {
 				ConceptMini conceptMini = minisToPopulate.get(c.getConceptId());
 				conceptMini.setDefinitionStatus(c.getDefinitionStatus());
@@ -249,7 +326,8 @@ public class ConceptService extends ComponentService {
 			BranchCriteria branchCriteria,
 			PageRequest pageRequest,
 			boolean includeRelationships,
-			boolean includeDescriptionInactivationInfo) {
+			boolean includeDescriptionInactivationInfo,
+			String branchPath) {
 
 		final TimerUtil timer = new TimerUtil("Find concept", Level.DEBUG);
 		timer.checkpoint("get branch criteria");
@@ -302,7 +380,11 @@ public class ConceptService extends ComponentService {
 						.withPageable(LARGE_PAGE);
 				try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(queryBuilder.build(), Relationship.class)) {
 					relationships.forEachRemaining(hit -> {
+						//Set concrete value
 						Relationship relationship = hit.getContent();
+						if (branchPath != null) {
+							relationshipService.setConcreteValueFromMRCM(branchPath, relationship);
+						}
 						// Join Relationships
 						conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
 
@@ -504,13 +586,13 @@ public class ConceptService extends ComponentService {
 
 	private PersistedComponents doSave(Collection<Concept> concepts, Branch branch) throws ServiceException {
 		try (final Commit commit = branchService.openCommit(branch.getPath(), branchMetadataHelper.getBranchLockMetadata(String.format("Saving %s concepts.", concepts.size())))) {
-			final PersistedComponents persistedComponents = updateWithinCommit(concepts, commit);
+			final PersistedComponents persistedComponents = updateWithinCommit(concepts, commit, true);
 			commit.markSuccessful();
 			return persistedComponents;
 		}
 	}
 
-	public PersistedComponents updateWithinCommit(Collection<Concept> concepts, Commit commit) throws ServiceException {
+	public PersistedComponents updateWithinCommit(Collection<Concept> concepts, Commit commit, boolean logTraceability) throws ServiceException {
 		if (concepts.isEmpty()) {
 			return new PersistedComponents();
 		}
@@ -518,7 +600,7 @@ public class ConceptService extends ComponentService {
 		PersistedComponents persistedComponents = conceptUpdateHelper.saveNewOrUpdatedConcepts(concepts, commit, getExistingConceptsForSave(concepts, commit));
 
 		// Log traceability activity
-		if (traceabilityLogService.isEnabled()) {
+		if (logTraceability && traceabilityLogService.isEnabled()) {
 			joinComponentsToConcepts(persistedComponents, null, null);
 			traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit, persistedComponents);
 		}

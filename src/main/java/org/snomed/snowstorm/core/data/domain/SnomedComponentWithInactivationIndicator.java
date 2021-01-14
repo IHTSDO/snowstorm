@@ -1,6 +1,6 @@
 package org.snomed.snowstorm.core.data.domain;
 
-import java.util.Set;
+import java.util.Collection;
 
 public interface SnomedComponentWithInactivationIndicator {
 
@@ -12,7 +12,7 @@ public interface SnomedComponentWithInactivationIndicator {
 
 	ReferenceSetMember getInactivationIndicatorMember();
 
-	Set<ReferenceSetMember> getInactivationIndicatorMembers();
+	Collection<ReferenceSetMember> getInactivationIndicatorMembers();
 
 	void addInactivationIndicatorMember(ReferenceSetMember newIndicatorMember);
 }

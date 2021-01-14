@@ -2,18 +2,25 @@ package org.snomed.snowstorm.core.data.domain.expression;
 
 import org.snomed.snowstorm.core.data.domain.ConceptMicro;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.ConcreteValue;
+import org.snomed.snowstorm.core.data.domain.AttributeValue;
 
 public class ExpressionAttribute {
 
 	private final ConceptMicro type;
-	private final ConceptMicro value;
+	private final AttributeValue value;
 	
-	public ExpressionAttribute(ConceptMini type, ConceptMini target) {
+	public ExpressionAttribute(ConceptMini type, ConceptMini value) {
 		this.type = new ConceptMicro(type);
-		this.value = new ConceptMicro(target);
+		this.value = new ConceptMicro(value);
+	}
+	
+	public ExpressionAttribute(ConceptMini type, AttributeValue value) {
+		this.type = new ConceptMicro(type);
+		this.value = value;
 	}
 
-	public ExpressionAttribute(ConceptMicro type, ConceptMicro value) {
+	public ExpressionAttribute(ConceptMicro type, AttributeValue value) {
 		this.type = type;
 		this.value = value;
 	}
@@ -22,7 +29,7 @@ public class ExpressionAttribute {
 		return type;
 	}
 
-	public ConceptMicro getValue() {
+	public AttributeValue getValue() {
 		return value;
 	}
 	

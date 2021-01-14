@@ -17,13 +17,14 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierReservedBloc
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
-import org.snomed.snowstorm.core.util.MapUtil;
+import org.snomed.snowstorm.core.util.SetUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.function.Function;
@@ -38,6 +39,7 @@ import static org.snomed.snowstorm.core.data.services.ConceptService.DISABLE_CON
 @Service
 public class ConceptUpdateHelper extends ComponentService {
 
+	public static final Comparator<ReferenceSetMember> REFERENCE_SET_MEMBER_COMPARATOR_BY_RELEASED = Comparator.comparing(ReferenceSetMember::isReleased).thenComparing(ReferenceSetMember::isActive);
 	@Autowired
 	private ConceptRepository conceptRepository;
 
@@ -77,7 +79,7 @@ public class ConceptUpdateHelper extends ComponentService {
 	@Autowired
 	private BranchService branchService;
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	PersistedComponents saveNewOrUpdatedConcepts(Collection<Concept> concepts, Commit commit, Map<String, Concept> existingConceptsMap) throws ServiceException {
 		final boolean savingMergedConcepts = commit.isRebase();
@@ -120,7 +122,11 @@ public class ConceptUpdateHelper extends ComponentService {
 						}
 					});
 					newVersionOwlAxiomMembers.forEach(axiom -> axiom.setActive(false));
-					concept.getDescriptions().forEach(description -> description.setInactivationIndicator(inactivationIndicatorNames.get(Concepts.CONCEPT_NON_CURRENT)));
+					concept.getDescriptions().forEach(description -> {
+							if (StringUtils.isEmpty(description.getInactivationIndicator())) {
+								description.setInactivationIndicator(inactivationIndicatorNames.get(Concepts.CONCEPT_NON_CURRENT));
+							}
+					});
 				}
 			}
 
@@ -242,10 +248,10 @@ public class ConceptUpdateHelper extends ComponentService {
 
 		// Apply default module to changed components
 		if (defaultModuleId != null) {
-			concepts.stream().filter(DomainEntity::isChanged).forEach(e -> e.setModuleId(defaultModuleId));
-			descriptionsToPersist.stream().filter(DomainEntity::isChanged).forEach(e -> e.setModuleId(defaultModuleId));
-			relationshipsToPersist.stream().filter(DomainEntity::isChanged).forEach(e -> e.setModuleId(defaultModuleId));
-			refsetMembersToPersist.stream().filter(DomainEntity::isChanged).forEach(e -> e.setModuleId(defaultModuleId));
+			applyDefaultModule(concepts, defaultModuleId);
+			applyDefaultModule(descriptionsToPersist, defaultModuleId);
+			applyDefaultModule(relationshipsToPersist, defaultModuleId);
+			applyDefaultModule(refsetMembersToPersist, defaultModuleId);
 		}
 
 		// TODO: Try saving all core component types at once - Elasticsearch likes multi-threaded writes.
@@ -260,6 +266,15 @@ public class ConceptUpdateHelper extends ComponentService {
 		identifierService.persistAssignedIdsForRegistration(reservedIds);
 
 		return new PersistedComponents(concepts, descriptionsToPersist, relationshipsToPersist, refsetMembersToPersist);
+	}
+
+	private <T extends SnomedComponent<?>> void applyDefaultModule(Collection<T> components, String defaultModuleId) {
+		for (T component : components) {
+			if (component.getEffectiveTime() == null) {
+				component.setModuleId(defaultModuleId);
+				component.updateEffectiveTime();
+			}
+		}
 	}
 
 	private void validateConcepts(Collection<Concept> concepts) {
@@ -282,59 +297,115 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 	}
 
-	private void updateAssociations(SnomedComponentWithAssociations newComponent, SnomedComponentWithAssociations existingComponent, List<ReferenceSetMember> refsetMembersToPersist) {
-		Map<String, Set<String>> newAssociations = newComponent.getAssociationTargets();
-		Map<String, Set<String>> existingAssociations = existingComponent == null ? null : existingComponent.getAssociationTargets();
-		if (existingAssociations != null && !MapUtil.containsAllKeysAndSetsAreSupersets(newAssociations, existingAssociations)) {
-			// One or more existing associations need to be made inactive
+	private void updateAssociations(SnomedComponentWithAssociations newComponentVersion, SnomedComponentWithAssociations existingComponentVersion, List<ReferenceSetMember> refsetMembersToPersist) {
 
-			if (newAssociations == null) {
-				newAssociations = new HashMap<>();
+		Map<String, Set<String>> newVersionAssociations = newComponentVersion.getAssociationTargets();
+		if (newVersionAssociations == null) {
+			newVersionAssociations = new HashMap<>();
+		}
+		final Collection<ReferenceSetMember> newVersionMembers = newComponentVersion.getAssociationTargetMembers();
+		Collection<ReferenceSetMember> existingVersionMembers = existingComponentVersion != null ? existingComponentVersion.getAssociationTargetMembers() : Collections.emptySet();
+		if (existingVersionMembers == null) {
+			existingVersionMembers = Collections.emptySet();
+		}
+
+		// New component version doesn't have refset members joined, it may have come from the REST API
+		// Attempt to match existing members to the association target key/value map
+		// Inactivate members which are no longer needed
+		// Create members which are in the key/value map but do not yet exist
+		Set<ReferenceSetMember> membersToKeep = new HashSet<>();
+		Set<ReferenceSetMember> membersToCreate = new HashSet<>();
+		Set<ReferenceSetMember> membersToRetire = new HashSet<>();
+		for (String associationTypeName : newVersionAssociations.keySet()) {
+			String associationRefsetId = Concepts.historicalAssociationNames.inverse().get(associationTypeName);
+			for (String associationValue : newVersionAssociations.get(associationTypeName)) {
+
+				ReferenceSetMember bestMember = getBestRefsetMember(associationRefsetId, ReferenceSetMember.AssociationFields.TARGET_COMP_ID, associationValue, newVersionMembers, existingVersionMembers);
+				if (bestMember != null) {
+					// Keep
+					membersToKeep.add(bestMember);
+				} else {
+					// Create new
+					bestMember = new ReferenceSetMember(newComponentVersion.getModuleId(), associationRefsetId, newComponentVersion.getId());
+					bestMember.setAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID, associationValue);
+					membersToCreate.add(bestMember);
+				}
+				newComponentVersion.addAssociationTargetMember(bestMember);
 			}
-			// Check each association type
-			for (String associationName : existingAssociations.keySet()) {
-				// Associations for this type on both sides
-				Set<String> existingAssociationsOfType = existingAssociations.get(associationName);
-				Set<String> newAssociationsOfType = newAssociations.get(associationName);
-				// Iterate existing set
-				for (String existingAssociationTarget : existingAssociationsOfType) {
-					// If new set doesn't exist or doesn't contain existing association make it inactive.
-					if (newAssociationsOfType == null || !newAssociationsOfType.contains(existingAssociationTarget)) {
-						// Existing association should be made inactive
-						// Find the refset member for this association concept id and target concept id
-						String associationRefsetId = Concepts.historicalAssociationNames.inverse().get(associationName);
-						for (ReferenceSetMember existingMember : Optional.ofNullable(existingComponent.getAssociationTargetMembers()).orElse(Collections.emptySet())) {
-							if (existingMember.isActive() && existingMember.getRefsetId().equals(associationRefsetId)
-									&& existingAssociationTarget.equals(existingMember.getAdditionalField(ReferenceSetMember.AssociationFields.TARGET_COMP_ID))) {
-								existingMember.setActive(false);
-								existingMember.markChanged();
-								refsetMembersToPersist.add(existingMember);
-							}
-						}
+		}
+
+		List<ReferenceSetMember> toPersist = new ArrayList<>();
+
+		// Persist new
+		membersToCreate.forEach(member -> {
+			member.markChanged();
+			toPersist.add(member);
+		});
+
+		// Persist winners
+		membersToKeep.forEach(member -> {
+			if (!member.isActive()) {
+				member.setActive(true);
+				member.markChanged();
+				toPersist.add(member);
+			}
+		});
+
+		ensureAnyDuplicateMembersArePersisted(existingVersionMembers, toPersist);
+
+		// Retire all others
+		membersToRetire.addAll(SetUtils.remainder(newVersionMembers, membersToKeep));
+		membersToRetire.addAll(SetUtils.remainder(existingVersionMembers, membersToKeep));
+		membersToRetire.forEach(member -> {
+			if (member.isActive()) {
+				member.setActive(false);
+				member.markChanged();
+				toPersist.add(member);
+			}
+		});
+
+		refsetMembersToPersist.addAll(toPersist);
+	}
+
+	// Identify duplicate rows for the same refset member and make sure one is persisted to overwrite the other.
+	private void ensureAnyDuplicateMembersArePersisted(Collection<ReferenceSetMember> members, List<ReferenceSetMember> toPersist) {
+		Set<String> memberIds = new HashSet<>();
+		for (ReferenceSetMember member : members) {
+			if (!memberIds.add(member.getId())) {
+				if (toPersist.stream().noneMatch(m -> m.getId().equals(member.getId()))) {
+					member.markChanged();
+					toPersist.add(member);
+				}
+			}
+		}
+	}
+
+	private ReferenceSetMember getBestRefsetMember(String refsetId, String additionalFieldKey, String additionalFieldValue, Collection<ReferenceSetMember> newVersionMembers, Collection<ReferenceSetMember> existingVersionMembers) {
+		ReferenceSetMember bestMember = null;
+		if (existingVersionMembers != null) {
+			bestMember = getBestRefsetMemberInSetOrKeep(refsetId, additionalFieldKey, additionalFieldValue, existingVersionMembers, null);
+		}
+		if (newVersionMembers != null) {
+			bestMember = getBestRefsetMemberInSetOrKeep(refsetId, additionalFieldKey, additionalFieldValue, newVersionMembers, bestMember);
+		}
+		return bestMember;
+	}
+
+	private ReferenceSetMember getBestRefsetMemberInSetOrKeep(String refsetId, String additionalFieldKey, String requiredValue, Collection<ReferenceSetMember> members, ReferenceSetMember candidate) {
+		for (ReferenceSetMember newVersionMember : members) {
+			final String actualValue = newVersionMember.getAdditionalField(additionalFieldKey);
+			if (refsetId.equals(newVersionMember.getRefsetId()) && requiredValue.equals(actualValue)) {
+				if (candidate == null) {
+					candidate = newVersionMember;
+				} else {
+					// only replace candidate if it is stronger in terms released and active flags
+					if (REFERENCE_SET_MEMBER_COMPARATOR_BY_RELEASED.compare(candidate, newVersionMember) < 0) {
+						candidate = newVersionMember;
 					}
 				}
 			}
 		}
-		if (newAssociations != null) {
-			Map<String, Set<String>> missingKeyValues = MapUtil.collectMissingKeyValues(existingAssociations, newAssociations);
-			if (!missingKeyValues.isEmpty()) {
-				// One or more new associations need to be created
-				for (String associationName : missingKeyValues.keySet()) {
-					Set<String> missingValues = missingKeyValues.get(associationName);
-					for (String missingValue : missingValues) {
-						String associationRefsetId = Concepts.historicalAssociationNames.inverse().get(associationName);
-						if (associationRefsetId == null) {
-							throw new IllegalArgumentException("Association reference set not recognised '" + associationName + "'.");
-						}
-						ReferenceSetMember newTargetMember = new ReferenceSetMember(newComponent.getModuleId(), associationRefsetId, newComponent.getId());
-						newTargetMember.setAdditionalField("targetComponentId", missingValue);
-						newTargetMember.markChanged();
-						refsetMembersToPersist.add(newTargetMember);
-						newComponent.addAssociationTargetMember(newTargetMember);
-					}
-				}
-			}
-		}
+		return candidate;
 	}
 
 	private void updateInactivationIndicator(SnomedComponentWithInactivationIndicator newComponent,
@@ -353,6 +424,7 @@ public class ConceptUpdateHelper extends ComponentService {
 
 		ReferenceSetMember newMember = newComponent.getInactivationIndicatorMember();
 		ReferenceSetMember matchingExistingMember = null;
+		List<ReferenceSetMember> toPersist = new ArrayList<>();
 		if (existingComponent != null) {
 			for (ReferenceSetMember existingIndicatorMember : existingComponent.getInactivationIndicatorMembers()) {
 				if (matchingExistingMember == null && existingIndicatorMember.getAdditionalField("valueId").equals(newIndicatorId) &&
@@ -361,7 +433,7 @@ public class ConceptUpdateHelper extends ComponentService {
 					if (!existingIndicatorMember.isActive()) {
 						existingIndicatorMember.setActive(true);
 						existingIndicatorMember.markChanged();
-						refsetMembersToPersist.add(existingIndicatorMember);
+						toPersist.add(existingIndicatorMember);
 					}
 					matchingExistingMember = existingIndicatorMember;
 				} else {
@@ -369,10 +441,11 @@ public class ConceptUpdateHelper extends ComponentService {
 					if (existingIndicatorMember.isActive()) {
 						existingIndicatorMember.setActive(false);
 						existingIndicatorMember.markChanged();
-						refsetMembersToPersist.add(existingIndicatorMember);
+						toPersist.add(existingIndicatorMember);
 					}
 				}
 			}
+			ensureAnyDuplicateMembersArePersisted(existingComponent.getInactivationIndicatorMembers(), toPersist);
 		}
 
 		if (newIndicatorId != null && matchingExistingMember == null) {
@@ -380,10 +453,11 @@ public class ConceptUpdateHelper extends ComponentService {
 			ReferenceSetMember newIndicatorMember = new ReferenceSetMember(newComponent.getModuleId(), indicatorReferenceSet, newComponent.getId());
 			newIndicatorMember.setAdditionalField("valueId", newIndicatorId);
 			newIndicatorMember.setChanged(true);
-			refsetMembersToPersist.add(newIndicatorMember);
+			toPersist.add(newIndicatorMember);
 			newComponent.getInactivationIndicatorMembers().clear();
 			newComponent.addInactivationIndicatorMember(newIndicatorMember);
 		}
+		refsetMembersToPersist.addAll(toPersist);
 	}
 
 	void doDeleteConcept(String path, Commit commit, Concept concept) {
@@ -403,7 +477,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		if (inactivationIndicatorMember != null) {
 			inactivationIndicatorMember.markDeleted();
 		}
-		Set<ReferenceSetMember> associationTargetMembers = concept.getAssociationTargetMembers();
+		Collection<ReferenceSetMember> associationTargetMembers = concept.getAssociationTargetMembers();
 		if (associationTargetMembers != null) {
 			membersToDelete.addAll(associationTargetMembers);
 		}

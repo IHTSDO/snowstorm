@@ -11,7 +11,6 @@ import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.util.concurrent.UncategorizedExecutionException;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.ihtsdo.otf.snomedboot.domain.rf2.RelationshipFieldIndexes;
@@ -35,15 +34,14 @@ import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.export.ExportException;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
 import org.snomed.snowstorm.core.util.DateUtil;
+import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
-import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.SearchHitsIterator;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.core.*;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.context.SecurityContext;
@@ -106,6 +104,9 @@ public class ClassificationService {
 	private ConceptService conceptService;
 
 	@Autowired
+	private TraceabilityLogService traceabilityLogService;
+
+	@Autowired
 	private VersionControlHelper versionControlHelper;
 
 	private final List<Classification> classificationsInProgress;
@@ -120,7 +121,7 @@ public class ClassificationService {
 
 	private static final PageRequest PAGE_FIRST_1K = PageRequest.of(0, 1000);
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private static final SimpleDateFormat SIMPLE_DATE_FORMAT = new SimpleDateFormat("yyyyMMdd");
 
 	public ClassificationService() {
@@ -354,40 +355,53 @@ public class ClassificationService {
 					try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Saving classification " + classification.getId()))) {
 						commit.getBranch().getMetadata().put(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY, "true");
 
-						NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-								.withQuery(termQuery("classificationId", classificationId))
-								.withSort(new FieldSortBuilder(RelationshipChange.Fields.SOURCE_ID))
-								.withSort(new FieldSortBuilder(RelationshipChange.Fields.GROUP))
-								.withSort(new FieldSortBuilder(RelationshipChange.Fields.SORT_NUMBER))// This gives a guaranteed sort order for a reliable stateless stream
-								.withPageable(LARGE_PAGE);
-						try (SearchHitsIterator<RelationshipChange> relationshipChangeStream = elasticsearchOperations.searchForStream(queryBuilder.build(), RelationshipChange.class)) {
-							while (relationshipChangeStream.hasNext()) {
-								List<RelationshipChange> changesBatch = new ArrayList<>();
-								int i = 0;
-								while (i++ < 10_000 && relationshipChangeStream.hasNext()) {
-									changesBatch.add(relationshipChangeStream.next().getContent());
-								}
+						List<RelationshipChange> changesBatch = null;
+						String lastId = null;
+						while (changesBatch == null || changesBatch.size() == LARGE_PAGE.getPageSize()) {
 
-								// Group changes by concept
-								Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
-								for (RelationshipChange relationshipChange : changesBatch) {
-									conceptToChangeMap.computeIfAbsent(parseLong(relationshipChange.getSourceId()), conceptId -> new ArrayList<>()).add(relationshipChange);
-								}
+							changesBatch = new ArrayList<>();
 
-								// Load concepts
-								Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet(), Config.DEFAULT_LANGUAGE_DIALECTS);
-
-								// Apply changes to concepts
-								for (Concept concept : concepts) {
-									List<RelationshipChange> relationshipChanges = conceptToChangeMap.get(concept.getConceptIdAsLong());
-									applyRelationshipChangesToConcept(concept, relationshipChanges, false);
-								}
-
-								// Update concepts
-								conceptService.updateWithinCommit(concepts, commit);
+							PageRequest pageRequest;
+							if (lastId != null) {
+								pageRequest = SearchAfterPageRequest.of(new Object[] {lastId}, LARGE_PAGE.getPageSize(), Sort.by("_id"));
+							} else {
+								pageRequest = SearchAfterPageRequest.of(0, LARGE_PAGE.getPageSize(), Sort.by("_id"));
 							}
+
+							NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+									.withQuery(termQuery("classificationId", classificationId))
+									.withPageable(pageRequest);
+
+							final SearchHits<RelationshipChange> searchHits = elasticsearchOperations.search(queryBuilder.build(), RelationshipChange.class);
+							for (SearchHit<RelationshipChange> searchHit : searchHits) {
+								changesBatch.add(searchHit.getContent());
+								lastId = searchHit.getId();
+							}
+
+							if (changesBatch.isEmpty()) {
+								break;
+							}
+
+							// Group changes by concept
+							Map<Long, List<RelationshipChange>> conceptToChangeMap = new Long2ObjectOpenHashMap<>();
+							for (RelationshipChange relationshipChange : changesBatch) {
+								conceptToChangeMap.computeIfAbsent(parseLong(relationshipChange.getSourceId()), conceptId -> new ArrayList<>()).add(relationshipChange);
+							}
+
+							// Load concepts
+							Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet(), Config.DEFAULT_LANGUAGE_DIALECTS);
+
+							// Apply changes to concepts
+							for (Concept concept : concepts) {
+								List<RelationshipChange> relationshipChanges = conceptToChangeMap.get(concept.getConceptIdAsLong());
+								applyRelationshipChangesToConcept(concept, relationshipChanges, false);
+							}
+
+							// Update concepts
+							conceptService.updateWithinCommit(concepts, commit, false);
 						}
 
+						traceabilityLogService.logActivityUsingComponentLookup(SecurityUtil.getUsername(), commit);
 						commit.getBranch().getMetadata().remove(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY);
 						commit.markSuccessful();
 						classification.setStatus(SAVED);
@@ -437,7 +451,7 @@ public class ClassificationService {
 								true,
 								concept.getModuleId(),
 								null,
-								relationshipChange.getDestinationId(),
+								relationshipChange.getDestinationOrValue(),
 								relationshipChange.getGroup(),
 								relationshipChange.getTypeId(),
 								relationshipChange.getCharacteristicTypeId(),
@@ -485,7 +499,9 @@ public class ClassificationService {
 		for (RelationshipChange relationshipChange : relationshipChanges) {
 			if (fetchDescriptions) {
 				relationshipChange.setSource(conceptMiniMap.computeIfAbsent(relationshipChange.getSourceId(), conceptId -> new ConceptMini(conceptId, languageDialects)));
-				relationshipChange.setDestination(conceptMiniMap.computeIfAbsent(relationshipChange.getDestinationId(), conceptId -> new ConceptMini(conceptId, languageDialects)));
+				if (!relationshipChange.isConcrete()) {
+                    relationshipChange.setDestination(conceptMiniMap.computeIfAbsent(relationshipChange.getDestinationId(), conceptId -> new ConceptMini(conceptId, languageDialects)));
+                }
 				relationshipChange.setType(conceptMiniMap.computeIfAbsent(relationshipChange.getTypeId(), conceptId -> new ConceptMini(conceptId, languageDialects)));
 			}
 		}
@@ -544,7 +560,10 @@ public class ClassificationService {
 			ZipEntry zipEntry;
 			while ((zipEntry = rf2ResultsZipStream.getNextEntry()) != null) {
 				if (zipEntry.getName().contains("sct2_Relationship_Delta")) {
-					saveRelationshipChanges(classification, rf2ResultsZipStream);
+					saveRelationshipChanges(classification, rf2ResultsZipStream, false);
+				}
+				if (zipEntry.getName().contains("sct2_RelationshipConcreteValues_Delta")) {
+					saveRelationshipChanges(classification, rf2ResultsZipStream, true);
 				}
 				if (zipEntry.getName().contains("der2_sRefset_EquivalentConceptSimpleMapDelta")) {
 					saveEquivalentConcepts(classification.getId(), rf2ResultsZipStream);
@@ -553,32 +572,36 @@ public class ClassificationService {
 		}
 	}
 
-	void saveRelationshipChanges(Classification classification, InputStream rf2Stream) throws IOException, ElasticsearchException {
+	void saveRelationshipChanges(Classification classification, InputStream rf2Stream, boolean concrete) throws IOException, ElasticsearchException {
 		// Leave the stream open after use.
 		BufferedReader reader = new BufferedReader(new InputStreamReader(rf2Stream));
 
 		reader.readLine(); // Read and discard header line
 
 		List<RelationshipChange> relationshipChanges = new ArrayList<>();
-		int recordSortNumber = 0;
 		String line;
 		long activeRows = 0;
 		boolean active;
 		while ((line = reader.readLine()) != null) {
+
+			// Relationship Header:
+			// id	effectiveTime	active	moduleId	sourceId	destinationId	relationshipGroup	typeId	characteristicTypeId	modifierId
+
+			// Concrete Relationship Header:
+			// id	effectiveTime	active	moduleId	sourceId	value	relationshipGroup	typeId	characteristicTypeId	modifierId
+
 			String[] values = line.split("\\t");
-			// Header id	effectiveTime	active	moduleId	sourceId	destinationId	relationshipGroup	typeId	characteristicTypeId	modifierId
 			active = "1".equals(values[RelationshipFieldIndexes.active]);
 			relationshipChanges.add(new RelationshipChange(
-					recordSortNumber++,
 					classification.getId(),
 					values[RelationshipFieldIndexes.id],
 					active,
 					values[RelationshipFieldIndexes.sourceId],
-					values[RelationshipFieldIndexes.destinationId],
+					values[RelationshipFieldIndexes.destinationId],// destination or value depending on value of concrete flag
 					Integer.parseInt(values[RelationshipFieldIndexes.relationshipGroup]),
 					values[RelationshipFieldIndexes.typeId],
 					values[RelationshipFieldIndexes.modifierId],
-					false));
+					concrete));
 			if (active) {
 				activeRows++;
 			}
@@ -605,7 +628,7 @@ public class ClassificationService {
 					if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
 						conceptQuery.mustNot(termQuery(QueryConcept.Fields.PARENTS, relationshipChange.getDestinationId()));
 					} else {
-						conceptQuery.mustNot(termQuery(QueryConcept.Fields.ATTR + "." + relationshipChange.getTypeId(), relationshipChange.getDestinationId()));
+						conceptQuery.mustNot(termQuery(QueryConcept.Fields.ATTR + "." + relationshipChange.getTypeId(), relationshipChange.getDestinationOrValueWithoutPrefix()));
 					}
 					allConceptsQuery.should(conceptQuery);
 					activeConceptChanges.computeIfAbsent(sourceId, id -> new ArrayList<>()).add(relationshipChange);
@@ -635,14 +658,15 @@ public class ClassificationService {
 					// One or more inferred attributes or parents do not exist on this stated semanticIndexConcept
 					List<RelationshipChange> conceptChanges = activeConceptChanges.get(hit.getContent().getConceptIdL());
 					if (conceptChanges != null) {
-						Map<String, Set<String>> conceptAttributes = hit.getContent().getAttr();
+						Map<String, Set<Object>> conceptAttributes = hit.getContent().getAttr();
 						for (RelationshipChange relationshipChange : conceptChanges) {
 							if (relationshipChange.getTypeId().equals(Concepts.ISA)) {
 								if (!hit.getContent().getParents().contains(parseLong(relationshipChange.getDestinationId()))) {
 									relationshipChange.setInferredNotStated(true);
 								}
 							} else {
-								if (!conceptAttributes.getOrDefault(relationshipChange.getTypeId(), Collections.emptySet()).contains(relationshipChange.getDestinationId())) {
+								if (!conceptAttributes.getOrDefault(relationshipChange.getTypeId(), Collections.emptySet())
+                                        .contains(relationshipChange.getDestinationOrRawValue())) {
 									relationshipChange.setInferredNotStated(true);
 								}
 							}

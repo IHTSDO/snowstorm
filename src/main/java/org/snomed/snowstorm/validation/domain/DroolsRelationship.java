@@ -53,6 +53,11 @@ public class DroolsRelationship implements org.ihtsdo.drools.domain.Relationship
 	}
 
 	@Override
+	public String getConcreteValue() {
+		return null;
+	}
+
+	@Override
 	public String getId() {
 		String id = relationship.getId();
 		if (id == null && axiomId != null) {

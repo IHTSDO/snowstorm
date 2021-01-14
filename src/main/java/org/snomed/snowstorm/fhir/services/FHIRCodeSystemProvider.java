@@ -25,7 +25,6 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.fhir.domain.SearchFilter;
-import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -173,14 +172,35 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			String displayLanguage,
 			List<CodeType> propertiesType) throws FHIROperationException {
 		String conceptId = fhirHelper.recoverConceptId(code, coding);
-		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
+		List<LanguageDialect> designations = new ArrayList<>();
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
-		fhirHelper.ensurePresent(displayLanguage, languageDialects);
-		BranchPath branchPath = fhirHelper.getBranchPathFromURI(system);
-		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(conceptId, languageDialects, branchPath.toString()));
+		// And make it the first in the list so we pick it up for the display element
+		fhirHelper.setLanguageOptions (designations, displayLanguage, request);
+		Concept fullConcept = null;
+		BranchPath branchPath = null;
+		if (system == null || system.toString().equals(SNOMED_URI)) {
+			//Multisearch is expensive, so we'll try on default branch first 
+			branchPath = fhirHelper.getBranchPathFromURI(system);
+			fullConcept = conceptService.find(conceptId, designations, branchPath.toString());
+			if (fullConcept == null) {
+				ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(conceptId));
+				Page<Concept> concepts = multiSearchService.findConcepts(criteria, PageRequest.of(0, 1));
+				List<Concept> content = concepts.getContent();
+				if (!content.isEmpty()) {
+					Concept concept = content.get(0);
+					branchPath = new BranchPath(concept.getPath());
+					fullConcept = conceptService.find(conceptId, designations, concept.getPath());
+				} else {
+					throw new NotFoundException(conceptId + " not found on any code system version");
+				}
+			}
+		} else {
+			branchPath = fhirHelper.getBranchPathFromURI(system);
+			fullConcept = conceptService.find(conceptId, designations, branchPath.toString());
+		}
 		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + conceptId), branchPath.toString(), LARGE_PAGE);
 		Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);
-		return pMapper.mapToFHIR(system, concept, childIds.getContent(), properties);
+		return pMapper.mapToFHIR(system, fullConcept, childIds.getContent(), properties, designations);
 	}
 
 	@Operation(name="$validate-code", idempotent=true)
@@ -338,11 +358,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		fhirHelper.mutuallyExclusive("codeA", codeA, "codingA", codingA);
 		fhirHelper.mutuallyExclusive("codeB", codeB, "codingB", codingB);
 		fhirHelper.mutuallyExclusive("codingA", codingA, "system", system);
-		fhirHelper.mutuallyExclusive("codingA", codingA, "version", version);
 		fhirHelper.mutuallyRequired("codeA", codeA, "codeB", codeB);
 		fhirHelper.mutuallyRequired("codingA", codingA, "codingB", codingB);
 		fhirHelper.mutuallyRequired("system", system, "codeA", codeA);
-		fhirHelper.mutuallyRequired("version", version, "codeA", codeA);
 	}
 
 	private Coding validateCodings(Coding codingA, Coding codingB) throws FHIROperationException {
@@ -353,7 +371,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			return codingA;
 		} else if (codingB != null && codingA != null && codingA.getSystem() == null) {
 			return codingB;
-		} else if (!codingA.getSystem().equals(codingB.getSystem())) {
+		} else if (codingA != null && codingB != null && !codingA.getSystem().equals(codingB.getSystem())) {
 			throw new FHIROperationException(IssueType.CONFLICT, "CodeSystem defined in codingA must match that in codingB");
 		}
 		//Here both are present and they're the same system, so return either

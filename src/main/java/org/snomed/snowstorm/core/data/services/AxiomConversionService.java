@@ -57,18 +57,20 @@ public class AxiomConversionService {
 	}
 
 	public void populateAxiomMembers(Collection<Concept> concepts, String branchPath) {
-		AxiomRelationshipConversionService conversionService = setupConversionService(branchPath);
-		for (Concept concept : concepts) {
-			for (Axiom axiom : concept.getClassAxioms()) {
-				String owlExpression = conversionService.convertRelationshipsToAxiom(
-						mapFromInternalRelationshipType(concept.getConceptId(), axiom.getDefinitionStatusId(), axiom.getRelationships(), true));
-				axiom.setReferenceSetMember(createMember(concept, axiom, owlExpression));
+		try {
+			AxiomRelationshipConversionService conversionService = setupConversionService(branchPath);
+			for (Concept concept : concepts) {
+				for (Axiom axiom : concept.getClassAxioms()) {
+					String owlExpression = conversionService.convertRelationshipsToAxiom(mapFromInternalRelationshipType(concept.getConceptId(), axiom.getDefinitionStatusId(), axiom.getRelationships(), true));
+					axiom.setReferenceSetMember(createMember(concept, axiom, owlExpression));
+				}
+				for (Axiom gciAxiom : concept.getGciAxioms()) {
+					String owlExpression = conversionService.convertRelationshipsToAxiom(mapFromInternalRelationshipType(concept.getConceptId(), gciAxiom.getDefinitionStatusId(), gciAxiom.getRelationships(), false));
+					gciAxiom.setReferenceSetMember(createMember(concept, gciAxiom, owlExpression));
+				}
 			}
-			for (Axiom gciAxiom : concept.getGciAxioms()) {
-				String owlExpression = conversionService.convertRelationshipsToAxiom(
-						mapFromInternalRelationshipType(concept.getConceptId(), gciAxiom.getDefinitionStatusId(), gciAxiom.getRelationships(), false));
-				gciAxiom.setReferenceSetMember(createMember(concept, gciAxiom, owlExpression));
-			}
+		} catch (final ConversionException e) {
+			throw new RuntimeException("Failed to convert Relationship(s) to Axiom(s).", e);
 		}
 	}
 
@@ -102,23 +104,61 @@ public class AxiomConversionService {
 	private Set<Relationship> mapToInternalRelationshipType(Long sourceId, Map<Integer, List<org.snomed.otf.owltoolkit.domain.Relationship>> relationships) {
 		if (relationships == null) return null;
 
-		return relationships.values().stream()
+		return relationships
+				.values()
+				.stream()
 				.flatMap(Collection::stream)
-				.map(r -> new Relationship(r.getTypeId() + "", r.getDestinationId() + "")
-						.setSourceId(sourceId != null ? sourceId.toString() : null)
-						.setGroupId(r.getGroup())
-						.setInferred(false))
+				.map(externalRelationship -> {
+					final long externalRelationshipTypeId = externalRelationship.getTypeId();
+					final long externalRelationshipDestinationId = externalRelationship.getDestinationId();
+					final Relationship internalRelationship = new Relationship(externalRelationshipTypeId + "", externalRelationshipDestinationId + "");
+					internalRelationship.setSourceId(sourceId != null ? sourceId.toString() : null);
+					internalRelationship.setGroupId(externalRelationship.getGroup());
+					internalRelationship.setInferred(false);
+
+					final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue concreteValue = externalRelationship.getValue();
+					if (concreteValue != null) {
+						final String rf2Value = concreteValue.getRF2Value();
+						final String typeName = concreteValue.getType().getShorthand();
+						internalRelationship.setConcreteValue(rf2Value, typeName);
+					}
+
+					return internalRelationship;
+				})
 				.collect(Collectors.toSet());
 	}
 
 	private AxiomRepresentation mapFromInternalRelationshipType(String conceptId, String definitionStatusId, Set<Relationship> relationships, boolean namedConceptOnLeft) {
-		AxiomRepresentation axiomRepresentation = new AxiomRepresentation();
 		HashMap<Integer, List<org.snomed.otf.owltoolkit.domain.Relationship>> map = new HashMap<>();
 		for (Relationship relationship : relationships) {
-			org.snomed.otf.owltoolkit.domain.Relationship rel = new org.snomed.otf.owltoolkit.domain.Relationship(
-					relationship.getGroupId(), parseLong(relationship.getTypeId()), parseLong(relationship.getDestinationId()));
-			map.computeIfAbsent(rel.getGroup(), g -> new ArrayList<>()).add(rel);
+			final int internalRelationshipGroupId = relationship.getGroupId();
+			final String internalRelationshipTypeIdString = relationship.getTypeId();
+			final long internalRelationshipTypeId = internalRelationshipTypeIdString == null ? 0 : parseLong(internalRelationshipTypeIdString);
+
+			if (relationship.isConcrete()) {
+				final String value = relationship.getValue();
+				final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue concreteValue = new org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue(value);
+				final org.snomed.otf.owltoolkit.domain.Relationship externalConcreteRelationship = new org.snomed.otf.owltoolkit.domain.Relationship(
+						internalRelationshipGroupId,
+						internalRelationshipTypeId,
+						concreteValue
+				);
+
+				map.computeIfAbsent(externalConcreteRelationship.getGroup(), g -> new ArrayList<>()).add(externalConcreteRelationship);
+			} else {
+				final String internalDestinationIdString = relationship.getDestinationId();
+				final long internalDestinationId = internalDestinationIdString == null ? 0 : parseLong(internalDestinationIdString);
+				final org.snomed.otf.owltoolkit.domain.Relationship externalRelationship = new org.snomed.otf.owltoolkit.domain.Relationship(
+						internalRelationshipGroupId,
+						internalRelationshipTypeId,
+						internalDestinationId
+				);
+
+				map.computeIfAbsent(externalRelationship.getGroup(), g -> new ArrayList<>()).add(externalRelationship);
+			}
 		}
+
+		AxiomRepresentation axiomRepresentation = new AxiomRepresentation();
 		axiomRepresentation.setPrimitive(Concepts.PRIMITIVE.equals(definitionStatusId));
 		if (namedConceptOnLeft) {
 			axiomRepresentation.setLeftHandSideNamedConcept(parseLong(conceptId));

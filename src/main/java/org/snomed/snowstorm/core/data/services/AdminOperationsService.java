@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchCriteria;
@@ -641,18 +642,29 @@ public class AdminOperationsService {
 		}
 	}
 
-	public Concept restoreReleasedStatus(String branchPath, String conceptId) {
-		CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branchPath, false);
-		if (codeSystem == null) {
-			throw new IllegalStateException(format("No code system found for branch '%s'.", branchPath));
+	public Concept restoreReleasedStatus(String branchPath, String alternateSourceBranch, String conceptId, boolean setDeletedComponentsToInactive) {
+		String sourceBranch;
+		if (Strings.isNullOrEmpty(alternateSourceBranch)) {
+			CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branchPath, false);
+			if (codeSystem == null) {
+				throw new IllegalStateException(format("No code system found for branch '%s'.", branchPath));
+			}
+			CodeSystemVersion latestImportedVersion = codeSystemService.findLatestImportedVersion(codeSystem.getShortName());
+			if (latestImportedVersion == null) {
+				throw new IllegalStateException(format("No version found for code system '%s'.", codeSystem.getShortName()));
+			}
+			sourceBranch = latestImportedVersion.getBranchPath();
+		} else {
+			sourceBranch = alternateSourceBranch;
 		}
-		CodeSystemVersion latestImportedVersion = codeSystemService.findLatestImportedVersion(codeSystem.getShortName());
-		if (latestImportedVersion == null) {
-			throw new IllegalStateException(format("No version found for code system '%s'.", codeSystem.getShortName()));
-		}
+		logger.info("Restoring components of {} on branch {} from branch {}.", conceptId, branchPath, sourceBranch);
 
-		Concept releasedConcept = conceptService.find(conceptId, latestImportedVersion.getBranchPath());
+		Concept releasedConcept = conceptService.find(conceptId, sourceBranch);
 		Concept conceptToFix = conceptService.find(conceptId, branchPath);
+
+		if (releasedConcept == null) {
+			throw new IllegalArgumentException("Concept not found on source branch.");
+		}
 
 		try (Commit commit = branchService.openCommit(branchPath)) {
 			if (!conceptToFix.isReleased()) {
@@ -661,9 +673,10 @@ public class AdminOperationsService {
 				conceptUpdateHelper.doSaveBatchComponents(Collections.singleton(conceptToFix), Concept.class, commit);
 				System.out.println("Restoring missing released status of concept.");
 			}
-			restoreComponentReleasedStatus(conceptToFix.getDescriptions(), releasedConcept.getDescriptions(), commit);
-			restoreComponentReleasedStatus(conceptToFix.getRelationships(), releasedConcept.getRelationships(), commit);
-			restoreComponentReleasedStatus(conceptToFix.getAllOwlAxiomMembers(), releasedConcept.getAllOwlAxiomMembers(), commit);
+			restoreComponentReleasedStatus(conceptToFix.getDescriptions(), releasedConcept.getDescriptions(), commit, setDeletedComponentsToInactive);
+			restoreComponentReleasedStatus(getAllRefsetMembers(conceptToFix.getDescriptions()), getAllRefsetMembers(releasedConcept.getDescriptions()), commit, setDeletedComponentsToInactive);
+			restoreComponentReleasedStatus(conceptToFix.getRelationships(), releasedConcept.getRelationships(), commit, setDeletedComponentsToInactive);
+			restoreComponentReleasedStatus(conceptToFix.getAllOwlAxiomMembers(), releasedConcept.getAllOwlAxiomMembers(), commit, setDeletedComponentsToInactive);
 
 			commit.markSuccessful();
 		}
@@ -671,8 +684,24 @@ public class AdminOperationsService {
 		return conceptToFix;
 	}
 
+	private Set<ReferenceSetMember> getAllRefsetMembers(Set<Description> descriptions) {
+		Set<ReferenceSetMember> members = new HashSet<>();
+		for (Description description : descriptions) {
+			members.addAll(description.getLangRefsetMembers().values());
+			Collection<ReferenceSetMember> inactivationIndicatorMembers = description.getInactivationIndicatorMembers();
+			if (inactivationIndicatorMembers != null) {
+				members.addAll(inactivationIndicatorMembers);
+			}
+			Collection<ReferenceSetMember> associationTargetMembers = description.getAssociationTargetMembers();
+			if (associationTargetMembers != null) {
+				members.addAll(associationTargetMembers);
+			}
+		}
+		return members;
+	}
+
 	@SuppressWarnings("unchecked")
-	private <T extends SnomedComponent> void restoreComponentReleasedStatus(Set<T> componentsToFix, Set<T> releasedComponents, Commit commit) {
+	private <T extends SnomedComponent> void restoreComponentReleasedStatus(Set<T> componentsToFix, Set<T> releasedComponents, Commit commit, boolean setDeletedComponentsToInactive) {
 		Map<String, T> componentsToFixMap = componentsToFix.stream().collect(Collectors.toMap(SnomedComponent::getId, Function.identity()));
 		if (releasedComponents.isEmpty()) {
 			return;
@@ -685,11 +714,28 @@ public class AdminOperationsService {
 			if (componentToFix == null) {
 				// Released but must have been deleted, restore released version as inactive
 				componentToFix = releasedComponent;
-				componentToFix.setActive(false);
+				if (setDeletedComponentsToInactive) {
+					componentToFix.setActive(false);
+				}
 				componentToFix.markChanged();
 				componentsToSave.add(componentToFix);
 				System.out.println(format("Restoring deleted component %s %s.", componentClass.getSimpleName(), componentToFix.getId()));
 			} else {
+				String moduleId = componentToFix.getModuleId();
+				if (!Concepts.CORE_MODULE.equals(moduleId) && !Concepts.MODEL_MODULE.equals(moduleId) && !releasedComponent.getModuleId().equals(moduleId)) {
+					// Try restoring the previously released moduleId to see if that restores the effectiveTime
+					componentToFix.setModuleId(releasedComponent.getModuleId());
+					componentToFix.copyReleaseDetails(releasedComponent);
+					componentToFix.updateEffectiveTime();
+					if (componentToFix.getEffectiveTime() != null) {
+						System.out.println(format("Setting previously released module restored the effectiveTime on %s %s.", componentClass.getSimpleName(), componentToFix.getId()));
+						componentToFix.markChanged();
+						componentsToSave.add(componentToFix);
+					} else {
+						// There is a change in this cycle, put the moduleId back
+						componentToFix.setModuleId(moduleId);
+					}
+				}
 				if (!componentToFix.isReleased()) {
 					componentToFix.copyReleaseDetails(releasedComponent);
 					componentToFix.updateEffectiveTime();

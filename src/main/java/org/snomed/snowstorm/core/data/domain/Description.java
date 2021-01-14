@@ -10,6 +10,7 @@ import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
+
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.*;
@@ -55,13 +56,6 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	@Field(type = FieldType.Keyword, store = true)
 	private String conceptId;
 
-	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.Keyword)
-	@NotNull
-	@Size(min = 5, max = 18)
-	private String moduleId;
-
-
 	@Field(type = FieldType.Keyword)
 	@NotNull
 	@Size(min = 2, max = 2)
@@ -85,11 +79,11 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	@JsonIgnore
 	// Populated manually when loading from store
 	@Transient
-	private Map<String, ReferenceSetMember> langRefsetMembers;
+	private final Map<String, ReferenceSetMember> langRefsetMembers;
 
 	@JsonIgnore
 	@Transient
-	private Set<ReferenceSetMember> inactivationIndicatorMembers;
+	private final List<ReferenceSetMember> inactivationIndicatorMembers;
 
 	@JsonIgnore
 	// Populated when requesting an update
@@ -98,7 +92,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	@JsonIgnore
 	@Transient
-	private Set<ReferenceSetMember> associationTargetMembers;
+	private List<ReferenceSetMember> associationTargetMembers;
 
 	@JsonIgnore
 	// Populated when requesting an update
@@ -110,13 +104,13 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	public Description() {
 		active = true;
 		term = "";
-		moduleId = Concepts.CORE_MODULE;
+		setModuleId(Concepts.CORE_MODULE);
 		languageCode = "en";
 		typeId = Concepts.SYNONYM;
 		caseSignificanceId = Concepts.CASE_INSENSITIVE;
 		acceptabilityMap = new HashMap<>();
 		langRefsetMembers = new HashMap<>();
-		inactivationIndicatorMembers = new HashSet<>();
+		inactivationIndicatorMembers = new ArrayList<>();
 	}
 
 	public Description(String term) {
@@ -134,7 +128,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		this.descriptionId = id;
 		setEffectiveTimeI(effectiveTime);
 		this.active = active;
-		this.moduleId = moduleId;
+		setModuleId(moduleId);
 		this.conceptId = conceptId;
 		this.languageCode = languageCode;
 		this.typeId = typeId;
@@ -153,7 +147,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return that == null
 				|| active != that.active
 				|| !term.equals(that.term)
-				|| !moduleId.equals(that.moduleId)
+				|| !getModuleId().equals(that.getModuleId())
 				|| !languageCode.equals(that.languageCode)
 				|| !typeId.equals(that.typeId)
 				|| !caseSignificanceId.equals(that.caseSignificanceId);
@@ -161,7 +155,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	@Override
 	protected Object[] getReleaseHashObjects() {
-		return new Object[] {active, term, moduleId, languageCode, typeId, caseSignificanceId};
+		return new Object[] {active, term, getModuleId(), languageCode, typeId, caseSignificanceId};
 	}
 
 	@JsonView(value = View.Component.class)
@@ -211,7 +205,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	}
 
 	public Description addLanguageRefsetMember(String refsetId, String acceptability) {
-		final ReferenceSetMember member = new ReferenceSetMember(moduleId, refsetId, descriptionId);
+		final ReferenceSetMember member = new ReferenceSetMember(getModuleId(), refsetId, descriptionId);
 		member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, acceptability);
 		final ReferenceSetMember previousMember = langRefsetMembers.put(member.getRefsetId(), member);
 		if (previousMember != null) {
@@ -265,7 +259,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	@JsonView(value = View.Component.class)
 	public String getInactivationIndicator() {
-		Set<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
+		Collection<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
 		if (inactivationIndicatorMembers != null) {
 			for (ReferenceSetMember inactivationIndicatorMember : inactivationIndicatorMembers) {
 				if (inactivationIndicatorMember.isActive()) {
@@ -282,7 +276,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	@JsonIgnore
 	public ReferenceSetMember getInactivationIndicatorMember() {
-		Set<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
+		Collection<ReferenceSetMember> inactivationIndicatorMembers = getInactivationIndicatorMembers();
 		if (inactivationIndicatorMembers != null) {
 			for (ReferenceSetMember inactivationIndicatorMember : inactivationIndicatorMembers) {
 				if (inactivationIndicatorMember.isActive()) {
@@ -297,7 +291,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	 * There should be at most one inactivation indicator apart from part way through a branch merge.
 	 */
 	@JsonIgnore
-	public Set<ReferenceSetMember> getInactivationIndicatorMembers() {
+	public Collection<ReferenceSetMember> getInactivationIndicatorMembers() {
 		return inactivationIndicatorMembers;
 	}
 
@@ -307,7 +301,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public void addAssociationTargetMember(ReferenceSetMember member) {
 		if (associationTargetMembers == null) {
-			associationTargetMembers = new HashSet<>();
+			associationTargetMembers = new ArrayList<>();
 		}
 		associationTargetMembers.add(member);
 	}
@@ -334,7 +328,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		this.associationTargetStrings = associationTargetStrings;
 	}
 
-	public Set<ReferenceSetMember> getAssociationTargetMembers() {
+	public List<ReferenceSetMember> getAssociationTargetMembers() {
 		return associationTargetMembers;
 	}
 
@@ -391,14 +385,6 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	public Description setConceptId(String conceptId) {
 		this.conceptId = conceptId;
 		return this;
-	}
-
-	public String getModuleId() {
-		return moduleId;
-	}
-
-	public void setModuleId(String moduleId) {
-		this.moduleId = moduleId;
 	}
 
 	public String getLanguageCode() {
@@ -465,7 +451,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 				", term='" + term + '\'' +
 				", conceptId='" + conceptId + '\'' +
 				", effectiveTime='" + getEffectiveTimeI() + '\'' +
-				", moduleId='" + moduleId + '\'' +
+				", moduleId='" + getModuleId() + '\'' +
 				", languageCode='" + languageCode + '\'' +
 				", typeId='" + typeId + '\'' +
 				", caseSignificanceId='" + caseSignificanceId + '\'' +

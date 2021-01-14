@@ -50,12 +50,10 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 						Map<String, String> extraFields = this.getConceptExtraFields(concept);
 						// Add new additional columns for preferred terms
 						if (count == 0) {
-							if (extraFields != null) {
-								for (String key : extraFields.keySet()) {
-									writer.write(TAB);
-									writer.write(key);
-									ptColumns.add(key);
-								}
+							for (String key : extraFields.keySet()) {
+								writer.write(TAB);
+								writer.write(key);
+								ptColumns.add(key);
 							}
 							writer.newLine();
 						}
@@ -71,7 +69,7 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 						writer.write(TAB);
 						writer.write(concept.getDefinitionStatus());
 						if (!CollectionUtils.isEmpty(ptColumns)) {
-							for (int i = 0; i <  ptColumns.size(); i++) {
+							for (int i = 0; i < ptColumns.size(); i++) {
 								writer.write(TAB);
 								writer.write(extraFields.get(ptColumns.get(i)));
 							}
@@ -149,11 +147,11 @@ public class ItemsPageCSVConverter extends AbstractGenericHttpMessageConverter<I
 	}
 
 	private Map<String, String> getConceptExtraFields(ConceptMini concept) {
-		Map<String, String> extraFields = new HashMap <>();
+		Map<String, String> extraFields = new HashMap<>();
 		if (!CollectionUtils.isEmpty(concept.getRequestedLanguageDialects())) {
 			concept.getRequestedLanguageDialects().forEach(languageDialect -> {
 				if (languageDialect.getLanguageReferenceSet() != null) {
-					TermLangPojo termLangPojo = DescriptionHelper.getPtDescriptionTermAndLang(concept.getActiveDescriptions(), Arrays.asList(languageDialect));
+					TermLangPojo termLangPojo = DescriptionHelper.getPtDescriptionTermAndLang(concept.getActiveDescriptions(), Collections.singletonList(languageDialect));
 					extraFields.put(PREFERRED_TERM_PREFIX + languageDialect.getLanguageReferenceSet().toString(), termLangPojo.getTerm());
 				}
 			});

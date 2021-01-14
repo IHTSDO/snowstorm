@@ -42,11 +42,12 @@ import java.util.stream.Collectors;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.CONCEPT_MODEL_OBJECT_ATTRIBUTE;
 
 @Service
 public class SemanticIndexUpdateService extends ComponentService implements CommitListener {
 
-	private static final long CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG = parseLong(Concepts.CONCEPT_MODEL_OBJECT_ATTRIBUTE);
+	private static final long CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG = parseLong(CONCEPT_MODEL_OBJECT_ATTRIBUTE);
 	private static final long CONCEPT_MODEL_ATTRIBUTE_LONG = parseLong(Concepts.CONCEPT_MODEL_ATTRIBUTE);
 
 	@Value("${commit-hook.semantic-indexing.enabled:true}")
@@ -161,23 +162,27 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 				long conceptId = parseLong(relationship.getSourceId());
 				int groupId = relationship.getGroupId();
 				long type = parseLong(relationship.getTypeId());
-				long value = parseLong(relationship.getDestinationId());
 				Integer effectiveTime = component.getEffectiveTimeI();
-				if (type == IS_A_TYPE) {
-					graphBuilder.addParent(conceptId, value);
-
-					// Concept model object attribute is not linked to the concept hierarchy by any axiom
-					// however we want the link in the semantic index so let's add it here.
-					// TODO: Remove this - there is an axiom for this link now.
-					if (value == CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG) {
-						graphBuilder.addParent(CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG, CONCEPT_MODEL_ATTRIBUTE_LONG);
-					}
-				} else {
+				String value = relationship.getValue();
+				if (relationship.isConcrete()) {
 					conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value);
+				} else {
+					// use destination concepts
+					value = relationship.getDestinationId();
+					requiredActiveConcepts.add(parseLong(value));
+					if (type == IS_A_TYPE) {
+						graphBuilder.addParent(conceptId, parseLong(value));
+						// Concept model object attribute is not linked to the concept hierarchy by any axiom
+						// however we want the link in the semantic index so let's add it here.
+						if (CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG == parseLong(value)) {
+							graphBuilder.addParent(CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG, CONCEPT_MODEL_ATTRIBUTE_LONG);
+						}
+					} else {
+						conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value);
+					}
 				}
 				requiredActiveConcepts.add(conceptId);
 				requiredActiveConcepts.add(type);
-				requiredActiveConcepts.add(value);
 			}
 		};
 
@@ -380,7 +385,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 							// for each
 							(component, relationship) -> {
 								updateSource.add(parseLong(relationship.getSourceId()));
-								if (relationship.getTypeId().equals(Concepts.ISA)) {
+								if (!relationship.isConcrete() && relationship.getTypeId().equals(Concepts.ISA)) {
 									updateDestination.add(parseLong(relationship.getDestinationId()));
 								}
 							});
@@ -660,7 +665,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			changes = new ArrayList<>();
 		}
 
-		private void addAttribute(Integer effectiveTime, int groupId, Long type, Long value) {
+		private void addAttribute(Integer effectiveTime, int groupId, Long type, String value) {
 			changes.add(new AttributeChange(effectiveTime, groupId, type, value));
 		}
 
@@ -682,9 +687,9 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		private final int effectiveTime;
 		private final int group;
 		private final long type;
-		private final long value;
+		private final String value;
 
-		private AttributeChange(Integer effectiveTime, int group, long type, long value) {
+		private AttributeChange(Integer effectiveTime, int group, long type, String value) {
 			if (effectiveTime == null) {
 				effectiveTime = 90000000;
 			}
@@ -706,7 +711,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			return type;
 		}
 
-		private long getValue() {
+		private String getValue() {
 			return value;
 		}
 

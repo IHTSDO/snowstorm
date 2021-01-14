@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.rf2.rf2import;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.ihtsdo.otf.snomedboot.ReleaseImporter;
 import org.ihtsdo.otf.snomedboot.factory.HistoryAwareComponentFactory;
@@ -8,15 +9,25 @@ import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.ConceptUpdateHelper;
+import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
+import org.snomed.snowstorm.core.data.services.TraceabilityLogService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
+import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import java.io.InputStream;
-import java.util.*;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
 import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
@@ -25,7 +36,9 @@ import static org.snomed.snowstorm.mrcm.MRCMUpdateService.DISABLE_MRCM_AUTO_UPDA
 @Service
 public class ImportService {
 
-	private Map<String, ImportJob> importJobMap;
+	public static final String IMPORT_TYPE_KEY = "importType";
+
+	private final Map<String, ImportJob> importJobMap;
 
 	private static final LoadingProfile DEFAULT_LOADING_PROFILE = LoadingProfile.complete.withFullRefsetMemberObjects();
 
@@ -46,6 +59,9 @@ public class ImportService {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private TraceabilityLogService traceabilityLogService;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -89,41 +105,16 @@ public class ImportService {
 		String branchPath = job.getBranchPath();
 		Integer patchReleaseVersion = job.getPatchReleaseVersion();
 		Map<String, String> metaData = branchService.findLatest(branchPath).getMetadata();
-		if (metaData == null) {
-			metaData = new HashMap<>();
-		}
-		metaData.put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
-		branchService.updateMetadata(branchPath, metaData);
+		setImportMetadata(branchPath, importType, (metaData == null ? new HashMap<>() : metaData));
 		try {
 			Date start = new Date();
 			logger.info("Starting RF2 {}{} import on branch {}. ID {}", importType, patchReleaseVersion != null ? " RELEASE PATCH on effectiveTime " + patchReleaseVersion : "", branchPath, importId);
 
-			ReleaseImporter releaseImporter = new ReleaseImporter();
 			job.setStatus(ImportJob.ImportStatus.RUNNING);
 			LoadingProfile loadingProfile = DEFAULT_LOADING_PROFILE
 					.withModuleIds(job.getModuleIds().toArray(new String[]{}));
 
-			Integer maxEffectiveTime = null;
-			switch (importType) {
-				case DELTA: {
-					// If we are not creating a new version copy the release fields from the existing components
-					boolean copyReleaseFields = !job.isCreateCodeSystemVersion();
-					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion, copyReleaseFields, job.isClearEffectiveTimes());
-					releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
-					maxEffectiveTime = importComponentFactory.getMaxEffectiveTime();
-					break;
-				}
-				case SNAPSHOT: {
-					ImportComponentFactoryImpl importComponentFactory = getImportComponentFactory(branchPath, patchReleaseVersion, false, false);
-					releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
-					maxEffectiveTime = importComponentFactory.getMaxEffectiveTime();
-					break;
-				}
-				case FULL: {
-					releaseImporter.loadFullReleaseFiles(releaseFileStream, loadingProfile, getFullImportComponentFactory(branchPath));
-					break;
-				}
-			}
+			final Integer maxEffectiveTime = importFiles(releaseFileStream, job, importType, branchPath, patchReleaseVersion, new ReleaseImporter(), loadingProfile);
 
 			if (job.isCreateCodeSystemVersion() && importType != FULL) {
 				// Create Code System version if a code system exists on this path
@@ -140,12 +131,91 @@ public class ImportService {
 			job.setStatus(ImportJob.ImportStatus.FAILED);
 			throw e;
 		} finally {
-			metaData = branchService.findLatest(branchPath).getMetadata();
-			if (metaData != null) {
-				metaData.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
-				branchService.updateMetadata(branchPath, metaData);
-			}
+			clearImportMetadata(branchPath);
 		}
+	}
+
+	/**
+	 * Imports the uploaded files, depending on the {@link RF2Type} <code>importType</code>.
+	 * If an <code>importType</code> is passed in which is not associated to an {@link RF2Type}, then
+	 * an {@code IllegalStateException} will be thrown.
+	 *
+	 * @param releaseFileStream   The release ZIP files.
+	 * @param job                 Used to determine whether <code>org.snomed.snowstorm.core.rf2.rf2import.ImportJob#isCreateCodeSystemVersion() == false</code>
+	 *                            and if <code>org.snomed.snowstorm.core.rf2.rf2import.ImportJob#isClearEffectiveTimes() == true</code> when
+	 *                            doing a delta import.
+	 * @param importType          The type of import which is being undertaken.
+	 * @param branchPath          Path to the {@link Branch}.
+	 * @param patchReleaseVersion The version of the patch release.
+	 * @param releaseImporter     Used to import the files.
+	 * @param loadingProfile      Used when finding the release files to import.
+	 * @return The max effective time which specifies the date that a specific version of a component was
+	 * released. A component may be versioned over time, but only one version of each component can be valid
+	 * at a specific point in time.
+	 * @throws ReleaseImportException If an error occurs while trying to import the release files.
+	 * @see RF2Type#DELTA
+	 * @see RF2Type#SNAPSHOT
+	 * @see RF2Type#FULL
+	 */
+	private Integer importFiles(final InputStream releaseFileStream, final ImportJob job, final RF2Type importType, final String branchPath, final Integer patchReleaseVersion,
+			final ReleaseImporter releaseImporter, final LoadingProfile loadingProfile) throws ReleaseImportException {
+		switch (importType) {
+			case DELTA:
+				return deltaImport(releaseFileStream, job, branchPath, patchReleaseVersion, releaseImporter, loadingProfile);
+			case SNAPSHOT:
+				return snapshotImport(releaseFileStream, branchPath, patchReleaseVersion, releaseImporter, loadingProfile);
+			case FULL:
+				return fullImport(releaseFileStream, branchPath, releaseImporter, loadingProfile);
+			default:
+				throw new IllegalStateException("Unexpected import type: " + importType);
+		}
+	}
+
+	/**
+	 * Updates the <code>metaData</code> with the {@link MRCMUpdateService#DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY} state
+	 * and specific {@link RF2Type} import type then updates the {@link Branch}.
+	 *
+	 * @param branchPath Path to the {@link Branch}.
+	 * @param importType Being performed.
+	 * @param metaData   Being updated.
+	 */
+	private void setImportMetadata(final String branchPath, final RF2Type importType, final Map<String, String> metaData) {
+		metaData.put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
+		metaData.put(IMPORT_TYPE_KEY, importType.getName());
+		branchService.updateMetadata(branchPath, metaData);
+	}
+
+	private void clearImportMetadata(String branchPath) {
+		Map<String, String> metaData;
+		metaData = branchService.findLatest(branchPath).getMetadata();
+		if (metaData != null) {
+			metaData.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
+			metaData.remove(IMPORT_TYPE_KEY);
+			branchService.updateMetadata(branchPath, metaData);
+		}
+	}
+
+	private Integer fullImport(final InputStream releaseFileStream, final String branchPath, final ReleaseImporter releaseImporter,
+			final LoadingProfile loadingProfile) throws ReleaseImportException {
+		releaseImporter.loadFullReleaseFiles(releaseFileStream, loadingProfile, getFullImportComponentFactory(branchPath));
+		return null;
+	}
+
+	private Integer snapshotImport(final InputStream releaseFileStream, final String branchPath, final Integer patchReleaseVersion,
+			final ReleaseImporter releaseImporter, final LoadingProfile loadingProfile) throws ReleaseImportException {
+		final ImportComponentFactoryImpl importComponentFactory =
+				getImportComponentFactory(branchPath, patchReleaseVersion, false, false);
+		releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
+		return importComponentFactory.getMaxEffectiveTime();
+	}
+
+	private Integer deltaImport(final InputStream releaseFileStream, final ImportJob job, final String branchPath, final Integer patchReleaseVersion,
+			final ReleaseImporter releaseImporter, final LoadingProfile loadingProfile) throws ReleaseImportException {
+		// If we are not creating a new version copy the release fields from the existing components
+		final ImportComponentFactoryImpl importComponentFactory =
+				getImportComponentFactory(branchPath, patchReleaseVersion, !job.isCreateCodeSystemVersion(), job.isClearEffectiveTimes());
+		releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
+		return importComponentFactory.getMaxEffectiveTime();
 	}
 
 	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath, Integer patchReleaseVersion, boolean copyReleaseFields, boolean clearEffectiveTimes) {

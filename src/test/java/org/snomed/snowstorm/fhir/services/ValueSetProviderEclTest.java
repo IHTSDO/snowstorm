@@ -33,7 +33,8 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		ValueSet v = getValueSet(url);
 		//We'll get the 11 concepts defined on main (Root + 10 potatoes) 
 		//plus the additional two defined for the new Edition
-		assertEquals(13,v.getExpansion().getContains().size());
+		//plus the concrete example
+		assertEquals(14,v.getExpansion().getContains().size());
 	}
 
 	@Test
@@ -62,11 +63,11 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 	
 	@Test
 	void testECLWithOffsetCount() throws FHIROperationException {
-		//Asking for 5 at a time, expect 12 total - 10 on MAIN + 2 in the sample module 
+		//Asking for 5 at a time, expect 13 total - 10 on MAIN + 3 in the sample module 
 		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=0&count=5&_format=json";
 		ValueSet v = getValueSet(url);
 		assertEquals(5,v.getExpansion().getContains().size());
-		assertEquals(12,v.getExpansion().getTotal());
+		assertEquals(13,v.getExpansion().getTotal());
 		
 		//When not specifying a module, we'll read from MAIN so only the original 10 dummy concepts there
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=1&count=5&_format=json";
@@ -74,21 +75,21 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		assertEquals(5,v.getExpansion().getContains().size());
 		assertEquals(10,v.getExpansion().getTotal());
 		
-		//With a total of 12 concepts and 5 per page, we expect our 3rd page (offset 2) to contain the last 2 concepts
+		//With a total of 13 concepts and 5 per page, we expect our 3rd page (offset 2) to contain the last 3 concepts
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=2&count=5&_format=json";
 		v = getValueSet(url);
-		assertEquals(2,v.getExpansion().getContains().size());
-		assertEquals(12,v.getExpansion().getTotal());
+		assertEquals(3,v.getExpansion().getContains().size());
+		assertEquals(13,v.getExpansion().getTotal());
 	}
 	
 	@Test
 	void testECLWithSpecificVersion() throws FHIROperationException {
-		//Asking for 5 at a time, expect 13 Total - 10 on MAIN + 2 in the sample module + 1 Root concept
+		//Asking for 5 at a time, expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept
 		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?system-version=http://snomed.info/sct/1234/version/20190731&" + 
 				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + 
 				"&_format=json";
 		ValueSet v = getValueSet(url);
-		assertEquals(13,v.getExpansion().getContains().size());
+		assertEquals(14,v.getExpansion().getContains().size());
 	}
 	
 	@Test
@@ -107,10 +108,10 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 	void testImplcitValueSets() throws FHIROperationException {
 		
 		// ?fhir_vs -> all concepts
-		// expect 13 Total - 10 on MAIN + 2 in the sample module + 1 Root concept
+		// expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept
 		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs&_format=json";
 		ValueSet v = getValueSet(url);
-		assertEquals(13,v.getExpansion().getTotal());
+		assertEquals(14,v.getExpansion().getTotal());
 		
 		// ?fhir_vs=refset -> all concepts representing refsets
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=refset&_format=json";
@@ -120,7 +121,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		// ?fhir_vs=isa/<root concept> -> all concepts under root plus self
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT + "&_format=json";
 		v = getValueSet(url);
-		assertEquals(13,v.getExpansion().getTotal());
+		assertEquals(14,v.getExpansion().getTotal());
 		
 		// ?fhir_vs=refset/<refsetId> -> all concepts in that refset
 		// Note that refset must be loaded on the branch for this to return
@@ -148,7 +149,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		String url = baseUrl + "/reason-for-encounter/$expand";
 		ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
 		ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response.getBody());
-		assertEquals(13, savedVS.getExpansion().getTotal());
+		assertEquals(14, savedVS.getExpansion().getTotal());
 		restTemplate.delete(baseUrl + "/reason-for-encounter");
 	}
 	

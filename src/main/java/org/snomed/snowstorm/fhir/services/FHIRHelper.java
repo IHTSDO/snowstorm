@@ -29,6 +29,7 @@ import ca.uhn.fhir.rest.param.TokenParam;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Component
 public class FHIRHelper implements FHIRConstants {
@@ -50,7 +51,7 @@ public class FHIRHelper implements FHIRConstants {
 	public static final int UNVERSIONED = -1;
 
 	public static Integer getSnomedVersion(String versionStr) throws FHIROperationException {
-		if (versionStr.contains(UNVERSIONED_STR)) {
+		if (versionStr.contains(UNVERSIONED_STR) || versionStr.startsWith(SNOMED_URI_UNVERSIONED)) {
 			return UNVERSIONED;
 		}
 
@@ -73,19 +74,23 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	String getSnomedEditionModule(StringType versionStr) {
-		if (versionStr == null || versionStr.getValueAsString().isEmpty() || versionStr.getValueAsString().equals(FHIRConstants.SNOMED_URI)) {
+		if (versionStr == null || versionStr.getValueAsString().isEmpty() ||
+				versionStr.getValueAsString().equals(FHIRConstants.SNOMED_URI) ||
+				versionStr.getValueAsString().equals(FHIRConstants.SNOMED_URI_UNVERSIONED)) {
 			return Concepts.CORE_MODULE;
 		}
 		return getSnomedEditionModule(versionStr.getValueAsString());
 	}
 
 	private String getSnomedEditionModule(String versionStr) {
-		if (!versionStr.startsWith(FHIRConstants.SNOMED_URI)) {
-			throw new NotFoundException("Unknown system URI: " + versionStr + ", expected " + FHIRConstants.SNOMED_URI + "...");
+		if (!versionStr.startsWith(FHIRConstants.SNOMED_URI) &&
+				!versionStr.startsWith(FHIRConstants.SNOMED_URI_UNVERSIONED)) {
+			throw new NotFoundException("Unknown system URI: " + versionStr + ", expected " + FHIRConstants.SNOMED_URI + " or xsct variant.");
 		}
-		return !versionStr.contains(FHIRConstants.VERSION)
-				? versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1,  FHIRConstants.SNOMED_URI.length() + versionStr.length() - FHIRConstants.SNOMED_URI.length())
-				: versionStr.substring(FHIRConstants.SNOMED_URI.length() + 1, versionStr.indexOf(FHIRConstants.VERSION));
+		String str = versionStr.replace(SNOMED_URI_UNVERSIONED, SNOMED_URI);
+		return str.contains(FHIRConstants.VERSION) ? 
+				  str.substring(FHIRConstants.SNOMED_URI.length() + 1, str.indexOf(FHIRConstants.VERSION))
+				: str.substring(FHIRConstants.SNOMED_URI.length() + 1, str.length());
 	}
 
 	public BranchPath getBranchPathFromURI(StringType codeSystemVersionUri) throws FHIROperationException {
@@ -207,20 +212,54 @@ public class FHIRHelper implements FHIRConstants {
 				throw new FHIROperationException (IssueType.NOTSUPPORTED , "ValueSet compose filter operation " + op.toCode() + " (" + op.getDisplay() + ") not currently supported");
 		}
 	}
-
-	public void ensurePresent(String langCode, List<LanguageDialect> languageDialects) {
-		if (languageDialects == null) {
-			languageDialects = new ArrayList<>();
-		}
-
-		if (langCode != null && !isPresent(languageDialects, langCode)) {
-			languageDialects.add(new LanguageDialect(langCode));
-		}
+	
+	public void setLanguageOptions(List<LanguageDialect> designations, String displayLanguageStr, HttpServletRequest request) throws FHIROperationException {
+		setLanguageOptions(designations, null, displayLanguageStr, null, request);
 	}
+	
+	public String getPreferredTerm(Concept concept, List<LanguageDialect> designations) {
+		if (designations == null || designations.size() == 0) {
+			return concept.getPt().getTerm();
+		}
+		
+		for (Description d : concept.getDescriptions()) {
+			if (d.hasAcceptability(Concepts.PREFERRED, designations.get(0)) &&
+					d.getTypeId().equals(Concepts.SYNONYM)) {
+				return d.getTerm();
+			}
+		}
+		return null;
+	}
+	
+	public boolean setLanguageOptions(List<LanguageDialect> designations, 
+			List<String> designationsStr,
+			String displayLanguageStr, 
+			BooleanType includeDesignationsType, 
+			HttpServletRequest request) throws FHIROperationException {
+		boolean includeDesignations = false;
+		designations.addAll(getLanguageDialects(designationsStr, request));
+		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
+		if (displayLanguageStr != null) {
+			//FHIR uses dialect codes as per https://tools.ietf.org/html/bcp47
+			LanguageDialect displayDialect = dialectService.getLanguageDialect(displayLanguageStr);
+			//Ensure the display language is first in our list
+			designations.remove(displayDialect);
+			designations.add(0, displayDialect);
+		} 
 
-	private boolean isPresent(List<LanguageDialect> languageDialects, String langCode) {
-		return languageDialects.stream()
-				.anyMatch(ld -> ld.getLanguageCode().equals(langCode));
+		//If someone specified designations, then include them unless specified not to, in which 
+		//case use only for the displayLanguage because that's the only way to get a langRefsetId specified
+		if (includeDesignationsType != null) {
+			includeDesignations = includeDesignationsType.booleanValue();
+			//If we're including designations but not specified which ones, use the default
+			if (includeDesignations && designations.isEmpty()) {
+				designations.addAll(DEFAULT_LANGUAGE_DIALECTS);
+			}
+		} else {
+			//Otherwise include designations if we've specified one or more
+			includeDesignations = designationsStr != null;
+		}
+		return includeDesignations;
 	}
 
 	public String getFirstLanguageSpecified(List<LanguageDialect> languageDialects) {
@@ -297,8 +336,8 @@ public class FHIRHelper implements FHIRConstants {
 				throw new FHIROperationException(IssueType.NOTSUPPORTED, "Only numeric SNOMED CT identifiers are currently supported");
 			}
 		} else if (code == null && coding != null) {
-			if (coding.getSystem() != null && !coding.getSystem().startsWith(SNOMED_URI)) {
-				throw new FHIROperationException(IssueType.NOTSUPPORTED, "CodeSystem of 'coding' must be based on" + SNOMED_URI);
+			if (coding.getSystem() != null && !coding.getSystem().equals(SNOMED_URI)) {
+				throw new FHIROperationException(IssueType.NOTSUPPORTED, "CodeSystem of 'coding' may only be '" + SNOMED_URI + "'");
 			}
 			conceptId = coding.getCode();
 		} else {
@@ -314,30 +353,42 @@ public class FHIRHelper implements FHIRConstants {
 	public StringType enhanceCodeSystem (StringType codeSystem, StringType version, Coding coding) throws FHIROperationException {
 
 		if (codeSystem != null) {
-			if (!codeSystem.asStringValue().equals(SNOMED_URI)) {
-				throw new FHIROperationException(IssueType.VALUE, "Snowstorm FHIR API currently only accepts '" + SNOMED_URI + "' as a (code)system.  Additionally, the version parameter can be used to specify a module and effective date");
+			if (!codeSystem.asStringValue().equals(SNOMED_URI) && !codeSystem.asStringValue().equals(SNOMED_URI_UNVERSIONED)) {
+				throw new FHIROperationException(IssueType.VALUE, "Snowstorm FHIR API currently only accepts '" + SNOMED_URI + "' as a (code)system.  Additionally, the version parameter can be used to specify a module and effective date and 'xsct' can be used to indicate unversioned content.");
+			}
+			
+			if (codeSystem.asStringValue().equals(SNOMED_URI_UNVERSIONED)) {
+				codeSystem.setValue(SNOMED_URI);
+				if (version.asStringValue().contains(VERSION)) {
+					throw new FHIROperationException(IssueType.CONFLICT, "Use either xsct or version, not both");
+				} else if (version == null || getSnomedEditionModule(version.asStringValue()).equals(Concepts.CORE_MODULE)) {
+					version.setValue(SNOMED_URI_DEFAULT_MODULE + VERSION + UNVERSIONED_STR);
+				}
 			}
 		} else {
-			codeSystem = new StringType (SNOMED_URI);
+			codeSystem = new StringType(SNOMED_URI);
 		}
 
 		if (version != null) {
-			if (!version.asStringValue().startsWith(codeSystem.asStringValue())) {
-				throw new FHIROperationException(IssueType.CONFLICT, "Version parameter must start with '" + SNOMED_URI + "'");
+			String versionStr = version.asStringValue();
+			if (!versionStr.startsWith(codeSystem.asStringValue()) && 
+					!versionStr.startsWith(SNOMED_URI_UNVERSIONED)) {
+				throw new FHIROperationException(IssueType.CONFLICT, "Version parameter must start with '" + SNOMED_URI + "' or '" + SNOMED_URI_UNVERSIONED + "'");
 			}
-			getSnomedVersion(version.asStringValue());
+			
+			if (versionStr.startsWith(SNOMED_URI_UNVERSIONED)) {
+				if (version.asStringValue().contains(VERSION)) {
+					throw new FHIROperationException(IssueType.CONFLICT, "Use either xsct or version, not both");
+				}
+				versionStr = SNOMED_URI + getSnomedEditionModule(versionStr) + VERSION + UNVERSIONED_STR;
+				version.setValue(versionStr);
+			}
+			getSnomedVersion(version.asStringValue());  //for validation only
 			codeSystem = version;
 		}
 
-		if (coding != null && coding.getSystem() != null) {
-			String codeSystemFromCoding = coding.getSystem();
-			//We're OK if the code system is the default and the system in the coding is more specific
-			if (codeSystem.toString().equals(SNOMED_URI) && codeSystemFromCoding.toString().length() > SNOMED_URI.length()) {
-				//This is fine, use the coding
-				codeSystem = new StringType(codeSystemFromCoding);
-			} else if (!codeSystem.toString().equals(codeSystemFromCoding)) {
-				throw new FHIROperationException(IssueType.CONFLICT, "CodeSystem defined in (code)system paramter + version is not identical to that supplied in the coding parameter");
-			}
+		if (coding != null && coding.getSystem() != null && !coding.getSystem().equals(SNOMED_URI)) {
+			throw new FHIROperationException(IssueType.CONFLICT, "CodeSystem defined in coding parameter can only be '" + SNOMED_URI + "'");
 		}
 		return codeSystem;
 	}
@@ -405,7 +456,7 @@ public class FHIRHelper implements FHIRConstants {
 		}
 
 		//If we've specified a search term but the target element is not populated, that's not a match
-		if (searchTerm.getValue() != null && value == null) {
+		if (value == null) {
 			return false;
 		}
 

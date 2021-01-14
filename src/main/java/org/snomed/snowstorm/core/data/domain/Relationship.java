@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import org.elasticsearch.common.Strings;
@@ -12,6 +13,8 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
+
+import java.util.Objects;
 
 import static org.snomed.snowstorm.core.data.domain.Concepts.relationshipCharacteristicTypeNames;
 import static org.snomed.snowstorm.core.data.domain.Concepts.relationshipModifierNames;
@@ -41,6 +44,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 		String RELATIONSHIP_ID = "relationshipId";
 		String SOURCE_ID = "sourceId";
 		String DESTINATION_ID = "destinationId";
+		String VALUE = "value";
 		String RELATIONSHIP_GROUP = "relationshipGroup";
 		String TYPE_ID = "typeId";
 		String CHARACTERISTIC_TYPE_ID = "characteristicTypeId";
@@ -51,20 +55,25 @@ public class Relationship extends SnomedComponent<Relationship> {
 	private String relationshipId;
 
 	@JsonView(value = View.Component.class)
-	@Field(type = FieldType.Keyword)
-	@NotNull
-	@Size(min = 5, max = 18)
-	private String moduleId;
-
-	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Keyword, store = true)
 	private String sourceId;
 
+	@JsonInclude(JsonInclude.Include.NON_EMPTY)
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Keyword)
-	@NotNull
 	@Size(min = 5, max = 18)
 	private String destinationId;
+
+	@JsonIgnore
+	@JsonView(value = View.Component.class)
+	@Field(type = FieldType.Keyword)
+	@Size(min = 2, max = 4096)
+	private String value;
+
+	@JsonInclude(JsonInclude.Include.NON_EMPTY)
+	@JsonView(value = View.Component.class)
+	@Transient
+	private ConcreteValue concreteValue;
 
 	@Field(type = FieldType.Integer)
 	private int relationshipGroup;
@@ -104,8 +113,8 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public Relationship() {
 		active = true;
-		moduleId = Concepts.CORE_MODULE;
-		destinationId = "";
+		setModuleId(Concepts.CORE_MODULE);
+		destinationId = null;
 		typeId = "";
 		characteristicTypeId = Concepts.INFERRED_RELATIONSHIP;
 		modifierId = Concepts.EXISTENTIAL;
@@ -127,19 +136,43 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.typeId = typeId;
 		this.destinationId = destinationId;
 	}
+	
+	public Relationship(String relationshipId, String typeId, ConcreteValue value) {
+		this(relationshipId);
+		this.typeId = typeId;
+		this.value = value.toString();
+		this.concreteValue = value;
+	}
 
-	public Relationship(String id, Integer effectiveTime, boolean active, String moduleId, String sourceId, String destinationId, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
+	public Relationship(String id, Integer effectiveTime, boolean active, String moduleId, String sourceId, String destinationIdOrValue, int relationshipGroup, String typeId, String characteristicTypeId, String modifierId) {
 		this();
 		this.relationshipId = id;
 		setEffectiveTimeI(effectiveTime);
 		this.active = active;
-		this.moduleId = moduleId;
+		setModuleId(moduleId);
 		this.sourceId = sourceId;
-		this.destinationId = destinationId;
+
+		if (destinationIdOrValue != null) {
+			if (destinationIdOrValue.startsWith("#") || destinationIdOrValue.startsWith("\"")) {
+				this.value = destinationIdOrValue;
+				this.destinationId = null;
+			} else {
+				this.value = null;
+				this.destinationId = destinationIdOrValue;
+			}
+		}
+
 		this.relationshipGroup = relationshipGroup;
 		this.typeId = typeId;
 		this.characteristicTypeId = characteristicTypeId;
 		this.modifierId = modifierId;
+	}
+
+	public static Relationship newConcrete(String typeId, String value) {
+		final Relationship relationship = new Relationship();
+		relationship.setTypeId(typeId);
+		relationship.setValue(value);
+		return relationship;
 	}
 
 	@Override
@@ -151,8 +184,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 	public boolean isComponentChanged(Relationship that) {
 		return that == null
 				|| active != that.active
-				|| !moduleId.equals(that.moduleId)
-				|| !destinationId.equals(that.destinationId)
+				|| !getModuleId().equals(that.getModuleId())
+				|| (destinationId != null && !destinationId.equals(that.destinationId))
+				|| (value != null && !value.equals(that.value))
 				|| relationshipGroup != that.relationshipGroup
 				|| !typeId.equals(that.typeId)
 				|| !characteristicTypeId.equals(that.characteristicTypeId)
@@ -163,9 +197,31 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return relationshipGroup > 0;
 	}
 
+	public ConcreteValue getConcreteValue() {
+		if (isConcrete() && this.concreteValue == null && value != null) {
+			this.concreteValue = ConcreteValue.from(value);
+		}
+		return this.concreteValue;
+	}
+
+	public void setConcreteValue(ConcreteValue concreteValue) {
+		this.concreteValue = concreteValue;
+	}
+
+	public void setConcreteValue(String value, String dataTypeName) {
+		this.concreteValue = ConcreteValue.from(value, dataTypeName);
+		this.value = value;
+		this.destinationId = null;
+		this.target = null;
+	}
+
+	public boolean isConcrete() {
+		return this.value != null && this.destinationId == null;
+	}
+
 	@Override
 	protected Object[] getReleaseHashObjects() {
-		return new Object[] {active, moduleId, destinationId, relationshipGroup, typeId, characteristicTypeId, modifierId};
+		return new Object[] {active, getModuleId(), destinationId != null ? destinationId : value, relationshipGroup, typeId, characteristicTypeId, modifierId};
 	}
 
 	public ConceptMini getSource() {
@@ -278,15 +334,6 @@ public class Relationship extends SnomedComponent<Relationship> {
 		this.relationshipId = relationshipId;
 	}
 
-	public String getModuleId() {
-		return moduleId;
-	}
-
-	public Relationship setModuleId(String moduleId) {
-		this.moduleId = moduleId;
-		return this;
-	}
-
 	public String getSourceId() {
 		return sourceId;
 	}
@@ -301,7 +348,22 @@ public class Relationship extends SnomedComponent<Relationship> {
 	}
 
 	public void setDestinationId(String destinationId) {
+		this.value = null;
 		this.destinationId = destinationId;
+	}
+
+	public String getValue() {
+		return value;
+	}
+
+	@JsonIgnore
+	public String getValueWithoutConcretePrefix() {
+		return ConcreteValue.removeConcretePrefix(this.value);
+	}
+
+	public void setValue(String value) {
+		this.destinationId = null;
+		this.value = value;
 	}
 
 	public int getRelationshipGroup() {
@@ -316,8 +378,9 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return typeId;
 	}
 
-	public void setTypeId(String typeId) {
+	public Relationship setTypeId(String typeId) {
 		this.typeId = typeId;
+		return this;
 	}
 
 	public String getCharacteristicTypeId() {
@@ -363,10 +426,11 @@ public class Relationship extends SnomedComponent<Relationship> {
 		}
 
 		if (relationshipGroup != that.relationshipGroup) return false;
-		if (sourceId != null ? !sourceId.equals(that.sourceId) : that.sourceId != null) return false;
-		if (destinationId != null ? !destinationId.equals(that.destinationId) : that.destinationId != null) return false;
-		if (typeId != null ? !typeId.equals(that.typeId) : that.typeId != null) return false;
-		return characteristicTypeId != null ? characteristicTypeId.equals(that.characteristicTypeId) : that.characteristicTypeId == null;
+		if (!Objects.equals(sourceId, that.sourceId)) return false;
+		if (!Objects.equals(destinationId, that.destinationId)) return false;
+		if (!Objects.equals(value, that.value)) return false;
+		if (!Objects.equals(typeId, that.typeId)) return false;
+		return Objects.equals(characteristicTypeId, that.characteristicTypeId);
 	}
 
 	@Override
@@ -377,6 +441,7 @@ public class Relationship extends SnomedComponent<Relationship> {
 		}
 		result = 31 * result + (sourceId != null ? sourceId.hashCode() : 0);
 		result = 31 * result + (destinationId != null ? destinationId.hashCode() : 0);
+		result = 31 * result + (value != null ? value.hashCode() : 0);
 		result = 31 * result + relationshipGroup;
 		result = 31 * result + (typeId != null ? typeId.hashCode() : 0);
 		result = 31 * result + (characteristicTypeId != null ? characteristicTypeId.hashCode() : 0);
@@ -389,9 +454,10 @@ public class Relationship extends SnomedComponent<Relationship> {
 				"relationshipId='" + relationshipId + '\'' +
 				", effectiveTime='" + getEffectiveTimeI() + '\'' +
 				", active=" + active +
-				", moduleId='" + moduleId + '\'' +
+				", moduleId='" + getModuleId() + '\'' +
 				", sourceId='" + sourceId + '\'' +
 				", destinationId='" + destinationId + '\'' +
+				", value='" + value + '\'' +
 				", relationshipGroup='" + relationshipGroup + '\'' +
 				", typeId='" + typeId + '\'' +
 				", characteristicTypeId='" + characteristicTypeId + '\'' +

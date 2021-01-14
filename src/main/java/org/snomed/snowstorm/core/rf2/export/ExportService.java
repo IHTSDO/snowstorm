@@ -59,9 +59,9 @@ public class ExportService {
 	@Autowired
 	private BranchMetadataHelper branchMetadataHelper;
 
-	private Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET);
+	private final Set<String> refsetTypesRequiredForClassification = Sets.newHashSet(Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN, Concepts.OWL_EXPRESSION_TYPE_REFERENCE_SET);
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public String createJob(ExportConfiguration exportConfiguration) {
 		if (exportConfiguration.getType() == RF2Type.FULL) {
@@ -97,7 +97,7 @@ public class ExportService {
 		}
 
 		File exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
-				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(),
+				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(), exportConfiguration.isUnpromotedChangesOnly(),
 				exportConfiguration.getTransientEffectiveTime(), exportConfiguration.getStartEffectiveTime(), exportConfiguration.getModuleIds());
 		try (FileInputStream inputStream = new FileInputStream(exportFile)) {
 			Streams.copy(inputStream, outputStream, false);
@@ -109,11 +109,11 @@ public class ExportService {
 	}
 
 	public File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification) throws ExportException {
-		return exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, forClassification, null, null, null);
+		return exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, forClassification, false, null, null, null);
 	}
 
 	private File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification,
-			String transientEffectiveTime, String startEffectiveTime, Set<String> moduleIds) throws ExportException {
+			boolean unpromotedChangesOnly, String transientEffectiveTime, String startEffectiveTime, Set<String> moduleIds) throws ExportException {
 		if (exportType == RF2Type.FULL) {
 			throw new IllegalArgumentException("FULL RF2 export is not implemented.");
 		}
@@ -121,7 +121,8 @@ public class ExportService {
 		logger.info("Starting {} export.", exportType);
 		Date startTime = new Date();
 
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		BranchCriteria allContentBranchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		BranchCriteria selectionBranchCriteria = unpromotedChangesOnly ? versionControlHelper.getChangesOnBranchCriteria(branchPath) : allContentBranchCriteria;
 
 		try {
 			branchService.lockBranch(branchPath, branchMetadataHelper.getBranchLockMetadata("Exporting RF2 " + exportType.getName()));
@@ -129,12 +130,12 @@ public class ExportService {
 			try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
 				// Write Concepts
 				int conceptLines = exportComponents(Concept.class, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream,
-						getContentQuery(exportType, moduleIds, startEffectiveTime, branchCriteria.getEntityBranchCriteria(Concept.class)), transientEffectiveTime, null);
+						getContentQuery(exportType, moduleIds, startEffectiveTime, selectionBranchCriteria.getEntityBranchCriteria(Concept.class)), transientEffectiveTime, null);
 				logger.info("{} concept states exported", conceptLines);
 
 				if (!forClassification) {
 					// Write Descriptions
-					BoolQueryBuilder descriptionBranchCriteria = branchCriteria.getEntityBranchCriteria(Description.class);
+					BoolQueryBuilder descriptionBranchCriteria = selectionBranchCriteria.getEntityBranchCriteria(Description.class);
 					BoolQueryBuilder descriptionContentQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, descriptionBranchCriteria);
 					descriptionContentQuery.mustNot(termQuery(Description.Fields.TYPE_ID, Concepts.TEXT_DEFINITION));
 					int descriptionLines = exportComponents(Description.class, "Terminology/", "sct2_Description_", filenameEffectiveDate, exportType, zipOutputStream,
@@ -150,31 +151,41 @@ public class ExportService {
 				}
 
 				// Write Stated Relationships
-				BoolQueryBuilder relationshipBranchCritera = branchCriteria.getEntityBranchCriteria(Relationship.class);
+				BoolQueryBuilder relationshipBranchCritera = selectionBranchCriteria.getEntityBranchCriteria(Relationship.class);
 				BoolQueryBuilder relationshipQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, relationshipBranchCritera);
-				relationshipQuery.must(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
+				relationshipQuery.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.STATED_RELATIONSHIP));
 				int statedRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_StatedRelationship_", filenameEffectiveDate, exportType, zipOutputStream,
 						relationshipQuery, transientEffectiveTime, null);
 				logger.info("{} stated relationship states exported", statedRelationshipLines);
 
-				// Write Inferred Relationships
+				// Write Inferred non-concrete Relationships
 				relationshipQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, relationshipBranchCritera);
 				// Not 'stated' will include inferred and additional
-				relationshipQuery.mustNot(termQuery("characteristicTypeId", Concepts.STATED_RELATIONSHIP));
+				relationshipQuery.mustNot(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.STATED_RELATIONSHIP));
+				relationshipQuery.must(existsQuery(Relationship.Fields.DESTINATION_ID));
 				int inferredRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_Relationship_", filenameEffectiveDate, exportType, zipOutputStream,
 						relationshipQuery, transientEffectiveTime, null);
-				logger.info("{} inferred and additional relationship states exported", inferredRelationshipLines);
+				logger.info("{} inferred (non-concrete) and additional relationship states exported", inferredRelationshipLines);
+
+				// Write Concrete Inferred Relationships
+				relationshipQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, relationshipBranchCritera);
+				relationshipQuery.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP));
+				relationshipQuery.must(existsQuery(Relationship.Fields.VALUE));
+				int inferredConcreteRelationshipLines = exportComponents(Relationship.class, "Terminology/", "sct2_RelationshipConcreteValues_", filenameEffectiveDate, exportType,
+                        zipOutputStream,
+						relationshipQuery, transientEffectiveTime, null);
+				logger.info("{} concrete inferred relationship states exported", inferredConcreteRelationshipLines);
 
 				// Write Reference Sets
-				List<ReferenceSetType> referenceSetTypes = getReferenceSetTypes(branchCriteria.getEntityBranchCriteria(ReferenceSetType.class)).stream()
+				List<ReferenceSetType> referenceSetTypes = getReferenceSetTypes(allContentBranchCriteria.getEntityBranchCriteria(ReferenceSetType.class)).stream()
 						.filter(type -> !forClassification || refsetTypesRequiredForClassification.contains(type.getConceptId()))
 						.collect(Collectors.toList());
 
 				logger.info("{} Reference Set Types found for this export: {}", referenceSetTypes.size(), referenceSetTypes);
 
-				BoolQueryBuilder memberBranchCriteria = branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class);
+				BoolQueryBuilder memberBranchCriteria = selectionBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class);
 				for (ReferenceSetType referenceSetType : referenceSetTypes) {
-					List<Long> refsetsOfThisType = new ArrayList<>(queryService.findDescendantIdsAsUnion(branchCriteria, true, Collections.singleton(Long.parseLong(referenceSetType.getConceptId()))));
+					List<Long> refsetsOfThisType = new ArrayList<>(queryService.findDescendantIdsAsUnion(allContentBranchCriteria, true, Collections.singleton(Long.parseLong(referenceSetType.getConceptId()))));
 					refsetsOfThisType.add(Long.parseLong(referenceSetType.getConceptId()));
 					for (Long refsetToExport : refsetsOfThisType) {
 						BoolQueryBuilder memberQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, memberBranchCriteria);
@@ -243,7 +254,7 @@ public class ExportService {
 			zipOutputStream.putNextEntry(new ZipEntry(componentFilePath));
 
 			// Stream components into zip
-			try (ExportWriter<T> writer = getExportWriter(componentClass, zipOutputStream, extraFieldNames);
+			try (ExportWriter<T> writer = getExportWriter(componentClass, zipOutputStream, extraFieldNames, entryFilenamePrefix.contains("Concrete"));
 					SearchHitsIterator<T> componentStream = elasticsearchTemplate.searchForStream(getNativeSearchQuery(contentQuery), componentClass)) {
 				writer.setTransientEffectiveTime(transientEffectiveTime);
 				writer.writeHeader();
@@ -258,7 +269,7 @@ public class ExportService {
 		}
 	}
 
-	private <T> ExportWriter<T> getExportWriter(Class<T> componentClass, OutputStream outputStream, List<String> extraFieldNames) throws IOException {
+	private <T> ExportWriter<T> getExportWriter(Class<T> componentClass, OutputStream outputStream, List<String> extraFieldNames, boolean concrete) {
 		if (componentClass.equals(Concept.class)) {
 			return (ExportWriter<T>) new ConceptExportWriter(getBufferedWriter(outputStream));
 		}
@@ -266,7 +277,7 @@ public class ExportService {
 			return (ExportWriter<T>) new DescriptionExportWriter(getBufferedWriter(outputStream));
 		}
 		if (componentClass.equals(Relationship.class)) {
-			return (ExportWriter<T>) new RelationshipExportWriter(getBufferedWriter(outputStream));
+			return (ExportWriter<T>) (concrete ? new ConcreteRelationshipExportWriter(getBufferedWriter(outputStream)) : new RelationshipExportWriter(getBufferedWriter(outputStream)));
 		}
 		if (componentClass.equals(ReferenceSetMember.class)) {
 			return (ExportWriter<T>) new ReferenceSetMemberExportWriter(getBufferedWriter(outputStream), extraFieldNames);

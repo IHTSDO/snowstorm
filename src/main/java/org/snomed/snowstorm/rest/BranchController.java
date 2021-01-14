@@ -211,7 +211,7 @@ public class BranchController {
 
 	@RequestMapping(value = "/{branch}/upgrade-integrity-check", method = RequestMethod.POST)
 	@ApiOperation(value = "Perform integrity check against changed components during extension upgrade on the extension main branch and fix branch.",
-			notes = "Returns a report containing an entry for each type of issue found together with a map of components which still need to be fixed." +
+			notes = "Returns a report containing an entry for each type of issue found together with a map of components which still need to be fixed. " +
 					"In the component map each key represents an existing component and the corresponding map value is the id of a component which is missing or inactive.")
 	public IntegrityIssueReport upgradeIntegrityCheck(
 			@ApiParam(value="The fix branch path") @PathVariable(value="branch") @NotNull final String fixBranchPath,

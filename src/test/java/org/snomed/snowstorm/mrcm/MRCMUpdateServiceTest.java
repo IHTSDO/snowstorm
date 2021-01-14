@@ -8,8 +8,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceTestUtil;
@@ -169,4 +168,59 @@ class MRCMUpdateServiceTest extends AbstractTest {
 		assertNotNull(event);
 	}
 
+
+	@Test
+	void testConcreteValueAttribute() throws Exception {
+		Branch branch = branchService.create("MAIN/MRCM");
+
+		testUtil.createConceptWithPathIdAndTerm(branch.getPath(), Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE, "Concept model data attribute (attribute)");
+		Concept strengthConcept = new Concept("3264475007");
+		strengthConcept.addDescription(new Description("CD has presentation strength numerator value"));
+		strengthConcept.addAxiom(new Relationship(Concepts.ISA, Concepts.CONCEPT_MODEL_DATA_ATTRIBUTE));
+		conceptService.create(strengthConcept, branch.getPath());
+		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"373873005", "Pharmaceutical / biologic product (product)");
+
+		ReferenceSetMember biologicProductDomain = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL,"373873005")
+				.setAdditionalField("domainConstraint", "<< 373873005 |Pharmaceutical / biologic product (product)|")
+				.setAdditionalField("parentDomain", null)
+				.setAdditionalField("proximalPrimitiveConstraint", null)
+				.setAdditionalField("proximalPrimitiveRefinement", null)
+				.setAdditionalField("guideURL", "");
+
+		ReferenceSetMember strengthNumeratorAttribute = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_DOMAIN_INTERNATIONAL,"3264475007")
+				.setAdditionalField("domainId", "373873005")
+				.setAdditionalField("grouped", "1")
+				.setAdditionalField("attributeCardinality", "0..*")
+				.setAdditionalField("attributeInGroupCardinality", "0..1")
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005");
+
+		ReferenceSetMember range = new ReferenceSetMember(null, null,true,
+				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL,"3264475007")
+				.setAdditionalField("rangeConstraint", "dec(>#0..)")
+				.setAdditionalField("attributeRule", null)
+				.setAdditionalField("ruleStrengthId", "723597001")
+				.setAdditionalField("contentTypeId", "723596005");
+
+		Set<ReferenceSetMember> mrcmMembers = new HashSet<>();
+		mrcmMembers.add(biologicProductDomain);
+		mrcmMembers.add(strengthNumeratorAttribute);
+		mrcmMembers.add(range);
+		memberService.createMembers(branch.getPath(), mrcmMembers);
+
+		range = memberService.findMember(branch.getPath(), range.getMemberId());
+		assertEquals("dec(>#0..)", range.getAdditionalField("rangeConstraint"));
+		assertEquals("<< 373873005 |Pharmaceutical / biologic product (product)|: [0..*] { [0..1] 3264475007 |CD has presentation strength numerator value| > #0 }",
+				range.getAdditionalField("attributeRule"));
+		biologicProductDomain = memberService.findMember(branch.getPath(), biologicProductDomain.getMemberId());
+		assertNotNull(biologicProductDomain);
+		assertEquals("[[0..*]] { [[0..1]] 3264475007 |CD has presentation strength numerator value| = [[+dec(>#0..)]] }",
+				biologicProductDomain.getAdditionalField("domainTemplateForPrecoordination"));
+		assertNotNull("[[0..*]] { [[0..1]] 3264475007 |CD has presentation strength numerator value| = [[+dec(>#0..)]] }",
+				biologicProductDomain.getAdditionalField("domainTemplateForPostcoordination"));
+		strengthNumeratorAttribute = memberService.findMember(branch.getPath(), strengthNumeratorAttribute.getMemberId());
+		assertNotNull(strengthNumeratorAttribute);
+	}
 }

@@ -31,10 +31,8 @@ import org.springframework.security.config.annotation.web.configurers.Expression
 import org.springframework.security.web.firewall.DefaultHttpFirewall;
 import org.springframework.security.web.firewall.HttpFirewall;
 import org.springframework.web.bind.annotation.RequestMethod;
-import springfox.documentation.builders.ApiInfoBuilder;
 import springfox.documentation.builders.RequestHandlerSelectors;
 import springfox.documentation.service.ApiInfo;
-import springfox.documentation.service.Contact;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.ApiSelectorBuilder;
 import springfox.documentation.spring.web.plugins.Docket;
@@ -62,7 +60,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	@Value("${json.serialization.indent_output}")
 	private boolean jsonIndentOutput;
 
-	@Autowired
+	@Autowired(required = false)
 	private BuildProperties buildProperties;
 
 	@Bean
@@ -144,7 +142,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 	@Override
 	protected void configure(HttpSecurity http) throws Exception {
-		http.csrf().disable();
+		http.csrf().disable();// lgtm [java/spring-disabled-csrf-protection]
 
 		if (restApiReadOnly) {
 			// Read-ony mode

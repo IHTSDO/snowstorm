@@ -25,6 +25,14 @@ class ConceptMapProviderTest extends AbstractFHIRTest {
 		assertNotNull(parameters);
 		Type t = parameters.getParameter("result");
 		assertTrue(t.castToBoolean(t).booleanValue());
+		
+		//We can also use the xsct form to specify unpublished content
+		vs = "http://snomed.info/xsct?fhir_cm=" + Concepts.REFSET_SAME_AS_ASSOCIATION;
+		url = "http://localhost:" + port + "/fhir/ConceptMap/$translate?code=" + sampleSCTID + "&system=http://snomed.info/sct&" + sourceTarget + "&url=" + vs;
+		parameters = get(url);
+		assertNotNull(parameters);
+		t = parameters.getParameter("result");
+		assertTrue(t.castToBoolean(t).booleanValue());
 	}
 	
 }

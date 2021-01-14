@@ -3,7 +3,7 @@ package org.snomed.snowstorm.core.data.domain;
 
 import java.util.Objects;
 
-public class ConceptMicro {
+public class ConceptMicro implements AttributeValue {
 
 	private final String id;
 	private Boolean primitive;
@@ -70,5 +70,10 @@ public class ConceptMicro {
 		} else {
 			return getId();
 		}
+	}
+
+	@Override
+	public boolean isConcrete() {
+		return false;
 	}
 }

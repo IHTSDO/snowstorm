@@ -67,7 +67,7 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		
 		String refsetId = "";
 		if (url != null) {
-			validate("Url", url, Validation.STARTS_WITH, SNOMED_URI, true);
+			validate("Url", url, Validation.STARTS_WITH, new String[] {SNOMED_URI, SNOMED_URI_UNVERSIONED}, true);
 			int idx = url.indexOf(MAP_INDICATOR);
 			if (idx == NOT_SET) {
 				throw new FHIROperationException (IssueType.INCOMPLETE, "url parameter is expected to contain '"+ MAP_INDICATOR +"' indicating the refset sctid of the map to be used.");
@@ -183,9 +183,9 @@ public class FHIRConceptMapProvider implements IResourceProvider, FHIRConstants 
 		boolean matchFound = false;
 		for (String permitted : permittedValues) {
 			switch (mode) {
-				case EQUALS : if (actual.equals(permitted)) matchFound = true;
+				case EQUALS : if (actual != null && actual.equals(permitted)) matchFound = true;
 					break;
-				case STARTS_WITH : if (actual.startsWith(permitted)) matchFound = true;
+				case STARTS_WITH : if (actual != null && actual.startsWith(permitted)) matchFound = true;
 					break;
 			}
 		}

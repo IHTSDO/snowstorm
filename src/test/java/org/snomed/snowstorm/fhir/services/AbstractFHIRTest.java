@@ -22,7 +22,6 @@ import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
@@ -37,6 +36,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -58,6 +58,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  */
 @ExtendWith(SpringExtension.class)
 @Testcontainers
+@ContextConfiguration(classes = TestConfig.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractFHIRTest {
@@ -87,8 +88,10 @@ public abstract class AbstractFHIRTest {
 	private boolean rolesEnabled;
 
 	protected static final String sampleSCTID = "257751006";
+	protected static final String sampleConcreteSCTID = "2577513006";
 	protected static final String sampleModuleId = "1234";
 	protected static final String sampleVersion = "20190731";
+	protected static final String STRENGTH_NUMERATOR = "1142135004";
 	protected final String MAIN = "MAIN";
 	static String baseUrl;
 	static HttpHeaders headers;
@@ -142,7 +145,7 @@ public abstract class AbstractFHIRTest {
 		List<Concept> concepts = new ArrayList<>();
 		concepts.add(new Concept(Concepts.SNOMEDCT_ROOT));
 		for (int x=1; x<=10; x++) {
-			createDummyData(x, concepts);
+			createDummyData(x, concepts, false);
 		}
 		branchService.create(MAIN);
 		conceptService.batchCreate(concepts, MAIN);
@@ -167,8 +170,9 @@ public abstract class AbstractFHIRTest {
 		concepts.clear();
 		//The new module will inherit the 10 concepts from MAIN.  Add two new unqique to MAIN/SNOMEDCT-WK
 		for (int x=11; x<=12; x++) {
-			createDummyData(x, concepts);
+			createDummyData(x, concepts, false);
 		}
+		createDummyData(13, concepts, true);
 		conceptService.batchCreate(concepts, branchWK);
 		CodeSystem codeSystemWK = new CodeSystem("SNOMEDCT-WK", branchWK);
 		codeSystemService.createCodeSystem(codeSystemWK);
@@ -185,7 +189,7 @@ public abstract class AbstractFHIRTest {
 		setupComplete = true;
 	}
 	
-	private void createDummyData(int sequence, List<Concept> concepts) throws ServiceException {
+	private void createDummyData(int sequence, List<Concept> concepts, boolean concrete) throws ServiceException {
 		// Create dummy concept with descriptions and relationships
 		Relationship infParentRel = new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT);
 		infParentRel.setCharacteristicType("INFERRED_RELATIONSHIP");
@@ -197,8 +201,14 @@ public abstract class AbstractFHIRTest {
 								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
 						.addDescription(new Description("Baked potato " + sequence)
 								.setTypeId(Concepts.SYNONYM)
-								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
-						.addAxiom(new Relationship(Concepts.ISA, Concepts.SUBSTANCE));
+								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED));
+		
+		if (concrete) {
+			concept.addAxiom(new Relationship(Concepts.ISA, Concepts.SUBSTANCE),
+					Relationship.newConcrete(STRENGTH_NUMERATOR, "#500"));
+		} else {
+			concept.addAxiom(new Relationship(Concepts.ISA, Concepts.SUBSTANCE));
+		}
 		concepts.add(concept);
 	}
 

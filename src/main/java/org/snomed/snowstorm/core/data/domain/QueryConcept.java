@@ -1,8 +1,8 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.domain.DomainEntity;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -17,6 +17,8 @@ import java.util.*;
 public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	public static final String ATTR_TYPE_WILDCARD = "all";
+
+	public static final String ATTR_NUMERIC_TYPE_WILDCARD = "all_numeric";
 
 	public interface Fields {
 		String CONCEPT_ID_FORM = "conceptIdForm";
@@ -43,7 +45,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	private boolean stated;
 
 	@Field(type = FieldType.Object)
-	private Map<String, Set<String>> attr;
+	private Map<String, Set<Object>> attr;
 
 	@Field(type = FieldType.Keyword, index = false, store = true)
 	// Format:
@@ -70,15 +72,16 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		}
 	}
 
-	public void addAttribute(int group, Long type, Long value) {
+	public void addAttribute(int group, Long type, String value) {
 		if (groupedAttributesMap == null) {
 			groupedAttributesMap = new HashMap<>();
 		}
 		groupedAttributesMap.computeIfAbsent(group, (g) -> new HashMap<>())
-				.computeIfAbsent(type.toString(), (t) -> new ArrayList<>()).add(value.toString());
+				.computeIfAbsent(type.toString(), (t) -> new ArrayList<>()).add(value);
 	}
 
-	public void removeAttribute(int group, Long type, Long value) {
+
+	public void removeAttribute(int group, Long type, String value) {
 		if (groupedAttributesMap == null) {
 			groupedAttributesMap = new HashMap<>();
 		}
@@ -107,7 +110,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		return groupedAttributesMap;
 	}
 
-	public Map<String, Set<String>> getAttr() {
+	public Map<String, Set<Object>> getAttr() {
 		return GroupedAttributesMapSerializer.serializeFlatMap(getGroupedAttributesMap());
 	}
 
@@ -129,7 +132,6 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	public void setAttrMap(String attrMap) {
 		this.attrMap = attrMap;
-		groupedAttributesMap = GroupedAttributesMapSerializer.deserializeMap(this.attrMap);
 	}
 
 	private void updateConceptIdForm() {
@@ -272,26 +274,63 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 					String[] attrParts = attribute.split("=");
 					String type = attrParts[0];
 					String[] values = attrParts[1].split(",");
-					attributeMap.put(type, Lists.newArrayList(values));
+					attributeMap.put(type, Arrays.asList(values));
 				}
 				groupedAttributesMap.put(groupNo, attributeMap);
 			}
 			return groupedAttributesMap;
 		}
 
-		private static Map<String, Set<String>> serializeFlatMap(Map<Integer, Map<String, List<String>>> groupedAttributesMap) {
-			Map<String, Set<String>> attributesMap = new HashMap<>();
-			Set<String> allValues = new HashSet<>();
+		private static List<Object> checkAndTransformConcreteValues(List<String> values) {
+			List<Object> transformed = new ArrayList<>();
+			for (String value : values) {
+				if (value.startsWith("#")) {
+					String numeric = value.substring(1);
+					if (!NumberUtils.isParsable(numeric)) {
+						throw new IllegalArgumentException(String.format("%s is not a valid number", numeric));
+					}
+					// number
+					long longValue = NumberUtils.toLong(numeric);
+					if (longValue != 0) {
+						transformed.add(longValue);
+					} else {
+						float floatValue = NumberUtils.toFloat(numeric, -1.0f);
+						if (floatValue != -1.0f) {
+							transformed.add(floatValue);
+						}
+					}
+				} else {
+					transformed.add(value);
+				}
+			}
+			return transformed;
+		}
+
+		private static Map<String, Set<Object>> serializeFlatMap(Map<Integer, Map<String, List<String>>> groupedAttributesMap) {
+			Map<String, Set<Object>> attributesMap = new HashMap<>();
+			Set<Object> allValues = new HashSet<>();
+			Set<Object> allNumericValues = new HashSet<>();
 			if (groupedAttributesMap != null) {
 				groupedAttributesMap.forEach((group, attributes) -> {
 					attributes.forEach((type, values) -> {
-						Set<String> valueList = attributesMap.computeIfAbsent(type, (t) -> new HashSet<>());
-						valueList.addAll(values);
-						allValues.addAll(values);
+						Set<Object> valueList = attributesMap.computeIfAbsent(type, (t) -> new HashSet<>());
+						List<Object> converted = checkAndTransformConcreteValues(values);
+						// add numeric fields for concrete values with #
+						Object numericValue = converted.stream().filter(v -> !(v instanceof String)).findFirst().orElse(null);
+						if (numericValue != null) {
+							valueList.addAll(converted);
+							allNumericValues.addAll(converted);
+						} else {
+							valueList.addAll(values);
+							allValues.addAll(values);
+						}
 					});
 				});
 			}
 			attributesMap.put(ATTR_TYPE_WILDCARD, allValues);
+			if (!allNumericValues.isEmpty()) {
+				attributesMap.put(ATTR_NUMERIC_TYPE_WILDCARD, allNumericValues);
+			}
 			return attributesMap;
 		}
 	}

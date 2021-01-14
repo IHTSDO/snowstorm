@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,7 +11,6 @@ import org.snomed.snowstorm.core.data.domain.expression.Expression;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.springframework.util.CollectionUtils;
 
 import java.util.*;
 
@@ -43,6 +41,7 @@ class ExpressionServiceTest extends AbstractTest {
 	private Concept attribute2;
 	private Concept target1;
 	private Concept target2;
+	private ConcreteValue concreteValue1;
 	private List<Concept> allKnownConcepts = new ArrayList<>();
 
 	@BeforeEach
@@ -56,6 +55,7 @@ class ExpressionServiceTest extends AbstractTest {
 		attribute2 = createConcept("1000091", root, PRIMITIVE);
 		target1 = createConcept("1000092", root, FULLY_DEFINED);
 		target2 = createConcept("1000093", root, PRIMITIVE);
+		concreteValue1 = ConcreteValue.from("#500", "dec");
 	}
 
 	@Test
@@ -66,16 +66,29 @@ class ExpressionServiceTest extends AbstractTest {
 		Concept concept3 = createConcept("100003", concept2, FULLY_DEFINED);
 		Concept concept4 = createConcept("100004", concept3, FULLY_DEFINED);
 		concept4.addRelationship(createRelationship(attribute1, target1, 0));
+		Concept concept5 = createConcept("100005", concept4, FULLY_DEFINED);
+		concept5.addRelationship(createRelationship(attribute1, concreteValue1, 0));
+		
 		conceptService.createUpdate(allKnownConcepts, EXPRESSION_TEST_BRANCH);
-
+		
 		Expression exp = expressionService.getConceptAuthoringForm(concept4.getConceptId(), DEFAULT_LANGUAGE_DIALECTS, EXPRESSION_TEST_BRANCH);
+		Expression expCD = expressionService.getConceptAuthoringForm(concept5.getConceptId(), DEFAULT_LANGUAGE_DIALECTS, EXPRESSION_TEST_BRANCH);
 		
 		// Expecting one attribute (fully defined), and a single focus concept of concept 2
 		assertEquals(1, exp.getAttributes().size());
-		assertTrue(!exp.getAttributes().get(0).getValue().isPrimitive());
+		assertTrue(!exp.getAttributes().get(0).getValue().isConcrete());
 		
 		assertEquals(1, exp.getConcepts().size());
 		assertEquals(new ConceptMicro(concept2), exp.getConcepts().get(0));
+		
+		//Concrete example also has 1 attribute (which is concrete) and Concept4 as a focus
+		assertEquals(1, expCD.getAttributes().size());
+		assertTrue(expCD.getAttributes().get(0).getValue().isConcrete());
+		
+		assertEquals(1, expCD.getConcepts().size());
+		//Concept 5 has the sufficiently defined concept4 as an immediate parent, however
+		//in the authoring form we expect to see the proximal primitive parent instead, which is concept2
+		assertEquals(new ConceptMicro(concept2), expCD.getConcepts().get(0));
 	}
 
 	@Test
@@ -152,7 +165,7 @@ class ExpressionServiceTest extends AbstractTest {
 
 		// Expecting one attribute (fully defined), and a single focus concept of concept 2
 		assertEquals(1, exp.getAttributes().size());
-		assertTrue(!exp.getAttributes().get(0).getValue().isPrimitive());
+		assertTrue(!exp.getAttributes().get(0).getValue().isConcrete());
 
 		assertEquals(1, exp.getConcepts().size());
 		assertEquals(new ConceptMicro(concept2), exp.getConcepts().get(0));
@@ -204,6 +217,12 @@ class ExpressionServiceTest extends AbstractTest {
 
 	private Relationship createRelationship(Concept type, Concept target, int groupId) {
 		return new Relationship(nextRel(), type.getConceptId(),target.getConceptId())
+				.setCharacteristicTypeId(Concepts.INFERRED_RELATIONSHIP)
+				.setGroupId(groupId);
+	}
+	
+	private Relationship createRelationship(Concept type, ConcreteValue value, int groupId) {
+		return new Relationship(nextRel(), type.getConceptId(), value)
 				.setCharacteristicTypeId(Concepts.INFERRED_RELATIONSHIP)
 				.setGroupId(groupId);
 	}
