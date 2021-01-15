@@ -5,7 +5,6 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
-import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
@@ -74,9 +73,6 @@ public class CodeSystemService {
 	private ReleaseService releaseService;
 
 	@Autowired
-	private BranchMergeService branchMergeService;
-
-	@Autowired
 	private ConceptService conceptService;
 
 	@Autowired
@@ -97,7 +93,7 @@ public class CodeSystemService {
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
 	private final ConcurrentHashMap<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public synchronized void init() {
 		// Create default code system if it does not yet exist
@@ -458,43 +454,6 @@ public class CodeSystemService {
 	public void deleteAll() {
 		repository.deleteAll();
 		versionRepository.deleteAll();
-	}
-
-	@Deprecated// Deprecated in favour of upgrade operation.
-	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
-	public void migrateDependantCodeSystemVersion(CodeSystem codeSystem, String dependantCodeSystem, Integer newDependantVersion, boolean copyMetadata) throws ServiceException {
-		try {
-			CodeSystemVersion newDependantCodeSystemVersion = versionRepository.findOneByShortNameAndEffectiveDate(dependantCodeSystem, newDependantVersion);
-			if (newDependantCodeSystemVersion == null) {
-				throw new IllegalStateException("No matching Code System version found for " + dependantCodeSystem + " at " + newDependantVersion);
-			}
-			if (newDependantCodeSystemVersion.getShortName().equals(codeSystem.getShortName())) {
-				throw new IllegalArgumentException("Code System can not depend on itself.");
-			}
-
-			logger.info("Migrating code system {} to depend on {} release {}", codeSystem.getShortName(), newDependantCodeSystemVersion.getShortName(),
-					newDependantCodeSystemVersion.getEffectiveDate());
-
-			String sourceBranchPath = codeSystem.getBranchPath();
-			String targetBranchPath = newDependantCodeSystemVersion.getParentBranchPath() + BranchPathUriUtil.SLASH
-					+ newDependantCodeSystemVersion.getVersion() + BranchPathUriUtil.SLASH + codeSystem.getShortName();
-
-			branchMergeService.copyBranchToNewParent(sourceBranchPath, targetBranchPath);
-
-			// Update code system branch path
-			codeSystem.setBranchPath(targetBranchPath);
-			repository.save(codeSystem);
-
-			if (copyMetadata) {
-				Branch sourceBranch = branchService.findBranchOrThrow(sourceBranchPath);
-				Branch targetBranch = branchService.findBranchOrThrow(targetBranchPath);
-				branchService.updateMetadata(targetBranch.getPath(), sourceBranch.getMetadata());
-			}
-
-			logger.info("Migrated code system {} to {}. Run an integrity check next then fix content.", codeSystem.getShortName(), targetBranchPath);
-		} catch (ConcurrentModificationException e) {
-			throw new ServiceException("Code system migration failed.", e);
-		}
 	}
 
 	CodeSystem findOneByBranchPath(String path) {

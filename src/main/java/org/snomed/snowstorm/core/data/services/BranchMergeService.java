@@ -157,26 +157,6 @@ public class BranchMergeService {
 		return branchMergeJobRepository.findById(id).orElseThrow(() -> new NotFoundException("Branch merge job not found."));
 	}
 
-	/**
-	 * Merge content from one branch to another without one being a parent of the other.
-	 * This should probably only be used for code system upgrades/downgrades.
-	 * @param source The branch to copy content from.
-	 * @param target The branch to copy content to.
-	 */
-	void copyBranchToNewParent(String source, String target) {
-
-		if (!branchService.exists(target)) {
-			branchService.create(target);
-		}
-
-		try (Commit commit = branchService.openCommit(target, branchMetadataHelper.getBranchLockMetadata("Copying changes from " + source))) {
-			logger.info("Performing migration {} -> {}", source, target);
-			final Map<Class<? extends SnomedComponent>, ElasticsearchRepository> componentTypeRepoMap = domainEntityConfiguration.getComponentTypeRepositoryMap();
-			componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> copyChangesOnBranchToCommit(source, commit, entry.getKey(), entry.getValue(), "Migrating", false));
-			commit.markSuccessful();
-		}
-	}
-
 	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts) throws ServiceException {
 		logger.info("Request merge {} -> {}", source, target);
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
