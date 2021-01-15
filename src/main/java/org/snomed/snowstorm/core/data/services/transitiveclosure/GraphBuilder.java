@@ -9,7 +9,7 @@ import java.util.Collection;
 
 public class GraphBuilder {
 
-	private Long2ObjectMap<Node> nodeLookup = new Long2ObjectOpenHashMap<>();
+	private final Long2ObjectMap<Node> nodeLookup = new Long2ObjectOpenHashMap<>();
 
 	private static final Logger LOGGER = LoggerFactory.getLogger(GraphBuilder.class);
 
