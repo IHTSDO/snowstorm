@@ -6,6 +6,9 @@ http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code
 #### Code System Lookup of 427623005 |Obstetric umbilical artery Doppler (procedure)|
 http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=427623005
 
+#### Code System Lookup including as-yet-unpublished changes (using snomed.info/xsct)
+http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/xsct&code=427623005
+
 #### Code System Lookup of medicinal product including normalForm and sufficientlyDefined properties.  Properties are listed here: [https://www.hl7.org/fhir/snomedct.html#props]
 http://localhost:8080/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=322236009&property=normalForm&property=sufficientlyDefined
 
