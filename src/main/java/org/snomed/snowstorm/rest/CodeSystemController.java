@@ -14,7 +14,10 @@ import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.snomed.snowstorm.extension.ExtensionAdditionalLanguageRefsetUpgradeService;
-import org.snomed.snowstorm.rest.pojo.*;
+import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
+import org.snomed.snowstorm.rest.pojo.CodeSystemUpgradeRequest;
+import org.snomed.snowstorm.rest.pojo.CreateCodeSystemVersionRequest;
+import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -125,18 +128,6 @@ public class CodeSystemController {
 	public void upgradeCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpgradeRequest request) throws ServiceException {
 		CodeSystem codeSystem = codeSystemService.findOrThrow(shortName);
 		codeSystemUpgradeService.upgrade(codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()));
-	}
-
-	@ApiOperation(value = "DEPRECATED - Migrate code system to a different dependant version.",
-			notes = "DEPRECATED in favour of upgrade operation. " +
-					"This operation is required when an extension exists under an International version branch, for example: MAIN/2019-01-31/SNOMEDCT-BE. " +
-					"An integrity check should be run after this operation to find content that needs fixing.")
-	@RequestMapping(value = "/{shortName}/migrate", method = RequestMethod.POST)
-	public void migrateCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemMigrationRequest request) throws ServiceException {
-		CodeSystem codeSystem = codeSystemService.find(shortName);
-		ControllerHelper.throwIfNotFound("CodeSystem", codeSystem);
-
-		codeSystemService.migrateDependantCodeSystemVersion(codeSystem, request.getDependantCodeSystem(), request.getNewDependantVersion(), request.isCopyMetadata());
 	}
 
 	@ApiOperation(value = "Rollback daily build commits.",
