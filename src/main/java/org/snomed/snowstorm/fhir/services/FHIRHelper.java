@@ -359,10 +359,15 @@ public class FHIRHelper implements FHIRConstants {
 			
 			if (codeSystem.asStringValue().equals(SNOMED_URI_UNVERSIONED)) {
 				codeSystem.setValue(SNOMED_URI);
-				if (version.asStringValue().contains(VERSION)) {
+				if (version != null && version.asStringValue().contains(VERSION)) {
 					throw new FHIROperationException(IssueType.CONFLICT, "Use either xsct or version, not both");
 				} else if (version == null || getSnomedEditionModule(version.asStringValue()).equals(Concepts.CORE_MODULE)) {
-					version.setValue(SNOMED_URI_DEFAULT_MODULE + VERSION + UNVERSIONED_STR);
+					String versionStr = SNOMED_URI_DEFAULT_MODULE + VERSION + UNVERSIONED_STR;
+					if (version == null) {
+						version = new StringType(versionStr);
+					} else {
+						version.setValue(versionStr);
+					}
 				}
 			}
 		} else {
