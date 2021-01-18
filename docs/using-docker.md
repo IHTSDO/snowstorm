@@ -17,7 +17,7 @@ This uses the [`docker-compose.yml`](../docker-compose.yml) file and will start 
 
 ## Loading SNOMED CT
 
-To get SNOMED CT into your new docker environment, youi will need load a SNOMED CT release directly into the running docker container using the [loading SNOMED instructions](loading-snomed.md).
+To get SNOMED CT into your new docker environment, you will need load a SNOMED CT release directly into the running docker container using the [loading SNOMED instructions](loading-snomed.md).
 
 The [`docker-compose.yml`](../docker-compose.yml) creates a docker volume that will be re-used when the containers are rebuilt, so your data will not be lost unless the volume is deleted.
 
