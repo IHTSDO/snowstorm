@@ -140,8 +140,8 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		if (rebuild && !completeRebuild) {
 			// Take existing content from parent branch
 			previousStateCriteria = versionControlHelper.getBranchCriteriaAtTimepoint(PathUtil.getParentPath(commit.getBranch().getPath()), commit.getTimepoint());
-			// Standard selection on already committed content
-			newStateCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
+			// Standard selection on already committed content. Including open commit to include manually resolved conflicts.
+			newStateCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 			// Process all changes on branch
 			changesCriteria = versionControlHelper.getChangesOnBranchCriteria(commit.getBranch());
 		} else {
