@@ -123,21 +123,6 @@ class CodeSystemControllerSecurityTest extends AbstractControllerSecurityTest {
 	}
 
 	@Test
-	void migrateCodeSystem() throws URISyntaxException {
-		RequestEntity<Object> requestMAIN = new RequestEntity<>(new CodeSystemMigrationRequest(), HttpMethod.POST, new URI(url + "/codesystems/" + "SNOMEDCT" + "/migrate"));
-		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
-		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
-		testStatusCode(HttpStatus.FORBIDDEN, extensionAdminHeaders, requestMAIN);
-		testStatusCode(HttpStatus.BAD_REQUEST, globalAdminHeaders, requestMAIN);
-
-		RequestEntity<Object> requestA = new RequestEntity<>(new CodeSystemMigrationRequest(), HttpMethod.POST, new URI(url + "/codesystems/" + "SNOMEDCT-A" + "/migrate"));
-		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestA);
-		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestA);
-		testStatusCode(HttpStatus.BAD_REQUEST, extensionAdminHeaders, requestA);
-		testStatusCode(HttpStatus.BAD_REQUEST, globalAdminHeaders, requestA);
-	}
-
-	@Test
 	void rollbackDailyBuildContent() throws URISyntaxException {
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/codesystems/" + "SNOMEDCT" + "/daily-build/rollback"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
