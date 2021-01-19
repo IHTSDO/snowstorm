@@ -456,12 +456,12 @@ class BranchMergeServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(leftConcept));
 
 		assertEquals("100009002", conceptService.find(conceptId, "MAIN/A/A2").getModuleId());
+		assertEquals(toLongSet(Concepts.SNOMEDCT_ROOT, Concepts.CLINICAL_FINDING, "131148009"), queryService.findAncestorIds(conceptId, "MAIN/A/A2", true));
 
 		// Promote the branch (no conflicts at this point)
 		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
 		assertEquals("100009002", conceptService.find(conceptId, "MAIN/A").getModuleId());
-		Set<Long> ancestorIds = queryService.findAncestorIds(conceptId, "MAIN/A", true);
-		assertEquals(toLongSet(Concepts.SNOMEDCT_ROOT, Concepts.CLINICAL_FINDING, "131148009"), ancestorIds);
+		assertEquals(toLongSet(Concepts.SNOMEDCT_ROOT, Concepts.CLINICAL_FINDING, "131148009"), queryService.findAncestorIds(conceptId, "MAIN/A", true));
 	}
 
 	@Test
