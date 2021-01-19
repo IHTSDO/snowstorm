@@ -277,7 +277,7 @@ public class ConceptController {
 		return ControllerHelper.throwIfNotFound("Concept", concept);
 	}
 
-	@ApiOperation(value = "View the history of a Concept.")
+	@ApiOperation(value = "View the history of a Concept.", notes = "Response details historical changes for the given Concept.")
 	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}/history", method = RequestMethod.GET, produces = {"application/json"})
 	public ConceptHistory viewConceptHistory(@PathVariable String branch, @PathVariable String conceptId, @RequestParam(required = false, defaultValue = "false") boolean showFutureVersions) {
 		branch = BranchPathUriUtil.decodePath(branch);

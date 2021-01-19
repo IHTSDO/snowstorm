@@ -662,7 +662,6 @@ class ConceptControllerTest extends AbstractTest {
 		});
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
-		ConceptHistory.ConceptHistoryItem januaryRelease = conceptHistory.getConceptHistoryItem("20200131").get();
 
 		//then
 		assertEquals(1, history.size()); //Future version shouldn't appear
@@ -750,7 +749,6 @@ class ConceptControllerTest extends AbstractTest {
 		});
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
-		ConceptHistory.ConceptHistoryItem januaryRelease = conceptHistory.getConceptHistoryItem("20200131").get();
 
 		//then
 		assertEquals(2, history.size()); //Future version should appear
