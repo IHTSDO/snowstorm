@@ -29,7 +29,6 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	public interface Fields extends SnomedComponent.Fields {
 		String CONCEPT_ID = "conceptId";
 		String DEFINITION_STATUS_ID = "definitionStatusId";
-		String PATH = "path";
 	}
 
 	@JsonView(value = View.Component.class)
