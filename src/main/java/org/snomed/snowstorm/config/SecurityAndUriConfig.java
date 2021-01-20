@@ -227,6 +227,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 		// Don't show the error or root endpoints in swagger
 		apiSelectorBuilder
+				.paths(not(regex("/actuator.*")))
 				.paths(not(regex("/error")))
 				.paths(not(regex("/")));
 
