@@ -44,9 +44,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import javax.annotation.Nullable;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.BiFunction;
@@ -61,8 +58,6 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 @Service
 public class ConceptService extends ComponentService {
 	private static final Map<ComponentType, Class<? extends DomainEntity<?>>> COMPONENT_DOCUMENT_TYPES = new HashMap<>();
-	private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd")
-			.withLocale(Locale.UK).withZone(ZoneId.of("Europe/London"));
 
 	static {
 		COMPONENT_DOCUMENT_TYPES.put(ComponentType.Concept, Concept.class);
@@ -157,14 +152,11 @@ public class ConceptService extends ComponentService {
 		return doFind(conceptIds, languageDialects, new BranchTimepoint(path), pageRequest);
 	}
 
-	public ConceptHistory loadConceptHistory(String conceptId, List<CodeSystemVersion> codeSystemVersions, boolean showFutureVersions) {
-		int now = Integer.parseInt(DATE_TIME_FORMATTER.format(Instant.now()));
+	public ConceptHistory loadConceptHistory(String conceptId, List<CodeSystemVersion> codeSystemVersions) {
 		Map<String, BranchCriteria> branchCriteria = new HashMap<>();
 		for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
-			if (showFutureVersions || codeSystemVersion.getEffectiveDate() < now) {
-				String branchPath = codeSystemVersion.getBranchPath();
-				branchCriteria.put(branchPath, versionControlHelper.getBranchCriteria(branchPath));
-			}
+			String branchPath = codeSystemVersion.getBranchPath();
+			branchCriteria.put(branchPath, versionControlHelper.getBranchCriteria(branchPath));
 		}
 
 		BiFunction<String, ComponentType, BoolQueryBuilder> defaultFullQuery = (cId, cT) -> {
