@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import org.snomed.snowstorm.core.data.domain.ComponentType;
 
 import java.util.*;
@@ -68,7 +69,9 @@ public class ConceptHistory {
     public static class ConceptHistoryItem {
         private final String effectiveTime;
         private final String branch;
-        private final Set<ComponentType> componentTypes = new TreeSet<>(Comparator.naturalOrder());
+
+        @JsonDeserialize(as = TreeSet.class)
+        private final Set<ComponentType> componentTypes = new TreeSet<>();
 
         public ConceptHistoryItem() {
             this.effectiveTime = null;
