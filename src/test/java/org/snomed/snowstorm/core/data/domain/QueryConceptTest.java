@@ -64,7 +64,7 @@ class QueryConceptTest {
 		expectedAttrMap.put("234", Sets.newHashSet(500));
 		expectedAttrMap.put("2345", Sets.newHashSet("\"test\""));
 		expectedAttrMap.put("1234", Sets.newHashSet("123"));
-		expectedAttrMap.put("all_numeric", Sets.newHashSet(500));
+		expectedAttrMap.put("all_numeric", Sets.newHashSet(500.0f));
 		assertEquals(expectedAttrMap, queryConcept.getAttr());
 
 		String json = objectMapper.writeValueAsString(queryConcept);

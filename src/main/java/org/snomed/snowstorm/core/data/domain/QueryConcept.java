@@ -323,7 +323,10 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 						// add numeric concrete values to all numeric values field for wildcard query
 						List<Object> numericValues = values.stream().filter(v -> !(v instanceof String)).collect(Collectors.toList());
 						if (!numericValues.isEmpty()) {
-							allNumericValues.addAll(numericValues);
+							for (Object numericValue : numericValues) {
+								// to make sure the all_numeric field is set to float data type
+								allNumericValues.add(Float.valueOf(numericValue.toString()));
+							}
 						} else {
 							allValues.addAll(values);
 						}
