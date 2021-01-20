@@ -161,7 +161,7 @@ public class ConceptService extends ComponentService {
 
 		BiFunction<String, ComponentType, BoolQueryBuilder> defaultFullQuery = (cId, cT) -> {
 			BoolQueryBuilder fullQuery = boolQuery();
-			fullQuery.should(
+			fullQuery.must(
 					boolQuery() //Query for released Components
 							.must(existsQuery(Concept.Fields.EFFECTIVE_TIME))
 							.must(existsQuery(Concept.Fields.PATH))
