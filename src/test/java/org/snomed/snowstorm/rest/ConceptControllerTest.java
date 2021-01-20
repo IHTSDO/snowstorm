@@ -484,27 +484,19 @@ class ConceptControllerTest extends AbstractTest {
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
 		ConceptHistory.ConceptHistoryItem januaryRelease = conceptHistory.getConceptHistoryItem("20200131").get();
 		ConceptHistory.ConceptHistoryItem julyRelease = conceptHistory.getConceptHistoryItem("20200731").get();
-		Set<ComponentType> januaryReleaseComponentTypes = januaryRelease.getComponentTypes();
-		Set<ComponentType> julyReleaseComponentTypes = julyRelease.getComponentTypes();
+		List<ComponentType> januaryReleaseComponentTypes = new ArrayList<>(januaryRelease.getComponentTypes());
+		List<ComponentType> julyReleaseComponentTypes = new ArrayList<>(julyRelease.getComponentTypes());
 
 		//then
 		assertEquals(200, responseEntity.getStatusCodeValue());
 		assertEquals(2, history.size()); //Concept has changed since previous version.
 		assertEquals(4, januaryReleaseComponentTypes.size()); //Concept was created with Description, Relationship & Axiom
 		assertEquals(1, julyReleaseComponentTypes.size()); //Description was added
-
-		for (ComponentType componentType : januaryReleaseComponentTypes) {
-			assertTrue(
-					componentType.equals(ComponentType.Concept) ||
-							componentType.equals(ComponentType.Description) ||
-							componentType.equals(ComponentType.Relationship) ||
-							componentType.equals(ComponentType.Axiom)
-			);
-		}
-
-		for (ComponentType componentType : julyReleaseComponentTypes) {
-			assertEquals(componentType, ComponentType.Description);
-		}
+		assertEquals(ComponentType.Concept, januaryReleaseComponentTypes.get(0));
+		assertEquals(ComponentType.Description, januaryReleaseComponentTypes.get(1));
+		assertEquals(ComponentType.Relationship, januaryReleaseComponentTypes.get(2));
+		assertEquals(ComponentType.Axiom, januaryReleaseComponentTypes.get(3));
+		assertEquals(ComponentType.Description, julyReleaseComponentTypes.get(0));
 	}
 
 	@Test
@@ -563,21 +555,16 @@ class ConceptControllerTest extends AbstractTest {
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
 		ConceptHistory.ConceptHistoryItem januaryRelease = conceptHistory.getConceptHistoryItem("20200131").get();
-		Set<ComponentType> januaryReleaseComponentTypes = januaryRelease.getComponentTypes();
+		List<ComponentType> januaryReleaseComponentTypes = new ArrayList<>(januaryRelease.getComponentTypes());
 
 		//then
 		assertEquals(200, responseEntity.getStatusCodeValue());
 		assertEquals(1, history.size()); //Concept has not changed since first release.
 		assertEquals(4, januaryReleaseComponentTypes.size()); //Concept was created with Description, Relationship & Axiom
-
-		for (ComponentType componentType : januaryReleaseComponentTypes) {
-			assertTrue(
-					componentType.equals(ComponentType.Concept) ||
-							componentType.equals(ComponentType.Description) ||
-							componentType.equals(ComponentType.Relationship) ||
-							componentType.equals(ComponentType.Axiom)
-			);
-		}
+		assertEquals(ComponentType.Concept, januaryReleaseComponentTypes.get(0));
+		assertEquals(ComponentType.Description, januaryReleaseComponentTypes.get(1));
+		assertEquals(ComponentType.Relationship, januaryReleaseComponentTypes.get(2));
+		assertEquals(ComponentType.Axiom, januaryReleaseComponentTypes.get(3));
 	}
 
 	@Test
@@ -662,7 +649,6 @@ class ConceptControllerTest extends AbstractTest {
 		});
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
-		ConceptHistory.ConceptHistoryItem januaryRelease = conceptHistory.getConceptHistoryItem("20200131").get();
 
 		//then
 		assertEquals(1, history.size()); //Future version shouldn't appear
@@ -750,7 +736,6 @@ class ConceptControllerTest extends AbstractTest {
 		});
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
-		ConceptHistory.ConceptHistoryItem januaryRelease = conceptHistory.getConceptHistoryItem("20200131").get();
 
 		//then
 		assertEquals(2, history.size()); //Future version should appear
