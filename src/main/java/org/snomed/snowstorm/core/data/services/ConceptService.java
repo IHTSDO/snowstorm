@@ -44,9 +44,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 import javax.annotation.Nullable;
-import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -159,56 +159,60 @@ public class ConceptService extends ComponentService {
 		return doFind(conceptIds, languageDialects, new BranchTimepoint(path), pageRequest);
 	}
 
-	public ConceptHistory loadConceptHistory(String conceptId, List<CodeSystemVersion> codeSystemVersions, boolean showFutureVersions) {
+	public ConceptHistory loadConceptHistory(String conceptId, List<CodeSystemVersion> codeSystemVersions) {
 		Map<String, BranchCriteria> branchCriteria = new HashMap<>();
 		for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
 			String branchPath = codeSystemVersion.getBranchPath();
 			branchCriteria.put(branchPath, versionControlHelper.getBranchCriteria(branchPath));
 		}
 
-		Function<String, BoolQueryBuilder> defaultBoolQueryFunction = cId -> {
-			BoolQueryBuilder someReleaseBranch = boolQuery();
-			BoolQueryBuilder boolQueryBuilder = boolQuery();
+		BiFunction<String, ComponentType, BoolQueryBuilder> defaultFullQuery = (cId, cT) -> {
+			BoolQueryBuilder fullQuery = boolQuery();
+			fullQuery.must(
+					boolQuery() //Query for released Components
+							.must(existsQuery(Concept.Fields.EFFECTIVE_TIME))
+							.must(existsQuery(Concept.Fields.PATH))
+			);
 
-			if (!showFutureVersions) {
-				boolQueryBuilder.must(
-						rangeQuery(Concept.Fields.EFFECTIVE_TIME)
-								.lte(Integer.parseInt(new SimpleDateFormat("yyyyMMdd").format(new Date())))
+			if (ComponentType.Axiom.equals(cT)) {
+				fullQuery.must(
+						boolQuery() //Query for Axioms
+								.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
+								.minimumShouldMatch(1)
+								.should(termQuery(ReferenceSetMember.Fields.CONCEPT_ID, cId))
+								.should(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, cId))
+				);
+			} else {
+				fullQuery.must(
+						boolQuery() //Query for Concepts, Descriptions & Relationships
+								.minimumShouldMatch(1)
+								.should(termQuery(Concept.Fields.CONCEPT_ID, cId))
+								.should(termQuery(Relationship.Fields.SOURCE_ID, cId))
 				);
 			}
-
-			boolQueryBuilder.must(someReleaseBranch);
-			boolQueryBuilder.must(existsQuery(Concept.Fields.EFFECTIVE_TIME));
-			boolQueryBuilder.minimumShouldMatch(1);
-			boolQueryBuilder.should(termQuery(Concept.Fields.CONCEPT_ID, cId)); //Find for Concept, Description & Axiom (RefSetMember) documents
-			boolQueryBuilder.should(termQuery(Relationship.Fields.SOURCE_ID, cId)); //Find for Relationship documents
-
-			return boolQueryBuilder;
+			return fullQuery;
 		};
+
 		ConceptHistory conceptHistory = new ConceptHistory(conceptId);
 		for (Map.Entry<ComponentType, Class<? extends DomainEntity<?>>> entrySet : COMPONENT_DOCUMENT_TYPES.entrySet()) {
 			ComponentType componentType = entrySet.getKey();
 			Class<? extends DomainEntity<?>> documentType = entrySet.getValue();
-			BoolQueryBuilder boolQueryBuilder = defaultBoolQueryFunction.apply(conceptId);
-
-			if (componentType.equals(ComponentType.Axiom)) {
-				BoolQueryBuilder axiomShoulds = boolQuery();
-				boolQueryBuilder.must(axiomShoulds);
-				boolQueryBuilder.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET));
-			}
+			BoolQueryBuilder fullQuery = defaultFullQuery.apply(conceptId, componentType);
+			BoolQueryBuilder codeSystemQuery = boolQuery();
 
 			for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
-				boolQueryBuilder
+				codeSystemQuery
 						.should(
 								boolQuery()
 										.must(branchCriteria.get(codeSystemVersion.getBranchPath()).getEntityBranchCriteria(documentType))
 										.must(termQuery(Concept.Fields.EFFECTIVE_TIME, codeSystemVersion.getEffectiveDate()))
 						);
+				fullQuery.must(codeSystemQuery);
 			}
 
 			SearchHits<? extends DomainEntity<?>> searchHits = elasticsearchTemplate.search(
 					new NativeSearchQueryBuilder()
-							.withQuery(boolQueryBuilder)
+							.withQuery(fullQuery)
 							.withPageable(LARGE_PAGE)
 							.build(),
 					documentType
