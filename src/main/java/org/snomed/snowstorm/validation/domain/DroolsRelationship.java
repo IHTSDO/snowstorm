@@ -54,7 +54,7 @@ public class DroolsRelationship implements org.ihtsdo.drools.domain.Relationship
 
 	@Override
 	public String getConcreteValue() {
-		return null;
+		return relationship.getValue();
 	}
 
 	@Override
