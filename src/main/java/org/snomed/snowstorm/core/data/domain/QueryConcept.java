@@ -9,6 +9,7 @@ import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Represents an active concept with fields to assist logical searching.
@@ -53,7 +54,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	private String attrMap;
 
 	@Transient
-	private Map<Integer, Map<String, List<String>>> groupedAttributesMap;
+	private Map<Integer, Map<String, List<Object>>> groupedAttributesMap;
 
 	public QueryConcept() {
 	}
@@ -72,7 +73,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		}
 	}
 
-	public void addAttribute(int group, Long type, String value) {
+	public void addAttribute(int group, Long type, Object value) {
 		if (groupedAttributesMap == null) {
 			groupedAttributesMap = new HashMap<>();
 		}
@@ -85,10 +86,10 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		if (groupedAttributesMap == null) {
 			groupedAttributesMap = new HashMap<>();
 		}
-		Map<String, List<String>> groupAttributes = groupedAttributesMap.get(group);
+		Map<String, List<Object>> groupAttributes = groupedAttributesMap.get(group);
 		if (groupAttributes != null) {
 
-			List<String> typeValues = groupAttributes.get(type.toString());
+			List<Object> typeValues = groupAttributes.get(type.toString());
 			if (typeValues != null) {
 				typeValues.remove(value.toString());
 				if (typeValues.isEmpty()) {
@@ -103,7 +104,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	}
 
 	@JsonIgnore
-	public Map<Integer, Map<String, List<String>>> getGroupedAttributesMap() {
+	public Map<Integer, Map<String, List<Object>>> getGroupedAttributesMap() {
 		if (groupedAttributesMap == null && this.attrMap != null) {
 			return GroupedAttributesMapSerializer.deserializeMap(this.attrMap);
 		}
@@ -226,19 +227,22 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 
 	private static final class GroupedAttributesMapSerializer {
 
-		private static String serializeMap(Map<Integer, Map<String, List<String>>> groupedAttributesMap) {
+		private static String serializeMap(Map<Integer, Map<String, List<Object>>> groupedAttributesMap) {
 			if (groupedAttributesMap == null) {
 				return "";
 			}
 			final StringBuilder builder = new StringBuilder();
 			for (Integer groupNo : groupedAttributesMap.keySet()) {
-				Map<String, List<String>> attributes = groupedAttributesMap.get(groupNo);
+				Map<String, List<Object>> attributes = groupedAttributesMap.get(groupNo);
 				builder.append(groupNo);
 				builder.append(":");
 				for (String type : attributes.keySet()) {
 					builder.append(type);
 					builder.append("=");
-					for (String value : attributes.get(type)) {
+					for (Object value : attributes.get(type)) {
+						if (!(value instanceof String)) {
+							builder.append("#");
+						}
 						builder.append(value);
 						builder.append(",");
 					}
@@ -259,8 +263,8 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 			return builder;
 		}
 
-		private static Map<Integer, Map<String, List<String>>> deserializeMap(String attrMap) {
-			Map<Integer, Map<String, List<String>>> groupedAttributesMap = new HashMap<>();
+		private static Map<Integer, Map<String, List<Object>>> deserializeMap(String attrMap) {
+			Map<Integer, Map<String, List<Object>>> groupedAttributesMap = new HashMap<>();
 			if (attrMap.isEmpty()) {
 				return groupedAttributesMap;
 			}
@@ -268,13 +272,14 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 			for (String group : groups) {
 				String[] attributes = group.split(":");
 				int groupNo = Integer.parseInt(attributes[0]);
-				Map<String, List<String>> attributeMap = new HashMap<>();
+				Map<String, List<Object>> attributeMap = new HashMap<>();
 				for (int i = 1; i < attributes.length; i++) {
 					String attribute = attributes[i];
 					String[] attrParts = attribute.split("=");
 					String type = attrParts[0];
 					String[] values = attrParts[1].split(",");
-					attributeMap.put(type, Arrays.asList(values));
+					List<Object> transformed = checkAndTransformConcreteValues(Arrays.asList(values));
+					attributeMap.put(type, transformed);
 				}
 				groupedAttributesMap.put(groupNo, attributeMap);
 			}
@@ -289,10 +294,10 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 					if (!NumberUtils.isParsable(numeric)) {
 						throw new IllegalArgumentException(String.format("%s is not a valid number", numeric));
 					}
-					// number
-					long longValue = NumberUtils.toLong(numeric);
-					if (longValue != 0) {
-						transformed.add(longValue);
+					// integer value
+					int intValue = NumberUtils.toInt(numeric, -1);
+					if (intValue != -1) {
+						transformed.add(intValue);
 					} else {
 						float floatValue = NumberUtils.toFloat(numeric, -1.0f);
 						if (floatValue != -1.0f) {
@@ -306,7 +311,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 			return transformed;
 		}
 
-		private static Map<String, Set<Object>> serializeFlatMap(Map<Integer, Map<String, List<String>>> groupedAttributesMap) {
+		private static Map<String, Set<Object>> serializeFlatMap(Map<Integer, Map<String, List<Object>>> groupedAttributesMap) {
 			Map<String, Set<Object>> attributesMap = new HashMap<>();
 			Set<Object> allValues = new HashSet<>();
 			Set<Object> allNumericValues = new HashSet<>();
@@ -314,14 +319,12 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 				groupedAttributesMap.forEach((group, attributes) -> {
 					attributes.forEach((type, values) -> {
 						Set<Object> valueList = attributesMap.computeIfAbsent(type, (t) -> new HashSet<>());
-						List<Object> converted = checkAndTransformConcreteValues(values);
-						// add numeric fields for concrete values with #
-						Object numericValue = converted.stream().filter(v -> !(v instanceof String)).findFirst().orElse(null);
-						if (numericValue != null) {
-							valueList.addAll(converted);
-							allNumericValues.addAll(converted);
+						valueList.addAll(values);
+						// add numeric concrete values to all numeric values field for wildcard query
+						List<Object> numericValues = values.stream().filter(v -> !(v instanceof String)).collect(Collectors.toList());
+						if (!numericValues.isEmpty()) {
+							allNumericValues.addAll(numericValues);
 						} else {
-							valueList.addAll(values);
 							allValues.addAll(values);
 						}
 					});

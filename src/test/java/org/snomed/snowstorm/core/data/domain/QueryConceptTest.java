@@ -47,7 +47,7 @@ class QueryConceptTest {
 		queryConcept.addAttribute(3, 123L, "456");
 		assertEquals("1:123=456,789:1234=123|3:123=456", queryConcept.getAttrMap());
 
-		queryConcept.addAttribute(3, 234L, "#500");
+		queryConcept.addAttribute(3, 234L, 500);
 		assertEquals("1:123=456,789:1234=123|3:123=456:234=#500", queryConcept.getAttrMap());
 
 
@@ -55,16 +55,16 @@ class QueryConceptTest {
 		assertEquals("1:123=456,789:1234=123|3:123=456:234=#500|4:2345=\"test\"", queryConcept.getAttrMap());
 
 		queryConcept.serializeGroupedAttributesMap();
-		Map<Integer, Map<String, List<String>>> groupedAttributesMap = queryConcept.getGroupedAttributesMap();
+		Map<Integer, Map<String, List<Object>>> groupedAttributesMap = queryConcept.getGroupedAttributesMap();
 		assertEquals(3, groupedAttributesMap.size());
 
 		Map<String, Set<Object>> expectedAttrMap = new HashMap<>();
 		expectedAttrMap.put("all", Sets.newHashSet("123", "456", "789", "\"test\""));
 		expectedAttrMap.put("123", Sets.newHashSet("456", "789"));
-		expectedAttrMap.put("234", Sets.newHashSet(500L));
+		expectedAttrMap.put("234", Sets.newHashSet(500));
 		expectedAttrMap.put("2345", Sets.newHashSet("\"test\""));
 		expectedAttrMap.put("1234", Sets.newHashSet("123"));
-		expectedAttrMap.put("all_numeric", Sets.newHashSet(500L));
+		expectedAttrMap.put("all_numeric", Sets.newHashSet(500));
 		assertEquals(expectedAttrMap, queryConcept.getAttr());
 
 		String json = objectMapper.writeValueAsString(queryConcept);

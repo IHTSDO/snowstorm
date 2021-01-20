@@ -9,6 +9,7 @@ import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Entity;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import org.apache.commons.lang3.math.NumberUtils;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +22,9 @@ import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilder;
 import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilderException;
 import org.snomed.snowstorm.core.data.services.transitiveclosure.Node;
 import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.mrcm.MRCMLoader;
+import org.snomed.snowstorm.mrcm.model.AttributeRange;
+import org.snomed.snowstorm.mrcm.model.MRCM;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -73,14 +77,18 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	@Autowired
 	private AxiomConversionService axiomConversionService;
 
+	@Autowired
+	private MRCMLoader mrcmLoader;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
 
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
 		if (semanticIndexingEnabled) {
 			try {
 				updateStatedAndInferredSemanticIndex(commit);
-			} catch (ConversionException | GraphBuilderException e) {
+			} catch (ConversionException | GraphBuilderException | ServiceException e) {
 				throw new IllegalStateException("Failed to update semantic index. " + e.getMessage(), e);
 			}
 		} else {
@@ -97,7 +105,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 	}
 
-	private void updateStatedAndInferredSemanticIndex(Commit commit) throws IllegalStateException, ConversionException, GraphBuilderException {
+	private void updateStatedAndInferredSemanticIndex(Commit commit) throws IllegalStateException, ConversionException, GraphBuilderException, ServiceException {
 		if (commit.isRebase()) {
 			rebuildSemanticIndex(commit);
 		} else if (commit.getCommitType() != Commit.CommitType.PROMOTION) {
@@ -112,7 +120,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// If promotion the semantic changes will be promoted with the rest of the content.
 	}
 
-	private void rebuildSemanticIndex(Commit commit) throws ConversionException, GraphBuilderException {
+	private void rebuildSemanticIndex(Commit commit) throws ConversionException, GraphBuilderException, ServiceException {
 		// Recreate query index using new parent base point + content on this branch
 		Branch branch = commit.getBranch();
 		removeQConceptChangesOnBranch(commit);
@@ -126,7 +134,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	}
 
 	private void updateSemanticIndex(Form form, BranchCriteria changesBranchCriteria, Set<String> internalIdsOfDeletedComponents, Commit commit,
-			List<Branch> timeSlice, boolean completeRebuild) throws IllegalStateException, ConversionException, GraphBuilderException {
+			List<Branch> timeSlice, boolean completeRebuild) throws IllegalStateException, ConversionException, GraphBuilderException, ServiceException {
 
 		// Note: Searches within this method use a filter clause for collections of identifiers because these
 		//       can become larger than the maximum permitted query criteria.
@@ -157,28 +165,30 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			graphBuilder.clearParentsAndMarkUpdated(updatedConceptId);
 		}
 
-		BiConsumer<SnomedComponent, Relationship> relationshipConsumer = (component, relationship) -> {
+		final Map<String, ConcreteValue.DataType> concreteAttributeDataTypeMap = getConcreteAttributeDataTypeMap(commit);
+		BiConsumer<SnomedComponent<?>, Relationship> relationshipConsumer = (component, relationship) -> {
 			if (activeNow(component, timeSlice)) {
 				long conceptId = parseLong(relationship.getSourceId());
 				int groupId = relationship.getGroupId();
 				long type = parseLong(relationship.getTypeId());
 				Integer effectiveTime = component.getEffectiveTimeI();
-				String value = relationship.getValue();
 				if (relationship.isConcrete()) {
-					conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value);
+					conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges())
+							.addAttribute(effectiveTime, groupId, type, convertConcreteValue(relationship, concreteAttributeDataTypeMap));
 				} else {
 					// use destination concepts
-					value = relationship.getDestinationId();
-					requiredActiveConcepts.add(parseLong(value));
+					Long destinationId = parseLong(relationship.getDestinationId());
+					requiredActiveConcepts.add(destinationId);
 					if (type == IS_A_TYPE) {
-						graphBuilder.addParent(conceptId, parseLong(value));
+						graphBuilder.addParent(conceptId, destinationId);
 						// Concept model object attribute is not linked to the concept hierarchy by any axiom
 						// however we want the link in the semantic index so let's add it here.
-						if (CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG == parseLong(value)) {
+						if (CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG == destinationId) {
 							graphBuilder.addParent(CONCEPT_MODEL_OBJECT_ATTRIBUTE_LONG, CONCEPT_MODEL_ATTRIBUTE_LONG);
 						}
 					} else {
-						conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, value);
+						// Destination concept id is stored as String in the semantic index
+						conceptAttributeChanges.computeIfAbsent(conceptId, (c) -> new AttributeChanges()).addAttribute(effectiveTime, groupId, type, destinationId.toString());
 					}
 				}
 				requiredActiveConcepts.add(conceptId);
@@ -308,7 +318,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		timer.finish();
 	}
 
-	private boolean activeNow(SnomedComponent component, List<Branch> timeSlice) {
+	private boolean activeNow(SnomedComponent<?> component, List<Branch> timeSlice) {
 		if (!component.isActive()) {
 			return false;
 		}
@@ -324,6 +334,40 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 		logger.error("Component {} processed with a path {} which is not in the branch stack for {}", component.getId(), component.getPath(), timeSlice.get(0).getPath());
 		return false;
+	}
+
+	private Object convertConcreteValue(Relationship relationship, Map<String, ConcreteValue.DataType> concreteAttributeDataTypeMap) {
+		ConcreteValue.DataType dataTypeDefined = concreteAttributeDataTypeMap.get(relationship.getTypeId());
+		ConcreteValue.DataType actualType = relationship.getConcreteValue().getDataType();
+		String errorMsg = String.format("Concrete value %s with data type %s in relationship is not matching data type %s defined in the MRCM for attribute %s",
+				relationship.getConcreteValue().getValue(), actualType, dataTypeDefined, relationship.getTypeId());
+
+		if ((ConcreteValue.DataType.DECIMAL == dataTypeDefined && actualType == ConcreteValue.DataType.STRING) ||
+				(ConcreteValue.DataType.STRING == dataTypeDefined && dataTypeDefined != actualType)) {
+			throw new IllegalStateException(errorMsg);
+		}
+
+		// need to check the actual value for Integer data type
+		if (ConcreteValue.DataType.INTEGER == dataTypeDefined) {
+			int intValue = NumberUtils.toInt(relationship.getConcreteValue().getValue(), -1);
+			if (intValue == -1) {
+				throw new IllegalStateException(errorMsg);
+			}
+		}
+		// convert concrete value
+		Object value = relationship.getValue();
+		if (ConcreteValue.DataType.INTEGER == dataTypeDefined) {
+			value = Integer.parseInt(relationship.getConcreteValue().getValue());
+		} else if (ConcreteValue.DataType.DECIMAL == dataTypeDefined) {
+			value = Float.parseFloat(relationship.getConcreteValue().getValue());
+		}
+		return value;
+	}
+
+	private Map<String, ConcreteValue.DataType> getConcreteAttributeDataTypeMap(Commit commit) throws ServiceException {
+		MRCM mrcm = mrcmLoader.loadActiveMRCM(commit.getBranch().getPath(), versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit));
+		return mrcm.getAttributeRanges().stream().filter(r -> r.getDataType() != null)
+				.collect(Collectors.toMap(AttributeRange::getReferencedComponentId, AttributeRange::getDataType, (r1, r2) -> r2));
 	}
 
 	private Set<Long> buildRelevantPartsOfExistingGraph(GraphBuilder graphBuilder, boolean completeRebuild, Form form,
@@ -557,7 +601,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 	}
 
 	private void axiomStreamToRelationshipStream(SearchHitsIterator<ReferenceSetMember> changedAxioms, Predicate<Relationship> relationshipPredicate,
-			BiConsumer<SnomedComponent, Relationship> relationshipConsumer) throws ConversionException {
+			BiConsumer<SnomedComponent<?>, Relationship> relationshipConsumer) throws ConversionException {
 
 		AtomicReference<ConversionException> exceptionHolder = new AtomicReference<>();// Used to hold exceptions thrown within the lambda function
 		changedAxioms.forEachRemaining(hit -> {
@@ -659,13 +703,13 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		private static final Comparator<AttributeChange> comparator = Comparator
 				.comparing(AttributeChange::getEffectiveTime);
 
-		private List<AttributeChange> changes;
+		private final List<AttributeChange> changes;
 
 		private AttributeChanges() {
 			changes = new ArrayList<>();
 		}
 
-		private void addAttribute(Integer effectiveTime, int groupId, Long type, String value) {
+		private void addAttribute(Integer effectiveTime, int groupId, Long type, Object value) {
 			changes.add(new AttributeChange(effectiveTime, groupId, type, value));
 		}
 
@@ -687,9 +731,9 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		private final int effectiveTime;
 		private final int group;
 		private final long type;
-		private final String value;
+		private final Object value;
 
-		private AttributeChange(Integer effectiveTime, int group, long type, String value) {
+		private AttributeChange(Integer effectiveTime, int group, long type, Object value) {
 			if (effectiveTime == null) {
 				effectiveTime = 90000000;
 			}
@@ -711,7 +755,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			return type;
 		}
 
-		private String getValue() {
+		private Object getValue() {
 			return value;
 		}
 

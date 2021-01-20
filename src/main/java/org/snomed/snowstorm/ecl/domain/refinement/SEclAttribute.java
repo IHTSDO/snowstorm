@@ -245,17 +245,17 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 
 	void checkConceptConstraints(MatchContext matchContext) {
 		AttributeRange range = getAttributeRange();
-		Map<Integer, Map<String, List<String>>> conceptAttributes = matchContext.getConceptAttributes();
+		Map<Integer, Map<String, List<Object>>> conceptAttributes = matchContext.getConceptAttributes();
 		boolean withinGroup = matchContext.isWithinGroup();
 		boolean equalsOperator = isEqualOperator();
 		// Count occurrence of this attribute within each group
 		final AtomicInteger attributeMatchCount = new AtomicInteger(0);
 		final Map<Integer, AtomicInteger> groupAttributeMatchCounts = new HashMap<>();
 
-		for (Map.Entry<Integer, Map<String, List<String>>> attributeGroup : conceptAttributes.entrySet()) {
+		for (Map.Entry<Integer, Map<String, List<Object>>> attributeGroup : conceptAttributes.entrySet()) {
 			attributeGroup.getValue().entrySet().stream()
 					.filter(entrySet -> range.isTypeWithinRange(entrySet.getKey()))
-					.forEach((Map.Entry<String, List<String>> entrySet) ->
+					.forEach((Map.Entry<String, List<Object>> entrySet) ->
 							entrySet.getValue().forEach(conceptAttributeValue -> {
 								if (equalsOperator == range.isValueWithinRange(String.valueOf(conceptAttributeValue))) {
 									// Increment count for attribute match in the concept
