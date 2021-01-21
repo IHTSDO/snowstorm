@@ -60,11 +60,11 @@ public class ControllerHelper {
 		return new ResponseEntity<>(httpHeaders, HttpStatus.CREATED);
 	}
 
-	public static HttpHeaders getCreatedLocationHeaders(String id) {
+	static HttpHeaders getCreatedLocationHeaders(String id) {
 		return getCreatedLocationHeaders(id, null);
 	}
 
-	public static HttpHeaders getCreatedLocationHeaders(String id, String removePathPart) {
+	static HttpHeaders getCreatedLocationHeaders(String id, String removePathPart) {
 		RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
 		Assert.state(attrs instanceof ServletRequestAttributes, "No current ServletRequestAttributes");
 		HttpServletRequest request = ((ServletRequestAttributes) attrs).getRequest();
