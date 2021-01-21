@@ -25,6 +25,10 @@ public class DroolsDescription implements Description {
 		}
 	}
 
+	public String getReleaseHash() {
+		return description.getReleaseHash();
+	}
+
 	@Override
 	public Map<String, String> getAcceptabilityMap() {
 		return acceptabilityMapWithIds;
