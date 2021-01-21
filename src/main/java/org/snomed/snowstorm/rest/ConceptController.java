@@ -3,6 +3,7 @@ package org.snomed.snowstorm.rest;
 import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
@@ -11,6 +12,7 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.common.Strings;
+import org.ihtsdo.drools.response.InvalidContent;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
@@ -26,8 +28,8 @@ import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.validation.ECLValidator;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.*;
-import org.snomed.snowstorm.validation.ConceptValidationThenOperationService;
-import org.snomed.snowstorm.validation.ConceptValidationThenOperationService.ConceptValidationOperation;
+import org.snomed.snowstorm.validation.ConceptValidationHelper;
+import org.snomed.snowstorm.validation.DroolsValidationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -85,7 +87,10 @@ public class ConceptController {
 	private CodeSystemService codeSystemService;
 
 	@Autowired
-	private ConceptValidationThenOperationService conceptValidationThenOperationService;
+	private DroolsValidationService validationService;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
@@ -386,9 +391,10 @@ public class ConceptController {
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException, JsonProcessingException {
 
 		if (validate) {
-			return conceptValidationThenOperationService.withParameters((Concept) concept,
-					ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch))
-					.thenDo(ConceptValidationOperation.CREATE).execute();
+			final List<InvalidContent> invalidContentWarnings = ConceptValidationHelper.validate((Concept) concept, branch, validationService, objectMapper);
+			final Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch);
+			return new ResponseEntity<>(createdConcept, ConceptValidationHelper.getCreateConceptHeaders(ControllerHelper.getCreatedLocationHeaders(createdConcept.getId()),
+					objectMapper.writeValueAsString(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContentWarnings, createdConcept))), HttpStatus.OK);
 		}
 
 		final Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
@@ -410,9 +416,10 @@ public class ConceptController {
 				"path must match the one in the request body.");
 
 		if (validate) {
-			return conceptValidationThenOperationService.withParameters((Concept) concept,
-					ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch))
-					.thenDo(ConceptValidationOperation.UPDATE).execute();
+			final List<InvalidContent> invalidContentWarnings = ConceptValidationHelper.validate((Concept) concept, branch, validationService, objectMapper);
+			return new ResponseEntity<>(conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch),
+					ConceptValidationHelper.getUpdateConceptHeaders(objectMapper.writeValueAsString(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContentWarnings,
+							(Concept) concept))), HttpStatus.OK);
 		}
 
 		return new ResponseEntity<>(conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
