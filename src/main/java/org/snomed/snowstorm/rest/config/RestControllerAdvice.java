@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLException;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
+import org.snomed.snowstorm.validation.exception.DroolsValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -35,14 +36,15 @@ public class RestControllerAdvice {
 			MethodArgumentNotValidException.class,
 			MethodArgumentTypeMismatchException.class,
 			MissingServletRequestParameterException.class,
-			ECLException.class
+			ECLException.class,
+			DroolsValidationException.class
 	})
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	@ResponseBody
-	public Map<String,Object> handleIllegalArgumentException(Exception exception) {
+	public Map<String, Object> handleIllegalArgumentException(Exception exception) {
 		HashMap<String, Object> result = new HashMap<>();
 		result.put("error", HttpStatus.BAD_REQUEST);
-		result.put("message", exception.getMessage());
+		result.put(exception instanceof DroolsValidationException ? "validation-results" : "message", exception.getMessage());
 		logger.info("bad request {}", exception.getMessage());
 		logger.debug("bad request {}", exception.getMessage(), exception);
 		return result;

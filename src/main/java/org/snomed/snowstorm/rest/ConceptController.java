@@ -2,6 +2,7 @@ package org.snomed.snowstorm.rest;
 
 import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.annotation.JsonView;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
@@ -11,9 +12,24 @@ import io.swagger.annotations.ApiParam;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.ConceptView;
+import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.QueryConcept;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
-import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.DescriptionService;
+import org.snomed.snowstorm.core.data.services.ExpressionService;
+import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.RelationshipService;
+import org.snomed.snowstorm.core.data.services.SemanticIndexService;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptHistory;
 import org.snomed.snowstorm.core.data.services.pojo.MapPage;
@@ -24,7 +40,16 @@ import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.validation.ECLValidator;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
-import org.snomed.snowstorm.rest.pojo.*;
+import org.snomed.snowstorm.rest.pojo.ConceptBulkLoadRequest;
+import org.snomed.snowstorm.rest.pojo.ConceptDescriptionsResult;
+import org.snomed.snowstorm.rest.pojo.ConceptReferencesResult;
+import org.snomed.snowstorm.rest.pojo.ConceptSearchRequest;
+import org.snomed.snowstorm.rest.pojo.ExpressionStringPojo;
+import org.snomed.snowstorm.rest.pojo.InboundRelationshipsResult;
+import org.snomed.snowstorm.rest.pojo.ItemsPage;
+import org.snomed.snowstorm.rest.pojo.TypeReferences;
+import org.snomed.snowstorm.validation.ConceptValidationThenOperationService;
+import org.snomed.snowstorm.validation.ConceptValidationThenOperationService.ConceptValidationOperation;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -36,15 +61,31 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.apache.commons.lang3.StringUtils.isNotBlank;
 import static org.snomed.snowstorm.core.pojo.BranchTimepoint.BRANCH_CREATION_TIMEPOINT;
+import static org.snomed.snowstorm.rest.ControllerHelper.getCreatedLocationHeaders;
 import static org.snomed.snowstorm.rest.ControllerHelper.parseBranchTimepoint;
 import static org.springframework.util.CollectionUtils.isEmpty;
 
@@ -79,6 +120,9 @@ public class ConceptController {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private ConceptValidationThenOperationService conceptValidationThenOperationService;
 
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
@@ -369,30 +413,45 @@ public class ConceptController {
 		return new ConceptReferencesResult(typeSets, conceptReferencesPage.getPageable(), conceptReferencesPage.getTotalElements());
 	}
 
-	@RequestMapping(value = "/browser/{branch}/concepts", method = RequestMethod.POST)
+	@PostMapping(value = "/browser/{branch}/concepts/{validate}")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	public ResponseEntity<ConceptView> createConcept(
 			@PathVariable String branch,
+			@PathVariable(required = false) Boolean validate,
 			@RequestBody @Valid ConceptView concept,
-			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException, JsonProcessingException {
 
-		Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
-		return new ResponseEntity<>(createdConcept, ControllerHelper.getCreatedLocationHeaders(createdConcept.getId()), HttpStatus.OK);
+		if (validate != null && validate) {
+			return conceptValidationThenOperationService.withParameters((Concept) concept, acceptLanguageHeader, BranchPathUriUtil.decodePath(branch))
+					.thenDo(ConceptValidationOperation.CREATE).execute();
+		}
+
+		final Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
+				BranchPathUriUtil.decodePath(branch));
+		return new ResponseEntity<>(createdConcept, getCreatedLocationHeaders(createdConcept.getId()), HttpStatus.OK);
 	}
 
-	@RequestMapping(value = "/browser/{branch}/concepts/{conceptId}", method = RequestMethod.PUT)
+	@PutMapping(value = "/browser/{branch}/concepts/{conceptId}/{validate}")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
-	public ConceptView updateConcept(
+	public ResponseEntity<ConceptView> updateConcept(
 			@PathVariable String branch,
 			@PathVariable String conceptId,
+			@PathVariable(required = false) Boolean validate,
 			@RequestBody @Valid ConceptView concept,
-			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException, JsonProcessingException {
 
 		Assert.isTrue(concept.getConceptId() != null && conceptId != null && concept.getConceptId().equals(conceptId), "The conceptId in the " +
 				"path must match the one in the request body.");
-		return conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch));
+
+		if (validate != null && validate) {
+			return conceptValidationThenOperationService.withParameters((Concept) concept, acceptLanguageHeader, BranchPathUriUtil.decodePath(branch))
+					.thenDo(ConceptValidationOperation.UPDATE).execute();
+		}
+
+		return new ResponseEntity<>(conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
+				BranchPathUriUtil.decodePath(branch)), HttpStatus.OK);
 	}
 
 	@RequestMapping(value = "/{branch}/concepts/{conceptId}", method = RequestMethod.DELETE)
