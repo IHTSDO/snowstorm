@@ -949,6 +949,22 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testRebuildSemanticIndexWhenNoDataTypeDefined() throws ServiceException {
+		String path = "MAIN";
+		List<Concept> concepts = createConcreteValueTestConcepts(path);
+
+		// 396070085 has no data type defined in the MRCM
+		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
+				.addRelationship(new Relationship("3332956025", null, true, "900000000000207008", "34020007",
+						"#10.01", 1, "396070085", "900000000000011006", "900000000000451002")));
+		Exception exception = assertThrows(IllegalStateException.class, () -> {
+			simulateRF2Import(path, concepts);
+		});
+		assertEquals("No MRCM range constraint is defined for concrete attribute 396070085",
+				exception.getMessage());
+	}
+
+	@Test
 	void testRebuildSemanticIndexWithDecimalValueForIntType() throws ServiceException {
 		String path = "MAIN";
 		List<Concept> concepts = createConcreteValueTestConcepts(path);
@@ -1087,8 +1103,8 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		concepts.clear();
 
 		Set<ReferenceSetMember> attributeRanges = new HashSet<>();
-		attributeRanges.add(constructMrcmRange("396070080", "dec(*..50)"));
-		attributeRanges.add(constructMrcmRange("396070082", "int(*..20)"));
+		attributeRanges.add(constructMrcmRange("396070080", "dec(>#0..*)"));
+		attributeRanges.add(constructMrcmRange("396070082", "int(>#0..20)"));
 		attributeRanges.add(constructMrcmRange("396070081", "str()"));
 		referenceSetMemberService.createMembers(branchPath, attributeRanges);
 		return concepts;
@@ -1098,5 +1114,4 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	void teardown() {
 		conceptService.deleteAll();
 	}
-
 }

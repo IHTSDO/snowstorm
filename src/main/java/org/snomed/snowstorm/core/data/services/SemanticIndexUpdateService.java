@@ -338,6 +338,9 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 	private Object convertConcreteValue(Relationship relationship, Map<String, ConcreteValue.DataType> concreteAttributeDataTypeMap) {
 		ConcreteValue.DataType dataTypeDefined = concreteAttributeDataTypeMap.get(relationship.getTypeId());
+		if (dataTypeDefined == null) {
+			throw new IllegalStateException(String.format("No MRCM range constraint is defined for concrete attribute %s", relationship.getTypeId()));
+		}
 		ConcreteValue.DataType actualType = relationship.getConcreteValue().getDataType();
 		String errorMsg = String.format("Concrete value %s with data type %s in relationship is not matching data type %s defined in the MRCM for attribute %s",
 				relationship.getConcreteValue().getValue(), actualType, dataTypeDefined, relationship.getTypeId());
