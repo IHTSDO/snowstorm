@@ -4,15 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.drools.response.Severity;
-import org.snomed.snowstorm.core.data.domain.Axiom;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ConceptView;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.SnomedComponent;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.rest.ControllerHelper;
+import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.validation.domain.DroolsDescription;
 import org.snomed.snowstorm.validation.domain.DroolsRelationship;
 import org.snomed.snowstorm.validation.exception.DroolsValidationException;
@@ -22,12 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -53,12 +43,12 @@ public class ConceptValidationThenOperationService {
 
 	private ConceptValidationOperation operation;
 	private Concept concept;
-	private String acceptLanguageHeader;
+	private List<LanguageDialect> languageDialects;
 	private String branchPath;
 
-	public final ConceptValidationThenOperationService withParameters(final Concept concept, final String acceptLanguageHeader, final String branchPath) {
+	public final ConceptValidationThenOperationService withParameters(final Concept concept, final List<LanguageDialect> languageDialects, final String branchPath) {
 		this.concept = generateUUIDSIfNotSet(concept);
-		this.acceptLanguageHeader = acceptLanguageHeader;
+		this.languageDialects = languageDialects;
 		this.branchPath = branchPath;
 		return this;
 	}
@@ -66,26 +56,16 @@ public class ConceptValidationThenOperationService {
 	private Concept generateUUIDSIfNotSet(final Concept concept) {
 		if (concept != null) {
 			if (concept.getConceptId() == null) {
-				concept.setConceptId(generateRandomUUID());
+				concept.setConceptId(UUID.randomUUID().toString());
 			}
 			concept.getDescriptions().stream().filter(description -> description != null && description.getId() == null)
-					.forEach(description -> description.setDescriptionId(generateRandomUUID()));
+					.forEach(description -> description.setDescriptionId(UUID.randomUUID().toString()));
 			concept.getRelationships().stream().filter(relationship -> relationship != null && relationship.getId() == null)
-					.forEach(relationship -> relationship.setRelationshipId(generateRandomUUID()));
+					.forEach(relationship -> relationship.setRelationshipId(UUID.randomUUID().toString()));
 			concept.getAllOwlAxiomMembers().stream().filter(referenceSetMember -> referenceSetMember != null && referenceSetMember.getId() == null)
-					.forEach(referenceSetMember -> referenceSetMember.setRefsetId(generateRandomUUID()));
+					.forEach(referenceSetMember -> referenceSetMember.setRefsetId(UUID.randomUUID().toString()));
 		}
 		return concept;
-	}
-
-	/**
-	 * Generates a random UUID with length == 10 characters.
-	 *
-	 * @return random UUID with character length of 10.
-	 */
-	public static String generateRandomUUID() {
-		final int power = (int) Math.pow(10, (double) 10 - 1);
-		return "" + power + new Random().nextInt(9 * power);
 	}
 
 	public final ConceptValidationThenOperationService thenDo(final ConceptValidationOperation operation) {
@@ -98,30 +78,29 @@ public class ConceptValidationThenOperationService {
 		final List<InvalidContent> invalidContents = validationService.validateConcept(branchPath, concept);
 		final List<InvalidContent> invalidContentErrors = invalidContents.stream().filter(invalidContent -> invalidContent.getSeverity() == Severity.ERROR).collect(Collectors.toList());
 		if (invalidContentErrors.isEmpty()) {
-			return operation == ConceptValidationOperation.CREATE ? createConcept(concept, acceptLanguageHeader, branchPath, invalidContents.stream().filter(invalidContent ->
-					invalidContent.getSeverity() == Severity.WARNING).collect(Collectors.toList())) : updateConcept(concept, acceptLanguageHeader, branchPath,
+			return operation == ConceptValidationOperation.CREATE ? createConcept(concept, languageDialects, branchPath, invalidContents.stream().filter(invalidContent ->
+					invalidContent.getSeverity() == Severity.WARNING).collect(Collectors.toList())) : updateConcept(concept, languageDialects, branchPath,
 					invalidContents.stream().filter(invalidContent -> invalidContent.getSeverity() == Severity.WARNING).collect(Collectors.toList()));
 		}
 		throw new DroolsValidationException(objectMapper.writeValueAsString(invalidContentErrors).replace("\n", ""));
 	}
 
 	private void throwExceptionIfFieldsNotSet() {
-		if (concept == null || acceptLanguageHeader == null || branchPath == null || operation == null) {
-			throw new IllegalArgumentException("The mandatory field '" + (concept == null ? "concept" : (acceptLanguageHeader == null ? "acceptLanguageHeader"
-					: (branchPath == null ? "branchPath" : "operation"))) + "' is not set.");
+		if (concept == null || branchPath == null || operation == null) {
+			throw new IllegalArgumentException("The mandatory field '" + (concept == null ? "concept" : (branchPath == null ? "branchPath" : "operation")) + "' is not set.");
 		}
 	}
 
-	private ResponseEntity<ConceptView> createConcept(final Concept concept, final String acceptLanguageHeader, final String branchPath,
+	private ResponseEntity<ConceptView> createConcept(final Concept concept, final List<LanguageDialect> languageDialects, final String branchPath,
 			final List<InvalidContent> invalidContentWarnings) throws ServiceException, JsonProcessingException {
-		final Concept createdConcept = conceptService.create(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branchPath);
+		final Concept createdConcept = conceptService.create(concept, languageDialects, branchPath);
 		return new ResponseEntity<>(createdConcept, getCreateConceptHeaders(createdConcept.getId(),
 				objectMapper.writeValueAsString(replaceTemporaryUUIDWithSCTID(invalidContentWarnings, createdConcept))), HttpStatus.OK);
 	}
 
-	private ResponseEntity<ConceptView> updateConcept(final Concept concept, final String acceptLanguageHeader, final String branchPath,
+	private ResponseEntity<ConceptView> updateConcept(final Concept concept, final List<LanguageDialect> languageDialects, final String branchPath,
 			final List<InvalidContent> invalidContentWarnings) throws ServiceException, JsonProcessingException {
-		return new ResponseEntity<>(conceptService.update(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branchPath),
+		return new ResponseEntity<>(conceptService.update(concept, languageDialects, branchPath),
 				getUpdateConceptHeaders(objectMapper.writeValueAsString(replaceTemporaryUUIDWithSCTID(invalidContentWarnings, concept))), HttpStatus.OK);
 	}
 
@@ -194,10 +173,6 @@ public class ConceptValidationThenOperationService {
 		return concept;
 	}
 
-	public final String getAcceptLanguageHeader() {
-		return acceptLanguageHeader;
-	}
-
 	public final String getBranchPath() {
 		return branchPath;
 	}
@@ -212,12 +187,12 @@ public class ConceptValidationThenOperationService {
 				Objects.equals(objectMapper, that.objectMapper) &&
 				operation == that.operation &&
 				Objects.equals(concept, that.concept) &&
-				Objects.equals(acceptLanguageHeader, that.acceptLanguageHeader) &&
+				Objects.equals(languageDialects, that.languageDialects) &&
 				Objects.equals(branchPath, that.branchPath);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(conceptService, validationService, objectMapper, operation, concept, acceptLanguageHeader, branchPath);
+		return Objects.hash(conceptService, validationService, objectMapper, operation, concept, languageDialects, branchPath);
 	}
 }
