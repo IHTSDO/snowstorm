@@ -58,6 +58,8 @@ class ClassificationServiceTest extends AbstractTest {
 	void testSaveRelationshipChanges() throws IOException, ServiceException, InterruptedException {
 		// Create concept with some stated modeling in an axiom
         final String branch = "MAIN";
+		createRangeConstraint("1142135004", "dec(#>0..)");
+		createRangeConstraint("1142139005", "int(#>0..)");
         conceptService.create(
 				new Concept("123123123001")
 						.addAxiom(
@@ -150,6 +152,7 @@ class ClassificationServiceTest extends AbstractTest {
 		// Create concept with some stated modeling in an axiom
 		String path = "MAIN";
 		String conceptId = "123123123001";
+		createRangeConstraint("1142135004", "dec(#>0..)");
 		conceptService.create(
 				new Concept(conceptId)
 						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT))

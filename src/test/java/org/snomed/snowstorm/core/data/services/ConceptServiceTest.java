@@ -768,7 +768,7 @@ class ConceptServiceTest extends AbstractTest {
 				new Relationship(ISA, "12345"),
 				Relationship.newConcrete("1234567891011", "#1")
 		);
-
+		createRangeConstraint("1234567891011", "dec(>#0..*)");
 		//when
 		conceptService.create(inConcept, "MAIN");
 		final Concept outConcept = conceptService.find("12345678910", "MAIN");
@@ -789,6 +789,7 @@ class ConceptServiceTest extends AbstractTest {
 				new Relationship(ISA, "12345"),
 				Relationship.newConcrete("1234567891011", "#3.14")
 		);
+		createRangeConstraint("1234567891011", "dec(>#0..*)");
 
 		//when
 		conceptService.create(inConcept, "MAIN");
@@ -810,6 +811,7 @@ class ConceptServiceTest extends AbstractTest {
 				new Relationship(ISA, "12345"),
 				Relationship.newConcrete("1234567891012", "\"Two tablets in morning.\"")
 		);
+		createRangeConstraint("1234567891012", "str()");
 
 		//when
 		conceptService.create(inConcept, "MAIN");

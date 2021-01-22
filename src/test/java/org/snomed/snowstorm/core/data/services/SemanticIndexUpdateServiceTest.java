@@ -59,6 +59,9 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	@Autowired
 	private ElasticsearchRestTemplate elasticsearchTemplate;
 
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
+
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 
 	@Test
@@ -930,20 +933,72 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testRebuildSemanticIndexWithNumericValueForStringType() throws ServiceException {
+		String path = "MAIN";
+		List<Concept> concepts = createConcreteValueTestConcepts(path);
+
+		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
+				// The data type is String for 396070081 but actual value is an integer
+				.addRelationship(new Relationship("4332956027", null, true, "900000000000207008", "34020007",
+						"#10", 1, "396070081", "900000000000011006", "900000000000451002")));
+		Exception exception = assertThrows(IllegalStateException.class, () -> {
+			simulateRF2Import(path, concepts);
+		});
+		assertEquals("Concrete value 10 with data type DECIMAL in relationship is not matching data type STRING defined in the MRCM for attribute 396070081",
+				exception.getMessage());
+	}
+
+	@Test
+	void testRebuildSemanticIndexWhenNoDataTypeDefined() throws ServiceException {
+		String path = "MAIN";
+		List<Concept> concepts = createConcreteValueTestConcepts(path);
+
+		// 396070085 has no data type defined in the MRCM
+		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
+				.addRelationship(new Relationship("3332956025", null, true, "900000000000207008", "34020007",
+						"#10.01", 1, "396070085", "900000000000011006", "900000000000451002")));
+		Exception exception = assertThrows(IllegalStateException.class, () -> {
+			simulateRF2Import(path, concepts);
+		});
+		assertEquals("No MRCM range constraint is defined for concrete attribute 396070085",
+				exception.getMessage());
+	}
+
+	@Test
+	void testRebuildSemanticIndexWithDecimalValueForIntType() throws ServiceException {
+		String path = "MAIN";
+		List<Concept> concepts = createConcreteValueTestConcepts(path);
+
+		// 396070082 has data type defined as int in the MRCM
+		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
+				.addRelationship(new Relationship("3332956025", null, true, "900000000000207008", "34020007",
+						"#10.01", 1, "396070082", "900000000000011006", "900000000000451002")));
+		Exception exception = assertThrows(IllegalStateException.class, () -> {
+			simulateRF2Import(path, concepts);
+		});
+		assertEquals("Concrete value 10.01 with data type DECIMAL in relationship is not matching data type INTEGER defined in the MRCM for attribute 396070082",
+				exception.getMessage());
+	}
+
+	@Test
+	void testRebuildSemanticIndexWithIntegerValueForDecimalDataType() throws ServiceException {
+		String path = "MAIN";
+		List<Concept> concepts = createConcreteValueTestConcepts(path);
+
+		// 396070080 has data type defined as decimal in the MRCM
+		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
+				.addRelationship(new Relationship("3332956025", null, true, "900000000000207008", "34020007",
+						"#50", 1, "396070080", "900000000000011006", "900000000000451002")));
+		// no exception should be thrown
+		simulateRF2Import(path, concepts);
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+
+	}
+
+	@Test
 	void testRebuildSemanticIndexWithConcreteValues() throws ServiceException, InterruptedException {
 		String path = "MAIN";
-		List<Concept> concepts = new ArrayList<>();
-
-		concepts.add(new Concept(SNOMEDCT_ROOT));
-		concepts.add(new Concept("116680003").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		concepts.add(new Concept("396070080").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		concepts.add(new Concept("396070081").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		concepts.add(new Concept("396070082").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		concepts.add(new Concept("363698007").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-		concepts.add(new Concept("34020006").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
-
-		conceptService.batchCreate(concepts, path);
-		concepts.clear();
+		List<Concept> concepts = createConcreteValueTestConcepts(path);
 
 		concepts.add(new Concept("34020007").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
 				.addRelationship(new Relationship("3332956025", null, true, "900000000000207008", "34020007", "#50", 1, "396070080", "900000000000011006", "900000000000451002"))
@@ -951,16 +1006,20 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 				.addRelationship(new Relationship("4332956027", null, true, "900000000000207008", "34020007", "\"123test\"", 1, "396070081", "900000000000011006", "900000000000451002"))
 				.addRelationship(new Relationship("5963641028", null, true, "900000000000207008", "34020007", "396070080", 1, "363698007", "900000000000011006", "900000000000451002")));
 
+		// add a value with decimal for 396070080 attribute
+		concepts.add(new Concept("34020009").addRelationship(new Relationship(UUID.randomUUID().toString(), ISA, "34020006"))
+				.addRelationship(new Relationship("3332955025", null, true, "900000000000207008",
+						"34020009", "#100.000005", 1, "396070080", "900000000000011006", "900000000000451002")));
 		// Use low level component save to prevent effectiveTimes being stripped by concept service
 		simulateRF2Import(path, concepts);
 
 		// wildcard query to test attr.all field in the semantic index
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* >= #6"), path, QueryService.PAGE_OF_ONE).getTotalElements());
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 >= #0"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(2, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 >= #0"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* >= #6"), path, QueryService.PAGE_OF_ONE).getTotalElements());
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 = *"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(2, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 = *"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 = *"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// string query
@@ -969,22 +1028,24 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 = \"#50\""), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// number query
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 = #100.000005"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 = #20"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070082 = #20"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// range queries
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 >= #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
-		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 > #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(2, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 >= #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 > #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 < #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 <= #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// make sure range query is not done alphabetically but based on the number value
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 >= #6"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(2, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 >= #6"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
 		// Not equal to query
-		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 != #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 != #10"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020009:396070080 != #100.000005"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 != #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(2, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 != #10"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 != \"123test\""), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070081 != \"test\""), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
@@ -1028,9 +1089,29 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(expectedAncestors, queryService.findAncestorIds(concept.getId(), branch, false));
 	}
 
+	private List<Concept> createConcreteValueTestConcepts(String branchPath) throws ServiceException {
+		List<Concept> concepts = new ArrayList<>();
+		concepts.add(new Concept(SNOMEDCT_ROOT));
+		concepts.add(new Concept("116680003").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("396070080").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("396070081").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("396070082").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("363698007").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		concepts.add(new Concept("34020006").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+
+		conceptService.batchCreate(concepts, branchPath);
+		concepts.clear();
+
+		Set<ReferenceSetMember> attributeRanges = new HashSet<>();
+		attributeRanges.add(constructMrcmRange("396070080", "dec(>#0..*)"));
+		attributeRanges.add(constructMrcmRange("396070082", "int(>#0..20)"));
+		attributeRanges.add(constructMrcmRange("396070081", "str()"));
+		referenceSetMemberService.createMembers(branchPath, attributeRanges);
+		return concepts;
+	}
+
 	@AfterEach
 	void teardown() {
 		conceptService.deleteAll();
 	}
-
 }

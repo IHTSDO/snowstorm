@@ -8,8 +8,6 @@ import java.util.Arrays;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.snomed.snowstorm.TestConfig.DEFAULT_LANGUAGE_CODE;
-
 public class ServiceTestUtil {
 
 	public static final PageRequest PAGE_REQUEST = PageRequest.of(0, 100);
