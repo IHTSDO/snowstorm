@@ -1,0 +1,386 @@
+{
+    "givenConcepts": [
+        {
+            "id": "138875005", // Root concept
+            "active" : true,
+            "descriptions": [
+                {
+                    "id": "1",
+                    "term": "description text 1 (product)",
+                    "conceptId": "138875005"
+                }
+            ]
+        },
+        {
+            "id": "404684003",
+            "descriptions": [
+                {
+                    "id": "2",
+                    "term": "Clinical finding (finding)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "id": "1",
+                    "destinationId": "138875005",
+                    "typeId": "116680003", // is-a
+                    "active": true,
+                    "characteristicTypeId": "900000000000010007"
+                }
+            ]
+        },
+        {
+            "id": "64572001",
+            "descriptions": [
+                {
+                    "id": "3",
+                    "term": "Disease (disorder)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "404684003" // Clinical finding (finding)
+                }
+            ]
+        },
+        {
+            "id": "106112009",
+            "descriptions": [
+                {
+                    "id": "5",
+                    "term": "Fetal finding (finding)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "404684003" // Clinical finding (finding)
+                }
+            ]
+        }, 
+        {
+            "id": "123",
+            "descriptions": [
+                {
+                    "id": "4",
+                    "term": "Product (product)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ]
+        },
+        
+        {
+            "id": "473010000",
+            "active" : true,
+            "descriptions": [
+                {
+                    "id": "6",
+                    "term": "Hypersensitivity condition (finding)",                    
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                     "axiomGCI": false,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "404684003" // Clinical finding (finding)
+                },
+                {
+                    "typeId": "116680003", // is-a
+                    "axiomGCI": true,
+                    "active" : true,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "64572001" // Disease (disorder)
+                }
+            ]
+        },        
+        {
+            "id": "116223007",
+            "descriptions": [
+                {
+                    "id": "5",
+                    "term": "Complication (disorder))",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                     "characteristicTypeId": "900000000000010007",
+                    "destinationId": "64572001" //  Disease (disorder)
+                }
+            ]
+        },
+        {
+            "id": "281647001",
+            "active" : true,
+            "descriptions": [
+                {
+                    "id": "7",
+                    "term": "Adverse reaction (disorder)",                    
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "116223007" // Complication (disorder)
+                }
+            ]
+        }
+    ],
+    "assertConceptsPass": [
+        {
+            "id": "1",
+            "descriptions": [
+                {
+                    "id": "1a",
+                    "term": "Bleeding (finding)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "destinationId": "404684003" // Clinical finding (finding)
+                }
+            ]
+        },
+        {
+            // This is a special case
+            "id": "2",
+            "descriptions": [
+                {
+                    "id": "2a",
+                    "term": "Disease (disorder)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "destinationId": "404684003" // Clinical finding (finding)
+                }
+            ]
+        },
+        {
+            // Children of product may have any semantic tag
+            "id": "3",
+            "descriptions": [
+                {
+                    "id": "3a",
+                    "term": "Some Product (anything you like)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "destinationId": "123" // Product (product)
+                }
+            ]
+        },
+        {
+            "id": "4",
+            "active" : true,
+            "descriptions": [
+                {
+                    "id": "4a",
+                    "term": "Testing (disorder)",                    
+                    "typeId": "900000000000003001" // FSN
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "64572001" // Disease (disorder)
+                },
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                    "published": true,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "106112009" // Fetal finding (finding)
+                }
+            ]
+        },
+        
+        {
+            "id": "421961002",
+            "active" : true,
+            "descriptions": [
+                {
+                    "id": "5",
+                    "term": "Hypersensitivity reaction (disorder)",                    
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                     "axiomGCI": false,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "473010000" // Hypersensitivity condition (finding)
+                },
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                     "axiomGCI": false,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "281647001" // Adverse reaction (disorder)
+                }
+            ]
+        }
+    ],
+    "assertConceptsFail": [
+        {
+            "id": "2",
+            "descriptions": [
+                {
+                    "id": "2a",
+                    "term": "Drug action (finding)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "destinationId": "64572001" // Disease (disorder)
+                }
+            ]
+        },
+        
+        {
+            "id": "1",
+            "active" : true,
+            "published": true,
+            "descriptions": [
+                {
+                    "id": "1a",
+                    "term": "Testing (finding)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "destinationId": "64572001" // Disease (disorder)
+                },
+                {
+                    "typeId": "116680003", // is-a
+                    "destinationId": "106112009" // Fetal finding (finding)
+                }
+            ]
+        },
+        {
+            "id": "4",
+            "active" : true,
+            "descriptions": [
+                {
+                    "id": "4a",
+                    "term": "Testing (finding)",                    
+                    "typeId": "900000000000003001" // FSN
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "64572001" // Disease (disorder)
+                },
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                    "published": true,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "106112009" // Fetal finding (finding)
+                }
+            ]
+        },
+        {
+            "id": "5",
+            "active" : true,
+            "descriptions": [
+                {
+                    "id": "5a",
+                    "term": "Testing (finding)",                    
+                    "typeId": "900000000000003001" // FSN
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "64572001" // Disease (disorder)
+                }
+            ]
+        }
+    ]
+}
