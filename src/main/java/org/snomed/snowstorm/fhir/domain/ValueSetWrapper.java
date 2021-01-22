@@ -46,8 +46,8 @@ public class ValueSetWrapper {
 	}
 
 	public ValueSet getValueSet() {
-		if (valueSet == null) {
-			valueSet = fhirJsonParser.parseResource(ValueSet.class, valuesetJson);
+		if (valueSet == null && valuesetJson != null) {
+			valueSet = getFhirParser().parseResource(ValueSet.class, valuesetJson);
 		}
 		return valueSet;
 	}
