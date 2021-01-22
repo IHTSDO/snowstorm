@@ -1,0 +1,42 @@
+{
+    "assertConceptsPass": [
+        {
+            "id": "1",
+            "relationships": [
+                {
+                    "typeId": "116680003" // Is-a
+                }
+            ]
+        },
+        {
+            "id": "2",
+            "active": false,
+            "relationships": []
+        }
+    ],
+    "assertConceptsFail": [
+        {
+            "id": "1",
+            "active" : true,
+            "relationships": [
+                {
+                    "typeId": "363698007" // Finding site
+                }
+            ]
+        },
+        {
+            "id": "3",
+            "published": true,
+            "relationships": []
+        },
+        {
+            "id": "4",
+            "relationships": [
+                {
+                    "typeId": "116680003", // Is-a
+                    "characteristicTypeId": "900000000000011006" // Inferred
+                }
+            ]
+        }
+    ]
+}

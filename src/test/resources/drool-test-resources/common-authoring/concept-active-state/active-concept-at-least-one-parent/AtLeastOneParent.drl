@@ -1,0 +1,20 @@
+import org.ihtsdo.drools.domain.Concept
+import org.ihtsdo.drools.domain.Relationship
+import org.ihtsdo.drools.domain.Constants
+import org.ihtsdo.drools.response.InvalidContent
+import org.ihtsdo.drools.helper.RelationshipHelper
+import java.util.ArrayList
+
+global java.util.List invalidContent
+
+rule "Active concept must have a parent"
+	dialect "mvel"
+	when
+		c : Concept(active)
+		activeStatedIsA: ArrayList( size == 0 )
+           from collect( Relationship(active, !axiomGCI, sourceId == c.id, typeId == Constants.IS_A, characteristicTypeId == Constants.STATED_RELATIONSHIP) )
+	then
+		InvalidContent invalid = new InvalidContent(c, "Active concepts must have at least one IS A relationship.");
+        invalid.ignorePublishedCheck();
+        invalidContent.add(invalid);
+end
