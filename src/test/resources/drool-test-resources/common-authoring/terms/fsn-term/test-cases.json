@@ -1,0 +1,157 @@
+{
+    //
+    // 2 no space before semantic tag - rule removed
+    "assertConceptsPass": [
+        {
+            "descriptions": [
+                {
+                    "id": "1",
+                    "typeId": "900000000000003001",
+                    "term": "Ibuprofen + oxycodone (product)" // Good FSN
+                }
+            ]
+        },
+        {
+            "id": "2",
+            "descriptions": [
+                {
+                    "id": "3",
+                    "typeId": "900000000000003001",
+                    "term": "Ibuprofen oxycodone(product)"
+                }
+            ]
+        }
+    ],
+    // Failure cases:
+    // 1 does not end in )
+    // 2 does not end in )
+    // 4 not end with a semantic tag
+    // 5 includes comma
+    // 6 no space around "+"
+    // 7 starts with (
+    // 8-12 contains &, %, $, @ or #
+    // 13 starts with lower case letter
+    "assertConceptsFail": [
+        {
+            "id": "1",
+            "descriptions": [
+                {
+                    "id": "1",
+                    "typeId": "900000000000003001",
+                    "active": true,
+                    "term": "Ibuprofen + oxycodone (product"
+                }
+            ]
+        },
+        {
+            "id": "2",
+            "descriptions": [
+                {
+                    "id": "2",
+                    "typeId": "900000000000003001",
+                    "term": "Ibuprofen oxycodone (product) something"
+                }
+            ]
+        },
+        {
+            "id": "4",
+            "descriptions": [
+                {
+                    "id": "4",
+                    "typeId": "900000000000003001",
+                    "term": "Ibuprofen oxycodone"
+                }
+            ]
+        },
+        {
+            "id": "5",
+            "descriptions": [
+                {
+                    "id": "5",
+                    "typeId": "900000000000003001",
+                    "term": "Ibuprofen, oxycodone (product)"
+                }
+            ]
+        },
+        {
+            "id": "6",
+            "descriptions": [
+                {
+                    "id": "6",
+                    "typeId": "900000000000003001",
+                    "term": "(Ibuprofen oxycodone product)"
+                }
+            ]
+        },
+        {
+            "id": "7",
+            "descriptions": [
+                {
+                    "id": "7",
+                    "typeId": "900000000000003001",
+                    "term": "Ibuprofen & oxycodone (product)"
+                }
+            ]
+        },
+        {
+            "id": "8",
+            "descriptions": [
+                {
+                    "id": "8",
+                    "typeId": "900000000000003001",
+                    "term": "Ibuprofen % oxycodone (product)"
+                }
+            ]
+        },
+        {
+            "id": "9",
+            "descriptions": [
+                {
+                    "id": "9",
+                    "typeId": "900000000000003001",
+                    "term": "Ibuprofen $ oxycodone (product)"
+                }
+            ]
+        },
+        {
+            "id": "10",
+            "descriptions": [
+                {
+                    "id": "10",
+                    "typeId": "900000000000003001",
+                    "term": "Ibuprofen @ oxycodone (product)"
+                }
+            ]
+        },
+        {
+            "id": "11",
+            "descriptions": [
+                {
+                    "id": "11",
+                    "typeId": "900000000000003001",
+                    "term": "#Ibuprofen oxycodone (product)"
+                }
+            ]
+        },
+        {
+            "id": "12",
+            "descriptions": [
+                {
+                    "id": "12",
+                    "typeId": "900000000000003001",
+                    "term": "ibuprofen oxycodone (product)"
+                }
+            ]
+        },
+        {
+            "id": "13",
+            "descriptions": [
+                {
+                    "id": "13",
+                    "typeId": "900000000000003001",
+                    "term": "Spanien (geography location)"
+                }
+            ]
+        }
+    ]
+}

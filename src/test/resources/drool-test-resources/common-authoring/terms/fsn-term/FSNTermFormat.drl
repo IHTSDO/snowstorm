@@ -1,0 +1,77 @@
+import org.ihtsdo.drools.domain.Concept
+import org.ihtsdo.drools.domain.Description
+import org.ihtsdo.drools.domain.Constants
+import org.ihtsdo.drools.response.InvalidContent
+import org.ihtsdo.drools.response.Severity
+import org.ihtsdo.drools.helper.DescriptionHelper
+import org.ihtsdo.drools.service.ConceptService
+import org.ihtsdo.drools.service.DescriptionService
+import java.util.ArrayList
+
+global java.util.List invalidContent
+global ConceptService conceptService
+global DescriptionService descriptionService
+
+rule "Active FSNs cannot start with open parentheses"
+	dialect "mvel"
+	when
+		c : Concept(active)
+		d : Description(conceptId == c.id && active == true && typeId == Constants.FSN && term matches "\\(.*")
+	then
+		invalidContent.add(new InvalidContent(d, "An FSN should not start with open parentheses.", Severity.WARNING));
+end
+
+rule "FSN ends in closing parentheses"
+	dialect "mvel"
+	when
+		c : Concept(active)
+		d : Description(conceptId == c.id && active == true && typeId == Constants.FSN && term matches ".*[^\\)]")
+	then
+		invalidContent.add(new InvalidContent(d, "An FSN must end in closing parentheses."));
+end
+
+rule "Active FSN must end with a semantic tag"
+	dialect "mvel"
+	when
+		c : Concept(active)
+		d : Description(conceptId == c.id && active == true && typeId == Constants.FSN && (term not matches ".*\\(.+\\)"))
+	then
+		invalidContent.add(new InvalidContent(d, "Active FSN must end with a semantic tag."));
+end
+
+rule "Active FSN should end with a valid semantic tag"
+	dialect "mvel"
+	when
+		c : Concept(active)
+		d : Description(conceptId == c.id && active == true && typeId == Constants.FSN && !descriptionService.isRecognisedSemanticTag(DescriptionHelper.getTag(d.term)))
+	then
+		invalidContent.add(new InvalidContent(d, "Active FSN should end with a valid semantic tag.", Severity.WARNING));
+end
+
+rule "FSN Comma"
+	dialect "mvel"
+	when
+		c : Concept(active)
+		topLevelHierarchies : ArrayList() from collect( String() from conceptService.findTopLevelHierarchiesOfConcept(c))
+		d : Description(active == true && typeId == Constants.FSN && term matches ".*,.*" && topLevelHierarchies not contains "105590001" && topLevelHierarchies not contains "373873005")
+	then
+		invalidContent.add(new InvalidContent(d, "An FSN should not include commas.", Severity.WARNING));
+end
+
+rule "FSN special characters"
+	dialect "mvel"
+	when
+		c : Concept(active)
+		d : Description(conceptId == c.id && active == true && typeId == Constants.FSN && term matches ".*[&%$@#].*")
+	then
+		invalidContent.add(new InvalidContent(d, "An active FSN should not contain the special characters &, %, $, @ or #.", Severity.WARNING));
+end
+
+rule "FSN capitalized"
+	dialect "mvel"
+	when
+		c : Concept(active)
+		d : Description(conceptId == c.id && active == true && typeId == Constants.FSN && term matches "[a-z].*")
+	then
+		invalidContent.add(new InvalidContent(d, "The first letter of an active FSN should be capitalized.", Severity.WARNING));
+end
