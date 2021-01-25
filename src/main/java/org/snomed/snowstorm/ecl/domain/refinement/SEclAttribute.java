@@ -1,8 +1,10 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.snomed.langauges.ecl.domain.refinement.EclAttribute;
+import org.snomed.langauges.ecl.domain.refinement.EclAttributeGroup;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SRefinement;
@@ -57,6 +59,12 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			}
 			updateQueryWithCardinalityCriteria(query, cardinalityCriteria);
 		}
+	}
+
+	@Override
+	@JsonIgnore
+	public EclAttributeGroup getParentGroup() {
+		return super.getParentGroup();
 	}
 
 	private void updateQueryWithCardinalityCriteria(BoolQueryBuilder query, CardinalityCriteria cardinalityCriteria) {
