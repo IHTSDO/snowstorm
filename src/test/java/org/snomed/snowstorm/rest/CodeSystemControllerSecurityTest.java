@@ -1,16 +1,19 @@
 package org.snomed.snowstorm.rest;
 
 import org.junit.jupiter.api.Test;
-import org.snomed.snowstorm.rest.pojo.CodeSystemMigrationRequest;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpgradeRequest;
 import org.snomed.snowstorm.rest.pojo.CreateCodeSystemVersionRequest;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
+import org.springframework.http.ResponseEntity;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CodeSystemControllerSecurityTest extends AbstractControllerSecurityTest {
 
@@ -26,10 +29,22 @@ class CodeSystemControllerSecurityTest extends AbstractControllerSecurityTest {
 	@Test
 	void findAll() throws URISyntaxException {
 		RequestEntity<Object> request = new RequestEntity<>(HttpMethod.GET, new URI(url + "/codesystems"));
-		testStatusCode(HttpStatus.OK, userWithoutRoleHeaders, request);
-		testStatusCode(HttpStatus.OK, authorHeaders, request);
-		testStatusCode(HttpStatus.OK, extensionAdminHeaders, request);
-		testStatusCode(HttpStatus.OK, globalAdminHeaders, request);
+
+		ResponseEntity<String> response = testStatusCode(HttpStatus.OK, userWithoutRoleHeaders, request);
+		assertNotNull(response.getBody());
+		assertTrue(response.getBody().contains("\"userRoles\" : [ ]"));
+
+		response = testStatusCode(HttpStatus.OK, authorHeaders, request);
+		assertNotNull(response.getBody());
+		assertTrue(response.getBody().contains("\"userRoles\" : [ ]"));
+
+		response = testStatusCode(HttpStatus.OK, extensionAdminHeaders, request);
+		assertNotNull(response.getBody());
+		assertTrue(response.getBody().contains("\"userRoles\" : [ \"ADMIN\" ]"));
+
+		response = testStatusCode(HttpStatus.OK, globalAdminHeaders, request);
+		assertNotNull(response.getBody());
+		assertTrue(response.getBody().contains("\"userRoles\" : [ \"ADMIN\" ]"));
 	}
 
 	@Test

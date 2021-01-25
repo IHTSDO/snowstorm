@@ -8,10 +8,7 @@ import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.CodeSystemUpgradeService;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.snomed.snowstorm.extension.ExtensionAdditionalLanguageRefsetUpgradeService;
 import org.snomed.snowstorm.rest.pojo.*;
@@ -20,7 +17,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import static java.lang.Boolean.TRUE;
 
@@ -37,6 +37,9 @@ public class CodeSystemController {
 
 	@Autowired
 	private DailyBuildService dailyBuildService;
+
+	@Autowired
+	private PermissionService permissionService;
 
 	@Autowired
 	private ExtensionAdditionalLanguageRefsetUpgradeService extensionAdditionalLanguageRefsetUpgradeService;
@@ -65,19 +68,19 @@ public class CodeSystemController {
 		if (!Strings.isNullOrEmpty(forBranch)) {
 			CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(forBranch, true);
 			if (codeSystem != null) {
-				return new ItemsPage<>(Collections.singleton(codeSystem));
+				return new ItemsPage<>(Collections.singleton(joinUserPermissionsInfo(codeSystem)));
 			} else {
 				return new ItemsPage<>(Collections.emptySet());
 			}
 		} else {
-			return new ItemsPage<>(codeSystemService.findAll());
+			return new ItemsPage<>(joinUserPermissionsInfo(codeSystemService.findAll()));
 		}
 	}
 
 	@ApiOperation("Retrieve a code system")
 	@RequestMapping(value = "/{shortName}", method = RequestMethod.GET)
 	public CodeSystem findCodeSystem(@PathVariable String shortName) {
-		return ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName));
+		return joinUserPermissionsInfo(ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName)));
 	}
 
 	@ApiOperation("Update a code system")
@@ -85,7 +88,7 @@ public class CodeSystemController {
 	public CodeSystem updateCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpdateRequest updateRequest) {
 		CodeSystem codeSystem = findCodeSystem(shortName);
 		codeSystemService.update(codeSystem, updateRequest);
-		return findCodeSystem(shortName);
+		return joinUserPermissionsInfo(findCodeSystem(shortName));
 	}
 
 	@ApiOperation(value = "Delete a code system", notes = "This function deletes the code system and its versions but it does not delete the branches or the content.")
@@ -178,5 +181,20 @@ public class CodeSystemController {
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public void clearCodeSystemInformationCache() {
 		codeSystemService.clearCache();
+	}
+
+	private CodeSystem joinUserPermissionsInfo(CodeSystem codeSystem) {
+		joinUserPermissionsInfo(Collections.singleton(codeSystem));
+		return codeSystem;
+	}
+
+	private Collection<CodeSystem> joinUserPermissionsInfo(Collection<CodeSystem> codeSystems) {
+		for (CodeSystem codeSystem : codeSystems) {
+			final String branchPath = codeSystem.getBranchPath();
+			if (branchPath != null) {
+				codeSystem.setUserRoles(permissionService.getUserRolesForBranch(branchPath));
+			}
+		}
+		return codeSystems;
 	}
 }
