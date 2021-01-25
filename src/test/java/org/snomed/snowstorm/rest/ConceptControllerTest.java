@@ -16,16 +16,16 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptHistory;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.loadtest.ItemsPagePojo;
+import org.snomed.snowstorm.util.ConceptControllerTestConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
+import org.springframework.web.util.UriComponentsBuilder;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -278,6 +278,82 @@ class ConceptControllerTest extends AbstractTest {
 		String responseBody = responseEntity.getBody();
 		JSONObject jsonObject = new JSONObject(responseBody);
 		assertEquals("Concepts in the ECL request do not exist or are inactive on branch MAIN: 257751006.", jsonObject.get("message"));
+	}
+
+	@Test
+	void testCreateConceptWithValidationEnabled() {
+		branchService.updateMetadata("MAIN", ImmutableMap.of(
+				"assertionGroupNames", "common-authoring,int-authoring",
+				"previousRelease", "20210131",
+				"defaultReasonerNamespace", "",
+				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.set("Content-Type", "application/json");
+		final ResponseEntity<ConceptView> responseEntity = restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts").queryParam("validate", "true").build().toUri(),
+				HttpMethod.POST, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY, httpHeaders), ConceptView.class);
+		assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+		final HttpHeaders responseHeaders = responseEntity.getHeaders();
+		assertTrue(responseHeaders.containsKey("validation-results"));
+		final List<String> validationResults = responseHeaders.get("validation-results");
+		assertFalse(validationResults.isEmpty());
+		final String validationResult = validationResults.get(0);
+		assertTrue(validationResult.contains("99970008"));
+		assertTrue(validationResult.contains("Test resources were not available so assertions like case significance and US specific terms checks will not have run."));
+	}
+
+	@Test
+	void testCreateConceptWithValidationEnabledWhichContainsErrorsReturnsBadRequest() {
+		branchService.updateMetadata("MAIN", ImmutableMap.of(
+				"assertionGroupNames", "common-authoring,int-authoring",
+				"previousRelease", "20210131",
+				"defaultReasonerNamespace", "",
+				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+		final ResponseEntity<ConceptView> responseEntity = restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts").queryParam("validate", "true").build().toUri(),
+				HttpMethod.POST, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_ERRORS_AND_WARNINGS, httpHeaders), ConceptView.class);
+		assertEquals(HttpStatus.BAD_REQUEST, responseEntity.getStatusCode());
+	}
+
+	@Test
+	void testUpdateConceptWithValidationEnabled() throws ServiceException {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+		branchService.updateMetadata("MAIN", ImmutableMap.of(
+				"assertionGroupNames", "common-authoring,int-authoring",
+				"previousRelease", "20210131",
+				"defaultReasonerNamespace", "",
+				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
+		conceptService.create(new Concept("99970008"), "MAIN");
+		final ResponseEntity<ConceptView> responseEntity = restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts/99970008").queryParam("validate", "true").build().toUri(),
+				HttpMethod.PUT, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY, httpHeaders), ConceptView.class);
+		assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+		final HttpHeaders responseHeaders = responseEntity.getHeaders();
+		assertTrue(responseHeaders.containsKey("validation-results"));
+		final List<String> validationResults = responseHeaders.get("validation-results");
+		assertFalse(validationResults.isEmpty());
+		final String validationResult = validationResults.get(0);
+		assertTrue(validationResult.contains("99970008"));
+		assertTrue(validationResult.contains("Test resources were not available so assertions like case significance and US specific terms checks will not have run."));
+	}
+
+	@Test
+	void testUpdateConceptWithValidationEnabledWhichContainsErrorsReturnsBadRequest() throws ServiceException {
+		branchService.updateMetadata("MAIN", ImmutableMap.of(
+				"assertionGroupNames", "common-authoring,int-authoring",
+				"previousRelease", "20210131",
+				"defaultReasonerNamespace", "",
+				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+		conceptService.create(new Concept("9999005"), "MAIN");
+		final ResponseEntity<ConceptView> responseEntity = restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts/99970008").queryParam("validate", "true").build().toUri(),
+				HttpMethod.PUT, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_ERRORS_AND_WARNINGS, httpHeaders), ConceptView.class);
+		assertEquals(HttpStatus.BAD_REQUEST, responseEntity.getStatusCode());
 	}
 
 	@Test
