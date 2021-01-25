@@ -1,7 +1,9 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.Sets;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.snomed.langauges.ecl.domain.refinement.EclAttributeGroup;
 import org.snomed.langauges.ecl.domain.refinement.EclAttributeSet;
 import org.snomed.langauges.ecl.domain.refinement.SubAttributeSet;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
@@ -55,6 +57,12 @@ public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 			conceptIds.addAll(getConceptIds(disjunctionAttributeSet));
 		}
 		return conceptIds;
+	}
+
+	@Override
+	@JsonIgnore
+	public EclAttributeGroup getParentGroup() {
+		return super.getParentGroup();
 	}
 
 	private Collection<? extends String> getConceptIds(List<SubAttributeSet> subAttributeSets) {
