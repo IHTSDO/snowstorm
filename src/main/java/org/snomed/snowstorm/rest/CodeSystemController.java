@@ -11,7 +11,10 @@ import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.snomed.snowstorm.extension.ExtensionAdditionalLanguageRefsetUpgradeService;
-import org.snomed.snowstorm.rest.pojo.*;
+import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
+import org.snomed.snowstorm.rest.pojo.CodeSystemUpgradeRequest;
+import org.snomed.snowstorm.rest.pojo.CreateCodeSystemVersionRequest;
+import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,8 +22,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
-import java.util.Set;
 
 import static java.lang.Boolean.TRUE;
 
@@ -192,7 +193,7 @@ public class CodeSystemController {
 		for (CodeSystem codeSystem : codeSystems) {
 			final String branchPath = codeSystem.getBranchPath();
 			if (branchPath != null) {
-				codeSystem.setUserRoles(permissionService.getUserRolesForBranch(branchPath));
+				codeSystem.setUserRoles(permissionService.getUserRolesForBranch(branchPath).getGrantedBranchRole());
 			}
 		}
 		return codeSystems;
