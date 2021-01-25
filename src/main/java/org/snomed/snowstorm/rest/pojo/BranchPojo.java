@@ -1,21 +1,27 @@
 package org.snomed.snowstorm.rest.pojo;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import io.kaicode.elasticvc.domain.Branch;
+import org.snomed.snowstorm.core.data.domain.security.UserBranchRoles;
 
 import java.util.Date;
 import java.util.Map;
 import java.util.Set;
 
+@JsonPropertyOrder({"path", "state", "containsContent", "locked", "creation", "base", "head", "creationTimestamp", "baseTimestamp", "headTimestamp",
+		"userRoles", "globalUserRoles", "versionsReplacedCounts"})
 public class BranchPojo {
 
 	private final Branch branch;
 	private final Map<String, Object> metadata;
 	private final Set<String> userRoles;
+	private final Set<String> globalUserRoles;
 
-	public BranchPojo(Branch branch, Map<String, Object> metadata, Set<String> userRoles) {
+	public BranchPojo(Branch branch, Map<String, Object> metadata, UserBranchRoles userBranchRoles) {
 		this.branch = branch;
 		this.metadata = metadata;
-		this.userRoles = userRoles;
+		this.userRoles = userBranchRoles.getGrantedBranchRole();
+		this.globalUserRoles = userBranchRoles.getGrantedGlobalRole();
 	}
 
 	public String getPath() {
@@ -66,11 +72,15 @@ public class BranchPojo {
 		return metadata;
 	}
 
-	public Map<String, Integer> getVersionsReplacedCounts() {
-		return branch.getVersionsReplacedCounts();
-	}
-
 	public Set<String> getUserRoles() {
 		return userRoles;
+	}
+
+	public Set<String> getGlobalUserRoles() {
+		return globalUserRoles;
+	}
+
+	public Map<String, Integer> getVersionsReplacedCounts() {
+		return branch.getVersionsReplacedCounts();
 	}
 }
