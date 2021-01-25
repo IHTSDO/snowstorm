@@ -283,7 +283,7 @@ class ConceptControllerTest extends AbstractTest {
 	@Test
 	void testCreateConceptWithValidationEnabled() {
 		branchService.updateMetadata("MAIN", ImmutableMap.of(
-				"assertionGroupNames", "common-authoring,int-authoring",
+				"assertionGroupNames", "common-authoring",
 				"previousRelease", "20210131",
 				"defaultReasonerNamespace", "",
 				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
@@ -305,7 +305,7 @@ class ConceptControllerTest extends AbstractTest {
 	@Test
 	void testCreateConceptWithValidationEnabledWhichContainsErrorsReturnsBadRequest() {
 		branchService.updateMetadata("MAIN", ImmutableMap.of(
-				"assertionGroupNames", "common-authoring,int-authoring",
+				"assertionGroupNames", "common-authoring",
 				"previousRelease", "20210131",
 				"defaultReasonerNamespace", "",
 				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
@@ -322,7 +322,7 @@ class ConceptControllerTest extends AbstractTest {
 		HttpHeaders httpHeaders = new HttpHeaders();
 		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
 		branchService.updateMetadata("MAIN", ImmutableMap.of(
-				"assertionGroupNames", "common-authoring,int-authoring",
+				"assertionGroupNames", "common-authoring",
 				"previousRelease", "20210131",
 				"defaultReasonerNamespace", "",
 				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
@@ -343,7 +343,7 @@ class ConceptControllerTest extends AbstractTest {
 	@Test
 	void testUpdateConceptWithValidationEnabledWhichContainsErrorsReturnsBadRequest() throws ServiceException {
 		branchService.updateMetadata("MAIN", ImmutableMap.of(
-				"assertionGroupNames", "common-authoring,int-authoring",
+				"assertionGroupNames", "common-authoring",
 				"previousRelease", "20210131",
 				"defaultReasonerNamespace", "",
 				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
