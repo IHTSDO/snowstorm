@@ -24,7 +24,7 @@ import java.util.Collections;
 import java.util.GregorianCalendar;
 
 import static java.lang.String.format;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
@@ -60,7 +60,7 @@ public abstract class AbstractControllerSecurityTest extends AbstractTest {
 
 	@BeforeEach
 	void setup() {
-		assertTrue("Role based access control must be enabled for security tests.", rolesEnabled);
+		assertTrue(rolesEnabled, "Role based access control must be enabled for security tests.");
 
 		url = "http://localhost:" + port;
 
@@ -111,7 +111,7 @@ public abstract class AbstractControllerSecurityTest extends AbstractTest {
 		combinedHeaders.addAll(requestEntity.getHeaders());
 		combinedHeaders.addAll(imsHeaders);
 		ResponseEntity<String> response = restTemplate.exchange(new RequestEntity<>(requestEntity.getBody(), combinedHeaders, requestEntity.getMethod(), requestEntity.getUrl()), String.class);
-		assertEquals(response.getBody(), expectedStatusCode, response.getStatusCodeValue());
+		assertEquals(expectedStatusCode, response.getStatusCodeValue(), response.getBody());
 		return response;
 	}
 
@@ -130,7 +130,7 @@ public abstract class AbstractControllerSecurityTest extends AbstractTest {
 			System.out.println("Get " + location.toString());
 
 			ResponseEntity<StatusHolder> responseEntity = restTemplate.exchange(new RequestEntity<>(userHeaders, HttpMethod.GET, location), StatusHolder.class);
-			assertEquals("Job status check response code.", 200, responseEntity.getStatusCodeValue());
+			assertEquals(200, responseEntity.getStatusCodeValue(), "Job status check response code.");
 
 			StatusHolder statusHolder = responseEntity.getBody();
 			if (statusHolder == null) {
