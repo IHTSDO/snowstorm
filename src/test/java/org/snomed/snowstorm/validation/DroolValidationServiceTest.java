@@ -11,15 +11,13 @@ import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.junit.Assert.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
@@ -38,6 +36,9 @@ public class DroolValidationServiceTest extends AbstractTest {
     @Autowired
     private BranchService branchService;
 
+    @Autowired
+    private ReferenceSetMemberService referenceSetMemberService;
+
     @BeforeEach
     void setup() throws ServiceException {
         Map <String, String> metadata = new HashMap <>();
@@ -53,6 +54,10 @@ public class DroolValidationServiceTest extends AbstractTest {
         concept.addDescription(new Description("12220000", null, true, CORE_MODULE, conceptId, "en", FSN, "Test (event)", Concepts.CASE_INSENSITIVE));
         concept.addDescription(new Description("12220003", null, true, CORE_MODULE, conceptId, "en", SYNONYM, "Test", CASE_INSENSITIVE));
         conceptService.create(concept, DEFAULT_BRANCH);
+
+        Set <ReferenceSetMember> attributeRanges = new HashSet<>();
+        attributeRanges.add(constructMrcmRange("23131313", "int(>#0..20)"));
+        referenceSetMemberService.createMembers(DEFAULT_BRANCH, attributeRanges);
     }
 
     @Test
@@ -154,5 +159,14 @@ public class DroolValidationServiceTest extends AbstractTest {
         index++;
         assertEquals(Severity.WARNING, invalidContents.get(index).getSeverity());
         assertEquals("Active FSN should end with a valid semantic tag.", invalidContents.get(index).getMessage());
+    }
+
+    private ReferenceSetMember constructMrcmRange(String referencedComponentId, String rangeConstraint) {
+        ReferenceSetMember rangeMember = new ReferenceSetMember("900000000000207008", REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL, referencedComponentId);
+        rangeMember.setAdditionalField("rangeConstraint", rangeConstraint);
+        rangeMember.setAdditionalField("attributeRule", "");
+        rangeMember.setAdditionalField("ruleStrengthId", "723597001");
+        rangeMember.setAdditionalField("contentTypeId", "723596005");
+        return rangeMember;
     }
 }
