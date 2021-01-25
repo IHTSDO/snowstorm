@@ -5,6 +5,7 @@ import io.swagger.annotations.ApiOperation;
 import org.snomed.langauges.ecl.ECLException;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
+import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,6 +13,10 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.HttpClientErrorException;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @Api(tags = "Utility Functions", description = "-")
@@ -26,9 +31,12 @@ public class UtilityController {
 	@RequestMapping(value = "parse-ecl", method = RequestMethod.GET)
 	public ExpressionConstraint parseECL(@RequestParam String ecl) {
 		try {
+			ecl = URLDecoder.decode(ecl, StandardCharsets.UTF_8.toString());
 			return eclQueryBuilder.createQuery(ecl);
 		} catch (ECLException e) {
 			throw new IllegalArgumentException(e.getMessage(), e);
+		} catch (UnsupportedEncodingException e) {
+			throw new RuntimeServiceException(e);
 		}
 	}
 	
