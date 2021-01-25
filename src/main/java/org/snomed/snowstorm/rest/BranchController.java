@@ -14,6 +14,7 @@ import org.snomed.snowstorm.core.data.domain.review.BranchReview;
 import org.snomed.snowstorm.core.data.domain.review.MergeReview;
 import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
+import org.snomed.snowstorm.core.data.domain.security.UserBranchRoles;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.rest.pojo.*;
@@ -25,7 +26,10 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
-import java.util.*;
+import java.util.Collection;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
@@ -81,8 +85,8 @@ public class BranchController {
 	}
 
 	private BranchPojo getBranchPojo(Branch branch) {
-		Set<String> userRoles = permissionService.getUserRolesForBranch(branch.getPath());
-		return new BranchPojo(branch, branchMetadataHelper.expandObjectValues(branch.getMetadata()), userRoles);
+		final UserBranchRoles userRolesForBranch = permissionService.getUserRolesForBranch(branch.getPath());
+		return new BranchPojo(branch, branchMetadataHelper.expandObjectValues(branch.getMetadata()), userRolesForBranch);
 	}
 
 	@ApiOperation("Update branch metadata")
