@@ -44,7 +44,11 @@ public class RestControllerAdvice {
 	public Map<String, Object> handleIllegalArgumentException(Exception exception) {
 		HashMap<String, Object> result = new HashMap<>();
 		result.put("error", HttpStatus.BAD_REQUEST);
-		result.put(exception instanceof DroolsValidationException ? "validation-results" : "message", exception.getMessage());
+		if (exception instanceof DroolsValidationException) {
+			result.put("validation-results", exception.getMessage().replace("\n", ""));
+		} else {
+			result.put("message", exception.getMessage());
+		}
 		logger.info("bad request {}", exception.getMessage());
 		logger.debug("bad request {}", exception.getMessage(), exception);
 		return result;
