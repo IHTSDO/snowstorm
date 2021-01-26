@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.security.PermissionRecord;
 import org.snomed.snowstorm.core.data.domain.security.Role;
+import org.snomed.snowstorm.core.data.domain.security.UserBranchRoles;
 import org.snomed.snowstorm.core.data.repositories.PermissionRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,6 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -64,7 +66,7 @@ public class PermissionService {
 		if (!rolesEnabled) {
 			return true;
 		}
-		Set<String> userRoleForBranch = getUserRoleForBranch(branchPath, authentication);
+		Set<String> userRoleForBranch = getUserRolesForBranch(branchPath, authentication).getGrantedBranchRole();
 		boolean contains = userRoleForBranch.contains(role);
 		if (!contains) {
 			logger.info("User '{}' does not have required role '{}' on branch '{}', on this branch they have roles:{}.", getUsername(authentication), role, branchPath, userRoleForBranch);
@@ -72,22 +74,22 @@ public class PermissionService {
 		return contains;
 	}
 
-	public Set<String> getUserRolesForBranch(String branchPath) {
+	public UserBranchRoles getUserRolesForBranch(String branchPath) {
 		SecurityContext securityContext = SecurityContextHolder.getContext();
 		if (securityContext == null || securityContext.getAuthentication() == null) {
-			return Collections.emptySet();
+			return new UserBranchRoles();
 		}
 
-		return getUserRoleForBranch(branchPath, securityContext.getAuthentication());
+		return getUserRolesForBranch(branchPath, securityContext.getAuthentication());
 	}
 
-	private Set<String> getUserRoleForBranch(String branchPath, Authentication authentication) {
+	private UserBranchRoles getUserRolesForBranch(String branchPath, Authentication authentication) {
 		List<PermissionRecord> allPermissionRecords = permissionServiceCache.findAllUsingCache();
 		List<String> codeSystemBranches = codeSystemService.findAllCodeSystemBranchesUsingCache();
 		return getUserRolesForBranch(branchPath, allPermissionRecords, codeSystemBranches, authentication);
 	}
 
-	Set<String> getUserRolesForBranch(String branchPath, List<PermissionRecord> allPermissionRecords, List<String> codeSystemBranches, Authentication authentication) {
+	UserBranchRoles getUserRolesForBranch(String branchPath, List<PermissionRecord> allPermissionRecords, List<String> codeSystemBranches, Authentication authentication) {
 		// Find closest code system
 		String closestCodeSystemBranch = Branch.MAIN;
 		for (String codeSystemBranch : codeSystemBranches) {
@@ -103,6 +105,7 @@ public class PermissionService {
 		logger.debug("Authorities:{}, userGroups:{}", authentication.getAuthorities(), userGroups);
 
 		Set<String> grantedBranchRole = new HashSet<>();
+		Set<String> grantedGlobalRole = new HashSet<>();
 		for (PermissionRecord permissionRecord : allPermissionRecords) {
 			if (permissionRecord.isGlobal() || (
 					// Record applies to the closest code system
@@ -112,11 +115,14 @@ public class PermissionService {
 				for (String requiredUserGroup : permissionRecord.getUserGroups()) {
 					if (userGroups.contains(requiredUserGroup)) {
 						grantedBranchRole.add(permissionRecord.getRole());
+						if (permissionRecord.isGlobal()) {
+							grantedGlobalRole.add(permissionRecord.getRole());
+						}
 					}
 				}
 			}
 		}
-		return grantedBranchRole;
+		return new UserBranchRoles(grantedGlobalRole, grantedBranchRole);
 	}
 
 	public void setGlobalRoleGroups(Role role, Set<String> userGroups) {

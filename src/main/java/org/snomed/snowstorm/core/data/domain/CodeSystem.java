@@ -13,6 +13,7 @@ import javax.validation.constraints.Pattern;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Represents an edition or extension of SNOMED-CT
@@ -59,13 +60,16 @@ public class CodeSystem implements CodeSystemCreate {
 	private Integer dependantVersionEffectiveTime;
 
 	@Transient
+	private CodeSystemVersion latestVersion;
+
+	@Transient
 	private Map<String, String> languages;
 
 	@Transient
 	private Collection<ConceptMini> modules;
 
 	@Transient
-	private CodeSystemVersion latestVersion;
+	private Set<String> userRoles;
 
 	public CodeSystem() {
 	}
@@ -176,6 +180,14 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setLatestVersion(CodeSystemVersion latestVersion) {
 		this.latestVersion = latestVersion;
+	}
+
+	public Set<String> getUserRoles() {
+		return userRoles;
+	}
+
+	public void setUserRoles(Set<String> userRoles) {
+		this.userRoles = userRoles;
 	}
 
 	@Override
