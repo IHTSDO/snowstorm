@@ -391,8 +391,9 @@ public class ConceptController {
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException, JsonProcessingException {
 
 		if (validate) {
-			final List<InvalidContent> invalidContentWarnings = ConceptValidationHelper.validate((Concept) concept, branch, validationService, objectMapper);
-			final Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch);
+			final List<InvalidContent> invalidContentWarnings = ConceptValidationHelper.validate((Concept) concept, BranchPathUriUtil.decodePath(branch), validationService, objectMapper);
+			final Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
+					BranchPathUriUtil.decodePath(branch));
 			return new ResponseEntity<>(createdConcept, ConceptValidationHelper.getCreateConceptHeaders(ControllerHelper.getCreatedLocationHeaders(createdConcept.getId()),
 					objectMapper.writeValueAsString(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContentWarnings, createdConcept))), HttpStatus.OK);
 		}
@@ -416,8 +417,8 @@ public class ConceptController {
 				"path must match the one in the request body.");
 
 		if (validate) {
-			final List<InvalidContent> invalidContentWarnings = ConceptValidationHelper.validate((Concept) concept, branch, validationService, objectMapper);
-			return new ResponseEntity<>(conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch),
+			final List<InvalidContent> invalidContentWarnings = ConceptValidationHelper.validate((Concept) concept, BranchPathUriUtil.decodePath(branch), validationService, objectMapper);
+			return new ResponseEntity<>(conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch)),
 					ConceptValidationHelper.getUpdateConceptHeaders(objectMapper.writeValueAsString(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContentWarnings,
 							(Concept) concept))), HttpStatus.OK);
 		}
