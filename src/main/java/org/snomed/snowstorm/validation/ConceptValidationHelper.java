@@ -2,6 +2,7 @@ package org.snomed.snowstorm.validation;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.ihtsdo.drools.domain.Component;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.drools.response.Severity;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -61,16 +62,22 @@ public final class ConceptValidationHelper {
 		replaceInvalidContentTemporaryUUIDWithSCTIDInConcept(invalidContentWarnings, concept);
 		replaceInvalidContentTemporaryUUIDWithSCTIDIn(invalidContentWarnings, concept.getDescriptions(),
 				(final InvalidContent invalidContentWarning, final Description description) -> {
-					final DroolsDescription droolsDescription = (DroolsDescription) invalidContentWarning.getComponent();
-					if (description.getReleaseHash().equals(droolsDescription.getReleaseHash())) {
-						invalidContentWarning.setComponent(new DroolsDescription(description));
+					final Component component = invalidContentWarning.getComponent();
+					if (component instanceof DroolsDescription) {
+						final DroolsDescription droolsDescription = (DroolsDescription) component;
+						if (description.getReleaseHash().equals(droolsDescription.getReleaseHash())) {
+							invalidContentWarning.setComponent(new DroolsDescription(description));
+						}
 					}
 				});
 		replaceInvalidContentTemporaryUUIDWithSCTIDIn(invalidContentWarnings, concept.getRelationships(),
 				(final InvalidContent invalidContentWarning, final Relationship relationship) -> {
-					final DroolsRelationship droolsRelationship = (DroolsRelationship) invalidContentWarning.getComponent();
-					if (relationship.getReleaseHash().equals(droolsRelationship.getReleaseHash())) {
-						invalidContentWarning.setComponent(new DroolsRelationship(null, false, relationship));
+					final Component component = invalidContentWarning.getComponent();
+					if (component instanceof DroolsRelationship) {
+						final DroolsRelationship droolsRelationship = (DroolsRelationship) component;
+						if (relationship.getReleaseHash().equals(droolsRelationship.getReleaseHash())) {
+							invalidContentWarning.setComponent(new DroolsRelationship(null, false, relationship));
+						}
 					}
 				});
 		replaceInvalidContentTemporaryUUIDWithSCTIDInAxiom(invalidContentWarnings, concept.getClassAxioms(), false);
@@ -80,9 +87,12 @@ public final class ConceptValidationHelper {
 
 	private static void replaceInvalidContentTemporaryUUIDWithSCTIDInAxiom(final List<InvalidContent> invalidContentWarnings, final Set<Axiom> axioms, final boolean axiomGci) {
 		axioms.forEach(axiom -> axiom.getRelationships().stream().<Consumer<? super InvalidContent>>map(relationship -> invalidContent -> {
-			final DroolsRelationship droolsRelationship = (DroolsRelationship) invalidContent.getComponent();
-			if (relationship.getReleaseHash().equals(droolsRelationship.getReleaseHash()) && relationship.getId().equals(droolsRelationship.getId())) {
-				invalidContent.setComponent(new DroolsRelationship(axiom.getAxiomId(), axiomGci, relationship));
+			final Component component = invalidContent.getComponent();
+			if (component instanceof DroolsRelationship) {
+				final DroolsRelationship droolsRelationship = (DroolsRelationship) component;
+				if (relationship.getReleaseHash().equals(droolsRelationship.getReleaseHash()) && relationship.getId().equals(droolsRelationship.getId())) {
+					invalidContent.setComponent(new DroolsRelationship(axiom.getAxiomId(), axiomGci, relationship));
+				}
 			}
 		}).forEach(invalidContentWarnings::forEach));
 	}
@@ -96,9 +106,9 @@ public final class ConceptValidationHelper {
 	private static void replaceInvalidContentTemporaryUUIDWithSCTIDInConcept(final List<InvalidContent> invalidContentWarnings, final Concept concept) {
 		final String conceptId = concept.getConceptId();
 		final List<InvalidContent> newInvalidContentWarnings = new ArrayList<>();
-		for (final Iterator<InvalidContent> iterator = invalidContentWarnings.iterator(); iterator.hasNext();) {
+		for (final Iterator<InvalidContent> iterator = invalidContentWarnings.iterator(); iterator.hasNext(); ) {
 			final InvalidContent invalidContent = iterator.next();
-			if(!invalidContent.getConceptId().equals(conceptId)) {
+			if (!invalidContent.getConceptId().equals(conceptId)) {
 				newInvalidContentWarnings.add(new InvalidContent(conceptId, invalidContent.getComponent(), invalidContent.getMessage(), invalidContent.getSeverity()));
 				iterator.remove();
 			}
