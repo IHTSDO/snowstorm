@@ -6,6 +6,7 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.snomed.langauges.ecl.domain.refinement.EclAttribute;
 import org.snomed.langauges.ecl.domain.refinement.EclAttributeGroup;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
+import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SRefinement;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
@@ -297,6 +298,39 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 
 	private boolean isConcreteValueQuery() {
 		return getNumericComparisonOperator() != null || getStringComparisonOperator() != null;
+	}
+
+	public void toString(StringBuffer buffer) {
+		// cardinality
+		cardinalityToString(getCardinalityMin(), getCardinalityMax(), buffer);
+
+		if (reverse) {
+			buffer.append("R ");
+		}
+
+		ECLModelDeserializer.expressionConstraintToString(attributeName, buffer);
+
+		if (expressionComparisonOperator != null) {
+			buffer.append(" ").append(expressionComparisonOperator).append(" ");
+			ECLModelDeserializer.expressionConstraintToString(value, buffer);
+		}
+
+		if (getNumericComparisonOperator() != null) {
+			buffer.append(" ").append(getNumericComparisonOperator()).append(" #").append(getNumericValue());
+		}
+		if (getStringComparisonOperator() != null) {
+			buffer.append(getStringComparisonOperator()).append(" \"").append(getStringValue()).append("\"");
+		}
+	}
+
+	static void cardinalityToString(Integer cardinalityMin, Integer cardinalityMax, StringBuffer buffer) {
+		if ((cardinalityMin != null && cardinalityMin != 1) || cardinalityMax != null) {
+			buffer.append("[");
+			buffer.append(cardinalityMin == null ? 1 : cardinalityMin);
+			buffer.append("..");
+			buffer.append(cardinalityMax == null ? "*" : cardinalityMax);
+			buffer.append("] ");
+		}
 	}
 
 	private static class CardinalityCriteria {

@@ -94,4 +94,21 @@ public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 		matchContext.setMatchingGroups(matchingGroups);
 		return !matchingGroups.isEmpty();
 	}
+
+	public void toString(StringBuffer buffer) {
+		((SSubAttributeSet) subAttributeSet).toString(buffer);
+
+		if (conjunctionAttributeSet != null) {
+			for (SubAttributeSet attributeSet : conjunctionAttributeSet) {
+				buffer.append(", ");
+				((SSubAttributeSet) attributeSet).toString(buffer);
+			}
+		}
+		if (disjunctionAttributeSet != null) {
+			for (SubAttributeSet attributeSet : disjunctionAttributeSet) {
+				buffer.append(" or ");
+				((SSubAttributeSet) attributeSet).toString(buffer);
+			}
+		}
+	}
 }
