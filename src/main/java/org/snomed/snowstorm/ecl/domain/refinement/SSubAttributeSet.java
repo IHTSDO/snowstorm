@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
 import org.snomed.langauges.ecl.domain.refinement.SubAttributeSet;
+import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SRefinement;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.MatchContext;
@@ -31,6 +32,17 @@ public class SSubAttributeSet extends SubAttributeSet implements SRefinement {
 			((SEclAttribute)attribute).checkConceptConstraints(matchContext);
 		} else {
 			((SEclAttributeSet)attributeSet).isMatch(matchContext);
+		}
+	}
+
+	public void toString(StringBuffer buffer) {
+		if (attribute != null) {
+			((SEclAttribute) attribute).toString(buffer);
+		}
+		if (attributeSet != null) {
+			buffer.append("( ");
+			((SEclAttributeSet)attributeSet).toString(buffer);
+			buffer.append(" )");
 		}
 	}
 }

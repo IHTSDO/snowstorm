@@ -10,6 +10,7 @@ import org.snomed.langauges.ecl.domain.refinement.Operator;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
 import org.springframework.data.domain.Page;
@@ -22,6 +23,10 @@ import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class SSubExpressionConstraint extends SubExpressionConstraint implements SExpressionConstraint {
+
+	public SSubExpressionConstraint() {
+		this(null);
+	}
 
 	public SSubExpressionConstraint(Operator operator) {
 		super(operator);
@@ -61,7 +66,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 
 	@Override
 	public void setNestedExpressionConstraint(ExpressionConstraint nestedExpressionConstraint) {
-		if (operator == Operator.memberOf) {
+		if (nestedExpressionConstraint != null && operator == Operator.memberOf) {
 			throw new UnsupportedOperationException("MemberOf nested expression constraint is not supported.");
 		}
 		super.setNestedExpressionConstraint(nestedExpressionConstraint);
@@ -167,4 +172,23 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 		return allAncestors;
 	}
 
+	public void toString(StringBuffer buffer) {
+		if (operator != null) {
+			buffer.append(operator.getText()).append(" ");
+		}
+		if (conceptId != null) {
+			buffer.append(conceptId);
+		}
+		if (term != null) {
+			buffer.append(" |").append(term).append("|");
+		}
+		if (wildcard) {
+			buffer.append("*");
+		}
+		if (nestedExpressionConstraint != null) {
+			buffer.append("( ");
+			ECLModelDeserializer.expressionConstraintToString(nestedExpressionConstraint, buffer);
+			buffer.append(" )");
+		}
+	}
 }
