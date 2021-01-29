@@ -11,6 +11,11 @@ import java.util.Set;
 
 public class SEclAttributeGroup extends EclAttributeGroup implements SRefinement {
 
+	public SEclAttributeGroup() {
+		cardinalityMin = null;
+		cardinalityMax = null;
+	}
+
 	@Override
 	public void addCriteria(RefinementBuilder refinementBuilder) {
 		// All grouping checks require the inclusion filter because it's not supported by the index
@@ -32,5 +37,24 @@ public class SEclAttributeGroup extends EclAttributeGroup implements SRefinement
 		Set<Integer> matchingGroups = groupMatchContext.getMatchingGroups();
 		return ((cardinalityMin == null && matchingGroups.size() > 0) || (cardinalityMin != null && cardinalityMin <= matchingGroups.size()))
 				&& (cardinalityMax == null || cardinalityMax >= matchingGroups.size());
+	}
+
+	public void setCardinalityMin(Integer cardinalityMin) {
+		if (cardinalityMin != null) {
+			super.setCardinalityMin(cardinalityMin);
+		}
+	}
+
+	public void setCardinalityMax(Integer cardinalityMax) {
+		if (cardinalityMax != null) {
+			super.setCardinalityMax(cardinalityMax);
+		}
+	}
+
+	public void toString(StringBuffer buffer) {
+		SEclAttribute.cardinalityToString(getCardinalityMin(), getCardinalityMax(), buffer);
+		buffer.append("{ ");
+		((SEclAttributeSet) attributeSet).toString(buffer);
+		buffer.append(" }");
 	}
 }

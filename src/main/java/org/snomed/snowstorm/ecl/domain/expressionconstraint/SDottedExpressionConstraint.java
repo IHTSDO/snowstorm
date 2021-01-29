@@ -5,6 +5,7 @@ import org.snomed.langauges.ecl.domain.expressionconstraint.DottedExpressionCons
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -17,6 +18,11 @@ import static com.google.common.collect.Sets.newHashSet;
 import static java.util.stream.Collectors.toSet;
 
 public class SDottedExpressionConstraint extends DottedExpressionConstraint implements SExpressionConstraint {
+
+	public SDottedExpressionConstraint() {
+		this(null);
+	}
+
 	public SDottedExpressionConstraint(SubExpressionConstraint subExpressionConstraint) {
 		super(subExpressionConstraint);
 	}
@@ -70,4 +76,11 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 		((SSubExpressionConstraint)subExpressionConstraint).addCriteria(refinementBuilder);
 	}
 
+	public void toString(StringBuffer buffer) {
+		ECLModelDeserializer.expressionConstraintToString(subExpressionConstraint, buffer);
+		for (SubExpressionConstraint dottedAttribute : dottedAttributes) {
+			buffer.append(" . ");
+			ECLModelDeserializer.expressionConstraintToString(dottedAttribute, buffer);
+		}
+	}
 }

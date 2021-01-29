@@ -76,4 +76,20 @@ public class SEclRefinement extends EclRefinement implements SRefinement {
 		}
 		return conceptMatches;
 	}
+
+	public void toString(StringBuffer buffer) {
+		((SSubRefinement) subRefinement).toString(buffer);
+		if (conjunctionSubRefinements != null) {
+			for (SubRefinement subRefinement : conjunctionSubRefinements) {
+				buffer.append(", ");
+				((SSubRefinement) subRefinement).toString(buffer);
+			}
+		}
+		if (disjunctionSubRefinements != null) {
+			for (SubRefinement subRefinement : disjunctionSubRefinements) {
+				buffer.append(" or ");
+				((SSubRefinement) subRefinement).toString(buffer);
+			}
+		}
+	}
 }
