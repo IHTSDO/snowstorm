@@ -3,6 +3,7 @@ package org.snomed.snowstorm.config;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
 import org.ihtsdo.sso.integration.RequestHeaderAuthenticationDecorator;
@@ -133,12 +134,17 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 	}
 
 	@Bean
-	public List<String> allowReadOnlyPostEndpointPrefixes() {
+	public List<String> alwaysAllowReadOnlyPostEndpointPrefixes() {
 		return Collections.singletonList("/fhir");
 	}
 
 	@Bean
-	public List<String> allowReadOnlyPostEndpoints() {
+	public List<String> alwaysAllowReadOnlyPostEndpoints() {
+		return Collections.singletonList("/util/ecl-model-to-string");
+	}
+
+	@Bean
+	public List<String> whenEnabledAllowReadOnlyPostEndpoints() {
 		return Collections.singletonList("/browser/{branch}/concepts/bulk-load");
 	}
 
@@ -151,9 +157,10 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 			// Allow some explicitly defined endpoints
 			ExpressionUrlAuthorizationConfigurer<HttpSecurity>.ExpressionInterceptUrlRegistry authorizeRequests = http.authorizeRequests();
-			allowReadOnlyPostEndpointPrefixes().forEach(prefix -> authorizeRequests.antMatchers(HttpMethod.POST, prefix + "/**").anonymous());
+			alwaysAllowReadOnlyPostEndpointPrefixes().forEach(prefix -> authorizeRequests.antMatchers(HttpMethod.POST, prefix + "/**").anonymous());
+			alwaysAllowReadOnlyPostEndpoints().forEach(path -> authorizeRequests.antMatchers(HttpMethod.POST, path).anonymous());
 			if (restApiAllowReadOnlyPostEndpoints) {
-				allowReadOnlyPostEndpoints().forEach(endpoint -> authorizeRequests.antMatchers(HttpMethod.POST, endpoint.replace("{branch}", "**")).anonymous());
+				whenEnabledAllowReadOnlyPostEndpoints().forEach(endpoint -> authorizeRequests.antMatchers(HttpMethod.POST, endpoint.replace("{branch}", "**")).anonymous());
 			}
 
 			// Block all other POST/PUT/PATCH/DELETE
@@ -183,8 +190,9 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 		if (restApiReadOnly) {
 			// Read-only mode
-			List<String> allowReadOnlyPostEndpointPrefixes = allowReadOnlyPostEndpointPrefixes();
-			List<String> allowReadOnlyPostEndpoints = allowReadOnlyPostEndpoints();
+			List<String> alwaysAllowReadOnlyPostEndpointPrefixes = alwaysAllowReadOnlyPostEndpointPrefixes();
+			List<String> alwaysAllowReadOnlyPostEndpoints = alwaysAllowReadOnlyPostEndpoints();
+			List<String> whenEnabledAllowReadOnlyPostEndpoints = whenEnabledAllowReadOnlyPostEndpoints();
 
 			apiSelectorBuilder
 					.apis(requestHandler -> {
@@ -194,17 +202,24 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 							// Allow FHIR endpoints with GET method (even if endpoint has POST too)
 							if (requestMapping.getPatternsCondition().getPatterns()
 									.stream().
-											anyMatch(pattern -> allowReadOnlyPostEndpointPrefixes
+											anyMatch(pattern -> alwaysAllowReadOnlyPostEndpointPrefixes
 													.stream()
 													.anyMatch(pattern::startsWith))
 									&& requestMapping.getMethodsCondition().getMethods().contains(RequestMethod.GET)) {
+								return true;
+							}
+							if (requestMapping.getPatternsCondition().getPatterns()
+									.stream().
+											anyMatch(pattern -> alwaysAllowReadOnlyPostEndpoints
+													.stream()
+													.anyMatch(pattern::equals))) {
 								return true;
 							}
 							if (restApiAllowReadOnlyPostEndpoints) {
 								// Allow specific endpoints with POST method
 								if (requestMapping.getPatternsCondition().getPatterns()
 										.stream().
-												anyMatch(pattern -> allowReadOnlyPostEndpoints
+												anyMatch(pattern -> whenEnabledAllowReadOnlyPostEndpoints
 														.stream()
 														.anyMatch(pattern::equals))
 										&& requestMapping.getMethodsCondition().getMethods().contains(RequestMethod.POST)) {
