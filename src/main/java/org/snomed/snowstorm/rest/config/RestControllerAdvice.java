@@ -48,6 +48,9 @@ public class RestControllerAdvice {
 			result.put("validation-results", exception.getMessage().replace("\n", ""));
 		} else {
 			result.put("message", exception.getMessage());
+			if (exception.getCause() != null) {
+				result.put("causeMessage", exception.getCause().getMessage());
+			}
 		}
 		logger.info("bad request {}", exception.getMessage());
 		logger.debug("bad request {}", exception.getMessage(), exception);
