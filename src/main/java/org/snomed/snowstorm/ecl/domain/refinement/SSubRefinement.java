@@ -40,4 +40,18 @@ public class SSubRefinement extends SubRefinement implements SRefinement {
 			return ((SEclRefinement)eclRefinement).isMatch(matchContext.clear());
 		}
 	}
+
+	public void toString(StringBuffer buffer) {
+		if (eclAttributeSet != null) {
+			((SEclAttributeSet) eclAttributeSet).toString(buffer);
+		}
+		if (eclAttributeGroup != null) {
+			((SEclAttributeGroup) eclAttributeGroup).toString(buffer);
+		}
+		if (eclRefinement != null) {
+			buffer.append("( ");
+			((SEclRefinement) eclRefinement).toString(buffer);
+			buffer.append(" )");
+		}
+	}
 }

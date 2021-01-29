@@ -5,6 +5,7 @@ import org.snomed.langauges.ecl.domain.expressionconstraint.RefinedExpressionCon
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.langauges.ecl.domain.refinement.EclRefinement;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.refinement.SEclRefinement;
 import org.springframework.data.domain.Page;
@@ -15,6 +16,10 @@ import java.util.*;
 import static com.google.common.collect.Sets.newHashSet;
 
 public class SRefinedExpressionConstraint extends RefinedExpressionConstraint implements SExpressionConstraint {
+
+	public SRefinedExpressionConstraint() {
+		this(null, null);
+	}
 
 	public SRefinedExpressionConstraint(SubExpressionConstraint subExpressionConstraint, EclRefinement eclRefinement) {
 		super(subExpressionConstraint, eclRefinement);
@@ -52,4 +57,9 @@ public class SRefinedExpressionConstraint extends RefinedExpressionConstraint im
 		}
 	}
 
+	public void toString(StringBuffer buffer) {
+		ECLModelDeserializer.expressionConstraintToString(subexpressionConstraint, buffer);
+		buffer.append(" : ");
+		ECLModelDeserializer.expressionConstraintToString((SEclRefinement) eclRefinement, buffer);
+	}
 }
