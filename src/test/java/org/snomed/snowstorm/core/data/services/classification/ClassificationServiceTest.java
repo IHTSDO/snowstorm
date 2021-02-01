@@ -32,8 +32,7 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.COMPLETED;
-import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.SAVED;
+import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.*;
 
 class ClassificationServiceTest extends AbstractTest {
 
@@ -61,10 +60,10 @@ class ClassificationServiceTest extends AbstractTest {
 	@Test
 	void testSaveRelationshipChanges() throws IOException, ServiceException, InterruptedException {
 		// Create concept with some stated modeling in an axiom
-        final String branch = "MAIN";
+		final String branch = "MAIN";
 		createRangeConstraint("1142135004", "dec(#>0..)");
 		createRangeConstraint("1142139005", "int(#>0..)");
-        conceptService.create(
+		conceptService.create(
 				new Concept("123123123001")
 						.addAxiom(
 								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT),
@@ -100,8 +99,8 @@ class ClassificationServiceTest extends AbstractTest {
 
 		// Assert that the changes which were not previously stated are marked as inferredNotStated:true
 		assertEquals("123123123001 -> 1142135004 -> #55.5 inferredNotStated:false\n" +
-                "123123123001 -> 1142139005 -> #5 inferredNotStated:true\n" +
-                "123123123001 -> 116676008 -> 50960005 inferredNotStated:true\n" +
+				"123123123001 -> 1142139005 -> #5 inferredNotStated:true\n" +
+				"123123123001 -> 116676008 -> 50960005 inferredNotStated:true\n" +
 				"123123123001 -> 116680003 -> 138875005 inferredNotStated:false\n" +
 				"123123123001 -> 116680003 -> 247247001 inferredNotStated:true\n" +
 				"123123123001 -> 363698007 -> 84301002 inferredNotStated:false\n", allChanges.toString());
@@ -115,6 +114,64 @@ class ClassificationServiceTest extends AbstractTest {
 		Relationship concreteRelationship = concept.getRelationships().stream().filter(r -> r.getTypeId().equals("1142139005")).findFirst().orElse(null);
 		assertNotNull(concreteRelationship);
 		assertEquals("#5", concreteRelationship.getValue());
+	}
+
+	@Test
+	void testSaveRelationshipChangesFailsWithLoop() throws IOException, ServiceException, InterruptedException {
+		// Create concept with some stated modeling in an axiom
+		final String branch = "MAIN";
+		createRangeConstraint("1142135004", "dec(#>0..)");
+		createRangeConstraint("1142139005", "int(#>0..)");
+		conceptService.create(
+				new Concept(Concepts.ISA)
+						.addAxiom(
+								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)
+						)
+						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				branch);
+		conceptService.create(
+				new Concept("10000000001")
+						.addAxiom(
+								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT),
+								new Relationship("363698007", "84301002"),
+								Relationship.newConcrete("1142135004", ConcreteValue.newDecimal("#55.5"))
+						)
+						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				branch);
+		conceptService.create(
+				new Concept("20000000001")
+						.addAxiom(
+								new Relationship(Concepts.ISA, "10000000001")
+						)
+						.addRelationship(new Relationship(Concepts.ISA, "10000000001")),
+				branch);
+
+		// Save mock classification results with a transitive closure loop
+		String classificationId = UUID.randomUUID().toString();
+		Classification classification = createClassification(branch, classificationId);
+
+		// Standard relationships
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
+				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
+				"\t\t1\t\t10000000001\t20000000001\t0\t116680003\t900000000000227009\t900000000000451002\n" +
+				"").getBytes()), false);
+		// Concrete relationships
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
+				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tvalue\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
+				"").getBytes()), true);
+
+		// Collect changes persisted to change repo (ready for author change review)
+		List<RelationshipChange> relationshipChanges = relationshipChangeRepository.findByClassificationId(classificationId, LARGE_PAGE).getContent();
+		assertEquals(1, relationshipChanges.size());
+
+		// One inferred relationship before
+		assertEquals(1, conceptService.find("10000000001", branch).getRelationships().size());
+
+		// Save the classification results to branch
+		assertEquals(SAVE_FAILED, saveClassificationAndWaitForCompletion(branch, classification.getId()));
+
+		// One inferred relationship after
+		assertEquals(1, conceptService.find("10000000001", branch).getRelationships().size());
 	}
 
 	@Test
