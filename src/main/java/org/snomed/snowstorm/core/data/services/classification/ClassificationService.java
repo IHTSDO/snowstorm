@@ -34,7 +34,6 @@ import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.export.ExportException;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
 import org.snomed.snowstorm.core.util.DateUtil;
-import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -409,7 +408,7 @@ public class ClassificationService {
 						classification.setStatus(SAVED);
 						classification.setSaveDate(new Date());
 					}
-				} catch (ServiceException e) {
+				} catch (ServiceException | IllegalStateException e) {
 					classification.setStatus(SAVE_FAILED);
 					logger.error("Classification save failed {} {}", classification.getPath(), classificationId, e);
 				}
