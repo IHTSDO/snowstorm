@@ -66,7 +66,8 @@ public final class ConceptValidationHelper {
 					final Component component = invalidContentWarning.getComponent();
 					if (component instanceof DroolsDescription) {
 						final DroolsDescription droolsDescription = (DroolsDescription) component;
-						if (description.getReleaseHash().equals(droolsDescription.getReleaseHash())) {
+						if (description != null && description.getReleaseHash() != null &&
+								description.getReleaseHash().equals(droolsDescription.getReleaseHash())) {
 							invalidContentWarning.setComponent(new DroolsDescription(description));
 						}
 					}
@@ -76,7 +77,8 @@ public final class ConceptValidationHelper {
 					final Component component = invalidContentWarning.getComponent();
 					if (component instanceof DroolsRelationship) {
 						final DroolsRelationship droolsRelationship = (DroolsRelationship) component;
-						if (relationship.getReleaseHash().equals(droolsRelationship.getReleaseHash())) {
+						if (relationship != null && relationship.getReleaseHash() != null &&
+								relationship.getReleaseHash().equals(droolsRelationship.getReleaseHash())) {
 							invalidContentWarning.setComponent(new DroolsRelationship(null, false, relationship));
 						}
 					}
@@ -91,7 +93,9 @@ public final class ConceptValidationHelper {
 			final Component component = invalidContent.getComponent();
 			if (component instanceof DroolsRelationship) {
 				final DroolsRelationship droolsRelationship = (DroolsRelationship) component;
-				if (relationship.getReleaseHash().equals(droolsRelationship.getReleaseHash()) && relationship.getId().equals(droolsRelationship.getId())) {
+				if (relationship != null && relationship.getReleaseHash() != null &&
+						relationship.getReleaseHash().equals(droolsRelationship.getReleaseHash()) &&
+						relationship.getId().equals(droolsRelationship.getId())) {
 					invalidContent.setComponent(new DroolsRelationship(axiom.getAxiomId(), axiomGci, relationship));
 				}
 			}
