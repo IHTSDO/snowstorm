@@ -35,14 +35,14 @@ public final class ConceptValidationHelper {
 	private static Concept generateUUIDSIfNotSet(final Concept concept) {
 		if (concept != null) {
 			if (concept.getConceptId() == null) {
-				concept.setConceptId(UUID.randomUUID().toString());
+				concept.setConceptId(UUID.randomUUID().toString().replace("-","").substring(0, 10));
 			}
 			concept.getDescriptions().stream().filter(description -> description != null && description.getId() == null)
-					.forEach(description -> description.setDescriptionId(UUID.randomUUID().toString()));
+					.forEach(description -> description.setDescriptionId(UUID.randomUUID().toString().replace("-","").substring(0, 10)));
 			concept.getRelationships().stream().filter(relationship -> relationship != null && relationship.getId() == null)
-					.forEach(relationship -> relationship.setRelationshipId(UUID.randomUUID().toString()));
+					.forEach(relationship -> relationship.setRelationshipId(UUID.randomUUID().toString().replace("-","").substring(0, 10)));
 			concept.getAllOwlAxiomMembers().stream().filter(referenceSetMember -> referenceSetMember != null && referenceSetMember.getId() == null)
-					.forEach(referenceSetMember -> referenceSetMember.setRefsetId(UUID.randomUUID().toString()));
+					.forEach(referenceSetMember -> referenceSetMember.setRefsetId(UUID.randomUUID().toString().replace("-","").substring(0, 10)));
 		}
 		return concept;
 	}
