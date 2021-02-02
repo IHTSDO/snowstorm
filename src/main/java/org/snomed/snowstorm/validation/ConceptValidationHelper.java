@@ -2,6 +2,7 @@ package org.snomed.snowstorm.validation;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.ihtsdo.drools.domain.Component;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.drools.response.Severity;
@@ -35,14 +36,14 @@ public final class ConceptValidationHelper {
 	private static Concept generateUUIDSIfNotSet(final Concept concept) {
 		if (concept != null) {
 			if (concept.getConceptId() == null) {
-				concept.setConceptId(UUID.randomUUID().toString().substring(0, 10));
+				concept.setConceptId(RandomStringUtils.randomNumeric(10));
 			}
 			concept.getDescriptions().stream().filter(description -> description != null && description.getId() == null)
-					.forEach(description -> description.setDescriptionId(UUID.randomUUID().toString().substring(0, 10)));
+					.forEach(description -> description.setDescriptionId(RandomStringUtils.randomNumeric(10)));
 			concept.getRelationships().stream().filter(relationship -> relationship != null && relationship.getId() == null)
-					.forEach(relationship -> relationship.setRelationshipId(UUID.randomUUID().toString().substring(0, 10)));
+					.forEach(relationship -> relationship.setRelationshipId(RandomStringUtils.randomNumeric(10)));
 			concept.getAllOwlAxiomMembers().stream().filter(referenceSetMember -> referenceSetMember != null && referenceSetMember.getId() == null)
-					.forEach(referenceSetMember -> referenceSetMember.setRefsetId(UUID.randomUUID().toString().substring(0, 10)));
+					.forEach(referenceSetMember -> referenceSetMember.setRefsetId(RandomStringUtils.randomNumeric(10)));
 		}
 		return concept;
 	}
