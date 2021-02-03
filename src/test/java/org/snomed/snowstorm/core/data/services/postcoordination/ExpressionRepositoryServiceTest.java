@@ -21,9 +21,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 
 class ExpressionRepositoryServiceTest extends AbstractTest {
@@ -129,8 +127,7 @@ class ExpressionRepositoryServiceTest extends AbstractTest {
 		assertIllegalArgumentParsingError("373873005 |Pharmaceutical / biologic product| :" +
 				"\t\t411116001 |Has dose form| == 421720008 |Spray dose form|");
 
-		assertEquals("No invalid expressions should have been saved.",
-				0, expressionRepository.findAll("MAIN", PageRequest.of(0, 5)).getTotalElements());
+		assertEquals(0, expressionRepository.findAll("MAIN", PageRequest.of(0, 5)).getTotalElements(), "No invalid expressions should have been saved.");
 	}
 
 	@Test

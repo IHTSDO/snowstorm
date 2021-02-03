@@ -3,8 +3,6 @@ package org.snomed.snowstorm.core.data.services.postcoordination;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.elasticsearch.common.util.set.Sets;
 import org.snomed.languages.scg.SCGException;
-import org.snomed.languages.scg.SCGExpressionParser;
-import org.snomed.languages.scg.SCGObjectFactory;
 import org.snomed.languages.scg.domain.model.Attribute;
 import org.snomed.languages.scg.domain.model.AttributeValue;
 import org.snomed.languages.scg.domain.model.Expression;
@@ -37,7 +35,11 @@ import static java.lang.String.format;
 @Service
 public class ExpressionRepositoryService {
 
-	private final SCGExpressionParser expressionParser;
+	@Autowired
+	private ExpressionParser expressionParser;
+
+	@Autowired
+	private ExpressionTransformationService transformationService;
 
 	@Autowired
 	private ReferenceSetMemberService memberService;
@@ -69,10 +71,6 @@ public class ExpressionRepositoryService {
 	private static final String EXPRESSION_FIELD = "expression";
 	private static final String SUBSTRATE_FIELD = "substrate";
 
-	public ExpressionRepositoryService() {
-		expressionParser = new SCGExpressionParser(new SCGObjectFactory());
-	}
-
 	public Page<PostCoordinatedExpression> findAll(String branch, PageRequest pageRequest) {
 		Page<ReferenceSetMember> membersPage = memberService.findMembers(branch,
 				new MemberSearchRequest()
@@ -98,12 +96,18 @@ public class ExpressionRepositoryService {
 	public PostCoordinatedExpression createExpression(String branch, String closeToUserForm, String moduleId) throws ServiceException {
 		try {
 			// Sort contents of expression
-			Expression expression = createSortedExpression(closeToUserForm);
+			ComparableExpression expression = expressionParser.parseExpression(closeToUserForm);
 
 			ExpressionContext context = new ExpressionContext(branch, versionControlHelper, mrcmService);
 
 			// Validate expression against MRCM
 			mrcmAttributeRangeValidation(expression, context);
+
+			try {
+				transformationService.transform(expression, context);
+			} catch (TransformationException e) {
+				throw new TransformationException(String.format("Expression \"%s\" could not be transformed because: %s", expression.toString(), e.getMessage()), e);
+			}
 
 			List<Long> expressionIds = identifierSource.reserveIds(0, LocalRandomIdentifierSource.POSTCOORDINATED_EXPRESSION_PARTITION_ID, 1);
 			Long expressionId = expressionIds.get(0);
@@ -117,17 +121,11 @@ public class ExpressionRepositoryService {
 		}
 	}
 
-	public Expression createSortedExpression(String expressionString) {
-		Expression expression = expressionParser.parseExpression(expressionString);
-		expression = new ComparableExpression(expression);
-		return expression;
-	}
-
 	private PostCoordinatedExpression toExpression(ReferenceSetMember member) {
 		return new PostCoordinatedExpression(member.getReferencedComponentId(), member.getAdditionalField(EXPRESSION_FIELD));
 	}
 
-	private void mrcmAttributeRangeValidation(Expression expression, ExpressionContext context) throws ServiceException {
+	private void mrcmAttributeRangeValidation(ComparableExpression expression, ExpressionContext context) throws ServiceException {
 		doMrcmAttributeRangeValidation(expression, null, context);
 	}
 
