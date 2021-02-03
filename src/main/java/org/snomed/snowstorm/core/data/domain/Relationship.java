@@ -126,8 +126,13 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public Relationship(String typeId, String destinationId) {
 		this();
-		this.typeId = typeId;
-		this.destinationId = destinationId;
+		this.typeId = trim(typeId);
+		this.destinationId = trim(destinationId);
+	}
+
+	// To trim terms in test data
+	private String trim(String typeId) {
+		return typeId != null && typeId.contains(" ") ? typeId.substring(0, typeId.indexOf(" ")) : typeId;
 	}
 
 	public Relationship(String relationshipId, String typeId, String destinationId) {
