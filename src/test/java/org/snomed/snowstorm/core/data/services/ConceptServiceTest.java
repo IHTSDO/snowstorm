@@ -766,7 +766,7 @@ class ConceptServiceTest extends AbstractTest {
 		final Concept inConcept = new Concept("12345678910");
 		inConcept.addAxiom(
 				new Relationship(ISA, "12345"),
-				Relationship.newConcrete("1234567891011", "#1")
+				Relationship.newConcrete("1234567891011", ConcreteValue.newInteger("#1"))
 		);
 		createRangeConstraint("1234567891011", "dec(>#0..*)");
 		//when
@@ -787,7 +787,7 @@ class ConceptServiceTest extends AbstractTest {
 		final Concept inConcept = new Concept("12345678910");
 		inConcept.addAxiom(
 				new Relationship(ISA, "12345"),
-				Relationship.newConcrete("1234567891011", "#3.14")
+				Relationship.newConcrete("1234567891011", ConcreteValue.newDecimal("#3.14"))
 		);
 		createRangeConstraint("1234567891011", "dec(>#0..*)");
 
@@ -809,7 +809,7 @@ class ConceptServiceTest extends AbstractTest {
 		final Concept inConcept = new Concept("12345678910");
 		inConcept.addAxiom(
 				new Relationship(ISA, "12345"),
-				Relationship.newConcrete("1234567891012", "\"Two tablets in morning.\"")
+				Relationship.newConcrete("1234567891012", ConcreteValue.newString("\"Two tablets in morning.\""))
 		);
 		createRangeConstraint("1234567891012", "str()");
 

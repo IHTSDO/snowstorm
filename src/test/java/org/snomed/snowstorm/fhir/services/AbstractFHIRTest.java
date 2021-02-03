@@ -201,7 +201,7 @@ public abstract class AbstractFHIRTest {
 		
 		if (concrete) {
 			concept.addAxiom(new Relationship(Concepts.ISA, Concepts.SUBSTANCE),
-					Relationship.newConcrete(STRENGTH_NUMERATOR, "#500"));
+					Relationship.newConcrete(STRENGTH_NUMERATOR, ConcreteValue.newDecimal("#500")));
 		} else {
 			concept.addAxiom(new Relationship(Concepts.ISA, Concepts.SUBSTANCE));
 		}

@@ -6,10 +6,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
 import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus;
 import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
@@ -17,8 +14,12 @@ import org.snomed.snowstorm.core.data.repositories.ClassificationRepository;
 import org.snomed.snowstorm.core.data.repositories.classification.RelationshipChangeRepository;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.ByteArrayInputStream;
@@ -54,6 +55,9 @@ class ClassificationServiceTest extends AbstractTest {
 	@Autowired
 	private BranchService branchService;
 
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
+
 	@Test
 	void testSaveRelationshipChanges() throws IOException, ServiceException, InterruptedException {
 		// Create concept with some stated modeling in an axiom
@@ -65,7 +69,7 @@ class ClassificationServiceTest extends AbstractTest {
 						.addAxiom(
 								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT),
 								new Relationship("363698007", "84301002"),
-                                Relationship.newConcrete("1142135004", "#55.5")
+								Relationship.newConcrete("1142135004", ConcreteValue.newDecimal("#55.5"))
 						), branch);
 
 		// Save mock classification results with mix of previously stated and new triples
@@ -103,7 +107,63 @@ class ClassificationServiceTest extends AbstractTest {
 				"123123123001 -> 363698007 -> 84301002 inferredNotStated:false\n", allChanges.toString());
 
 		// Save the classification results to branch
-        assertEquals(SAVED, saveClassificationAndWaitForCompletion(branch, classification.getId()));
+		assertEquals(SAVED, saveClassificationAndWaitForCompletion(branch, classification.getId()));
+
+		Concept concept = conceptService.find("123123123001", branch);
+		assertEquals(6, concept.getRelationships().size());
+
+		Relationship concreteRelationship = concept.getRelationships().stream().filter(r -> r.getTypeId().equals("1142139005")).findFirst().orElse(null);
+		assertNotNull(concreteRelationship);
+		assertEquals("#5", concreteRelationship.getValue());
+	}
+
+	@Test
+	void testSaveRelationshipChangesFailsWithLoop() throws IOException, ServiceException, InterruptedException {
+		// Create concept with some stated modeling in an axiom
+		final String branch = "MAIN";
+		createRangeConstraint("1142135004", "dec(#>0..)");
+		createRangeConstraint("1142139005", "int(#>0..)");
+		conceptService.create(
+				new Concept(Concepts.ISA)
+						.addAxiom(
+								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)
+						)
+						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				branch);
+		conceptService.create(
+				new Concept("10000000001")
+						.addAxiom(
+								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT),
+								new Relationship("363698007", "84301002"),
+								Relationship.newConcrete("1142135004", ConcreteValue.newDecimal("#55.5"))
+						)
+						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				branch);
+		conceptService.create(
+				new Concept("20000000001")
+						.addAxiom(
+								new Relationship(Concepts.ISA, "10000000001")
+						)
+						.addRelationship(new Relationship(Concepts.ISA, "10000000001")),
+				branch);
+
+		// Save mock classification results with a transitive closure loop
+		String classificationId = UUID.randomUUID().toString();
+		Classification classification = createClassification(branch, classificationId);
+
+		// Standard relationships
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
+				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
+				"\t\t1\t\t10000000001\t20000000001\t0\t116680003\t900000000000227009\t900000000000451002\n" +
+				"").getBytes()), false);
+		// Concrete relationships
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
+				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tvalue\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
+				"").getBytes()), true);
+
+		// Collect changes persisted to change repo (ready for author change review)
+		List<RelationshipChange> relationshipChanges = relationshipChangeRepository.findByClassificationId(classificationId, LARGE_PAGE).getContent();
+		assertEquals(1, relationshipChanges.size());
 
         Concept concept = conceptService.find("123123123001", branch);
         assertEquals(6, concept.getRelationships().size());
@@ -157,7 +217,7 @@ class ClassificationServiceTest extends AbstractTest {
 				new Concept(conceptId)
 						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT))
 						.addRelationship(new Relationship("363698007", "84301002"))
-						.addRelationship(Relationship.newConcrete("1142135004", "#55.5"))
+						.addRelationship(Relationship.newConcrete("1142135004", ConcreteValue.newDecimal("#55.5")))
 				, path);
 
         final Concept savedConcept = conceptService.find(conceptId, path);
@@ -231,6 +291,55 @@ class ClassificationServiceTest extends AbstractTest {
 		Relationship inactiveRelationship = relationships.stream().filter(rel -> !rel.isActive()).collect(Collectors.toList()).get(0);
 		assertNotNull(inactiveRelationship);
 		assertNull(inactiveRelationship.getEffectiveTime());
+	}
+
+	@Test
+	void testAxiomConcreteValueDataTypeWhenSavingClassification() throws Exception {
+		// Create concept with some stated modeling in an axiom
+		final String branch = "MAIN";
+		createRangeConstraint("1142135004", "dec(#>0..)");
+		createRangeConstraint("1142139005", "int(#>0..)");
+		conceptService.create(
+				new Concept("123123123001")
+						.addAxiom(
+								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT),
+								new Relationship("363698007", "84301002"),
+								Relationship.newConcrete("1142135004", ConcreteValue.newDecimal("#500")),
+								Relationship.newConcrete("1142139005", ConcreteValue.newInteger("#10"))
+						), branch);
+
+		// verify the data type in axiom
+		Concept concept = conceptService.find("123123123001", branch);
+		MemberSearchRequest axiomMemberRequest = new MemberSearchRequest().referencedComponentId("123123123001").referenceSet(Concepts.OWL_AXIOM_REFERENCE_SET);
+		Page<ReferenceSetMember> axioms = referenceSetMemberService.findMembers(branch, axiomMemberRequest, PageRequest.of(0, 10));
+		assertNotNull(axioms.getContent());
+		assertEquals(1, axioms.getContent().size());
+		String owlExpression = axioms.getContent().get(0).getAdditionalField("owlExpression");
+		String expected = "SubClassOf(:123123123001 ObjectIntersectionOf(:138875005 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:363698007 :84301002)) " +
+				"ObjectSomeValuesFrom(:609096000 DataHasValue(:1142135004 \"500\"^^xsd:decimal)) " +
+				"ObjectSomeValuesFrom(:609096000 DataHasValue(:1142139005 \"10\"^^xsd:integer))))";
+		assertEquals(expected, owlExpression);
+
+		// Save mock classification results with mix of previously stated and new triples
+		String classificationId = UUID.randomUUID().toString();
+		Classification classification = createClassification(branch, classificationId);
+
+		// Concrete relationships
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
+				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tvalue\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
+				"\t\t1\t\t123123123001\t#10\t0\t1142139005\t900000000000227009\t900000000000451002\n" +
+				"\t\t1\t\t123123123001\t#500.0\t0\t1142135004\t900000000000227009\t900000000000451002\n" +
+				"").getBytes()), true);
+		// Save the classification results to branch
+		assertEquals(SAVED, saveClassificationAndWaitForCompletion(branch, classification.getId()));
+
+		// check the axiom data type after save
+
+		axioms = referenceSetMemberService.findMembers(branch, axiomMemberRequest, PageRequest.of(0, 10));
+		assertNotNull(axioms.getContent());
+		assertEquals(1, axioms.getContent().size());
+		String owlExpressionAfterSave = axioms.getContent().get(0).getAdditionalField("owlExpression");
+		assertEquals(expected, owlExpressionAfterSave);
 	}
 
 	Classification createClassification(String path, String classificationId) {
