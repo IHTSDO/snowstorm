@@ -22,11 +22,28 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 	private Set<ComparableAttribute> comparableAttributes;
 	private Set<ComparableAttributeGroup> comparableAttributeGroups;
 
+	public ComparableExpression() {
+	}
+
 	public ComparableExpression(Expression expression) {
 		setDefinitionStatus(expression.getDefinitionStatus());
 		setFocusConcepts(expression.getFocusConcepts());
 		setAttributes(expression.getAttributes());
 		setAttributeGroups(expression.getAttributeGroups());
+	}
+
+	public void addFocusConcept(String conceptId) {
+		if (sortedFocusConcepts == null) {
+			sortedFocusConcepts = new TreeSet<>();
+		}
+		sortedFocusConcepts.add(conceptId);
+	}
+
+	public void addAttributeGroup(AttributeGroup attributeGroup) {
+		if (comparableAttributeGroups == null) {
+			comparableAttributeGroups = new TreeSet<>();
+		}
+		comparableAttributeGroups.add(new ComparableAttributeGroup(attributeGroup));
 	}
 
 	@Override

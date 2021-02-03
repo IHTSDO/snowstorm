@@ -230,6 +230,14 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		return this;
 	}
 
+	public Concept addRelationship(String typeId, String destinationId) {
+		return addRelationship(new Relationship(typeId, destinationId));
+	}
+
+	public Concept addRelationship(int groupNumber, String typeId, String destinationId) {
+		return addRelationship(new Relationship(typeId, destinationId).setGroupId(groupNumber));
+	}
+
 	public Concept addRelationship(Relationship relationship) {
 		relationship.setSourceId(this.conceptId);
 		relationships.add(relationship);
