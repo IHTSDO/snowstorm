@@ -127,6 +127,9 @@ public class ConcreteValue implements AttributeValue {
 		if (dataType == DataType.DECIMAL || dataType == DataType.INTEGER) {
 			return "#" + value;
 		}
+		if (dataType == DataType.STRING) {
+			return "\"" + value + "\"";
+		}
 		return value;
 	}
 
