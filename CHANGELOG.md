@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## 6.0.1 Release - Jan 2021 - Support for concrete domains technical preview
+## 6.0.2 Release - Feb 2021 - Support for concrete domains technical preview
 Added support for concrete domains to host the International Edition Technical Preview.
 Additions have been made to the concept browser representation to represent concrete relationship values and types but changes are backward compatible.
 Full support for authoring concrete domains is still in development and will be released in the next few months.   
@@ -23,7 +23,7 @@ domain content loaded.
 - Authoring:
   - Classification of concrete domain content.
   - Delta RF2 imports logged against Traceability Service (if feature is enabled).
-  - Option to export just changed components from a task branch using `unpromotedChangesOnly`.
+  - Fixes #217 Option to export just changed components from a task branch using `unpromotedChangesOnly`.
 
 ### Improvements
 - Add description type filtering to concept search.
