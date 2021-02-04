@@ -17,7 +17,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
-import static java.util.Collections.singletonList;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class SEclAttribute extends EclAttribute implements SRefinement {
@@ -47,7 +46,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			}
 			Collection<Long> destinationConceptIds = refinementBuilder.getQueryService()
 					.findRelationshipDestinationIds(range.getPossibleAttributeValues().stream().map(Long::parseLong)
-							.collect(Collectors.toList()), range.getAttributeTypesOptional().map(Slice::getContent).orElse(null), branchCriteria, stated);
+							.collect(Collectors.toList()), range.getAttributeTypeIds(), branchCriteria, stated);
 			query.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, destinationConceptIds));
 		} else {
 			// Not reverse flag
@@ -196,58 +195,47 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			Optional<Page<Long>> attributeTypesOptional = ((SSubExpressionConstraint) attributeName).select(refinementBuilder);
 
 			boolean attributeTypeWildcard = !attributeTypesOptional.isPresent();
-			Set<String> attributeTypeProperties_;
+			List<Long> attributeTypeIds;
+			Set<String> attributeTypeProperties;
 			if (attributeTypeWildcard) {
-				attributeTypeProperties_ = Collections.singleton(QueryConcept.ATTR_TYPE_WILDCARD);
+				attributeTypeIds = null;
+				attributeTypeProperties = Collections.singleton(QueryConcept.ATTR_TYPE_WILDCARD);
 			} else {
-				attributeTypeProperties_ = attributeTypesOptional.get().stream().map(Object::toString).collect(Collectors.toSet());
-				if (attributeTypeProperties_.isEmpty()) {
+				attributeTypeIds = attributeTypesOptional.get().getContent();
+				attributeTypeProperties = attributeTypeIds.stream().map(Object::toString).collect(Collectors.toSet());
+				if (attributeTypeProperties.isEmpty()) {
 					// Attribute type is not a wildcard but empty selection
 					// Force query to return nothing
-					attributeTypeProperties_.add(SExpressionConstraintHelper.MISSING);
+					attributeTypeProperties.add(SExpressionConstraintHelper.MISSING);
 				}
 			}
 
 			if (!isConcreteValueQuery()) {
-				List<Long> possibleAttributeValues_ = ((SSubExpressionConstraint) value).select(refinementBuilder).map(Slice::getContent).orElse(null);
-				List<String> possibleAttributeValues = possibleAttributeValues_ != null ? possibleAttributeValues_.stream().map(String::valueOf).collect(Collectors.toList()) : null;
-				attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, possibleAttributeValues, cardinalityMin, cardinalityMax);
+				List<Long> possibleAttributeValuesLong = ((SSubExpressionConstraint) value).select(refinementBuilder).map(Slice::getContent).orElse(null);
+				List<String> possibleAttributeValues = possibleAttributeValuesLong != null ? possibleAttributeValuesLong.stream().map(String::valueOf).collect(Collectors.toList()) : null;
+				attributeRange = AttributeRange.newConceptRange(attributeTypeWildcard, attributeTypeIds, attributeTypeProperties, possibleAttributeValues,
+						cardinalityMin, cardinalityMax);
 			} else {
-				String operator = null;
-				boolean isNumeric = false;
 				if (getNumericComparisonOperator() != null) {
-					operator = getNumericComparisonOperator();
-					isNumeric = true;
+					if (attributeTypeWildcard) {
+						attributeTypeProperties = Collections.singleton(QueryConcept.ATTR_NUMERIC_TYPE_WILDCARD);
+					}
+					attributeRange = AttributeRange.newConcreteNumberRange(attributeTypeWildcard, attributeTypeIds, attributeTypeProperties, getNumericComparisonOperator(), getNumericValue(),
+							cardinalityMin, cardinalityMax);
+
 				} else if (getStringComparisonOperator() != null) {
-					operator = getStringComparisonOperator();
+					attributeRange = AttributeRange.newConcreteStringRange(attributeTypeWildcard, attributeTypeIds, attributeTypeProperties, getStringComparisonOperator(), getStringValue(),
+							cardinalityMin, cardinalityMax);
 				}
-				List<String> concreteValues = getConcreteValues();
-				if (isNumeric && attributeTypeWildcard) {
-					attributeTypeProperties_ = Collections.singleton(QueryConcept.ATTR_NUMERIC_TYPE_WILDCARD);
-				}
-				attributeRange = new AttributeRange(attributeTypeWildcard, attributeTypesOptional, attributeTypeProperties_, concreteValues, cardinalityMin, cardinalityMax);
-				attributeRange.setConcreteValueOperator(operator);
-				attributeRange.setNumericQuery(isNumeric);
 			}
 		}
 		return attributeRange;
-	}
-
-	private List<String> getConcreteValues() {
-		if (getStringComparisonOperator() != null && getStringValue() != null) {
-			return singletonList(getStringValue());
-		}
-		if (getNumericComparisonOperator() != null && getNumericValue() != null) {
-			return singletonList(getNumericValue());
-		}
-		return null;
 	}
 
 	void checkConceptConstraints(MatchContext matchContext) {
 		AttributeRange range = getAttributeRange();
 		Map<Integer, Map<String, List<Object>>> conceptAttributes = matchContext.getConceptAttributes();
 		boolean withinGroup = matchContext.isWithinGroup();
-		boolean equalsOperator = isEqualOperator();
 		// Count occurrence of this attribute within each group
 		final AtomicInteger attributeMatchCount = new AtomicInteger(0);
 		final Map<Integer, AtomicInteger> groupAttributeMatchCounts = new HashMap<>();
@@ -257,7 +245,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 					.filter(entrySet -> range.isTypeWithinRange(entrySet.getKey()))
 					.forEach((Map.Entry<String, List<Object>> entrySet) ->
 							entrySet.getValue().forEach(conceptAttributeValue -> {
-								if (equalsOperator == range.isValueWithinRange(String.valueOf(conceptAttributeValue))) {
+								if (range.isValueWithinRange(conceptAttributeValue)) {
 									// Increment count for attribute match in the concept
 									attributeMatchCount.incrementAndGet();
 									// Increment count for attribute match in this relationship group

@@ -208,6 +208,8 @@ class ECLQueryServiceTest extends AbstractTest {
 		assertEquals(34, queryConcepts.size());
 	}
 
+	// Please note the concrete domains ECL tests are in SemanticIndexUpdateServiceTest
+
 	@Test
 	void selectByDescendantAndAncestorOperators() {
 		// Self

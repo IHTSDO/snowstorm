@@ -996,7 +996,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testRebuildSemanticIndexWithConcreteValues() throws ServiceException, InterruptedException {
+	void testRebuildSemanticIndexWithConcreteValues() throws ServiceException {
 		String path = "MAIN";
 		List<Concept> concepts = createConcreteValueTestConcepts(path);
 
@@ -1015,7 +1015,21 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		// wildcard query to test attr.all field in the semantic index
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
-		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* >= #6"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: [1..1] * = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: [1..*] * = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: [2..2] * = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: { * = #50 }"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: [1..1] { * = #50 }"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: [1..2] { * = #50 }"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: [2..2] { * = #50 }"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: [2..*] { * = #50 }"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: { [1..1] * = #50 }"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: { * >= #50, * <= #20 }"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: { * >= #45, * <= #20 }"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: { * >= #51, * <= #20 }"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: { * <= #50, * <= #20 }"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: { * <= #19 }"), path, QueryService.PAGE_OF_ONE).getTotalElements());
+		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007: * >= #6"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(2, queryService.search(queryService.createQueryBuilder(false).ecl("*:396070080 >= #0"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* = #50"), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020007:* >= #6"), path, QueryService.PAGE_OF_ONE).getTotalElements());
