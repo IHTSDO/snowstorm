@@ -42,6 +42,7 @@ class AttributeRange {
 
 		final AttributeRange range = new AttributeRange(attributeTypeWildcard, attributeTypeIds, attributeTypeFields, operator, cardinalityMin, cardinalityMax);
 		range.isConcrete = true;
+		range.isNumeric = true;
 		range.concreteNumberValue = Float.parseFloat(concreteNumberValue);
 		range.possibleAttributeValues = Collections.singletonList(concreteNumberValue);
 		return range;
@@ -52,7 +53,6 @@ class AttributeRange {
 
 		final AttributeRange range = new AttributeRange(attributeTypeWildcard, attributeTypeIds, attributeTypeFields, operator, cardinalityMin, cardinalityMax);
 		range.isConcrete = true;
-		range.isNumeric = true;
 		range.concreteStringValue = stringValue;
 		range.possibleAttributeValues = Collections.singletonList(stringValue);
 		return range;
