@@ -357,27 +357,26 @@ public class ClassificationService {
 						commit.getBranch().getMetadata().put(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY, "true");
 
 						List<RelationshipChange> changesBatch = null;
-						String lastId = null;
+						Object[] searchAfterToken = null;
 						while (changesBatch == null || changesBatch.size() == LARGE_PAGE.getPageSize()) {
 
 							changesBatch = new ArrayList<>();
 
 							PageRequest pageRequest;
-							if (lastId != null) {
-								pageRequest = SearchAfterPageRequest.of(new Object[] {lastId}, LARGE_PAGE.getPageSize(), Sort.by("_id"));
+							if (searchAfterToken != null) {
+								pageRequest = SearchAfterPageRequest.of(searchAfterToken, LARGE_PAGE.getPageSize(), Sort.by(SOURCE_ID, "_id"));
 							} else {
-								pageRequest = SearchAfterPageRequest.of(0, LARGE_PAGE.getPageSize(), Sort.by("_id"));
+								pageRequest = SearchAfterPageRequest.of(0, LARGE_PAGE.getPageSize(), Sort.by(SOURCE_ID, "_id"));
 							}
 
 							NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 									.withQuery(termQuery("classificationId", classificationId))
-									.withSort(SortBuilders.fieldSort(SOURCE_ID))
 									.withPageable(pageRequest);
 
 							final SearchHits<RelationshipChange> searchHits = elasticsearchOperations.search(queryBuilder.build(), RelationshipChange.class);
 							for (SearchHit<RelationshipChange> searchHit : searchHits) {
 								changesBatch.add(searchHit.getContent());
-								lastId = searchHit.getId();
+								searchAfterToken = searchHit.getSortValues().toArray();
 							}
 
 							if (changesBatch.isEmpty()) {
