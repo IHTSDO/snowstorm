@@ -149,7 +149,7 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			BoolQueryBuilder oneOf = boolQuery();
 			query.must(oneOf);
 			// concrete domain logic here
-			String comparisonOperator = getAttributeRange().getConcreteValueOperator();
+			String comparisonOperator = getAttributeRange().getOperator();
 			for (String attributeTypeProperty : attributeTypeProperties) {
 				if (getAttributeRange().isNumericQuery()) {
 					if (">=".equals(comparisonOperator)) {
@@ -213,19 +213,19 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 			if (!isConcreteValueQuery()) {
 				List<Long> possibleAttributeValuesLong = ((SSubExpressionConstraint) value).select(refinementBuilder).map(Slice::getContent).orElse(null);
 				List<String> possibleAttributeValues = possibleAttributeValuesLong != null ? possibleAttributeValuesLong.stream().map(String::valueOf).collect(Collectors.toList()) : null;
-				attributeRange = AttributeRange.newConceptRange(attributeTypeWildcard, attributeTypeIds, attributeTypeProperties, possibleAttributeValues,
-						cardinalityMin, cardinalityMax);
+				attributeRange = AttributeRange.newConceptRange(attributeTypeWildcard, attributeTypeIds, attributeTypeProperties, getExpressionComparisonOperator(),
+						possibleAttributeValues, cardinalityMin, cardinalityMax);
 			} else {
 				if (getNumericComparisonOperator() != null) {
 					if (attributeTypeWildcard) {
 						attributeTypeProperties = Collections.singleton(QueryConcept.ATTR_NUMERIC_TYPE_WILDCARD);
 					}
-					attributeRange = AttributeRange.newConcreteNumberRange(attributeTypeWildcard, attributeTypeIds, attributeTypeProperties, getNumericComparisonOperator(), getNumericValue(),
-							cardinalityMin, cardinalityMax);
+					attributeRange = AttributeRange.newConcreteNumberRange(attributeTypeWildcard, attributeTypeIds, attributeTypeProperties, getNumericComparisonOperator(),
+							getNumericValue(), cardinalityMin, cardinalityMax);
 
 				} else if (getStringComparisonOperator() != null) {
-					attributeRange = AttributeRange.newConcreteStringRange(attributeTypeWildcard, attributeTypeIds, attributeTypeProperties, getStringComparisonOperator(), getStringValue(),
-							cardinalityMin, cardinalityMax);
+					attributeRange = AttributeRange.newConcreteStringRange(attributeTypeWildcard, attributeTypeIds, attributeTypeProperties, getStringComparisonOperator(),
+							getStringValue(), cardinalityMin, cardinalityMax);
 				}
 			}
 		}

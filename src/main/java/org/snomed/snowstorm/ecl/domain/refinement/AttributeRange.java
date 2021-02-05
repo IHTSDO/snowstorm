@@ -12,25 +12,27 @@ class AttributeRange {
 	private final Integer cardinalityMin;
 	private final Integer cardinalityMax;
 	private List<String> possibleAttributeValues;
-	private String concreteValueOperator;
+	private String operator;
+	private boolean isConcrete;
 	private boolean isNumeric;
 	private String concreteStringValue;
 	private Float concreteNumberValue;
 
 	private AttributeRange(boolean attributeTypeWildcard, List<Long> attributeTypeIds, Set<String> possibleAttributeTypes,
-				Integer cardinalityMin, Integer cardinalityMax) {
+				String operator, Integer cardinalityMin, Integer cardinalityMax) {
 
 		this.attributeTypeWildcard = attributeTypeWildcard;
 		this.attributeTypeIds = attributeTypeIds;
 		this.possibleAttributeTypes = possibleAttributeTypes;
+		this.operator = operator;
 		this.cardinalityMin = cardinalityMin;
 		this.cardinalityMax = cardinalityMax;
 	}
 
-	public static AttributeRange newConceptRange(boolean attributeTypeWildcard, List<Long> attributeTypeIds, Set<String> attributeTypeFields,
+	public static AttributeRange newConceptRange(boolean attributeTypeWildcard, List<Long> attributeTypeIds, Set<String> attributeTypeFields, String operator,
 				List<String> possibleAttributeValues, Integer cardinalityMin, Integer cardinalityMax) {
 
-		final AttributeRange range = new AttributeRange(attributeTypeWildcard, attributeTypeIds, attributeTypeFields, cardinalityMin, cardinalityMax);
+		final AttributeRange range = new AttributeRange(attributeTypeWildcard, attributeTypeIds, attributeTypeFields, operator, cardinalityMin, cardinalityMax);
 		range.possibleAttributeValues = possibleAttributeValues;
 		return range;
 	}
@@ -38,9 +40,8 @@ class AttributeRange {
 	public static AttributeRange newConcreteNumberRange(boolean attributeTypeWildcard, List<Long> attributeTypeIds, Set<String> attributeTypeFields,
 				String operator, String concreteNumberValue, Integer cardinalityMin, Integer cardinalityMax) {
 
-		final AttributeRange range = new AttributeRange(attributeTypeWildcard, attributeTypeIds, attributeTypeFields, cardinalityMin, cardinalityMax);
-		range.isNumeric = true;
-		range.concreteValueOperator = operator;
+		final AttributeRange range = new AttributeRange(attributeTypeWildcard, attributeTypeIds, attributeTypeFields, operator, cardinalityMin, cardinalityMax);
+		range.isConcrete = true;
 		range.concreteNumberValue = Float.parseFloat(concreteNumberValue);
 		range.possibleAttributeValues = Collections.singletonList(concreteNumberValue);
 		return range;
@@ -49,9 +50,9 @@ class AttributeRange {
 	public static AttributeRange newConcreteStringRange(boolean attributeTypeWildcard, List<Long> attributeTypeIds, Set<String> attributeTypeFields,
 				String operator, String stringValue, Integer cardinalityMin, Integer cardinalityMax) {
 
-		final AttributeRange range = new AttributeRange(attributeTypeWildcard, attributeTypeIds, attributeTypeFields, cardinalityMin, cardinalityMax);
+		final AttributeRange range = new AttributeRange(attributeTypeWildcard, attributeTypeIds, attributeTypeFields, operator, cardinalityMin, cardinalityMax);
+		range.isConcrete = true;
 		range.isNumeric = true;
-		range.concreteValueOperator = operator;
 		range.concreteStringValue = stringValue;
 		range.possibleAttributeValues = Collections.singletonList(stringValue);
 		return range;
@@ -62,14 +63,14 @@ class AttributeRange {
 	}
 
 	boolean isValueWithinRange(Object conceptAttributeValue) {
-		if (concreteValueOperator == null) {
-			return possibleAttributeValues == null || possibleAttributeValues.contains(conceptAttributeValue.toString());
+		if (!isConcrete) {
+			return operator.equals("=") == ( possibleAttributeValues == null || possibleAttributeValues.contains(conceptAttributeValue.toString()) );
 		} else {
 			if (isNumeric) {
 				if (!(conceptAttributeValue instanceof String)) {
 					final Float attributeValue = Float.parseFloat(conceptAttributeValue.toString());
 					final int i = attributeValue.compareTo(concreteNumberValue);
-					switch (concreteValueOperator) {
+					switch (operator) {
 						case "=":
 							return i == 0;
 						case "!=":
@@ -111,8 +112,8 @@ class AttributeRange {
 		return cardinalityMax;
 	}
 
-	public String getConcreteValueOperator() {
-		return concreteValueOperator;
+	public String getOperator() {
+		return operator;
 	}
 
 	public boolean isNumericQuery() {
