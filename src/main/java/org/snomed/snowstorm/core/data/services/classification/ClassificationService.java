@@ -65,6 +65,7 @@ import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.*;
+import static org.snomed.snowstorm.core.data.domain.classification.RelationshipChange.Fields.SOURCE_ID;
 import static org.snomed.snowstorm.core.data.services.ConceptService.DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY;
 
 @Service
@@ -370,6 +371,7 @@ public class ClassificationService {
 
 							NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 									.withQuery(termQuery("classificationId", classificationId))
+									.withSort(SortBuilders.fieldSort(SOURCE_ID))
 									.withPageable(pageRequest);
 
 							final SearchHits<RelationshipChange> searchHits = elasticsearchOperations.search(queryBuilder.build(), RelationshipChange.class);
@@ -389,7 +391,8 @@ public class ClassificationService {
 							}
 
 							// Load concepts
-							Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet(), Config.DEFAULT_LANGUAGE_DIALECTS);
+							final BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+							Collection<Concept> concepts = conceptService.find(branchCriteriaIncludingOpenCommit, path, conceptToChangeMap.keySet(), Config.DEFAULT_LANGUAGE_DIALECTS);
 
 							// Apply changes to concepts
 							for (Concept concept : concepts) {

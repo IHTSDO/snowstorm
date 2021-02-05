@@ -148,6 +148,13 @@ public class ConceptService extends ComponentService {
 		return doFind(ids, languageDialects, new BranchTimepoint(path), PageRequest.of(0, ids.size())).getContent();
 	}
 
+	public Collection<Concept> find(BranchCriteria branchCriteria, String path, Collection<?> conceptIds, List<LanguageDialect> languageDialects) {
+		if (isEmpty(conceptIds)) {
+			return Collections.emptySet();
+		}
+		return doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), true, true, path).getContent();
+	}
+
 	public Page<Concept> find(List<Long> conceptIds, List<LanguageDialect> languageDialects, String path, PageRequest pageRequest) {
 		return doFind(conceptIds, languageDialects, new BranchTimepoint(path), pageRequest);
 	}
