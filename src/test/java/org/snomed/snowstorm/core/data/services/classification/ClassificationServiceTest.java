@@ -118,62 +118,6 @@ class ClassificationServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testSaveRelationshipChangesFailsWithLoop() throws IOException, ServiceException, InterruptedException {
-		// Create concept with some stated modeling in an axiom
-		final String branch = "MAIN";
-		createRangeConstraint("1142135004", "dec(#>0..)");
-		createRangeConstraint("1142139005", "int(#>0..)");
-		conceptService.create(
-				new Concept(Concepts.ISA)
-						.addAxiom(
-								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)
-						)
-						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
-				branch);
-		conceptService.create(
-				new Concept("10000000001")
-						.addAxiom(
-								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT),
-								new Relationship("363698007", "84301002"),
-								Relationship.newConcrete("1142135004", ConcreteValue.newDecimal("#55.5"))
-						)
-						.addRelationship(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
-				branch);
-		conceptService.create(
-				new Concept("20000000001")
-						.addAxiom(
-								new Relationship(Concepts.ISA, "10000000001")
-						)
-						.addRelationship(new Relationship(Concepts.ISA, "10000000001")),
-				branch);
-
-		// Save mock classification results with a transitive closure loop
-		String classificationId = UUID.randomUUID().toString();
-		Classification classification = createClassification(branch, classificationId);
-
-		// Standard relationships
-		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
-				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
-				"\t\t1\t\t10000000001\t20000000001\t0\t116680003\t900000000000227009\t900000000000451002\n" +
-				"").getBytes()), false);
-		// Concrete relationships
-		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
-				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tvalue\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
-				"").getBytes()), true);
-
-		// Collect changes persisted to change repo (ready for author change review)
-		List<RelationshipChange> relationshipChanges = relationshipChangeRepository.findByClassificationId(classificationId, LARGE_PAGE).getContent();
-		assertEquals(1, relationshipChanges.size());
-
-        Concept concept = conceptService.find("123123123001", branch);
-        assertEquals(6, concept.getRelationships().size());
-
-        Relationship concreteRelationship = concept.getRelationships().stream().filter(r -> r.getTypeId().equals("1142139005")).findFirst().orElse(null);
-        assertNotNull(concreteRelationship);
-        assertEquals("#5", concreteRelationship.getValue());
-    }
-
-	@Test
 	void testSaveRelationshipChangesInExtension() throws IOException, ServiceException, InterruptedException {
 		// Create concept with some stated modeling in an axiom
 		conceptService.create(
