@@ -24,5 +24,5 @@ RUN chown -R snowstorm:snowstorm /app
 
 # Run as the snowstorm user.
 USER snowstorm
-
+EXPOSE 8080
 ENTRYPOINT ["java","-Djava.security.egd=file:/dev/./urandom","-jar","snowstorm.jar"]
