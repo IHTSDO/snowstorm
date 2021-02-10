@@ -5,17 +5,21 @@ import com.fasterxml.jackson.annotation.JsonView;
 import org.snomed.snowstorm.rest.View;
 import org.springframework.data.annotation.Transient;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 /**
  * Represent a concrete value.
  */
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 @JsonView(value = View.Component.class)
 public class ConcreteValue implements AttributeValue {
-	@Transient
-	private final ConcreteValue.DataType dataType;
 
 	@Transient
-	private final String value;
+	private ConcreteValue.DataType dataType;
+
+	@Transient
+	private String value;
 
 	public enum DataType {
 		DECIMAL("dec"),
@@ -43,13 +47,7 @@ public class ConcreteValue implements AttributeValue {
 				throw new IllegalArgumentException("'dataType' cannot be null.");
 			}
 
-			for (DataType type : DataType.values()) {
-				if (type.getShorthand().equals(dataType)) {
-					return type;
-				}
-			}
-
-			return null;
+			return Arrays.stream(DataType.values()).filter(type -> type.getShorthand().equals(dataType)).findFirst().orElse(null);
 		}
 
 		/**
@@ -69,6 +67,14 @@ public class ConcreteValue implements AttributeValue {
 		}
 	}
 
+	public ConcreteValue() {
+	}
+
+	public ConcreteValue(final String value, final ConcreteValue.DataType dataType) {
+		this.value = value;
+		this.dataType = dataType;
+	}
+
 	/**
 	 * Create instance of ConcreteValue.
 	 *
@@ -79,7 +85,7 @@ public class ConcreteValue implements AttributeValue {
 	 */
 	public static ConcreteValue from(String value, String dataType) {
 		if (value == null || dataType == null) {
-			throw new IllegalArgumentException();
+			throw new IllegalArgumentException("The concrete value with prefix or data type cannot be null. Value: " + value + " | Data type: " + dataType);
 		}
 
 		return new ConcreteValue(
@@ -96,7 +102,7 @@ public class ConcreteValue implements AttributeValue {
 	 */
 	public static ConcreteValue from(String value) {
 		if (value == null) {
-			throw new IllegalArgumentException();
+			throw new IllegalArgumentException("The concrete value with prefix cannot be null.");
 		}
 
 		return new ConcreteValue(
@@ -116,7 +122,7 @@ public class ConcreteValue implements AttributeValue {
 			valueWithoutPrefix = value.substring(1);
 		}
 
-		if (valueWithoutPrefix.endsWith("\"")) {
+		if (valueWithoutPrefix != null && valueWithoutPrefix.endsWith("\"")) {
 			valueWithoutPrefix = valueWithoutPrefix.substring(0, valueWithoutPrefix.length() - 1);
 		}
 
@@ -148,11 +154,6 @@ public class ConcreteValue implements AttributeValue {
 		return ConcreteValue.from(value, DataType.STRING.getShorthand());
 	}
 
-	public ConcreteValue(String value, ConcreteValue.DataType dataType) {
-		this.value = value;
-		this.dataType = dataType;
-	}
-
 	public ConcreteValue.DataType getDataType() {
 		return this.dataType;
 	}
@@ -178,5 +179,23 @@ public class ConcreteValue implements AttributeValue {
 	@Override
 	public boolean isConcrete() {
 		return true;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		ConcreteValue that = (ConcreteValue) o;
+		return dataType == that.dataType &&
+				Objects.equals(value, that.value);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(dataType, value);
 	}
 }
