@@ -22,6 +22,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PathVariable;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
 import java.util.HashMap;
@@ -233,6 +234,14 @@ public class ImportService {
 				importArchive(importId, releaseFileStream);
 			} catch (ReleaseImportException e) {
 				// Swallow exception - already logged and this is an async method
+			} finally {
+				if (releaseFileStream != null) {
+					try {
+						releaseFileStream.close();
+					} catch (IOException e) {
+						logger.info("Failed to close input stream for import {}", importId);
+					}
+				}
 			}
 		});
 	}

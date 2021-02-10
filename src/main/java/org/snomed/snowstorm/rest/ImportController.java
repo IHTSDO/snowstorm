@@ -73,12 +73,10 @@ public class ImportController {
 		importConfiguration.setCreateCodeSystemVersion(importRequest.getCreateCodeSystemVersion());
 		String id = importService.createJob(importConfiguration);
 
-		try (FileInputStream releaseFileStream = new FileInputStream(localFile)) {
-			importService.importArchiveAsync(id, importRequest.getBranchPath(), releaseFileStream);
+		try {
+			importService.importArchiveAsync(id, importRequest.getBranchPath(), new FileInputStream(localFile));
 		} catch (FileNotFoundException e) {
 			handleFileNotFound(filePath, localFile);
-		} catch (IOException e) {
-			logger.error("Failed to close input file {}", localFile.getAbsolutePath());
 		}
 
 		return ControllerHelper.getCreatedResponse(id, "/start-local-file-import");
