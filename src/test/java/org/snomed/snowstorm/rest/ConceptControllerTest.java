@@ -36,6 +36,7 @@ import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
@@ -817,6 +818,52 @@ class ConceptControllerTest extends AbstractTest {
 
 		//then
 		assertEquals(2, history.size()); //Future version should appear
+	}
+
+	@Test
+	void testCreateConceptWithConcreteValueInsideAxiomRelationship() throws ServiceException {
+		final Concept concept = new Concept("12345678910").addAxiom(new Relationship(ISA, "12345"),
+				Relationship.newConcrete(ISA, ConcreteValue.newString("\"GKO\"")));
+		createRangeConstraint(Concepts.ISA, "str()");
+		conceptService.create(concept, MAIN);
+
+		final Concept retrievedConcept = conceptService.find("12345678910", MAIN);
+
+		retrievedConcept.getClassAxioms().forEach(axiom -> axiom.getRelationships().forEach(relationship -> {
+			final ConcreteValue concreteValue = relationship.getConcreteValue();
+			if (concreteValue != null) {
+				assertEquals("GKO", concreteValue.getValue());
+				assertEquals("\"GKO\"", concreteValue.getValueWithPrefix());
+				assertEquals(ConcreteValue.DataType.STRING, concreteValue.getDataType());
+			} else {
+				assertEquals(ISA, relationship.getTypeId());
+			}
+		}));
+	}
+
+	@Test
+	void testUpdateConceptWithConcreteValueInsideAxiomRelationship() throws ServiceException {
+		final Concept createdConcept = new Concept("12345678910").addAxiom(new Relationship(ISA, "12345"),
+				Relationship.newConcrete(ISA, ConcreteValue.newString("\"GKO\"")));
+		createRangeConstraint(Concepts.ISA, "str()");
+		conceptService.create(createdConcept, MAIN);
+
+		final Concept updatedConcept = new Concept("12345678910").addAxiom(new Relationship(ISA, "12345"),
+				Relationship.newConcrete(ISA, ConcreteValue.newString("\"GKOOOOOO\"")));
+		conceptService.update(updatedConcept, MAIN);
+
+		final Concept retrievedConcept = conceptService.find("12345678910", MAIN);
+
+		retrievedConcept.getClassAxioms().forEach(axiom -> axiom.getRelationships().forEach(relationship -> {
+			final ConcreteValue concreteValue = relationship.getConcreteValue();
+			if (concreteValue != null) {
+				assertEquals("GKOOOOOO", concreteValue.getValue());
+				assertEquals("\"GKOOOOOO\"", concreteValue.getValueWithPrefix());
+				assertEquals(ConcreteValue.DataType.STRING, concreteValue.getDataType());
+			} else {
+				assertEquals(ISA, relationship.getTypeId());
+			}
+		}));
 	}
 
 	protected interface Procedure {
