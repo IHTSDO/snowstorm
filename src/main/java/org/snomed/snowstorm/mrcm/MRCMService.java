@@ -111,18 +111,26 @@ public class MRCMService {
 				}
 			}
 		}
-		addExtraConceptMiniFields(attributeDomains, branchMRCM, attributeConceptMinis);
+		addExtraConceptMiniFields(attributeDomains, contentType, branchMRCM, attributeConceptMinis);
 
 		return attributeConceptMinis;
 	}
 
-	private void addExtraConceptMiniFields(final List<AttributeDomain> attributeDomains, final MRCM branchMRCM, final Collection<ConceptMini> attributeConceptMinis) {
+	private void addExtraConceptMiniFields(final List<AttributeDomain> attributeDomains, final ContentType contentType, final MRCM branchMRCM, final Collection<ConceptMini> attributeConceptMinis) {
 		attributeConceptMinis.forEach(attributeConceptMini -> {
 			attributeConceptMini.addExtraField("attributeDomain",
 					attributeDomains.stream().filter(attributeDomain -> attributeConceptMini.getId().equals(attributeDomain.getReferencedComponentId()))
 							.collect(Collectors.toSet()));
-			attributeConceptMini.addExtraField("attributeRange", branchMRCM.getAttributeRanges());
+			addAttributeRangesToExtraConceptMiniFields(attributeConceptMini, attributeDomains, contentType, branchMRCM);
 		});
+	}
+
+	private void addAttributeRangesToExtraConceptMiniFields(final ConceptMini conceptMini, final List<AttributeDomain> attributeDomains, final ContentType contentType, final MRCM branchMRCM) {
+		final List<AttributeRange> attributeRanges = new ArrayList<>();
+		branchMRCM.getAttributeRanges().forEach(attributeRange -> attributeDomains.stream()
+				.filter(attributeDomain -> attributeRange.getReferencedComponentId().equals(attributeDomain.getReferencedComponentId()) && attributeRange.getContentType() == contentType)
+				.map(attributeDomain -> attributeRange).forEach(attributeRanges::add));
+		conceptMini.addExtraField("attributeRange", attributeRanges);
 	}
 
 	public Collection<ConceptMini> retrieveAttributeValues(ContentType contentType, String attributeId, String termPrefix, String branchPath, List<LanguageDialect> languageDialects) throws ServiceException {
