@@ -85,6 +85,7 @@ class MRCMServiceTest extends AbstractTest {
 			assertEquals(ContentType.ALL, attributeRange.getContentType());
 			assertEquals(">#0", attributeRange.getRangeMin());
 			assertEquals("", attributeRange.getRangeMax());
+			assertEquals(ISA, attributeRange.getReferencedComponentId());
 			assertEquals(ConcreteValue.DataType.DECIMAL, attributeRange.getDataType());
 		});
 	}
