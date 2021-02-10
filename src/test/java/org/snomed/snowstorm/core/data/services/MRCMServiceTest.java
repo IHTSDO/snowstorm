@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.google.common.collect.Sets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -7,19 +8,25 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.mrcm.MRCMService;
+import org.snomed.snowstorm.mrcm.model.AttributeRange;
 import org.snomed.snowstorm.mrcm.model.ContentType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Collection;
+import java.util.List;
+import java.util.Map;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
 class MRCMServiceTest extends AbstractTest {
+
+	protected static final String STRENGTH_NUMERATOR = "1142135004";
 
 	@Autowired
 	private MRCMService mrcmService;
@@ -29,6 +36,9 @@ class MRCMServiceTest extends AbstractTest {
 
 	@Autowired
 	private QueryService queryService;
+
+	@Autowired
+	protected ReferenceSetMemberService memberService;
 
 	@BeforeEach
 	void setup() throws ServiceException {
@@ -52,5 +62,30 @@ class MRCMServiceTest extends AbstractTest {
 		Collection<ConceptMini> result = mrcmService.retrieveAttributeValues(ContentType.NEW_PRECOORDINATED, Concepts.ISA, Concepts.ISA, "MAIN", null);
 		assertEquals(1, result.size());
 		assertEquals(Concepts.ISA, result.iterator().next().getConceptId());
+	}
+
+	@SuppressWarnings("unchecked")
+	@Test
+	void testExtraConceptMiniFields() throws ServiceException {
+		// create concept
+		final Concept inConcept = new Concept("12345678910");
+		inConcept.addAxiom(new Relationship(ISA, "12345"), Relationship.newConcrete("1234567891011", ConcreteValue.newInteger("#1")));
+		createRangeConstraint("1234567891011", "dec(>#0..)");
+		conceptService.create(inConcept, "MAIN");
+
+		// retrieve domain attributes
+		Collection<ConceptMini> attributes = mrcmService.retrieveDomainAttributes(ContentType.NEW_PRECOORDINATED, true,
+				Sets.newHashSet(12345678910L), "MAIN", null);
+		assertNotNull(attributes);
+		attributes.forEach(attribute -> {
+			final Map<String, Object> extraFields = attribute.getExtraFields();
+			final List<AttributeRange> attributeRanges = (List<AttributeRange>) extraFields.get("attributeRange");
+			assertFalse(attributeRanges.isEmpty());
+			final AttributeRange attributeRange = attributeRanges.get(0);
+			assertEquals(ContentType.ALL, attributeRange.getContentType());
+			assertEquals(">#0", attributeRange.getRangeMin());
+			assertEquals("", attributeRange.getRangeMax());
+			assertEquals(ConcreteValue.DataType.DECIMAL, attributeRange.getDataType());
+		});
 	}
 }
