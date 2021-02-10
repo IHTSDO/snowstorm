@@ -4,14 +4,16 @@ import org.snomed.snowstorm.core.data.domain.ConcreteValue;
 
 public class AttributeRange {
 
-	private String id;
-	private String effectiveTime;
-	private boolean active;
-	private String referencedComponentId;
+	private final String id;
+	private final String effectiveTime;
+	private final boolean active;
+	private final String referencedComponentId;
 	private String rangeConstraint;
+	private String rangeMin;
+	private String rangeMax;
 	private String attributeRule;
-	private RuleStrength ruleStrength;
-	private ContentType contentType;
+	private final RuleStrength ruleStrength;
+	private final ContentType contentType;
 	private ConcreteValue.DataType dataType;
 
 	public AttributeRange(String id, String effectiveTime, boolean active, String referencedComponentId, String rangeConstraint, String attributeRule,
@@ -27,26 +29,18 @@ public class AttributeRange {
 	}
 
 	public AttributeRange(AttributeRange attributeRange)  {
-		this.id = attributeRange.getId();
-		this.effectiveTime = attributeRange.getEffectiveTime();
-		this.active = attributeRange.isActive();
-		this.referencedComponentId = attributeRange.getReferencedComponentId();
-		this.rangeConstraint = attributeRange.getRangeConstraint();
-		this.attributeRule = attributeRange.getAttributeRule();
-		this.ruleStrength = attributeRange.getRuleStrength();
-		this.contentType = attributeRange.getContentType();
+		this(attributeRange.getId(), attributeRange.getEffectiveTime(), attributeRange.isActive(), attributeRange.getReferencedComponentId(),
+				attributeRange.getRangeConstraint(), attributeRange.getAttributeRule(), attributeRange.getRuleStrength(), attributeRange.getContentType());
 	}
 
 	public AttributeRange(String id, String effectiveTime, boolean active, String referencedComponentId, String rangeConstraint, String attributeRule,
 						  RuleStrength ruleStrength, ContentType contentType, ConcreteValue.DataType dataType) {
-		this.id = id;
-		this.effectiveTime = effectiveTime;
-		this.active = active;
-		this.referencedComponentId = referencedComponentId;
-		this.rangeConstraint = rangeConstraint;
-		this.attributeRule = attributeRule;
-		this.ruleStrength = ruleStrength;
-		this.contentType = contentType;
+		this(id, effectiveTime, active, referencedComponentId, rangeConstraint, attributeRule, ruleStrength, contentType);
+		if (dataType != null) {
+			final ConcreteValueRangeConstraint concreteValueRangeConstraint = new ConcreteValueRangeConstraint(rangeConstraint);
+			this.rangeMin = concreteValueRangeConstraint.getMinimumValue();
+			this.rangeMax = concreteValueRangeConstraint.getMaximumValue();
+		}
 		this.dataType = dataType;
 	}
 
@@ -69,6 +63,14 @@ public class AttributeRange {
 	}
 
 	public String getRangeConstraint() { return rangeConstraint; }
+
+	public final String getRangeMin() {
+		return rangeMin;
+	}
+
+	public final String getRangeMax() {
+		return rangeMax;
+	}
 
 	public String getAttributeRule() { return attributeRule; }
 
