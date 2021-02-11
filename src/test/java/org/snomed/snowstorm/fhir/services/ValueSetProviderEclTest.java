@@ -1,20 +1,18 @@
 package org.snomed.snowstorm.fhir.services;
 
-import org.hl7.fhir.r4.model.*;
+import ca.uhn.fhir.rest.api.MethodOutcome;
+import org.hl7.fhir.r4.model.ValueSet;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.springframework.http.*;
-
-import ca.uhn.fhir.rest.api.MethodOutcome;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 
 import java.io.InputStream;
+
+import static org.junit.Assert.*;
 
 class ValueSetProviderEclTest extends AbstractFHIRTest {
 	
@@ -116,7 +114,7 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		// ?fhir_vs=refset -> all concepts representing refsets
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=refset&_format=json";
 		v = getValueSet(url);
-		assertEquals("Two value sets in the latest release branch.", 2, v.getExpansion().getTotal());
+		assertEquals("Two value sets in the latest release branch.", 3, v.getExpansion().getTotal());
 		
 		// ?fhir_vs=isa/<root concept> -> all concepts under root plus self
 		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT + "&_format=json";

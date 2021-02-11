@@ -45,7 +45,7 @@ spec:
         - containerPort: 8080
           protocol: TCP
         args:
-          - java -jar snowstorm.jar --elasticsearch.urls=http://snowstorm-elasticsearch:9200
+          - "--elasticsearch.urls=http://snowstorm-elasticsearch:9200"
       volumes:
       - name: elasticsearch-data
         hostPath:

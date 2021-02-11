@@ -1,7 +1,9 @@
 package org.snomed.snowstorm.ecl.domain.refinement;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.collect.Sets;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.snomed.langauges.ecl.domain.refinement.EclAttributeGroup;
 import org.snomed.langauges.ecl.domain.refinement.EclAttributeSet;
 import org.snomed.langauges.ecl.domain.refinement.SubAttributeSet;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
@@ -57,6 +59,12 @@ public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 		return conceptIds;
 	}
 
+	@Override
+	@JsonIgnore
+	public EclAttributeGroup getParentGroup() {
+		return super.getParentGroup();
+	}
+
 	private Collection<? extends String> getConceptIds(List<SubAttributeSet> subAttributeSets) {
 		return subAttributeSets.stream()
 				.map(SSubAttributeSet.class::cast)
@@ -85,5 +93,22 @@ public class SEclAttributeSet extends EclAttributeSet implements SRefinement {
 		}
 		matchContext.setMatchingGroups(matchingGroups);
 		return !matchingGroups.isEmpty();
+	}
+
+	public void toString(StringBuffer buffer) {
+		((SSubAttributeSet) subAttributeSet).toString(buffer);
+
+		if (conjunctionAttributeSet != null) {
+			for (SubAttributeSet attributeSet : conjunctionAttributeSet) {
+				buffer.append(", ");
+				((SSubAttributeSet) attributeSet).toString(buffer);
+			}
+		}
+		if (disjunctionAttributeSet != null) {
+			for (SubAttributeSet attributeSet : disjunctionAttributeSet) {
+				buffer.append(" or ");
+				((SSubAttributeSet) attributeSet).toString(buffer);
+			}
+		}
 	}
 }

@@ -52,7 +52,6 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 
 	public static void main(String[] args) {
 		System.setProperty("org.apache.tomcat.util.buf.UDecoder.ALLOW_ENCODED_SLASH", "true"); // Swagger encodes the slash in branch paths
-		System.setProperty("tomcat.util.http.parser.HttpParser.requestTargetAllow", "{}|"); // Allow these unencoded characters in URL (used in ECL)
 		try {
 			SpringApplication.run(SnowstormApplication.class, args);
 		} catch (BeanCreationException e) {

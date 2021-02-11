@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
+import static org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue;
 
 @Service
 public class AxiomConversionService {
@@ -136,8 +137,8 @@ public class AxiomConversionService {
 			final long internalRelationshipTypeId = internalRelationshipTypeIdString == null ? 0 : parseLong(internalRelationshipTypeIdString);
 
 			if (relationship.isConcrete()) {
-				final String value = relationship.getValue();
-				final org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue concreteValue = new org.snomed.otf.owltoolkit.domain.Relationship.ConcreteValue(value);
+				final ConcreteValue.Type type = ConcreteValue.Type.valueOf(relationship.getConcreteValue().getDataType().name());
+				final ConcreteValue concreteValue = new ConcreteValue(type, relationship.getConcreteValue().getValue());
 				final org.snomed.otf.owltoolkit.domain.Relationship externalConcreteRelationship = new org.snomed.otf.owltoolkit.domain.Relationship(
 						internalRelationshipGroupId,
 						internalRelationshipTypeId,

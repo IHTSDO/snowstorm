@@ -5,6 +5,7 @@ import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.snomed.langauges.ecl.domain.expressionconstraint.CompoundExpressionConstraint;
 import org.snomed.langauges.ecl.domain.expressionconstraint.SubExpressionConstraint;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.ecl.deserializer.ECLModelDeserializer;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
 import org.snomed.snowstorm.ecl.domain.SubRefinementBuilder;
 import org.springframework.data.domain.Page;
@@ -74,6 +75,32 @@ public class SCompoundExpressionConstraint extends CompoundExpressionConstraint 
 			BoolQueryBuilder mustNotQuery = boolQuery();
 			refinementBuilder.getQuery().mustNot(mustNotQuery);
 			((SSubExpressionConstraint)exclusionExpressionConstraint).addCriteria(new SubRefinementBuilder(refinementBuilder, mustNotQuery));
+		}
+	}
+
+	public void toString(StringBuffer buffer) {
+		boolean first = true;
+		if (conjunctionExpressionConstraints != null) {
+			for (SubExpressionConstraint expressionConstraint : conjunctionExpressionConstraints) {
+				if (!first) {
+					buffer.append(", ");
+				}
+				ECLModelDeserializer.expressionConstraintToString(expressionConstraint, buffer);
+				first = false;
+			}
+		}
+		if (disjunctionExpressionConstraints != null) {
+			for (SubExpressionConstraint expressionConstraint : disjunctionExpressionConstraints) {
+				if (!first) {
+					buffer.append(" or ");
+				}
+				ECLModelDeserializer.expressionConstraintToString(expressionConstraint, buffer);
+				first = false;
+			}
+		}
+		if (exclusionExpressionConstraint != null) {
+			buffer.append(" minus ");
+			ECLModelDeserializer.expressionConstraintToString(exclusionExpressionConstraint, buffer);
 		}
 	}
 }

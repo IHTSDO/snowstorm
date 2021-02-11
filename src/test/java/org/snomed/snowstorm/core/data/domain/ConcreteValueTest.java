@@ -1,10 +1,6 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import org.junit.jupiter.api.Test;
-import org.snomed.otf.owltoolkit.domain.Relationship;
-
-import java.util.HashMap;
-import java.util.Map;
 
 import static org.junit.Assert.*;
 

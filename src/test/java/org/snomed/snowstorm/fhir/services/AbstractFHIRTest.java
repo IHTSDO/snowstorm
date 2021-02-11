@@ -1,28 +1,21 @@
 package org.snomed.snowstorm.fhir.services;
 
-import static org.junit.Assert.assertNotNull;
-
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
-
-import org.hl7.fhir.r4.model.BooleanType;
-import org.hl7.fhir.r4.model.CodeType;
-import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.OperationOutcome;
-import org.hl7.fhir.r4.model.Parameters;
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.IParser;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Sets;
+import io.kaicode.elasticvc.api.BranchService;
+import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
-import org.hl7.fhir.r4.model.StringType;
-import org.hl7.fhir.r4.model.Type;
-
-import io.kaicode.elasticvc.api.BranchService;
-
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
@@ -38,13 +31,14 @@ import org.springframework.security.core.context.SecurityContextImpl;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Sets;
-
-import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+
+import static org.junit.Assert.assertNotNull;
+import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL;
 
 /**
  * 	The data that is set up here is used by the majority of test cases in a read-only manner
@@ -83,7 +77,7 @@ public abstract class AbstractFHIRTest {
 	
 	@Autowired
 	protected CodeSystemConfigurationService codeSystemConfigurationService;
-	
+
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
 
@@ -172,6 +166,8 @@ public abstract class AbstractFHIRTest {
 		for (int x=11; x<=12; x++) {
 			createDummyData(x, concepts, false);
 		}
+		// add MRCM constraint for concrete attribute
+		createRangeConstraint(branchWK, STRENGTH_NUMERATOR, "dec(#>0..)");
 		createDummyData(13, concepts, true);
 		conceptService.batchCreate(concepts, branchWK);
 		CodeSystem codeSystemWK = new CodeSystem("SNOMEDCT-WK", branchWK);
@@ -205,7 +201,7 @@ public abstract class AbstractFHIRTest {
 		
 		if (concrete) {
 			concept.addAxiom(new Relationship(Concepts.ISA, Concepts.SUBSTANCE),
-					Relationship.newConcrete(STRENGTH_NUMERATOR, "#500"));
+					Relationship.newConcrete(STRENGTH_NUMERATOR, ConcreteValue.newDecimal("#500")));
 		} else {
 			concept.addAxiom(new Relationship(Concepts.ISA, Concepts.SUBSTANCE));
 		}
@@ -297,6 +293,15 @@ public abstract class AbstractFHIRTest {
 			}
 		}
 		propertyMap.put(key, value);
+	}
+
+	protected ReferenceSetMember createRangeConstraint(String branchPath, String referencedComponentId, String rangeConstraint) {
+		ReferenceSetMember rangeMember = new ReferenceSetMember("900000000000207008", REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL, referencedComponentId);
+		rangeMember.setAdditionalField("rangeConstraint", rangeConstraint);
+		rangeMember.setAdditionalField("attributeRule", "");
+		rangeMember.setAdditionalField("ruleStrengthId", "723597001");
+		rangeMember.setAdditionalField("contentTypeId", "723596005");
+		return memberService.createMember(branchPath, rangeMember);
 	}
 
 }

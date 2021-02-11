@@ -4,10 +4,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.Axiom;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -91,12 +88,12 @@ class ConceptAttributeSortHelperTest {
 						relationship(0, "116680003", "780007006", "Product containing only nicotinic acid in oral dose form (medicinal product form)"),
 						relationship(0, "411116001", "421026006", "Conventional release oral tablet (dose form)"),
 						relationship(0, "763032000", "732936001", "Tablet (unit of presentation)"),
-						Relationship.newConcrete("1142139005", "#1"),// group 0
+						Relationship.newConcrete("1142139005", ConcreteValue.newInteger("#1")),// group 0
 						relationship(1, "732943007", "273943001", "Nicotinic acid (substance)"),
 						relationship(1, "762949000", "273943001", "Nicotinic acid (substance)"),
-						Relationship.newConcrete("1142135004", "#500").setGroupId(1),
+						Relationship.newConcrete("1142135004", ConcreteValue.newDecimal("#500")).setGroupId(1),
 						relationship(1, "732945000", "258684004", "milligram (qualifier value)"),
-						Relationship.newConcrete("1142136003", "#1").setGroupId(1),
+						Relationship.newConcrete("1142136003", ConcreteValue.newInteger("#1")).setGroupId(1),
 						relationship(1, "732947008", "732936001", "Tablet (unit of presentation)")
 				);
 		concept.getClassAxioms().forEach(a -> a.setAxiomId(UUID.randomUUID().toString()));

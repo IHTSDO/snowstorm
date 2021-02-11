@@ -17,6 +17,10 @@ public class DroolsRelationship implements org.ihtsdo.drools.domain.Relationship
 		}
 	}
 
+	public String getReleaseHash() {
+		return relationship.getReleaseHash();
+	}
+
 	@Override
 	public String getAxiomId() {
 		return axiomId;
@@ -54,7 +58,7 @@ public class DroolsRelationship implements org.ihtsdo.drools.domain.Relationship
 
 	@Override
 	public String getConcreteValue() {
-		return null;
+		return relationship.getValue();
 	}
 
 	@Override

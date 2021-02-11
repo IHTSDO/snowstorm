@@ -107,9 +107,12 @@ class ExportServiceTest extends AbstractTest {
 		concept.addRelationship(new Relationship("125021", null, true, Concepts.CORE_MODULE, conceptId, "100001", 0, Concepts.ISA, Concepts.STATED_RELATIONSHIP, Concepts.EXISTENTIAL));
 		concept.addRelationship(new Relationship("125022", null, true, Concepts.CORE_MODULE, conceptId, "100002", 0, Concepts.ISA, Concepts.INFERRED_RELATIONSHIP, Concepts.EXISTENTIAL));
 		concept.addRelationship(new Relationship("125023", null, true, Concepts.CORE_MODULE, conceptId, "100003", 0, Concepts.ISA, Concepts.ADDITIONAL_RELATIONSHIP, Concepts.EXISTENTIAL));
-        concept.addRelationship(new Relationship("125024", null, true, Concepts.CORE_MODULE, conceptId, "#100", 0, "1142135004", Concepts.INFERRED_RELATIONSHIP,
-                Concepts.EXISTENTIAL));
-        conceptService.create(concept, path);
+
+		// add concrete attribute MRCM range constraint for data type
+		createRangeConstraint("1142135004", "dec(#>0..)");
+		concept.addRelationship(new Relationship("125024", null, true, Concepts.CORE_MODULE, conceptId, "#100", 0, "1142135004", Concepts.INFERRED_RELATIONSHIP,
+				Concepts.EXISTENTIAL));
+		conceptService.create(concept, path);
 
 		owlMember = new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.OWL_AXIOM_REFERENCE_SET, "123005000");
 		owlMember.setAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION, "TransitiveObjectProperty(:123005000)");
@@ -254,22 +257,22 @@ class ExportServiceTest extends AbstractTest {
 			assertEquals(RF2Constants.RELATIONSHIP_HEADER, lines.get(0));
 			assertEquals("125021\t\t1\t900000000000207008\t123001\t100001\t0\t116680003\t900000000000010007\t900000000000451002", lines.get(1));
 
-            // Inferred (non-concrete) Relationships
-            ZipEntry relationships = zipInputStream.getNextEntry();
-            assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Relationship_Delta_INT_20210731.txt", relationships.getName());
-            lines = getLines(zipInputStream);
-            assertEquals(3, lines.size());
-            assertEquals(RF2Constants.RELATIONSHIP_HEADER, lines.get(0));
-            assertTrue(lines.contains("125022\t\t1\t900000000000207008\t123001\t100002\t0\t116680003\t900000000000011006\t900000000000451002"));
-            assertTrue(lines.contains("125023\t\t1\t900000000000207008\t123001\t100003\t0\t116680003\t900000000000227009\t900000000000451002"));
+			// Inferred (non-concrete) Relationships
+			ZipEntry relationships = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_Relationship_Delta_INT_20210731.txt", relationships.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(3, lines.size());
+			assertEquals(RF2Constants.RELATIONSHIP_HEADER, lines.get(0));
+			assertTrue(lines.contains("125022\t\t1\t900000000000207008\t123001\t100002\t0\t116680003\t900000000000011006\t900000000000451002"));
+			assertTrue(lines.contains("125023\t\t1\t900000000000207008\t123001\t100003\t0\t116680003\t900000000000227009\t900000000000451002"));
 
-            // Inferred (non-concrete) Relationships
-            ZipEntry concreteRelationships = zipInputStream.getNextEntry();
-            assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_RelationshipConcreteValues_Delta_INT_20210731.txt", concreteRelationships.getName());
-            lines = getLines(zipInputStream);
-            assertEquals(2, lines.size());
-            assertEquals(RF2Constants.CONCRETE_RELATIONSHIP_HEADER, lines.get(0));
-            assertTrue(lines.contains("125024\t\t1\t900000000000207008\t123001\t#100\t0\t1142135004\t900000000000011006\t900000000000451002"));
+			// Inferred (non-concrete) Relationships
+			ZipEntry concreteRelationships = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/RF2Release/Terminology/sct2_RelationshipConcreteValues_Delta_INT_20210731.txt", concreteRelationships.getName());
+			lines = getLines(zipInputStream);
+			assertEquals(2, lines.size());
+			assertEquals(RF2Constants.CONCRETE_RELATIONSHIP_HEADER, lines.get(0));
+			assertTrue(lines.contains("125024\t\t1\t900000000000207008\t123001\t#100\t0\t1142135004\t900000000000011006\t900000000000451002"));
 
 			// OWL Axiom Refset
 			ZipEntry axioms = zipInputStream.getNextEntry();

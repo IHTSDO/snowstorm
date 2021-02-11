@@ -91,7 +91,7 @@ class PermissionServiceTest extends AbstractTest {
 	}
 
 	private Set<String> getRolesForBranch(String branchPath, String... userGroups) {
-		return permissionService.getUserRolesForBranch(branchPath, allPermissionRecords, codeSystemBranches, createUserWithUserGroups(newHashSet(userGroups)));
+		return permissionService.getUserRolesForBranch(branchPath, allPermissionRecords, codeSystemBranches, createUserWithUserGroups(newHashSet(userGroups))).getGrantedBranchRole();
 	}
 
 	private PreAuthenticatedAuthenticationToken createUserWithUserGroups(Set<String> userGroups) {

@@ -28,11 +28,11 @@ class RelationshipServiceTest extends AbstractTest {
 	@Autowired
 	private RelationshipService relationshipService;
 
-    @Autowired
-    private BranchService branchService;
+	@Autowired
+	private BranchService branchService;
 
-    @Autowired
-    private ReferenceSetMemberService referenceSetMemberService;
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
 
 	private static final String MAIN = "MAIN";
 
@@ -43,29 +43,23 @@ class RelationshipServiceTest extends AbstractTest {
 		conceptService.create(new Concept(Concepts.CLINICAL_FINDING).addRelationship(new Relationship("1000000022", Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
 	}
 
-    private void givenBranchExists() {
-        //given
-        branchService.create("MAIN/CDI-90");
-    }
+	private void givenBranchExists() {
+		// given
+		branchService.create("MAIN/CDI-90");
+	}
 
-    private void givenConceptExistsOnBranch() throws ServiceException {
-        //given
-        final Relationship relationship = new Relationship("20988805027", 20210131, true, "900000000000207008", "376792007", "#2", 1, "3311482005", "900000000000011006", "900000000000451002");
-        final Concept concept = new Concept("12345");
-        concept.addRelationship(relationship);
+	private void givenConceptExistsOnBranchWithConcreteValue(String value) throws ServiceException {
+		// given
+		final Relationship relationship = new Relationship("20988805027", 20210131, true, "900000000000207008", "376792007", value, 1, "3311482005", "900000000000011006", "900000000000451002");
+		final Concept concept = new Concept("12345");
+		concept.addRelationship(relationship);
+		conceptService.create(concept, "MAIN/CDI-90");
+	}
 
-        conceptService.create(concept, "MAIN/CDI-90");
-    }
-
-    private void givenReferenceSetMemberExistsOnBranchWithRangeConstraint(final String rangeConstraint) {
-        //given
-        final ReferenceSetMember referenceSetMember = new ReferenceSetMember();
-        referenceSetMember.setRefsetId(Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL);
-        referenceSetMember.setReferencedComponentId("3311482005");
-        referenceSetMember.setAdditionalField("rangeConstraint", rangeConstraint);
-
-        referenceSetMemberService.createMember("MAIN/CDI-90", referenceSetMember);
-    }
+	private void givenReferenceSetMemberExistsOnBranchWithRangeConstraint(final String rangeConstraint) {
+		// given
+		createRangeConstraint("MAIN/CDI-90", "3311482005", rangeConstraint);
+	}
 
 	@Test
 	void testDelete() {
@@ -83,104 +77,107 @@ class RelationshipServiceTest extends AbstractTest {
 		assertEquals(0, findAll().size());
 	}
 
-    @Test
-    public void findRelationship_ShouldReturnRelationshipWithConcreteDataTypeString_WhenMRCMIsString() throws ServiceException {
-        //given
-        givenBranchExists();
-        givenConceptExistsOnBranch();
-        givenReferenceSetMemberExistsOnBranchWithRangeConstraint("str(\"PANADOL\" \"TYLENOL\" \"HERRON\")");
+	@Test
+	public void findRelationship_ShouldReturnRelationshipWithConcreteDataTypeString_WhenMRCMIsString() throws ServiceException {
+		// given
+		givenBranchExists();
+		givenReferenceSetMemberExistsOnBranchWithRangeConstraint("str()");
+		givenConceptExistsOnBranchWithConcreteValue("\"test\"");
+		// when
+		final Relationship result = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
+		final ConcreteValue concreteValue = result.getConcreteValue();
+		final ConcreteValue.DataType dataType = concreteValue.getDataType();
 
-        //when
-        final Relationship result = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
-        final ConcreteValue concreteValue = result.getConcreteValue();
-        final ConcreteValue.DataType dataType = concreteValue.getDataType();
+		// then
+		assertEquals(ConcreteValue.DataType.STRING, dataType);
+	}
 
-        //then
-        assertEquals(ConcreteValue.DataType.STRING, dataType);
-    }
+	@Test
+	public void findRelationship_ShouldReturnRelationshipWithConcreteDataTypeInteger_WhenMRCMIsInteger() throws ServiceException {
+		//given
+		givenBranchExists();
+		givenReferenceSetMemberExistsOnBranchWithRangeConstraint("int(#>0..)");
+		givenConceptExistsOnBranchWithConcreteValue("#5");
 
-    @Test
-    public void findRelationship_ShouldReturnRelationshipWithConcreteDataTypeInteger_WhenMRCMIsInteger() throws ServiceException {
-        //given
-        givenBranchExists();
-        givenConceptExistsOnBranch();
-        givenReferenceSetMemberExistsOnBranchWithRangeConstraint("int(#5)");
+		//when
+		final Relationship result = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
+		final ConcreteValue concreteValue = result.getConcreteValue();
+		final ConcreteValue.DataType dataType = concreteValue.getDataType();
 
-        //when
-        final Relationship result = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
-        final ConcreteValue concreteValue = result.getConcreteValue();
-        final ConcreteValue.DataType dataType = concreteValue.getDataType();
+		//then
+		assertEquals(ConcreteValue.DataType.INTEGER, dataType);
+	}
 
-        //then
-        assertEquals(ConcreteValue.DataType.INTEGER, dataType);
-    }
+	@Test
+	public void findRelationship_ShouldReturnRelationshipWithConcreteDataTypeDecimal_WhenMRCMIsDecimal() throws ServiceException {
+		//given
+		givenBranchExists();
+		givenReferenceSetMemberExistsOnBranchWithRangeConstraint("dec(>#0..)");
+		//purposely missing decimal point
+		givenConceptExistsOnBranchWithConcreteValue("#2");
 
-    @Test
-    public void findRelationship_ShouldReturnRelationshipWithConcreteDataTypeDecimal_WhenMRCMIsDecimal() throws ServiceException {
-        //given
-        givenBranchExists();
-        givenConceptExistsOnBranch();
-        givenReferenceSetMemberExistsOnBranchWithRangeConstraint("dec(#2)"); //purposely missing decimal point
+		//when
+		final Relationship result = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
+		final ConcreteValue concreteValue = result.getConcreteValue();
+		final ConcreteValue.DataType dataType = concreteValue.getDataType();
 
-        //when
-        final Relationship result = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
-        final ConcreteValue concreteValue = result.getConcreteValue();
-        final ConcreteValue.DataType dataType = concreteValue.getDataType();
+		//then
+		assertEquals(ConcreteValue.DataType.DECIMAL, dataType);
+	}
 
-        //then
-        assertEquals(ConcreteValue.DataType.DECIMAL, dataType);
-    }
+	@Test
+	public void setConcreteValueFromMRCM_ShouldReturnRelationshipWithConcreteDataTypeString_WhenMRCMIsString() throws ServiceException {
+		//given
+		givenBranchExists();
+		givenReferenceSetMemberExistsOnBranchWithRangeConstraint("str()");
+		givenConceptExistsOnBranchWithConcreteValue("\"PANADOL\"");
+		final Relationship relationship = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
 
-    @Test
-    public void setConcreteValueFromMRCM_ShouldReturnRelationshipWithConcreteDataTypeString_WhenMRCMIsString() throws ServiceException {
-        //given
-        givenBranchExists();
-        givenConceptExistsOnBranch();
-        givenReferenceSetMemberExistsOnBranchWithRangeConstraint("str(\"PANADOL\" \"TYLENOL\" \"HERRON\")");
-        final Relationship relationship = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
+		//when
+		relationshipService.setConcreteValueFromMRCM("MAIN/CDI-90", relationship);
+		final ConcreteValue concreteValue = relationship.getConcreteValue();
+		final ConcreteValue.DataType dataType = concreteValue.getDataType();
 
-        //when
-        relationshipService.setConcreteValueFromMRCM("MAIN/CDI-90", relationship);
-        final ConcreteValue concreteValue = relationship.getConcreteValue();
-        final ConcreteValue.DataType dataType = concreteValue.getDataType();
+		//then
+		assertEquals(ConcreteValue.DataType.STRING, dataType);
+	}
 
-        //then
-        assertEquals(ConcreteValue.DataType.STRING, dataType);
-    }
+	@Test
+	public void setConcreteValueFromMRCM_ShouldReturnRelationshipWithConcreteDataTypeInteger_WhenMRCMIsInteger() throws ServiceException {
+		//given
+		givenBranchExists();
+		givenReferenceSetMemberExistsOnBranchWithRangeConstraint("int(>#0..)");
+		givenConceptExistsOnBranchWithConcreteValue("#2");
 
-    @Test
-    public void setConcreteValueFromMRCM_ShouldReturnRelationshipWithConcreteDataTypeInteger_WhenMRCMIsInteger() throws ServiceException {
-        //given
-        givenBranchExists();
-        givenConceptExistsOnBranch();
-        givenReferenceSetMemberExistsOnBranchWithRangeConstraint("int(#2)");
-        final Relationship relationship = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
+		final Relationship relationship = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
 
-        //when
-        relationshipService.setConcreteValueFromMRCM("MAIN/CDI-90", relationship);
-        final ConcreteValue concreteValue = relationship.getConcreteValue();
-        final ConcreteValue.DataType dataType = concreteValue.getDataType();
+		//when
+		relationshipService.setConcreteValueFromMRCM("MAIN/CDI-90", relationship);
+		final ConcreteValue concreteValue = relationship.getConcreteValue();
+		final ConcreteValue.DataType dataType = concreteValue.getDataType();
 
-        //then
-        assertEquals(ConcreteValue.DataType.INTEGER, dataType);
-    }
+		//then
+		assertEquals(ConcreteValue.DataType.INTEGER, dataType);
+	}
 
-    @Test
-    public void setConcreteValueFromMRCM_ShouldReturnRelationshipWithConcreteDataTypeDecimal_WhenMRCMIsDecimal() throws ServiceException {
-        //given
-        givenBranchExists();
-        givenConceptExistsOnBranch();
-        givenReferenceSetMemberExistsOnBranchWithRangeConstraint("dec(#2)"); //purposely missing decimal point
-        final Relationship relationship = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
+	@Test
+	public void setConcreteValueFromMRCM_ShouldReturnRelationshipWithConcreteDataTypeDecimal_WhenMRCMIsDecimal() throws ServiceException {
+		//given
+		givenBranchExists();
+		givenReferenceSetMemberExistsOnBranchWithRangeConstraint("dec(>#0..)");
+		//purposely missing decimal point
+		givenConceptExistsOnBranchWithConcreteValue("#2");
 
-        //when
-        relationshipService.setConcreteValueFromMRCM("MAIN/CDI-90", relationship);
-        final ConcreteValue concreteValue = relationship.getConcreteValue();
-        final ConcreteValue.DataType dataType = concreteValue.getDataType();
+		final Relationship relationship = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
 
-        //then
-        assertEquals(ConcreteValue.DataType.DECIMAL, dataType);
-    }
+		//when
+		relationshipService.setConcreteValueFromMRCM("MAIN/CDI-90", relationship);
+		final ConcreteValue concreteValue = relationship.getConcreteValue();
+		final ConcreteValue.DataType dataType = concreteValue.getDataType();
+
+		//then
+		assertEquals(ConcreteValue.DataType.DECIMAL, dataType);
+	}
 
 
 	public List<Relationship> findAll() {

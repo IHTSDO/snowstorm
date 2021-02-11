@@ -16,16 +16,17 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptHistory;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.loadtest.ItemsPagePojo;
+import org.snomed.snowstorm.util.ConceptControllerTestConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.util.UriComponentsBuilder;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -35,7 +36,9 @@ import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 
+@ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
 class ConceptControllerTest extends AbstractTest {
 
@@ -281,6 +284,82 @@ class ConceptControllerTest extends AbstractTest {
 	}
 
 	@Test
+	void testCreateConceptWithValidationEnabled() {
+		branchService.updateMetadata("MAIN", ImmutableMap.of(
+				"assertionGroupNames", "common-authoring",
+				"previousRelease", "20210131",
+				"defaultReasonerNamespace", "",
+				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.set("Content-Type", "application/json");
+		final ResponseEntity<ConceptView> responseEntity = restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts").queryParam("validate", "true").build().toUri(),
+				HttpMethod.POST, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY, httpHeaders), ConceptView.class);
+		assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+		final HttpHeaders responseHeaders = responseEntity.getHeaders();
+		assertTrue(responseHeaders.containsKey("validation-results"));
+		final List<String> validationResults = responseHeaders.get("validation-results");
+		assertFalse(validationResults.isEmpty());
+		final String validationResult = validationResults.get(0);
+		assertTrue(validationResult.contains("99970008"));
+		assertTrue(validationResult.contains("Test resources were not available so assertions like case significance and US specific terms checks will not have run."));
+	}
+
+	@Test
+	void testCreateConceptWithValidationEnabledWhichContainsErrorsReturnsBadRequest() {
+		branchService.updateMetadata("MAIN", ImmutableMap.of(
+				"assertionGroupNames", "common-authoring",
+				"previousRelease", "20210131",
+				"defaultReasonerNamespace", "",
+				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+		final ResponseEntity<ConceptView> responseEntity = restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts").queryParam("validate", "true").build().toUri(),
+				HttpMethod.POST, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_ERRORS_AND_WARNINGS, httpHeaders), ConceptView.class);
+		assertEquals(HttpStatus.BAD_REQUEST, responseEntity.getStatusCode());
+	}
+
+	@Test
+	void testUpdateConceptWithValidationEnabled() throws ServiceException {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+		branchService.updateMetadata("MAIN", ImmutableMap.of(
+				"assertionGroupNames", "common-authoring",
+				"previousRelease", "20210131",
+				"defaultReasonerNamespace", "",
+				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
+		conceptService.create(new Concept("99970008"), "MAIN");
+		final ResponseEntity<ConceptView> responseEntity = restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts/99970008").queryParam("validate", "true").build().toUri(),
+				HttpMethod.PUT, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY, httpHeaders), ConceptView.class);
+		assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+		final HttpHeaders responseHeaders = responseEntity.getHeaders();
+		assertTrue(responseHeaders.containsKey("validation-results"));
+		final List<String> validationResults = responseHeaders.get("validation-results");
+		assertFalse(validationResults.isEmpty());
+		final String validationResult = validationResults.get(0);
+		assertTrue(validationResult.contains("99970008"));
+		assertTrue(validationResult.contains("Test resources were not available so assertions like case significance and US specific terms checks will not have run."));
+	}
+
+	@Test
+	void testUpdateConceptWithValidationEnabledWhichContainsErrorsReturnsBadRequest() throws ServiceException {
+		branchService.updateMetadata("MAIN", ImmutableMap.of(
+				"assertionGroupNames", "common-authoring",
+				"previousRelease", "20210131",
+				"defaultReasonerNamespace", "",
+				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+		conceptService.create(new Concept("9999005"), "MAIN");
+		final ResponseEntity<ConceptView> responseEntity = restTemplate.exchange(
+				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts/99970008").queryParam("validate", "true").build().toUri(),
+				HttpMethod.PUT, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_ERRORS_AND_WARNINGS, httpHeaders), ConceptView.class);
+		assertEquals(HttpStatus.BAD_REQUEST, responseEntity.getStatusCode());
+	}
+
+	@Test
 	void testECLSearchAfter() throws ServiceException {
 		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), "MAIN");
 		conceptService.create(new Concept(Concepts.CLINICAL_FINDING).addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), "MAIN");
@@ -484,27 +563,19 @@ class ConceptControllerTest extends AbstractTest {
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
 		ConceptHistory.ConceptHistoryItem januaryRelease = conceptHistory.getConceptHistoryItem("20200131").get();
 		ConceptHistory.ConceptHistoryItem julyRelease = conceptHistory.getConceptHistoryItem("20200731").get();
-		Set<ComponentType> januaryReleaseComponentTypes = januaryRelease.getComponentTypes();
-		Set<ComponentType> julyReleaseComponentTypes = julyRelease.getComponentTypes();
+		List<ComponentType> januaryReleaseComponentTypes = new ArrayList<>(januaryRelease.getComponentTypes());
+		List<ComponentType> julyReleaseComponentTypes = new ArrayList<>(julyRelease.getComponentTypes());
 
 		//then
 		assertEquals(200, responseEntity.getStatusCodeValue());
 		assertEquals(2, history.size()); //Concept has changed since previous version.
 		assertEquals(4, januaryReleaseComponentTypes.size()); //Concept was created with Description, Relationship & Axiom
 		assertEquals(1, julyReleaseComponentTypes.size()); //Description was added
-
-		for (ComponentType componentType : januaryReleaseComponentTypes) {
-			assertTrue(
-					componentType.equals(ComponentType.Concept) ||
-							componentType.equals(ComponentType.Description) ||
-							componentType.equals(ComponentType.Relationship) ||
-							componentType.equals(ComponentType.Axiom)
-			);
-		}
-
-		for (ComponentType componentType : julyReleaseComponentTypes) {
-			assertEquals(componentType, ComponentType.Description);
-		}
+		assertEquals(ComponentType.Concept, januaryReleaseComponentTypes.get(0));
+		assertEquals(ComponentType.Description, januaryReleaseComponentTypes.get(1));
+		assertEquals(ComponentType.Relationship, januaryReleaseComponentTypes.get(2));
+		assertEquals(ComponentType.Axiom, januaryReleaseComponentTypes.get(3));
+		assertEquals(ComponentType.Description, julyReleaseComponentTypes.get(0));
 	}
 
 	@Test
@@ -563,21 +634,16 @@ class ConceptControllerTest extends AbstractTest {
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
 		ConceptHistory.ConceptHistoryItem januaryRelease = conceptHistory.getConceptHistoryItem("20200131").get();
-		Set<ComponentType> januaryReleaseComponentTypes = januaryRelease.getComponentTypes();
+		List<ComponentType> januaryReleaseComponentTypes = new ArrayList<>(januaryRelease.getComponentTypes());
 
 		//then
 		assertEquals(200, responseEntity.getStatusCodeValue());
 		assertEquals(1, history.size()); //Concept has not changed since first release.
 		assertEquals(4, januaryReleaseComponentTypes.size()); //Concept was created with Description, Relationship & Axiom
-
-		for (ComponentType componentType : januaryReleaseComponentTypes) {
-			assertTrue(
-					componentType.equals(ComponentType.Concept) ||
-							componentType.equals(ComponentType.Description) ||
-							componentType.equals(ComponentType.Relationship) ||
-							componentType.equals(ComponentType.Axiom)
-			);
-		}
+		assertEquals(ComponentType.Concept, januaryReleaseComponentTypes.get(0));
+		assertEquals(ComponentType.Description, januaryReleaseComponentTypes.get(1));
+		assertEquals(ComponentType.Relationship, januaryReleaseComponentTypes.get(2));
+		assertEquals(ComponentType.Axiom, januaryReleaseComponentTypes.get(3));
 	}
 
 	@Test
@@ -662,7 +728,6 @@ class ConceptControllerTest extends AbstractTest {
 		});
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
-		ConceptHistory.ConceptHistoryItem januaryRelease = conceptHistory.getConceptHistoryItem("20200131").get();
 
 		//then
 		assertEquals(1, history.size()); //Future version shouldn't appear
@@ -750,10 +815,55 @@ class ConceptControllerTest extends AbstractTest {
 		});
 		ConceptHistory conceptHistory = responseEntity.getBody();
 		List<ConceptHistory.ConceptHistoryItem> history = conceptHistory.getHistory();
-		ConceptHistory.ConceptHistoryItem januaryRelease = conceptHistory.getConceptHistoryItem("20200131").get();
 
 		//then
 		assertEquals(2, history.size()); //Future version should appear
+	}
+
+	@Test
+	void testCreateConceptWithConcreteValueInsideAxiomRelationship() throws ServiceException {
+		final Concept concept = new Concept("12345678910").addAxiom(new Relationship(ISA, "12345"),
+				Relationship.newConcrete(ISA, ConcreteValue.newString("\"GKO\"")));
+		createRangeConstraint(Concepts.ISA, "str()");
+		conceptService.create(concept, MAIN);
+
+		final Concept retrievedConcept = conceptService.find("12345678910", MAIN);
+
+		retrievedConcept.getClassAxioms().forEach(axiom -> axiom.getRelationships().forEach(relationship -> {
+			final ConcreteValue concreteValue = relationship.getConcreteValue();
+			if (concreteValue != null) {
+				assertEquals("GKO", concreteValue.getValue());
+				assertEquals("\"GKO\"", concreteValue.getValueWithPrefix());
+				assertEquals(ConcreteValue.DataType.STRING, concreteValue.getDataType());
+			} else {
+				assertEquals(ISA, relationship.getTypeId());
+			}
+		}));
+	}
+
+	@Test
+	void testUpdateConceptWithConcreteValueInsideAxiomRelationship() throws ServiceException {
+		final Concept createdConcept = new Concept("12345678910").addAxiom(new Relationship(ISA, "12345"),
+				Relationship.newConcrete(ISA, ConcreteValue.newString("\"GKO\"")));
+		createRangeConstraint(Concepts.ISA, "str()");
+		conceptService.create(createdConcept, MAIN);
+
+		final Concept updatedConcept = new Concept("12345678910").addAxiom(new Relationship(ISA, "12345"),
+				Relationship.newConcrete(ISA, ConcreteValue.newString("\"GKOOOOOO\"")));
+		conceptService.update(updatedConcept, MAIN);
+
+		final Concept retrievedConcept = conceptService.find("12345678910", MAIN);
+
+		retrievedConcept.getClassAxioms().forEach(axiom -> axiom.getRelationships().forEach(relationship -> {
+			final ConcreteValue concreteValue = relationship.getConcreteValue();
+			if (concreteValue != null) {
+				assertEquals("GKOOOOOO", concreteValue.getValue());
+				assertEquals("\"GKOOOOOO\"", concreteValue.getValueWithPrefix());
+				assertEquals(ConcreteValue.DataType.STRING, concreteValue.getDataType());
+			} else {
+				assertEquals(ISA, relationship.getTypeId());
+			}
+		}));
 	}
 
 	protected interface Procedure {

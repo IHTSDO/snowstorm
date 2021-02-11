@@ -1,0 +1,4 @@
+id	effectiveTime	active	moduleId	refsetId	referencedComponentId	rangeConstraint	attributeRule	ruleStrengthId	contentTypeId
+fbac216b-4025-4ed9-9eeb-bcd47f5715a2	20210131	1	900000000000012004	723562003	3311486008	dec(>#0..)	<< 373873005 |Pharmaceutical / biologic product (product)|: [0..1] 1142140007 |Count of active ingredient| > #0	723597001	723596005
+b666b012-90d2-428a-bdf9-282681127c97	20210131	1	900000000000012004	723562003	363698007	str("*")	<< 781405001 |Medicinal product package (product)|: [0..*] { [0..1] 3460481009 |Brand name| = "*" }	723597001	723596005
+fbac216b-4025-4ed9-9eeb-bcd47f5715a3	20210131	1	900000000000012004	723562003	1142139005	int(>#0..)	<< 373873005 |Pharmaceutical / biologic product (product)|: [0..1] 1142140007 |Count of active ingredient| > #0	723597001	723596005

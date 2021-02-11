@@ -3,13 +3,11 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-
-## 6.0.0 Release - 2020-01-13 - Support for concrete domains technical preview
-Added support for concrete domains to host the International Edition Technical Preview. 
+## 6.0.3 Release - Feb 2021 - Support for concrete domains technical preview
+Added support for concrete domains to host the International Edition Technical Preview.
 Additions have been made to the concept browser representation to represent concrete relationship values and types but changes are backward compatible.
 Full support for authoring concrete domains is still in development and will be released in the next few months.   
-Note: All concrete domains features rely on having concrete 
-domain content loaded.
+Note: All concrete domains features rely on having concrete domain content loaded.
 
 ### Features
 - Concept browser format updated to include `concreteValue` with `value` and `dataType` for concrete fragments within axioms and concrete inferred relationships.
@@ -23,9 +21,10 @@ domain content loaded.
 - Authoring:
   - Classification of concrete domain content.
   - Delta RF2 imports logged against Traceability Service (if feature is enabled).
-  - Option to export just changed components from a task branch using `unpromotedChangesOnly`.
+  - Fixes #217 Option to export just changed components from a task branch using `unpromotedChangesOnly`.
 
 ### Improvements
+- #219 Expose port 8080 in Docker container
 - Add description type filtering to concept search.
 - MRCM Template generation for concrete domains.
 - FHIR:
@@ -33,12 +32,15 @@ domain content loaded.
   - Check all CodeSystem instances in `$lookup` when version not specified.
   - Prevent `CodeSystem` in a FHIR `coding` parameter from including module or version information.
   - Add support for _xsct_ URI `http://snomed.info/xsct` to indicate unversioned content.
-- Authoring: 
+- Authoring:
   - Prevent replacment of any existing description inactivation when concept made inactive.
   - Prevent duplicate inactivation indicators and historical associations by reusing existing inactive and improving branch merging.
   - Register SCTIDs with CIS in smaller batches, defaults to 1K, configurable.
 - Log ES host and index prefix on startup as INFO.
-- Log ClientAbortException as INFO without stack trace rather than ERROR.
+- Log ClientAbortException as INFO without stack trace rather than ERROR
+
+### Fixes
+- #218 Remove repeated jar arg from Kubernetes config
 
 
 ## 5.1.0 Release - 2020-11-16 - Minor Improvements and Fixes
@@ -61,7 +63,7 @@ domain content loaded.
 - Maven Pom: Remove old Nexus repository which has been retired.
 
 ### Fixes
-- MAINT-1378 Extension maintenance: stop deleting unpublished extension descriptions when concept becomes inactive during International upgrade. 
+- MAINT-1378 Extension maintenance: stop deleting unpublished extension descriptions when concept becomes inactive during International upgrade.
 - MAINT-1498 Fix sorting of active and inactive axioms on same concept with same model.
 - Fix utility class CommitExplorer after ES7 upgrade.
 - MAINT-1503 Make export unit test stable; don't expect specific row order.
@@ -74,7 +76,7 @@ domain content loaded.
 
 ### Fixes
 - Fix concept search total count when using active filter.
-- MAINT-1487 Remove redundant fields stored in the Relationship index. 
+- MAINT-1487 Remove redundant fields stored in the Relationship index.
 - MAINT-1458 Authoring version control: commit rollback bug fix.
 - MAINT-1501 Semantic index bug: parent versions not restored during rebase since ES7.
 

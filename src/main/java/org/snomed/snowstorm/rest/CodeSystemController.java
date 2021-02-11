@@ -8,18 +8,19 @@ import org.elasticsearch.common.Strings;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.CodeSystemUpgradeService;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.snomed.snowstorm.extension.ExtensionAdditionalLanguageRefsetUpgradeService;
-import org.snomed.snowstorm.rest.pojo.*;
+import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
+import org.snomed.snowstorm.rest.pojo.CodeSystemUpgradeRequest;
+import org.snomed.snowstorm.rest.pojo.CreateCodeSystemVersionRequest;
+import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collection;
 import java.util.Collections;
 
 import static java.lang.Boolean.TRUE;
@@ -37,6 +38,9 @@ public class CodeSystemController {
 
 	@Autowired
 	private DailyBuildService dailyBuildService;
+
+	@Autowired
+	private PermissionService permissionService;
 
 	@Autowired
 	private ExtensionAdditionalLanguageRefsetUpgradeService extensionAdditionalLanguageRefsetUpgradeService;
@@ -65,19 +69,19 @@ public class CodeSystemController {
 		if (!Strings.isNullOrEmpty(forBranch)) {
 			CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(forBranch, true);
 			if (codeSystem != null) {
-				return new ItemsPage<>(Collections.singleton(codeSystem));
+				return new ItemsPage<>(Collections.singleton(joinUserPermissionsInfo(codeSystem)));
 			} else {
 				return new ItemsPage<>(Collections.emptySet());
 			}
 		} else {
-			return new ItemsPage<>(codeSystemService.findAll());
+			return new ItemsPage<>(joinUserPermissionsInfo(codeSystemService.findAll()));
 		}
 	}
 
 	@ApiOperation("Retrieve a code system")
 	@RequestMapping(value = "/{shortName}", method = RequestMethod.GET)
 	public CodeSystem findCodeSystem(@PathVariable String shortName) {
-		return ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName));
+		return joinUserPermissionsInfo(ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName)));
 	}
 
 	@ApiOperation("Update a code system")
@@ -85,7 +89,7 @@ public class CodeSystemController {
 	public CodeSystem updateCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemUpdateRequest updateRequest) {
 		CodeSystem codeSystem = findCodeSystem(shortName);
 		codeSystemService.update(codeSystem, updateRequest);
-		return findCodeSystem(shortName);
+		return joinUserPermissionsInfo(findCodeSystem(shortName));
 	}
 
 	@ApiOperation(value = "Delete a code system", notes = "This function deletes the code system and its versions but it does not delete the branches or the content.")
@@ -127,18 +131,6 @@ public class CodeSystemController {
 		codeSystemUpgradeService.upgrade(codeSystem, request.getNewDependantVersion(), TRUE.equals(request.getContentAutomations()));
 	}
 
-	@ApiOperation(value = "DEPRECATED - Migrate code system to a different dependant version.",
-			notes = "DEPRECATED in favour of upgrade operation. " +
-					"This operation is required when an extension exists under an International version branch, for example: MAIN/2019-01-31/SNOMEDCT-BE. " +
-					"An integrity check should be run after this operation to find content that needs fixing.")
-	@RequestMapping(value = "/{shortName}/migrate", method = RequestMethod.POST)
-	public void migrateCodeSystem(@PathVariable String shortName, @RequestBody CodeSystemMigrationRequest request) throws ServiceException {
-		CodeSystem codeSystem = codeSystemService.find(shortName);
-		ControllerHelper.throwIfNotFound("CodeSystem", codeSystem);
-
-		codeSystemService.migrateDependantCodeSystemVersion(codeSystem, request.getDependantCodeSystem(), request.getNewDependantVersion(), request.isCopyMetadata());
-	}
-
 	@ApiOperation(value = "Rollback daily build commits.",
 			notes = "If you have a daily build set up for a code system this operation should be used to revert/rollback the daily build content " +
 					"before importing any versioned content. Be sure to disable the daily build too.")
@@ -178,5 +170,20 @@ public class CodeSystemController {
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public void clearCodeSystemInformationCache() {
 		codeSystemService.clearCache();
+	}
+
+	private CodeSystem joinUserPermissionsInfo(CodeSystem codeSystem) {
+		joinUserPermissionsInfo(Collections.singleton(codeSystem));
+		return codeSystem;
+	}
+
+	private Collection<CodeSystem> joinUserPermissionsInfo(Collection<CodeSystem> codeSystems) {
+		for (CodeSystem codeSystem : codeSystems) {
+			final String branchPath = codeSystem.getBranchPath();
+			if (branchPath != null) {
+				codeSystem.setUserRoles(permissionService.getUserRolesForBranch(branchPath).getGrantedBranchRole());
+			}
+		}
+		return codeSystems;
 	}
 }

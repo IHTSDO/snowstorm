@@ -14,6 +14,7 @@ import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -686,5 +687,38 @@ class ImportServiceTest extends AbstractTest {
 		assertEquals("#4", thirdRelationship.getValue());
 		assertEquals("\"before bed\"", fourthRelationship.getValue());
 		assertEquals("\"daily\"", fifthRelationship.getValue());
+	}
+
+	@Test
+	public void importArchive_ShouldSuccessfullyImportConcreteAxioms_WhenImportingSnapshot() throws Exception {
+		final String branchPath = "MAIN/CDI-29";
+		branchService.create(branchPath);
+		final String importJobId = importService.createJob(RF2Type.SNAPSHOT, branchPath, false, false);
+		final File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2");
+		final FileInputStream releaseFileStream = new FileInputStream(zipFile);
+
+		importService.importArchive(importJobId, releaseFileStream);
+		MemberSearchRequest searchRequest = new MemberSearchRequest().referencedComponentId("871866001").referenceSet("733073007");
+		Page<ReferenceSetMember> results = referenceSetMemberService.findMembers(branchPath, searchRequest, PageRequest.of(0,10));
+		assertEquals(1, results.getContent().size());
+		String expected = "EquivalentClasses(:871866001 ObjectIntersectionOf(:763158003 ObjectSomeValuesFrom(:609096000 ObjectIntersectionOf(ObjectSomeValuesFrom(:732943007 :273943001) " +
+				"ObjectSomeValuesFrom(:732945000 :258684004) ObjectSomeValuesFrom(:732947008 :732936001) ObjectSomeValuesFrom(:762949000 :273943001) " +
+				"DataHasValue(:3311486008 \"500\"^^xsd:decimal))) ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:411116001 :421026006)) ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:763032000 :732936001)) " +
+				"ObjectSomeValuesFrom(:609096000 DataHasValue(:1142139005 \"1\"^^xsd:integer))))";
+		String actual = results.getContent().get(0).getAdditionalField("owlExpression");
+		assertEquals(expected, actual);
+
+		// update concept to and check the owl axiom data type shouldn't change
+		Concept concept = conceptService.find("871866001", branchPath);
+		Set<Axiom> axioms = concept.getClassAxioms();
+		assertNotNull(axioms);
+		Relationship relationship = Relationship.newConcrete("3311486008", ConcreteValue.newDecimal("#500"))
+				.setCharacteristicTypeId(Concepts.INFERRED_RELATIONSHIP);
+		concept.addRelationship(relationship);
+		conceptService.update(concept, branchPath);
+		results = referenceSetMemberService.findMembers(branchPath, searchRequest, PageRequest.of(0,10));
+		assertEquals(1, results.getContent().size());
+		actual = results.getContent().get(0).getAdditionalField("owlExpression");
+		assertEquals(expected, actual);
 	}
 }

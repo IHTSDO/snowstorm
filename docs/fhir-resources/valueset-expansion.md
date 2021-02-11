@@ -14,6 +14,9 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=e
 #### Expansion of an intentionally defined value set using ISA
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=isa/27624003
 
+#### Expansion including as-yet-unpublished changes to concepts
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=isa/410607006&system-version=http://snomed.info/xsct&count=5
+
 #### Expansion of an intentionally defined value set using refset (ICD-10 complex map)
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=refset/447562003
 
@@ -43,7 +46,7 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=e
 #### Expansion with filter operation using ECL
 
 ```
-curl --location --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
+curl --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
 --header 'Content-Type: application/json' \
 --data-raw '{
     "resourceType": "Parameters",
@@ -86,3 +89,4 @@ curl --location --request POST 'http://localhost:8080/fhir/ValueSet/$expand' \
     ]
 }'
 ```
+Note that the curl --location flag will cause a POST body to be removed if a 302 redirect is encountered, such as happens when an http call is redirected to https.

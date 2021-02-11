@@ -34,7 +34,6 @@ import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.export.ExportException;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
 import org.snomed.snowstorm.core.util.DateUtil;
-import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -65,6 +64,7 @@ import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.*;
+import static org.snomed.snowstorm.core.data.domain.classification.RelationshipChange.Fields.SOURCE_ID;
 import static org.snomed.snowstorm.core.data.services.ConceptService.DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY;
 
 @Service
@@ -356,16 +356,16 @@ public class ClassificationService {
 						commit.getBranch().getMetadata().put(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY, "true");
 
 						List<RelationshipChange> changesBatch = null;
-						String lastId = null;
+						Object[] searchAfterToken = null;
 						while (changesBatch == null || changesBatch.size() == LARGE_PAGE.getPageSize()) {
 
 							changesBatch = new ArrayList<>();
 
 							PageRequest pageRequest;
-							if (lastId != null) {
-								pageRequest = SearchAfterPageRequest.of(new Object[] {lastId}, LARGE_PAGE.getPageSize(), Sort.by("_id"));
+							if (searchAfterToken != null) {
+								pageRequest = SearchAfterPageRequest.of(searchAfterToken, LARGE_PAGE.getPageSize(), Sort.by(SOURCE_ID, "_id"));
 							} else {
-								pageRequest = SearchAfterPageRequest.of(0, LARGE_PAGE.getPageSize(), Sort.by("_id"));
+								pageRequest = SearchAfterPageRequest.of(0, LARGE_PAGE.getPageSize(), Sort.by(SOURCE_ID, "_id"));
 							}
 
 							NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
@@ -375,7 +375,7 @@ public class ClassificationService {
 							final SearchHits<RelationshipChange> searchHits = elasticsearchOperations.search(queryBuilder.build(), RelationshipChange.class);
 							for (SearchHit<RelationshipChange> searchHit : searchHits) {
 								changesBatch.add(searchHit.getContent());
-								lastId = searchHit.getId();
+								searchAfterToken = searchHit.getSortValues().toArray();
 							}
 
 							if (changesBatch.isEmpty()) {
@@ -389,7 +389,8 @@ public class ClassificationService {
 							}
 
 							// Load concepts
-							Collection<Concept> concepts = conceptService.find(path, conceptToChangeMap.keySet(), Config.DEFAULT_LANGUAGE_DIALECTS);
+							final BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+							Collection<Concept> concepts = conceptService.find(branchCriteriaIncludingOpenCommit, path, conceptToChangeMap.keySet(), Config.DEFAULT_LANGUAGE_DIALECTS);
 
 							// Apply changes to concepts
 							for (Concept concept : concepts) {
@@ -407,7 +408,7 @@ public class ClassificationService {
 						classification.setStatus(SAVED);
 						classification.setSaveDate(new Date());
 					}
-				} catch (ServiceException e) {
+				} catch (ServiceException | IllegalStateException e) {
 					classification.setStatus(SAVE_FAILED);
 					logger.error("Classification save failed {} {}", classification.getPath(), classificationId, e);
 				}
