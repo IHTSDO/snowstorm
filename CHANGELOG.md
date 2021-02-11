@@ -3,13 +3,11 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-
-## 6.0.2 Release - Feb 2021 - Support for concrete domains technical preview
+## 6.0.3 Release - Feb 2021 - Support for concrete domains technical preview
 Added support for concrete domains to host the International Edition Technical Preview.
 Additions have been made to the concept browser representation to represent concrete relationship values and types but changes are backward compatible.
 Full support for authoring concrete domains is still in development and will be released in the next few months.   
-Note: All concrete domains features rely on having concrete
-domain content loaded.
+Note: All concrete domains features rely on having concrete domain content loaded.
 
 ### Features
 - Concept browser format updated to include `concreteValue` with `value` and `dataType` for concrete fragments within axioms and concrete inferred relationships.
@@ -26,6 +24,7 @@ domain content loaded.
   - Fixes #217 Option to export just changed components from a task branch using `unpromotedChangesOnly`.
 
 ### Improvements
+- #219 Expose port 8080 in Docker container
 - Add description type filtering to concept search.
 - MRCM Template generation for concrete domains.
 - FHIR:
@@ -38,7 +37,10 @@ domain content loaded.
   - Prevent duplicate inactivation indicators and historical associations by reusing existing inactive and improving branch merging.
   - Register SCTIDs with CIS in smaller batches, defaults to 1K, configurable.
 - Log ES host and index prefix on startup as INFO.
-- Log ClientAbortException as INFO without stack trace rather than ERROR.
+- Log ClientAbortException as INFO without stack trace rather than ERROR
+
+### Fixes
+- #218 Remove repeated jar arg from Kubernetes config
 
 
 ## 5.1.0 Release - 2020-11-16 - Minor Improvements and Fixes
