@@ -1,3 +1,10 @@
+FROM maven:3.3-jdk-8 AS builder
+COPY pom.xml /usr/src/snowstorm/pom.xml
+RUN cd /usr/src/snowstorm && mvn dependency:go-offline -B --fail-never
+COPY . /usr/src/snowstorm
+RUN cd /usr/src/snowstorm && mvn clean install -DskipTests
+
+
 FROM openjdk:8-jdk-alpine
 LABEL maintainer="SNOMED International <tooling@snomed.org>"
 
@@ -13,7 +20,7 @@ WORKDIR /app
 RUN mkdir /snomed-drools-rules
 
 # Copy necessary files
-ADD target/snowstorm-*.jar snowstorm.jar
+COPY --from=builder /usr/src/snowstorm/target/snowstorm-*.jar snowstorm.jar
 
 # Create the snowstorm user
 RUN addgroup -g $SGID snowstorm && \
