@@ -18,7 +18,6 @@ import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
@@ -72,14 +71,14 @@ public class MRCMService {
 
 		// Start with 'Is a' relationship which is applicable to all concept types and domains
 		attributeDomains.add(IS_A_ATTRIBUTE_DOMAIN);
+
+		// Load MRCM using active records applicable to this branch
+		final MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
 		
 		if (!CollectionUtils.isEmpty(parentIds)) {
 			// Lookup ancestors using stated parents
 			Set<Long> allAncestors = queryService.findAncestorIdsAsUnion(branchCriteria, false, parentIds);
 			allAncestors.addAll(parentIds);
-
-			// Load MRCM using active records applicable to this branch
-			MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
 
 			// Find matching domains
 			Set<Domain> matchedDomains = branchMRCM.getDomains().stream().filter(domain -> {
@@ -112,13 +111,26 @@ public class MRCMService {
 				}
 			}
 		}
-		for (ConceptMini attributeConceptMini : attributeConceptMinis) {
+		addExtraConceptMiniFields(attributeDomains, contentType, branchMRCM, attributeConceptMinis);
+
+		return attributeConceptMinis;
+	}
+
+	private void addExtraConceptMiniFields(final List<AttributeDomain> attributeDomains, final ContentType contentType, final MRCM branchMRCM, final Collection<ConceptMini> attributeConceptMinis) {
+		attributeConceptMinis.forEach(attributeConceptMini -> {
 			attributeConceptMini.addExtraField("attributeDomain",
 					attributeDomains.stream().filter(attributeDomain -> attributeConceptMini.getId().equals(attributeDomain.getReferencedComponentId()))
 							.collect(Collectors.toSet()));
-		}
+			addAttributeRangesToExtraConceptMiniFields(attributeConceptMini, attributeDomains, contentType, branchMRCM);
+		});
+	}
 
-		return attributeConceptMinis;
+	private void addAttributeRangesToExtraConceptMiniFields(final ConceptMini conceptMini, final List<AttributeDomain> attributeDomains, final ContentType contentType, final MRCM branchMRCM) {
+		final List<AttributeRange> attributeRanges = new ArrayList<>();
+		branchMRCM.getAttributeRanges().forEach(attributeRange -> attributeDomains.stream()
+				.filter(attributeDomain -> attributeRange.getReferencedComponentId().equals(attributeDomain.getReferencedComponentId()) && attributeRange.getContentType() == contentType)
+				.map(attributeDomain -> attributeRange).forEach(attributeRanges::add));
+		conceptMini.addExtraField("attributeRange", attributeRanges);
 	}
 
 	public Collection<ConceptMini> retrieveAttributeValues(ContentType contentType, String attributeId, String termPrefix, String branchPath, List<LanguageDialect> languageDialects) throws ServiceException {
