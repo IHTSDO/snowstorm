@@ -128,7 +128,7 @@ public class MRCMService {
 	private void addAttributeRangesToExtraConceptMiniFields(final ConceptMini conceptMini, final List<AttributeDomain> attributeDomains, final ContentType contentType, final MRCM branchMRCM) {
 		final List<AttributeRange> attributeRanges = new ArrayList<>();
 		branchMRCM.getAttributeRanges().forEach(attributeRange -> attributeDomains.stream()
-				.filter(attributeDomain -> attributeRange.getReferencedComponentId().equals(attributeDomain.getReferencedComponentId()) && attributeRange.getContentType() == contentType)
+				.filter(attributeDomain -> attributeRange.getReferencedComponentId().equals(attributeDomain.getReferencedComponentId()) && attributeRange.getContentType().ruleAppliesToContentType(contentType))
 				.map(attributeDomain -> attributeRange).forEach(attributeRanges::add));
 		conceptMini.addExtraField("attributeRange", attributeRanges);
 	}
