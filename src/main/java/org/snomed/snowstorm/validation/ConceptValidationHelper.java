@@ -1,8 +1,5 @@
 package org.snomed.snowstorm.validation;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.ihtsdo.drools.domain.Component;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.drools.response.Severity;
@@ -10,8 +7,6 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.validation.domain.DroolsDescription;
 import org.snomed.snowstorm.validation.domain.DroolsRelationship;
-import org.snomed.snowstorm.validation.exception.DroolsValidationException;
-import org.springframework.http.HttpHeaders;
 
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -23,40 +18,27 @@ public final class ConceptValidationHelper {
 	private ConceptValidationHelper() {
 	}
 
-	public static List<InvalidContent> validate(final Concept concept, final String branchPath, final DroolsValidationService validationService,
-			final ObjectMapper objectMapper) throws JsonProcessingException, ServiceException {
+	public static InvalidContentWithSeverityStatus validate(final Concept concept, final String branchPath, final DroolsValidationService validationService) throws ServiceException {
 		final List<InvalidContent> invalidContents = validationService.validateConcept(branchPath, generateUUIDSIfNotSet(concept));
 		final List<InvalidContent> invalidContentErrors = invalidContents.stream().filter(invalidContent -> invalidContent.getSeverity() == Severity.ERROR).collect(Collectors.toList());
-		if (invalidContentErrors.isEmpty()) {
-			return invalidContents.stream().filter(invalidContent -> invalidContent.getSeverity() == Severity.WARNING).collect(Collectors.toList());
-		}
-		throw new DroolsValidationException(objectMapper.writeValueAsString(invalidContentErrors).replace("\n", ""));
+		return invalidContentErrors.isEmpty() ? new InvalidContentWithSeverityStatus(invalidContents.stream().filter(invalidContent ->
+				invalidContent.getSeverity() == Severity.WARNING).collect(Collectors.toList()), Severity.WARNING)
+				: new InvalidContentWithSeverityStatus(invalidContents, Severity.ERROR);
 	}
 
 	private static Concept generateUUIDSIfNotSet(final Concept concept) {
 		if (concept != null) {
 			if (concept.getConceptId() == null) {
-				concept.setConceptId(RandomStringUtils.randomNumeric(10));
+				concept.setConceptId(UUID.randomUUID().toString());
 			}
 			concept.getDescriptions().stream().filter(description -> description != null && description.getId() == null)
-					.forEach(description -> description.setDescriptionId(RandomStringUtils.randomNumeric(10)));
+					.forEach(description -> description.setDescriptionId(UUID.randomUUID().toString()));
 			concept.getRelationships().stream().filter(relationship -> relationship != null && relationship.getId() == null)
-					.forEach(relationship -> relationship.setRelationshipId(RandomStringUtils.randomNumeric(10)));
-			concept.getAllOwlAxiomMembers().stream().filter(referenceSetMember -> referenceSetMember != null && referenceSetMember.getId() == null)
-					.forEach(referenceSetMember -> referenceSetMember.setRefsetId(RandomStringUtils.randomNumeric(10)));
+					.forEach(relationship -> relationship.setRelationshipId(UUID.randomUUID().toString()));
+			concept.getAllOwlAxiomMembers().stream().filter(referenceSetMember -> referenceSetMember != null && referenceSetMember.getRefsetId() == null)
+					.forEach(referenceSetMember -> referenceSetMember.setRefsetId(UUID.randomUUID().toString()));
 		}
 		return concept;
-	}
-
-	public static HttpHeaders getCreateConceptHeaders(final HttpHeaders httpHeaders, final String validationResults) {
-		httpHeaders.add("validation-results", validationResults.replace("\n", ""));
-		return httpHeaders;
-	}
-
-	public static HttpHeaders getUpdateConceptHeaders(final String validationResults) {
-		final HttpHeaders httpHeaders = new HttpHeaders();
-		httpHeaders.add("validation-results", validationResults.replace("\n", ""));
-		return httpHeaders;
 	}
 
 	public static List<InvalidContent> replaceTemporaryUUIDWithSCTID(final List<InvalidContent> invalidContentWarnings, final Concept concept) {
@@ -111,7 +93,7 @@ public final class ConceptValidationHelper {
 	private static void replaceInvalidContentTemporaryUUIDWithSCTIDInConcept(final List<InvalidContent> invalidContentWarnings, final Concept concept) {
 		final String conceptId = concept.getConceptId();
 		final List<InvalidContent> newInvalidContentWarnings = new ArrayList<>();
-		for (final Iterator<InvalidContent> iterator = invalidContentWarnings.iterator(); iterator.hasNext(); ) {
+		for (final Iterator<InvalidContent> iterator = invalidContentWarnings.iterator(); iterator.hasNext();) {
 			final InvalidContent invalidContent = iterator.next();
 			if (!invalidContent.getConceptId().equals(conceptId)) {
 				newInvalidContentWarnings.add(new InvalidContent(conceptId, invalidContent.getComponent(), invalidContent.getMessage(), invalidContent.getSeverity()));
@@ -119,5 +101,24 @@ public final class ConceptValidationHelper {
 			}
 		}
 		invalidContentWarnings.addAll(newInvalidContentWarnings);
+	}
+
+	public static class InvalidContentWithSeverityStatus {
+
+		private final List<InvalidContent> invalidContents;
+		private final Severity severity;
+
+		public InvalidContentWithSeverityStatus(final List<InvalidContent> invalidContents, final Severity severity) {
+			this.invalidContents = invalidContents;
+			this.severity = severity;
+		}
+
+		public final List<InvalidContent> getInvalidContents() {
+			return invalidContents;
+		}
+
+		public final Severity getSeverity() {
+			return severity;
+		}
 	}
 }

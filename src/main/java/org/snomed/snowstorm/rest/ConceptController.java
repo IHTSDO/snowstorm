@@ -2,7 +2,6 @@ package org.snomed.snowstorm.rest;
 
 import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.annotation.JsonView;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -12,7 +11,7 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.common.Strings;
-import org.ihtsdo.drools.response.InvalidContent;
+import org.ihtsdo.drools.response.Severity;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
@@ -29,6 +28,7 @@ import org.snomed.snowstorm.ecl.validation.ECLValidator;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.snomed.snowstorm.validation.ConceptValidationHelper;
+import org.snomed.snowstorm.validation.ConceptValidationHelper.InvalidContentWithSeverityStatus;
 import org.snomed.snowstorm.validation.DroolsValidationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -45,6 +45,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
+import javax.validation.Validator;
 import java.util.*;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
@@ -91,6 +92,9 @@ public class ConceptController {
 
 	@Autowired
 	private ObjectMapper objectMapper;
+
+	@Autowired
+	private Validator validator;
 
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
@@ -387,17 +391,24 @@ public class ConceptController {
 	public ResponseEntity<ConceptView> createConcept(
 			@PathVariable String branch,
 			@RequestParam(required = false, defaultValue = "false") boolean validate,
-			@RequestBody @Valid ConceptView concept,
-			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException, JsonProcessingException {
+			@RequestBody ConceptView concept,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		if (validate) {
-			final List<InvalidContent> invalidContentWarnings = ConceptValidationHelper.validate((Concept) concept, BranchPathUriUtil.decodePath(branch), validationService, objectMapper);
-			final Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
-					BranchPathUriUtil.decodePath(branch));
-			return new ResponseEntity<>(createdConcept, ConceptValidationHelper.getCreateConceptHeaders(ControllerHelper.getCreatedLocationHeaders(createdConcept.getId()),
-					objectMapper.writeValueAsString(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContentWarnings, createdConcept))), HttpStatus.OK);
+			final InvalidContentWithSeverityStatus invalidContent = ConceptValidationHelper.validate((Concept) concept, BranchPathUriUtil.decodePath(branch), validationService);
+			if (invalidContent.getSeverity() == Severity.WARNING) {
+				final Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
+						BranchPathUriUtil.decodePath(branch));
+				// validate concept after creation due to temporary id provided by UI can exceed the concept id range.
+				validator.validate(createdConcept);
+				createdConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.getInvalidContents(), createdConcept));
+				return new ResponseEntity<>(createdConcept, ControllerHelper.getCreatedLocationHeaders(createdConcept.getId()), HttpStatus.OK);
+			}
+			((Concept) concept).setValidationResults(invalidContent.getInvalidContents());
+			return new ResponseEntity<>(concept, HttpStatus.BAD_REQUEST);
 		}
 
+		validator.validate(concept);
 		final Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 				BranchPathUriUtil.decodePath(branch));
 		return new ResponseEntity<>(createdConcept, getCreatedLocationHeaders(createdConcept.getId()), HttpStatus.OK);
@@ -410,19 +421,27 @@ public class ConceptController {
 			@PathVariable String branch,
 			@PathVariable String conceptId,
 			@RequestParam(required = false, defaultValue = "false") boolean validate,
-			@RequestBody @Valid ConceptView concept,
-			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException, JsonProcessingException {
+			@RequestBody ConceptView concept,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		Assert.isTrue(concept.getConceptId() != null && conceptId != null && concept.getConceptId().equals(conceptId), "The conceptId in the " +
 				"path must match the one in the request body.");
 
 		if (validate) {
-			final List<InvalidContent> invalidContentWarnings = ConceptValidationHelper.validate((Concept) concept, BranchPathUriUtil.decodePath(branch), validationService, objectMapper);
-			return new ResponseEntity<>(conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), BranchPathUriUtil.decodePath(branch)),
-					ConceptValidationHelper.getUpdateConceptHeaders(objectMapper.writeValueAsString(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContentWarnings,
-							(Concept) concept))), HttpStatus.OK);
+			final InvalidContentWithSeverityStatus invalidContent = ConceptValidationHelper.validate((Concept) concept, BranchPathUriUtil.decodePath(branch), validationService);
+			if (invalidContent.getSeverity() == Severity.WARNING) {
+				final Concept updatedConcept = conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
+						BranchPathUriUtil.decodePath(branch));
+				// validate concept after creation due to temporary id provided by UI can exceed the concept id range.
+				validator.validate(updatedConcept);
+				updatedConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.getInvalidContents(), updatedConcept));
+				return new ResponseEntity<>(updatedConcept, HttpStatus.OK);
+			}
+			((Concept) concept).setValidationResults(invalidContent.getInvalidContents());
+			return new ResponseEntity<>(concept, HttpStatus.BAD_REQUEST);
 		}
 
+		validator.validate(concept);
 		return new ResponseEntity<>(conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 				BranchPathUriUtil.decodePath(branch)), HttpStatus.OK);
 	}
