@@ -3,16 +3,14 @@ package org.snomed.snowstorm.config;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
+import org.ihtsdo.drools.domain.Component;
+import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.sso.integration.RequestHeaderAuthenticationDecorator;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.classification.Classification;
-import org.snomed.snowstorm.rest.config.BranchMixIn;
-import org.snomed.snowstorm.rest.config.ClassificationMixIn;
-import org.snomed.snowstorm.rest.config.CodeSystemVersionMixIn;
-import org.snomed.snowstorm.rest.config.PageMixin;
+import org.snomed.snowstorm.rest.config.*;
 import org.snomed.snowstorm.rest.pojo.BranchPojo;
 import org.snomed.snowstorm.rest.security.RequestHeaderAuthenticationDecoratorWithRequiredRole;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,7 +75,9 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 				.mixIn(Branch.class, BranchMixIn.class)
 				.mixIn(BranchPojo.class, BranchMixIn.class)
 				.mixIn(Classification.class, ClassificationMixIn.class)
-				.mixIn(CodeSystemVersion.class, CodeSystemVersionMixIn.class);
+				.mixIn(CodeSystemVersion.class, CodeSystemVersionMixIn.class)
+				.mixIn(InvalidContent.class, InvalidContentMixIn.class)
+				.mixIn(Component.class, ComponentMixIn.class);
 
 		if (jsonIndentOutput) {
 			builder.featuresToEnable(SerializationFeature.INDENT_OUTPUT);
