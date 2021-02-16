@@ -1,8 +1,10 @@
 package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import org.ihtsdo.drools.response.InvalidContent;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 
+import java.util.List;
 import java.util.Set;
 
 @JsonDeserialize(as = Concept.class)
@@ -30,4 +32,6 @@ public interface ConceptView {
 	Set<Axiom> getClassAxioms();
 
 	Set<Axiom> getGciAxioms();
+
+	List<InvalidContent> getValidationResults();
 }

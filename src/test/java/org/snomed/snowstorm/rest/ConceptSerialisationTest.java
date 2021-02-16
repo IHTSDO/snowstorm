@@ -3,17 +3,20 @@ package org.snomed.snowstorm.rest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import org.ihtsdo.drools.response.InvalidContent;
+import org.ihtsdo.drools.response.Severity;
 import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.config.ConceptStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.DescriptionStoreMixIn;
 import org.snomed.snowstorm.core.data.repositories.config.RelationshipStoreMixIn;
+import org.snomed.snowstorm.validation.domain.DroolsConcept;
 
 import java.io.IOException;
+import java.util.Collections;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 class ConceptSerialisationTest {
 
@@ -73,6 +76,26 @@ class ConceptSerialisationTest {
 		assertTrue(conceptJson.contains("relationships"));
 		assertTrue(conceptJson.contains("classAxioms"));
 		assertTrue(conceptJson.contains("gciAxioms"));
+	}
+
+	@Test
+	void testCreateConceptFailsAfterValidationSerialisation() throws JsonProcessingException {
+		final Concept concept = new Concept("123", null, true, "33", "900000000000074008");
+		final InvalidContent invalidContent = new InvalidContent("123", new DroolsConcept(concept), "This is a test to see the serialised content", Severity.ERROR);
+		concept.setValidationResults(Collections.singletonList(invalidContent));
+		final String conceptJson = generalObjectMapper.writerWithView(View.Component.class).forType(ConceptView.class).writeValueAsString(concept);
+		assertNotNull(conceptJson);
+		assertTrue(conceptJson.contains("conceptId"));
+		assertTrue(conceptJson.contains("component"));
+		assertTrue(conceptJson.contains("published"));
+		assertTrue(conceptJson.contains("active"));
+		assertTrue(conceptJson.contains("moduleId"));
+		assertTrue(conceptJson.contains("released"));
+		assertTrue(conceptJson.contains("id"));
+		assertTrue(conceptJson.contains("message"));
+		assertTrue(conceptJson.contains("severity"));
+		assertTrue(conceptJson.contains("ignorePublishedCheck"));
+		assertTrue(conceptJson.contains("published"));
 	}
 
 	@Test
