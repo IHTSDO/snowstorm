@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.google.common.collect.Sets;
+import org.ihtsdo.drools.response.InvalidContent;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
@@ -23,7 +24,7 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Document(indexName = "concept")
 @JsonPropertyOrder({"conceptId", "descendantCount", "fsn", "pt", "active", "effectiveTime", "released", "releasedEffectiveTime",  "inactivationIndicator", "associationTargets",
-		"moduleId", "definitionStatus", "definitionStatusId", "descriptions", "classAxioms", "gciAxioms", "relationships"})
+		"moduleId", "definitionStatus", "definitionStatusId", "descriptions", "classAxioms", "gciAxioms", "relationships", "validationResults"})
 public class Concept extends SnomedComponent<Concept> implements ConceptView, SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
 
 	public interface Fields extends SnomedComponent.Fields {
@@ -80,6 +81,9 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	@Transient
 	private Long descendantCount;
 
+	@Transient
+	private List<InvalidContent> validationResults;
+
 	public Concept() {
 		active = true;
 		setModuleId(Concepts.CORE_MODULE);
@@ -89,6 +93,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		classAxioms = new HashSet<>();
 		generalConceptInclusionAxioms = new HashSet<>();
 		inactivationIndicatorMembers = new ArrayList<>();
+		validationResults = new ArrayList<>();
 	}
 
 	public Concept(String conceptId) {
@@ -398,6 +403,16 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 
 	public void setRequestedLanguageDialects(List<LanguageDialect> requestedLanguageDialects) {
 		this.requestedLanguageDialects = requestedLanguageDialects;
+	}
+
+	@JsonView(value = View.Component.class)
+	@Override
+	public List<InvalidContent> getValidationResults() {
+		return validationResults;
+	}
+
+	public void setValidationResults(final List<InvalidContent> validationResults) {
+		this.validationResults = validationResults;
 	}
 
 	@Override
