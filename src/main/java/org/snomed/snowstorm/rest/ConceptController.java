@@ -94,7 +94,7 @@ public class ConceptController {
 	private ObjectMapper objectMapper;
 
 	@Autowired
-	private Validator validator;
+	private Validator beanInstanceValidator;
 
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
@@ -400,7 +400,7 @@ public class ConceptController {
 				final Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 						BranchPathUriUtil.decodePath(branch));
 				// validate concept after creation due to temporary id provided by UI can exceed the concept id range.
-				validator.validate(createdConcept);
+				beanInstanceValidator.validate(createdConcept);
 				createdConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.getInvalidContents(), createdConcept));
 				return new ResponseEntity<>(createdConcept, ControllerHelper.getCreatedLocationHeaders(createdConcept.getId()), HttpStatus.OK);
 			}
@@ -408,7 +408,7 @@ public class ConceptController {
 			return new ResponseEntity<>(concept, HttpStatus.BAD_REQUEST);
 		}
 
-		validator.validate(concept);
+		beanInstanceValidator.validate(concept);
 		final Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 				BranchPathUriUtil.decodePath(branch));
 		return new ResponseEntity<>(createdConcept, getCreatedLocationHeaders(createdConcept.getId()), HttpStatus.OK);
@@ -433,7 +433,7 @@ public class ConceptController {
 				final Concept updatedConcept = conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 						BranchPathUriUtil.decodePath(branch));
 				// validate concept after creation due to temporary id provided by UI can exceed the concept id range.
-				validator.validate(updatedConcept);
+				beanInstanceValidator.validate(updatedConcept);
 				updatedConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.getInvalidContents(), updatedConcept));
 				return new ResponseEntity<>(updatedConcept, HttpStatus.OK);
 			}
@@ -441,7 +441,7 @@ public class ConceptController {
 			return new ResponseEntity<>(concept, HttpStatus.BAD_REQUEST);
 		}
 
-		validator.validate(concept);
+		beanInstanceValidator.validate(concept);
 		return new ResponseEntity<>(conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 				BranchPathUriUtil.decodePath(branch)), HttpStatus.OK);
 	}
