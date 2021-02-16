@@ -21,9 +21,8 @@ public final class ConceptValidationHelper {
 	public static InvalidContentWithSeverityStatus validate(final Concept concept, final String branchPath, final DroolsValidationService validationService) throws ServiceException {
 		final List<InvalidContent> invalidContents = validationService.validateConcept(branchPath, generateUUIDSIfNotSet(concept));
 		final List<InvalidContent> invalidContentErrors = invalidContents.stream().filter(invalidContent -> invalidContent.getSeverity() == Severity.ERROR).collect(Collectors.toList());
-		return invalidContentErrors.isEmpty() ? new InvalidContentWithSeverityStatus(invalidContents.stream().filter(invalidContent ->
-				invalidContent.getSeverity() == Severity.WARNING).collect(Collectors.toList()), Severity.WARNING)
-				: new InvalidContentWithSeverityStatus(invalidContents, Severity.ERROR);
+		return invalidContentErrors.isEmpty() ? new InvalidContentWithSeverityStatus(invalidContents, Severity.WARNING) :
+				new InvalidContentWithSeverityStatus(invalidContents, Severity.ERROR);
 	}
 
 	private static Concept generateUUIDSIfNotSet(final Concept concept) {
