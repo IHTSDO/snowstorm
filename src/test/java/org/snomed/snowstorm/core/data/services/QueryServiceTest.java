@@ -17,9 +17,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
-import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
-import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
+import static java.lang.Long.parseLong;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -42,7 +42,7 @@ class QueryServiceTest extends AbstractTest {
 
 	@BeforeEach
 	void setup() throws ServiceException {
-		root = new Concept(SNOMEDCT_ROOT);
+		root = new Concept(SNOMEDCT_ROOT).setModuleId(MODEL_MODULE);
 		pizza_2 = new Concept("100002").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)).addFSN("Pizza");
 		cheesePizza_3 = new Concept("100005").addRelationship(new Relationship(ISA, pizza_2.getId())).addFSN("Cheese Pizza");
 		reallyCheesyPizza_4 = new Concept("100008").addRelationship(new Relationship(ISA, cheesePizza_3.getId())).addFSN("Really Cheesy Pizza");
@@ -133,6 +133,24 @@ class QueryServiceTest extends AbstractTest {
 		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
 		Page<ConceptMini> page = service.search(queryBuilder, PATH, PageRequest.of(0, 2));
 		assertEquals(5, page.getTotalElements());
+	}
+
+	@Test
+	public void testModuleFilter() {
+		QueryService.ConceptQueryBuilder queryBuilder = service.createQueryBuilder(false).activeFilter(true);
+		assertEquals(5, service.search(queryBuilder, PATH, PAGE_REQUEST).getTotalElements());
+
+		queryBuilder.module(parseLong(MODEL_MODULE));
+		assertEquals(1, service.search(queryBuilder, PATH, PAGE_REQUEST).getTotalElements());
+
+		QueryService.ConceptQueryBuilder eclQueryBuilder = service.createQueryBuilder(false).ecl("<<" + SNOMEDCT_ROOT);
+		assertEquals(5, service.search(eclQueryBuilder, PATH, PAGE_REQUEST).getTotalElements());
+
+		eclQueryBuilder.module(parseLong(MODEL_MODULE));
+		assertEquals(1, service.search(eclQueryBuilder, PATH, PAGE_REQUEST).getTotalElements());
+
+		eclQueryBuilder.module(parseLong(CORE_MODULE));
+		assertEquals(4, service.search(eclQueryBuilder, PATH, PAGE_REQUEST).getTotalElements());
 	}
 
 }

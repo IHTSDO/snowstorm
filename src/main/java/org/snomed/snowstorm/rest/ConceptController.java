@@ -105,6 +105,9 @@ public class ConceptController {
 			@RequestParam(required = false) Boolean activeFilter,
 			@RequestParam(required = false) String definitionStatusFilter,
 
+			@ApiParam(value = "Set of module ids to filter concepts by. Defaults to any.")
+			@RequestParam(required = false) Set<Long> module,
+
 			@ApiParam(value = "Search term to match against concept descriptions using a case-insensitive multi-prefix matching strategy.")
 			@RequestParam(required = false) String term,
 
@@ -169,6 +172,7 @@ public class ConceptController {
 						.type(descriptionType)
 				)
 				.definitionStatusFilter(definitionStatusFilter)
+				.module(module)
 				.ecl(ecl)
 				.resultLanguageDialects(languageDialects)
 				.conceptIds(conceptIds);
@@ -208,6 +212,7 @@ public class ConceptController {
 		return findConcepts(BranchPathUriUtil.decodePath(branch),
 				searchRequest.getActiveFilter(),
 				searchRequest.getDefinitionStatusFilter(),
+				searchRequest.getModule(),
 				searchRequest.getTermFilter(),
 				searchRequest.getTermActive(),
 				searchRequest.getDescriptionType(),

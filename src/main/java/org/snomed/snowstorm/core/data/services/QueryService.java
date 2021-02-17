@@ -36,7 +36,6 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import javax.annotation.Nullable;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -141,7 +140,7 @@ public class QueryService implements ApplicationContextAware {
 
 			if (conceptQuery.getEcl() != null) {
 				// ECL search
-				conceptIdPage = doEclSearchAndDefinitionFilter(conceptQuery, branchPath, pageRequest, branchCriteria);
+				conceptIdPage = doEclSearchAndConceptPropertyFilters(conceptQuery, branchPath, pageRequest, branchCriteria);
 			} else {
 				// Concept id search
 				BoolQueryBuilder conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
@@ -163,10 +162,10 @@ public class QueryService implements ApplicationContextAware {
 			logger.info("Lexical search before logical {}", term);
 			TimerUtil timer = new TimerUtil("Lexical and Logical Search");
 			// Convert Set of String to set of Long
-			Set<Long> conceptIds = Collections.EMPTY_SET;
+			Set<Long> conceptIds = Collections.emptySet();
 			if (!CollectionUtils.isEmpty(conceptQuery.getConceptIds())) {
 				conceptIds = conceptQuery.getConceptIds().stream()
-						.map(s -> Long.parseLong(s))
+						.map(Long::parseLong)
 						.collect(Collectors.toSet());
 			}
 			final Collection<Long> allConceptIdsSortedByTermOrder = descriptionService.findDescriptionAndConceptIds(descriptionCriteria, conceptIds, branchCriteria, timer).getMatchedConceptIds();
@@ -177,7 +176,7 @@ public class QueryService implements ApplicationContextAware {
 			List<Long> allFilteredLogicalMatches;
 			if (conceptQuery.getEcl() != null) {
 				List<Long> eclMatches = doEclSearch(conceptQuery, branchPath, branchCriteria, allConceptIdsSortedByTermOrder);
-				allFilteredLogicalMatches = filterByDefinitionStatus(eclMatches, conceptQuery.getDefinitionStatusFilter(), branchCriteria, new LongArrayList());
+				allFilteredLogicalMatches = applyConceptPropertyFilters(eclMatches, conceptQuery, branchCriteria, new LongArrayList());
 			} else {
 				allFilteredLogicalMatches = new LongArrayList();
 				BoolQueryBuilder conceptBoolQuery = getSearchByConceptIdQuery(conceptQuery, branchCriteria);
@@ -220,20 +219,33 @@ public class QueryService implements ApplicationContextAware {
 		if (conceptQuery.getDefinitionStatusFilter() != null) {
 			conceptBoolQuery.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, conceptQuery.getDefinitionStatusFilter()));
 		}
+		if (conceptQuery.getModule() != null) {
+			conceptBoolQuery.must(termsQuery(Concept.Fields.MODULE_ID, conceptQuery.getModule()));
+		}
 		return conceptBoolQuery;
 	}
 
-	private <C extends Collection<Long>> C filterByDefinitionStatus(C conceptIds, @Nullable String definitionStatus, BranchCriteria branchCriteria, C filteredConceptIds) {
-		if (definitionStatus == null || definitionStatus.isEmpty()) {
+	private <C extends Collection<Long>> C applyConceptPropertyFilters(C conceptIds, ConceptQueryBuilder queryBuilder, BranchCriteria branchCriteria, C filteredConceptIds) {
+		final String definitionStatus = queryBuilder.getDefinitionStatusFilter();
+		final Set<Long> module = queryBuilder.getModule();
+
+		if (definitionStatus == null && module == null) {
 			filteredConceptIds.addAll(conceptIds);
 			return filteredConceptIds;
 		}
 
 		for (List<Long> batch : Iterables.partition(conceptIds, CLAUSE_LIMIT)) {
+			final BoolQueryBuilder conceptClauses = boolQuery();
+			if (definitionStatus != null) {
+				conceptClauses.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, definitionStatus));
+			}
+			if (module != null) {
+				conceptClauses.must(termsQuery(Concept.Fields.MODULE_ID, module));
+			}
 			NativeSearchQueryBuilder conceptDefinitionQuery = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-							.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, definitionStatus))
+							.must(conceptClauses)
 					)
 					.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, batch))
 					.withFields(Concept.Fields.CONCEPT_ID)
@@ -247,18 +259,19 @@ public class QueryService implements ApplicationContextAware {
 		return filteredConceptIds;
 	}
 
-	private SearchAfterPage<Long> doEclSearchAndDefinitionFilter(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, BranchCriteria branchCriteria) {
+	private SearchAfterPage<Long> doEclSearchAndConceptPropertyFilters(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, BranchCriteria branchCriteria) {
 		String ecl = conceptQuery.getEcl();
 		logger.debug("ECL Search {}", ecl);
 
-		String definitionStatusFilter = conceptQuery.definitionStatusFilter;
+		String definitionStatusFilter = conceptQuery.getDefinitionStatusFilter();
+		final Set<Long> module = conceptQuery.getModule();
 		Collection<Long> conceptIdFilter = null;
 		if (conceptQuery.conceptIds != null && !conceptQuery.conceptIds.isEmpty()) {
 			conceptIdFilter = conceptQuery.conceptIds.stream().map(Long::valueOf).collect(Collectors.toSet());
 		}
-		if (definitionStatusFilter != null && !definitionStatusFilter.isEmpty()) {
+		if (definitionStatusFilter != null || module != null) {
 			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, null);
-			List<Long> filteredConceptIds = filterByDefinitionStatus(allConceptIds.getContent(), conceptQuery.definitionStatusFilter, branchCriteria, new LongArrayList());
+			List<Long> filteredConceptIds = applyConceptPropertyFilters(allConceptIds.getContent(), conceptQuery, branchCriteria, new LongArrayList());
 			return PageHelper.fullListToPage(filteredConceptIds, pageRequest, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
 		} else {
 			Page<Long> conceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, pageRequest);
@@ -273,7 +286,7 @@ public class QueryService implements ApplicationContextAware {
 	}
 
 	private List<ConceptMini> sortConceptMinisByTermOrder(List<Long> termConceptIds, Map<String, ConceptMini> conceptMiniMap) {
-		return termConceptIds.stream().filter(id -> conceptMiniMap.keySet().contains(id.toString())).map(id -> conceptMiniMap.get(id.toString())).collect(Collectors.toList());
+		return termConceptIds.stream().filter(id -> conceptMiniMap.containsKey(id.toString())).map(id -> conceptMiniMap.get(id.toString())).collect(Collectors.toList());
 	}
 
 	public Page<QueryConcept> queryForPage(NativeSearchQuery searchQuery) {
@@ -498,15 +511,16 @@ public class QueryService implements ApplicationContextAware {
 		conceptService = applicationContext.getBean(ConceptService.class);
 	}
 
-	public final class ConceptQueryBuilder {
+	public static final class ConceptQueryBuilder {
 
 		private final boolean stated;
 		private Boolean activeFilter;
 		private String definitionStatusFilter;
+		private Set<Long> module;
 		private List<LanguageDialect> resultLanguageDialects = DEFAULT_LANGUAGE_DIALECTS;
 		private String ecl;
 		private Set<String> conceptIds;
-		private DescriptionCriteria descriptionCriteria;
+		private final DescriptionCriteria descriptionCriteria;
 
 		private ConceptQueryBuilder(boolean stated) {
 			this.stated = stated;
@@ -514,7 +528,7 @@ public class QueryService implements ApplicationContextAware {
 		}
 
 		private boolean hasLogicalConditions() {
-			return ecl != null || activeFilter != null || definitionStatusFilter != null || conceptIds != null;
+			return ecl != null || activeFilter != null || definitionStatusFilter != null || conceptIds != null || module != null;
 		}
 
 		public ConceptQueryBuilder ecl(String ecl) {
@@ -531,6 +545,24 @@ public class QueryService implements ApplicationContextAware {
 
 		public ConceptQueryBuilder activeFilter(Boolean active) {
 			this.activeFilter = active;
+			return this;
+		}
+
+		public ConceptQueryBuilder module(Long module) {
+			if (module != null) {
+				this.module(Collections.singleton(module));
+			} else {
+				this.module = null;
+			}
+			return this;
+		}
+
+		public ConceptQueryBuilder module(Collection<Long> module) {
+			if (module != null) {
+				this.module = new HashSet<>(module);
+			} else {
+				this.module = null;
+			}
 			return this;
 		}
 
@@ -572,6 +604,10 @@ public class QueryService implements ApplicationContextAware {
 
 		private String getDefinitionStatusFilter() {
 			return definitionStatusFilter;
+		}
+
+		public Set<Long> getModule() {
+			return module;
 		}
 
 		private List<LanguageDialect> getResultLanguageDialects() {
