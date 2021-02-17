@@ -1169,9 +1169,9 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		concepts.clear();
 
 		Set<ReferenceSetMember> attributeRanges = new HashSet<>();
-		attributeRanges.add(constructMrcmRange("396070080", "dec(>#0..*)"));
-		attributeRanges.add(constructMrcmRange("396070082", "int(>#0..20)"));
-		attributeRanges.add(constructMrcmRange("396070081", "str()"));
+		attributeRanges.add(constructMrcmRange("396070080", "dec(>#0..)"));
+		attributeRanges.add(constructMrcmRange("396070082", "int(>#0..#20)"));
+		attributeRanges.add(constructMrcmRange("396070081", "str(\"test\")"));
 		referenceSetMemberService.createMembers(branchPath, attributeRanges);
 		return concepts;
 	}
