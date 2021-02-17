@@ -109,7 +109,7 @@ class ExportServiceTest extends AbstractTest {
 		concept.addRelationship(new Relationship("125023", null, true, Concepts.CORE_MODULE, conceptId, "100003", 0, Concepts.ISA, Concepts.ADDITIONAL_RELATIONSHIP, Concepts.EXISTENTIAL));
 
 		// add concrete attribute MRCM range constraint for data type
-		createRangeConstraint("1142135004", "dec(#>0..)");
+		createRangeConstraint("1142135004", "dec(>#0..)");
 		concept.addRelationship(new Relationship("125024", null, true, Concepts.CORE_MODULE, conceptId, "#100", 0, "1142135004", Concepts.INFERRED_RELATIONSHIP,
 				Concepts.EXISTENTIAL));
 		conceptService.create(concept, path);

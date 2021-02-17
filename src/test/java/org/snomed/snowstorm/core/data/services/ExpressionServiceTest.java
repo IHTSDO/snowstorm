@@ -56,7 +56,7 @@ class ExpressionServiceTest extends AbstractTest {
 		target1 = createConcept("1000092", root, FULLY_DEFINED);
 		target2 = createConcept("1000093", root, PRIMITIVE);
 		concreteValue1 = ConcreteValue.from("#500", "dec");
-		createRangeConstraint(EXPRESSION_TEST_BRANCH, attribute1.getConceptId(), "dec(#>0..)");
+		createRangeConstraint(EXPRESSION_TEST_BRANCH, attribute1.getConceptId(), "dec(>#0..)");
 	}
 
 	@Test

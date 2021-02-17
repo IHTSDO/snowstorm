@@ -167,7 +167,7 @@ public abstract class AbstractFHIRTest {
 			createDummyData(x, concepts, false);
 		}
 		// add MRCM constraint for concrete attribute
-		createRangeConstraint(branchWK, STRENGTH_NUMERATOR, "dec(#>0..)");
+		createRangeConstraint(branchWK, STRENGTH_NUMERATOR, "dec(>#0..)");
 		createDummyData(13, concepts, true);
 		conceptService.batchCreate(concepts, branchWK);
 		CodeSystem codeSystemWK = new CodeSystem("SNOMEDCT-WK", branchWK);

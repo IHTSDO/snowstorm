@@ -56,7 +56,7 @@ public class DroolValidationServiceTest extends AbstractTest {
         conceptService.create(concept, DEFAULT_BRANCH);
 
         Set <ReferenceSetMember> attributeRanges = new HashSet<>();
-        attributeRanges.add(constructMrcmRange("23131313", "int(>#0..20)"));
+        attributeRanges.add(constructMrcmRange("23131313", "int(>#0..#20)"));
         referenceSetMemberService.createMembers(DEFAULT_BRANCH, attributeRanges);
     }
 
