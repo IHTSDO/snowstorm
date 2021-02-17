@@ -13,6 +13,7 @@ public class ConceptSearchRequest {
 	private Set<Long> acceptableIn;
 	private Set<Long> preferredOrAcceptableIn;
 	private String definitionStatusFilter;
+	private Set<Long> module;
 	private String eclFilter;
 	private String statedEclFilter;
 	private Set<String> conceptIds;
@@ -80,6 +81,14 @@ public class ConceptSearchRequest {
 
 	public void setDefinitionStatusFilter(String definitionStatusFilter) {
 		this.definitionStatusFilter = definitionStatusFilter;
+	}
+
+	public Set<Long> getModule() {
+		return module;
+	}
+
+	public void setModule(Set<Long> module) {
+		this.module = module;
 	}
 
 	public String getEclFilter() {
