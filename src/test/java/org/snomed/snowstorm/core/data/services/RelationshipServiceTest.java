@@ -81,7 +81,7 @@ class RelationshipServiceTest extends AbstractTest {
 	public void findRelationship_ShouldReturnRelationshipWithConcreteDataTypeString_WhenMRCMIsString() throws ServiceException {
 		// given
 		givenBranchExists();
-		givenReferenceSetMemberExistsOnBranchWithRangeConstraint("str()");
+		givenReferenceSetMemberExistsOnBranchWithRangeConstraint("str(\"test\")");
 		givenConceptExistsOnBranchWithConcreteValue("\"test\"");
 		// when
 		final Relationship result = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
@@ -96,7 +96,7 @@ class RelationshipServiceTest extends AbstractTest {
 	public void findRelationship_ShouldReturnRelationshipWithConcreteDataTypeInteger_WhenMRCMIsInteger() throws ServiceException {
 		//given
 		givenBranchExists();
-		givenReferenceSetMemberExistsOnBranchWithRangeConstraint("int(#>0..)");
+		givenReferenceSetMemberExistsOnBranchWithRangeConstraint("int(>#0..)");
 		givenConceptExistsOnBranchWithConcreteValue("#5");
 
 		//when
@@ -129,7 +129,7 @@ class RelationshipServiceTest extends AbstractTest {
 	public void setConcreteValueFromMRCM_ShouldReturnRelationshipWithConcreteDataTypeString_WhenMRCMIsString() throws ServiceException {
 		//given
 		givenBranchExists();
-		givenReferenceSetMemberExistsOnBranchWithRangeConstraint("str()");
+		givenReferenceSetMemberExistsOnBranchWithRangeConstraint("str(\"PANADOL\")");
 		givenConceptExistsOnBranchWithConcreteValue("\"PANADOL\"");
 		final Relationship relationship = relationshipService.findRelationship("MAIN/CDI-90", "20988805027");
 

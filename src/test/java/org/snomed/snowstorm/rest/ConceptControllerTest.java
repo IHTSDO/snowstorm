@@ -37,6 +37,7 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
+import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, classes = TestConfig.class)
@@ -77,7 +78,7 @@ class ConceptControllerTest extends AbstractTest {
 						.addDescription(new Description("Wallace \"69\" side-to-end anastomosis - action")
 								.setTypeId(Concepts.SYNONYM)
 								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
-						.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+						.addAxiom(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)),
 				"MAIN");
 
 		// Add 1 second sleeps because the timepoint URI format uses second as the finest level
@@ -180,7 +181,7 @@ class ConceptControllerTest extends AbstractTest {
 		checkFields(responseBody);
 		LinkedHashMap<String, Object> properties = objectMapper.readValue(responseBody, LinkedHashMap.class);
 		assertEquals("[conceptId, fsn, pt, active, effectiveTime, released, releasedEffectiveTime, moduleId, definitionStatus, " +
-				"descriptions, classAxioms, gciAxioms, relationships]", properties.keySet().toString());
+				"descriptions, classAxioms, gciAxioms, relationships, validationResults]", properties.keySet().toString());
 		Object fsn = properties.get("fsn");
 		assertEquals("LinkedHashMap", fsn.getClass().getSimpleName());
 		assertEquals("{term=Wallace \"69\" side-to-end anastomosis - action (qualifier value), lang=en}", fsn.toString());
@@ -292,17 +293,11 @@ class ConceptControllerTest extends AbstractTest {
 				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
 		HttpHeaders httpHeaders = new HttpHeaders();
 		httpHeaders.set("Content-Type", "application/json");
-		final ResponseEntity<ConceptView> responseEntity = restTemplate.exchange(
+		final String responseEntity = restTemplate.exchange(
 				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts").queryParam("validate", "true").build().toUri(),
-				HttpMethod.POST, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY, httpHeaders), ConceptView.class);
-		assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
-		final HttpHeaders responseHeaders = responseEntity.getHeaders();
-		assertTrue(responseHeaders.containsKey("validation-results"));
-		final List<String> validationResults = responseHeaders.get("validation-results");
-		assertFalse(validationResults.isEmpty());
-		final String validationResult = validationResults.get(0);
-		assertTrue(validationResult.contains("99970008"));
-		assertTrue(validationResult.contains("Test resources were not available so assertions like case significance and US specific terms checks will not have run."));
+				HttpMethod.POST, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY, httpHeaders), String.class).toString();
+		assertTrue(responseEntity.contains("99970008"));
+		assertTrue(responseEntity.contains("Test resources were not available so assertions like case significance and US specific terms checks will not have run."));
 	}
 
 	@Test
@@ -314,9 +309,9 @@ class ConceptControllerTest extends AbstractTest {
 				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
 		HttpHeaders httpHeaders = new HttpHeaders();
 		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
-		final ResponseEntity<ConceptView> responseEntity = restTemplate.exchange(
+		final ResponseEntity<String> responseEntity = restTemplate.exchange(
 				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts").queryParam("validate", "true").build().toUri(),
-				HttpMethod.POST, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_ERRORS_AND_WARNINGS, httpHeaders), ConceptView.class);
+				HttpMethod.POST, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_ERRORS_AND_WARNINGS, httpHeaders), String.class);
 		assertEquals(HttpStatus.BAD_REQUEST, responseEntity.getStatusCode());
 	}
 
@@ -330,17 +325,11 @@ class ConceptControllerTest extends AbstractTest {
 				"defaultReasonerNamespace", "",
 				"previousPackage", "prod_main_2021-01-31_20201124120000.zip"));
 		conceptService.create(new Concept("99970008"), "MAIN");
-		final ResponseEntity<ConceptView> responseEntity = restTemplate.exchange(
+		final String responseEntity = restTemplate.exchange(
 				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts/99970008").queryParam("validate", "true").build().toUri(),
-				HttpMethod.PUT, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY, httpHeaders), ConceptView.class);
-		assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
-		final HttpHeaders responseHeaders = responseEntity.getHeaders();
-		assertTrue(responseHeaders.containsKey("validation-results"));
-		final List<String> validationResults = responseHeaders.get("validation-results");
-		assertFalse(validationResults.isEmpty());
-		final String validationResult = validationResults.get(0);
-		assertTrue(validationResult.contains("99970008"));
-		assertTrue(validationResult.contains("Test resources were not available so assertions like case significance and US specific terms checks will not have run."));
+				HttpMethod.PUT, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY, httpHeaders), String.class).toString();
+		assertTrue(responseEntity.contains("99970008"));
+		assertTrue(responseEntity.contains("Test resources were not available so assertions like case significance and US specific terms checks will not have run."));
 	}
 
 	@Test
@@ -361,8 +350,8 @@ class ConceptControllerTest extends AbstractTest {
 
 	@Test
 	void testECLSearchAfter() throws ServiceException {
-		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), "MAIN");
-		conceptService.create(new Concept(Concepts.CLINICAL_FINDING).addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), "MAIN");
+		conceptService.create(new Concept(SNOMEDCT_ROOT), "MAIN");
+		conceptService.create(new Concept(Concepts.CLINICAL_FINDING).addAxiom(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)), "MAIN");
 		assertEquals(3, conceptService.findAll("MAIN", PageRequest.of(1, 100)).getTotalElements());
 
 		// Fetch first page
@@ -391,8 +380,8 @@ class ConceptControllerTest extends AbstractTest {
 
 	@Test
 	void testECLSearchAfterWithConceptIdsOnly() throws ServiceException {
-		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), "MAIN");
-		conceptService.create(new Concept(Concepts.CLINICAL_FINDING).addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), "MAIN");
+		conceptService.create(new Concept(SNOMEDCT_ROOT), "MAIN");
+		conceptService.create(new Concept(Concepts.CLINICAL_FINDING).addAxiom(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)), "MAIN");
 		assertEquals(3, conceptService.findAll("MAIN", PageRequest.of(1, 100)).getTotalElements());
 
 		// Fetch all in one page
@@ -506,7 +495,7 @@ class ConceptControllerTest extends AbstractTest {
 							.addDescription(new Description("Computer structure")
 									.setTypeId(Concepts.SYNONYM)
 									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
-							.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+							.addAxiom(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)),
 					projectBranch);
 
 			conceptService.create(
@@ -597,7 +586,7 @@ class ConceptControllerTest extends AbstractTest {
 							.addDescription(new Description("Computer structure")
 									.setTypeId(Concepts.SYNONYM)
 									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
-							.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+							.addAxiom(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)),
 					projectBranch);
 
 			conceptService.create(
@@ -666,7 +655,7 @@ class ConceptControllerTest extends AbstractTest {
 							.addDescription(new Description("Computer structure")
 									.setTypeId(Concepts.SYNONYM)
 									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
-							.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+							.addAxiom(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)),
 					projectBranch);
 
 			conceptService.create(
@@ -753,7 +742,7 @@ class ConceptControllerTest extends AbstractTest {
 							.addDescription(new Description("Computer structure")
 									.setTypeId(Concepts.SYNONYM)
 									.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED))
-							.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+							.addAxiom(new Relationship(Concepts.ISA, SNOMEDCT_ROOT)),
 					projectBranch);
 
 			conceptService.create(
@@ -822,19 +811,19 @@ class ConceptControllerTest extends AbstractTest {
 
 	@Test
 	void testCreateConceptWithConcreteValueInsideAxiomRelationship() throws ServiceException {
-		final Concept concept = new Concept("12345678910").addAxiom(new Relationship(ISA, "12345"),
-				Relationship.newConcrete(ISA, ConcreteValue.newString("\"GKO\"")));
-		createRangeConstraint(Concepts.ISA, "str()");
-		conceptService.create(concept, MAIN);
+		final Concept createdConcept = new Concept("12345678910").addAxiom(new Relationship(ISA, SNOMEDCT_ROOT),
+				Relationship.newConcrete("1142135004", ConcreteValue.newDecimal("#55.5")));
+		createRangeConstraint("1142135004", "dec(>#0..)");
+		conceptService.create(createdConcept, MAIN);
 
 		final Concept retrievedConcept = conceptService.find("12345678910", MAIN);
 
 		retrievedConcept.getClassAxioms().forEach(axiom -> axiom.getRelationships().forEach(relationship -> {
 			final ConcreteValue concreteValue = relationship.getConcreteValue();
 			if (concreteValue != null) {
-				assertEquals("GKO", concreteValue.getValue());
-				assertEquals("\"GKO\"", concreteValue.getValueWithPrefix());
-				assertEquals(ConcreteValue.DataType.STRING, concreteValue.getDataType());
+				assertEquals("55.5", concreteValue.getValue());
+				assertEquals("#55.5", concreteValue.getValueWithPrefix());
+				assertEquals(ConcreteValue.DataType.DECIMAL, concreteValue.getDataType());
 			} else {
 				assertEquals(ISA, relationship.getTypeId());
 			}
@@ -843,13 +832,13 @@ class ConceptControllerTest extends AbstractTest {
 
 	@Test
 	void testUpdateConceptWithConcreteValueInsideAxiomRelationship() throws ServiceException {
-		final Concept createdConcept = new Concept("12345678910").addAxiom(new Relationship(ISA, "12345"),
-				Relationship.newConcrete(ISA, ConcreteValue.newString("\"GKO\"")));
-		createRangeConstraint(Concepts.ISA, "str()");
+		final Concept createdConcept = new Concept("12345678910").addAxiom(new Relationship(ISA, SNOMEDCT_ROOT),
+				Relationship.newConcrete("1142135004", ConcreteValue.newDecimal("#55.5")));
+		createRangeConstraint("1142135004", "dec(>#0..)");
 		conceptService.create(createdConcept, MAIN);
 
-		final Concept updatedConcept = new Concept("12345678910").addAxiom(new Relationship(ISA, "12345"),
-				Relationship.newConcrete(ISA, ConcreteValue.newString("\"GKOOOOOO\"")));
+		final Concept updatedConcept = new Concept("12345678910").addAxiom(new Relationship(ISA, SNOMEDCT_ROOT),
+				Relationship.newConcrete("1142135004", ConcreteValue.newDecimal("#55.9")));
 		conceptService.update(updatedConcept, MAIN);
 
 		final Concept retrievedConcept = conceptService.find("12345678910", MAIN);
@@ -857,9 +846,9 @@ class ConceptControllerTest extends AbstractTest {
 		retrievedConcept.getClassAxioms().forEach(axiom -> axiom.getRelationships().forEach(relationship -> {
 			final ConcreteValue concreteValue = relationship.getConcreteValue();
 			if (concreteValue != null) {
-				assertEquals("GKOOOOOO", concreteValue.getValue());
-				assertEquals("\"GKOOOOOO\"", concreteValue.getValueWithPrefix());
-				assertEquals(ConcreteValue.DataType.STRING, concreteValue.getDataType());
+				assertEquals("55.9", concreteValue.getValue());
+				assertEquals("#55.9", concreteValue.getValueWithPrefix());
+				assertEquals(ConcreteValue.DataType.DECIMAL, concreteValue.getDataType());
 			} else {
 				assertEquals(ISA, relationship.getTypeId());
 			}

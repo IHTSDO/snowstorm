@@ -65,11 +65,11 @@ class MRCMServiceTest extends AbstractTest {
 	@Test
 	void testExtraConceptMiniFields() throws ServiceException {
 		final Concept inConcept = new Concept("12345678910");
-		inConcept.addAxiom(new Relationship(ISA, "12345"), Relationship.newConcrete(ISA, ConcreteValue.newInteger("#1")));
+		inConcept.addAxiom(new Relationship(ISA, "12345"), Relationship.newConcrete(ISA, ConcreteValue.newDecimal("#1.01")));
 		createRangeConstraint(ISA, "dec(>#0..)");
 		conceptService.create(inConcept, MAIN);
 
-		Collection<ConceptMini> attributes = mrcmService.retrieveDomainAttributes(ContentType.ALL, true,
+		Collection<ConceptMini> attributes = mrcmService.retrieveDomainAttributes(ContentType.NEW_PRECOORDINATED, true,
 				Sets.newHashSet(12345678910L), MAIN, null);
 		assertNotNull(attributes);
 		attributes.forEach(attribute -> {
