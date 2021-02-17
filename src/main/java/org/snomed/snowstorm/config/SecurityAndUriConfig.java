@@ -205,7 +205,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 									&& requestHandler.supportedMethods().contains(RequestMethod.GET)) {
 								return true;
 							}
-							if (requestMapping.getPatternsCondition().getPatterns()
+							if (requestHandler.getPatternsCondition().getPatterns()
 									.stream().
 											anyMatch(pattern -> alwaysAllowReadOnlyPostEndpoints
 													.stream()
