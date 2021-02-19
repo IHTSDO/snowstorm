@@ -8,7 +8,6 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.ComponentService;
 import org.elasticsearch.common.collect.MapBuilder;
-import org.junit.Assert;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -29,7 +28,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
@@ -66,6 +65,7 @@ class ConceptServiceTest extends AbstractTest {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private ObjectMapper objectMapper;
+	private CodeSystem codeSystem;
 
 	@BeforeEach
 	void setup() {
@@ -73,29 +73,30 @@ class ConceptServiceTest extends AbstractTest {
 		objectMapper = new ObjectMapper();
 		DeserializationConfig deserializationConfig = objectMapper.getDeserializationConfig().without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 		objectMapper.setConfig(deserializationConfig);
-		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystemService.createCodeSystem(codeSystem);
 	}
 
 	@Test
 	void testConceptCreationBranchingVisibility() throws ServiceException {
-		Assert.assertNull("Concept 100001 does not exist on MAIN.", conceptService.find("100001", "MAIN"));
+		assertNull(conceptService.find("100001", "MAIN"), "Concept 100001 does not exist on MAIN.");
 
 		conceptService.create(new Concept("100001", "10000111"), "MAIN");
 
 		final Concept c1 = conceptService.find("100001", "MAIN");
-		Assert.assertNotNull("Concept 100001 exists on MAIN.", c1);
+		assertNotNull(c1, "Concept 100001 exists on MAIN.");
 		assertEquals("MAIN", c1.getPath());
 		assertEquals("10000111", c1.getModuleId());
 
 		branchService.create("MAIN/A");
 		conceptService.create(new Concept("100002", "10000222"), "MAIN/A");
-		Assert.assertNull("Concept 100002 does not exist on MAIN.", conceptService.find("100002", "MAIN"));
-		Assert.assertNotNull("Concept 100002 exists on branch A.", conceptService.find("100002", "MAIN/A"));
-		Assert.assertNotNull("Concept 100001 is accessible on branch A because of the base time.", conceptService.find("100001", "MAIN/A"));
+		assertNull(conceptService.find("100002", "MAIN"), "Concept 100002 does not exist on MAIN.");
+		assertNotNull(conceptService.find("100002", "MAIN/A"), "Concept 100002 exists on branch A.");
+		assertNotNull(conceptService.find("100001", "MAIN/A"), "Concept 100001 is accessible on branch A because of the base time.");
 
 		conceptService.create(new Concept("100003", "10000333"), "MAIN");
-		Assert.assertNull("Concept 100003 is not accessible on branch A because created after branching.", conceptService.find("100003", "MAIN/A"));
-		Assert.assertNotNull(conceptService.find("100003", "MAIN"));
+		assertNull(conceptService.find("100003", "MAIN/A"), "Concept 100003 is not accessible on branch A because created after branching.");
+		assertNotNull(conceptService.find("100003", "MAIN"));
 	}
 
 	@Test
@@ -136,19 +137,19 @@ class ConceptServiceTest extends AbstractTest {
 
 				), "MAIN");
 		String descriptionId = fsn.getDescriptionId();
-		Assert.assertNotNull(descriptionId);
+		assertNotNull(descriptionId);
 
 		List<ReferenceSetMember> acceptabilityMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent();
-		Assert.assertEquals(2, acceptabilityMembers.size());
-		Assert.assertTrue(acceptabilityMembers.get(0).isActive());
-		Assert.assertTrue(acceptabilityMembers.get(1).isActive());
+		assertEquals(2, acceptabilityMembers.size());
+		assertTrue(acceptabilityMembers.get(0).isActive());
+		assertTrue(acceptabilityMembers.get(1).isActive());
 
 		concept.getDescriptions().clear();
 
 		conceptService.update(concept, "MAIN");
 
 		List<ReferenceSetMember> acceptabilityMembersAfterDescriptionDeletion = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent();
-		Assert.assertEquals(0, acceptabilityMembersAfterDescriptionDeletion.size());
+		assertEquals(0, acceptabilityMembersAfterDescriptionDeletion.size());
 	}
 
 	@Test
@@ -163,12 +164,12 @@ class ConceptServiceTest extends AbstractTest {
 
 				), "MAIN");
 		String descriptionId = fsn.getDescriptionId();
-		Assert.assertNotNull(descriptionId);
+		assertNotNull(descriptionId);
 
 		List<ReferenceSetMember> acceptabilityMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent();
-		Assert.assertEquals(2, acceptabilityMembers.size());
-		Assert.assertTrue(acceptabilityMembers.get(0).isActive());
-		Assert.assertTrue(acceptabilityMembers.get(1).isActive());
+		assertEquals(2, acceptabilityMembers.size());
+		assertTrue(acceptabilityMembers.get(0).isActive());
+		assertTrue(acceptabilityMembers.get(1).isActive());
 
 		Description descriptionToInactivate = concept.getDescriptions().iterator().next();
 		descriptionToInactivate.setActive(false);
@@ -178,17 +179,17 @@ class ConceptServiceTest extends AbstractTest {
 		descriptionToInactivate.setAssociationTargets(associationTargets);
 
 		Concept updated = conceptService.update(concept, "MAIN");
-		Assert.assertEquals(1, updated.getDescriptions().size());
+		assertEquals(1, updated.getDescriptions().size());
 		Description updatedDescription = updated.getDescriptions().iterator().next();
 		assertFalse(updatedDescription.isActive());
-		Assert.assertEquals(Concepts.inactivationIndicatorNames.get(Concepts.OUTDATED), updatedDescription.getInactivationIndicator());
+		assertEquals(Concepts.inactivationIndicatorNames.get(Concepts.OUTDATED), updatedDescription.getInactivationIndicator());
 		ReferenceSetMember inactivationIndicatorMember = updatedDescription.getInactivationIndicatorMember();
-		Assert.assertNotNull(inactivationIndicatorMember);
-		Assert.assertEquals(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, inactivationIndicatorMember.getRefsetId());
-		Assert.assertEquals(updatedDescription.getDescriptionId(), inactivationIndicatorMember.getReferencedComponentId());
-		Assert.assertEquals(Concepts.OUTDATED, inactivationIndicatorMember.getAdditionalField("valueId"));
+		assertNotNull(inactivationIndicatorMember);
+		assertEquals(Concepts.DESCRIPTION_INACTIVATION_INDICATOR_REFERENCE_SET, inactivationIndicatorMember.getRefsetId());
+		assertEquals(updatedDescription.getDescriptionId(), inactivationIndicatorMember.getReferencedComponentId());
+		assertEquals(Concepts.OUTDATED, inactivationIndicatorMember.getAdditionalField("valueId"));
 		Collection<ReferenceSetMember> associationTargetMembers = updatedDescription.getAssociationTargetMembers();
-		Assert.assertNotNull(associationTargetMembers);
+		assertNotNull(associationTargetMembers);
 		assertEquals(1, associationTargetMembers.size());
 		ReferenceSetMember associationTargetMember = associationTargetMembers.iterator().next();
 		assertEquals(Concepts.REFSET_REFERS_TO_ASSOCIATION, associationTargetMember.getRefsetId());
@@ -197,7 +198,7 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals("321667001", associationTargetMember.getAdditionalField("targetComponentId"));
 
 		List<ReferenceSetMember> membersAfterDescriptionInactivation = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent();
-		Assert.assertEquals(2, membersAfterDescriptionInactivation.size());
+		assertEquals(2, membersAfterDescriptionInactivation.size());
 		boolean descriptionInactivationIndicatorMemberFound = false;
 		boolean refersToMemberFound = false;
 		for (ReferenceSetMember actualMember : membersAfterDescriptionInactivation) {
@@ -243,20 +244,20 @@ class ConceptServiceTest extends AbstractTest {
 		Relationship createdRelationship = concept.getRelationships().iterator().next();
 		assertNotNull(createdRelationship);
 		assertNotNull(createdRelationship.type());
-		assertEquals("Creation response should contain FSN within relationship type", "Is a (attribute)", createdRelationship.type().getFsnTerm());
-		assertEquals("Creation response should contain definition status within relationship type", "PRIMITIVE", createdRelationship.type().getDefinitionStatus());
-		assertEquals("Creation response should contain FSN within relationship target", "SNOMED CT Concept", createdRelationship.target().getFsnTerm());
-		assertEquals("Creation response should contain definition status within relationship target", "PRIMITIVE", createdRelationship.target().getDefinitionStatus());
+		assertEquals("Is a (attribute)", createdRelationship.type().getFsnTerm(), "Creation response should contain FSN within relationship type");
+		assertEquals("PRIMITIVE", createdRelationship.type().getDefinitionStatus(), "Creation response should contain definition status within relationship type");
+		assertEquals("SNOMED CT Concept", createdRelationship.target().getFsnTerm(), "Creation response should contain FSN within relationship target");
+		assertEquals("PRIMITIVE", createdRelationship.target().getDefinitionStatus(), "Creation response should contain definition status within relationship target");
 
 		assertEquals(3, concept.getRelationships().size());
 		Concept foundConcept = conceptService.find("100001", "MAIN");
 		assertEquals(3, foundConcept.getRelationships().size());
 
 		Relationship foundRelationship = foundConcept.getRelationships().iterator().next();
-		assertEquals("Find response should contain FSN within relationship type", "Is a (attribute)", foundRelationship.type().getFsnTerm());
-		assertEquals("Find response should contain definition status within relationship type", "PRIMITIVE", foundRelationship.type().getDefinitionStatus());
-		assertEquals("Find response should contain FSN within relationship target", "SNOMED CT Concept", foundRelationship.target().getFsnTerm());
-		assertEquals("Find response should contain definition status within relationship target", "PRIMITIVE", foundRelationship.target().getDefinitionStatus());
+		assertEquals("Is a (attribute)", foundRelationship.type().getFsnTerm(), "Find response should contain FSN within relationship type");
+		assertEquals("PRIMITIVE", foundRelationship.type().getDefinitionStatus(), "Find response should contain definition status within relationship type");
+		assertEquals("SNOMED CT Concept", foundRelationship.target().getFsnTerm(), "Find response should contain FSN within relationship target");
+		assertEquals("PRIMITIVE", foundRelationship.target().getDefinitionStatus(), "Find response should contain definition status within relationship target");
 
 		concept.getRelationships().remove(new Relationship("100003"));
 		final Concept updatedConcept = conceptService.update(concept, "MAIN");
@@ -265,10 +266,10 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(2, conceptService.find("100001", "MAIN").getRelationships().size());
 
 		Relationship updatedRelationship = foundConcept.getRelationships().iterator().next();
-		assertEquals("Update response should contain FSN within relationship type", "Is a (attribute)", updatedRelationship.type().getFsnTerm());
-		assertEquals("Update response should contain definition status within relationship type", "PRIMITIVE", updatedRelationship.type().getDefinitionStatus());
-		assertEquals("Update response should contain FSN within relationship target", "SNOMED CT Concept", updatedRelationship.target().getFsnTerm());
-		assertEquals("Update response should contain definition status within relationship target", "PRIMITIVE", updatedRelationship.target().getDefinitionStatus());
+		assertEquals("Is a (attribute)", updatedRelationship.type().getFsnTerm(), "Update response should contain FSN within relationship type");
+		assertEquals("PRIMITIVE", updatedRelationship.type().getDefinitionStatus(), "Update response should contain definition status within relationship type");
+		assertEquals("SNOMED CT Concept", updatedRelationship.target().getFsnTerm(), "Update response should contain FSN within relationship target");
+		assertEquals("PRIMITIVE", updatedRelationship.target().getDefinitionStatus(), "Update response should contain definition status within relationship target");
 	}
 
 	@Test
@@ -318,12 +319,12 @@ class ConceptServiceTest extends AbstractTest {
 		conceptService.update(conceptAfterSave, "MAIN");
 		final Concept conceptAfterUpdate = conceptService.find("100001", "MAIN");
 
-		assertEquals("Concept document should not have been updated.",
-				conceptAfterSave.getInternalId(), conceptAfterUpdate.getInternalId());
-		assertEquals("Synonym document should not have been updated.",
-				conceptAfterSave.getDescription("1000012").getInternalId(), conceptAfterUpdate.getDescription("1000012").getInternalId());
-		Assert.assertNotEquals("FSN document should have been updated.", fsnInternalId, conceptAfterUpdate.getDescription("1000011").getInternalId());
-
+		assertEquals(conceptAfterSave.getInternalId(), conceptAfterUpdate.getInternalId(),
+				"Concept document should not have been updated.");
+		assertEquals(conceptAfterSave.getDescription("1000012").getInternalId(), conceptAfterUpdate.getDescription("1000012").getInternalId(),
+				"Synonym document should not have been updated.");
+		assertNotEquals(fsnInternalId, conceptAfterUpdate.getDescription("1000011").getInternalId(),
+				"FSN document should have been updated.");
 	}
 
 	@Test
@@ -391,7 +392,7 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals("Bleeding (morphologic abnormality)", savedConcept.getFsn().getTerm());
 
 		savedConcept = conceptService.find("50960005", "MAIN");
-		Assert.assertNotNull(savedConcept);
+		assertNotNull(savedConcept);
 		assertEquals("Bleeding (morphologic abnormality)", savedConcept.getFsn().getTerm());
 		assertEquals(1, savedConcept.getDescriptions().size());
 		Description description = savedConcept.getDescriptions().iterator().next();
@@ -419,7 +420,7 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(1, conceptService.find(concept.getConceptId(), path).getClassAxioms().size());
 
 		final Concept savedConcept = conceptService.find("50960005", path);
-		Assert.assertNotNull(savedConcept);
+		assertNotNull(savedConcept);
 		assertEquals(1, savedConcept.getClassAxioms().size());
 		assertEquals(1, savedConcept.getGciAxioms().size());
 		Axiom axiom = savedConcept.getClassAxioms().iterator().next();
@@ -434,8 +435,8 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals("10000100", relationships.get(1).getDestinationId());
 		Axiom gciAxiom = savedConcept.getGciAxioms().iterator().next();
 		assertEquals(Concepts.PRIMITIVE, gciAxiom.getDefinitionStatusId());
-		assertEquals("Concept and class axiom should have the same definition status",
-				axiom.getDefinitionStatusId(), savedConcept.getDefinitionStatusId());
+		assertEquals(axiom.getDefinitionStatusId(), savedConcept.getDefinitionStatusId(),
+				"Concept and class axiom should have the same definition status");
 		assertEquals(Concepts.CORE_MODULE, savedConcept.getModuleId());
 
 		Page<ReferenceSetMember> members = referenceSetMemberService.findMembers(path,
@@ -450,22 +451,24 @@ class ConceptServiceTest extends AbstractTest {
 		Concept updatedConcept = conceptService.update(concept, path);
 		assertEquals(1, conceptService.find(concept.getConceptId(), path).getClassAxioms().size());
 		axiom = updatedConcept.getClassAxioms().iterator().next();
-		assertEquals("Member id should be kept after update if no changes to OWL expression.", memberId, axiom.getReferenceSetMember().getMemberId());
+		assertEquals(memberId, axiom.getReferenceSetMember().getMemberId(),
+				"Member id should be kept after update if no changes to OWL expression.");
 
 		String axiomMemberInternalId = axiom.getReferenceSetMember().getInternalId();
 		updatedConcept = conceptService.update(concept, path);
 		axiom = updatedConcept.getClassAxioms().iterator().next();
-		assertEquals("A new state of the axiom member should not be created if there are no changes.",
-				axiomMemberInternalId, axiom.getReferenceSetMember().getInternalId());
+		assertEquals(axiomMemberInternalId, axiom.getReferenceSetMember().getInternalId(),
+				"A new state of the axiom member should not be created if there are no changes.");
 
 		axiom.setDefinitionStatusId(Concepts.PRIMITIVE);
 		updatedConcept = conceptService.update(concept, path);
 		axiom = updatedConcept.getClassAxioms().iterator().next();
-		assertEquals("Member id should not be changed after changing the OWL expression.", memberId, axiom.getReferenceSetMember().getMemberId());
+		assertEquals(memberId, axiom.getReferenceSetMember().getMemberId(),
+				"Member id should not be changed after changing the OWL expression.");
 		assertEquals("SubClassOf(:50960005 ObjectIntersectionOf(:10000100 ObjectSomeValuesFrom(:609096000 ObjectSomeValuesFrom(:10000200 :10000300))))",
 				axiom.getReferenceSetMember().getAdditionalField(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION));
-		assertEquals("Concept and class axiom should have the same definition status",
-				axiom.getDefinitionStatusId(), updatedConcept.getDefinitionStatusId());
+		assertEquals(axiom.getDefinitionStatusId(), updatedConcept.getDefinitionStatusId(),
+				"Concept and class axiom should have the same definition status");
 
 		concept.getClassAxioms().clear();
 		concept.getGciAxioms().clear();
@@ -518,8 +521,7 @@ class ConceptServiceTest extends AbstractTest {
 		concept.addAxiom(new Relationship(ISA, "107658001"));
 		Concept savedConcept = conceptService.create(concept, path);
 
-		CodeSystem snomedct = codeSystemService.find("SNOMEDCT");
-		codeSystemService.createVersion(snomedct, 20200131, "");
+		codeSystemService.createVersion(codeSystem, 20200131, "");
 
 		// Add description after versioning and before making inactive
 		savedConcept.addDescription(new Description("Unversioned description"));
@@ -573,26 +575,28 @@ class ConceptServiceTest extends AbstractTest {
 
 		Set<Description> descriptions = inactiveConcept.getDescriptions();
 		List<Description> activeDescriptions = descriptions.stream().filter(Description::isActive).sorted(Comparator.comparing(Description::getTerm)).collect(Collectors.toList());
-		assertEquals("Two descriptions are still active",
-				2, activeDescriptions.size());
-		assertEquals("Active descriptions automatically have inactivation indicator",
-				"CONCEPT_NON_CURRENT", activeDescriptions.get(0).getInactivationIndicator());
-		assertEquals("Active descriptions automatically have inactivation indicator",
-				"CONCEPT_NON_CURRENT", activeDescriptions.get(1).getInactivationIndicator());
+		assertEquals(2, activeDescriptions.size(),
+				"Two descriptions are still active");
+		assertEquals("CONCEPT_NON_CURRENT", activeDescriptions.get(0).getInactivationIndicator(),
+				"Active descriptions automatically have inactivation indicator");
+		assertEquals("CONCEPT_NON_CURRENT", activeDescriptions.get(1).getInactivationIndicator(),
+				"Active descriptions automatically have inactivation indicator");
 		Description unversionedDescription = activeDescriptions.get(1);
-		assertEquals("Unversioned description is still active and has not been deleted",
-				"Unversioned description", unversionedDescription.getTerm());
-		assertTrue("Unversioned description is still active and has not been deleted",
-				unversionedDescription.isActive());
+		assertEquals("Unversioned description", unversionedDescription.getTerm(),
+				"Unversioned description is still active and has not been deleted");
+		assertTrue(unversionedDescription.isActive(),
+				"Unversioned description is still active and has not been deleted");
 
 		// Assert that inactive descriptions also have concept non current indicator applied automatically too.
 		Optional<Description> inactiveDescription = descriptions.stream().filter(d -> !d.isActive()).findFirst();
-		assertTrue("One description is still inactive", inactiveDescription.isPresent());
-		assertEquals("Inactive description automatically has inactivation indicator", "CONCEPT_NON_CURRENT", inactiveDescription.get().getInactivationIndicator());
+		assertTrue(inactiveDescription.isPresent(), "One description is still inactive");
+		assertEquals("CONCEPT_NON_CURRENT", inactiveDescription.get().getInactivationIndicator(),
+				"Inactive description automatically has inactivation indicator");
 
-		assertFalse("Axiom is inactive.", inactiveConcept.getClassAxioms().iterator().next().isActive());
+		assertFalse(inactiveConcept.getClassAxioms().iterator().next().isActive(),
+				"Axiom is inactive.");
 
-		codeSystemService.createVersion(snomedct, 20200731, "");
+		codeSystemService.createVersion(codeSystem, 20200731, "");
 
 		inactiveConcept = conceptService.find(inactiveConcept.getId(), path);
 		inactiveConcept.getInactivationIndicatorMembers().clear();
@@ -613,7 +617,6 @@ class ConceptServiceTest extends AbstractTest {
 		concept = conceptService.create(concept, path);
 
 		// Version code system
-		CodeSystem codeSystem = codeSystemService.find("SNOMEDCT");
 		codeSystemService.createVersion(codeSystem, 20190731, "");
 
 		// Make concept inactive
@@ -648,13 +651,13 @@ class ConceptServiceTest extends AbstractTest {
 
 		Set<Description> descriptions = concept.getDescriptions();
 		List<Description> activeDescriptions = descriptions.stream().filter(Description::isActive).sorted(Comparator.comparing(Description::getTerm)).collect(Collectors.toList());
-		assertEquals("One descriptions are still active",
-				1, activeDescriptions.size());
-		assertEquals("Active descriptions automatically have inactivation indicator",
-				"CONCEPT_NON_CURRENT", activeDescriptions.get(0).getInactivationIndicator());
+		assertEquals(1, activeDescriptions.size(),
+				"One descriptions are still active");
+		assertEquals("CONCEPT_NON_CURRENT", activeDescriptions.get(0).getInactivationIndicator(),
+				"Active descriptions automatically have inactivation indicator");
 		final ReferenceSetMember descriptionInactivationIndicatorMember = activeDescriptions.get(0).getInactivationIndicatorMember();
 
-		assertFalse("Axiom is inactive.", concept.getClassAxioms().iterator().next().isActive());
+		assertFalse(concept.getClassAxioms().iterator().next().isActive(), "Axiom is inactive.");
 
 		// Version code system
 		codeSystemService.createVersion(codeSystem, 20200131, "");
@@ -692,8 +695,8 @@ class ConceptServiceTest extends AbstractTest {
 		assertTrue(secondTimeInactivationIndicatorMember.isActive());
 		assertEquals(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, secondTimeInactivationIndicatorMember.getRefsetId());
 		assertEquals(Concepts.DUPLICATE, secondTimeInactivationIndicatorMember.getAdditionalField("valueId"));
-		assertEquals("Original inactivation indicator refset member must be reused because the value is the same.",
-				inactivationIndicatorMember.getId(), secondTimeInactivationIndicatorMember.getId());
+		assertEquals(inactivationIndicatorMember.getId(), secondTimeInactivationIndicatorMember.getId(),
+				"Original inactivation indicator refset member must be reused because the value is the same.");
 
 		final Map<String, Set<String>> associationTargets = concept.getAssociationTargets();
 		assertEquals(1, associationTargets.size());
@@ -707,17 +710,17 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(concept.getModuleId(), secondTimeAssociationTargetMember.getModuleId());
 		assertEquals(concept.getId(), secondTimeAssociationTargetMember.getReferencedComponentId());
 		assertEquals("87100004", secondTimeAssociationTargetMember.getAdditionalField("targetComponentId"));
-		assertEquals("Original association refset member must be reused because the value is the same.",
-				associationTargetMember.getId(), secondTimeAssociationTargetMember.getId());
+		assertEquals(associationTargetMember.getId(), secondTimeAssociationTargetMember.getId(),
+				"Original association refset member must be reused because the value is the same.");
 
 		// Same for the description inactivation indicator
 		activeDescriptions = concept.getDescriptions().stream().filter(Description::isActive).sorted(Comparator.comparing(Description::getTerm)).collect(Collectors.toList());
 		assertEquals(1, activeDescriptions.size());
-		assertEquals("Active descriptions automatically have inactivation indicator",
-				"CONCEPT_NON_CURRENT", activeDescriptions.get(0).getInactivationIndicator());
+		assertEquals("CONCEPT_NON_CURRENT", activeDescriptions.get(0).getInactivationIndicator(),
+				"Active descriptions automatically have inactivation indicator");
 		final ReferenceSetMember secondTimeDescriptionInactivationIndicatorMember = activeDescriptions.get(0).getInactivationIndicatorMember();
-		assertEquals("Original inactivation indicator refset member must be reused because the value is the same.",
-				descriptionInactivationIndicatorMember.getId(), secondTimeDescriptionInactivationIndicatorMember.getId());
+		assertEquals(descriptionInactivationIndicatorMember.getId(), secondTimeDescriptionInactivationIndicatorMember.getId(),
+				"Original inactivation indicator refset member must be reused because the value is the same.");
 	}
 
 	@Test
@@ -835,7 +838,7 @@ class ConceptServiceTest extends AbstractTest {
 		conceptService.create(concept, "MAIN");
 
 		final Concept savedConcept = conceptService.find("50960005", "MAIN");
-		Assert.assertNotNull(savedConcept);
+		assertNotNull(savedConcept);
 		assertEquals(1, savedConcept.getDescriptions().size());
 		final Description description = savedConcept.getDescriptions().iterator().next();
 		assertEquals("84923010", description.getDescriptionId());
@@ -1030,8 +1033,10 @@ class ConceptServiceTest extends AbstractTest {
 		printAllDescriptions("MAIN");
 		printAllDescriptions("MAIN/A");
 
-		assertEquals("Branch A should see old version of concept because of old base point.", 1, descriptionService.findDescriptionsWithAggregations("MAIN/A", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
-		assertEquals("Branch A should not see new version of concept because of old base point.", 0, descriptionService.findDescriptionsWithAggregations("MAIN/A", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN/A", "Heart", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements(),
+				"Branch A should see old version of concept because of old base point.");
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN/A", "Bone", ServiceTestUtil.PAGE_REQUEST).getNumberOfElements(),
+				"Branch A should not see new version of concept because of old base point.");
 
 		final Concept concept1 = conceptService.find("100001", "MAIN");
 		assertEquals(1, concept1.getDescriptions().size());
@@ -1059,7 +1064,7 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(effectiveTime, savedConcept.getEffectiveTimeI());
 		assertEquals(effectiveTime, savedConcept.getReleasedEffectiveTime());
 		assertEquals("true|900000000000207008|900000000000074008", savedConcept.getReleaseHash());
-		Assert.assertTrue(savedConcept.isReleased());
+		assertTrue(savedConcept.isReleased());
 
 		Description savedDescription = savedConcept.getDescriptions().iterator().next();
 		assertEquals(effectiveTime, savedDescription.getEffectiveTimeI());
@@ -1081,13 +1086,13 @@ class ConceptServiceTest extends AbstractTest {
 
 		// effectiveTimes cleared
 		final Concept conceptAfterUpdate = conceptService.find(conceptId, path);
-		Assert.assertNull(conceptAfterUpdate.getEffectiveTimeI());
+		assertNull(conceptAfterUpdate.getEffectiveTimeI());
 		assertEquals(effectiveTime, conceptAfterUpdate.getReleasedEffectiveTime());
-		Assert.assertTrue(conceptAfterUpdate.isReleased());
+		assertTrue(conceptAfterUpdate.isReleased());
 		Description descriptionAfterUpdate = conceptAfterUpdate.getDescriptions().iterator().next();
-		Assert.assertNull(descriptionAfterUpdate.getEffectiveTimeI());
-		Assert.assertNull(descriptionAfterUpdate.getLangRefsetMembers().values().iterator().next().getEffectiveTimeI());
-		Assert.assertNull(conceptAfterUpdate.getRelationships().iterator().next().getEffectiveTimeI());
+		assertNull(descriptionAfterUpdate.getEffectiveTimeI());
+		assertNull(descriptionAfterUpdate.getLangRefsetMembers().values().iterator().next().getEffectiveTimeI());
+		assertNull(conceptAfterUpdate.getRelationships().iterator().next().getEffectiveTimeI());
 
 		// Change concept back
 		conceptAfterUpdate.setModuleId(originalModuleId);
@@ -1097,7 +1102,7 @@ class ConceptServiceTest extends AbstractTest {
 		Concept conceptWithRestoredDate = conceptService.find(conceptId, path);
 		assertEquals(effectiveTime, conceptWithRestoredDate.getEffectiveTimeI());
 		assertEquals(effectiveTime, conceptWithRestoredDate.getReleasedEffectiveTime());
-		Assert.assertTrue(conceptWithRestoredDate.isReleased());
+		assertTrue(conceptWithRestoredDate.isReleased());
 
 		// Change description back
 		conceptWithRestoredDate.getDescriptions().iterator().next().setCaseSignificanceId(CASE_INSENSITIVE);
@@ -1254,7 +1259,7 @@ class ConceptServiceTest extends AbstractTest {
 
 
 		List<ReferenceSetMember> inactivationIndicatorMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, PageRequest.of(0, 10)).getContent();
-		Assert.assertEquals(2, inactivationIndicatorMembers.size());
+		assertEquals(2, inactivationIndicatorMembers.size());
 		Concept actualConcept = conceptService.find(conceptId, DEFAULT_LANGUAGE_DIALECTS, new BranchTimepoint("MAIN"));
 
 		assertEquals(1, actualConcept.getDescriptions().size());
