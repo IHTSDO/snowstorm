@@ -301,6 +301,46 @@ class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testUpdateBatchOfReleasedConceptsOnNewBranch() throws ServiceException {
+		List<Concept> batch = Lists.newArrayList(
+				new Concept("100001", "10000111"),
+				new Concept("100002", "10000111"),
+				new Concept("100003", "10000111"),
+				new Concept("100004", "10000111"),
+				new Concept("100005", "10000111"),
+				new Concept("100006", "10000111"),
+				new Concept("100007", "10000111"),
+				new Concept("100008", "10000111"),
+				new Concept("100009", "10000111"),
+				new Concept("1000010", "10000111")
+		);
+
+		conceptService.createUpdate(batch, "MAIN");
+
+		codeSystemService.createVersion(codeSystem, 20210131, "Jan");
+
+		branchService.create("MAIN/A");
+		final String task = "MAIN/A/A-1";
+		branchService.create(task);
+
+		final String newModuleId = "10000222";
+		batch.forEach(concept -> {
+			concept.setModuleId(newModuleId);
+			concept.clearReleaseDetails();
+		});
+		batch.stream().limit(5).forEach(concept -> concept.setActive(false));
+
+		conceptService.createUpdate(batch, task);
+		final Page<Concept> all = conceptService.findAll(task, ComponentService.LARGE_PAGE);
+		final List<Concept> allAfterUpdate = all.getContent();
+		assertEquals(10, allAfterUpdate.size());
+		for (Concept concept : allAfterUpdate) {
+			assertEquals(newModuleId, concept.getModuleId());
+			assertTrue(concept.isReleased());
+		}
+	}
+
+	@Test
 	void testOnlyUpdateWhatChanged() throws ServiceException {
 		final Integer effectiveTime = 20160731;
 
