@@ -192,8 +192,8 @@ public class BranchMergeService {
 			// This just locks the target branch.
 			// Content will be taken from the latest complete commit on the source branch.
 			try (Commit commit = branchService.openRebaseCommit(targetBranch.getPath(), branchMetadataHelper.getBranchLockMetadata("Rebasing changes from " + source))) {
+				commit.setSourceBranchPath(source);
 				if (manuallyMergedConcepts != null && !manuallyMergedConcepts.isEmpty()) {
-
 					Set<String> conceptsToDelete = manuallyMergedConcepts.stream()
 							.filter(Concept::isDeleted).map(Concept::getConceptId).collect(Collectors.toSet());
 					if (!conceptsToDelete.isEmpty()) {

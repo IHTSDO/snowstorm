@@ -608,7 +608,15 @@ public class ConceptService extends ComponentService {
 			return new PersistedComponents();
 		}
 
-		PersistedComponents persistedComponents = conceptUpdateHelper.saveNewOrUpdatedConcepts(concepts, commit, getExistingConceptsForSave(concepts, commit));
+		Map<String, Concept> existingTargetConceptsMap = getExistingConceptsForSave(concepts, commit);
+		
+		//Populate source concepts on rebase
+		Map<String, Concept> existingSourceConceptsMap = null;
+		if (commit.getCommitType().equals(Commit.CommitType.REBASE)) {
+			existingSourceConceptsMap = getExistingSourceConceptsForSave(concepts, commit);
+		}
+		
+		PersistedComponents persistedComponents = conceptUpdateHelper.saveNewOrUpdatedConcepts(concepts, commit, existingTargetConceptsMap, existingSourceConceptsMap);
 
 		// Log traceability activity
 		if (logTraceability && traceabilityLogService.isEnabled()) {
@@ -733,6 +741,21 @@ public class ConceptService extends ComponentService {
 			}
 		}
 		return existingConceptsMap;
+	}
+	
+	private Map<String, Concept> getExistingSourceConceptsForSave(Collection<Concept> concepts, Commit commit) {
+		Map<String, Concept> existingSourceConceptsMap = new HashMap<>();
+		final List<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toList());
+		if (!conceptIds.isEmpty()) {
+			BranchTimepoint branchTimePoint = new BranchTimepoint(commit.getSourceBranchPath(), BranchTimepoint.DATE_FORMAT.format(commit.getTimepoint()));
+			for (List<String> conceptIdPartition : Iterables.partition(conceptIds, 500)) {
+				final List<Concept> existingConcepts = doFind(conceptIdPartition, DEFAULT_LANGUAGE_DIALECTS, branchTimePoint, PageRequest.of(0, conceptIds.size())).getContent();
+				for (Concept existingConcept : existingConcepts) {
+					existingSourceConceptsMap.put(existingConcept.getConceptId(), existingConcept);
+				}
+			}
+		}
+		return existingSourceConceptsMap;
 	}
 
 	public void deleteAll() {
