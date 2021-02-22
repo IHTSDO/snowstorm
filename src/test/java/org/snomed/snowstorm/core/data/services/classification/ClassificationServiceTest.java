@@ -3,6 +3,8 @@ package org.snomed.snowstorm.core.data.services.classification;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.config.Config;
@@ -12,27 +14,24 @@ import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus
 import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
 import org.snomed.snowstorm.core.data.repositories.ClassificationRepository;
 import org.snomed.snowstorm.core.data.repositories.classification.RelationshipChangeRepository;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.jms.annotation.JmsListener;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.*;
+import static org.snomed.snowstorm.core.data.services.TestTraceabilityHelper.getActivity;
 
 class ClassificationServiceTest extends AbstractTest {
 
@@ -57,6 +56,31 @@ class ClassificationServiceTest extends AbstractTest {
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
 
+	@Autowired
+	private TraceabilityLogService traceabilityLogService;
+	private static final Stack<Activity> activitiesLogged = new Stack<>();
+	private boolean traceabilityOriginallyEnabled;
+
+	@BeforeEach
+	void setup() {
+		traceabilityOriginallyEnabled = traceabilityLogService.isEnabled();
+		// Temporarily enable traceability if not already enabled in the test context
+		traceabilityLogService.setEnabled(true);
+		activitiesLogged.clear();
+	}
+
+	@AfterEach
+	void tearDown() {
+		// Restore test context traceability switch
+		traceabilityLogService.setEnabled(traceabilityOriginallyEnabled);
+	}
+
+	@JmsListener(destination = "${jms.queue.prefix}.traceability")
+	void messageConsumer(Activity activity) {
+		System.out.println("Got activity " + activity.getCommitComment());
+		activitiesLogged.push(activity);
+	}
+
 	@Test
 	void testSaveRelationshipChanges() throws IOException, ServiceException, InterruptedException {
 		// Create concept with some stated modeling in an axiom
@@ -70,6 +94,12 @@ class ClassificationServiceTest extends AbstractTest {
 								new Relationship("363698007", "84301002"),
 								Relationship.newConcrete("1142135004", ConcreteValue.newDecimal("#55.5"))
 						), branch);
+
+		Activity activity = getActivity(activitiesLogged);
+		assertEquals(0, activitiesLogged.size());
+		assertNotNull(activity);
+		assertEquals("Creating concept null", activity.getCommitComment());
+		assertEquals(1, activity.getChanges().size());
 
 		// Save mock classification results with mix of previously stated and new triples
 		String classificationId = UUID.randomUUID().toString();
@@ -114,6 +144,12 @@ class ClassificationServiceTest extends AbstractTest {
 		Relationship concreteRelationship = concept.getRelationships().stream().filter(r -> r.getTypeId().equals("1142139005")).findFirst().orElse(null);
 		assertNotNull(concreteRelationship);
 		assertEquals("#5", concreteRelationship.getValue());
+
+		activity = getActivity(activitiesLogged);
+		assertEquals(0, activitiesLogged.size());
+		assertNotNull(activity, "Traceability must be logged for classification results.");
+		assertEquals("Classified ontology.", activity.getCommitComment());
+		assertEquals(1, activity.getChanges().size());
 	}
 
 	@Test
@@ -203,7 +239,7 @@ class ClassificationServiceTest extends AbstractTest {
 		Concept concept = conceptService.find("123123123001", extensionBranchPath);
 		assertEquals(4, concept.getRelationships().size());
 		for (Relationship relationship : concept.getRelationships()) {
-			assertEquals("45991000052106", relationship.getModuleId(), "New inferred relationships have the configured module applied.");
+			assertEquals(relationship.getModuleId(), "45991000052106", "New inferred relationships have the configured module applied.");
 			assertTrue(relationship.getId().contains("1000052" + "12"), "New inferred relationships have SCTIDs in the configured namespace and correct partition ID");
 		}
 	}
@@ -245,12 +281,12 @@ class ClassificationServiceTest extends AbstractTest {
 
 
         Set<Relationship> relationships = conceptService.find(conceptId, path).getRelationships();
-		assertEquals(3, relationships.size(), "Three relationships.");
-		assertEquals(3, relationships.stream().filter(Relationship::isActive).count(), "Three active relationships.");
+		assertEquals(relationships.size(), 3, "Three relationships.");
+		assertEquals(relationships.stream().filter(Relationship::isActive).count(), 3, "Three active relationships.");
 
 		assertEquals(SAVED, saveClassificationAndWaitForCompletion(path, classificationId));
 
-		assertEquals(1, conceptService.find(conceptId, path).getRelationships().size(), "Not released redundant relationship deleted");
+		assertEquals(conceptService.find(conceptId, path).getRelationships().size(), 1, "Not released redundant relationship deleted");
 	}
 
 	@Test
@@ -280,15 +316,15 @@ class ClassificationServiceTest extends AbstractTest {
 
 
 		Set<Relationship> relationships = conceptService.find(conceptId, path).getRelationships();
-		assertEquals(2, relationships.size(), "Two relationships.");
-		assertEquals(2, relationships.stream().filter(Relationship::isActive).count(), "Two active relationships.");
-		assertEquals(2, relationships.stream().filter(rel -> rel.getEffectiveTime() != null).count(), "Two relationships with effective time.");
+		assertEquals(relationships.size(), 2, "Two relationships.");
+		assertEquals(relationships.stream().filter(Relationship::isActive).count(), 2, "Two active relationships.");
+		assertEquals(relationships.stream().filter(rel -> rel.getEffectiveTime() != null).count(), 2, "Two relationships with effective time.");
 
 		assertEquals(SAVED, saveClassificationAndWaitForCompletion(path, classificationId));
 
 		relationships = conceptService.find(conceptId, path).getRelationships();
-		assertEquals(2, relationships.size(), "Released redundant relationship not removed.");
-		assertEquals(1, relationships.stream().filter(Relationship::isActive).count(), "Released redundant relationship made inactive.");
+		assertEquals(relationships.size(), 2, "Released redundant relationship not removed.");
+		assertEquals(relationships.stream().filter(Relationship::isActive).count(), 1, "Released redundant relationship made inactive.");
 		Relationship inactiveRelationship = relationships.stream().filter(rel -> !rel.isActive()).collect(Collectors.toList()).get(0);
 		assertNotNull(inactiveRelationship);
 		assertNull(inactiveRelationship.getEffectiveTime());
@@ -310,7 +346,6 @@ class ClassificationServiceTest extends AbstractTest {
 						), branch);
 
 		// verify the data type in axiom
-		Concept concept = conceptService.find("123123123001", branch);
 		MemberSearchRequest axiomMemberRequest = new MemberSearchRequest().referencedComponentId("123123123001").referenceSet(Concepts.OWL_AXIOM_REFERENCE_SET);
 		Page<ReferenceSetMember> axioms = referenceSetMemberService.findMembers(branch, axiomMemberRequest, PageRequest.of(0, 10));
 		assertNotNull(axioms.getContent());
