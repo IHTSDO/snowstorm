@@ -992,6 +992,51 @@ class BranchMergeServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
 		assertEquals("100009003", conceptService.find(conceptId, "MAIN/A").getModuleId());
 	}
+	
+	@Test
+	void testConflictConceptMergeChangesFromRightWithVersioning() throws ServiceException {
+		/* Recreate a situation where an inactivation is performed on two branches
+		 * with the inactivation being published, but then the right hand (non-versioned)
+		 * side being selected in the merge leading to an apparently new inactive state
+		 * following a previous also inactive state
+		 */
+		final String conceptId = "10000100";
+		final String moduleId = "100009001";
+		final Description description = new Description("One");
+
+		//Only rebase the first branch so we have an unversioned concept on the 2nd
+		setupConflictSituationReleaseFirstVersion(
+				new Concept(conceptId, moduleId).addDescription(description).setActive(false),
+				new Concept(conceptId, moduleId).addDescription(description).setActive(false),
+				new Concept(conceptId, moduleId).addDescription(description).setActive(true),
+				new String[] { "MAIN/A/A1" , "MAIN/A/A2"},
+				new String[] { "MAIN/A/A1" });
+
+		Concept versionedConcept = conceptService.find(conceptId, "MAIN/A");
+		String effectiveTime = versionedConcept.getEffectiveTime();
+		assertNotNull(effectiveTime);
+		assertTrue(versionedConcept.isReleased());
+		
+		versionedConcept = conceptService.find(conceptId, "MAIN/A/A1");
+		effectiveTime = versionedConcept.getEffectiveTime();
+		assertNotNull(effectiveTime);
+		assertTrue(versionedConcept.isReleased());
+		assertFalse(versionedConcept.isActive());
+		
+		//Branch A/A2 has not been rebased so concept is still unversioned there
+		Concept unversionedConcept = conceptService.find(conceptId, "MAIN/A/A2");
+		assertNull(unversionedConcept.getEffectiveTime());
+		assertFalse(unversionedConcept.isReleased());
+		
+		// Rebase the diverged branch supplying the manually merged concept
+		final Concept conceptFromRight = new Concept(conceptId, moduleId).addDescription(description).setActive(false);
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromRight));
+
+		Concept rebasedConcept = conceptService.find(conceptId, "MAIN/A/A2");
+		//And here we suspect that our concept is showing as newly inactive
+		assertEquals(effectiveTime, rebasedConcept.getEffectiveTime());
+		assertTrue(rebasedConcept.isReleased());
+	}
 
 	@Test
 	void testConflictConceptMergeChangesFromRightSameChangeOnBothSides() throws ServiceException {
@@ -1072,10 +1117,10 @@ class BranchMergeServiceTest extends AbstractTest {
 		String descriptionId = "10000011";
 		List<Concept> conceptVersions = setupConflictSituationReleaseFirstVersion(
 				new Concept(conceptId).addDescription(new Description(descriptionId, "Orig")),
-
 				new Concept(conceptId).addDescription(inactive(new Description(descriptionId, "Orig"), "NOT_SEMANTICALLY_EQUIVALENT", "REFERS_TO", "61462000")),
-
-				new Concept(conceptId).addDescription(inactive(new Description(descriptionId, "Orig"), "OUTDATED", null, null))
+				new Concept(conceptId).addDescription(inactive(new Description(descriptionId, "Orig"), "OUTDATED", null, null)),
+				null,
+				new String[] { "MAIN/A/A1", "MAIN/A/A2"}
 		);
 
 		Description descriptionA = descriptionService.findDescription("MAIN/A", descriptionId);
@@ -1474,20 +1519,27 @@ class BranchMergeServiceTest extends AbstractTest {
 	 * @return
 	 */
 	private List<Concept> setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept) throws ServiceException {
-		return setupConflictSituation(parentConcept, leftConcept, rightConcept, false);
+		return setupConflictSituation(parentConcept, leftConcept, rightConcept, false, null, new String[] { "MAIN/A/A1", "MAIN/A/A2"});
 	}
 
-	private List<Concept> setupConflictSituationReleaseFirstVersion(Concept parentConcept, Concept leftConcept, Concept rightConcept) throws ServiceException {
-		return setupConflictSituation(parentConcept, leftConcept, rightConcept, true);
+	private List<Concept> setupConflictSituationReleaseFirstVersion(Concept parentConcept, Concept leftConcept, Concept rightConcept, String[] rebaseBranchesBeforeVersion, String[] rebaseBranchesAfterVersion) throws ServiceException {
+		return setupConflictSituation(parentConcept, leftConcept, rightConcept, true, rebaseBranchesBeforeVersion, rebaseBranchesAfterVersion);
 	}
 
-	private List<Concept> setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept, boolean versionCodeSystemAfterFirstSave) throws ServiceException {
+	private List<Concept> setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept, boolean versionCodeSystemAfterFirstSave, String[] rebaseBranchesBeforeVersion, String[] rebaseBranchesAfterVersion ) throws ServiceException {
 		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A2", Branch.BranchState.UP_TO_DATE);
 
 		// - Create concept on A
 		conceptService.create(parentConcept, "MAIN/A");
+		
+		// Rebase as required
+		if (rebaseBranchesBeforeVersion != null) {
+			for (String branch : rebaseBranchesBeforeVersion) {
+				branchMergeService.mergeBranchSync("MAIN/A", branch, null);
+			}
+		}
 
 		if (versionCodeSystemAfterFirstSave) {
 			codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN/A"));
@@ -1495,9 +1547,14 @@ class BranchMergeServiceTest extends AbstractTest {
 			codeSystemService.createVersion(codeSystem, 20200131, "Version");
 		}
 
-		// - Rebase A1 and A2
-		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", null);
-		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", null);
+		// Rebase as required
+		if (rebaseBranchesAfterVersion != null) {
+			for (String branch : rebaseBranchesAfterVersion) {
+				branchMergeService.mergeBranchSync("MAIN/A", branch, null);
+			}
+		}
+		
+		//branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", null);
 
 		// Update concept on A1 and promote
 		conceptService.update(leftConcept, "MAIN/A/A1");

@@ -1,22 +1,13 @@
 package org.snomed.snowstorm.commitexplorer;
 
 import io.kaicode.elasticvc.domain.Branch;
-import org.apache.http.HttpHost;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
-import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.ElasticsearchConfig;
-import org.snomed.snowstorm.config.elasticsearch.DateToLongConverter;
-import org.snomed.snowstorm.config.elasticsearch.IndexConfig;
-import org.snomed.snowstorm.config.elasticsearch.LongToDateConverter;
-import org.snomed.snowstorm.config.elasticsearch.SnowstormElasticsearchMappingContext;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
-import org.snomed.snowstorm.core.data.services.DomainEntityConfiguration;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.data.elasticsearch.ElasticsearchDataAutoConfiguration;
@@ -24,18 +15,12 @@ import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestCli
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.cloud.aws.autoconfigure.context.ContextStackAutoConfiguration;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Bean;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
-import org.springframework.data.elasticsearch.core.convert.ElasticsearchCustomConversions;
-import org.springframework.data.elasticsearch.core.convert.MappingElasticsearchConverter;
-import org.springframework.data.elasticsearch.core.mapping.SimpleElasticsearchMappingContext;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-
-import java.util.Arrays;
 
 import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
@@ -50,10 +35,11 @@ public class CommitExplorer {
 	private final String indexNamePrefix;
 
 	private void run() {
-		listCommits("MAIN");
-		listRecentVersions("255083005", Concept.class);
-		listRecentVersions("646067016", Description.class);
-		listRecentVersions("04591202-b9cb-45a5-8533-aa1f9e0f8644", ReferenceSetMember.class);
+		//listCommits("MAIN");
+		//listRecentVersions("209889006", Concept.class);
+		listRecentVersions("890431008", Concept.class);
+		//listRecentVersions("646067016", Description.class);
+		//listRecentVersions("84fd3311-705d-4ab0-ab84-989eaa048839", ReferenceSetMember.class);
 	}
 
 	public static void main(String[] args) {

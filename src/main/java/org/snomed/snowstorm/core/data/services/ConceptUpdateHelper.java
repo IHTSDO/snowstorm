@@ -81,7 +81,9 @@ public class ConceptUpdateHelper extends ComponentService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	PersistedComponents saveNewOrUpdatedConcepts(Collection<Concept> concepts, Commit commit, Map<String, Concept> existingConceptsMap) throws ServiceException {
+	PersistedComponents saveNewOrUpdatedConcepts(Collection<Concept> concepts, Commit commit, 
+			Map<String, Concept> existingTargetConceptsMap,
+			Map<String, Concept> existingSourceConceptsMap) throws ServiceException {
 		final boolean savingMergedConcepts = commit.isRebase();
 
 		validateConcepts(concepts);
@@ -105,7 +107,9 @@ public class ConceptUpdateHelper extends ComponentService {
 		List<Relationship> relationshipsToPersist = new ArrayList<>();
 		List<ReferenceSetMember> refsetMembersToPersist = new ArrayList<>();
 		for (Concept concept : concepts) {
-			final Concept existingConcept = existingConceptsMap.get(concept.getConceptId());
+			final Concept existingConcept = existingTargetConceptsMap.get(concept.getConceptId());
+			final Concept existingSourceConcept = existingSourceConceptsMap == null ? null : existingSourceConceptsMap.get(concept.getConceptId());
+			
 			final Map<String, Description> existingDescriptions = new HashMap<>();
 			final Set<ReferenceSetMember> newVersionOwlAxiomMembers = concept.getAllOwlAxiomMembers();
 
@@ -133,10 +137,17 @@ public class ConceptUpdateHelper extends ComponentService {
 			// Mark changed concepts as changed
 			if (existingConcept != null) {
 				concept.setCreating(false);// May have been set true earlier during first save
+				
+				//Are we copying the released details from the existing concept, or has the source been versioned recently?
+				Concept authoratativeConcept = existingConcept;
+				if (!existingConcept.isReleased() && existingSourceConcept != null && existingSourceConcept.isReleased()) {
+					authoratativeConcept = existingSourceConcept;
+				}
+				
 				concept.setChanged(concept.isComponentChanged(existingConcept) || savingMergedConcepts);
-				concept.copyReleaseDetails(existingConcept);
+				concept.copyReleaseDetails(authoratativeConcept);
 				concept.updateEffectiveTime();
-
+				
 				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions(), savingMergedConcepts);
 				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships(), savingMergedConcepts);
 				markDeletionsAndUpdates(newVersionOwlAxiomMembers, existingConcept.getAllOwlAxiomMembers(), savingMergedConcepts);
