@@ -26,17 +26,11 @@ import org.springframework.jms.annotation.JmsListener;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Stack;
+import java.util.*;
 
 import static junit.framework.TestCase.assertNull;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
+import static org.snomed.snowstorm.core.data.services.TestTraceabilityHelper.getActivityWithTimeout;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -53,19 +47,20 @@ class TraceabilityLogServiceTest extends AbstractTest {
 
 	private static final Stack<Activity> activitiesLogged = new Stack<>();
 
-	private boolean testContextTraceabilityEnabled;
+	private boolean traceabilityOriginallyEnabled;
 
 	@BeforeEach
 	void setup() {
-		testContextTraceabilityEnabled = traceabilityLogService.isEnabled();
+		traceabilityOriginallyEnabled = traceabilityLogService.isEnabled();
 		// Temporarily enable traceability if not already enabled in the test context
 		traceabilityLogService.setEnabled(true);
+		activitiesLogged.clear();
 	}
 
 	@AfterEach
 	void tearDown() {
 		// Restore test context traceability switch
-		traceabilityLogService.setEnabled(testContextTraceabilityEnabled);
+		traceabilityLogService.setEnabled(traceabilityOriginallyEnabled);
 	}
 
 	@JmsListener(destination = "${jms.queue.prefix}.traceability")
@@ -111,7 +106,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 
 		// Update concept with no change
 		conceptService.update(concept, MAIN);
-		activity = getActivityWithTimeout(10);// Shorter timeout here because we know the test JMS broker is up and we don't expect a message to come.
+		activity = getActivityWithTimeout(10, activitiesLogged);// Shorter timeout here because we know the test JMS broker is up and we don't expect a message to come.
 		assertNull("No concept changes so no traceability commit.", activity);
 
 		conceptService.deleteConceptAndComponents(concept.getConceptId(), MAIN, false);
@@ -122,19 +117,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 	}
 
 	public Activity getActivity() throws InterruptedException {
-		return getActivityWithTimeout(20);
-	}
-
-	public Activity getActivityWithTimeout(int maxWait) throws InterruptedException {
-		int waited = 0;
-		while (activitiesLogged.isEmpty() && waited < maxWait) {
-			Thread.sleep(1_000);
-			waited++;
-		}
-		if (activitiesLogged.isEmpty()) {
-			return null;
-		}
-		return activitiesLogged.pop();
+		return TestTraceabilityHelper.getActivity(activitiesLogged);
 	}
 
 	@Test
@@ -179,7 +162,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 								   .withPersistedDescriptions(Collections.singleton(new Description("8635753033", 1, true, "900000000000012033", "3311481044",
 																									"en", "900000000000013044", "Test term", "900000000000448022"))).build();
 		traceabilityLogService.logActivity(null, commit, persistedComponents, false, "Delta");
-		final Activity activity = getActivityWithTimeout(2);
+		final Activity activity = getActivityWithTimeout(2, activitiesLogged);
 		assertNotNull(activity);
 		assertTrue(activity.getCommitComment().contains("RF2 Import - Updating concept Test FSN"));
 	}
@@ -196,7 +179,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 																			new Description("8635753033", 1, true, "900000000000012033", "3311483055",
 																							"en", "900000000000013044", "Test term", "900000000000448022"))).build();
 		traceabilityLogService.logActivity(null, commit, persistedComponents, false, "Delta");
-		final Activity activity = getActivityWithTimeout(2);
+		final Activity activity = getActivityWithTimeout(2, activitiesLogged);
 		assertNotNull(activity);
 		assertTrue(activity.getCommitComment().contains("RF2 Import - Bulk update to 2 concepts."));
 	}

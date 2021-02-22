@@ -103,7 +103,7 @@ public class TraceabilityLogService implements CommitListener {
 	}
 
 	public void logActivityUsingComponentLookup(final String userId, final Commit commit) {
-		logActivity(userId, commit, buildPersistedComponents(commit));
+		logActivity(userId, commit, buildPersistedComponents(commit), false, null);
 	}
 
 	/**
@@ -156,8 +156,7 @@ public class TraceabilityLogService implements CommitListener {
 		Map<Long, Activity.ConceptActivity> activityMap = new Long2ObjectArrayMap<>();
 		Map<Long, Long> componentToConceptIdMap = new Long2ObjectArrayMap<>();
 		for (Concept concept : concepts) {
-			Activity.ConceptActivity conceptActivity = activity.addConceptActivity(concept);
-			activityMap.put(concept.getConceptIdAsLong(), conceptActivity);
+			Activity.ConceptActivity conceptActivity = addActivityForConcept(activity, concept, activityMap);
 			if (!useChangeFlag || (concept.isChanged() || concept.isDeleted())) {
 				conceptActivity.addComponentChange(getChange(concept)).statedChange();
 			}
@@ -166,7 +165,7 @@ public class TraceabilityLogService implements CommitListener {
 			final long conceptId = parseLong(description.getConceptId());
 			if (!useChangeFlag || (description.isChanged() || description.isDeleted())) {
 				final Activity.ComponentChange change = getChange(description);
-				final Activity.ConceptActivity conceptActivity = activityMap.get(conceptId);
+				final Activity.ConceptActivity conceptActivity = getConceptActivityForComponent(useChangeFlag, activity, activityMap, conceptId);
 				if (conceptActivity != null) {
 					conceptActivity.addComponentChange(change).statedChange();
 				}
@@ -176,7 +175,7 @@ public class TraceabilityLogService implements CommitListener {
 		for (Relationship relationship : persistedRelationships) {
 			final long sourceId = parseLong(relationship.getSourceId());
 			if (!useChangeFlag || (relationship.isChanged() || relationship.isDeleted())) {
-				final Activity.ConceptActivity conceptActivity = activityMap.get(sourceId);
+				final Activity.ConceptActivity conceptActivity = getConceptActivityForComponent(useChangeFlag, activity, activityMap, sourceId);
 				if (conceptActivity != null) {
 					conceptActivity
 							.addComponentChange(getChange(relationship))
@@ -193,7 +192,7 @@ public class TraceabilityLogService implements CommitListener {
 				Activity.ConceptActivity conceptActivity = null;
 				String componentType = null;
 				if (IdentifierService.isConceptId(referencedComponentId)) {
-					conceptActivity = activityMap.get(referencedComponentLong);
+					conceptActivity = getConceptActivityForComponent(useChangeFlag, activity, activityMap, referencedComponentLong);
 					Map<String, String> additionalFields = refsetMember.getAdditionalFields();
 					if (additionalFields != null && additionalFields.size() == 1 && additionalFields.keySet().contains(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION)) {
 						componentType = "OWLAxiom";
@@ -209,7 +208,7 @@ public class TraceabilityLogService implements CommitListener {
 						componentType = "Relationship";
 					}
 					if (conceptId != null) {
-						conceptActivity = activityMap.get(conceptId);
+						conceptActivity = getConceptActivityForComponent(useChangeFlag, activity, activityMap, conceptId);
 					}
 				}
 				if (conceptActivity != null && componentType != null) {
@@ -267,6 +266,20 @@ public class TraceabilityLogService implements CommitListener {
 		}
 
 		activityConsumer.accept(activity);
+	}
+
+	private Activity.ConceptActivity getConceptActivityForComponent(boolean useChangeFlag, Activity activity, Map<Long, Activity.ConceptActivity> activityMap, long conceptId) {
+		// If using the change flag we expect component changes to be made using a concept
+		// but when the flag is false we should automatically create activity map entries for any missing concepts.
+		final Activity.ConceptActivity conceptActivity = useChangeFlag ? activityMap.get(conceptId) : activityMap.computeIfAbsent(conceptId,
+				(id) -> addActivityForConcept(activity, new Concept(conceptId + ""), activityMap));
+		return conceptActivity;
+	}
+
+	private Activity.ConceptActivity addActivityForConcept(Activity activity, Concept concept, Map<Long, Activity.ConceptActivity> activityMap) {
+		Activity.ConceptActivity conceptActivity = activity.addConceptActivity(concept);
+		activityMap.put(concept.getConceptIdAsLong(), conceptActivity);
+		return conceptActivity;
 	}
 
 	String createCommitComment(final String userId, final Commit commit, final Collection<Concept> concepts, final boolean anyStatedChanges, final String commitPrefix) {
