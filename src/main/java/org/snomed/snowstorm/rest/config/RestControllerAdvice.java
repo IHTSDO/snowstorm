@@ -5,6 +5,7 @@ import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLException;
+import org.snomed.snowstorm.core.data.services.BranchLockedException;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.springframework.http.HttpStatus;
@@ -90,6 +91,16 @@ public class RestControllerAdvice {
 	public void handleClientAbortException(Exception exception) {
 		logger.info("A client aborted an HTTP connection, probably a page refresh during loading.");
 		logger.debug("ClientAbortException.", exception);
+	}
+
+	@ExceptionHandler(BranchLockedException.class)
+	@ResponseStatus(HttpStatus.CONFLICT)
+	@ResponseBody
+	public Map<String,Object> handleConflictException(Exception exception) {
+		HashMap<String, Object> result = new HashMap<>();
+		result.put("error", HttpStatus.CONFLICT);
+		result.put("message", exception.getMessage());
+		return result;
 	}
 
 	@ExceptionHandler(Exception.class)

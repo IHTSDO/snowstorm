@@ -120,6 +120,18 @@ public class BranchMergeService {
 			if (targetBranch.getState() == Branch.BranchState.DIVERGED && mergeReview == null) {
 				throw new IllegalArgumentException(USE_MERGE_REVIEW);
 			}
+		} else {
+			// Promotion
+			final Branch sourceBranch = branchService.findBranchOrThrow(source);
+			final Branch targetBranch = branchService.findBranchOrThrow(target);
+
+			if (sourceBranch.isLocked()) {
+				throw new BranchLockedException(String.format("Source branch %s is locked", source));
+			}
+
+			if (targetBranch.isLocked()) {
+				throw new BranchLockedException(String.format("Target branch %s is locked", target));
+			}
 		}
 
 		BranchMergeJob mergeJob = new BranchMergeJob(source, target, JobStatus.SCHEDULED);
