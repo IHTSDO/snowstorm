@@ -87,6 +87,8 @@ class ClassificationServiceTest extends AbstractTest {
 		final String branch = "MAIN";
 		createRangeConstraint("1142135004", "dec(>#0..)");
 		createRangeConstraint("1142139005", "int(>#0..)");
+		activitiesLogged.clear();
+
 		conceptService.create(
 				new Concept("123123123001")
 						.addAxiom(
