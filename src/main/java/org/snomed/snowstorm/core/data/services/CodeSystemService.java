@@ -41,6 +41,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
@@ -53,6 +54,7 @@ public class CodeSystemService {
 
 	public static final String SNOMEDCT = "SNOMEDCT";
 	public static final String MAIN = "MAIN";
+	private static final Pattern VERSION_BRANCH_NAME_PATTERN = Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
 
 	@Autowired
 	private CodeSystemRepository repository;
@@ -232,6 +234,14 @@ public class CodeSystemService {
 		return effectiveDateString.substring(0, 4) + "-" + effectiveDateString.substring(4, 6) + "-" + effectiveDateString.substring(6, 8);
 	}
 
+	private Integer getVersionEffectiveDateFromBranchName(String branchName) {
+		if (branchName != null && VERSION_BRANCH_NAME_PATTERN.matcher(branchName).matches()) {
+			final String dateString = branchName.substring(0, 4) + branchName.substring(5, 7) + branchName.substring(8, 10);
+			return Integer.parseInt(dateString);
+		}
+		return null;
+	}
+
 	private String getReleaseBranchPath(String branchPath, Integer effectiveDate) {
 		return branchPath + "/" + getHyphenatedVersionString(effectiveDate);
 	}
@@ -315,7 +325,7 @@ public class CodeSystemService {
 				.build(), Description.class);
 		if (descriptionSearch.hasAggregations()) {
 			// Collect other languages for concept mini lookup
-			List<? extends Terms.Bucket> language = ((ParsedStringTerms) descriptionSearch.getAggregations().get("language")).getBuckets();
+			List<? extends Terms.Bucket> language = ((ParsedStringTerms) Objects.requireNonNull(descriptionSearch.getAggregations()).get("language")).getBuckets();
 			List<String> languageCodesSorted = language.stream()
 					// sort by number of active descriptions in each language
 					.sorted(Comparator.comparing(MultiBucketsAggregation.Bucket::getDocCount).reversed())
@@ -416,6 +426,16 @@ public class CodeSystemService {
 		return versionRepository.findOneByShortNameAndEffectiveDate(shortName, effectiveTime);
 	}
 
+	public CodeSystemVersion findVersion(String shortName, String versionBranchName) {
+		if (CodeSystemService.VERSION_BRANCH_NAME_PATTERN.matcher(versionBranchName).matches()) {
+			final Integer date = getVersionEffectiveDateFromBranchName(versionBranchName);
+			if (date != null) {
+				return findVersion(shortName, date);
+			}
+		}
+		return null;
+	}
+
 	public List<CodeSystemVersion> findAllVersions(String shortName, Boolean showFutureVersions) {
 		return findAllVersions(shortName, true, showFutureVersions);
 	}
@@ -470,6 +490,15 @@ public class CodeSystemService {
 		repository.save(codeSystem);
 		contentInformationCache.remove(codeSystem.getBranchPath());
 		return codeSystem;
+	}
+
+	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
+	public void deleteVersion(CodeSystem codeSystem, CodeSystemVersion version) {
+		findOrThrow(codeSystem.getShortName());
+		if (!version.getShortName().equals(codeSystem.getShortName())) {
+			throw new IllegalArgumentException("The given code system and version do not match.");
+		}
+		versionRepository.delete(version);
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
