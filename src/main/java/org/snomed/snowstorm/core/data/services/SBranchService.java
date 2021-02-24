@@ -8,6 +8,8 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -20,10 +22,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -44,6 +43,12 @@ public class SBranchService {
 
 	@Autowired
 	private DomainEntityConfiguration domainEntityConfiguration;
+
+	@Autowired
+	private AdminOperationsService adminOperationsService;
+
+	@Autowired
+	private CodeSystemService codeSystemService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -71,10 +76,36 @@ public class SBranchService {
 	}
 
 	public void rollbackCommit(String branchPath, long timepoint) {
+		logger.info("Preparing to roll back commit {} on {}.", timepoint, branchPath);
+
 		Branch branchVersion = branchService.findAtTimepointOrThrow(branchPath, new Date(timepoint));
 		if (branchVersion.getEnd() != null) {
 			throw new IllegalStateException(format("Branch %s at timepoint %s is already ended, it's not the latest commit.", branchPath, timepoint));
 		}
+
+		final Optional<CodeSystem> codeSystem = codeSystemService.findByBranchPath(branchPath);
+
+		final List<Branch> children = branchService.findChildren(branchPath, true);
+		for (Branch child : children) {
+			if (child.getBase().equals(branchVersion.getHead())) {
+				final String childPath = child.getPath();
+				boolean childDeleted = false;
+				if (codeSystem.isPresent()) {
+					// May be a version branch
+					final String childBranchName = childPath.substring(childPath.lastIndexOf("/") + 1);
+					final CodeSystemVersion version = codeSystemService.findVersion(codeSystem.get().getShortName(), childBranchName);
+					if (version != null) {
+						adminOperationsService.hardDeleteBranch(childPath);
+						codeSystemService.deleteVersion(codeSystem.get(), version);
+						childDeleted= true;
+					}
+				}
+				if (!childDeleted) {
+					logger.warn("Child branch {} is using the commit being rolled back. Be sure to rebase or delete this branch afterwards.", childPath);
+				}
+			}
+		}
+
 		branchService.rollbackCompletedCommit(branchVersion, new ArrayList<>(domainEntityConfiguration.getAllDomainEntityTypes()));
 	}
 
