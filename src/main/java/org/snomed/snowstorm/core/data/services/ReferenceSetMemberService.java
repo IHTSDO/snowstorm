@@ -370,6 +370,7 @@ public class ReferenceSetMemberService extends ComponentService {
 		return elasticsearchTemplate.search(query, ReferenceSetType.class).stream().map(SearchHit::getContent).collect(Collectors.toList());
 	}
 
+	//TODO If this could be called during a rebase, include the source branch and pass existingRebaseSourceMember into copyReleaseDetails
 	public ReferenceSetMember updateMember(String branch, ReferenceSetMember member) {
 
 		ReferenceSetMember existingMember = findMember(branch, member.getMemberId());

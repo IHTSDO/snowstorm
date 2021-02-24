@@ -1033,9 +1033,15 @@ class BranchMergeServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromRight));
 
 		Concept rebasedConcept = conceptService.find(conceptId, "MAIN/A/A2");
-		//And here we suspect that our concept is showing as newly inactive
 		assertEquals(effectiveTime, rebasedConcept.getEffectiveTime());
 		assertTrue(rebasedConcept.isReleased());
+		
+		//The description should also pick up the same time
+		Description rebasedDescription = rebasedConcept.getDescriptions().iterator().next();
+		assertEquals(effectiveTime, rebasedDescription.getEffectiveTime());
+		assertTrue(rebasedDescription.isReleased());
+		
+		//TODO Check Relationships and other associated components are also versioned as expected
 	}
 
 	@Test

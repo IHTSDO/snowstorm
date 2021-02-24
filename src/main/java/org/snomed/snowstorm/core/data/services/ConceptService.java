@@ -747,7 +747,7 @@ public class ConceptService extends ComponentService {
 		Map<String, Concept> existingSourceConceptsMap = new HashMap<>();
 		final List<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toList());
 		if (!conceptIds.isEmpty()) {
-			BranchTimepoint branchTimePoint = new BranchTimepoint(commit.getSourceBranchPath(), BranchTimepoint.DATE_FORMAT.format(commit.getTimepoint()));
+			BranchTimepoint branchTimePoint = new BranchTimepoint(commit.getSourceBranchPath(), BranchTimepoint.DATE_FORMAT.format(commit.getBranch().getBase()));
 			for (List<String> conceptIdPartition : Iterables.partition(conceptIds, 500)) {
 				final List<Concept> existingConcepts = doFind(conceptIdPartition, DEFAULT_LANGUAGE_DIALECTS, branchTimePoint, PageRequest.of(0, conceptIds.size())).getContent();
 				for (Concept existingConcept : existingConcepts) {
