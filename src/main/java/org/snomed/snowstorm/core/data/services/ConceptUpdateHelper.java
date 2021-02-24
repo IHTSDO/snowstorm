@@ -82,8 +82,8 @@ public class ConceptUpdateHelper extends ComponentService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	PersistedComponents saveNewOrUpdatedConcepts(Collection<Concept> concepts, Commit commit, 
-			Map<String, Concept> existingTargetConceptsMap,
-			Map<String, Concept> existingSourceConceptsMap) throws ServiceException {
+			Map<String, Concept> existingConceptsMap,
+			Map<String, Concept> existingRebaseSourceConceptsMap) throws ServiceException {
 		final boolean savingMergedConcepts = commit.isRebase();
 
 		validateConcepts(concepts);
@@ -107,12 +107,14 @@ public class ConceptUpdateHelper extends ComponentService {
 		List<Relationship> relationshipsToPersist = new ArrayList<>();
 		List<ReferenceSetMember> refsetMembersToPersist = new ArrayList<>();
 		for (Concept concept : concepts) {
-			final Concept existingConcept = existingTargetConceptsMap.get(concept.getConceptId());
-			final Concept existingSourceConcept = existingSourceConceptsMap == null ? null : existingSourceConceptsMap.get(concept.getConceptId());
+			final Concept existingConcept = existingConceptsMap.get(concept.getConceptId());
+			final Concept existingRebaseSourceConcept = existingRebaseSourceConceptsMap == null ? null : existingRebaseSourceConceptsMap.get(concept.getConceptId());
 			
 			final Map<String, Description> existingDescriptions = new HashMap<>();
+			final Map<String, Description> existingRebaseSourceDescriptions = new HashMap<>();
+			
 			final Set<ReferenceSetMember> newVersionOwlAxiomMembers = concept.getAllOwlAxiomMembers();
-
+			
 			if (enableContentAutomations) {
 				if (concept.isActive()) {
 					// Clear inactivation refsets
@@ -137,21 +139,22 @@ public class ConceptUpdateHelper extends ComponentService {
 			// Mark changed concepts as changed
 			if (existingConcept != null) {
 				concept.setCreating(false);// May have been set true earlier during first save
-				
-				//Are we copying the released details from the existing concept, or has the source been versioned recently?
-				Concept authoratativeConcept = existingConcept;
-				if (!existingConcept.isReleased() && existingSourceConcept != null && existingSourceConcept.isReleased()) {
-					authoratativeConcept = existingSourceConcept;
-				}
-				
 				concept.setChanged(concept.isComponentChanged(existingConcept) || savingMergedConcepts);
-				concept.copyReleaseDetails(authoratativeConcept);
+				concept.copyReleaseDetails(existingConcept, existingRebaseSourceConcept);
 				concept.updateEffectiveTime();
 				
-				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions(), savingMergedConcepts);
-				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships(), savingMergedConcepts);
-				markDeletionsAndUpdates(newVersionOwlAxiomMembers, existingConcept.getAllOwlAxiomMembers(), savingMergedConcepts);
+				Set<Description> existingRebaseSourceDescs = new HashSet<>(existingRebaseSourceDescriptions.values());
+				Set<Relationship> existingRebaseSourceRels = existingRebaseSourceConcept == null ? new HashSet<>() : existingRebaseSourceConcept.getRelationships();
+				Set<ReferenceSetMember> existingRebaseSourceOwlAxioms = existingRebaseSourceConcept == null ? new HashSet<>() : existingRebaseSourceConcept.getAllOwlAxiomMembers();
+				
+				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions(), existingRebaseSourceDescs, savingMergedConcepts);
+				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships(), existingRebaseSourceRels, savingMergedConcepts);
+				markDeletionsAndUpdates(newVersionOwlAxiomMembers, existingConcept.getAllOwlAxiomMembers(), existingRebaseSourceOwlAxioms, savingMergedConcepts);
+				
 				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
+				if (existingRebaseSourceConcept != null) {
+					existingRebaseSourceDescriptions.putAll(existingRebaseSourceConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
+				}
 			} else {
 				concept.setCreating(true);
 				concept.setChanged(true);
@@ -178,9 +181,15 @@ public class ConceptUpdateHelper extends ComponentService {
 			for (Description description : concept.getDescriptions()) {
 				description.setConceptId(concept.getConceptId());
 				final Description existingDescription = existingDescriptions.get(description.getDescriptionId());
+				final Description existingRebaseSourceDescription = existingRebaseSourceDescriptions.get(description.getDescriptionId());
+				
 				final Map<String, ReferenceSetMember> existingMembersToMatch = new HashMap<>();
+				final Map<String, ReferenceSetMember> existingRebaseSourceMembersToMatch = new HashMap<>();
 				if (existingDescription != null) {
 					existingMembersToMatch.putAll(existingDescription.getLangRefsetMembers());
+					if (existingRebaseSourceDescription != null) {
+						existingRebaseSourceMembersToMatch.putAll(existingRebaseSourceDescription.getLangRefsetMembers());
+					}
 				} else {
 					description.setCreating(true);
 					if (description.getDescriptionId() == null) {
@@ -210,6 +219,8 @@ public class ConceptUpdateHelper extends ComponentService {
 
 					final String languageRefsetId = acceptability.getKey();
 					final ReferenceSetMember existingMember = existingMembersToMatch.get(languageRefsetId);
+					final ReferenceSetMember existingRebaseSourceMember = existingRebaseSourceMembersToMatch.get(languageRefsetId);
+					
 					if (existingMember != null) {
 						final ReferenceSetMember member = new ReferenceSetMember(existingMember.getMemberId(), null, true,
 								existingMember.getModuleId(), languageRefsetId, description.getId());
@@ -217,7 +228,7 @@ public class ConceptUpdateHelper extends ComponentService {
 
 						if (member.isComponentChanged(existingMember) || savingMergedConcepts) {
 							member.setChanged(true);
-							member.copyReleaseDetails(existingMember);
+							member.copyReleaseDetails(existingMember, existingRebaseSourceMember);
 							member.updateEffectiveTime();
 						}
 						refsetMembersToPersist.add(member);
@@ -559,15 +570,18 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 	}
 
-	private <C extends SnomedComponent> void markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents, boolean rebase) {
+	private <C extends SnomedComponent> void markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents, Set<C> existingRebaseSourceComponents, boolean rebase) {
 		// Mark updates
 		final Map<String, C> map = existingComponents.stream().collect(Collectors.toMap(DomainEntity::getId, Function.identity()));
+		final Map<String, C> rebaseSourceMap = existingRebaseSourceComponents.stream().collect(Collectors.toMap(DomainEntity::getId, Function.identity()));
+		
 		for (C newComponent : newComponents) {
 			final C existingComponent = map.get(newComponent.getId());
+			final C existingRebaseSourceComponent = rebaseSourceMap.get(newComponent.getId());
 			newComponent.setChanged(newComponent.isComponentChanged(existingComponent) || rebase);
 			if (existingComponent != null) {
 				newComponent.setCreating(false);// May have been set true earlier
-				newComponent.copyReleaseDetails(existingComponent);
+				newComponent.copyReleaseDetails(existingComponent, existingRebaseSourceComponent);
 				newComponent.updateEffectiveTime();
 			} else {
 				newComponent.setCreating(true);
