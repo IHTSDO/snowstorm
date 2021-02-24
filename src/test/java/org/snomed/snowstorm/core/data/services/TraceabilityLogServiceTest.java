@@ -11,10 +11,8 @@ import io.kaicode.elasticvc.domain.Commit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
@@ -22,18 +20,12 @@ import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jms.annotation.JmsListener;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 
 import static junit.framework.TestCase.assertNull;
 import static org.junit.Assert.*;
-import static org.snomed.snowstorm.core.data.services.TestTraceabilityHelper.getActivityWithTimeout;
 
-@ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = TestConfig.class)
 class TraceabilityLogServiceTest extends AbstractTest {
 
 	@Autowired
@@ -45,7 +37,6 @@ class TraceabilityLogServiceTest extends AbstractTest {
 	@Autowired
 	private BranchService branchService;
 
-	private static final Stack<Activity> activitiesLogged = new Stack<>();
 
 	private boolean traceabilityOriginallyEnabled;
 
@@ -54,7 +45,6 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		traceabilityOriginallyEnabled = traceabilityLogService.isEnabled();
 		// Temporarily enable traceability if not already enabled in the test context
 		traceabilityLogService.setEnabled(true);
-		activitiesLogged.clear();
 	}
 
 	@AfterEach
@@ -63,30 +53,24 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		traceabilityLogService.setEnabled(traceabilityOriginallyEnabled);
 	}
 
-	@JmsListener(destination = "${jms.queue.prefix}.traceability")
-	void messageConsumer(Activity activity) {
-		System.out.println("Got activity " + activity.getCommitComment());
-		activitiesLogged.push(activity);
-	}
-
 	@Test
 	void createDeleteConcept() throws ServiceException, InterruptedException {
 		Concept concept = conceptService.create(new Concept().addFSN("New concept"), MAIN);
 
-		Activity activity = getActivity();
+		Activity activity = getTraceabilityActivity();
 		assertEquals("Creating concept New concept", activity.getCommitComment());
 
 		// Add description
 		concept.addDescription(new Description("another"));
 		conceptService.update(concept, MAIN);
-		activity = getActivity();
+		activity = getTraceabilityActivity();
 		assertEquals("Updating concept New concept", activity.getCommitComment());
 		assertEquals(1, activity.getChanges().size());
 
 		// Add axiom
 		concept.addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING));
 		conceptService.update(concept, MAIN);
-		activity = getActivity();
+		activity = getTraceabilityActivity();
 		assertEquals("Updating concept New concept", activity.getCommitComment());
 		Map<String, Activity.ConceptActivity> changes = activity.getChanges();
 		assertEquals(1, changes.size());
@@ -100,24 +84,20 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		// Add inferred relationship
 		concept.addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING).setInferred(true));
 		conceptService.update(concept, MAIN);
-		activity = getActivity();
+		activity = getTraceabilityActivity();
 		assertEquals("Classified ontology.", activity.getCommitComment());
 		assertEquals(1, activity.getChanges().size());
 
 		// Update concept with no change
 		conceptService.update(concept, MAIN);
-		activity = getActivityWithTimeout(10, activitiesLogged);// Shorter timeout here because we know the test JMS broker is up and we don't expect a message to come.
+		activity = getTraceabilityActivityWithTimeout(10);// Shorter timeout here because we know the test JMS broker is up and we don't expect a message to come.
 		assertNull("No concept changes so no traceability commit.", activity);
 
 		conceptService.deleteConceptAndComponents(concept.getConceptId(), MAIN, false);
-		activity = getActivity();
+		activity = getTraceabilityActivity();
 		assertNotNull(activity);
 		assertEquals("Deleting concept New concept", activity.getCommitComment());
 		assertEquals(1, activity.getChanges().size());
-	}
-
-	public Activity getActivity() throws InterruptedException {
-		return TestTraceabilityHelper.getActivity(activitiesLogged);
 	}
 
 	@Test
@@ -154,7 +134,6 @@ class TraceabilityLogServiceTest extends AbstractTest {
 
 	@Test
 	void testDeltaImportWithOneAdditionChange() throws InterruptedException {
-		activitiesLogged.clear();
 		final Commit commit = new Commit(branchService.create("MAIN/RF2DeltaImport"), Commit.CommitType.CONTENT, null, null);
 		final PersistedComponents persistedComponents =
 				PersistedComponents.newBuilder()
@@ -162,14 +141,13 @@ class TraceabilityLogServiceTest extends AbstractTest {
 								   .withPersistedDescriptions(Collections.singleton(new Description("8635753033", 1, true, "900000000000012033", "3311481044",
 																									"en", "900000000000013044", "Test term", "900000000000448022"))).build();
 		traceabilityLogService.logActivity(null, commit, persistedComponents, false, "Delta");
-		final Activity activity = getActivityWithTimeout(2, activitiesLogged);
+		final Activity activity = getTraceabilityActivityWithTimeout(2);
 		assertNotNull(activity);
 		assertTrue(activity.getCommitComment().contains("RF2 Import - Updating concept Test FSN"));
 	}
 
 	@Test
 	void testDeltaImportWithTwoAdditionChange() throws InterruptedException {
-		activitiesLogged.clear();
 		final Commit commit = new Commit(branchService.create("MAIN/RF2DeltaImport"), Commit.CommitType.CONTENT, null, null);
 		final PersistedComponents persistedComponents =
 				PersistedComponents.newBuilder()
@@ -179,7 +157,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 																			new Description("8635753033", 1, true, "900000000000012033", "3311483055",
 																							"en", "900000000000013044", "Test term", "900000000000448022"))).build();
 		traceabilityLogService.logActivity(null, commit, persistedComponents, false, "Delta");
-		final Activity activity = getActivityWithTimeout(2, activitiesLogged);
+		final Activity activity = getTraceabilityActivityWithTimeout(2);
 		assertNotNull(activity);
 		assertTrue(activity.getCommitComment().contains("RF2 Import - Bulk update to 2 concepts."));
 	}

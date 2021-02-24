@@ -12,8 +12,10 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.PermissionService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.classification.ClassificationService;
+import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jms.annotation.JmsListener;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextImpl;
@@ -21,6 +23,8 @@ import org.springframework.security.web.authentication.preauth.PreAuthenticatedA
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.testcontainers.junit.jupiter.Testcontainers;
+
+import java.util.Stack;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_MRCM_ATTRIBUTE_RANGE_INTERNATIONAL;
@@ -53,6 +57,8 @@ public abstract class AbstractTest {
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
 
+	private static final Stack<Activity> traceabilityActivitiesLogged = new Stack<>();
+
 	@BeforeEach
 	void before() {
 		// Setup security
@@ -63,6 +69,7 @@ public abstract class AbstractTest {
 			SecurityContextHolder.clearContext();
 		}
 		branchService.create(MAIN);
+		clearActivities();
 	}
 
 	@AfterEach
@@ -92,5 +99,34 @@ public abstract class AbstractTest {
 		rangeMember.setAdditionalField("ruleStrengthId", "723597001");
 		rangeMember.setAdditionalField("contentTypeId", "723596005");
 		return referenceSetMemberService.createMember(branchPath, rangeMember);
+	}
+
+	@JmsListener(destination = "${jms.queue.prefix}.traceability")
+	void messageConsumer(Activity activity) {
+		System.out.println("Got activity " + activity.getCommitComment());
+		traceabilityActivitiesLogged.push(activity);
+	}
+
+	public Activity getTraceabilityActivity() throws InterruptedException {
+		return getTraceabilityActivityWithTimeout(20);
+	}
+	public Activity getTraceabilityActivityWithTimeout(int maxWait) throws InterruptedException {
+		int waited = 0;
+		while (traceabilityActivitiesLogged.isEmpty() && waited < maxWait) {
+			Thread.sleep(1_000);
+			waited++;
+		}
+		if (traceabilityActivitiesLogged.isEmpty()) {
+			return null;
+		}
+		return traceabilityActivitiesLogged.pop();
+	}
+
+	public void clearActivities() {
+		traceabilityActivitiesLogged.clear();
+	}
+
+	public Stack<Activity> getTraceabilityActivitiesLogged() {
+		return traceabilityActivitiesLogged;
 	}
 }
