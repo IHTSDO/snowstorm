@@ -80,6 +80,21 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 		setReleaseHash(component.getReleaseHash());
 		setReleasedEffectiveTime(component.getReleasedEffectiveTime());
 	}
+	
+	public void copyReleaseDetails(SnomedComponent<C> component, SnomedComponent<C> existingRebaseSourceComponent) {
+		//Are we copying the released details from the existing component, or has the rebase source been versioned more recently?
+		SnomedComponent<C> mostRecentlyPublished = component;
+		if (existingRebaseSourceComponent != null && existingRebaseSourceComponent.isReleased() &&
+			(!component.isReleased() || 
+				existingRebaseSourceComponent.getReleasedEffectiveTime() > component.getReleasedEffectiveTime())) {
+			mostRecentlyPublished = existingRebaseSourceComponent;
+		}
+		
+		setEffectiveTimeI(mostRecentlyPublished.getEffectiveTimeI());
+		setReleased(mostRecentlyPublished.isReleased());
+		setReleaseHash(mostRecentlyPublished.getReleaseHash());
+		setReleasedEffectiveTime(mostRecentlyPublished.getReleasedEffectiveTime());
+	}
 
 	public void clearReleaseDetails() {
 		setEffectiveTimeI(null);
