@@ -20,18 +20,19 @@ import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.jms.annotation.JmsListener;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.*;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.*;
-import static org.snomed.snowstorm.core.data.services.TestTraceabilityHelper.getActivity;
 
 class ClassificationServiceTest extends AbstractTest {
 
@@ -58,7 +59,6 @@ class ClassificationServiceTest extends AbstractTest {
 
 	@Autowired
 	private TraceabilityLogService traceabilityLogService;
-	private static final Stack<Activity> activitiesLogged = new Stack<>();
 	private boolean traceabilityOriginallyEnabled;
 
 	@BeforeEach
@@ -66,7 +66,6 @@ class ClassificationServiceTest extends AbstractTest {
 		traceabilityOriginallyEnabled = traceabilityLogService.isEnabled();
 		// Temporarily enable traceability if not already enabled in the test context
 		traceabilityLogService.setEnabled(true);
-		activitiesLogged.clear();
 	}
 
 	@AfterEach
@@ -75,19 +74,13 @@ class ClassificationServiceTest extends AbstractTest {
 		traceabilityLogService.setEnabled(traceabilityOriginallyEnabled);
 	}
 
-	@JmsListener(destination = "${jms.queue.prefix}.traceability")
-	void messageConsumer(Activity activity) {
-		System.out.println("Got activity " + activity.getCommitComment());
-		activitiesLogged.push(activity);
-	}
-
 	@Test
 	void testSaveRelationshipChanges() throws IOException, ServiceException, InterruptedException {
 		// Create concept with some stated modeling in an axiom
 		final String branch = "MAIN";
 		createRangeConstraint("1142135004", "dec(>#0..)");
 		createRangeConstraint("1142139005", "int(>#0..)");
-		activitiesLogged.clear();
+		clearActivities();
 
 		conceptService.create(
 				new Concept("123123123001")
@@ -97,8 +90,8 @@ class ClassificationServiceTest extends AbstractTest {
 								Relationship.newConcrete("1142135004", ConcreteValue.newDecimal("#55.5"))
 						), branch);
 
-		Activity activity = getActivity(activitiesLogged);
-		assertEquals(0, activitiesLogged.size());
+		Activity activity = getTraceabilityActivity();
+		assertEquals(0, getTraceabilityActivitiesLogged().size());
 		assertNotNull(activity);
 		assertEquals("Creating concept null", activity.getCommitComment());
 		assertEquals(1, activity.getChanges().size());
@@ -147,8 +140,8 @@ class ClassificationServiceTest extends AbstractTest {
 		assertNotNull(concreteRelationship);
 		assertEquals("#5", concreteRelationship.getValue());
 
-		activity = getActivity(activitiesLogged);
-		assertEquals(0, activitiesLogged.size());
+		activity = getTraceabilityActivity();
+		assertEquals(0, getTraceabilityActivitiesLogged().size());
 		assertNotNull(activity, "Traceability must be logged for classification results.");
 		assertEquals("Classified ontology.", activity.getCommitComment());
 		assertEquals(1, activity.getChanges().size());
