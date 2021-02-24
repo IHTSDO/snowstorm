@@ -54,9 +54,8 @@ public class AdminController {
 
 	@ApiOperation(value = "Rebuild the semantic index of the branch.",
 			notes = "You are unlikely to need this action. " +
-					"If something has gone wrong with processing of content updates on the branch then semantic index " +
-					"which supports the ECL queries can be rebuilt on demand. " +
-					"You are unlikely to need this action.")
+					"If something has gone wrong with processing of content updates on the branch then semantic index, " +
+					"which supports the ECL queries, can be rebuilt on demand. ")
 	@RequestMapping(value = "/{branch}/actions/rebuild-semantic-index", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void rebuildBranchTransitiveClosure(@PathVariable String branch) throws ServiceException {
@@ -66,8 +65,7 @@ public class AdminController {
 	@ApiOperation(value = "Force update of definition statuses of all concepts based on axioms.",
 			notes = "You are unlikely to need this action. " +
 					"If something has wrong with processing content updates on the branch the definition statuses " +
-					"of all concepts can be updated based on the concept's axioms. " +
-					"You are unlikely to need this action.")
+					"of all concepts can be updated based on the concept's axioms. ")
 	@RequestMapping(value = "/{branch}/actions/update-definition-statuses", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void updateDefinitionStatuses(@PathVariable String branch) throws ServiceException {
@@ -107,8 +105,9 @@ public class AdminController {
 	}
 
 	@ApiOperation(value = "Rollback a commit on a branch.",
-			notes = "Use with extreme caution! Only rollback a commit which you know is the latest commit on the branch " +
-					"and that there are no child branches created or rebased since the commit otherwise version control will break."
+			notes = "Use with caution! This operation only permits rolling back the latest commit on a branch. " +
+					"If there are any child branches they should be manually deleted or rebased straight after rollback. \n" +
+					"If the commit being rolled back created a code system version and release branch then they will be deleted automatically as part of rollback."
 	)
 	@RequestMapping(value = "/{branch}/actions/rollback-commit", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
