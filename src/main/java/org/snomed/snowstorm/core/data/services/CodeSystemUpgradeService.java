@@ -20,6 +20,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_PACKAGE;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_RELEASE;
 
 @Service
 public class CodeSystemUpgradeService {
@@ -101,20 +103,10 @@ public class CodeSystemUpgradeService {
 			logger.info("Running integrity check on {}", branchPath);
 			Branch extensionBranch = branchService.findLatest(branchPath);
 			IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrity(extensionBranch);
-			if (!integrityReport.isEmpty()) {
-				logger.warn("Bad integrity found on {}", branchPath);
-				Map<String, Object> metaDataExpanded = branchMetadataHelper.expandObjectValues(extensionBranch.getMetadata());
-				Map<String, String> integrityIssueMetaData = new HashMap<>();
-				integrityIssueMetaData.put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "true");
-				if (metaDataExpanded == null) {
-					metaDataExpanded = new HashMap<>();
-				}
-				metaDataExpanded.put(INTERNAL_METADATA_KEY, integrityIssueMetaData);
-				branchService.updateMetadata(branchPath, branchMetadataHelper.flattenObjectValues(metaDataExpanded));
-			} else {
-				logger.info("No issues found in the integrity issue report.");
-			}
 			logger.info("Completed integrity check on {}", branchPath);
+
+			updateBranchMetaData(branchPath, newParentVersion, extensionBranch, integrityReport.isEmpty());
+			logger.info("Upgrade completed on {}", branchPath);
 
 		} finally {
 			// Re-enable daily build
@@ -126,4 +118,26 @@ public class CodeSystemUpgradeService {
 		}
 	}
 
+	private void updateBranchMetaData(String branchPath, CodeSystemVersion newParentVersion, Branch extensionBranch, boolean isReportEmpty) {
+		Map<String, Object> metaDataExpanded = branchMetadataHelper.expandObjectValues(extensionBranch.getMetadata());
+		metaDataExpanded = (metaDataExpanded == null) ? new HashMap<>() : metaDataExpanded;
+
+		if (newParentVersion.getReleasePackage() != null) {
+			metaDataExpanded.put(DEPENDENCY_PACKAGE, newParentVersion.getReleasePackage());
+		} else {
+			logger.error("No release package is set for version {}", newParentVersion);
+		}
+		metaDataExpanded.put(DEPENDENCY_RELEASE, String.valueOf(newParentVersion.getEffectiveDate()));
+		if (!isReportEmpty) {
+			logger.warn("Bad integrity found on {}", branchPath);
+			Map<String, String> integrityIssueMetaData = new HashMap<>();
+			integrityIssueMetaData.put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "true");
+			metaDataExpanded.put(INTERNAL_METADATA_KEY, integrityIssueMetaData);
+		} else {
+			logger.info("No issues found in the integrity issue report.");
+		}
+
+		// update branch metadata
+		branchService.updateMetadata(branchPath, branchMetadataHelper.flattenObjectValues(metaDataExpanded));
+	}
 }

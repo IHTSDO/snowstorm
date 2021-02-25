@@ -31,6 +31,9 @@ public class CodeSystemVersion {
 	@Field(type = FieldType.Keyword)
 	private String description;
 
+	@Field(type = FieldType.Keyword)
+	private String releasePackage;
+
 	public CodeSystemVersion() {
 	}
 
@@ -101,5 +104,13 @@ public class CodeSystemVersion {
 
 	public void setDescription(String description) {
 		this.description = description;
+	}
+
+	public String getReleasePackage() {
+		return releasePackage;
+	}
+
+	public void setReleasePackage(String releasePackage) {
+		this.releasePackage = releasePackage;
 	}
 }
