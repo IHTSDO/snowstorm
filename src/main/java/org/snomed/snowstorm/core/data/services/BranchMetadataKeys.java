@@ -8,4 +8,5 @@ public interface BranchMetadataKeys {
 	String DEFAULT_MODULE_ID = "defaultModuleId";
 	String DEFAULT_NAMESPACE = "defaultNamespace";
 	String SHORTNAME = "shortname";
+	String DEPENDENCY_RELEASE = "dependencyRelease";
 }
