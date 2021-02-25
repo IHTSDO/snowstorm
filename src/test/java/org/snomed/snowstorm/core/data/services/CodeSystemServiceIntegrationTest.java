@@ -18,12 +18,11 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_PACKAGE;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_RELEASE;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -46,6 +45,9 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private BranchMetadataHelper branchMetadataHelper;
 
 	@Test
 	// We set up two versions of the international edition, 20180731 and 20190131, both on MAIN.
@@ -132,7 +134,6 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 		IntegrityIssueReport componentsWithBadIntegrityOnMAIN = integrityService.findAllComponentsWithBadIntegrity(branchService.findLatest("MAIN"), true);
 		assertTrue("Integrity report should be empty: " + componentsWithBadIntegrityOnMAIN.toString(), componentsWithBadIntegrityOnMAIN.isEmpty());
 
-
 		// Create extension code system
 		CodeSystem extensionCodeSystem = new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE", "Belgian Edition", "be");
 		codeSystemService.createCodeSystem(extensionCodeSystem);
@@ -167,10 +168,23 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 		// Create a new version of International
 		codeSystemService.createVersion(codeSystemService.find(snomedct), 20190131, "Dummy 2019-01-31 release.");
 
+		// update with release package
+		String releasePackage = "Test_20190131_Release_Snapshot.zip";
+		CodeSystemVersion codeSystemVersion = codeSystemService.findVersion(snomedct, 20190131);
+		codeSystemVersion = codeSystemService.updateVersion(codeSystemVersion, releasePackage);
+		assertEquals(releasePackage, codeSystemVersion.getReleasePackage());
+
 		// Upgrade the extension to the new international version
 		assertEquals(20180731, codeSystemService.find(extensionCodeSystem.getShortName()).getDependantVersionEffectiveTime().intValue());
 		codeSystemUpgradeService.upgrade(extensionCodeSystem, 20190131, true);
 		assertEquals(20190131, codeSystemService.find(extensionCodeSystem.getShortName()).getDependantVersionEffectiveTime().intValue());
+
+		// check branch metadata
+		Map<String, String> branchMetaData = branchService.findLatest(extensionCodeSystem.getBranchPath()).getMetadata();
+		Map<String, Object> expanded = branchMetadataHelper.expandObjectValues(branchMetaData);
+		assertEquals("Dependant release version is updated", "20190131", expanded.get(DEPENDENCY_RELEASE));
+		assertEquals("DependencyPackage is updated", releasePackage, expanded.get(DEPENDENCY_PACKAGE));
+
 
 		extensionCodeSystem = codeSystemService.find("SNOMEDCT-BE");
 		assertEquals("MAIN/SNOMEDCT-BE", extensionCodeSystem.getBranchPath());
