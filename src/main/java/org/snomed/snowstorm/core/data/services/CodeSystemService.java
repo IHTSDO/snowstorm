@@ -227,6 +227,17 @@ public class CodeSystemService {
 		return version;
 	}
 
+	@PreAuthorize("hasPermission('ADMIN', #codeSystemVersion.branchPath)")
+	public synchronized CodeSystemVersion updateVersion(CodeSystemVersion codeSystemVersion, String releasePackage) {
+		if (codeSystemVersion == null) {
+			logger.warn("Aborting Code System Version updating. This version doesn't exist.");
+			throw new IllegalStateException("Aborting Code System Version update. This version doesn't exist.");
+		}
+		codeSystemVersion.setReleasePackage(releasePackage);
+		versionRepository.save(codeSystemVersion);
+		return codeSystemVersion;
+	}
+
 	private String getHyphenatedVersionString(Integer effectiveDate) {
 		String effectiveDateString = effectiveDate.toString();
 		return effectiveDateString.substring(0, 4) + "-" + effectiveDateString.substring(4, 6) + "-" + effectiveDateString.substring(6, 8);

@@ -22,6 +22,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static java.lang.Boolean.TRUE;
 
@@ -113,6 +115,34 @@ public class CodeSystemController {
 
 		String versionId = codeSystemService.createVersion(codeSystem, input.getEffectiveDate(), input.getDescription());
 		return ControllerHelper.getCreatedResponse(versionId);
+	}
+
+	@ApiOperation(value = "Update the release package in an existing code system version",
+			notes = "This function is used to update the release package for a given version." +
+					"The shortName is the code system short name e.g SNOMEDCT" +
+					"The version is the code system version e.g 2021-01-31" +
+					"The releasePackage is the published release package name or versioned snapshot package name exported from the Snowstorm." +
+					"For example: SnomedCT_InternationalRF2_PRODUCTION_20210131T120000Z.zip")
+	@RequestMapping(value = "/{shortName}/versions/{version}", method = RequestMethod.PUT)
+	public CodeSystemVersion updateVersion(@PathVariable String shortName, @PathVariable String version, @RequestParam String releasePackage) {
+		ControllerHelper.requiredParam(releasePackage, "releasePackage");
+		if (!releasePackage.endsWith(".zip")) {
+			throw new IllegalArgumentException("The release package is not a zip filename");
+		}
+		CodeSystem codeSystem = codeSystemService.find(shortName);
+		ControllerHelper.throwIfNotFound("CodeSystem", codeSystem);
+
+		List<CodeSystemVersion> versionsFound = codeSystemService.findAllVersions(shortName, TRUE)
+				.stream().filter(v -> v.getVersion().equals(version)).collect(Collectors.toList());
+		CodeSystemVersion codeSystemVersion = null;
+		if (!versionsFound.isEmpty()) {
+			if (versionsFound.size() > 1) {
+				throw new IllegalStateException(String.format("Found multiple versions for %s", version));
+			}
+			codeSystemVersion = versionsFound.get(0);
+		}
+		ControllerHelper.throwIfNotFound("CodeSystemVersion", codeSystemVersion);
+		return codeSystemService.updateVersion(codeSystemVersion, releasePackage);
 	}
 
 	@ApiOperation(value = "Upgrade code system to a different dependant version.",
