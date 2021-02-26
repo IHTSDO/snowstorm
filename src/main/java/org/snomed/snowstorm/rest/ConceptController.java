@@ -407,7 +407,7 @@ public class ConceptController {
 				createdConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.getInvalidContents(), createdConcept));
 				return new ResponseEntity<>(createdConcept, ControllerHelper.getCreatedLocationHeaders(createdConcept.getId()), HttpStatus.OK);
 			}
-			(concept).setValidationResults(invalidContent.getInvalidContents());
+			concept.setValidationResults(invalidContent.getInvalidContents());
 			return new ResponseEntity<>(concept, HttpStatus.BAD_REQUEST);
 		}
 
@@ -441,7 +441,7 @@ public class ConceptController {
 				updatedConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.getInvalidContents(), updatedConcept));
 				return new ResponseEntity<>(updatedConcept, HttpStatus.OK);
 			}
-			(concept).setValidationResults(invalidContent.getInvalidContents());
+			concept.setValidationResults(invalidContent.getInvalidContents());
 			return new ResponseEntity<>(concept, HttpStatus.BAD_REQUEST);
 		}
 
