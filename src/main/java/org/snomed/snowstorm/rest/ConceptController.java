@@ -45,7 +45,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
-import javax.validation.Validator;
 import java.util.*;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
@@ -92,9 +91,6 @@ public class ConceptController {
 
 	@Autowired
 	private ObjectMapper objectMapper;
-
-	@Autowired
-	private Validator beanInstanceValidator;
 
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
@@ -396,25 +392,26 @@ public class ConceptController {
 	public ResponseEntity<ConceptView> createConcept(
 			@PathVariable String branch,
 			@RequestParam(required = false, defaultValue = "false") boolean validate,
-			@RequestBody ConceptView concept,
+			@RequestBody ConceptView conceptView,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
+		Concept concept = (Concept) conceptView;
 		if (validate) {
-			final InvalidContentWithSeverityStatus invalidContent = ConceptValidationHelper.validate((Concept) concept, BranchPathUriUtil.decodePath(branch), validationService);
+			final InvalidContentWithSeverityStatus invalidContent = ConceptValidationHelper.validate(concept, BranchPathUriUtil.decodePath(branch), validationService);
 			if (invalidContent.getSeverity() == Severity.WARNING) {
-				final Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
+				// Remove temporary ids before the underlying create operation.
+				concept = ConceptValidationHelper.stripTemporaryUUIDsIfSet(concept);
+
+				final Concept createdConcept = conceptService.create(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 						BranchPathUriUtil.decodePath(branch));
-				// validate concept after creation due to temporary id provided by UI can exceed the concept id range.
-				beanInstanceValidator.validate(createdConcept);
 				createdConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.getInvalidContents(), createdConcept));
 				return new ResponseEntity<>(createdConcept, ControllerHelper.getCreatedLocationHeaders(createdConcept.getId()), HttpStatus.OK);
 			}
-			((Concept) concept).setValidationResults(invalidContent.getInvalidContents());
+			concept.setValidationResults(invalidContent.getInvalidContents());
 			return new ResponseEntity<>(concept, HttpStatus.BAD_REQUEST);
 		}
 
-		beanInstanceValidator.validate(concept);
-		final Concept createdConcept = conceptService.create((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
+		final Concept createdConcept = conceptService.create(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 				BranchPathUriUtil.decodePath(branch));
 		return new ResponseEntity<>(createdConcept, getCreatedLocationHeaders(createdConcept.getId()), HttpStatus.OK);
 	}
@@ -426,28 +423,29 @@ public class ConceptController {
 			@PathVariable String branch,
 			@PathVariable String conceptId,
 			@RequestParam(required = false, defaultValue = "false") boolean validate,
-			@RequestBody ConceptView concept,
+			@RequestBody ConceptView conceptView,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
-		Assert.isTrue(concept.getConceptId() != null && conceptId != null && concept.getConceptId().equals(conceptId), "The conceptId in the " +
+		Assert.isTrue(conceptView.getConceptId() != null && conceptId != null && conceptView.getConceptId().equals(conceptId), "The conceptId in the " +
 				"path must match the one in the request body.");
 
+		Concept concept = (Concept) conceptView;
 		if (validate) {
-			final InvalidContentWithSeverityStatus invalidContent = ConceptValidationHelper.validate((Concept) concept, BranchPathUriUtil.decodePath(branch), validationService);
+			final InvalidContentWithSeverityStatus invalidContent = ConceptValidationHelper.validate(concept, BranchPathUriUtil.decodePath(branch), validationService);
 			if (invalidContent.getSeverity() == Severity.WARNING) {
-				final Concept updatedConcept = conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
+				// Remove temporary ids before the underlying update operation.
+				concept = ConceptValidationHelper.stripTemporaryUUIDsIfSet(concept);
+
+				final Concept updatedConcept = conceptService.update(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 						BranchPathUriUtil.decodePath(branch));
-				// validate concept after creation due to temporary id provided by UI can exceed the concept id range.
-				beanInstanceValidator.validate(updatedConcept);
 				updatedConcept.setValidationResults(ConceptValidationHelper.replaceTemporaryUUIDWithSCTID(invalidContent.getInvalidContents(), updatedConcept));
 				return new ResponseEntity<>(updatedConcept, HttpStatus.OK);
 			}
-			((Concept) concept).setValidationResults(invalidContent.getInvalidContents());
+			concept.setValidationResults(invalidContent.getInvalidContents());
 			return new ResponseEntity<>(concept, HttpStatus.BAD_REQUEST);
 		}
 
-		beanInstanceValidator.validate(concept);
-		return new ResponseEntity<>(conceptService.update((Concept) concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
+		return new ResponseEntity<>(conceptService.update(concept, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader),
 				BranchPathUriUtil.decodePath(branch)), HttpStatus.OK);
 	}
 
