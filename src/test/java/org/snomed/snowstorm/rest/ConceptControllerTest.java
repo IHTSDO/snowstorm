@@ -296,7 +296,7 @@ class ConceptControllerTest extends AbstractTest {
 		final String responseEntity = restTemplate.exchange(
 				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts").queryParam("validate", "true").build().toUri(),
 				HttpMethod.POST, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY, httpHeaders), String.class).toString();
-		assertTrue(responseEntity.contains("99970008"));
+		assertTrue(responseEntity.contains("200"));
 		assertTrue(responseEntity.contains("Test resources were not available so assertions like case significance and US specific terms checks will not have run."));
 	}
 
@@ -328,7 +328,7 @@ class ConceptControllerTest extends AbstractTest {
 		final String responseEntity = restTemplate.exchange(
 				UriComponentsBuilder.fromUriString("http://localhost:" + port + "/browser/MAIN/concepts/99970008").queryParam("validate", "true").build().toUri(),
 				HttpMethod.PUT, new HttpEntity<>(ConceptControllerTestConstants.CONCEPT_WITH_VALIDATION_WARNINGS_ONLY, httpHeaders), String.class).toString();
-		assertTrue(responseEntity.contains("99970008"));
+		assertTrue(responseEntity.contains("200"));
 		assertTrue(responseEntity.contains("Test resources were not available so assertions like case significance and US specific terms checks will not have run."));
 	}
 

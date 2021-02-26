@@ -19,13 +19,26 @@ public final class ConceptValidationHelper {
 	}
 
 	public static InvalidContentWithSeverityStatus validate(final Concept concept, final String branchPath, final DroolsValidationService validationService) throws ServiceException {
-		final List<InvalidContent> invalidContents = validationService.validateConcept(branchPath, generateUUIDSIfNotSet(concept));
+		final List<InvalidContent> invalidContents = validationService.validateConcept(branchPath, generateTemporaryUUIDsIfNotSet(concept));
 		final List<InvalidContent> invalidContentErrors = invalidContents.stream().filter(invalidContent -> invalidContent.getSeverity() == Severity.ERROR).collect(Collectors.toList());
 		return invalidContentErrors.isEmpty() ? new InvalidContentWithSeverityStatus(invalidContents, Severity.WARNING) :
 				new InvalidContentWithSeverityStatus(invalidContents, Severity.ERROR);
 	}
 
-	private static Concept generateUUIDSIfNotSet(final Concept concept) {
+	public static Concept stripTemporaryUUIDsIfSet(final Concept concept) {
+		if (concept != null) {
+			if (concept.getConceptId() != null && concept.getConceptId().contains("-")) {
+				concept.setConceptId(null);
+			}
+			concept.getDescriptions().stream().filter(description -> description != null && description.getId() != null && description.getId().contains("-"))
+					.forEach(description -> description.setDescriptionId(null));
+			concept.getRelationships().stream().filter(relationship -> relationship != null && relationship.getId() != null && relationship.getId().contains("-"))
+					.forEach(relationship -> relationship.setRelationshipId(null));
+		}
+		return concept;
+	}
+
+	private static Concept generateTemporaryUUIDsIfNotSet(final Concept concept) {
 		if (concept != null) {
 			if (concept.getConceptId() == null) {
 				concept.setConceptId(UUID.randomUUID().toString());
