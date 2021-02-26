@@ -116,7 +116,7 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 	@Test
 	// We set up content for the international edition and an extension.
 	// We inactivate an international concept then see the extension break when it's upgraded.
-	void testCodeSystemUpgradeFindBrokenRelationships() throws IOException, ReleaseImportException, ServiceException {
+		void testCodeSystemUpgradeFindBrokenRelationships() throws IOException, ReleaseImportException, ServiceException {
 		// Create international code system
 		String snomedct = "SNOMEDCT";
 		codeSystemService.createCodeSystem(new CodeSystem(snomedct, "MAIN", "International Edition", ""));
@@ -171,7 +171,7 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 		// update with release package
 		String releasePackage = "Test_20190131_Release_Snapshot.zip";
 		CodeSystemVersion codeSystemVersion = codeSystemService.findVersion(snomedct, 20190131);
-		codeSystemVersion = codeSystemService.updateVersion(codeSystemVersion, releasePackage);
+		codeSystemVersion = codeSystemService.updateCodeSystemVersionPackage(codeSystemVersion, releasePackage);
 		assertEquals(releasePackage, codeSystemVersion.getReleasePackage());
 
 		// Upgrade the extension to the new international version
