@@ -123,10 +123,17 @@ public class CodeSystemController {
 				)
 	@RequestMapping(value = "/{shortName}/versions/{effectiveDate}", method = RequestMethod.PUT)
 	public CodeSystemVersion updateVersion(@PathVariable String shortName, @PathVariable Integer effectiveDate, @RequestParam String releasePackage) {
+		// release package and effective date checking
 		ControllerHelper.requiredParam(releasePackage, "releasePackage");
 		if (!releasePackage.endsWith(".zip")) {
 			throw new IllegalArgumentException(String.format("The release package %s is not a zip filename.", releasePackage));
 		}
+		// simple check to make sure the effective date is matching
+		if (!releasePackage.contains(String.valueOf(effectiveDate))) {
+			throw new IllegalArgumentException(String.format("The release package %s doesn't have the same effective date as %s", releasePackage, effectiveDate));
+		}
+
+		// Check CodeSystemVersion exists or not
 		CodeSystem codeSystem = codeSystemService.find(shortName);
 		ControllerHelper.throwIfNotFound("CodeSystem", codeSystem);
 
