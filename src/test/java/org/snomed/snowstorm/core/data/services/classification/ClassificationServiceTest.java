@@ -5,6 +5,7 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.config.Config;
@@ -74,6 +75,7 @@ class ClassificationServiceTest extends AbstractTest {
 		traceabilityLogService.setEnabled(traceabilityOriginallyEnabled);
 	}
 
+	@Disabled("Disabled until the ActiveMQ broker can restart under Jenkins.")
 	@Test
 	void testSaveRelationshipChanges() throws IOException, ServiceException, InterruptedException {
 		// Create concept with some stated modeling in an axiom
