@@ -230,14 +230,16 @@ public class CodeSystemService {
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystemVersion.branchPath)")
-	public synchronized CodeSystemVersion updateVersion(CodeSystemVersion codeSystemVersion, String releasePackage) {
-		if (codeSystemVersion == null) {
-			logger.warn("Aborting Code System Version updating. This version doesn't exist.");
-			throw new IllegalStateException("Aborting Code System Version update. This version doesn't exist.");
+	public synchronized CodeSystemVersion updateCodeSystemVersionPackage(CodeSystemVersion codeSystemVersion, String releasePackage) {
+		String shortName = codeSystemVersion.getShortName();
+		Integer effectiveDate = codeSystemVersion.getEffectiveDate();
+		CodeSystemVersion versionToUpdate = findVersion(shortName, effectiveDate);
+		if (versionToUpdate == null) {
+			throw new IllegalStateException(String.format("No code system version found for %s with effective date %s", shortName, effectiveDate));
 		}
-		codeSystemVersion.setReleasePackage(releasePackage);
-		versionRepository.save(codeSystemVersion);
-		return codeSystemVersion;
+		versionToUpdate.setReleasePackage(releasePackage);
+		versionRepository.save(versionToUpdate);
+		return versionToUpdate;
 	}
 
 	private String getHyphenatedVersionString(Integer effectiveDate) {
