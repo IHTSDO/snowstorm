@@ -32,8 +32,8 @@ class UtilityControllerTest extends AbstractTest {
 	}
 
 	private ResponseEntity<String> apiParseEcl(String ecl) {
-		String url = "http://localhost:" + port + "/util/ecl-string-to-model?" + format(Collections.singletonList(new BasicNameValuePair("ecl", ecl)), UTF_8);
-		return restTemplate.getForEntity(url, String.class);
+		String url = "http://localhost:" + port + "/util/ecl-string-to-model";
+		return restTemplate.postForEntity(url, ecl, String.class);
 	}
 
 }
