@@ -31,9 +31,9 @@ public class UtilityController {
 			notes = "This utility function can be used to parse Expression Constraint Language and convert to a model representation, " +
 					"to support ECL builder web applications. " +
 					"Please note that this function does not validate any concepts or terms within the expression.")
-	@RequestMapping(value = "ecl-string-to-model", method = RequestMethod.GET)
+	@RequestMapping(value = "ecl-string-to-model", method = RequestMethod.POST)
 	@ResponseBody
-	public ExpressionConstraint parseECL(@RequestParam String ecl) {
+	public ExpressionConstraint parseECL(@RequestBody String ecl) {
 		try {
 			ecl = URLDecoder.decode(ecl, StandardCharsets.UTF_8.toString());
 			return eclQueryBuilder.createQuery(ecl);
