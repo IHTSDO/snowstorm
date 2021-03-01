@@ -29,7 +29,6 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
@@ -81,127 +80,106 @@ public class ConceptUpdateHelper extends ComponentService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	PersistedComponents saveNewOrUpdatedConcepts(Collection<Concept> concepts, Commit commit, 
+	/**
+	 * Creates, updates or deletes a collection of concepts and their components in batch within an open commit. This method does not close the commit.
+	 * @param newVersionConcepts	The set of concepts to persist.
+	 * @param existingConceptsMap	The set of concept versions which already exist on this branch. If this is a rebase the parent components will be included if they
+	 *                                 have not been overwritten by a newer version of the same component on this branch.
+	 * @param existingConceptsFromParentMap	If this is a rebase commit this parameter must be the set of concept versions which already exist on the parent branch. These
+	 *                                         components are used to preserve the latest release details when there is a newer version of a component in version control.
+	 * @param commit				The commit in which to persist any changed components.
+	 * @return	The set of components which have been persisted.
+	 * @throws ServiceException	If there is a problem persisting the components to the store.
+	 */
+	PersistedComponents saveNewOrUpdatedConcepts(
+			Collection<Concept> newVersionConcepts,
 			Map<String, Concept> existingConceptsMap,
-			Map<String, Concept> existingRebaseSourceConceptsMap) throws ServiceException {
-		final boolean savingMergedConcepts = commit.isRebase();
+			Map<String, Concept> existingConceptsFromParentMap,
+			Commit commit) throws ServiceException {
 
-		validateConcepts(concepts);
+		final boolean rebaseConflictSave = commit.isRebase();
+
+		validateConcepts(newVersionConcepts);
 
 		// Grab branch metadata including values inherited from ancestor branches
 		Map<String, String> metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
 		String defaultModuleId = metadata != null ? metadata.get(Config.DEFAULT_MODULE_ID_KEY) : null;
 		String defaultNamespace = metadata != null ? metadata.get(Config.DEFAULT_NAMESPACE_KEY) : null;
 		boolean enableContentAutomations = metadata == null || !"true".equals(metadata.get(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY));
-		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(concepts, defaultNamespace);
+		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(newVersionConcepts, defaultNamespace);
 
-		// Assign identifiers to new concepts
-		concepts.stream()
-				.filter(concept -> concept.getConceptId() == null)
+		// Assign identifier to new concepts before axiom conversion
+		newVersionConcepts.stream().filter(concept -> concept.getConceptId() == null)
 				.forEach(concept -> concept.setConceptId(reservedIds.getNextId(ComponentType.Concept).toString()));
 
-		// Convert axioms to OWLAxiom reference set members before persisting
-		axiomConversionService.populateAxiomMembers(concepts, commit.getBranch().getPath());
+		// Bulk convert axioms to OWLAxiom reference set members before persisting
+		axiomConversionService.populateAxiomMembers(newVersionConcepts, commit.getBranch().getPath());
 
+		// Create collections of components that will be written to store, including deletions
 		List<Description> descriptionsToPersist = new ArrayList<>();
 		List<Relationship> relationshipsToPersist = new ArrayList<>();
 		List<ReferenceSetMember> refsetMembersToPersist = new ArrayList<>();
-		for (Concept concept : concepts) {
-			final Concept existingConcept = existingConceptsMap.get(concept.getConceptId());
-			final Concept existingRebaseSourceConcept = existingRebaseSourceConceptsMap == null ? null : existingRebaseSourceConceptsMap.get(concept.getConceptId());
-			
-			final Map<String, Description> existingDescriptions = new HashMap<>();
-			final Map<String, Description> existingRebaseSourceDescriptions = new HashMap<>();
-			
-			final Set<ReferenceSetMember> newVersionOwlAxiomMembers = concept.getAllOwlAxiomMembers();
-			
+
+		for (Concept newVersionConcept : newVersionConcepts) {
+
+			// Grab existing versions of this concept
+			Concept existingConcept = existingConceptsMap.get(newVersionConcept.getConceptId());
+			Concept existingConceptFromParent = existingConceptsFromParentMap == null ? null : existingConceptsFromParentMap.get(newVersionConcept.getConceptId());
+
 			if (enableContentAutomations) {
-				if (concept.isActive()) {
+				// Update the state of components automatically based on baked-in rules
+
+				if (newVersionConcept.isActive()) {
 					// Clear inactivation refsets
-					concept.setInactivationIndicator(null);
-					concept.setAssociationTargets(null);
+					newVersionConcept.setInactivationIndicator(null);
+					newVersionConcept.setAssociationTargets(null);
 				} else {
 					// Make stated relationships and axioms inactive. We use the classification process to inactivate the inferred relationships.
-					concept.getRelationships().forEach(relationship -> {
+					newVersionConcept.getRelationships().forEach(relationship -> {
 						if (Concepts.STATED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId())) {
 							relationship.setActive(false);
 						}
 					});
-					newVersionOwlAxiomMembers.forEach(axiom -> axiom.setActive(false));
-					concept.getDescriptions().forEach(description -> {
+					newVersionConcept.getAllOwlAxiomMembers().forEach(axiom -> axiom.setActive(false));
+					newVersionConcept.getDescriptions().forEach(description -> {
 							if (StringUtils.isEmpty(description.getInactivationIndicator())) {
 								description.setInactivationIndicator(inactivationIndicatorNames.get(Concepts.CONCEPT_NON_CURRENT));
 							}
 					});
 				}
-			}
 
-			// Mark changed concepts as changed
-			if (existingConcept != null) {
-				concept.setCreating(false);// May have been set true earlier during first save
-				concept.setChanged(concept.isComponentChanged(existingConcept) || savingMergedConcepts);
-				concept.copyReleaseDetails(existingConcept, existingRebaseSourceConcept);
-				concept.updateEffectiveTime();
-				
-				Set<Description> existingRebaseSourceDescs = new HashSet<>(existingRebaseSourceDescriptions.values());
-				Set<Relationship> existingRebaseSourceRels = existingRebaseSourceConcept == null ? new HashSet<>() : existingRebaseSourceConcept.getRelationships();
-				Set<ReferenceSetMember> existingRebaseSourceOwlAxioms = existingRebaseSourceConcept == null ? new HashSet<>() : existingRebaseSourceConcept.getAllOwlAxiomMembers();
-				
-				markDeletionsAndUpdates(concept.getDescriptions(), existingConcept.getDescriptions(), existingRebaseSourceDescs, savingMergedConcepts);
-				markDeletionsAndUpdates(concept.getRelationships(), existingConcept.getRelationships(), existingRebaseSourceRels, savingMergedConcepts);
-				markDeletionsAndUpdates(newVersionOwlAxiomMembers, existingConcept.getAllOwlAxiomMembers(), existingRebaseSourceOwlAxioms, savingMergedConcepts);
-				
-				existingDescriptions.putAll(existingConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
-				if (existingRebaseSourceConcept != null) {
-					existingRebaseSourceDescriptions.putAll(existingRebaseSourceConcept.getDescriptions().stream().collect(Collectors.toMap(Description::getId, Function.identity())));
+				// Create or update concept inactivation indicator refset members based on the json inactivation map
+				updateInactivationIndicator(newVersionConcept, existingConcept, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET);
+
+				// Create or update concept historical association refset members based on the json inactivation map
+				updateAssociations(newVersionConcept, existingConcept, refsetMembersToPersist);
+
+				for (Description description : newVersionConcept.getDescriptions()) {
+					if (description.isActive()) {
+						if (newVersionConcept.isActive()) {
+							description.setInactivationIndicator(null);
+						}
+					} else {
+						if (!description.getAcceptabilityMap().isEmpty()) {
+							description.clearLanguageRefsetMembers();
+							description.getAcceptabilityMap().clear();
+						}
+					}
 				}
-			} else {
-				concept.setCreating(true);
-				concept.setChanged(true);
-				concept.clearReleaseDetails();
-
-				Stream.of(
-						concept.getDescriptions().stream(),
-						concept.getRelationships().stream(),
-						newVersionOwlAxiomMembers.stream())
-						.flatMap(i -> i)
-						.forEach(component -> {
-							component.setCreating(true);
-							component.setChanged(true);
-							component.clearReleaseDetails();
-						});
 			}
 
-			// Concept inactivation indicator changes
-			updateInactivationIndicator(concept, existingConcept, refsetMembersToPersist, Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET);
+			for (Description description : newVersionConcept.getDescriptions()) {
+				description.setConceptId(newVersionConcept.getConceptId());
+				if (description.getDescriptionId() == null) {
+					description.setDescriptionId(reservedIds.getNextId(ComponentType.Description).toString());
+				}
 
-			// Concept association changes
-			updateAssociations(concept, existingConcept, refsetMembersToPersist);
-
-			for (Description description : concept.getDescriptions()) {
-				description.setConceptId(concept.getConceptId());
-				final Description existingDescription = existingDescriptions.get(description.getDescriptionId());
-				final Description existingRebaseSourceDescription = existingRebaseSourceDescriptions.get(description.getDescriptionId());
+				final Description existingDescription = getExistingComponent(existingConcept, ConceptView::getDescriptions, description.getDescriptionId());
+				final Description existingDescriptionFromParent = getExistingComponent(existingConceptFromParent, ConceptView::getDescriptions, description.getDescriptionId());
 				
 				final Map<String, ReferenceSetMember> existingMembersToMatch = new HashMap<>();
-				final Map<String, ReferenceSetMember> existingRebaseSourceMembersToMatch = new HashMap<>();
 				if (existingDescription != null) {
 					existingMembersToMatch.putAll(existingDescription.getLangRefsetMembers());
-					if (existingRebaseSourceDescription != null) {
-						existingRebaseSourceMembersToMatch.putAll(existingRebaseSourceDescription.getLangRefsetMembers());
-					}
-				} else {
-					description.setCreating(true);
-					if (description.getDescriptionId() == null) {
-						description.setDescriptionId(reservedIds.getNextId(ComponentType.Description).toString());
-					}
-				}
-				if (description.isActive()) {
-					if (concept.isActive()) {
-						description.setInactivationIndicator(null);
-					}
-				} else {
-					description.clearLanguageRefsetMembers();
 				}
 
 				// Description inactivation indicator changes
@@ -211,73 +189,73 @@ public class ConceptUpdateHelper extends ComponentService {
 				updateAssociations(description, existingDescription, refsetMembersToPersist);
 
 				// Description acceptability / language reference set changes
+				Set<ReferenceSetMember> newMembers = new HashSet<>();
 				for (Map.Entry<String, String> acceptability : description.getAcceptabilityMap().entrySet()) {
+					final String languageRefsetId = acceptability.getKey();
 					final String acceptabilityId = Concepts.descriptionAcceptabilityNames.inverse().get(acceptability.getValue());
 					if (acceptabilityId == null) {
 						throw new IllegalArgumentException("Acceptability value not recognised '" + acceptability.getValue() + "'.");
 					}
 
-					final String languageRefsetId = acceptability.getKey();
 					final ReferenceSetMember existingMember = existingMembersToMatch.get(languageRefsetId);
-					final ReferenceSetMember existingRebaseSourceMember = existingRebaseSourceMembersToMatch.get(languageRefsetId);
-					
+					ReferenceSetMember member;
 					if (existingMember != null) {
-						final ReferenceSetMember member = new ReferenceSetMember(existingMember.getMemberId(), null, true,
-								existingMember.getModuleId(), languageRefsetId, description.getId());
-						member.setAdditionalField("acceptabilityId", acceptabilityId);
-
-						if (member.isComponentChanged(existingMember) || savingMergedConcepts) {
-							member.setChanged(true);
-							member.copyReleaseDetails(existingMember, existingRebaseSourceMember);
-							member.updateEffectiveTime();
-						}
-						refsetMembersToPersist.add(member);
+						member = new ReferenceSetMember(existingMember.getMemberId(), null, true, existingMember.getModuleId(), languageRefsetId, description.getId());
 						existingMembersToMatch.remove(languageRefsetId);
 					} else {
-						final ReferenceSetMember member = new ReferenceSetMember(description.getModuleId(), languageRefsetId, description.getId());
-						member.setAdditionalField("acceptabilityId", acceptabilityId);
-						member.setChanged(true);
-						refsetMembersToPersist.add(member);
+						member = new ReferenceSetMember(description.getModuleId(), languageRefsetId, description.getId());
 					}
+					member.setAdditionalField("acceptabilityId", acceptabilityId);
+					newMembers.add(member);
 				}
-				for (ReferenceSetMember leftoverMember : existingMembersToMatch.values()) {
-					if (leftoverMember.isActive()) {
-						leftoverMember.setActive(false);
-						leftoverMember.markChanged();
-						refsetMembersToPersist.add(leftoverMember);
-					}
-				}
+				description.setLanguageRefsetMembers(newMembers);
+
+				markDeletionsAndUpdates(description, existingDescription, existingDescriptionFromParent, (item) -> item.getLangRefsetMembers().values(),
+						refsetMembersToPersist, rebaseConflictSave);
 			}
 
 			// Apply relationship source ids
-			concept.getRelationships()
-					.forEach(relationship -> relationship.setSourceId(concept.getConceptId()));
+			newVersionConcept.getRelationships()
+					.forEach(relationship -> relationship.setSourceId(newVersionConcept.getConceptId()));
 
 			// Set new relationship ids
-			concept.getRelationships().stream()
+			newVersionConcept.getRelationships().stream()
 					.filter(relationship -> relationship.getRelationshipId() == null)
 					.forEach(relationship -> relationship.setRelationshipId(reservedIds.getNextId(ComponentType.Relationship).toString()));
 
-			// Detach concept's components to be persisted separately
-			descriptionsToPersist.addAll(concept.getDescriptions());
-			concept.getDescriptions().clear();
-			relationshipsToPersist.addAll(concept.getRelationships());
-			concept.getRelationships().clear();
-			refsetMembersToPersist.addAll(newVersionOwlAxiomMembers);
-			concept.getClassAxioms().clear();
-			concept.getGciAxioms().clear();
+			if (existingConcept != null || existingConceptFromParent != null) {
+				// Existing concept
+				newVersionConcept.setCreating(false);// May have been set true earlier during first save
+				newVersionConcept.setChanged(existingConcept == null || newVersionConcept.isComponentChanged(existingConcept) || rebaseConflictSave);
+				newVersionConcept.copyReleaseDetails(existingConcept, existingConceptFromParent);
+				newVersionConcept.updateEffectiveTime();
+			} else {
+				// New concept
+				newVersionConcept.setCreating(true);
+				newVersionConcept.setChanged(true);
+				newVersionConcept.clearReleaseDetails();
+			}
+			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getDescriptions, descriptionsToPersist, rebaseConflictSave);
+			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getRelationships, relationshipsToPersist, rebaseConflictSave);
+			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getAllOwlAxiomMembers, refsetMembersToPersist, rebaseConflictSave);
+
+			// Detach concept's components to ensure concept persisted without collections
+			newVersionConcept.getDescriptions().clear();
+			newVersionConcept.getRelationships().clear();
+			newVersionConcept.getClassAxioms().clear();
+			newVersionConcept.getGciAxioms().clear();
 		}
 
 		// Apply default module to changed components
 		if (defaultModuleId != null) {
-			applyDefaultModule(concepts, defaultModuleId);
+			applyDefaultModule(newVersionConcepts, defaultModuleId);
 			applyDefaultModule(descriptionsToPersist, defaultModuleId);
 			applyDefaultModule(relationshipsToPersist, defaultModuleId);
 			applyDefaultModule(refsetMembersToPersist, defaultModuleId);
 		}
 
 		// TODO: Try saving all core component types at once - Elasticsearch likes multi-threaded writes.
-		doSaveBatchConcepts(concepts, commit);
+		doSaveBatchConcepts(newVersionConcepts, commit);
 		doSaveBatchDescriptions(descriptionsToPersist, commit);
 		doSaveBatchRelationships(relationshipsToPersist, commit);
 
@@ -287,7 +265,21 @@ public class ConceptUpdateHelper extends ComponentService {
 		// Store assigned identifiers for registration with CIS
 		identifierService.persistAssignedIdsForRegistration(reservedIds);
 
-		return new PersistedComponents(concepts, descriptionsToPersist, relationshipsToPersist, refsetMembersToPersist);
+		return new PersistedComponents(newVersionConcepts, descriptionsToPersist, relationshipsToPersist, refsetMembersToPersist);
+	}
+
+	private <C extends SnomedComponent<?>, T extends SnomedComponent<?>> Collection<C> getExistingComponents(T existingConcept, Function<T, Collection<C>> getter) {
+		if (existingConcept != null) {
+			return getter.apply(existingConcept);
+		}
+		return Collections.emptySet();
+	}
+
+	private <C extends SnomedComponent<?>, T extends SnomedComponent<?>> C getExistingComponent(T existingConcept, Function<T, Collection<C>> getter, String componentId) {
+		if (componentId == null) {
+			return null;
+		}
+		return getExistingComponents(existingConcept, getter).stream().filter(item -> componentId.equals(item.getId())).findFirst().orElse(null);
 	}
 
 	private <T extends SnomedComponent<?>> void applyDefaultModule(Collection<T> components, String defaultModuleId) {
@@ -435,12 +427,12 @@ public class ConceptUpdateHelper extends ComponentService {
 			Collection<ReferenceSetMember> refsetMembersToPersist,
 			String indicatorReferenceSet) {
 
-		String newIndicator = newComponent.getInactivationIndicator();
+		String newIndicatorName = newComponent.getInactivationIndicator();
 		String newIndicatorId = null;
-		if (newIndicator != null) {
-			newIndicatorId = inactivationIndicatorNames.inverse().get(newIndicator);
+		if (newIndicatorName != null) {
+			newIndicatorId = inactivationIndicatorNames.inverse().get(newIndicatorName);
 			if (newIndicatorId == null) {
-				throw new IllegalArgumentException(newComponent.getClass().getSimpleName() + " inactivation indicator not recognised '" + newIndicator + "'.");
+				throw new IllegalArgumentException(newComponent.getClass().getSimpleName() + " inactivation indicator not recognised '" + newIndicatorName + "'.");
 			}
 		}
 
@@ -570,24 +562,31 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 	}
 
-	private <C extends SnomedComponent> void markDeletionsAndUpdates(Set<C> newComponents, Set<C> existingComponents, Set<C> existingRebaseSourceComponents, boolean rebase) {
+	private <C extends SnomedComponent, T extends SnomedComponent<?>> void markDeletionsAndUpdates(T newConcept, T existingConcept, T existingConceptFromParent,
+			Function<T, Collection<C>> getter, Collection<C> componentsToPersist, boolean rebase) {
+
+		final Collection<C> newComponents = getExistingComponents(newConcept, getter);
+		final Collection<C> existingComponents = getExistingComponents(existingConcept, getter);
+		final Collection<C> existingComponentsFromParent = getExistingComponents(existingConceptFromParent, getter);
+
+		final Map<String, C> existingComponentMap = existingComponents.stream().collect(Collectors.toMap(DomainEntity::getId, Function.identity()));
+		final Map<String, C> rebaseParentExistingComponentMap = existingComponentsFromParent.stream().collect(Collectors.toMap(DomainEntity::getId, Function.identity()));
+
 		// Mark updates
-		final Map<String, C> map = existingComponents.stream().collect(Collectors.toMap(DomainEntity::getId, Function.identity()));
-		final Map<String, C> rebaseSourceMap = existingRebaseSourceComponents.stream().collect(Collectors.toMap(DomainEntity::getId, Function.identity()));
-		
 		for (C newComponent : newComponents) {
-			final C existingComponent = map.get(newComponent.getId());
-			final C existingRebaseSourceComponent = rebaseSourceMap.get(newComponent.getId());
-			newComponent.setChanged(newComponent.isComponentChanged(existingComponent) || rebase);
+			final C existingComponent = existingComponentMap.get(newComponent.getId());
+			newComponent.setChanged(existingComponent == null || newComponent.isComponentChanged(existingComponent) || rebase);
 			if (existingComponent != null) {
 				newComponent.setCreating(false);// May have been set true earlier
-				newComponent.copyReleaseDetails(existingComponent, existingRebaseSourceComponent);
+				newComponent.copyReleaseDetails(existingComponent, rebaseParentExistingComponentMap.get(newComponent.getId()));
 				newComponent.updateEffectiveTime();
 			} else {
 				newComponent.setCreating(true);
 				newComponent.clearReleaseDetails();
 			}
 		}
+		componentsToPersist.addAll(newComponents);// All added but only those with changed or deleted flag will be written to store.
+
 		// Mark deletions
 		for (C existingComponent : existingComponents) {
 			if (!newComponents.contains(existingComponent)) {
@@ -598,7 +597,7 @@ public class ConceptUpdateHelper extends ComponentService {
 				} else {
 					existingComponent.markDeleted();
 				}
-				newComponents.add(existingComponent);// Add to newComponents collection so the deletion is persisted
+				componentsToPersist.add(existingComponent);
 			}
 		}
 	}

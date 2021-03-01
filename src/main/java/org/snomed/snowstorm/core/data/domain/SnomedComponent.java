@@ -81,19 +81,22 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 		setReleasedEffectiveTime(component.getReleasedEffectiveTime());
 	}
 	
-	public void copyReleaseDetails(SnomedComponent<C> component, SnomedComponent<C> existingRebaseSourceComponent) {
-		//Are we copying the released details from the existing component, or has the rebase source been versioned more recently?
-		SnomedComponent<C> mostRecentlyPublished = component;
-		if (existingRebaseSourceComponent != null && existingRebaseSourceComponent.isReleased() &&
-			(!component.isReleased() || 
-				existingRebaseSourceComponent.getReleasedEffectiveTime() > component.getReleasedEffectiveTime())) {
-			mostRecentlyPublished = existingRebaseSourceComponent;
+	public void copyReleaseDetails(SnomedComponent<C> existingComponent, SnomedComponent<C> existingParentComponent) {
+		// Copy release details from the existing component, or the rebase parent branch version, whichever has been versioned more recently
+		SnomedComponent<C> mostRecentlyPublished = existingComponent != null ? existingComponent : existingParentComponent;
+		if (existingParentComponent != null && existingParentComponent.isReleased() &&
+			(!mostRecentlyPublished.isReleased() ||
+				existingParentComponent.getReleasedEffectiveTime() > mostRecentlyPublished.getReleasedEffectiveTime())) {
+			mostRecentlyPublished = existingParentComponent;
 		}
-		
-		setEffectiveTimeI(mostRecentlyPublished.getEffectiveTimeI());
-		setReleased(mostRecentlyPublished.isReleased());
-		setReleaseHash(mostRecentlyPublished.getReleaseHash());
-		setReleasedEffectiveTime(mostRecentlyPublished.getReleasedEffectiveTime());
+		if (mostRecentlyPublished != null) {
+			setEffectiveTimeI(mostRecentlyPublished.getEffectiveTimeI());
+			setReleased(mostRecentlyPublished.isReleased());
+			setReleaseHash(mostRecentlyPublished.getReleaseHash());
+			setReleasedEffectiveTime(mostRecentlyPublished.getReleasedEffectiveTime());
+		} else {
+			clearReleaseDetails();
+		}
 	}
 
 	public void clearReleaseDetails() {

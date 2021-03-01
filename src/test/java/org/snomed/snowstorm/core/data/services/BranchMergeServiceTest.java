@@ -12,7 +12,7 @@ import io.kaicode.elasticvc.domain.Branch;
 import org.assertj.core.util.Maps;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
-import org.junit.Assert;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,13 +37,14 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION;
 import static org.snomed.snowstorm.core.data.domain.review.ReviewStatus.CURRENT;
@@ -153,15 +154,15 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertBranchStateAndConceptVisibility("MAIN/C", Branch.BranchState.UP_TO_DATE, conceptId, false);
 
 		// Rebase to A2
-		assertEquals("Before rebase versions.", 1, branchService.findAllVersions("MAIN/A/A2", LARGE_PAGE).getTotalElements());
+		assertEquals(1, branchService.findAllVersions("MAIN/A/A2", LARGE_PAGE).getTotalElements(), "Before rebase versions.");
 		Date beforeRebaseTimepoint = new Date();
 		Branch branchA2BeforeRebase = branchService.findAtTimepointOrThrow("MAIN/A/A2", beforeRebaseTimepoint);
 
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", null);
 
-		assertEquals("Before rebase, another version of the branch created.", 2, branchService.findAllVersions("MAIN/A/A2", LARGE_PAGE).getTotalElements());
-		assertEquals("The base timepoint of the original version of the branch should not have changed.",
-				branchA2BeforeRebase.getBase(), branchService.findAtTimepointOrThrow("MAIN/A/A2", beforeRebaseTimepoint).getBase());
+		assertEquals(2, branchService.findAllVersions("MAIN/A/A2", LARGE_PAGE).getTotalElements(), "Before rebase, another version of the branch created.");
+		assertEquals(branchA2BeforeRebase.getBase(), branchService.findAtTimepointOrThrow("MAIN/A/A2", beforeRebaseTimepoint).getBase(), "The base timepoint of the original version of the branch should not have changed."
+		);
 
 		assertEquals("test-admin performed merge of MAIN/A to MAIN/A/A2", getLatestTraceabilityCommitComment());
 		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
@@ -246,11 +247,13 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// MAIN/A/A1 can see concept1 but not concept2
 		Concept concept1OnA1 = assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.FORWARD, concept1, true);
+		assertNotNull(concept1OnA1);
 		assertEquals(1, concept1OnA1.getDescriptions().size());
 		assertConceptNotVisible("MAIN/A/A1", concept2);
 
 		// MAIN/A/A2 can see concept2 but not concept1
 		final Concept concept2OnA2 = assertBranchStateAndConceptVisibility("MAIN/A/A2", Branch.BranchState.FORWARD, concept2, true);
+		assertNotNull(concept2OnA2);
 		assertEquals(2, concept2OnA2.getDescriptions().size());
 		assertConceptNotVisible("MAIN/A/A2", concept1);
 
@@ -267,11 +270,13 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// MAIN/A can see concept1 and descriptions but not concept2
 		Concept concept1OnA = assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.FORWARD, concept1, true);
+		assertNotNull(concept1OnA);
 		assertEquals(1, concept1OnA.getDescriptions().size());
 		assertConceptNotVisible("MAIN/A", concept2);
 
 		// MAIN/A/A1 is up-to-date and can still see concept1 but not concept2
 		concept1OnA1 = assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.UP_TO_DATE, concept1, true);
+		assertNotNull(concept1OnA1);
 		assertEquals(1, concept1OnA1.getDescriptions().size());
 		assertConceptNotVisible("MAIN/A/A1", concept2);
 		content = queryService.eclSearch(">" + concept1, true, "MAIN/A/A1", PageRequest.of(0, 10)).getContent();
@@ -295,6 +300,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// MAIN/A can see concept1 and descriptions but not concept2
 		concept1OnA = assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.FORWARD, concept1, true);
+		assertNotNull(concept1OnA);
 		assertEquals(1, concept1OnA.getDescriptions().size());
 		assertConceptNotVisible("MAIN/A", concept2);
 
@@ -392,12 +398,12 @@ class BranchMergeServiceTest extends AbstractTest {
 		// MAIN: 2 -> 4
 		System.out.println("// MAIN: 100002 -> 100004");
 		conceptService.update(new Concept("100002").addAxiom(new Relationship(Concepts.ISA, "100004")), "MAIN");
-		Assert.assertEquals(Sets.newHashSet(100001L, 100004L), queryService.findAncestorIds("100002", "MAIN", true));
+		assertEquals(Sets.newHashSet(100001L, 100004L), queryService.findAncestorIds("100002", "MAIN", true));
 
 		// MAIN/A: 3 -> 2
 		System.out.println("// MAIN/A: 100003 -> 100002");
 		conceptService.create(new Concept("100003").addAxiom(new Relationship(Concepts.ISA, "100002")), "MAIN/A");
-		Assert.assertEquals(Sets.newHashSet(100001L, 100002L), queryService.findAncestorIds("100003", "MAIN/A", true));
+		assertEquals(Sets.newHashSet(100001L, 100002L), queryService.findAncestorIds("100003", "MAIN/A", true));
 
 		// Rebase MAIN/A
 		System.out.println("// Rebase MAIN/A");
@@ -405,21 +411,23 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptySet());
 
-		Assert.assertEquals(Sets.newHashSet(100001L, 100004L), queryService.findAncestorIds("100002", "MAIN/A", true));
-		Assert.assertEquals(Sets.newHashSet(100001L, 100004L, 100002L), queryService.findAncestorIds("100003", "MAIN/A", true));
+		assertEquals(Sets.newHashSet(100001L, 100004L), queryService.findAncestorIds("100002", "MAIN/A", true));
+		assertEquals(Sets.newHashSet(100001L, 100004L, 100002L), queryService.findAncestorIds("100003", "MAIN/A", true));
 	}
 
-/*
-	// TODO: Disabled until production behaviour can be fixed.
-	@Test(expected = IllegalArgumentException.class)
+	@Test
 	void testConflictWithoutManualMergeSupplied() throws ServiceException {
-		final String concept1 = "100";
+		final String concept1 = "10000000";
 		final Concept concept = new Concept(concept1);
-		conceptService.batchCreate(concept, "MAIN/A/A1");
-		conceptService.batchCreate(concept, "MAIN/A");
-		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", null);
+		conceptService.batchCreate(Collections.singletonList(concept), "MAIN/A/A1");
+		conceptService.batchCreate(Collections.singletonList(concept), "MAIN/A");
+		try {
+			branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A1", null);
+			fail("Should have thrown IllegalArgumentException");
+		} catch (IllegalArgumentException e) {
+			assertEquals("The target branch is diverged, please use the merge review endpoint instead.", e.getMessage());
+		}
 	}
-*/
 
 	@Test
 	void testConflictConceptMergeChangesFromLeftIncludingStatedModeling() throws ServiceException {
@@ -559,8 +567,8 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT"), 20200131, "");
 
-		assertEquals("One axiom, one published association member, one published historic association.",
-				3, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(3, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one published association member, one published historic association."
+		);
 
 		branchService.create("MAIN/B");
 		branchService.create("MAIN/B/B1");
@@ -575,9 +583,9 @@ class BranchMergeServiceTest extends AbstractTest {
 		for (ReferenceSetMember member : memberService.findMembers(path, conceptId, PageRequest.of(0, 10))) {
 			System.out.println(member.toString());
 		}
-		assertEquals("One axiom, one inactive published association, one inactive published historic association, " +
-				"one new association and one new inactivation reason member.",
-				5, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(5, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one inactive published association, one inactive published historic association, " +
+				"one new association and one new inactivation reason member."
+		);
 
 		path = "MAIN/B/B2";
 		concept = conceptService.find(conceptId, path);
@@ -585,9 +593,9 @@ class BranchMergeServiceTest extends AbstractTest {
 		concept.setInactivationIndicator("AMBIGUOUS");
 		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(Concepts.ISA)));
 		conceptService.update(concept, path);
-		assertEquals("One axiom, one inactive published association, one inactive published historic association, " +
-				"one new association and one new inactivation reason member.",
-				5, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements());
+		assertEquals(5, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one inactive published association, one inactive published historic association, " +
+				"one new association and one new inactivation reason member."
+		);
 
 		// Promote B2
 		branchMergeService.mergeBranchSync("MAIN/B/B2", "MAIN/B", Collections.emptySet());
@@ -606,10 +614,10 @@ class BranchMergeServiceTest extends AbstractTest {
 		// Check for duplicate UUIDs
 		Map<String, AtomicInteger> memberIdCounts = new HashMap<>();
 		members.forEach(member -> memberIdCounts.computeIfAbsent(member.getId(), (id) -> new AtomicInteger()).incrementAndGet());
-		assertFalse("No duplicate refset members.", memberIdCounts.values().stream().anyMatch(value -> value.get() > 1));
+		assertFalse(memberIdCounts.values().stream().anyMatch(value -> value.get() > 1), "No duplicate refset members.");
 
-		assertEquals("One axiom, one inactive published association, one inactive published historic association, " +
-				"one new association and one new inactivation reason member.", 5, members.getTotalElements());
+		assertEquals(5, members.getTotalElements(), "One axiom, one inactive published association, one inactive published historic association, " +
+				"one new association and one new inactivation reason member.");
 		concept = conceptService.find(conceptId, path);
 		assertEquals("AMBIGUOUS", concept.getInactivationIndicator());
 		assertEquals("{POSSIBLY_EQUIVALENT_TO=[138875005]}", concept.getAssociationTargets().toString());
@@ -751,7 +759,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		Page<ReferenceSetMember> members = memberService.findMembers(taskA2, new MemberSearchRequest().referenceSet(REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION), LARGE_PAGE);
 		members.getContent().forEach(System.out::println);
 		assertEquals(1, members.getTotalElements());
-		assertEquals("Already versioned content must be kept.", "20210131", members.getContent().get(0).getEffectiveTime());
+		assertEquals("20210131", members.getContent().get(0).getEffectiveTime(), "Already versioned content must be kept.");
 	}
 
 	private Concept simulateRestTransfer(Concept concept) throws JsonProcessingException {
@@ -888,7 +896,7 @@ class BranchMergeServiceTest extends AbstractTest {
 				.build(), Branch.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 
-		branches.stream().forEach(System.out::println);
+		branches.forEach(System.out::println);
 		assertEquals(1, queryService.eclSearch(conceptId, false, "MAIN/A/A1", LARGE_PAGE).getTotalElements());
 
 		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptySet());
@@ -986,7 +994,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromRight));
 
 		final String conceptFromMergedA2 = conceptService.find(conceptId, "MAIN/A/A2").getModuleId();
-		Assert.assertEquals("100009003", conceptFromMergedA2);
+		assertEquals("100009003", conceptFromMergedA2);
 
 		// Promote the branch (no conflicts at this point)
 		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
@@ -1060,7 +1068,31 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals("dk", description.getLanguageCode());
 
 		final String conceptFromMergedA2 = conceptService.find(conceptId, "MAIN/A/A2").getModuleId();
-		Assert.assertEquals("100009003", conceptFromMergedA2);
+		assertEquals("100009003", conceptFromMergedA2);
+
+		// Promote the branch (no conflicts at this point)
+		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
+		assertEquals("100009003", conceptService.find(conceptId, "MAIN/A").getModuleId());
+	}
+
+	@Test
+	void testConflictConceptMergeChangesFromRightExtraDescriptionFromLeftMustBeRemoved() throws ServiceException {
+		final String conceptId = "10000100";
+
+		setupConflictSituation(
+				new Concept(conceptId, "100009001").addDescription(new Description("123123", "One")),
+				new Concept(conceptId, "100009002").addDescription(new Description("123123", "One").setLang("dk")).addDescription(new Description("123124", "Two")),
+				new Concept(conceptId, "100009003").addDescription(new Description("123123", "One").setLang("dk")));
+
+		// Rebase the diverged branch supplying the manually merged concept
+		final Concept conceptFromRight = new Concept(conceptId, "100009003").addDescription(new Description("123123", "One").setLang("dk"));
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(conceptFromRight));
+		Description description = descriptionService.findDescription("MAIN/A/A2", "123123");
+		assertEquals("dk", description.getLanguageCode());
+
+		final Concept conceptFromMergedA2 = conceptService.find(conceptId, "MAIN/A/A2");
+		assertEquals("100009003", conceptFromMergedA2.getModuleId());
+		assertEquals(1, descriptionService.findDescriptionsByConceptId("MAIN/A/A2", Collections.singleton(conceptId)).size());
 
 		// Promote the branch (no conflicts at this point)
 		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
@@ -1156,6 +1188,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		MergeReview mergeReview = reviewService.createMergeReview("MAIN/A", "MAIN/A/A2");
 		// Wait for completion
 		for (int i = 0; mergeReview.getStatus() == PENDING && i < 20; i++) {
+			//noinspection BusyWait
 			Thread.sleep(500);
 		}
 		assertEquals(CURRENT, mergeReview.getStatus());
@@ -1179,6 +1212,56 @@ class BranchMergeServiceTest extends AbstractTest {
 		// Promote the branch (no conflicts at this point)
 		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
 		assertEquals(1, conceptService.find(conceptId, "MAIN/A").getDescriptions().size());
+	}
+
+	@Test
+	void testConflictDescriptionInactiveWithDifferentAssociationOnBothSides() throws ServiceException, JsonProcessingException {
+		final String conceptId = "100001000";
+
+		// Release first version of the concept so that the inactive descriptions are not automatically deleted
+		String descriptionId = "10000011";
+		List<Concept> conceptVersions = setupConflictSituationReleaseFirstVersion(
+				new Concept(conceptId).addDescription(new Description(descriptionId, "Orig")
+						.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED)
+						.addLanguageRefsetMember(Concepts.GB_EN_LANG_REFSET, Concepts.PREFERRED)
+				),
+
+				new Concept(conceptId).addDescription(inactive(new Description(descriptionId, "Orig"), "NOT_SEMANTICALLY_EQUIVALENT", "REFERS_TO", "10001000")),
+
+				new Concept(conceptId).addDescription(inactive(new Description(descriptionId, "Orig"), "NOT_SEMANTICALLY_EQUIVALENT", "REFERS_TO", "10001000"))
+		);
+
+		// Rebase the diverged branch supplying the manually merged concept
+		Concept rightSideConcept = simulateRestTransfer(conceptVersions.get(2));
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(rightSideConcept));
+
+		Set<Description> descriptions = conceptService.find(conceptId, "MAIN/A/A2").getDescriptions();
+		assertEquals(1, descriptions.size());
+		Description description = descriptions.iterator().next();
+		assertEquals("NOT_SEMANTICALLY_EQUIVALENT", description.getInactivationIndicator());
+		assertEquals("{REFERS_TO=[10001000]}", description.getAssociationTargets().toString());
+
+		final Set<Description> descriptionsAfterMerge = descriptionService.findDescriptionsByConceptId("MAIN/A/A2", Collections.singleton(conceptId));
+		assertEquals(1, descriptionsAfterMerge.size(), itemsToString("Expecting 1 description, got:", descriptionsAfterMerge));
+
+		final Page<ReferenceSetMember> members = memberService.findMembers("MAIN/A/A2", descriptionId, LARGE_PAGE);
+		assertEquals(4, members.getTotalElements(), itemsToString("Expecting 4 members, got:", members));
+
+		// Promote the branch (no conflicts at this point)
+		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
+		assertEquals(1, conceptService.find(conceptId, "MAIN/A").getDescriptions().size());
+		assertEquals(4, memberService.findMembers("MAIN/A", descriptionId, LARGE_PAGE).getTotalElements());
+	}
+
+	@NotNull
+	private <T> Supplier<String> itemsToString(String message, Iterable<T> items) {
+		return () -> {
+			final StringBuilder builder = new StringBuilder(message);
+			for (T member : items) {
+				builder.append("\n").append(member.toString());
+			}
+			return builder.toString();
+		};
 	}
 
 	private Description inactive(Description description, String reason, String association, String associationTarget) {
@@ -1243,7 +1326,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// Update concept 10000100 description on A
 		Concept concept = conceptService.find("10000100", "MAIN");
-		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		getDescription(concept).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN");
 
 		// Delete concept 10000100 on MAIN/A
@@ -1270,7 +1353,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		reviewService.applyMergeReview(review);
 
-		assertNull("Concept should be deleted after the merge.", conceptService.find("10000100", "MAIN/A1"));
+		assertNull(conceptService.find("10000100", "MAIN/A1"), "Concept should be deleted after the merge.");
 	}
 
 	@Test
@@ -1280,7 +1363,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// Update concept 10000100 description on A
 		Concept concept = conceptService.find("10000100", "MAIN/A1");
-		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		getDescription(concept).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN/A1");
 
 		// Delete concept 10000100 on MAIN
@@ -1307,7 +1390,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		reviewService.applyMergeReview(review);
 
-		assertNull("Concept should be deleted after the merge.", conceptService.find("10000100", "MAIN/A1"));
+		assertNull(conceptService.find("10000100", "MAIN/A1"), "Concept should be deleted after the merge.");
 	}
 
 	@Test
@@ -1317,7 +1400,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// Update concept 10000100 description on A
 		Concept concept = conceptService.find("10000100", "MAIN");
-		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		getDescription(concept).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN");
 
 		// Delete concept 10000100 on MAIN/A
@@ -1344,7 +1427,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		reviewService.applyMergeReview(review);
 
-		assertNotNull("Concept should be restored after the merge.", conceptService.find("10000100", "MAIN/A1"));
+		assertNotNull(conceptService.find("10000100", "MAIN/A1"), "Concept should be restored after the merge.");
 	}
 
 	@Test
@@ -1354,7 +1437,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// Update concept 10000100 description on A
 		Concept concept = conceptService.find("10000100", "MAIN/A1");
-		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		getDescription(concept).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
 		conceptService.update(concept, "MAIN/A1");
 
 		// Delete concept 10000100 on MAIN
@@ -1381,7 +1464,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		reviewService.applyMergeReview(review);
 
-		assertNotNull("Concept should be restored after the merge.", conceptService.find("10000100", "MAIN/A1"));
+		assertNotNull(conceptService.find("10000100", "MAIN/A1"), "Concept should be restored after the merge.");
 	}
 
 	@Test
@@ -1391,7 +1474,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// Assert expected number were returned with immediateChildren=false and they are returned as expected.
 		List<Branch> branches = branchMergeService.findChildBranches(testRootPath, false, PageRequest.of(0, 100));
-		assertTrue("All child branches were not returned correctly.", expectedBranches.containsAll(branches));
+		assertTrue(expectedBranches.containsAll(branches), "All child branches were not returned correctly.");
 	}
 
 	@Test
@@ -1404,7 +1487,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// Assert expected number were returned with immediateChildren=true and they are returned as expected.
 		List<Branch> branches = branchMergeService.findChildBranches(testRootPath, true, PageRequest.of(0, 100));
-		assertTrue("All child branches were not returned correctly.", expectedBranches.containsAll(branches));
+		assertTrue(expectedBranches.containsAll(branches), "All child branches were not returned correctly.");
 	}
 
 	@Test
@@ -1424,10 +1507,10 @@ class BranchMergeServiceTest extends AbstractTest {
 					testRootPath,
 					false,
 					PageRequest.of(page, pageSize));
-			assertEquals("Page returned incorrect number of branches", currentPageSize, pageBranches.size());
+			assertEquals(currentPageSize, pageBranches.size(), "Page returned incorrect number of branches");
 			expectedBranches.removeAll(pageBranches);
 		});
-		assertEquals("All expected branches not returned by the pages", 0, expectedBranches.size());
+		assertEquals(0, expectedBranches.size(), "All expected branches not returned by the pages");
 	}
 
 	@Test
@@ -1509,6 +1592,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		long maxWait = 10;
 		long cumulativeWait = 0;
 		while (review.getStatus() == PENDING && cumulativeWait < maxWait) {
+			//noinspection BusyWait
 			Thread.sleep(1_000);
 			cumulativeWait++;
 		}
@@ -1522,17 +1606,24 @@ class BranchMergeServiceTest extends AbstractTest {
 	 * leftConcept is then saved and promoted from MAIN/A/A1 to MAIN/A.
 	 * rightConcept is then saved to MAIN/A/A2.
 	 * At that point MAIN/A/A2 has a conflict in the rebase.
-	 * @return
 	 */
-	private List<Concept> setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept) throws ServiceException {
-		return setupConflictSituation(parentConcept, leftConcept, rightConcept, false, null, new String[] { "MAIN/A/A1", "MAIN/A/A2"});
+	private void setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept) throws ServiceException {
+		setupConflictSituation(parentConcept, leftConcept, rightConcept, false, null, new String[] { "MAIN/A/A1", "MAIN/A/A2"});
 	}
 
-	private List<Concept> setupConflictSituationReleaseFirstVersion(Concept parentConcept, Concept leftConcept, Concept rightConcept, String[] rebaseBranchesBeforeVersion, String[] rebaseBranchesAfterVersion) throws ServiceException {
+	private List<Concept> setupConflictSituationReleaseFirstVersion(Concept parentConcept, Concept leftConcept, Concept rightConcept) throws ServiceException {
+		return setupConflictSituationReleaseFirstVersion(parentConcept, leftConcept, rightConcept, null, new String[]{"MAIN/A/A1", "MAIN/A/A2"});
+	}
+
+	private List<Concept> setupConflictSituationReleaseFirstVersion(Concept parentConcept, Concept leftConcept, Concept rightConcept,
+			String[] rebaseBranchesBeforeVersion, String[] rebaseBranchesAfterVersion) throws ServiceException {
+
 		return setupConflictSituation(parentConcept, leftConcept, rightConcept, true, rebaseBranchesBeforeVersion, rebaseBranchesAfterVersion);
 	}
 
-	private List<Concept> setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept, boolean versionCodeSystemAfterFirstSave, String[] rebaseBranchesBeforeVersion, String[] rebaseBranchesAfterVersion ) throws ServiceException {
+	private List<Concept> setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept, boolean versionCodeSystemAfterFirstSave,
+			String[] rebaseBranchesBeforeVersion, String[] rebaseBranchesAfterVersion ) throws ServiceException {
+
 		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A2", Branch.BranchState.UP_TO_DATE);
@@ -1591,13 +1682,14 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	private void assertConceptNotVisible(String path, String conceptId) {
-		Assert.assertNull(conceptService.find(conceptId, path));
+		assertNull(conceptService.find(conceptId, path));
 	}
 
 	private void assertBranchState(String path, Branch.BranchState expectedBranchState) {
 		assertEquals(expectedBranchState, branchService.findLatest(path).getState());
 	}
 
+	@SuppressWarnings("SameParameterValue")
 	private void createConcept(String conceptId, String path) throws ServiceException {
 		conceptService.create(
 				new Concept(conceptId)
@@ -1619,20 +1711,13 @@ class BranchMergeServiceTest extends AbstractTest {
 				path);
 	}
 
-	private Description getDescription(Concept concept, boolean fetchFSN) {
+	private Description getDescription(Concept concept) {
 		if (concept == null || concept.getDescriptions() == null || concept.getDescriptions().isEmpty()) {
 			return null;
 		}
-		if (fetchFSN) {
-			List<Description> descriptions = concept.getDescriptions().stream().filter(d -> Concepts.FSN.equals(d.getTypeId())).collect(Collectors.toList());
-			if (descriptions.iterator().hasNext()) {
-				return descriptions.iterator().next();
-			}
-		} else {
-			List<Description> descriptions = concept.getDescriptions().stream().filter(d -> !Concepts.FSN.equals(d.getTypeId())).collect(Collectors.toList());
-			if (descriptions.iterator().hasNext()) {
-				return descriptions.iterator().next();
-			}
+		List<Description> descriptions = concept.getDescriptions().stream().filter(d -> Concepts.FSN.equals(d.getTypeId())).collect(Collectors.toList());
+		if (descriptions.iterator().hasNext()) {
+			return descriptions.iterator().next();
 		}
 		return null;
 	}

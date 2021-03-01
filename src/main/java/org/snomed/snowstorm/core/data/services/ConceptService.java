@@ -608,15 +608,15 @@ public class ConceptService extends ComponentService {
 			return new PersistedComponents();
 		}
 
-		Map<String, Concept> existingTargetConceptsMap = getExistingConceptsForSave(concepts, commit);
+		Map<String, Concept> existingConceptsMap = getExistingConceptsForSave(concepts, commit);
 		
 		//Populate source concepts on rebase
-		Map<String, Concept> existingSourceConceptsMap = null;
+		Map<String, Concept> existingRebaseSourceConceptsMap = null;
 		if (commit.getCommitType().equals(Commit.CommitType.REBASE)) {
-			existingSourceConceptsMap = getExistingSourceConceptsForSave(concepts, commit);
+			existingRebaseSourceConceptsMap = getExistingSourceConceptsForSave(concepts, commit);
 		}
 		
-		PersistedComponents persistedComponents = conceptUpdateHelper.saveNewOrUpdatedConcepts(concepts, commit, existingTargetConceptsMap, existingSourceConceptsMap);
+		PersistedComponents persistedComponents = conceptUpdateHelper.saveNewOrUpdatedConcepts(concepts, existingConceptsMap, existingRebaseSourceConceptsMap, commit);
 
 		// Log traceability activity
 		if (logTraceability && traceabilityLogService.isEnabled()) {

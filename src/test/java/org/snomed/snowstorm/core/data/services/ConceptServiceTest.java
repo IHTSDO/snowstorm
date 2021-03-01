@@ -1053,6 +1053,50 @@ class ConceptServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testInactivateDescriptionMerge() throws ServiceException {
+		final Concept concept = new Concept("50960005", 20020131, true, "900000000000207008", "900000000000074008");
+		// Add acceptability with released refset member
+		final String descriptionId = "84923010";
+		concept.addDescription(
+				new Description(descriptionId, 20020131, true, "900000000000207008", "50960005", "en", "900000000000013009", "Bleeding", "900000000000020002")
+						.addLanguageRefsetMember(US_EN_LANG_REFSET, Concepts.PREFERRED)
+						.addLanguageRefsetMember(GB_EN_LANG_REFSET, Concepts.PREFERRED)
+		);
+		conceptService.create(concept, "MAIN");
+		releaseService.createVersion(20170731, "MAIN");
+
+		// Check acceptability
+		final Concept savedConcept1 = conceptService.find("50960005", "MAIN");
+		List<ReferenceSetMember> releasedMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, ComponentService.LARGE_PAGE).getContent();
+		assertEquals(2, releasedMembers.size());
+		assertEquals(2L, releasedMembers.stream().filter(SnomedComponent::isReleased).count());
+		assertEquals(2L, releasedMembers.stream().filter(SnomedComponent::isActive).count());
+
+		// Make description inactive and save
+		final Description description = savedConcept1.getDescriptions().iterator().next();
+		description.setActive(false);
+		conceptService.update(savedConcept1, "MAIN");
+
+		// Check acceptability is inactive
+		logger.info("Loading updated concept");
+		final Concept savedConcept2 = conceptService.find("50960005", "MAIN");
+		final Description description2 = savedConcept2.getDescriptions().iterator().next();
+		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembers();
+		assertEquals(2, members2.size());
+		assertFalse(members2.get(US_EN_LANG_REFSET).isActive());
+		assertNull(members2.get(US_EN_LANG_REFSET).getEffectiveTime());
+		assertFalse(members2.get(GB_EN_LANG_REFSET).isActive());
+		assertNull(members2.get(GB_EN_LANG_REFSET).getEffectiveTime());
+		releasedMembers = referenceSetMemberService.findMembers("MAIN", descriptionId, ComponentService.LARGE_PAGE).getContent();
+		assertEquals(2, releasedMembers.size());
+		assertEquals(2L, releasedMembers.stream().filter(SnomedComponent::isReleased).count());
+		assertEquals(0L, releasedMembers.stream().filter(SnomedComponent::isActive).count());
+
+		// Check that acceptability map is empty
+		assertEquals(0, description2.getAcceptabilityMap().size());
+	}
+
+	@Test
 	void testLatestVersionMatch() throws ServiceException {
 		testUtil.createConceptWithPathIdAndTerm("MAIN", "100001", "Heart");
 

@@ -195,6 +195,12 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return this;
 	}
 
+	public Description setLanguageRefsetMembers(Collection<ReferenceSetMember> members) {
+		langRefsetMembers.clear();
+		members.forEach(this::addLanguageRefsetMember);
+		return this;
+	}
+
 	public Description addLanguageRefsetMember(ReferenceSetMember member) {
 		member.setReferencedComponentId(descriptionId);
 		final ReferenceSetMember previousMember = langRefsetMembers.put(member.getRefsetId(), member);
