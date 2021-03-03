@@ -354,9 +354,11 @@ public class BranchMergeService {
 
 		logger.info("Found {} duplicate {} records: {}", duplicateIds.size(), clazz.getSimpleName(), duplicateIds);
 
-		// End duplicate components using the commit timestamp of the donated content
+		// Hide duplicate components in extension module if extension components have the most recent released effective time
+		// End duplicate components in extension module if international components have the most recent released effective time
 		List<String> internalIdsToHide = new ArrayList<>();
 		for (List<String> duplicateIdsBatch : Iterables.partition(duplicateIds, 10_000)) {
+			// International versions
 			List<? extends SnomedComponent> intVersions = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
 					.withQuery(boolQuery().must(entityBranchCriteria)
 							.must(termsQuery(idField, duplicateIdsBatch))
@@ -367,32 +369,31 @@ public class BranchMergeService {
 					.collect(Collectors.toList());
 
 			for (SnomedComponent intVersion : intVersions) {
-				if (endThisVersion) {
-					Date donatedVersionCommitTimepoint = intVersion.getStart();
+				String duplicateId = intVersion.getId();
+				List<? extends SnomedComponent> extensionVersionList = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
+						.withQuery(boolQuery().must(entityBranchCriteria)
+								.must(termQuery(idField, duplicateId))
+								.must(termQuery("path", branch)))
+						.build(), clazz)
+						.stream().map(SearchHit::getContent)
+						.collect(Collectors.toList());
+				if (extensionVersionList.size() != 1) {
+					throw new IllegalStateException(String.format("During fix stage expecting 1 extension version but found %s for id %s", extensionVersionList.size(), clazz));
+				}
 
-					String duplicateId = intVersion.getId();
-					List<? extends SnomedComponent> extensionVersionList = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
-							.withQuery(boolQuery().must(entityBranchCriteria)
-									.must(termQuery(idField, duplicateId))
-									.must(termQuery("path", branch)))
-							.build(), clazz)
-							.stream().map(SearchHit::getContent)
-							.collect(Collectors.toList());
-					if (extensionVersionList.size() != 1) {
-						throw new IllegalStateException(String.format("During fix stage expecting 1 extension version but found %s for id %s", extensionVersionList.size(), clazz));
-					}
-					SnomedComponent extensionVersion = extensionVersionList.get(0);
-					extensionVersion.setEnd(donatedVersionCommitTimepoint);
+				SnomedComponent extensionVersion = extensionVersionList.get(0);
+				if (endThisVersion && intVersion.isReleasedMoreRecentlyThan(extensionVersion)) {
+					// End duplicate components in extension module
+					extensionVersion.setEnd(intVersion.getStart());
 					repository.save(extensionVersion);
-					logger.info("Ended {} on {} at timepoint {} to match {} version start date.", duplicateId, branch, donatedVersionCommitTimepoint, intVersion.getPath());
+					logger.info("Ended {} on {} at timepoint {} to match {} version start date.", duplicateId, branch, intVersion.getStart(), intVersion.getPath());
 				} else {
 					// Hide parent version
 					internalIdsToHide.add(intVersion.getInternalId());
 				}
 			}
 		}
-
-		if (!endThisVersion && !internalIdsToHide.isEmpty()) {
+		if (!internalIdsToHide.isEmpty()) {
 			// Hide parent version using version replaced map on branch
 			Branch latestBranch = branchService.findLatest(branch);
 			latestBranch.addVersionsReplaced(Collections.singletonMap(clazz.getSimpleName(), new HashSet<>(internalIdsToHide)));

@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.otf.snomedboot.testutil.ZipUtil;
@@ -21,6 +22,8 @@ import java.io.IOException;
 import java.util.*;
 
 import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_PACKAGE;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_RELEASE;
 
@@ -49,26 +52,32 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 	@Autowired
 	private BranchMetadataHelper branchMetadataHelper;
 
+	private CodeSystem codeSystem;
+
+
+	@BeforeEach
+	void setup() {
+		codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystemService.createCodeSystem(codeSystem);
+	}
+
 	@Test
 	// We set up two versions of the international edition, 20180731 and 20190131, both on MAIN.
 	// We import an extension directly under MAIN at the timepoint when 20180731 was created.
 	// We then upgrade the extension to international version 20190131 which contains concept 18736003 that has been donated from the extension.
 	// We check that the donated concept is in the correct module.
 	void testCodeSystemUpgradeProcessDonatedContent() throws IOException, ReleaseImportException, ServiceException {
-		// Create international code system
-		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN", "International Edition", ""));
-
 		// Import dummy international content for 20180731
 		File snomedBase = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
 		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true, false);
 		importService.importArchive(importJob, new FileInputStream(snomedBase));
-		assertNotNull(codeSystemService.findVersion("SNOMEDCT", 20180731));
+		assertNotNull(codeSystemService.findVersion(codeSystem.getShortName(), 20180731));
 
 		// Import dummy international content for 20190131
 		File snomedDelta = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_donation_delta");
 		String deltaImportJob = importService.createJob(RF2Type.DELTA, "MAIN", true, false);
 		importService.importArchive(deltaImportJob, new FileInputStream(snomedDelta));
-		assertNotNull(codeSystemService.findVersion("SNOMEDCT", 20190131));
+		assertNotNull(codeSystemService.findVersion(codeSystem.getShortName(), 20190131));
 
 		// Create extension code system under 20180731 int version
 		CodeSystem extensionCodeSystem = new CodeSystem("SNOMEDCT-BE", "MAIN/SNOMEDCT-BE", "Belgian Edition", "be");
@@ -117,15 +126,11 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 	// We set up content for the international edition and an extension.
 	// We inactivate an international concept then see the extension break when it's upgraded.
 		void testCodeSystemUpgradeFindBrokenRelationships() throws IOException, ReleaseImportException, ServiceException {
-		// Create international code system
-		String snomedct = "SNOMEDCT";
-		codeSystemService.createCodeSystem(new CodeSystem(snomedct, "MAIN", "International Edition", ""));
-
 		// Import dummy international content
 		File snomedBase = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
 		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true, false);
 		importService.importArchive(importJob, new FileInputStream(snomedBase));
-		List<CodeSystemVersion> intVersions = codeSystemService.findAllVersions(snomedct, true);
+		List<CodeSystemVersion> intVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), true);
 		assertEquals(1, intVersions.size());
 		assertEquals("MAIN/2018-07-31", intVersions.get(0).getBranchPath());
 		assertEquals(20180731, intVersions.get(0).getEffectiveDate().intValue());
@@ -166,11 +171,11 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 		conceptService.update(incisionOfMiddleEarConcept, "MAIN");
 
 		// Create a new version of International
-		codeSystemService.createVersion(codeSystemService.find(snomedct), 20190131, "Dummy 2019-01-31 release.");
+		codeSystemService.createVersion(codeSystemService.find(codeSystem.getShortName()), 20190131, "Dummy 2019-01-31 release.");
 
 		// update with release package
 		String releasePackage = "Test_20190131_Release_Snapshot.zip";
-		CodeSystemVersion codeSystemVersion = codeSystemService.findVersion(snomedct, 20190131);
+		CodeSystemVersion codeSystemVersion = codeSystemService.findVersion(codeSystem.getShortName(), 20190131);
 		codeSystemVersion = codeSystemService.updateCodeSystemVersionPackage(codeSystemVersion, releasePackage);
 		assertEquals(releasePackage, codeSystemVersion.getReleasePackage());
 
@@ -196,4 +201,74 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 				1, componentsWithBadIntegrityOnExtension.getRelationshipsWithMissingOrInactiveDestination().size());
 	}
 
+	@Test
+	void testExtensionRelationshipsNotBeingOverWrittenAfterUpgrade() throws Exception {
+		// Create an active inferred relationship in the International code system
+		Concept concept = conceptService.create(
+				new Concept("100001")
+						.addRelationship(new Relationship("100001", ISA, SNOMEDCT_ROOT))
+						.addRelationship(new Relationship("100002", ISA, CLINICAL_FINDING))
+				, "MAIN");
+		concept = conceptService.find(concept.getConceptId(), "MAIN");
+		assertNotNull(concept);
+		Relationship relationship = concept.getRelationship("100002");
+		assertNotNull(relationship);
+
+		// Version the International code system
+		codeSystemService.createVersion(codeSystem, 20200731, "International 20200731 Release");
+
+		// Create a US code system depending on the latest International version
+		CodeSystem usCodeSystem = new CodeSystem("SNOMEDCT-US", "MAIN/SNOMEDCT-US");
+		codeSystemService.createCodeSystem(usCodeSystem);
+		assertEquals(20200731, codeSystemService.find(usCodeSystem.getShortName()).getDependantVersionEffectiveTime().intValue());
+
+		// Make the relationship inactive in the US
+		concept = conceptService.find(concept.getConceptId(), usCodeSystem.getBranchPath());
+		assertNotNull(concept);
+		relationship = concept.getRelationship("100002");
+		assertNotNull(relationship);
+		relationship.setActive(false);
+		relationship.setModuleId("731000124108");
+		conceptService.update(concept, usCodeSystem.getBranchPath());
+
+		// Version the US code system
+		codeSystemService.createVersion(usCodeSystem, 20200901, "20200901 US Release");
+
+		// Make the inferred relationship inactive in the International code system in the MAIN branch.
+		concept = conceptService.find(concept.getConceptId(), "MAIN");
+		relationship = concept.getRelationship("100002");
+		assertTrue(relationship.isActive());
+		relationship.setActive(false);
+		conceptService.update(concept, "MAIN");
+
+		// In another commit make it active again.
+		// (This has the effect of making the relationship newer than the US version in version control
+		// but it will not have a newer effectiveTime so it should not be used during upgrade - this is essentially the bug)
+		relationship.setActive(true);
+		conceptService.update(concept, "MAIN");
+		concept = conceptService.find(concept.getConceptId(), "MAIN");
+		relationship = concept.getRelationship("100002");
+		assertTrue(relationship.isActive());
+		assertEquals("20200731", relationship.getEffectiveTime());
+
+		// Version the International code system
+		codeSystemService.createVersion(codeSystem, 20210131, "International 20210131 Release");
+
+		// check the inferred relationship before upgrade
+		concept = conceptService.find(concept.getConceptId(), usCodeSystem.getBranchPath());
+		relationship = concept.getRelationship("100002");
+		assertFalse(relationship.isActive());
+		assertEquals("20200901", relationship.getEffectiveTime());
+		assertEquals("731000124108", relationship.getModuleId());
+
+		// Upgrade the US code system
+		codeSystemUpgradeService.upgrade(usCodeSystem, 20210131, true);
+
+		// Assert that the inferred relationship in the US branch is still inactive and still has the US version effectiveTime.
+		concept = conceptService.find(concept.getConceptId(), usCodeSystem.getBranchPath());
+		relationship = concept.getRelationship("100002");
+		assertFalse(relationship.isActive());
+		assertEquals("20200901", relationship.getEffectiveTime());
+		assertEquals("731000124108", relationship.getModuleId());
+	}
 }
