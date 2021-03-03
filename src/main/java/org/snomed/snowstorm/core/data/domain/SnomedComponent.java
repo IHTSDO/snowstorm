@@ -80,14 +80,25 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 		setReleaseHash(component.getReleaseHash());
 		setReleasedEffectiveTime(component.getReleasedEffectiveTime());
 	}
-	
+
+	public boolean isReleasedMoreRecentlyThan(SnomedComponent another) {
+		if (another == null) {
+			return this.isReleased();
+		}
+		if (this.isReleased() && another.isReleased() && (this.getReleasedEffectiveTime() > another.getReleasedEffectiveTime())) {
+			return true;
+		}
+		if (this.isReleased() && !another.isReleased()) {
+			return true;
+		}
+		return false;
+	}
+
 	public void copyReleaseDetails(SnomedComponent<C> existingComponent, SnomedComponent<C> existingParentComponent) {
 		// Copy release details from the existing component, or the rebase parent branch version, whichever has been versioned more recently
-		SnomedComponent<C> mostRecentlyPublished = existingComponent != null ? existingComponent : existingParentComponent;
-		if (existingParentComponent != null && existingParentComponent.isReleased() &&
-			(!mostRecentlyPublished.isReleased() ||
-				existingParentComponent.getReleasedEffectiveTime() > mostRecentlyPublished.getReleasedEffectiveTime())) {
-			mostRecentlyPublished = existingParentComponent;
+		SnomedComponent<C> mostRecentlyPublished = existingParentComponent;
+		if (existingComponent != null && existingComponent.isReleasedMoreRecentlyThan(mostRecentlyPublished)) {
+			mostRecentlyPublished = existingComponent;
 		}
 		if (mostRecentlyPublished != null) {
 			setEffectiveTimeI(mostRecentlyPublished.getEffectiveTimeI());
