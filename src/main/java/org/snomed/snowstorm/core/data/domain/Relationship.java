@@ -13,7 +13,6 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
-
 import java.util.Objects;
 
 import static org.snomed.snowstorm.core.data.domain.Concepts.relationshipCharacteristicTypeNames;
@@ -282,10 +281,12 @@ public class Relationship extends SnomedComponent<Relationship> {
 	}
 
 	public Relationship setTarget(ConceptMini target) {
-		this.target = target;
 		if (target != null && !Strings.isNullOrEmpty(target.getConceptId())) {
 			this.destinationId = target.getConceptId();
+		} else {
+			target = null;
 		}
+		this.target = target;
 		return this;
 	}
 
