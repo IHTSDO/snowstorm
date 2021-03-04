@@ -3,33 +3,88 @@ package org.snomed.snowstorm.core.data.services.postcoordination.model;
 import org.snomed.languages.scg.domain.model.Attribute;
 import org.snomed.languages.scg.domain.model.AttributeGroup;
 import org.snomed.languages.scg.domain.model.Expression;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.util.CollectionComparators;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
-import static java.util.Comparator.comparing;
+import static java.util.Comparator.naturalOrder;
 import static java.util.Comparator.nullsFirst;
 
 public class ComparableExpression extends Expression implements Comparable<ComparableExpression> {
 
 	private static final Comparator<ComparableExpression> COMPARATOR =
-			nullsFirst(comparing(ComparableExpression::getDefinitionStatusString)
-					.thenComparing(nullsFirst(comparing(ComparableExpression::getFocusConcepts, CollectionComparators::compareLists)))
-					.thenComparing(nullsFirst(comparing(ComparableExpression::getComparableAttributes, CollectionComparators::compareSets)))
-					.thenComparing(nullsFirst(comparing(ComparableExpression::getComparableAttributeGroups, CollectionComparators::compareSets))));
+			Comparator.comparing(ComparableExpression::getDefinitionStatusString, nullsFirst(naturalOrder()))
+					.thenComparing(ComparableExpression::getFocusConcepts, nullsFirst(CollectionComparators::compareLists))
+					.thenComparing(ComparableExpression::getComparableAttributes, nullsFirst(CollectionComparators::compareSets))
+					.thenComparing(ComparableExpression::getComparableAttributeGroups, nullsFirst(CollectionComparators::compareSets));
 
 	private Set<String> sortedFocusConcepts;
 	private Set<ComparableAttribute> comparableAttributes;
 	private Set<ComparableAttributeGroup> comparableAttributeGroups;
+	private Set<String> mergedConcepts;
 
 	public ComparableExpression() {
+		mergedConcepts = new HashSet<>();
 	}
 
 	public ComparableExpression(Expression expression) {
+		this();
 		setDefinitionStatus(expression.getDefinitionStatus());
 		setFocusConcepts(expression.getFocusConcepts());
 		setAttributes(expression.getAttributes());
 		setAttributeGroups(expression.getAttributeGroups());
+	}
+
+	public ComparableExpression(String... focusConceptIds) {
+		this();
+		setFocusConcepts(Arrays.stream(focusConceptIds).collect(Collectors.toList()));
+	}
+
+	public void merge(ComparableExpression otherExpression) {
+		for (String focusConcept : otherExpression.getFocusConcepts()) {
+			addFocusConcept(focusConcept);
+		}
+		if (otherExpression.getComparableAttributes() != null) {
+			for (ComparableAttribute attribute : otherExpression.getComparableAttributes()) {
+				addAttribute(attribute);
+			}
+		}
+		if (otherExpression.getComparableAttributeGroups() != null) {
+			for (ComparableAttributeGroup group : otherExpression.getComparableAttributeGroups()) {
+				addAttributeGroup(group);
+			}
+		}
+	}
+
+	public void merge(Concept concept) {
+		final String conceptId = concept.getConceptId();
+		if (!getFocusConcepts().contains(conceptId)) {
+			addFocusConcept(conceptId);
+		}
+		Map<Integer, Set<Relationship>> relationshipGroups = new HashMap<>();
+		for (Relationship relationship : concept.getActiveInferredRelationships()) {
+			relationshipGroups.computeIfAbsent(relationship.getGroupId(), (id) -> new HashSet<>()).add(relationship);
+		}
+		for (Map.Entry<Integer, Set<Relationship>> group : relationshipGroups.entrySet()) {
+			if (group.getKey() == 0) {
+				for (Relationship relationship : group.getValue()) {
+					if (!relationship.getTypeId().equals(Concepts.ISA)) {
+						addAttribute(relationship.getTypeId(), relationship.getDestinationId());
+					}
+				}
+			} else {
+				ComparableAttributeGroup attributeGroup = new ComparableAttributeGroup();
+				for (Relationship relationship : group.getValue()) {
+					attributeGroup.addAttribute(relationship.getTypeId(), relationship.getDestinationId());
+				}
+				addAttributeGroup(attributeGroup);
+			}
+		}
+		mergedConcepts.add(conceptId);
 	}
 
 	public void addFocusConcept(String conceptId) {
@@ -37,6 +92,17 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 			sortedFocusConcepts = new TreeSet<>();
 		}
 		sortedFocusConcepts.add(conceptId);
+	}
+
+	public void addAttribute(ComparableAttribute attribute) {
+		if (comparableAttributes == null) {
+			comparableAttributes = new TreeSet<>();
+		}
+		comparableAttributes.add(attribute);
+	}
+
+	public void addAttribute(String typeId, String destinationId) {
+		addAttribute(new ComparableAttribute(typeId, destinationId));
 	}
 
 	public void addAttributeGroup(AttributeGroup attributeGroup) {
@@ -95,19 +161,46 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 	}
 
 	private String getDefinitionStatusString() {
-		return getDefinitionStatus().toString();
+		return getDefinitionStatus() != null ? getDefinitionStatus().toString() : null;
 	}
 
-	private Set<ComparableAttribute> getComparableAttributes() {
+	public Set<ComparableAttribute> getComparableAttributes() {
 		return comparableAttributes;
 	}
 
-	private Set<ComparableAttributeGroup> getComparableAttributeGroups() {
+	public Set<ComparableAttributeGroup> getComparableAttributeGroups() {
 		return comparableAttributeGroups;
 	}
 
 	@Override
 	public int compareTo(ComparableExpression other) {
 		return COMPARATOR.compare(this, other);
+	}
+
+	public boolean isConceptMerged(String conceptId) {
+		return mergedConcepts.contains(conceptId);
+	}
+
+	public Set<String> getAllConceptIds() {
+		Set<String> ids = new HashSet<>();
+		getAllConceptIds(ids);
+		return ids;
+	}
+
+	public void getAllConceptIds(Set<String> ids) {
+		final List<String> focusConcepts = getFocusConcepts();
+		if (focusConcepts != null) {
+			ids.addAll(focusConcepts);
+		}
+		if (comparableAttributes != null) {
+			for (ComparableAttribute attribute : comparableAttributes) {
+				attribute.getAllConceptIds(ids);
+			}
+		}
+		if (comparableAttributeGroups != null) {
+			for (ComparableAttributeGroup group : comparableAttributeGroups) {
+				group.getAllConceptIds(ids);
+			}
+		}
 	}
 }

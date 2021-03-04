@@ -35,7 +35,7 @@ public class MRCMController {
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-		return new ItemsPage<>(mrcmService.retrieveDomainAttributes(contentType, proximalPrimitiveModeling, parentIds, branch, parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)));
+		return new ItemsPage<>(mrcmService.retrieveDomainAttributeConceptMinis(contentType, proximalPrimitiveModeling, parentIds, branch, parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)));
 	}
 
 	@ApiOperation("Retrieve valid values for the given attribute and term prefix.")

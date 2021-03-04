@@ -229,12 +229,11 @@ public class ConceptService extends ComponentService {
 	}
 
 	public boolean exists(String id, String path) {
-		return getNonExistentConceptIds(Collections.singleton(id), path).isEmpty();
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
+		return getNonExistentConceptIds(Collections.singleton(id), branchCriteria).isEmpty();
 	}
 
-	public Collection<String> getNonExistentConceptIds(Collection<String> ids, String path) {
-		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
-
+	public Collection<String> getNonExistentConceptIds(Collection<String> ids, BranchCriteria branchCriteria) {
 		final BoolQueryBuilder builder = boolQuery()
 				.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 				.must(termsQuery("conceptId", ids));
@@ -384,28 +383,7 @@ public class ConceptService extends ComponentService {
 
 		if (includeRelationships) {
 			// Fetch Relationships
-			for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
-				queryBuilder.withQuery(boolQuery()
-						.must(termsQuery("sourceId", conceptIds))
-						.must(branchCriteria.getEntityBranchCriteria(Relationship.class)))
-						.withPageable(LARGE_PAGE);
-				try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(queryBuilder.build(), Relationship.class)) {
-					relationships.forEachRemaining(hit -> {
-						//Set concrete value
-						Relationship relationship = hit.getContent();
-						if (branchPath != null) {
-							relationshipService.setConcreteValueFromMRCM(branchPath, relationship);
-						}
-						// Join Relationships
-						conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
-
-						// Add placeholders for relationship type and target details
-						relationship.setType(getConceptMini(conceptMiniMap, relationship.getTypeId(), languageDialects));
-						relationship.setTarget(getConceptMini(conceptMiniMap, relationship.getDestinationId(), languageDialects));
-					});
-				}
-			}
-			timer.checkpoint("get relationships " + getFetchCount(conceptIdMap.size()));
+			joinRelationships(conceptIdMap, conceptMiniMap, languageDialects, branchPath, branchCriteria, timer, false);
 
 			// Fetch Axioms
 			for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
@@ -448,6 +426,37 @@ public class ConceptService extends ComponentService {
 		timer.finish();
 
 		return concepts;
+	}
+
+	public void joinRelationships(Map<String, Concept> conceptIdMap, Map<String, ConceptMini> typeAndTargetConceptMiniMap, List<LanguageDialect> languageDialects,
+			String branchPath, BranchCriteria branchCriteria, TimerUtil timer, boolean activeOnly) {
+
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
+		for (List<String> conceptIds : Iterables.partition(conceptIdMap.keySet(), CLAUSE_LIMIT)) {
+			final BoolQueryBuilder boolQuery = boolQuery()
+					.must(termsQuery("sourceId", conceptIds))
+					.must(branchCriteria.getEntityBranchCriteria(Relationship.class));
+			if (activeOnly) {
+				boolQuery.must(termsQuery("active", true));
+			}
+			queryBuilder.withQuery(boolQuery).withPageable(LARGE_PAGE);
+			try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(queryBuilder.build(), Relationship.class)) {
+				relationships.forEachRemaining(hit -> {
+					//Set concrete value
+					Relationship relationship = hit.getContent();
+					if (branchPath != null) {
+						relationshipService.setConcreteValueFromMRCM(branchPath, relationship);
+					}
+					// Join Relationships
+					conceptIdMap.get(relationship.getSourceId()).addRelationship(relationship);
+
+					// Add placeholders for relationship type and target details
+					relationship.setType(getConceptMini(typeAndTargetConceptMiniMap, relationship.getTypeId(), languageDialects));
+					relationship.setTarget(getConceptMini(typeAndTargetConceptMiniMap, relationship.getDestinationId(), languageDialects));
+				});
+			}
+		}
+		timer.checkpoint("get relationships " + getFetchCount(conceptIdMap.size()));
 	}
 
 	/**
@@ -516,7 +525,8 @@ public class ConceptService extends ComponentService {
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final Set<String> conceptIds = concepts.stream().map(Concept::getConceptId).filter(Objects::nonNull).collect(Collectors.toSet());
 		if (!conceptIds.isEmpty()) {
-			final Collection<String> nonExistentConceptIds = getNonExistentConceptIds(conceptIds, path);
+			final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
+			final Collection<String> nonExistentConceptIds = getNonExistentConceptIds(conceptIds, branchCriteria);
 			conceptIds.removeAll(nonExistentConceptIds);
 			if (!conceptIds.isEmpty()) {
 				throw new IllegalArgumentException("Some concepts already exist on branch '" + path + "', " + conceptIds);

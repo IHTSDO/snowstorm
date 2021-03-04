@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services.postcoordination.model;
 import org.snomed.languages.scg.domain.model.AttributeValue;
 
 import java.util.Comparator;
+import java.util.Set;
 
 import static java.util.Comparator.comparing;
 import static java.util.Comparator.nullsFirst;
@@ -20,6 +21,14 @@ public class ComparableAttributeValue extends AttributeValue implements Comparab
 		}
 	}
 
+	public ComparableAttributeValue(String destinationId) {
+		setConceptId(destinationId);
+	}
+
+	public ComparableAttributeValue(ComparableExpression nestedExpression) {
+		setNestedExpression(nestedExpression);
+	}
+
 	private ComparableExpression getComparableNestedExpression() {
 		return (ComparableExpression) super.getNestedExpression();
 	}
@@ -30,6 +39,16 @@ public class ComparableAttributeValue extends AttributeValue implements Comparab
 			return COMPARATOR.compare(this, other);
 		} catch (NullPointerException e) {
 			throw e;
+		}
+	}
+
+	public void getAllConceptIds(Set<String> ids) {
+		if (getConceptId() != null) {
+			ids.add(getConceptId());
+		}
+		final ComparableExpression nested = getComparableNestedExpression();
+		if (nested != null) {
+			nested.getAllConceptIds(ids);
 		}
 	}
 }
