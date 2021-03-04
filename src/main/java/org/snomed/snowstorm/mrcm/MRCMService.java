@@ -32,6 +32,7 @@ import java.util.stream.Collectors;
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.mrcm.model.MRCM.IS_A_ATTRIBUTE_DOMAIN;
 
 @Service
@@ -57,19 +58,64 @@ public class MRCMService {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public Collection<ConceptMini> retrieveDomainAttributes(ContentType contentType, boolean proximalPrimitiveModeling, Set<Long> parentIds, String branchPath,
-			List<LanguageDialect> languageDialects) throws ServiceException {
+	public MRCM loadActiveMRCMFromCache(String branchPath) throws ServiceException {
+		return mrcmLoader.loadActiveMRCMFromCache(branchPath);
+	}
+
+	public Collection<ConceptMini> retrieveDomainAttributeConceptMinis(ContentType contentType, boolean proximalPrimitiveModeling, Set<Long> parentIds,
+			String branchPath, List<LanguageDialect> languageDialects) throws ServiceException {
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		final MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+
+		final List<AttributeDomain> attributeDomains = doRetrieveDomainAttributes(contentType, proximalPrimitiveModeling, parentIds, branchCriteria, branchMRCM);
+		Set<String> attributeIds = attributeDomains.stream().map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
+		Collection<ConceptMini> attributeConceptMinis = conceptService.findConceptMinis(branchCriteria, attributeIds, languageDialects).getResultsMap().values();
+		if (attributeConceptMinis.size() < attributeIds.size()) {
+			Set<String> foundConceptIds = attributeConceptMinis.stream().map(ConceptMini::getConceptId).collect(Collectors.toSet());
+			for (String attributeId : attributeIds) {
+				if (!foundConceptIds.contains(attributeId)) {
+					logger.warn("The concept to represent attribute {} is in the MRCM Attribute Domain reference set but is missing from branch {}.",
+							attributeId, branchPath);
+				}
+			}
+		}
+		addExtraConceptMiniFields(attributeDomains, contentType, branchMRCM, attributeConceptMinis);
+
+		return attributeConceptMinis;
+	}
+
+	public Collection<ConceptMini> retrieveDomainAttributes(ContentType contentType, boolean proximalPrimitiveModeling, Set<Long> parentIds,
+			String branchPath, BranchCriteria branchCriteria) throws ServiceException {
+
+		// Load MRCM using active records applicable to this branch
+		final MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
+		final List<AttributeDomain> attributeDomains = doRetrieveDomainAttributes(contentType, proximalPrimitiveModeling, parentIds, branchCriteria, branchMRCM);
+
+		Set<String> attributeIds = attributeDomains.stream().map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
+		Collection<ConceptMini> attributeConceptMinis = conceptService.findConceptMinis(branchCriteria, attributeIds, DEFAULT_LANGUAGE_DIALECTS).getResultsMap().values();
+		if (attributeConceptMinis.size() < attributeIds.size()) {
+			Set<String> foundConceptIds = attributeConceptMinis.stream().map(ConceptMini::getConceptId).collect(Collectors.toSet());
+			for (String attributeId : attributeIds) {
+				if (!foundConceptIds.contains(attributeId)) {
+					logger.warn("The concept to represent attribute {} is in the MRCM Attribute Domain reference set but is missing from branch {}.",
+							attributeId, branchPath);
+				}
+			}
+		}
+		addExtraConceptMiniFields(attributeDomains, contentType, branchMRCM, attributeConceptMinis);
+
+		return attributeConceptMinis;
+	}
+
+	public List<AttributeDomain> doRetrieveDomainAttributes(ContentType contentType, boolean proximalPrimitiveModeling, Set<Long> parentIds,
+			BranchCriteria branchCriteria, MRCM branchMRCM) throws ServiceException {
 
 		List<AttributeDomain> attributeDomains = new ArrayList<>();
 
 		// Start with 'Is a' relationship which is applicable to all concept types and domains
 		attributeDomains.add(IS_A_ATTRIBUTE_DOMAIN);
 
-		// Load MRCM using active records applicable to this branch
-		final MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
-		
 		if (!CollectionUtils.isEmpty(parentIds)) {
 			// Lookup ancestors using stated parents
 			Set<Long> allAncestors = queryService.findAncestorIdsAsUnion(branchCriteria, false, parentIds);
@@ -95,20 +141,7 @@ public class MRCMService {
 							&& domainReferenceComponents.contains(attributeDomain.getDomainId())).collect(Collectors.toList()));
 		}
 
-		Set<String> attributeIds = attributeDomains.stream().map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
-		Collection<ConceptMini> attributeConceptMinis = conceptService.findConceptMinis(branchCriteria, attributeIds, languageDialects).getResultsMap().values();
-		if (attributeConceptMinis.size() < attributeIds.size()) {
-			Set<String> foundConceptIds = attributeConceptMinis.stream().map(ConceptMini::getConceptId).collect(Collectors.toSet());
-			for (String attributeId : attributeIds) {
-				if (!foundConceptIds.contains(attributeId)) {
-					logger.warn("The concept to represent attribute {} is in the MRCM Attribute Domain reference set but is missing from branch {}.",
-							attributeId, branchPath);
-				}
-			}
-		}
-		addExtraConceptMiniFields(attributeDomains, contentType, branchMRCM, attributeConceptMinis);
-
-		return attributeConceptMinis;
+		return attributeDomains;
 	}
 
 	private void addExtraConceptMiniFields(final List<AttributeDomain> attributeDomains, final ContentType contentType, final MRCM branchMRCM, final Collection<ConceptMini> attributeConceptMinis) {
@@ -131,10 +164,24 @@ public class MRCMService {
 	public Collection<ConceptMini> retrieveAttributeValues(ContentType contentType, String attributeId, String termPrefix, String branchPath, List<LanguageDialect> languageDialects) throws ServiceException {
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		MRCM branchMRCM = mrcmLoader.loadActiveMRCM(branchPath, branchCriteria);
-		return retrieveAttributeValues(contentType, attributeId, termPrefix, branchPath, languageDialects, branchMRCM, branchCriteria);
+		return retrieveAttributeValues(contentType, attributeId, termPrefix, branchPath, languageDialects, branchMRCM);
 	}
 
-	public Collection<ConceptMini> retrieveAttributeValues(ContentType contentType, String attributeId, String termPrefix, String branchPath, List<LanguageDialect> languageDialects, MRCM branchMRCM, BranchCriteria branchCriteria) throws ServiceException {
+	public Collection<ConceptMini> retrieveAttributeValues(ContentType contentType, String attributeId, String termPrefix, String branchPath,
+			List<LanguageDialect> languageDialects, MRCM branchMRCM) {
+
+		QueryService.ConceptQueryBuilder conceptQuery = createAttributeValuesQuery(contentType, attributeId, termPrefix, languageDialects, branchMRCM);
+		return queryService.search(conceptQuery, branchPath, RESPONSE_PAGE_SIZE).getContent();
+	}
+
+	public Collection<Long> retrieveAttributeValueIds(ContentType contentType, String attributeId, String termPrefix, String branchPath,
+			List<LanguageDialect> languageDialects, MRCM branchMRCM, BranchCriteria branchCriteria) {
+
+		QueryService.ConceptQueryBuilder conceptQuery = createAttributeValuesQuery(contentType, attributeId, termPrefix, languageDialects, branchMRCM);
+		return queryService.searchForIds(conceptQuery, branchPath, branchCriteria, RESPONSE_PAGE_SIZE).getContent();
+	}
+
+	private QueryService.ConceptQueryBuilder createAttributeValuesQuery(ContentType contentType, String attributeId, String termPrefix, List<LanguageDialect> languageDialects, MRCM branchMRCM) {
 		Set<AttributeRange> attributeRanges = branchMRCM.getMandatoryAttributeRanges(attributeId, contentType);
 
 		if (attributeRanges.isEmpty()) {
@@ -155,12 +202,7 @@ public class MRCMService {
 		} else {
 			conceptQuery.descriptionCriteria(d -> d.term(termPrefix).active(true));
 		}
-
-		return queryService.search(conceptQuery, branchPath, RESPONSE_PAGE_SIZE).getContent();
-	}
-
-	public MRCM loadActiveMRCM(String branch, BranchCriteria branchCriteria) throws ServiceException {
-		return mrcmLoader.loadActiveMRCM(branch, branchCriteria);
+		return conceptQuery;
 	}
 
 	public ConceptMini retrieveConceptModelAttributeHierarchy(String branch, List<LanguageDialect> languageDialects) {

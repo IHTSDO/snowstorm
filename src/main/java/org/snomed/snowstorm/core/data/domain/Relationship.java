@@ -15,8 +15,7 @@ import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.Objects;
 
-import static org.snomed.snowstorm.core.data.domain.Concepts.relationshipCharacteristicTypeNames;
-import static org.snomed.snowstorm.core.data.domain.Concepts.relationshipModifierNames;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @Document(indexName = "relationship")
 public class Relationship extends SnomedComponent<Relationship> {
@@ -197,8 +196,12 @@ public class Relationship extends SnomedComponent<Relationship> {
 				|| !modifierId.equals(that.modifierId);
 	}
 	
-	public boolean isGrouped () {
+	public boolean isGrouped() {
 		return relationshipGroup > 0;
+	}
+
+	public boolean isInferred() {
+		return INFERRED_RELATIONSHIP.equals(characteristicTypeId);
 	}
 
 	public ConcreteValue getConcreteValue() {

@@ -343,6 +343,10 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 		return relationships.stream().filter(r -> destinationId.equals(r.getDestinationId())).collect(Collectors.toSet());
 	}
 
+	public List<Relationship> getActiveInferredRelationships() {
+		return getRelationships(Boolean.TRUE, null, null, Relationship.CharacteristicType.inferred.conceptId);
+	}
+
 	public List<Relationship> getRelationships(Boolean activeFlag, String typeId, String destinationId, String charTypeId) {
 		return relationships.stream()
 							.filter(rel -> (activeFlag == null || activeFlag.equals(rel.isActive())))

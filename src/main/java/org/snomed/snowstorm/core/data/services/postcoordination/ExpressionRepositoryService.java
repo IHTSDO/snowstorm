@@ -17,6 +17,7 @@ import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierS
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
+import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.mrcm.MRCMService;
 import org.snomed.snowstorm.mrcm.model.AttributeDomain;
 import org.snomed.snowstorm.mrcm.model.AttributeRange;
@@ -89,40 +90,63 @@ public class ExpressionRepositoryService {
 
 	private PageImpl<PostCoordinatedExpression> getPostCoordinatedExpressions(PageRequest pageRequest, Page<ReferenceSetMember> membersPage) {
 		List<PostCoordinatedExpression> expressions = membersPage.getContent().stream()
-				.map(this::toExpression).collect(Collectors.toList());
+				.map((ReferenceSetMember closeToUserFormMember) -> toExpression(closeToUserFormMember, new ReferenceSetMember())).collect(Collectors.toList());
 		return new PageImpl<>(expressions, pageRequest, membersPage.getTotalElements());
 	}
 
 	public PostCoordinatedExpression createExpression(String branch, String closeToUserForm, String moduleId) throws ServiceException {
+		final PostCoordinatedExpression postCoordinatedExpression = transformExpression(branch, closeToUserForm);
+
+		List<Long> expressionIds = identifierSource.reserveIds(0, LocalRandomIdentifierSource.POSTCOORDINATED_EXPRESSION_PARTITION_ID, 1);
+		String expressionId = expressionIds.get(0).toString();
+		postCoordinatedExpression.setId(expressionId);
+
+		final ReferenceSetMember closeToUserFormMember = new ReferenceSetMember(moduleId, CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, expressionId)
+				.setAdditionalField(EXPRESSION_FIELD, postCoordinatedExpression.getCloseToUserForm());
+		final ReferenceSetMember classifiableFormMember = new ReferenceSetMember(moduleId, CLASSIFIABLE_FORM_EXPRESSION_REFERENCE_SET, expressionId)
+				.setAdditionalField(EXPRESSION_FIELD, postCoordinatedExpression.getClassifiableForm());
+
+		memberService.createMembers(branch, Sets.newHashSet(closeToUserFormMember, classifiableFormMember));
+
+		return postCoordinatedExpression;
+	}
+
+	public PostCoordinatedExpression transformExpression(String branch, String closeToUserForm) throws ServiceException {
+		TimerUtil timer = new TimerUtil("exp");
 		try {
 			// Sort contents of expression
 			ComparableExpression expression = expressionParser.parseExpression(closeToUserForm);
+			timer.checkpoint("Parse expression");
 
-			ExpressionContext context = new ExpressionContext(branch, versionControlHelper, mrcmService);
+			ExpressionContext context = new ExpressionContext(branch, versionControlHelper, mrcmService, timer);
 
 			// Validate expression against MRCM
 			mrcmAttributeRangeValidation(expression, context);
+			timer.checkpoint("MRCM validation");
 
+			final ComparableExpression classifiableFormExpression;
 			try {
-				transformationService.transform(expression, context);
+				classifiableFormExpression = transformationService.transform(expression, context);
+				timer.checkpoint("Transformation");
 			} catch (TransformationException e) {
 				throw new TransformationException(String.format("Expression \"%s\" could not be transformed because: %s", expression.toString(), e.getMessage()), e);
 			}
 
-			List<Long> expressionIds = identifierSource.reserveIds(0, LocalRandomIdentifierSource.POSTCOORDINATED_EXPRESSION_PARTITION_ID, 1);
-			Long expressionId = expressionIds.get(0);
-			ReferenceSetMember member = memberService.createMember(branch,
-					new ReferenceSetMember(moduleId, CANONICAL_CLOSE_TO_USER_FORM_EXPRESSION_REFERENCE_SET, expressionId.toString())
-							.setAdditionalField(EXPRESSION_FIELD, expression.toString()));
 
-			return toExpression(member);
+			final String classifiableForm = classifiableFormExpression.toString();
+			final PostCoordinatedExpression pce = new PostCoordinatedExpression(null, closeToUserForm, classifiableForm);
+			addHumanReadable(pce, context);
+			timer.checkpoint("Add human readable");
+			timer.finish();
+			return pce;
 		} catch (SCGException e) {
 			throw new IllegalArgumentException("Failed to parse expression: " + e.getMessage(), e);
 		}
 	}
 
-	private PostCoordinatedExpression toExpression(ReferenceSetMember member) {
-		return new PostCoordinatedExpression(member.getReferencedComponentId(), member.getAdditionalField(EXPRESSION_FIELD));
+	private PostCoordinatedExpression toExpression(ReferenceSetMember closeToUserFormMember, ReferenceSetMember classifiableFormMember) {
+		return new PostCoordinatedExpression(closeToUserFormMember.getReferencedComponentId(),
+				closeToUserFormMember.getAdditionalField(EXPRESSION_FIELD), classifiableFormMember.getAdditionalField(EXPRESSION_FIELD));
 	}
 
 	private void mrcmAttributeRangeValidation(ComparableExpression expression, ExpressionContext context) throws ServiceException {
@@ -134,12 +158,14 @@ public class ExpressionRepositoryService {
 		// Check that focus concepts exist
 		List<String> focusConcepts = expression.getFocusConcepts();
 		checkThatConceptsExist(focusConcepts, context);
+		context.getTimer().checkpoint("Focus concepts exist");
 
 		if (expressionWithinAttributeId != null) {
 			for (String focusConcept : focusConcepts) {
 				assertAttributeValueWithinRange(expressionWithinAttributeId, focusConcept, context);
 			}
 		}
+		context.getTimer().checkpoint("Attributes within range");
 
 		// Check that attribute types are in MRCM
 		// and that attribute values are within the attribute range
@@ -148,6 +174,7 @@ public class ExpressionRepositoryService {
 			// Grab all attributes in MRCM for this content type
 			Set<String> attributeDomainAttributeIds = context.getBranchMRCM().getAttributeDomainsForContentType(ContentType.POSTCOORDINATED)
 					.stream().map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
+			context.getTimer().checkpoint("Load MRCM attribute");
 			for (Attribute attribute : attributes) {
 				String attributeId = attribute.getAttributeId();
 				// Active attribute exists in MRCM
@@ -164,15 +191,16 @@ public class ExpressionRepositoryService {
 					doMrcmAttributeRangeValidation(nestedExpression, attributeId, context);
 				}
 			}
+			context.getTimer().checkpoint("Attribute validation");
 		}
 	}
 
 	private void assertAttributeValueWithinRange(String attributeId, String attributeValueId, ExpressionContext context) throws ServiceException {
 		// Value within attribute range
-		if (mrcmService.retrieveAttributeValues(ContentType.POSTCOORDINATED, attributeId, attributeValueId,
+		if (mrcmService.retrieveAttributeValueIds(ContentType.POSTCOORDINATED, attributeId, attributeValueId,
 				context.getBranch(), null, context.getBranchMRCM(), context.getBranchCriteria()).isEmpty()) {
-
 			Map<String, String> conceptIdAndFsnTerm = getConceptIdAndTerm(Sets.newHashSet(attributeId, attributeValueId), context);
+			context.getTimer().checkpoint("getConceptIdAndTerm");
 			String attributeValueFromStore = conceptIdAndFsnTerm.get(attributeValueId);
 			if (attributeValueFromStore == null) {
 				throwConceptNotFound(attributeValueId);
@@ -189,6 +217,7 @@ public class ExpressionRepositoryService {
 						attributeValueFromStore, conceptIdAndFsnTerm.get(attributeId), buffer));
 			}
 		}
+		context.getTimer().checkpoint("retrieveAttributeValues for " + attributeId + " = " + attributeValueId);
 	}
 
 	private Map<String, String> getConceptIdAndTerm(Set<String> conceptIds, ExpressionContext context) {
@@ -198,19 +227,36 @@ public class ExpressionRepositoryService {
 
 	private void checkThatConceptsExist(Collection<String> concepts, ExpressionContext context) {
 		if (concepts != null) {
-			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(context.getBranchCriteria(), concepts, null);
-			if (conceptMinis.getTotalElements() < concepts.size()) {
-				for (String concept : concepts) {
-					if (!conceptMinis.getResultsMap().containsKey(concept)) {
-						throwConceptNotFound(concept);
+			final Collection<String> nonExistentConceptIds = conceptService.getNonExistentConceptIds(concepts, context.getBranchCriteria());
+			if (!nonExistentConceptIds.isEmpty()) {
+				throwConceptNotFound(nonExistentConceptIds.iterator().next());
+			}
+		}
+	}
+
+	private void addHumanReadable(PostCoordinatedExpression expression, ExpressionContext context) throws ServiceException {
+		String classifiableForm = expression.getClassifiableForm();
+		if (classifiableForm != null) {
+			final ComparableExpression comparableExpression = expressionParser.parseExpression(classifiableForm);
+			final Set<String> allConceptIds = comparableExpression.getAllConceptIds();
+			classifiableForm = comparableExpression.toString();
+//			classifiableForm = comparableExpression.toString(true);
+			final ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(context.getBranchCriteria(), allConceptIds, Config.DEFAULT_LANGUAGE_DIALECTS);
+			final Map<String, ConceptMini> conceptMap = conceptMinis.getResultsMap();
+			for (String conceptId : conceptMap.keySet()) {
+				final ConceptMini conceptMini = conceptMap.get(conceptId);
+				if (conceptMini != null) {
+					final String fsnTerm = conceptMini.getFsnTerm();
+					if (fsnTerm != null) {
+						classifiableForm = classifiableForm.replace(conceptId, format("%s |%s|", conceptId, fsnTerm));
 					}
 				}
 			}
+			expression.setHumanReadableClassifiableForm(classifiableForm);
 		}
 	}
 
 	private void throwConceptNotFound(String concept) {
 		throw new NotFoundException(format("Concept %s not found on this branch.", concept));
 	}
-
 }

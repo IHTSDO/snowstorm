@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.rest;
 
-import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -18,9 +17,6 @@ import org.springframework.web.bind.annotation.*;
 public class ExpressionRepositoryController {
 
 	@Autowired
-	private BranchService branchService;
-
-	@Autowired
 	private ExpressionRepositoryService expressionRepository;
 
 	@ApiOperation("Retrieve all postcoordinated expressions")
@@ -31,14 +27,19 @@ public class ExpressionRepositoryController {
 			@RequestParam(required = false, defaultValue = "1000") int limit) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-
 		return new ItemsPage<>(expressionRepository.findAll(branch, ControllerHelper.getPageRequest(offset, limit)));
 	}
 
-	@RequestMapping(value = "/{branch}/expressions", method = RequestMethod.POST)
+	@RequestMapping(value = "/{branch}/expressions", method = RequestMethod.PUT)
 	public PostCoordinatedExpression createExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) throws ServiceException {
 		branch = BranchPathUriUtil.decodePath(branch);
 		return expressionRepository.createExpression(branch, request.getCloseToUserForm(), request.getModuleId());
+	}
+
+	@RequestMapping(value = "/{branch}/expressions/transform", method = RequestMethod.POST)
+	public PostCoordinatedExpression transformExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) throws ServiceException {
+		branch = BranchPathUriUtil.decodePath(branch);
+		return expressionRepository.transformExpression(branch, request.getCloseToUserForm());
 	}
 
 }

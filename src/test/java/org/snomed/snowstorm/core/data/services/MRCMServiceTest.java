@@ -49,7 +49,7 @@ class MRCMServiceTest extends AbstractTest {
 	@Test
 	void testNullParentIds() throws ServiceException {
 		// When no parents are supplied, Is a (attribute) should be returned.
-		Collection<ConceptMini> attributes = mrcmService.retrieveDomainAttributes(ContentType.NEW_PRECOORDINATED, true, null, "MAIN", null);
+		Collection<ConceptMini> attributes = mrcmService.retrieveDomainAttributeConceptMinis(ContentType.NEW_PRECOORDINATED, true, null, "MAIN", null);
 		assertEquals(1, attributes.size());
 		assertEquals(ISA, attributes.iterator().next().getId());
 	}
