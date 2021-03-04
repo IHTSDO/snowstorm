@@ -14,6 +14,7 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
+import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.mrcm.MRCMService;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -116,7 +117,7 @@ class ExpressionTransformationServiceTest extends AbstractTest {
 		try (FileInputStream inputStream = new FileInputStream(dummyMrcmImportFile)) {
 			importService.importArchive(importJob, inputStream);
 		}
-		expressionContext = new ExpressionContext("MAIN", versionControlHelper, mrcmService);
+		expressionContext = new ExpressionContext("MAIN", versionControlHelper, mrcmService, new TimerUtil(""));
 	}
 
 	private void assertExpressionTransformation(String input, String expected) throws ServiceException {

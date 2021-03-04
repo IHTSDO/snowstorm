@@ -18,16 +18,16 @@ public class ComparableAttributeGroup extends AttributeGroup implements Comparab
 		setAttributes(attributeGroup.getAttributes());
 	}
 
+	public ComparableAttributeGroup(ComparableAttribute comparableAttribute) {
+		this();
+		addAttribute(comparableAttribute);
+	}
+
 	public void addAttribute(String typeId, String destinationId) {
 		if (sortedAttributes == null) {
 			sortedAttributes = new TreeSet<>();
 		}
-		Attribute attribute = new Attribute();
-		attribute.setAttributeId(typeId);
-		AttributeValue attributeValue = new AttributeValue();
-		attributeValue.setConceptId(destinationId);
-		attribute.setAttributeValue(attributeValue);
-		sortedAttributes.add(new ComparableAttribute(attribute));
+		sortedAttributes.add(new ComparableAttribute(typeId, destinationId));
 	}
 
 	public void addAttribute(Attribute attribute) {
@@ -61,5 +61,13 @@ public class ComparableAttributeGroup extends AttributeGroup implements Comparab
 	@Override
 	public int compareTo(ComparableAttributeGroup other) {
 		return CollectionComparators.compareSets(getSortedAttributes(), other.getSortedAttributes());
+	}
+
+	public void getAllConceptIds(Set<String> ids) {
+		if (sortedAttributes != null) {
+			for (ComparableAttribute sortedAttribute : sortedAttributes) {
+				sortedAttribute.getAllConceptIds(ids);
+			}
+		}
 	}
 }
