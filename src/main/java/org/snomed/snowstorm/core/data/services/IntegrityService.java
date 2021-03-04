@@ -179,7 +179,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 						}
 					}
 				} catch (ConversionException e) {
-					throw new ServiceException("Failed to deserialise axiom during reference integrity check.", e);
+					throw new ServiceException("Failed to deserialize axiom during reference integrity check.", e);
 				}
 			}
 		}
@@ -203,7 +203,9 @@ public class IntegrityService extends ComponentService implements CommitListener
 				long relationshipId = parseLong(relationship.getRelationshipId());
 				conceptUsedAsSourceInRelationships.computeIfAbsent(parseLong(relationship.getSourceId()), id -> new LongOpenHashSet()).add(relationshipId);
 				conceptUsedAsTypeInRelationships.computeIfAbsent(parseLong(relationship.getTypeId()), id -> new LongOpenHashSet()).add(relationshipId);
-				conceptUsedAsDestinationInRelationships.computeIfAbsent(parseLong(relationship.getDestinationId()), id -> new LongOpenHashSet()).add(relationshipId);
+				if (!relationship.isConcrete()) {
+					conceptUsedAsDestinationInRelationships.computeIfAbsent(parseLong(relationship.getDestinationId()), id -> new LongOpenHashSet()).add(relationshipId);
+				}
 			});
 		}
 		try (SearchHitsIterator<ReferenceSetMember> axiomStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()

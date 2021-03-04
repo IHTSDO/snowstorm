@@ -8,7 +8,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.ConcreteValue;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +19,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
+import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
 @ExtendWith(SpringExtension.class)
@@ -147,7 +148,7 @@ class IntegrityServiceTest extends AbstractTest {
 
 		branchService.create("MAIN/project/test1");
 
-		conceptService.create(new Concept(Concepts.ISA), "MAIN/project");
+		conceptService.create(new Concept(ISA), "MAIN/project");
 		conceptService.create(new Concept("100001"), "MAIN/project");
 		conceptService.create(new Concept("609096000"), "MAIN/project");
 		// Valid relationship on MAIN/project
@@ -159,7 +160,7 @@ class IntegrityServiceTest extends AbstractTest {
 		// Missing Destination on MAIN/project
 		conceptService.create(new Concept("100004").addRelationship(new Relationship("10000101", "100001000").setInferred(false)), "MAIN/project");
 		// Missing Destination on MAIN/project - axiom
-		conceptService.create(new Concept("100104").addAxiom(new Relationship(Concepts.ISA, "100002"), new Relationship("10000101", "100001000")), "MAIN/project");
+		conceptService.create(new Concept("100104").addAxiom(new Relationship(ISA, "100002"), new Relationship("10000101", "100001000")), "MAIN/project");
 		// Valid relationship on MAIN/project
 		conceptService.create(new Concept("100005").addRelationship(new Relationship("10000101", "100002").setInferred(false)), "MAIN/project");
 
@@ -167,10 +168,26 @@ class IntegrityServiceTest extends AbstractTest {
 		// Valid relationship on MAIN/project/test2
 		conceptService.create(new Concept("100006").addRelationship(new Relationship("10000101", "100005").setInferred(false)), "MAIN/project/test2");
 		// Valid axiom on MAIN/project/test2
-		conceptService.create(new Concept("101006").addAxiom(new Relationship(Concepts.ISA, "100002"), new Relationship("10000101", "100005")), "MAIN/project/test2");
+		conceptService.create(new Concept("101006").addAxiom(new Relationship(ISA, "100002"), new Relationship("10000101", "100005")), "MAIN/project/test2");
 		// Missing Destination on MAIN/project/test2
 		conceptService.create(new Concept("100007").addRelationship(new Relationship("10000101", "100001000").setInferred(false)), "MAIN/project/test2");
 
+		// create range constraint
+		createRangeConstraint("MAIN/project/test2", "10000201", "dec(>#0..)");
+		createRangeConstraint("MAIN/project/test2", "10000202", "dec(>#0..)");
+
+		// missing concrete attribute type in axiom on MAIN/project/test2
+		conceptService.create(new Concept("100008").addAxiom(new Relationship(ISA, "100002"), Relationship.newConcrete("10000201", ConcreteValue.newDecimal("#50.0"))),
+				"MAIN/project/test2");
+
+		// missing concrete attribute in concrete value relationship
+		// using stated here for testing as integrity service doesn't check inferred. Inferred relationships are checked during classification.
+		conceptService.create(new Concept("100009").addRelationship(Relationship.newConcrete("10000202", ConcreteValue.newDecimal("#50.0")).setInferred(false)),
+				"MAIN/project/test2");
+
+		Concept wrongConcept = conceptService.find("100009", "MAIN/project/test2");
+		wrongConcept.getRelationships().stream().forEach(System.out::println);
+		assertNotNull(wrongConcept);
 		try {
 			integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest("MAIN"));
 			fail("We should never get to this line because we should throw an exception when attempting the incremental integrity check on MAIN - use the full check there!");
@@ -197,9 +214,10 @@ class IntegrityServiceTest extends AbstractTest {
 		// however this method only reports issues created on that branch so we are only expecting the 1 issue created on MAIN/project/test2 to be reported
 		IntegrityIssueReport reportProjectTest2 = integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest("MAIN/project/test2"));
 		assertNull(reportProjectTest2.getRelationshipsWithMissingOrInactiveSource());
-		assertNull(reportProjectTest2.getRelationshipsWithMissingOrInactiveType());
+		assertEquals(1, reportProjectTest2.getRelationshipsWithMissingOrInactiveType().size());
 		assertEquals(1, reportProjectTest2.getRelationshipsWithMissingOrInactiveDestination().size());
-		assertNull(reportProjectTest2.getAxiomsWithMissingOrInactiveReferencedConcept());
+		assertEquals(1, reportProjectTest2.getAxiomsWithMissingOrInactiveReferencedConcept().size());
+		assertEquals("100008", reportProjectTest2.getAxiomsWithMissingOrInactiveReferencedConcept().values().iterator().next().getConceptId());
 
 		// Let's make concept 5 inactive on MAIN/project
 		conceptService.update((Concept) new Concept("100005").setActive(false), "MAIN/project");
@@ -222,10 +240,12 @@ class IntegrityServiceTest extends AbstractTest {
 		IntegrityIssueReport reportProjectTest2Run2 = integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest("MAIN/project/test2"));
 		assertNotEquals("MAIN/project/test2 report should be unchanged", reportProjectTest2, reportProjectTest2Run2);
 		assertNull(reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveSource());
-		assertNull(reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveType());
+		assertEquals(1, reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveType().size());
+		assertEquals(1, reportProjectTest2.getAxiomsWithMissingOrInactiveReferencedConcept().size());
+		assertEquals("100008", reportProjectTest2.getAxiomsWithMissingOrInactiveReferencedConcept().values().iterator().next().getConceptId());
 		assertEquals("There should be an extra rel with missing destination.", 2, reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveDestination().size());
-		assertEquals("There should be an extra axiom with missing referenced concept.", 1, reportProjectTest2Run2.getAxiomsWithMissingOrInactiveReferencedConcept().size());
-		assertEquals("[100005]", getAxiomReferencedConcepts(reportProjectTest2Run2));
+		assertEquals("There should be an extra axiom with missing referenced concept.", 2, reportProjectTest2Run2.getAxiomsWithMissingOrInactiveReferencedConcept().size());
+		assertEquals("[100005, 10000201]", getAxiomReferencedConcepts(reportProjectTest2Run2));
 	}
 
 	@SuppressWarnings("unchecked")
