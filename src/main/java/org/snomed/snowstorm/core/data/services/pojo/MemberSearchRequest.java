@@ -4,6 +4,7 @@ public class MemberSearchRequest {
 
 	private Boolean active;
 	private String referenceSet;
+	private String module;
 	private String referencedComponentId;
 	private String targetComponentId;
 	private String mapTarget;
@@ -32,6 +33,15 @@ public class MemberSearchRequest {
 
 	public String getReferenceSet() {
 		return referenceSet;
+	}
+
+	public MemberSearchRequest module(String module) {
+		this.module = module;
+		return this;
+	}
+
+	public String getModule() {
+		return module;
 	}
 
 	/**

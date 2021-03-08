@@ -114,13 +114,13 @@ public class ReferenceSetMemberService extends ComponentService {
 		}
 		String referenceSet = searchRequest.getReferenceSet();
 		if (!Strings.isNullOrEmpty(referenceSet)) {
-			List<Long> conceptIds;
-			if (referenceSet.matches("\\d+")) {
-				conceptIds = Collections.singletonList(parseLong(referenceSet));
-			} else {
-				conceptIds = getEclQueryService().selectConceptIds(referenceSet, branchCriteria, branch, true, LARGE_PAGE).getContent();
-			}
+			List<Long> conceptIds = getConceptIds(branch, branchCriteria, referenceSet);
 			query.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, conceptIds));
+		}
+		String module = searchRequest.getModule();
+		if (!Strings.isNullOrEmpty(module)) {
+			List<Long> conceptIds = getConceptIds(branch, branchCriteria, module);
+			query.must(termsQuery(ReferenceSetMember.Fields.MODULE_ID, conceptIds));
 		}
 		String referencedComponentId = searchRequest.getReferencedComponentId();
 		if (!Strings.isNullOrEmpty(referencedComponentId)) {
@@ -148,6 +148,16 @@ public class ReferenceSetMemberService extends ComponentService {
 			}
 		}
 		return query;
+	}
+
+	private List<Long> getConceptIds(String branch, BranchCriteria branchCriteria, String parameter) {
+		List<Long> conceptIds;
+		if (parameter.matches("\\d+")) {
+			conceptIds = Collections.singletonList(parseLong(parameter));
+		} else {
+			conceptIds = getEclQueryService().selectConceptIds(parameter, branchCriteria, branch, true, LARGE_PAGE).getContent();
+		}
+		return conceptIds;
 	}
 
 	private ECLQueryService getEclQueryService() {

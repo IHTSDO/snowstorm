@@ -119,6 +119,8 @@ public class ReferenceSetMemberController {
 	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
 			@ApiParam("A reference set identifier or ECL expression can be used to limit the reference sets searched. Example: <723564002")
 			@RequestParam(required = false) String referenceSet,
+			@ApiParam("A concept identifier or ECL expression can be used to limit the modules searched. Example: <900000000000445007")
+			@RequestParam(required = false) String module,
 			@RequestParam(required = false) String referencedComponentId,
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(required = false) String targetComponent,
@@ -138,6 +140,7 @@ public class ReferenceSetMemberController {
 				new MemberSearchRequest()
 						.active(active)
 						.referenceSet(referenceSet)
+						.module(module)
 						.referencedComponentId(referencedComponentId)
 						.targetComponentId(targetComponent)
 						.mapTarget(mapTarget)
