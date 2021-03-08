@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
 import org.springframework.data.annotation.Id;
@@ -84,6 +85,14 @@ public class CodeSystem implements CodeSystemCreate {
 		this.branchPath = branchPath;
 		this.name = name;
 		this.countryCode = countryCode;
+	}
+
+	@JsonIgnore
+	public String getShortCode() {
+		if (shortName != null && shortName.contains("-")) {
+			return shortName.substring(shortName.indexOf("-") + 1);
+		}
+		return null;
 	}
 
 	public String getShortName() {
