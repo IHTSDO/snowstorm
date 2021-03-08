@@ -30,7 +30,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.elasticsearch.core.*;
+import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
@@ -51,7 +54,7 @@ import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.getDefaultSortForCo
 @Service
 public class QueryService implements ApplicationContextAware {
 
-	static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
+	static final PageRequest PAGE_OF_ONE_HUNDRED = PageRequest.of(0, 100);
 
 	@Autowired
 	private ElasticsearchRestTemplate elasticsearchTemplate;
@@ -311,7 +314,7 @@ public class QueryService implements ApplicationContextAware {
 						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
 						.must(termQuery("stated", stated))
 				)
-				.withPageable(PAGE_OF_ONE)
+				.withPageable(PAGE_OF_ONE_HUNDRED)
 				.build();
 		List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
@@ -490,7 +493,7 @@ public class QueryService implements ApplicationContextAware {
 		}
 
 		for (ConceptMini concept : concepts) {
-			SearchAfterPage<Long> page = searchForIds(createQueryBuilder(form).ecl("<" + concept.getId()), branchPath, branchCriteria, PAGE_OF_ONE);
+			SearchAfterPage<Long> page = searchForIds(createQueryBuilder(form).ecl("<" + concept.getId()), branchPath, branchCriteria, PAGE_OF_ONE_HUNDRED);
 			concept.setDescendantCount(page.getTotalElements());
 			concept.setLeaf(form, page.getTotalElements() == 0);
 		}
