@@ -296,7 +296,8 @@ public class SEclAttribute extends EclAttribute implements SRefinement {
 		return QueryConcept.Fields.ATTR + "." + attributeTypeProperty;
 	}
 
-	private boolean isConcreteValueQuery() {
+	@JsonIgnore
+	public boolean isConcreteValueQuery() {
 		return getNumericComparisonOperator() != null || getStringComparisonOperator() != null;
 	}
 
