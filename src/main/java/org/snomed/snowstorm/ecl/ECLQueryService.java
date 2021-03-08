@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
+import org.snomed.snowstorm.ecl.validation.ECLEdgeCaseHandlerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -25,6 +26,9 @@ public class ECLQueryService {
 	private ECLQueryBuilder eclQueryBuilder;
 
 	@Autowired
+	private ECLEdgeCaseHandlerService eclEdgeCaseHandlerService;
+
+	@Autowired
 	private QueryService queryService;
 
 	@Value("${timer.ecl.duration-threshold}")
@@ -39,8 +43,15 @@ public class ECLQueryService {
 	}
 
 	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest) throws ECLException {
+		return selectRelevantConceptIds(ecl, branchCriteria, path, stated, conceptIdFilter, pageRequest, eclEdgeCaseHandlerService.replaceIncorrectConcreteAttributeValue(ecl, path, pageRequest));
+	}
+
+	public Page<Long> selectRelevantConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, SExpressionConstraint expressionConstraint) {
 		TimerUtil eclSlowQueryTimer = getEclSlowQueryTimer();
-		SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
+
+		if (expressionConstraint == null) {
+			expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
+		}
 
 		// TODO: Attempt to simplify queries here.
 		// Changing something like "(id) AND (<<id OR >>id)"  to  "(id AND <<id) OR (id AND >>id)" will run in a fraction of the time because there will be no large fetches
