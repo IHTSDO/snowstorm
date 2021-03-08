@@ -9,7 +9,6 @@ import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.io.Serializable;
 
@@ -30,7 +29,6 @@ public abstract class SnomedComponent<C> extends DomainEntity<C> implements IdAn
 
 	@JsonView(value = View.Component.class)
 	@Field(type = FieldType.Keyword)
-	@NotNull
 	@Size(min = 5, max = 18)
 	private String moduleId;
 

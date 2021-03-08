@@ -190,7 +190,8 @@ public class ReferenceSetMemberController {
 		return member;
 	}
 
-	@ApiOperation("Create a reference set member.")
+	@ApiOperation(value = "Create a reference set member.",
+			notes = "If the 'moduleId' is not set the '" + Config.DEFAULT_MODULE_ID_KEY + "' will be used from branch metadata (resolved recursively).")
 	@RequestMapping(value = "/{branch}/members", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
