@@ -16,6 +16,7 @@ import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptHistory;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.loadtest.ItemsPagePojo;
+import org.snomed.snowstorm.rest.pojo.ConceptBulkLoadRequest;
 import org.snomed.snowstorm.util.ConceptControllerTestConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -31,6 +32,8 @@ import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
@@ -853,6 +856,20 @@ class ConceptControllerTest extends AbstractTest {
 				assertEquals(ISA, relationship.getTypeId());
 			}
 		}));
+	}
+
+	@Test
+	void testBulkLoadWithNullConceptIdentifiers() throws URISyntaxException {
+		//given
+		List<String> conceptIds = Arrays.asList("782964007", "255314001", null, null, null, "308490002");
+		ConceptBulkLoadRequest conceptBulkLoadRequest = new ConceptBulkLoadRequest(conceptIds, Collections.emptySet());
+		RequestEntity<?> request = new RequestEntity<>(conceptBulkLoadRequest, HttpMethod.POST, new URI("http://localhost:" + port + "/browser/MAIN/concepts/bulk-load"));
+
+		//when
+		ResponseEntity<?> responseEntity = this.restTemplate.exchange(request, Collection.class);
+
+		//then
+		assertEquals(200, responseEntity.getStatusCodeValue());
 	}
 
 	protected interface Procedure {
