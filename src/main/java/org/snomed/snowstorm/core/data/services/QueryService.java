@@ -54,7 +54,7 @@ import static org.snomed.snowstorm.ecl.ConceptSelectorHelper.getDefaultSortForCo
 @Service
 public class QueryService implements ApplicationContextAware {
 
-	static final PageRequest PAGE_OF_ONE_HUNDRED = PageRequest.of(0, 100);
+	static final PageRequest PAGE_OF_ONE = PageRequest.of(0, 1);
 
 	@Autowired
 	private ElasticsearchRestTemplate elasticsearchTemplate;
@@ -314,7 +314,7 @@ public class QueryService implements ApplicationContextAware {
 						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptId))
 						.must(termQuery("stated", stated))
 				)
-				.withPageable(PAGE_OF_ONE_HUNDRED)
+				.withPageable(PAGE_OF_ONE)
 				.build();
 		List<QueryConcept> concepts = elasticsearchTemplate.search(searchQuery, QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
@@ -493,7 +493,7 @@ public class QueryService implements ApplicationContextAware {
 		}
 
 		for (ConceptMini concept : concepts) {
-			SearchAfterPage<Long> page = searchForIds(createQueryBuilder(form).ecl("<" + concept.getId()), branchPath, branchCriteria, PAGE_OF_ONE_HUNDRED);
+			SearchAfterPage<Long> page = searchForIds(createQueryBuilder(form).ecl("<" + concept.getId()), branchPath, branchCriteria, PAGE_OF_ONE);
 			concept.setDescendantCount(page.getTotalElements());
 			concept.setLeaf(form, page.getTotalElements() == 0);
 		}

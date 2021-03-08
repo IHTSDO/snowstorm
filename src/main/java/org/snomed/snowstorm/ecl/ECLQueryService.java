@@ -9,7 +9,7 @@ import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
-import org.snomed.snowstorm.ecl.validation.ECLEdgeCaseHandlerService;
+import org.snomed.snowstorm.ecl.validation.ECLPreprocessingService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -26,7 +26,7 @@ public class ECLQueryService {
 	private ECLQueryBuilder eclQueryBuilder;
 
 	@Autowired
-	private ECLEdgeCaseHandlerService eclEdgeCaseHandlerService;
+	private ECLPreprocessingService eclPreprocessingService;
 
 	@Autowired
 	private QueryService queryService;
@@ -43,10 +43,11 @@ public class ECLQueryService {
 	}
 
 	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest) throws ECLException {
-		return selectRelevantConceptIds(ecl, branchCriteria, path, stated, conceptIdFilter, pageRequest, eclEdgeCaseHandlerService.replaceIncorrectConcreteAttributeValue(ecl, path, pageRequest));
+		final SExpressionConstraint sExpressionConstraint = eclPreprocessingService.replaceIncorrectConcreteAttributeValue((SExpressionConstraint) eclQueryBuilder.createQuery(ecl), path, pageRequest);
+		return doSelectConceptIds(ecl, branchCriteria, path, stated, conceptIdFilter, pageRequest, sExpressionConstraint);
 	}
 
-	public Page<Long> selectRelevantConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, SExpressionConstraint expressionConstraint) {
+	public Page<Long> doSelectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, SExpressionConstraint expressionConstraint) {
 		TimerUtil eclSlowQueryTimer = getEclSlowQueryTimer();
 
 		if (expressionConstraint == null) {
