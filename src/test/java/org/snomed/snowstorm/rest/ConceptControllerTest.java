@@ -36,6 +36,8 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.*;
@@ -863,6 +865,21 @@ class ConceptControllerTest extends AbstractTest {
 		//given
 		List<String> conceptIds = Arrays.asList("782964007", "255314001", null, null, null, "308490002");
 		ConceptBulkLoadRequest conceptBulkLoadRequest = new ConceptBulkLoadRequest(conceptIds, Collections.emptySet());
+		RequestEntity<?> request = new RequestEntity<>(conceptBulkLoadRequest, HttpMethod.POST, new URI("http://localhost:" + port + "/browser/MAIN/concepts/bulk-load"));
+
+		//when
+		ResponseEntity<?> responseEntity = this.restTemplate.exchange(request, Collection.class);
+
+		//then
+		assertEquals(200, responseEntity.getStatusCodeValue());
+	}
+
+	@Test
+	void testBulkLoadWithNullDescriptionIdentifiers() throws URISyntaxException {
+		//given
+		List<String> conceptIds = Arrays.asList("782964007", "255314001", "308490002");
+		Set<String> descriptionIds = Stream.of("3756961018", "3756960017", null, null, "705033019", "451847013").collect(Collectors.toSet());
+		ConceptBulkLoadRequest conceptBulkLoadRequest = new ConceptBulkLoadRequest(conceptIds, descriptionIds);
 		RequestEntity<?> request = new RequestEntity<>(conceptBulkLoadRequest, HttpMethod.POST, new URI("http://localhost:" + port + "/browser/MAIN/concepts/bulk-load"));
 
 		//when

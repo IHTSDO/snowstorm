@@ -34,4 +34,10 @@ public class ConceptBulkLoadRequest {
 	public Set<String> getDescriptionIds() {
 		return descriptionIds;
 	}
+
+	@JsonSetter(value = "descriptionIds")
+	public void setDescriptionIdsSafely(Set<String> descriptionIds) {
+		descriptionIds.removeIf(Objects::isNull);
+		this.descriptionIds = descriptionIds;
+	}
 }
