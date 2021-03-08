@@ -5,7 +5,6 @@ import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.config.Config;
@@ -75,7 +74,6 @@ class ClassificationServiceTest extends AbstractTest {
 		traceabilityLogService.setEnabled(traceabilityOriginallyEnabled);
 	}
 
-	@Disabled("Disabled until the ActiveMQ broker can restart under Jenkins.")
 	@Test
 	void testSaveRelationshipChanges() throws IOException, ServiceException, InterruptedException {
 		// Create concept with some stated modeling in an axiom
@@ -142,11 +140,12 @@ class ClassificationServiceTest extends AbstractTest {
 		assertNotNull(concreteRelationship);
 		assertEquals("#5", concreteRelationship.getValue());
 
-		activity = getTraceabilityActivity();
-		assertEquals(0, getTraceabilityActivitiesLogged().size());
-		assertNotNull(activity, "Traceability must be logged for classification results.");
-		assertEquals("Classified ontology.", activity.getCommitComment());
-		assertEquals(1, activity.getChanges().size());
+		// Disabled until the ActiveMQ broker can restart under Jenkins.
+//		activity = getTraceabilityActivity();
+//		assertEquals(0, getTraceabilityActivitiesLogged().size());
+//		assertNotNull(activity, "Traceability must be logged for classification results.");
+//		assertEquals("Classified ontology.", activity.getCommitComment());
+//		assertEquals(1, activity.getChanges().size());
 	}
 
 	@Test
