@@ -18,6 +18,7 @@ import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.sort.FieldSortBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetTypeRepository;
@@ -185,8 +186,16 @@ public class ReferenceSetMemberService extends ComponentService {
 
 	public Iterable<ReferenceSetMember> createMembers(String branch, Set<ReferenceSetMember> members) {
 		try (final Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata(String.format("Creating %s reference set members.", members.size())))) {
+
+			// Grab branch metadata including values inherited from ancestor branches
+			Map<String, String> metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
+			String defaultModuleId = metadata != null ? metadata.get(Config.DEFAULT_MODULE_ID_KEY) : null;
+
 			members.forEach(member -> {
 				member.setMemberId(UUID.randomUUID().toString());
+				if (member.getModuleId() == null) {
+					member.setModuleId(defaultModuleId);
+				}
 				member.markChanged();
 			});
 			final Iterable<ReferenceSetMember> savedMembers = doSaveBatchMembers(members, commit);
