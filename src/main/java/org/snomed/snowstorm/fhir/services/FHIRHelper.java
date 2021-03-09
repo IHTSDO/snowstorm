@@ -48,7 +48,7 @@ public class FHIRHelper implements FHIRConstants {
 	private static final Logger logger = LoggerFactory.getLogger(FHIRHelper.class);
 
 	public static final String UNVERSIONED_STR = "UNVERSIONED";
-	public static final int UNVERSIONED = -1;
+	public static packagefinal int UNVERSIONED = -1;
 
 	public static Integer getSnomedVersion(String versionStr) throws FHIROperationException {
 		if (versionStr.contains(UNVERSIONED_STR) || versionStr.startsWith(SNOMED_URI_UNVERSIONED)) {
@@ -145,7 +145,9 @@ public class FHIRHelper implements FHIRConstants {
 					String[] tokenParts = designation.split(PIPE);
 					if (tokenParts.length < 2 ||
 							!StringUtils.isNumeric(tokenParts[1]) ||
-							!tokenParts[0].equals(SNOMED_URI)) {
+							// check for SNOMED URI, possibly an extension URI
+							// TODO: version support?
+							!tokenParts[0].matches(SNOMED_URI + "(/\\d*)?")) {
 						throw new FHIROperationException(IssueType.VALUE, "Malformed designation token '" + designation + "' expected format http://snomed.info/sct PIPE langrefsetId");
 					}
 					LanguageDialect languageDialect = new LanguageDialect(null, Long.parseLong(tokenParts[1]));
