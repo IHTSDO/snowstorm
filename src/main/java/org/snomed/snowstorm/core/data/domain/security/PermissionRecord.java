@@ -56,13 +56,14 @@ public class PermissionRecord {
 		this.path = path;
 	}
 
-	// Composite key enforces uniqueness, not used for lookup, not API visible.
-	public String getKey() {
-		return (path != null ? path : "global") + "-" + role;
+	public void updateFields() {
+		// Composite key enforces uniqueness, not used for lookup, not API visible.
+		key = (path != null ? path : "global") + "-" + role;
+		global = path == null;
 	}
 
 	public boolean isGlobal() {
-		return path == null;
+		return global;
 	}
 
 	public String getRole() {

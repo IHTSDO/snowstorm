@@ -1,13 +1,17 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.security.PermissionRecord;
 import org.snomed.snowstorm.core.data.repositories.PermissionRecordRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.preauth.PreAuthenticatedAuthenticationToken;
 
 import java.util.ArrayList;
@@ -16,8 +20,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.Sets.newHashSet;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class PermissionServiceTest extends AbstractTest {
 
@@ -25,14 +29,11 @@ class PermissionServiceTest extends AbstractTest {
 	private PermissionService permissionService;
 
 	@Autowired
-	private PermissionRecordRepository repository;
-
-	private List<PermissionRecord> allPermissionRecords;
-	private List<String> codeSystemBranches;
+	private CodeSystemService codeSystemService;
 
 	@BeforeEach
 	void setup() {
-		allPermissionRecords = new ArrayList<>();
+		List<PermissionRecord> allPermissionRecords = new ArrayList<>();
 
 		// Global roles
 		allPermissionRecords.add(new PermissionRecord("ADMIN").withUserGroups("snowstorm-admin"));
@@ -46,8 +47,10 @@ class PermissionServiceTest extends AbstractTest {
 
 		// Extension code system roles
 		allPermissionRecords.add(new PermissionRecord("AUTHOR", "MAIN/SNOMEDCT-ABC").withUserGroups("abc-author"));
-		repository.saveAll(allPermissionRecords);
-		codeSystemBranches = Lists.newArrayList("MAIN", "MAIN/SNOMEDCT-ABC");
+		permissionService.saveAll(allPermissionRecords);
+
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-ABC", "MAIN/SNOMEDCT-ABC"));
 	}
 
 	@Test
@@ -79,7 +82,26 @@ class PermissionServiceTest extends AbstractTest {
 		assertEquals(newHashSet(), getRolesForBranch("MAIN", "abc-author"));
 		assertEquals(newHashSet("AUTHOR"), getRolesForBranch("MAIN/SNOMEDCT-ABC", "abc-author"));
 		assertEquals(newHashSet("AUTHOR"), getRolesForBranch("MAIN/SNOMEDCT-ABC/PROJECTZ/task-99", "abc-author"));
+	}
 
+	@Test
+	public void testUpdateGlobalRoles() {
+		assertEquals(newHashSet(), getRolesForBranch("MAIN", "ROLE_global-view2"));
+		permissionService.setGlobalRoleGroups("VIEW", Sets.newHashSet("global-view", "global-view2"));
+		assertEquals(newHashSet("VIEW"), getRolesForBranch("MAIN", "ROLE_global-view2"));
+	}
+
+	@Test
+	public void testDeleteGlobalRoles() {
+		List<PermissionRecord> globalRoles = permissionService.findGlobal();
+		assertEquals(2, globalRoles.size());
+		assertEquals(newHashSet("ADMIN", "VIEW"), getRolesForBranch("MAIN", "ROLE_snowstorm-admin", "ROLE_global-view"));
+
+		permissionService.deleteGlobalRole("VIEW");
+
+		globalRoles = permissionService.findGlobal();
+		assertEquals(1, globalRoles.size());
+		assertEquals(newHashSet("ADMIN"), getRolesForBranch("MAIN", "ROLE_snowstorm-admin", "ROLE_global-view"));
 	}
 
 	@Test
@@ -91,7 +113,12 @@ class PermissionServiceTest extends AbstractTest {
 	}
 
 	private Set<String> getRolesForBranch(String branchPath, String... userGroups) {
-		return permissionService.getUserRolesForBranch(branchPath, allPermissionRecords, codeSystemBranches, createUserWithUserGroups(newHashSet(userGroups))).getGrantedBranchRole();
+		// Create fake user and log them in for testing
+		final PreAuthenticatedAuthenticationToken user = createUserWithUserGroups(newHashSet(userGroups));
+		SecurityContext securityContext = SecurityContextHolder.getContext();
+		securityContext.setAuthentication(user);
+
+		return permissionService.getUserRolesForBranch(branchPath).getGrantedBranchRole();
 	}
 
 	private PreAuthenticatedAuthenticationToken createUserWithUserGroups(Set<String> userGroups) {
