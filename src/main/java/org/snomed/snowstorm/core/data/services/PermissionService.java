@@ -15,7 +15,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -154,10 +153,11 @@ public class PermissionService {
 		if (!userGroups.isEmpty()) {
 			PermissionRecord permissionRecord = findByGlobalPathAndRole(global, branch, role).orElse(new PermissionRecord(role, branch));
 			permissionRecord.setUserGroups(userGroups);
-			repository.save(permissionRecord);
+			save(permissionRecord);
 		} else {
 			// Delete any existing entry
-			findByGlobalPathAndRole(global, branch, role).ifPresent(record -> repository.delete(record));
+			final Optional<PermissionRecord> byGlobalPathAndRole = findByGlobalPathAndRole(global, branch, role);
+			byGlobalPathAndRole.ifPresent(record -> repository.delete(record));
 		}
 		permissionServiceCache.clearCache();
 	}
@@ -178,5 +178,18 @@ public class PermissionService {
 
 	public void deleteAll() {
 		repository.deleteAll();
+		permissionServiceCache.clearCache();
 	}
+
+	public void save(PermissionRecord record) {
+		saveAll(Collections.singleton(record));
+	}
+
+	public void saveAll(Collection<PermissionRecord> records) {
+		for (PermissionRecord record : records) {
+			record.updateFields();
+		}
+		repository.saveAll(records);
+	}
+
 }
