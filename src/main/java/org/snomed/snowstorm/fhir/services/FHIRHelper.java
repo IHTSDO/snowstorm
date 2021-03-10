@@ -148,7 +148,7 @@ public class FHIRHelper implements FHIRConstants {
 							// check for SNOMED URI, possibly an extension URI
 							// TODO: version support?
 							!tokenParts[0].matches(SNOMED_URI + "(/\\d*)?")) {
-						throw new FHIROperationException(IssueType.VALUE, "Malformed designation token '" + designation + "' expected format http://snomed.info/sct(/module) PIPE langrefsetId");
+						throw new FHIROperationException(IssueType.VALUE, "Malformed designation token '" + designation + "' expected format http://snomed.info/sct(/moduleId) PIPE langrefsetId");
 					}
 					LanguageDialect languageDialect = new LanguageDialect(null, Long.parseLong(tokenParts[1]));
 					if (!languageDialects.contains(languageDialect)) {
