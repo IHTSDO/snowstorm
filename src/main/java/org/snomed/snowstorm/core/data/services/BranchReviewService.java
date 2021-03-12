@@ -422,17 +422,10 @@ public class BranchReviewService {
 		if (!changedVersionsReplaced.getOrDefault(ReferenceSetMember.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
 			// Refsets with the internal "conceptId" field are related to a concept in terms of authoring
 			NativeSearchQueryBuilder refsetQuery = componentsReplacedCriteria(changedVersionsReplaced.get(ReferenceSetMember.class.getSimpleName()),
-					ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID, ReferenceSetMember.Fields.ADDITIONAL_FIELDS)
+					ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
 					.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)));
 			try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(refsetQuery.build(), ReferenceSetMember.class)) {
-				stream.forEachRemaining(hit -> {
-					referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId()));
-
-					String acceptability = hit.getContent().getAdditionalFields().get(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
-					if (!StringUtils.isEmpty(acceptability) &&  Concepts.PREFERRED.equals(acceptability)) {
-						preferredDescriptionIds.add(parseLong(hit.getContent().getReferencedComponentId()));
-					}
-				});
+				stream.forEachRemaining(hit -> referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId())));
 			}
 		}
 
@@ -488,20 +481,13 @@ public class BranchReviewService {
 		logger.debug("Collecting refset member changes for change report: branch {} time range {} to {}", path, start, end);
 		NativeSearchQuery memberQuery = newSearchQuery(updatesDuringRange)
 				.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)))
-				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID, ReferenceSetMember.Fields.ADDITIONAL_FIELDS)
+				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
 				.build();
 		try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(memberQuery, ReferenceSetMember.class)) {
-			stream.forEachRemaining(hit -> {
-				referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId()));
-
-				String acceptability = hit.getContent().getAdditionalFields().get(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
-				if (!StringUtils.isEmpty(acceptability) &&  Concepts.PREFERRED.equals(acceptability)) {
-					preferredDescriptionIds.add(parseLong(hit.getContent().getReferencedComponentId()));
-				}
-			});
+			stream.forEachRemaining(hit -> referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId())));
 		}
 
-		// Filter out changes for active Synonyms except Preferred terms
+		// Filter out changes for active Synonyms
 		// Inactive synonym changes should be included to avoid inactivation indicator / association clashes
 		List<Long> synonymAndTextDefIds = new LongArrayList();
 		NativeSearchQueryBuilder synonymQuery = new NativeSearchQueryBuilder()
@@ -511,16 +497,24 @@ public class BranchReviewService {
 						.must(termsQuery(Description.Fields.DESCRIPTION_ID, referenceComponentIdToConceptMap.keySet()))
 						.must(termQuery(Description.Fields.ACTIVE, true)));
 		try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(synonymQuery.build(), Description.class)) {
-			stream.forEachRemaining(hit -> {
-				if (!preferredDescriptionIds.contains(parseLong(hit.getContent().getDescriptionId()))) {
-					synonymAndTextDefIds.add(parseLong(hit.getContent().getDescriptionId()));
-				}
-			});
+			stream.forEachRemaining(hit -> synonymAndTextDefIds.add(parseLong(hit.getContent().getDescriptionId())));
+		}
+
+		// Keep preferred terms if any
+		NativeSearchQuery languageMemberQuery = newSearchQuery(updatesDuringRange)
+				.withFilter(boolQuery()
+						.must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID))
+						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, synonymAndTextDefIds))
+						.must(termsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED)))
+				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+				.build();
+		try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(languageMemberQuery, ReferenceSetMember.class)) {
+			stream.forEachRemaining(hit -> preferredDescriptionIds.add(parseLong(hit.getContent().getReferencedComponentId())));
 		}
 
 		Set<Long> changedComponents = referenceComponentIdToConceptMap.keySet()
 				.stream()
-				.filter(r -> !synonymAndTextDefIds.contains(r))
+				.filter(r -> preferredDescriptionIds.contains(r) || !synonymAndTextDefIds.contains(r))
 				.collect(Collectors.toSet());
 
 		for (Long componentId : changedComponents) {
