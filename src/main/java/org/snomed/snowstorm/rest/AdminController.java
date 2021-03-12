@@ -6,6 +6,7 @@ import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
+import org.snomed.snowstorm.rest.pojo.UpdatedDocumentCount;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -58,8 +59,9 @@ public class AdminController {
 					"which supports the ECL queries, can be rebuilt on demand. ")
 	@RequestMapping(value = "/{branch}/actions/rebuild-semantic-index", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
-	public void rebuildBranchTransitiveClosure(@PathVariable String branch) throws ServiceException {
-		queryConceptUpdateService.rebuildStatedAndInferredSemanticIndex(BranchPathUriUtil.decodePath(branch));
+	public UpdatedDocumentCount rebuildBranchTransitiveClosure(@PathVariable String branch) throws ServiceException {
+		final Map<String, Integer> updateCount = queryConceptUpdateService.rebuildStatedAndInferredSemanticIndex(BranchPathUriUtil.decodePath(branch));
+		return new UpdatedDocumentCount(updateCount);
 	}
 
 	@ApiOperation(value = "Force update of definition statuses of all concepts based on axioms.",
