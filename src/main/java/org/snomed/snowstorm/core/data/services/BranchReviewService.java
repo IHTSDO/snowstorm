@@ -29,6 +29,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
@@ -384,6 +385,7 @@ public class BranchReviewService {
 		// Find components of each type that are on the target branch and have been ended on the source branch
 		final Set<Long> changedConcepts = new LongOpenHashSet();
 		final Map<Long, Long> referenceComponentIdToConceptMap = new Long2ObjectOpenHashMap<>();
+		final Set<Long> preferredDescriptionIds = new LongOpenHashSet();
 		Branch branch = branchService.findBranchOrThrow(path);
 		logger.debug("Collecting versions replaced for change report: branch {} time range {} to {}", path, start, end);
 
@@ -498,9 +500,21 @@ public class BranchReviewService {
 			stream.forEachRemaining(hit -> synonymAndTextDefIds.add(parseLong(hit.getContent().getDescriptionId())));
 		}
 
+		// Keep preferred terms if any
+		NativeSearchQuery languageMemberQuery = newSearchQuery(updatesDuringRange)
+				.withFilter(boolQuery()
+						.must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID))
+						.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, synonymAndTextDefIds))
+						.must(termsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED)))
+				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
+				.build();
+		try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(languageMemberQuery, ReferenceSetMember.class)) {
+			stream.forEachRemaining(hit -> preferredDescriptionIds.add(parseLong(hit.getContent().getReferencedComponentId())));
+		}
+
 		Set<Long> changedComponents = referenceComponentIdToConceptMap.keySet()
 				.stream()
-				.filter(r -> !synonymAndTextDefIds.contains(r))
+				.filter(r -> preferredDescriptionIds.contains(r) || !synonymAndTextDefIds.contains(r))
 				.collect(Collectors.toSet());
 
 		for (Long componentId : changedComponents) {

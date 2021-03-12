@@ -225,6 +225,47 @@ class BranchReviewServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testConflictsFoundWithDuplicatePreferredTerms() throws InterruptedException, ServiceException {
+		// The story:
+		// Create new preferred terms in branches MAIN/A and MAIN/B
+		// Promote MAIN/A to MAIN
+		// Rebase branch MAIN/B - should see conflicts
+
+		// Create MAIN/B
+		branchService.create("MAIN/B");
+
+		// Add new PT on A
+		String workingBranch = "MAIN/A";
+		Concept concept = conceptService.find("10000100", workingBranch);
+		concept.addDescription(new Description("Test")
+				.setCaseSignificance("CASE_INSENSITIVE")
+				.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
+						Concepts.descriptionAcceptabilityNames.get(Concepts.PREFERRED))));
+		conceptService.update(concept, workingBranch);
+
+		workingBranch = "MAIN/B";
+		concept = conceptService.find("10000100", workingBranch);
+		concept.addDescription(new Description("test")
+				.setCaseSignificance("CASE_INSENSITIVE")
+				.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
+						Concepts.descriptionAcceptabilityNames.get(Concepts.PREFERRED))));
+		conceptService.update(concept, workingBranch);
+
+		// Promote A to MAIN
+		mergeService.mergeBranchSync("MAIN/A", "MAIN", Collections.emptySet());
+
+		MergeReview review = createMergeReviewAndWaitUntilCurrent("MAIN", "MAIN/B");
+		BranchReview sourceToTargetReview = reviewService.getBranchReview(review.getSourceToTargetReviewId());
+		assertReportEquals(sourceToTargetReview.getChangedConcepts(), new Long[]{10000100L});
+		BranchReview targetToSourceReview = reviewService.getBranchReview(review.getTargetToSourceReviewId());
+		assertReportEquals(targetToSourceReview.getChangedConcepts(), new Long[]{10000100L});
+
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
+		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getSourceConcept().getId()).collect(Collectors.toCollection(TreeSet::new));
+		assertEquals("[10000100]", conceptIds.toString());
+	}
+
+	@Test
 	void testCreateMergeReviewWithConceptDeletedOnParentAndFsnUpdatedOnChild() throws InterruptedException, ServiceException {
 		// Update concept 10000100 FSN on A
 		Concept concept = conceptService.find("10000100", "MAIN/A");
