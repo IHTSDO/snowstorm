@@ -5,6 +5,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -12,6 +13,7 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.repositories.QueryConceptRepository;
 import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilderException;
 import org.snomed.snowstorm.mrcm.MRCMLoader;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
@@ -20,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.test.context.ContextConfiguration;
@@ -29,6 +32,8 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static org.elasticsearch.index.query.QueryBuilders.existsQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
@@ -59,6 +64,9 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
+
+	@Autowired
+	private QueryConceptRepository queryConceptRepository;
 
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 
@@ -223,6 +231,29 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(2, eclSearchForIds(eclAnyConceptWithATopping, branch).size(), "Should now find 2 pizzas with a topping");
 
 		assertTC(hamPizza, pizza, root);
+
+		Map<String, Integer> stringIntegerMap = updateService.rebuildStatedAndInferredSemanticIndex(branch);
+		assertEquals(0, stringIntegerMap.get(Form.STATED.getName()));
+		assertEquals(0, stringIntegerMap.get(Form.INFERRED.getName()));
+
+		// Extreme hack, without version control, to break the semantic index
+		final SearchHit<QueryConcept> hit = elasticsearchTemplate.searchOne(new NativeSearchQueryBuilder()
+				.withQuery(QueryBuilders.boolQuery()
+						.must(termQuery(QueryConcept.Fields.CONCEPT_ID_FORM, hamPizza.getId() + "_i"))
+						.mustNot(existsQuery("end"))
+				).build(), QueryConcept.class);
+		assertNotNull(hit);
+		QueryConcept queryConcept = hit.getContent();
+		assertEquals(2, queryConcept.getAttr().size());
+		queryConcept.setAttrMap(null);
+		queryConcept.setAttr(null);
+		queryConcept.serializeGroupedAttributesMap();
+		assertEquals(1, queryConcept.getAttr().size());
+		queryConceptRepository.save(queryConcept);
+
+		stringIntegerMap = updateService.rebuildStatedAndInferredSemanticIndex(branch);
+		assertEquals(0, stringIntegerMap.get(Form.STATED.getName()));
+		assertEquals(1, stringIntegerMap.get(Form.INFERRED.getName()));
 	}
 
 	private List<String> eclSearchForIds(String ecl, String branch) {

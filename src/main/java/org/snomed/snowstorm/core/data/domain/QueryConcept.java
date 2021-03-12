@@ -200,6 +200,20 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		this.stated = stated;
 	}
 
+	public boolean fieldsMatch(QueryConcept other) {
+		if (!this.equals(other)
+				|| !this.getParents().equals(other.getParents())
+				|| !this.getAncestors().equals(other.getAncestors())) {
+			return false;
+		}
+		final Map<Integer, Map<String, List<Object>>> groupedAttributesMap = this.getGroupedAttributesMap();
+		final Map<Integer, Map<String, List<Object>>> otherGroupedAttributesMap = other.getGroupedAttributesMap();
+		if (groupedAttributesMap.isEmpty() && otherGroupedAttributesMap == null) {
+			return true;
+		}
+		return groupedAttributesMap.equals(otherGroupedAttributesMap);
+	}
+
 	@Override
 	public String toString() {
 		return "QueryConcept{" +
