@@ -29,6 +29,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import javax.annotation.PostConstruct;
 import java.io.IOException;
@@ -384,6 +385,7 @@ public class BranchReviewService {
 		// Find components of each type that are on the target branch and have been ended on the source branch
 		final Set<Long> changedConcepts = new LongOpenHashSet();
 		final Map<Long, Long> referenceComponentIdToConceptMap = new Long2ObjectOpenHashMap<>();
+		final Set<Long> preferredDescriptionIds = new LongOpenHashSet();
 		Branch branch = branchService.findBranchOrThrow(path);
 		logger.debug("Collecting versions replaced for change report: branch {} time range {} to {}", path, start, end);
 
@@ -420,10 +422,17 @@ public class BranchReviewService {
 		if (!changedVersionsReplaced.getOrDefault(ReferenceSetMember.class.getSimpleName(), Collections.emptySet()).isEmpty()) {
 			// Refsets with the internal "conceptId" field are related to a concept in terms of authoring
 			NativeSearchQueryBuilder refsetQuery = componentsReplacedCriteria(changedVersionsReplaced.get(ReferenceSetMember.class.getSimpleName()),
-					ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
+					ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID, ReferenceSetMember.Fields.ADDITIONAL_FIELDS)
 					.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)));
 			try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(refsetQuery.build(), ReferenceSetMember.class)) {
-				stream.forEachRemaining(hit -> referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId())));
+				stream.forEachRemaining(hit -> {
+					referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId()));
+
+					String acceptability = hit.getContent().getAdditionalFields().get(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
+					if (!StringUtils.isEmpty(acceptability) &&  Concepts.PREFERRED.equals(acceptability)) {
+						preferredDescriptionIds.add(parseLong(hit.getContent().getReferencedComponentId()));
+					}
+				});
 			}
 		}
 
@@ -479,13 +488,20 @@ public class BranchReviewService {
 		logger.debug("Collecting refset member changes for change report: branch {} time range {} to {}", path, start, end);
 		NativeSearchQuery memberQuery = newSearchQuery(updatesDuringRange)
 				.withFilter(boolQuery().must(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)))
-				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID)
+				.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, ReferenceSetMember.Fields.CONCEPT_ID, ReferenceSetMember.Fields.ADDITIONAL_FIELDS)
 				.build();
 		try (final SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(memberQuery, ReferenceSetMember.class)) {
-			stream.forEachRemaining(hit -> referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId())));
+			stream.forEachRemaining(hit -> {
+				referenceComponentIdToConceptMap.put(parseLong(hit.getContent().getReferencedComponentId()), parseLong(hit.getContent().getConceptId()));
+
+				String acceptability = hit.getContent().getAdditionalFields().get(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
+				if (!StringUtils.isEmpty(acceptability) &&  Concepts.PREFERRED.equals(acceptability)) {
+					preferredDescriptionIds.add(parseLong(hit.getContent().getReferencedComponentId()));
+				}
+			});
 		}
 
-		// Filter out changes for active Synonyms
+		// Filter out changes for active Synonyms except Preferred terms
 		// Inactive synonym changes should be included to avoid inactivation indicator / association clashes
 		List<Long> synonymAndTextDefIds = new LongArrayList();
 		NativeSearchQueryBuilder synonymQuery = new NativeSearchQueryBuilder()
@@ -495,7 +511,11 @@ public class BranchReviewService {
 						.must(termsQuery(Description.Fields.DESCRIPTION_ID, referenceComponentIdToConceptMap.keySet()))
 						.must(termQuery(Description.Fields.ACTIVE, true)));
 		try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(synonymQuery.build(), Description.class)) {
-			stream.forEachRemaining(hit -> synonymAndTextDefIds.add(parseLong(hit.getContent().getDescriptionId())));
+			stream.forEachRemaining(hit -> {
+				if (!preferredDescriptionIds.contains(parseLong(hit.getContent().getDescriptionId()))) {
+					synonymAndTextDefIds.add(parseLong(hit.getContent().getDescriptionId()));
+				}
+			});
 		}
 
 		Set<Long> changedComponents = referenceComponentIdToConceptMap.keySet()
