@@ -102,7 +102,7 @@ public class ExpressionTransformationService {
 			}
 
 			//# For each ungrouped attribute in input expression; use the MRCM to find the most applicable part of the model to apply them to:
-			for (Attribute looseAttribute : looseAttributes) {
+			for (ComparableAttribute looseAttribute : looseAttributes) {
 				//# For each focus concept, if the attribute type is within the MRCM domain:
 				boolean appliedToFocusConcept = false;
 				for (Concept focusConcept : focusConcepts) {
@@ -142,13 +142,30 @@ public class ExpressionTransformationService {
 									// Copy over relationship or whole group
 									// TODO: should keep track of what attributes have already been copied over as this step may have been done already.
 									if (relationship.isGrouped()) {
-										final ComparableAttributeGroup attributeGroup = new ComparableAttributeGroup();
+										boolean existingGroup = false;
+										ComparableAttributeGroup attributeGroup = null;
+										// Reuse existing group if already added
+										final Set<ComparableAttributeGroup> attributeGroups = expression.getComparableAttributeGroups();
+										if (attributeGroups != null) {
+											attributeGroup = attributeGroups.stream()
+													.filter(group -> group.getTransformationGroupId() != null && group.getTransformationGroupId().equals(relationship.getGroupId()))
+													.findFirst()
+													.orElse(null);
+										}
+										if (attributeGroup == null) {
+											attributeGroup = new ComparableAttributeGroup(relationship.getGroupId());
+										} else {
+											existingGroup = true;
+										}
 										// Add other relationships in group
+										final ComparableAttributeGroup finalGroup = attributeGroup;
 										activeInferredRelationships.stream()
 												.filter(r -> !r.getId().equals(relationship.getId()) && r.getGroupId() == relationship.getGroupId())
-												.forEach(r -> attributeGroup.addAttribute(r.getTypeId(), r.getDestinationId()));
+												.forEach(r -> finalGroup.addAttribute(r.getTypeId(), r.getDestinationId()));
 										attributeGroup.addAttribute(nestedAttribute);
-										expression.addAttributeGroup(attributeGroup);
+										if (!existingGroup) {
+											expression.addAttributeGroup(attributeGroup);
+										}
 									} else {
 										expression.addAttribute(nestedAttribute);
 									}
@@ -179,7 +196,7 @@ public class ExpressionTransformationService {
 		}
 		// Attribute groups from input expression are added as they are.
 		if (closeToUserForm.getAttributeGroups() != null) {
-			for (AttributeGroup attributeGroup : closeToUserForm.getAttributeGroups()) {
+			for (ComparableAttributeGroup attributeGroup : closeToUserForm.getComparableAttributeGroups()) {
 				classifiableExpression.addAttributeGroup(attributeGroup);
 			}
 		}
