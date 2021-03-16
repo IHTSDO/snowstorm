@@ -22,7 +22,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.test.context.ContextConfiguration;
@@ -232,7 +231,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		assertTC(hamPizza, pizza, root);
 
-		Map<String, Integer> stringIntegerMap = updateService.rebuildStatedAndInferredSemanticIndex(branch);
+		Map<String, Integer> stringIntegerMap = updateService.rebuildStatedAndInferredSemanticIndex(branch, false);
 		assertEquals(0, stringIntegerMap.get(Form.STATED.getName()));
 		assertEquals(0, stringIntegerMap.get(Form.INFERRED.getName()));
 
@@ -251,7 +250,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(1, queryConcept.getAttr().size());
 		queryConceptRepository.save(queryConcept);
 
-		stringIntegerMap = updateService.rebuildStatedAndInferredSemanticIndex(branch);
+		stringIntegerMap = updateService.rebuildStatedAndInferredSemanticIndex(branch, false);
 		assertEquals(0, stringIntegerMap.get(Form.STATED.getName()));
 		assertEquals(1, stringIntegerMap.get(Form.INFERRED.getName()));
 	}
@@ -763,7 +762,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
 
-		updateService.rebuildStatedAndInferredSemanticIndex(path);
+		updateService.rebuildStatedAndInferredSemanticIndex(path, false);
 
 		assertEquals(4, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, QueryService.PAGE_OF_ONE).getTotalElements());
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("*:363698007=*"), path, QueryService.PAGE_OF_ONE).getTotalElements());

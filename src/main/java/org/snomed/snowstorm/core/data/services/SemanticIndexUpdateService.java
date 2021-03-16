@@ -97,9 +97,9 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		}
 	}
 
-	public Map<String, Integer> rebuildStatedAndInferredSemanticIndex(String branchPath) throws ServiceException {
+	public Map<String, Integer> rebuildStatedAndInferredSemanticIndex(String branchPath, boolean dryRun) throws ServiceException {
 		try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata("Rebuilding semantic index."))) {
-			final Map<String, Integer> updateCount = rebuildSemanticIndex(commit);
+			final Map<String, Integer> updateCount = rebuildSemanticIndex(commit, dryRun);
 			commit.markSuccessful();
 			return updateCount;
 		} catch (ConversionException | GraphBuilderException e) {
@@ -109,7 +109,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 	private void updateStatedAndInferredSemanticIndex(Commit commit) throws IllegalStateException, ConversionException, GraphBuilderException, ServiceException {
 		if (commit.isRebase()) {
-			rebuildSemanticIndex(commit);
+			rebuildSemanticIndex(commit, false);
 		} else if (commit.getCommitType() != Commit.CommitType.PROMOTION) {
 			// Update query index using changes in the current commit
 
@@ -118,29 +118,36 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 					Sets.union(commit.getEntityVersionsReplaced().getOrDefault(ReferenceSetMember.class.getSimpleName(), Collections.emptySet()),
 							commit.getEntityVersionsReplaced().getOrDefault(Relationship.class.getSimpleName(), Collections.emptySet()));
 
-			updateSemanticIndex(Form.STATED, relationshipAndAxiomDeletionsToProcess, commit, false, false);
-			updateSemanticIndex(Form.INFERRED, relationshipAndAxiomDeletionsToProcess, commit, false, false);
+			updateSemanticIndex(Form.STATED, relationshipAndAxiomDeletionsToProcess, commit, false, false, false);
+			updateSemanticIndex(Form.INFERRED, relationshipAndAxiomDeletionsToProcess, commit, false, false, false);
 		}
 		// If promotion the semantic changes will be promoted with the rest of the content.
 	}
 
-	private Map<String, Integer> rebuildSemanticIndex(Commit commit) throws ConversionException, GraphBuilderException, ServiceException {
+	private Map<String, Integer> rebuildSemanticIndex(Commit commit, boolean dryRun) throws ConversionException, GraphBuilderException, ServiceException {
 		Branch branch = commit.getBranch();
 
 		Set<String> relationshipAndAxiomDeletionsToProcess = Sets.union(branch.getVersionsReplaced(ReferenceSetMember.class), branch.getVersionsReplaced(Relationship.class));
 		boolean completeRebuild = branch.getPath().equals("MAIN");
 		if (!completeRebuild) {
 			// Recreate query index using new parent base point + content on this branch
+			if (dryRun) {
+				throw new IllegalArgumentException("dryRun flag can only be used when rebuilding the index of the MAIN branch.");
+			}
 			removeQConceptChangesOnBranch(commit);
 		}
 		Map<String, Integer> updateCount = new HashMap<>();
-		updateCount.put(Form.STATED.getName(), updateSemanticIndex(Form.STATED, relationshipAndAxiomDeletionsToProcess, commit, true, completeRebuild));
-		updateCount.put(Form.INFERRED.getName(), updateSemanticIndex(Form.INFERRED, relationshipAndAxiomDeletionsToProcess, commit, true, completeRebuild));
+		updateCount.put(Form.STATED.getName(), updateSemanticIndex(Form.STATED, relationshipAndAxiomDeletionsToProcess, commit, true, completeRebuild, dryRun));
+		updateCount.put(Form.INFERRED.getName(), updateSemanticIndex(Form.INFERRED, relationshipAndAxiomDeletionsToProcess, commit, true, completeRebuild, dryRun));
 		return updateCount;
 	}
 
 	private int updateSemanticIndex(Form form, Set<String> internalIdsOfDeletedComponents, Commit commit,
-			boolean rebuild, boolean completeRebuild) throws IllegalStateException, ConversionException, GraphBuilderException, ServiceException {
+			boolean rebuild, boolean completeRebuild, boolean dryRun) throws IllegalStateException, ConversionException, GraphBuilderException, ServiceException {
+
+		if (dryRun && !completeRebuild) {
+			throw new IllegalArgumentException("dryRun flag can only be used when rebuilding the index of the MAIN branch.");
+		}
 
 		// Note: Searches within this method use a filter clause for collections of identifiers because these
 		//       can become larger than the maximum permitted query criteria.
@@ -379,9 +386,13 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			queryConceptsToSave.stream().filter(c -> c.getParents().isEmpty() && !c.getConceptIdL().toString().equals(Concepts.SNOMEDCT_ROOT)).forEach(Entity::markDeleted);
 			queryConceptsToSave.forEach(QueryConcept::serializeGroupedAttributesMap);
 
-			// Save in batches
-			for (List<QueryConcept> queryConcepts : Iterables.partition(queryConceptsToSave, Config.BATCH_SAVE_SIZE)) {
-				doSaveBatch(queryConcepts, commit);
+			if (dryRun) {
+				logger.info("Semantic index rebuild is in dryRun mode so no changes will be persisted!");
+			} else {
+				// Save in batches
+				for (List<QueryConcept> queryConcepts : Iterables.partition(queryConceptsToSave, Config.BATCH_SAVE_SIZE)) {
+					doSaveBatch(queryConcepts, commit);
+				}
 			}
 		}
 		timer.checkpoint("Save updated QueryConcepts");
