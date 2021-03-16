@@ -77,7 +77,7 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 					}
 				}
 			} else {
-				ComparableAttributeGroup attributeGroup = new ComparableAttributeGroup();
+				ComparableAttributeGroup attributeGroup = new ComparableAttributeGroup(group.getKey());
 				for (Relationship relationship : group.getValue()) {
 					attributeGroup.addAttribute(relationship.getTypeId(), relationship.getDestinationId());
 				}
@@ -105,7 +105,7 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 		addAttribute(new ComparableAttribute(typeId, destinationId));
 	}
 
-	public void addAttributeGroup(AttributeGroup attributeGroup) {
+	public void addAttributeGroup(ComparableAttributeGroup attributeGroup) {
 		if (comparableAttributeGroups == null) {
 			comparableAttributeGroups = new TreeSet<>();
 		}
