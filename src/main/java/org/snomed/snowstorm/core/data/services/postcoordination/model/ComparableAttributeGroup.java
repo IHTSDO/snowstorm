@@ -2,7 +2,6 @@ package org.snomed.snowstorm.core.data.services.postcoordination.model;
 
 import org.snomed.languages.scg.domain.model.Attribute;
 import org.snomed.languages.scg.domain.model.AttributeGroup;
-import org.snomed.languages.scg.domain.model.AttributeValue;
 import org.snomed.snowstorm.core.util.CollectionComparators;
 
 import java.util.*;
@@ -11,11 +10,22 @@ public class ComparableAttributeGroup extends AttributeGroup implements Comparab
 
 	private Set<ComparableAttribute> sortedAttributes;
 
+	private Integer transformationGroupId;
+
 	public ComparableAttributeGroup() {
+	}
+
+	public ComparableAttributeGroup(Integer transformationGroupId) {
+		this.transformationGroupId = transformationGroupId;
 	}
 
 	public ComparableAttributeGroup(AttributeGroup attributeGroup) {
 		setAttributes(attributeGroup.getAttributes());
+	}
+
+	public ComparableAttributeGroup(ComparableAttributeGroup attributeGroup) {
+		setAttributes(attributeGroup.getAttributes());
+		transformationGroupId = attributeGroup.getTransformationGroupId();
 	}
 
 	public ComparableAttributeGroup(ComparableAttribute comparableAttribute) {
@@ -69,5 +79,9 @@ public class ComparableAttributeGroup extends AttributeGroup implements Comparab
 				sortedAttribute.getAllConceptIds(ids);
 			}
 		}
+	}
+
+	public Integer getTransformationGroupId() {
+		return transformationGroupId;
 	}
 }
