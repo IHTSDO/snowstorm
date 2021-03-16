@@ -199,7 +199,7 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			}
 		}
 
-		// Step - Update graph
+		// Step - Update graph in memory
 		Set<Long> requiredActiveConcepts = new LongOpenHashSet();
 		Map<Long, AttributeChanges> conceptAttributeChanges = new Long2ObjectOpenHashMap<>();
 
@@ -303,7 +303,6 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// either by authoring or importing the new version of the extension.
 		boolean throwExceptionIfTransitiveClosureLoopFound = !commit.isRebase();
 
-		// TODO - figure out what to do with the existing query concepts
 		try (final SearchHitsIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(previousStateCriteria.getEntityBranchCriteria(QueryConcept.class))
@@ -353,8 +352,27 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		for (Long nodeId : nodesNotFound) {
 			Node node = nodesToSave.get(nodeId);
 			QueryConcept queryConcept = createQueryConcept(form, branchPath, conceptAttributeChanges, throwExceptionIfTransitiveClosureLoopFound, nodeId, node);
+			queryConcept.setCreating(true);
 			queryConceptsToSave.add(queryConcept);
 		}
+
+		final long countToCreate = queryConceptsToSave.stream().filter(QueryConcept::isCreating).count();
+		final Optional<QueryConcept> firstToCreate = queryConceptsToSave.stream().filter(QueryConcept::isCreating).findFirst();
+		String createMessage = firstToCreate.isPresent() ? String.format("%s semantic concepts created including %s.", countToCreate, firstToCreate.get()) :
+				"No semantic concepts need creating.";
+
+		final long countToUpdate = queryConceptsToSave.stream().filter(q -> q.isChanged() && !q.isCreating()).count();
+		final Optional<QueryConcept> firstToUpdate = queryConceptsToSave.stream().filter(q -> q.isChanged() && !q.isCreating()).findFirst();
+		String updateMessage = firstToUpdate.isPresent() ? String.format("%s semantic concepts updated including %s.", countToUpdate, firstToUpdate.get()) :
+				"No semantic concepts need updating.";
+
+		final long countToDelete = queryConceptsToSave.stream().filter(QueryConcept::isDeleted).count();
+		final Optional<QueryConcept> firstToDelete = queryConceptsToSave.stream().filter(QueryConcept::isDeleted).findFirst();
+		String deleteMessage = firstToDelete.isPresent() ? String.format("%s semantic concepts deleted including %s.", countToDelete, firstToDelete.get()) :
+				"No semantic concepts need deleting.";
+
+		logger.info("Semantic index change summary: {} concepts loaded into the graph. {} {} {}", graphBuilder.getNodes().size(), createMessage, updateMessage, deleteMessage);
+
 		if (!queryConceptsToSave.isEmpty()) {
 
 			// Delete query concepts which have no parents
