@@ -1,18 +1,25 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.languages.scg.domain.model.Attribute;
 import org.snomed.languages.scg.domain.model.AttributeGroup;
 import org.snomed.languages.scg.domain.model.DefinitionStatus;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.RelationshipService;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
+import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttribute;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeGroup;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableAttributeValue;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
+import org.snomed.snowstorm.core.pojo.TermLangPojo;
 import org.snomed.snowstorm.mrcm.MRCMService;
 import org.snomed.snowstorm.mrcm.model.AttributeDomain;
 import org.snomed.snowstorm.mrcm.model.ContentType;
@@ -25,6 +32,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.lang.Long.parseLong;
+import static java.lang.String.format;
+import static org.snomed.otf.owltoolkit.constants.Concepts.LATERALITY;
+import static org.snomed.snowstorm.config.Config.PAGE_OF_ONE;
 
 @Service
 public class ExpressionTransformationService {
@@ -33,16 +43,18 @@ public class ExpressionTransformationService {
 	private ConceptService conceptService;
 
 	@Autowired
-	private RelationshipService relationshipService;
-
-	@Autowired
 	private ExpressionParser expressionParser;
 
 	@Autowired
 	private MRCMService mrcmService;
 
+	@Autowired
+	private ReferenceSetMemberService memberService;
+
 	@Value("${postcoordination.transform.self-grouped.attributes}")
 	private Set<String> selfGroupedAttributes;
+
+	final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public ComparableExpression transform(ComparableExpression closeToUserForm, ExpressionContext context) throws ServiceException {
 		// Dereference input with clone of object to avoid any modification affecting input.
@@ -78,9 +90,9 @@ public class ExpressionTransformationService {
 		}
 
 		// Grab ungrouped attributes from input expression
-		Set<Attribute> looseAttributes = new HashSet<>();
+		Set<ComparableAttribute> looseAttributes = new HashSet<>();
 		if (closeToUserForm.getAttributes() != null) {
-			looseAttributes.addAll(closeToUserForm.getAttributes());
+			looseAttributes.addAll(closeToUserForm.getComparableAttributes());
 		}
 		if (!looseAttributes.isEmpty()) {
 			// Load MRCM domain attributes for each focus concept
@@ -149,8 +161,11 @@ public class ExpressionTransformationService {
 						}
 					}
 					if (!appliedToNestedExpression) {
-						throw new TransformationException(String.format("Could not transform: '%s'. " +
-								"This loose attribute is not within the MRCM domain of any of the focus concepts or their attributes.", looseAttribute.toString()));
+						Set<String> ids = new HashSet<>();
+						looseAttribute.getAllConceptIds(ids);
+						String problemAttributeString = addHumanPTsToExpressionString(looseAttribute.toString(), ids, context);
+						throw new TransformationException(String.format("Loose attribute \"%s\" is not within the MRCM domain of any of the focus concepts " +
+										"or their attribute values. ", problemAttributeString));
 					}
 				}
 			}
@@ -193,6 +208,17 @@ public class ExpressionTransformationService {
 					context.getBranchCriteria(), context.getBranchMRCM())
 					.stream()
 					.map(AttributeDomain::getReferencedComponentId).collect(Collectors.toSet());
+			if (domainAttributeIds.contains(LATERALITY)) {
+				if (memberService.findMembers(context.getBranch(), context.getBranchCriteria(),
+						new MemberSearchRequest()
+								.active(true).referenceSet(Concepts.LATERALIZABLE_BODY_STRUCTURE_REFERENCE_SET).referencedComponentId(conceptId.toString()), PAGE_OF_ONE).isEmpty()) {
+					// Concept not lateralizable, remove the laterality attribute
+					domainAttributeIds.remove(LATERALITY);
+					logger.info("Concept {} is not lateralizable.", conceptId);
+				} else {
+					logger.info("Concept {} is lateralizable.", conceptId);
+				}
+			}
 			conceptMRCMDomainAttributeIdsMap.put(conceptId, domainAttributeIds);
 		}
 		return conceptMRCMDomainAttributeIdsMap.get(conceptId);
@@ -244,4 +270,19 @@ public class ExpressionTransformationService {
 		return focusConcepts == null ? Collections.emptyList() : focusConcepts.stream().map(Long::parseLong).collect(Collectors.toList());
 	}
 
+	public String addHumanPTsToExpressionString(String expressionString, Set<String> conceptIds, ExpressionContext context) {
+		final ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(context.getBranchCriteria(), conceptIds, Config.DEFAULT_LANGUAGE_DIALECTS);
+		final Map<String, ConceptMini> conceptMap = conceptMinis.getResultsMap();
+		for (String conceptId : conceptMap.keySet()) {
+			final ConceptMini conceptMini = conceptMap.get(conceptId);
+			if (conceptMini != null) {
+				final TermLangPojo pt = conceptMini.getPt();
+				final String term = pt != null ? pt.getTerm() : "-";
+				if (term != null) {
+					expressionString = expressionString.replace(conceptId, format("%s |%s|", conceptId, term));
+				}
+			}
+		}
+		return expressionString;
+	}
 }

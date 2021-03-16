@@ -15,7 +15,6 @@ import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
-import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.mrcm.MRCMService;
@@ -129,13 +128,14 @@ public class ExpressionRepositoryService {
 				classifiableFormExpression = transformationService.transform(expression, context);
 				timer.checkpoint("Transformation");
 			} catch (TransformationException e) {
-				throw new TransformationException(String.format("Expression \"%s\" could not be transformed because: %s", expression.toString(), e.getMessage()), e);
+				String errorExpression = createHumanReadableExpression(expression.toString(), context);
+				throw new TransformationException(String.format("Expression could not be transformed: \"%s\". \n%s", errorExpression, e.getMessage()), e);
 			}
 
 
 			final String classifiableForm = classifiableFormExpression.toString();
 			final PostCoordinatedExpression pce = new PostCoordinatedExpression(null, closeToUserForm, classifiableForm);
-			addHumanReadable(pce, context);
+			pce.setHumanReadableClassifiableForm(createHumanReadableExpression(classifiableForm, context));
 			timer.checkpoint("Add human readable");
 			timer.finish();
 			return pce;
@@ -234,26 +234,13 @@ public class ExpressionRepositoryService {
 		}
 	}
 
-	private void addHumanReadable(PostCoordinatedExpression expression, ExpressionContext context) throws ServiceException {
-		String classifiableForm = expression.getClassifiableForm();
+	private String createHumanReadableExpression(String classifiableForm, ExpressionContext context) throws ServiceException {
 		if (classifiableForm != null) {
 			final ComparableExpression comparableExpression = expressionParser.parseExpression(classifiableForm);
 			final Set<String> allConceptIds = comparableExpression.getAllConceptIds();
-			classifiableForm = comparableExpression.toString();
-//			classifiableForm = comparableExpression.toString(true);
-			final ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(context.getBranchCriteria(), allConceptIds, Config.DEFAULT_LANGUAGE_DIALECTS);
-			final Map<String, ConceptMini> conceptMap = conceptMinis.getResultsMap();
-			for (String conceptId : conceptMap.keySet()) {
-				final ConceptMini conceptMini = conceptMap.get(conceptId);
-				if (conceptMini != null) {
-					final String fsnTerm = conceptMini.getFsnTerm();
-					if (fsnTerm != null) {
-						classifiableForm = classifiableForm.replace(conceptId, format("%s |%s|", conceptId, fsnTerm));
-					}
-				}
-			}
-			expression.setHumanReadableClassifiableForm(classifiableForm);
+			return transformationService.addHumanPTsToExpressionString(comparableExpression.toString(), allConceptIds, context);
 		}
+		return null;
 	}
 
 	private void throwConceptNotFound(String concept) {
