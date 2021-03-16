@@ -56,6 +56,10 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	@Transient
 	private Map<Integer, Map<String, List<Object>>> groupedAttributesMap;
 
+	@Transient
+	@JsonIgnore
+	private boolean creating;
+
 	public QueryConcept() {
 	}
 
@@ -212,6 +216,14 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 			return true;
 		}
 		return groupedAttributesMap.equals(otherGroupedAttributesMap);
+	}
+
+	public void setCreating(boolean creating) {
+		this.creating = creating;
+	}
+
+	public boolean isCreating() {
+		return creating;
 	}
 
 	@Override
