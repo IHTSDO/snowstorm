@@ -99,9 +99,14 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 
 	public Map<String, Integer> rebuildStatedAndInferredSemanticIndex(String branchPath, boolean dryRun) throws ServiceException {
 		try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata("Rebuilding semantic index."))) {
-			final Map<String, Integer> updateCount = rebuildSemanticIndex(commit, dryRun);
-			commit.markSuccessful();
-			return updateCount;
+			final Map<String, Integer> updateCounts = rebuildSemanticIndex(commit, dryRun);
+			if (!dryRun && updateCounts.values().stream().anyMatch(updateCount -> updateCount > 0)) {
+				commit.markSuccessful();
+			} else {
+				logger.info("{} so rolling back the empty commit on {}.", dryRun ? "Dry run mode" : "No semantic changes required", branchPath);
+				// When a commit is not marked as successful it is rolled back automatically when closed.
+			}
+			return updateCounts;
 		} catch (ConversionException | GraphBuilderException e) {
 			throw new ServiceException("Failed to update semantic index. " + e.getMessage(), e);
 		}

@@ -58,7 +58,8 @@ public class AdminController {
 					"If something has gone wrong with processing of content updates on the branch then semantic index, " +
 					"which supports the ECL queries, can be rebuilt on demand. \n" +
 					"Setting the dryRun to true when rebuilding the 'MAIN' branch will log a summary of the changes required without persisting the changes. This " +
-					"parameter can not be used on other branches.")
+					"parameter can not be used on other branches. \n" +
+					"If no changes are required or dryRun is set the empty commit used to run this function will be rolled back.")
 	@RequestMapping(value = "/{branch}/actions/rebuild-semantic-index", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public UpdatedDocumentCount rebuildBranchTransitiveClosure(@PathVariable String branch, @RequestParam(required = false, defaultValue = "false") boolean dryRun)
