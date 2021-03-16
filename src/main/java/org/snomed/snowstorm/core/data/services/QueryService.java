@@ -530,6 +530,10 @@ public class QueryService implements ApplicationContextAware {
 			this.descriptionCriteria = new DescriptionCriteria();
 		}
 
+		private ConceptQueryBuilder() {
+			this(false);
+		}
+
 		private boolean hasLogicalConditions() {
 			return ecl != null || activeFilter != null || definitionStatusFilter != null || conceptIds != null || module != null;
 		}

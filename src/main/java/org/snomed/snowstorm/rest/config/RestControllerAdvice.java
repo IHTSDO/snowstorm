@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLException;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
+import org.snomed.snowstorm.core.data.services.postcoordination.TransformationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -35,7 +36,8 @@ public class RestControllerAdvice {
 			MethodArgumentNotValidException.class,
 			MethodArgumentTypeMismatchException.class,
 			MissingServletRequestParameterException.class,
-			ECLException.class
+			ECLException.class,
+			TransformationException.class
 	})
 	@ResponseStatus(HttpStatus.BAD_REQUEST)
 	@ResponseBody

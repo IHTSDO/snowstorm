@@ -45,6 +45,7 @@ public class Concepts {
 
 	public static final String OWL_EXPRESSION_TYPE_REFERENCE_SET = "762676003";
 	public static final String OWL_AXIOM_REFERENCE_SET = "733073007";
+	public static final String LATERALIZABLE_BODY_STRUCTURE_REFERENCE_SET = "723264001";
 	public static final String DEFINING_RELATIONSHIP = "900000000000006009";
 	public static final String STATED_RELATIONSHIP = "900000000000010007";
 	public static final String INFERRED_RELATIONSHIP = "900000000000011006";
