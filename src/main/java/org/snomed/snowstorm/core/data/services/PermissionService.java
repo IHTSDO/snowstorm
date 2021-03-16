@@ -47,6 +47,7 @@ public class PermissionService {
 	@PostConstruct
 	public void init() {
 		setGlobalRoleGroups(Role.ADMIN, Collections.singleton(adminUserGroup));
+		fixGlobalFlag();
 	}
 
 	public List<PermissionRecord> findAll() {
@@ -158,8 +159,8 @@ public class PermissionService {
 			// Delete any existing entry
 			final Optional<PermissionRecord> byGlobalPathAndRole = findByGlobalPathAndRole(global, branch, role);
 			byGlobalPathAndRole.ifPresent(record -> repository.delete(record));
+			permissionServiceCache.clearCache();
 		}
-		permissionServiceCache.clearCache();
 	}
 
 	private Optional<PermissionRecord> findByGlobalPathAndRole(boolean global, String branch, String role) {
@@ -190,6 +191,17 @@ public class PermissionService {
 			record.updateFields();
 		}
 		repository.saveAll(records);
+		permissionServiceCache.clearCache();
+	}
+
+	private void fixGlobalFlag() {
+		// There was a bug where the global flag was not set correctly, this fixes any existing records.
+		for (PermissionRecord permissionRecord : repository.findAll()) {
+			if (!permissionRecord.isGlobal() && permissionRecord.getPath() == null) {
+				repository.delete(permissionRecord);
+				save(permissionRecord);
+			}
+		}
 	}
 
 }
