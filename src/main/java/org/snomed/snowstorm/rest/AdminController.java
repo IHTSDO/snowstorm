@@ -56,11 +56,15 @@ public class AdminController {
 	@ApiOperation(value = "Rebuild the semantic index of the branch.",
 			notes = "You are unlikely to need this action. " +
 					"If something has gone wrong with processing of content updates on the branch then semantic index, " +
-					"which supports the ECL queries, can be rebuilt on demand. ")
+					"which supports the ECL queries, can be rebuilt on demand. \n" +
+					"Setting the dryRun to true when rebuilding the 'MAIN' branch will log a summary of the changes required without persisting the changes. This " +
+					"parameter can not be used on other branches.")
 	@RequestMapping(value = "/{branch}/actions/rebuild-semantic-index", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
-	public UpdatedDocumentCount rebuildBranchTransitiveClosure(@PathVariable String branch) throws ServiceException {
-		final Map<String, Integer> updateCount = queryConceptUpdateService.rebuildStatedAndInferredSemanticIndex(BranchPathUriUtil.decodePath(branch));
+	public UpdatedDocumentCount rebuildBranchTransitiveClosure(@PathVariable String branch, @RequestParam(required = false, defaultValue = "false") boolean dryRun)
+			throws ServiceException {
+
+		final Map<String, Integer> updateCount = queryConceptUpdateService.rebuildStatedAndInferredSemanticIndex(BranchPathUriUtil.decodePath(branch), dryRun);
 		return new UpdatedDocumentCount(updateCount);
 	}
 
