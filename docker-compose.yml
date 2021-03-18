@@ -25,7 +25,7 @@ services:
 
 
   snowstorm:
-    image: snomedinternational/snowstorm:6.0.3
+    image: snomedinternational/snowstorm:6.2.0
     container_name: snowstorm
     depends_on:
       elasticsearch:
