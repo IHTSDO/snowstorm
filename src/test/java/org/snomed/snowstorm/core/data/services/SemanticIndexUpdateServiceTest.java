@@ -31,6 +31,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.existsQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.junit.jupiter.api.Assertions.*;
@@ -236,6 +237,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(0, stringIntegerMap.get(Form.INFERRED.getName()));
 
 		// Extreme hack, without version control, to break the semantic index
+		// Remove attributes from existing semantic entry
 		final SearchHit<QueryConcept> hit = elasticsearchTemplate.searchOne(new NativeSearchQueryBuilder()
 				.withQuery(QueryBuilders.boolQuery()
 						.must(termQuery(QueryConcept.Fields.CONCEPT_ID_FORM, hamPizza.getId() + "_i"))
@@ -249,10 +251,16 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		queryConcept.serializeGroupedAttributesMap();
 		assertEquals(1, queryConcept.getAttr().size());
 		queryConceptRepository.save(queryConcept);
+		// Add a semantic entry where the concept does not exist (or has been deleted)
+		final Set<Long> rootConceptParent = Collections.singleton(parseLong(SNOMEDCT_ROOT));
+		QueryConcept deletedEntry = new QueryConcept(500000000L, rootConceptParent, rootConceptParent, false);
+		deletedEntry.setStart(queryConcept.getStart());
+		deletedEntry.setPath(branch);
+		queryConceptRepository.save(deletedEntry);
 
 		stringIntegerMap = updateService.rebuildStatedAndInferredSemanticIndex(branch, false);
 		assertEquals(0, stringIntegerMap.get(Form.STATED.getName()));
-		assertEquals(1, stringIntegerMap.get(Form.INFERRED.getName()));
+		assertEquals(2, stringIntegerMap.get(Form.INFERRED.getName()));
 	}
 
 	private List<String> eclSearchForIds(String ecl, String branch) {
