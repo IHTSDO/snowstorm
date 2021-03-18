@@ -3,7 +3,58 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 6.0.3 Release - Feb 2021 - Support for concrete domains technical preview
+
+## 6.2.0 Release (March 2021) - Concrete domain authoring support and semantic update fix
+This release adds authoring support for concepts using concrete domains including updates to the MRCM endpoints.
+
+This release also includes an important fix to the semantic index update process. Before this fix fictitious transitive closure loops could appear in the semantic index after
+upgrading an extension, which caused inconsistent behaviour in hierarchy browsing and ECL results. The admin rebuild semantic index function can be used to heal existing 
+indexes with this problem.
+
+### Breaking
+The following minor breaking changes were made in this maintenance release. 
+- Removed deprecated code-system 'migrate' function in favour of 'upgrade' function. The migrate function was never implemented completely and has been deprecated for over a year.
+- Util function GET `/util/parse-ecl` changed to POST and moved to `/util/ecl-string-to-model` for consistent naming with new function `/util/ecl-model-to-string`. 
+
+### Features
+- FHIR
+  - Add support for `http://snomed.info/xsct` URI to access unversioned content from a code system working branch.
+- New Concept history endpoint to list code system versions in which a concept or its components were changed.
+  (Requires many code system versions to be imported).
+- Add API to convert ECL JSON language model back to ECL string. To support ECL builder frontend implementations.
+- Authoring
+  - Concrete domain attributes and ranges listed by MRCM endpoints
+  - Concrete domains Drools validation implementation.
+  - Concept save / update with concrete domains values in stated form.
+
+### Improvements
+- New `module` filter in concept search endpoint. Accepts set of concept identifiers.
+- Role Based Access Control
+  - Add user roles to codesystem listing.
+  - Add user global-roles to single branch response.
+- Admin commit-rollback function now automatically removes any code-system version created by the commit.
+- Authoring
+  - New `validate` flag in concept save and update function. Provides the ability to combine Drools validation and save functions into a single API call 
+    for a cleaner design and slight performance improvement. _New flag defaults to false so as not to break existing implementations._
+  - Integrity check now includes attribute type concepts from concrete attributes. 
+
+### Fixes
+- Fix semantic index update function:
+  - Rebase/upgrade no longer causes fictitious semantic index loops.
+  - Include conflicting manually merged concepts in semantic update.
+- Fix #207 ignore ECL characters in HTTP params for Tomcat 9.
+- Fix group handling in ECL util function.
+- FHIR
+  - Fix documentation example for value-set expand with filter.
+- Authoring
+  - Improve conflicting concept merge behaviour so component release details can never be lost. Prevents delta exports of previously versioned content.
+  - Make classification save function fail gracefully when semantic loop found.
+  - Better handling of language refset members to remove duplicates during branch merging.
+  - Fix regression: classification changes not logged in traceability.
+  - On extension upgrade duplicate component removal use effective time to pick latest inferred relationships rather than version control dates.
+
+
+## 6.0.3 Release (February 2021) - Support for concrete domains technical preview
 Added support for concrete domains to host the International Edition Technical Preview.
 Additions have been made to the concept browser representation to represent concrete relationship values and types but changes are backward compatible.
 Full support for authoring concrete domains is still in development and will be released in the next few months.   
