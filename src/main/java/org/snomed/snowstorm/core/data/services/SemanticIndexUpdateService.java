@@ -315,17 +315,20 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		// either by authoring or importing the new version of the extension.
 		boolean throwExceptionIfTransitiveClosureLoopFound = !commit.isRebase();
 
+		final BoolQueryBuilder filter = boolQuery()
+				// Exclude those QueryConcepts which were removed in this commit
+				.mustNot(boolQuery()
+						.must(termQuery("path", branchPath))
+						.must(termQuery("end", commit.getTimepoint().getTime()))
+				);
+		if (!completeRebuild) {
+			filter.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsToUpdate));
+		}
 		try (final SearchHitsIterator<QueryConcept> existingQueryConcepts = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(previousStateCriteria.getEntityBranchCriteria(QueryConcept.class))
 						.must(termsQuery(QueryConcept.Fields.STATED, form.isStated()))
-						.filter(boolQuery()
-								// Exclude those QueryConcepts which were removed in this commit
-								.mustNot(boolQuery()
-										.must(termQuery("path", branchPath))
-										.must(termQuery("end", commit.getTimepoint().getTime()))
-								)
-								.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIdsToUpdate)))
+						.filter(filter)
 				)
 				.withPageable(ConceptService.LARGE_PAGE).build(), QueryConcept.class)) {
 			while (existingQueryConcepts.hasNext()) {
@@ -334,9 +337,14 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 				Node node = nodesToSave.get(conceptId);
 				boolean save = false;
 				if (completeRebuild) {
-					QueryConcept newQueryConcept = createQueryConcept(form, branchPath, conceptAttributeChanges, throwExceptionIfTransitiveClosureLoopFound, node.getId(), node);
-					if (!queryConcept.fieldsMatch(newQueryConcept)) {
-						queryConcept = newQueryConcept;
+					if (node != null) {
+						QueryConcept newQueryConcept = createQueryConcept(form, branchPath, conceptAttributeChanges, throwExceptionIfTransitiveClosureLoopFound, node.getId(), node);
+						if (!queryConcept.fieldsMatch(newQueryConcept)) {
+							queryConcept = newQueryConcept;
+							save = true;
+						}
+					} else {
+						queryConcept.markDeleted();
 						save = true;
 					}
 				} else {
@@ -368,13 +376,18 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 			queryConceptsToSave.add(queryConcept);
 		}
 
+		// Delete query concepts which have no parents
+		queryConceptsToSave.stream().filter(c -> c.getParents().isEmpty() && !c.getConceptIdL().toString().equals(Concepts.SNOMEDCT_ROOT)).forEach(Entity::markDeleted);
+
+		queryConceptsToSave.forEach(QueryConcept::serializeGroupedAttributesMap);
+
 		final long countToCreate = queryConceptsToSave.stream().filter(QueryConcept::isCreating).count();
 		final Optional<QueryConcept> firstToCreate = queryConceptsToSave.stream().filter(QueryConcept::isCreating).findFirst();
 		String createMessage = firstToCreate.isPresent() ? String.format("%s semantic concepts created including %s.", countToCreate, firstToCreate.get()) :
 				"No semantic concepts need creating.";
 
 		final long countToUpdate = queryConceptsToSave.stream().filter(q -> q.isChanged() && !q.isCreating()).count();
-		final Optional<QueryConcept> firstToUpdate = queryConceptsToSave.stream().filter(q -> q.isChanged() && !q.isCreating()).findFirst();
+		final Optional<QueryConcept> firstToUpdate = queryConceptsToSave.stream().filter(q -> q.isChanged() && !q.isCreating() && !q.isDeleted()).findFirst();
 		String updateMessage = firstToUpdate.isPresent() ? String.format("%s semantic concepts updated including %s.", countToUpdate, firstToUpdate.get()) :
 				"No semantic concepts need updating.";
 
@@ -383,13 +396,10 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		String deleteMessage = firstToDelete.isPresent() ? String.format("%s semantic concepts deleted including %s.", countToDelete, firstToDelete.get()) :
 				"No semantic concepts need deleting.";
 
-		logger.info("Semantic index change summary: {} concepts loaded into the graph. {} {} {}", graphBuilder.getNodes().size(), createMessage, updateMessage, deleteMessage);
+		logger.info("Semantic index change summary for {} form: {} concepts loaded into the graph. {} {} {}", form.getName(), graphBuilder.getNodes().size(),
+				createMessage, updateMessage, deleteMessage);
 
 		if (!queryConceptsToSave.isEmpty()) {
-
-			// Delete query concepts which have no parents
-			queryConceptsToSave.stream().filter(c -> c.getParents().isEmpty() && !c.getConceptIdL().toString().equals(Concepts.SNOMEDCT_ROOT)).forEach(Entity::markDeleted);
-			queryConceptsToSave.forEach(QueryConcept::serializeGroupedAttributesMap);
 
 			if (dryRun) {
 				logger.info("Semantic index rebuild is in dryRun mode so no changes will be persisted!");
