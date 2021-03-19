@@ -6,6 +6,7 @@ import org.snomed.snowstorm.core.data.domain.ComponentType;
 import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -31,6 +32,9 @@ public class IdentifierCacheManager implements Runnable {
 
 	@Autowired
 	private IdentifierSource identifierSource;
+
+	@Value("${cis.cache.concept-prefetch-count}")
+	private int conceptIdPrefetchCount;
 
 	// Separate cache for each namespace/partition combination configured.
 	private Set<IdentifierCache> identifierCaches = new HashSet<>();
@@ -154,6 +158,24 @@ public class IdentifierCacheManager implements Runnable {
 				cache.unlock();
 				requestSatisfied = true;
 			}
+		} else {
+			//If no cache available & not requesting for International (as already prefetched),
+			//then prefetch additional identifiers for subsequent requests.
+			int prefetchQuantity;
+			switch (componentType) {
+				case Concept:
+					prefetchQuantity = conceptIdPrefetchCount;
+					break;
+				case Description:
+					prefetchQuantity = conceptIdPrefetchCount * 2;
+					break;
+				case Relationship:
+					prefetchQuantity = conceptIdPrefetchCount * 4;
+					break;
+				default:
+					throw new IllegalArgumentException("Cache does not support prefetching identifiers for " + componentType);
+			}
+			addCache(namespaceId, partitionId, prefetchQuantity);
 		}
 		
 		if (!requestSatisfied) {
@@ -194,6 +216,7 @@ public class IdentifierCacheManager implements Runnable {
 		stayAlive = false;
 		cacheDaemon.interrupt();
 		cacheDaemon = null;
+		identifierCaches.clear();
 	}
 
 
