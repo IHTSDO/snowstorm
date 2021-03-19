@@ -3,6 +3,7 @@ package org.snomed.snowstorm.config;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriRewriteFilter;
 import org.ihtsdo.drools.domain.Component;
@@ -140,7 +141,7 @@ public class SecurityAndUriConfig extends WebSecurityConfigurerAdapter {
 
 	@Bean
 	public List<String> alwaysAllowReadOnlyPostEndpoints() {
-		return Collections.singletonList("/util/ecl-model-to-string");
+		return Lists.newArrayList("/util/ecl-model-to-string", "/util/ecl-string-to-model");
 	}
 
 	@Bean
