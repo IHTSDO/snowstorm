@@ -18,6 +18,7 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.core.util.SetUtils;
+import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
@@ -106,7 +107,9 @@ public class ConceptUpdateHelper extends ComponentService {
 		String defaultModuleId = metadata != null ? metadata.get(Config.DEFAULT_MODULE_ID_KEY) : null;
 		String defaultNamespace = metadata != null ? metadata.get(Config.DEFAULT_NAMESPACE_KEY) : null;
 		boolean enableContentAutomations = metadata == null || !"true".equals(metadata.get(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY));
+		TimerUtil timerUtil = new TimerUtil("identifierService.reserveIdentifierBlock");
 		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(newVersionConcepts, defaultNamespace);
+		timerUtil.finish();
 
 		// Assign identifier to new concepts before axiom conversion
 		newVersionConcepts.stream().filter(concept -> concept.getConceptId() == null)
