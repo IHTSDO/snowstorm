@@ -1,10 +1,10 @@
-FROM maven:3.3-jdk-8 AS builder
+FROM maven:3.6.3-openjdk-11 AS builder
 COPY . /usr/src/app
 WORKDIR /usr/src/app
 RUN mvn clean install -DskipTests=true 
 
 
-FROM openjdk:8-jdk-alpine
+FROM adoptopenjdk/openjdk11:alpine
 LABEL maintainer="SNOMED International <tooling@snomed.org>"
 ARG SUID=1042
 ARG SGID=1042
