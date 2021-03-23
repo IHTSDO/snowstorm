@@ -1,19 +1,23 @@
+FROM maven:3.3-jdk-8 AS builder
+COPY . /usr/src/app
+WORKDIR /usr/src/app
+RUN mvn clean install -DskipTests=true 
+
+
 FROM openjdk:8-jdk-alpine
 LABEL maintainer="SNOMED International <tooling@snomed.org>"
-
 ARG SUID=1042
 ARG SGID=1042
 
 VOLUME /tmp
 
-# Create a working directory
+# Create necessary directories
 RUN mkdir /app
 WORKDIR /app
-
 RUN mkdir /snomed-drools-rules
 
-# Copy necessary files
-ADD target/snowstorm-*.jar snowstorm.jar
+# Copy jar from builder image
+COPY --from=builder /usr/src/app/target/snowstorm-*.jar snowstorm.jar
 
 # Create the snowstorm user
 RUN addgroup -g $SGID snowstorm && \
