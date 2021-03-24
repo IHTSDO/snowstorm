@@ -16,7 +16,7 @@ class ExpressionParserTest extends AbstractTest {
 	@Test
 	public void testParseSimpleExpression() throws ServiceException {
 		ComparableExpression comparableExpression = expressionParser.parseExpression("83152002 |Oophorectomy| : { 405815000 |Procedure device|  =  122456005 |Laser device| }");
-		assertEquals("=== 83152002 : { 405815000 = 122456005 }", comparableExpression.toString());
+		assertEquals("83152002 : { 405815000 = 122456005 }", comparableExpression.toString());
 	}
 
 	@Test

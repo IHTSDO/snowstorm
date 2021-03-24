@@ -1,68 +1,18 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
-import com.google.common.collect.Lists;
-import org.ihtsdo.otf.snomedboot.ReleaseImportException;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.snomed.otf.snomedboot.testutil.ZipUtil;
-import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
-import org.snomed.snowstorm.core.rf2.RF2Type;
-import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-
 import static org.junit.jupiter.api.Assertions.*;
-import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 
-class ExpressionRepositoryServiceTest extends AbstractTest {
+class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 	@Autowired
 	private ExpressionRepositoryService expressionRepository;
-
-	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
-	private ImportService importService;
-
-	@BeforeEach
-	public void setup() throws ServiceException, ReleaseImportException, IOException {
-		conceptService.batchCreate(Lists.newArrayList(
-				new Concept("83152002"),
-				new Concept("421720008"),
-				new Concept("405815000"),
-				new Concept("49062001").addFSN("Device (physical object)"),
-					new Concept("122456005").addFSN("Laser device").addRelationship(new Relationship(ISA, "49062001")),
-				new Concept("7946007"),
-				new Concept("405813007").addFSN("Procedure site - direct (attribute)"),
-				new Concept("71388002"),
-				new Concept("129264002").addFSN("Action (qualifier value)"),
-					new Concept("129304002").addRelationship(new Relationship(ISA, "129264002")),
-				new Concept("260686004"),
-				new Concept("272741003").addFSN("Laterality (attribute)"),
-				new Concept("182353008").addFSN("Side"),
-					new Concept("24028007").addFSN("Right").addRelationship(new Relationship(ISA, "182353008")),
-				new Concept("442083009").addFSN("Anatomical or acquired body structure (body structure)"),
-					new Concept("15497006").addRelationship(new Relationship(ISA, "442083009")),
-				new Concept("388441000").addFSN("Horse")
-		), "MAIN");
-
-		File dummyMrcmImportFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_dummy_mrcm_snap");
-		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", false, false);
-		try (FileInputStream inputStream = new FileInputStream(dummyMrcmImportFile)) {
-			importService.importArchive(importJob, inputStream);
-		}
-	}
 
 	@Test
 	public void createExpression() throws ServiceException {
@@ -76,41 +26,41 @@ class ExpressionRepositoryServiceTest extends AbstractTest {
 
 		// Single concept
 		assertEquals("=== 83152002",
-				expressionRepository.createExpression(branch, "83152002 |Oophorectomy|", "").getCloseToUserForm());
+				expressionRepository.createExpression(branch, "83152002 |Oophorectomy|", "").getClassifiableForm());
 
 		// Single concept with explicit definition status
 		assertEquals("=== 83152002",
-				expressionRepository.createExpression(branch, "===83152002 |Oophorectomy|", "").getCloseToUserForm());
+				expressionRepository.createExpression(branch, "===83152002 |Oophorectomy|", "").getClassifiableForm());
 
 		// Single concept with explicit subtype definition status
 		assertEquals("<<< 83152002",
-				expressionRepository.createExpression(branch, "<<<  83152002 |Oophorectomy|", "").getCloseToUserForm());
+				expressionRepository.createExpression(branch, "<<<  83152002 |Oophorectomy|", "").getClassifiableForm());
 
 		// Multiple focus concepts
 		assertEquals("=== 421720008 + 7946007",
-				expressionRepository.createExpression(branch, "421720008 |Spray dose form| + 7946007 |Drug suspension|", "").getCloseToUserForm());
+				expressionRepository.createExpression(branch, "421720008 |Spray dose form| + 7946007 |Drug suspension|", "").getClassifiableForm());
 		// Same concepts stated in reverse order to test concept sorting
 		assertEquals("=== 421720008 + 7946007",
-				expressionRepository.createExpression(branch, "7946007 |Drug suspension| + 421720008 |Spray dose form|", "").getCloseToUserForm());
+				expressionRepository.createExpression(branch, "7946007 |Drug suspension| + 421720008 |Spray dose form|", "").getClassifiableForm());
 
 
 		// With single refinement
-		assertEquals("=== 83152002 : 405815000 = 122456005",
-				expressionRepository.createExpression(branch, "    83152002 |Oophorectomy| :  405815000 |Procedure device|  =  122456005 |Laser device|", "").getCloseToUserForm());
+		assertEquals("=== 83152002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }",
+				expressionRepository.createExpression(branch, "83152002 |Oophorectomy| :  405815000 |Procedure device|  =  122456005 |Laser device|", "").getClassifiableForm());
 
 		// With multiple refinements, attributes are sorted
-		assertEquals("=== 71388002 : 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005",
+		assertEquals("=== 71388002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }",
 				expressionRepository.createExpression(branch, "   71388002 |Procedure| :" +
 						"       405815000 |Procedure device|  =  122456005 |Laser device| ," +
 						"       260686004 |Method|  =  129304002 |Excision - action| ," +
-						"       405813007 |Procedure site - direct|  =  15497006 |Ovarian structure|", "").getCloseToUserForm());
+						"       405813007 |Procedure site - direct|  =  15497006 |Ovarian structure|", "").getClassifiableForm());
 
 		Page<PostCoordinatedExpression> page = expressionRepository.findAll(branch, PageRequest.of(0, 10));
 		assertEquals(8, page.getTotalElements());
 
-		Page<PostCoordinatedExpression> results = expressionRepository.findByCanonicalCloseToUserForm(branch, "=== 83152002 : 405815000 = 122456005", PageRequest.of(0, 1));
+		Page<PostCoordinatedExpression> results = expressionRepository.findByCanonicalCloseToUserForm(branch, "83152002 |Oophorectomy| :  405815000 |Procedure device|  =  122456005 |Laser device|", PageRequest.of(0, 1));
 		assertEquals(1, results.getTotalElements());
-		assertEquals("=== 83152002 : 405815000 = 122456005", results.getContent().get(0).getCloseToUserForm());
+//		assertEquals("=== 83152002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }", results.getContent().get(0).getClassifiableForm());
 	}
 
 	@Test
@@ -199,13 +149,13 @@ class ExpressionRepositoryServiceTest extends AbstractTest {
 		}
 	}
 
-	private void assertIllegalArgumentParsingError(String closeToUserForm) throws ServiceException {
+	private void assertIllegalArgumentParsingError(String closeToUserForm) {
 		try {
 			expressionRepository.createExpression("MAIN", closeToUserForm, "");
 			fail();
-		} catch (IllegalArgumentException e) {
+		} catch (ServiceException e) {
 			// Good
-			assertTrue(e.getMessage().startsWith("Failed to parse expression"));
+			assertTrue(e.getMessage().startsWith("Failed to parse expression"), "Message: " + e.getMessage());
 		}
 	}
 }

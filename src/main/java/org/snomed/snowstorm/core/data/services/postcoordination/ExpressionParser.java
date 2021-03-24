@@ -24,7 +24,7 @@ public class ExpressionParser {
 			Expression expression = expressionParser.parseExpression(expressionString);
 			return new ComparableExpression(expression);
 		} catch (SCGException e) {
-			throw new ServiceException(format("Failed to transform expression \"%s\" due to: %s", expressionString, e.getMessage()), e);
+			throw new ServiceException(format("Failed to parse expression \"%s\" due to: %s", expressionString, e.getMessage()), e);
 		}
 	}
 
