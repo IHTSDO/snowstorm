@@ -12,14 +12,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@Api(tags = "Expression Repository", description = "-")
+@Api(tags = "Postcoordination", description = "-")
 @RequestMapping(produces = "application/json")
 public class ExpressionRepositoryController {
 
 	@Autowired
 	private ExpressionRepositoryService expressionRepository;
 
-	@ApiOperation("Retrieve all postcoordinated expressions")
+	@ApiOperation(value = "Retrieve all postcoordinated expressions", hidden = true)
 	@RequestMapping(value = "/{branch}/expressions", method = RequestMethod.GET)
 	public ItemsPage<PostCoordinatedExpression> retrieveAllExpressions(
 			@PathVariable String branch,
@@ -30,12 +30,17 @@ public class ExpressionRepositoryController {
 		return new ItemsPage<>(expressionRepository.findAll(branch, ControllerHelper.getPageRequest(offset, limit)));
 	}
 
+	@ApiOperation(value = "Create an expression in the repository", hidden = true)
 	@RequestMapping(value = "/{branch}/expressions", method = RequestMethod.PUT)
 	public PostCoordinatedExpression createExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) throws ServiceException {
 		branch = BranchPathUriUtil.decodePath(branch);
 		return expressionRepository.createExpression(branch, request.getCloseToUserForm(), request.getModuleId());
 	}
 
+	@ApiOperation(
+	        value = "Validate and transform a postcoordinated expression.",
+            notes = "<b>Work In Progress</b>. This endpoint can be used for testing the validation of a postcoordinated expression, stated in close to user form, and " +
+                    "any transformation to the classifiable form as required.")
 	@RequestMapping(value = "/{branch}/expressions/transform", method = RequestMethod.POST)
 	public PostCoordinatedExpression transformExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) throws ServiceException {
 		branch = BranchPathUriUtil.decodePath(branch);
