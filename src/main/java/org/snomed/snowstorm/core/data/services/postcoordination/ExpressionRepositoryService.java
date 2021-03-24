@@ -94,7 +94,7 @@ public class ExpressionRepositoryService {
 	}
 
 	public PostCoordinatedExpression createExpression(String branch, String closeToUserForm, String moduleId) throws ServiceException {
-		final PostCoordinatedExpression postCoordinatedExpression = transformExpression(branch, closeToUserForm);
+		final PostCoordinatedExpression postCoordinatedExpression = parseValidateAndTransformExpression(branch, closeToUserForm);
 
 		List<Long> expressionIds = identifierSource.reserveIds(0, LocalRandomIdentifierSource.POSTCOORDINATED_EXPRESSION_PARTITION_ID, 1);
 		String expressionId = expressionIds.get(0).toString();
@@ -110,7 +110,7 @@ public class ExpressionRepositoryService {
 		return postCoordinatedExpression;
 	}
 
-	public PostCoordinatedExpression transformExpression(String branch, String closeToUserForm) throws ServiceException {
+	public PostCoordinatedExpression parseValidateAndTransformExpression(String branch, String closeToUserForm) throws ServiceException {
 		TimerUtil timer = new TimerUtil("exp");
 		try {
 			// Sort contents of expression

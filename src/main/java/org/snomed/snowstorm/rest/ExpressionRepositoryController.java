@@ -44,7 +44,7 @@ public class ExpressionRepositoryController {
 	@RequestMapping(value = "/{branch}/expressions/transform", method = RequestMethod.POST)
 	public PostCoordinatedExpression transformExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) throws ServiceException {
 		branch = BranchPathUriUtil.decodePath(branch);
-		return expressionRepository.transformExpression(branch, request.getCloseToUserForm());
+		return expressionRepository.parseValidateAndTransformExpression(branch, request.getCloseToUserForm());
 	}
 
 }
