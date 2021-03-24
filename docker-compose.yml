@@ -27,14 +27,33 @@ services:
   snowstorm:
     image: snomedinternational/snowstorm:develop
     container_name: snowstorm
+    restart: always
     depends_on:
       elasticsearch:
         condition: service_healthy
     entrypoint: java -Xms2g -Xmx4g -jar snowstorm.jar --elasticsearch.urls=http://es:9200
     networks:
-      - elastic
+      elastic:
+        aliases:
+         - snowstorm
     ports:
       - 8080:8080
+
+  browser:
+    image: snomedinternational/snomedct-browser:latest
+    container_name: browser
+    depends_on:
+      - snowstorm
+    links:
+      - snowstorm:snowstorm
+    networks:
+      - elastic
+    environment:
+      - API_HOST=http://snowstorm:8080/
+    ports:
+      - 80:80
+    restart: always
+
 
 networks:
   elastic:
