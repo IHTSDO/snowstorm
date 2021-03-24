@@ -2,7 +2,7 @@
 
 ## Pre-requisites
 
-A somewhat obvious point, but please make sure you have installed Docker. Between the two containers, Elasticsearch and Snowstorm, 8Gb memory is used, so make sure that your installation of docker has the necessary memory allocated.
+A somewhat obvious point, but please make sure you have installed Docker. Between the three containers, Elasticsearch, Snowstorm and the SNOMED CT Browser, 8Gb memory is used, so make sure that your installation of docker has the necessary memory allocated.
 
 ## Starting Snowstorm
 
@@ -12,14 +12,17 @@ From the project directory run:
 docker-compose up -d
 ```
 
-This uses the [`docker-compose.yml`](../docker-compose.yml) file and will start Snowstorm and Elasticsearch in separate containers without the need to build anything. However, **you will need to load a SNOMED CT release into Snowstorm**.
-
+This uses the [`docker-compose.yml`](../docker-compose.yml) file and will start Snowstorm,  Elasticsearch and the [SNOMED CT Browser](https://github.com/IHTSDO/sct-browser-frontend) in separate containers without the need to build anything. However, **you will need to load a SNOMED CT release into Snowstorm**.
 
 ## Loading SNOMED CT
 
 To get SNOMED CT into your new docker environment, you will need load a SNOMED CT release directly into the running docker container using the [loading SNOMED instructions](loading-snomed.md).
 
 The [`docker-compose.yml`](../docker-compose.yml) creates a docker volume that will be re-used when the containers are rebuilt, so your data will not be lost unless the volume is deleted.
+
+## Browsing SNOMED CT content
+
+The [`docker-compose.yml`](../docker-compose.yml) also includes a [SNOMED CT Browser](https://github.com/IHTSDO/sct-browser-frontend) container which, once running, can be accessed simply on port 80 at http://localhost (or the the URL/ip address of the host where the containers are running).
 
 ## Running in Read-Only mode
 
