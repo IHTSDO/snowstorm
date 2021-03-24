@@ -3,7 +3,6 @@ package org.snomed.snowstorm.core.data.services.postcoordination;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.languages.scg.domain.model.Attribute;
-import org.snomed.languages.scg.domain.model.AttributeGroup;
 import org.snomed.languages.scg.domain.model.DefinitionStatus;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -277,7 +276,7 @@ public class ExpressionTransformationService {
 	private AttributeDomain getAttributeDomainOrThrow(ExpressionContext context, String attributeId) throws ServiceException {
 		final Optional<AttributeDomain> attributeDomainOptional = context.getBranchMRCM().getAttributeDomains().stream()
 				.filter(attDom -> attDom.getReferencedComponentId().equals(attributeId)).findFirst();
-		if (!attributeDomainOptional.isPresent()) {
+		if (attributeDomainOptional.isEmpty()) {
 			throw new TransformationException(String.format("MRCM attribute domain for attribute %s not found.", attributeId));
 		}
 		return attributeDomainOptional.get();
