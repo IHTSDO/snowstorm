@@ -109,6 +109,9 @@ public class ClassificationService {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
+	@Autowired
+	private ConceptAttributeSortHelper conceptAttributeSortHelper;
+
 	private final List<Classification> classificationsInProgress;
 
 	private Thread classificationStatusPollingThread;
@@ -482,6 +485,7 @@ public class ClassificationService {
 				relationship.setTarget(relationshipChange.getDestination());
 			}
 		}
+		conceptAttributeSortHelper.sortAttributes(Collections.singleton(concept));
 	}
 
 	public Page<RelationshipChange> getRelationshipChanges(String path, String classificationId, List<LanguageDialect> languageDialects, PageRequest pageRequest) {
