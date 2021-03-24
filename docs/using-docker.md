@@ -24,6 +24,8 @@ The [`docker-compose.yml`](../docker-compose.yml) creates a docker volume that w
 
 The [`docker-compose.yml`](../docker-compose.yml) also includes a [SNOMED CT Browser](https://github.com/IHTSDO/sct-browser-frontend) container which, once running, can be accessed simply on port 80 at http://localhost (or the the URL/ip address of the host where the containers are running).
 
+However, if you do not want to run the browser on the same instance, then remove the relevant `browser:` section in [`docker-compose.yml`](../docker-compose.yml). To run the browser from another server using docker, please refer to the instructions in the [SNOMED CT Browser](https://github.com/IHTSDO/sct-browser-frontend) repository.
+
 ## Running in Read-Only mode
 
 Once the data is loaded Snowstorm can be run in read-only mode, as documented elsewhere. In order to run your docker containers in a read-only mode, please make the following change to the relevant line in the [`docker-compose.yml`](../docker-compose.yml) file:
