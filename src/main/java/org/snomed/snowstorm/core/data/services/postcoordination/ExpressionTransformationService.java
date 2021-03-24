@@ -258,14 +258,17 @@ public class ExpressionTransformationService {
 				classifiableExpression.merge(concept);
 			}
 			boolean addedToAnyGroup = false;
-			for (ComparableAttributeGroup targetGroup : classifiableExpression.getComparableAttributeGroups()) {
-				//# Copy the loose attribute into every group, except those that contain just an attribute from the predefined self-grouped list.
-				final List<Attribute> attributes = targetGroup.getAttributes();
-				if (attributes.size() > 1 || !selfGroupedAttributes.contains(attributes.get(0).getAttributeId())) {
-					targetGroup.addAttribute(looseAttribute);
-					addedToAnyGroup = true;
-				}
-			}
+            final Set<ComparableAttributeGroup> comparableAttributeGroups = classifiableExpression.getComparableAttributeGroups();
+            if (comparableAttributeGroups != null) {
+                for (ComparableAttributeGroup targetGroup : comparableAttributeGroups) {
+                    //# Copy the loose attribute into every group, except those that contain just an attribute from the predefined self-grouped list.
+                    final List<Attribute> attributes = targetGroup.getAttributes();
+                    if (attributes.size() > 1 || !selfGroupedAttributes.contains(attributes.get(0).getAttributeId())) {
+                        targetGroup.addAttribute(looseAttribute);
+                        addedToAnyGroup = true;
+                    }
+                }
+            }
 			if (!addedToAnyGroup) {
 				// add in new group
 				classifiableExpression.addAttributeGroup(new ComparableAttributeGroup(new ComparableAttribute(looseAttribute)));
