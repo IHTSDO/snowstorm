@@ -88,7 +88,7 @@ public class ConceptAttributeSortHelper {
 		domainAttributeOrderMap = sortOrderProperties.getDomainAttributeOrderMap();
 	}
 
-	void sortAttributes(Iterable<Concept> concepts) {
+	public void sortAttributes(Iterable<Concept> concepts) {
 		for (Concept concept : concepts) {
 			// Attributes sort order is specified per hierarchy.
 			// Use FSN semantic tag to allow correct attribute sorting on concepts which have not yet been classified.
