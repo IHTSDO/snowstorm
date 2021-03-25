@@ -13,6 +13,7 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
@@ -54,7 +55,7 @@ public class ExpressionRepositoryService {
 	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private LocalRandomIdentifierSource identifierSource;
+	private IdentifierSource identifierSource;
 
 	// 1119435002 | Canonical close to user form expression reference set (foundation metadata concept) |
 	// referencedComponentId - a generated SCTID for expression
