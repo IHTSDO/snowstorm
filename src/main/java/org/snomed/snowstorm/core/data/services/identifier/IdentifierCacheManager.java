@@ -10,10 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class IdentifierCacheManager implements Runnable {
 
@@ -37,7 +34,7 @@ public class IdentifierCacheManager implements Runnable {
 	private int conceptIdPrefetchCount;
 
 	// Separate cache for each namespace/partition combination configured.
-	private Set<IdentifierCache> identifierCaches = new HashSet<>();
+	private Set<IdentifierCache> identifierCaches = Collections.synchronizedSet(new HashSet<>());
 	private Thread cacheDaemon;
 	private boolean stayAlive = true;
 	boolean isSleeping = false;
