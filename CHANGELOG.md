@@ -4,17 +4,27 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## 6.2.1 Fix Release (March 2021) - Latest semantic index bug fixes
+Minor fix release for semantic index bug fixes and improvements.
+
+### Improvements
+- MAINT-1623 Only replace incorrect documents during whole semantic-index rebuild on MAIN.
+
+### Fixes
+- BROWSE-411 Extension semantic index update must use extension dependant version of MAIN as base. Previously the latest version of MAIN was always used.
+
+
 ## 6.2.0 Release (March 2021) - Concrete domain authoring support and semantic update fix
 This release adds authoring support for concepts using concrete domains including updates to the MRCM endpoints.
 
 This release also includes an important fix to the semantic index update process. Before this fix fictitious transitive closure loops could appear in the semantic index after
-upgrading an extension, which caused inconsistent behaviour in hierarchy browsing and ECL results. The admin rebuild semantic index function can be used to heal existing 
+upgrading an extension, which caused inconsistent behaviour in hierarchy browsing and ECL results. The admin rebuild semantic index function can be used to heal existing
 indexes with this problem.
 
 ### Breaking
-The following minor breaking changes were made in this maintenance release. 
+The following minor breaking changes were made in this maintenance release.
 - Removed deprecated code-system 'migrate' function in favour of 'upgrade' function. The migrate function was never implemented completely and has been deprecated for over a year.
-- Util function GET `/util/parse-ecl` changed to POST and moved to `/util/ecl-string-to-model` for consistent naming with new function `/util/ecl-model-to-string`. 
+- Util function GET `/util/parse-ecl` changed to POST and moved to `/util/ecl-string-to-model` for consistent naming with new function `/util/ecl-model-to-string`.
 
 ### Features
 - FHIR
@@ -34,9 +44,9 @@ The following minor breaking changes were made in this maintenance release.
   - Add user global-roles to single branch response.
 - Admin commit-rollback function now automatically removes any code-system version created by the commit.
 - Authoring
-  - New `validate` flag in concept save and update function. Provides the ability to combine Drools validation and save functions into a single API call 
+  - New `validate` flag in concept save and update function. Provides the ability to combine Drools validation and save functions into a single API call
     for a cleaner design and slight performance improvement. _New flag defaults to false so as not to break existing implementations._
-  - Integrity check now includes attribute type concepts from concrete attributes. 
+  - Integrity check now includes attribute type concepts from concrete attributes.
 
 ### Fixes
 - Fix semantic index update function:
