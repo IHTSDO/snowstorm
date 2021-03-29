@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.mrcm.MRCMService;
 import org.snomed.snowstorm.mrcm.model.AttributeRange;
 import org.snomed.snowstorm.mrcm.model.ContentType;
@@ -70,7 +71,7 @@ class MRCMServiceTest extends AbstractTest {
 		conceptService.create(inConcept, MAIN);
 
 		Collection<ConceptMini> attributes = mrcmService.retrieveDomainAttributes(ContentType.NEW_PRECOORDINATED, true,
-				Sets.newHashSet(12345678910L), MAIN, null);
+				Sets.newHashSet(12345678910L), MAIN, conceptService.getBranchCriteria(new BranchTimepoint(MAIN)));
 		assertNotNull(attributes);
 		attributes.forEach(attribute -> {
 			final Map<String, Object> extraFields = attribute.getExtraFields();
