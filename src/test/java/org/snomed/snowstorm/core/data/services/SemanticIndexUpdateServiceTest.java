@@ -592,6 +592,50 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testNewParentsInFutureOnMAINMustNotCreateCircularReferenceOnChildBranch() throws ServiceException {
+		// On MAIN
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		Concept isA = new Concept(ISA).addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		// A -> root
+		Concept cA = new Concept("1001000").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		// B -> A
+		Concept cB = new Concept("1002000").addRelationship(new Relationship(ISA, cA.getId()));
+		// C -> A
+		Concept cC = new Concept("1003000").addRelationship(new Relationship(ISA, cA.getId()));
+
+		conceptService.batchCreate(Lists.newArrayList(root, isA, cA, cB, cC), "MAIN");
+
+		// On MAIN/A
+		// C -> B
+		branchService.create("MAIN/A");
+		cC.addRelationship(new Relationship(ISA, cB.getId()));
+		conceptService.update(cC, "MAIN/A");
+		assertEquals(idArray(root, cA), eclSearchForIds("> " + cB.getId(), "MAIN/A").toString());
+		assertEquals(idArray(root, cB, cA), eclSearchForIds("> " + cC.getId(), "MAIN/A").toString());
+
+		// On MAIN
+		// D -> root
+		Concept cD = new Concept("1004000").addRelationship(new Relationship(ISA, cA.getId()));
+		conceptService.create(cD, "MAIN");
+		Date timepointA = branchService.findLatest("MAIN").getHead();
+
+		// On MAIN .. introduce relationship that will cause loop between B and C
+		// B -> C
+		cB.addRelationship(new Relationship(ISA, cC.getId()));
+		conceptService.update(cB, "MAIN");
+
+		// Rebase MAIN/A
+		// Must not introduce transitive closure loop because B -> C not yet created at 'timepointA'
+		branchMergeService.rebaseToSpecificTimepointAndRemoveDuplicateContent("MAIN", timepointA, "MAIN/A", "Upgrade..");
+		assertEquals(idArray(root, cA), eclSearchForIds("> " + cB.getId(), "MAIN/A").toString());
+		assertEquals(idArray(root, cB, cA), eclSearchForIds("> " + cC.getId(), "MAIN/A").toString());
+	}
+
+	private String idArray(Concept... concepts) {
+		return Arrays.toString(Arrays.stream(concepts).map(Concept::getId).toArray());
+	}
+
+	@Test
 	void inactiveConceptsRemovedFromStatedIndex() throws ServiceException {
 		String path = "MAIN";
 		conceptService.create(new Concept(SNOMEDCT_ROOT), path);

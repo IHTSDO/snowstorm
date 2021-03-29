@@ -158,7 +158,8 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		//       can become larger than the maximum permitted query criteria.
 
 		TimerUtil timer = new TimerUtil("TC index " + form.getName(), Level.INFO, 1);
-		String branchPath = commit.getBranch().getPath();
+		final Branch branch = commit.getBranch();
+		String branchPath = branch.getPath();
 
 		BranchCriteria previousStateCriteria;
 		BranchCriteria changesCriteria;
@@ -166,18 +167,18 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 		if (rebuild) {
 			if (completeRebuild) {
 				// Not used until the end
-				previousStateCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
+				previousStateCriteria = versionControlHelper.getBranchCriteria(branch);
 				// Force everything
 				newStateCriteria = previousStateCriteria;
 				// Not used in complete rebuild
 				changesCriteria = null;
 			} else {
 				// Take existing content from parent branch
-				previousStateCriteria = versionControlHelper.getBranchCriteriaAtTimepoint(PathUtil.getParentPath(commit.getBranch().getPath()), commit.getTimepoint());
+				previousStateCriteria = versionControlHelper.getBranchCriteriaAtTimepoint(PathUtil.getParentPath(branchPath), branch.getBase());
 				// Standard selection on already committed content. Including open commit to include manually resolved conflicts.
 				newStateCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
 				// Process all changes on branch
-				changesCriteria = versionControlHelper.getChangesOnBranchCriteria(commit.getBranch());
+				changesCriteria = versionControlHelper.getChangesOnBranchCriteria(branch);
 			}
 		} else {
 			// Take existing content from this branch before the current commit
