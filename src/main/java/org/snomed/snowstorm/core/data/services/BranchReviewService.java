@@ -156,8 +156,16 @@ public class BranchReviewService {
 				Concept targetVersion = conceptOnTarget.get(conceptId);
 				MergeReviewConceptVersions mergeVersion = new MergeReviewConceptVersions(sourceVersion, targetVersion);
 				if (sourceVersion != null && targetVersion != null) {
+					ComponentsChanged componentsChangedForSource = lookupComponentsChangedForConcept(sourceVersion);
+					ComponentsChanged componentsChangedForTarget = lookupComponentsChangedForConcept(targetVersion);
+					if ((componentsChangedForSource.isOnlyModelingChanged() && componentsChangedForTarget.isOnlyPreferredTermChanged())
+							|| (componentsChangedForSource.isOnlyPreferredTermChanged() && componentsChangedForTarget.isOnlyModelingChanged())) {
+						return;
+					}
+
 					mergeVersion.setAutoMergedConcept(autoMergeConcept(sourceVersion, targetVersion));
 				}
+
 				conflicts.put(conceptId, mergeVersion);
 			});
 		}
@@ -207,6 +215,30 @@ public class BranchReviewService {
 			throw new IllegalStateException("Merge review state is not " + ReviewStatus.CURRENT);
 		}
 	}
+
+    private ComponentsChanged lookupComponentsChangedForConcept(Concept concept) {
+        ComponentsChanged componentsChanged = new ComponentsChanged();
+        boolean isModelingChanged = concept.getClassAxioms().stream().filter(axiom -> axiom.getEffectiveTimeI() == null ).count() != 0;
+
+        if (!isModelingChanged) {
+            isModelingChanged = concept.getGciAxioms().stream().filter(axiom -> axiom.getEffectiveTimeI() == null ).count() != 0;
+        }
+
+        boolean isPreferredTermChanged = concept.getDescriptions().stream().filter(description -> description.getEffectiveTimeI() == null
+                && Concepts.SYNONYM.equals(description.getType())
+                && description.getAcceptabilityMap().values().stream().filter(acceptability -> Concepts.PREFERRED.equals(acceptability)).count() != 0
+        ).count() != 0;
+
+        boolean isFsnChanged = concept.getDescriptions().stream().filter(description -> description.getEffectiveTimeI() == null
+                && Concepts.FSN.equals(description.getType())
+        ).count() != 0;
+
+        componentsChanged.setModelingChanged(isModelingChanged);
+        componentsChanged.setPreferredTermChanged(isPreferredTermChanged);
+        componentsChanged.setFsnChanged(isFsnChanged);
+
+        return componentsChanged;
+    }
 
 	private Set<Long> getConflictingConceptIds(MergeReview mergeReview) {
 		Supplier<NotFoundException> notFoundExceptionSupplier = () -> new NotFoundException("BranchReview not found with id " + mergeReview.getSourceToTargetReviewId());
@@ -572,5 +604,45 @@ public class BranchReviewService {
 	@PreAuthorize("hasPermission('AUTHOR', #mergeReview.targetPath)")
 	public void persistManualMergeConceptDeletion(MergeReview mergeReview, Long conceptId) {
 		manuallyMergedConceptRepository.save(new ManuallyMergedConcept(mergeReview.getId(), conceptId, null, true));
+	}
+
+	public class ComponentsChanged {
+	    private boolean fsnChanged;
+
+        private boolean preferredTermChanged;
+
+        private boolean modelingChanged;
+
+        public boolean isFsnChanged() {
+            return fsnChanged;
+        }
+
+        public void setFsnChanged(boolean fsnChanged) {
+            this.fsnChanged = fsnChanged;
+        }
+
+        public boolean isPreferredTermChanged() {
+            return preferredTermChanged;
+        }
+
+        public void setPreferredTermChanged(boolean preferredTermChanged) {
+            this.preferredTermChanged = preferredTermChanged;
+        }
+
+        public boolean isModelingChanged() {
+            return modelingChanged;
+        }
+
+        public void setModelingChanged(boolean modelingChanged) {
+            this.modelingChanged = modelingChanged;
+        }
+
+        public boolean isOnlyModelingChanged() {
+            return modelingChanged && !preferredTermChanged && !fsnChanged;
+        }
+
+        public boolean isOnlyPreferredTermChanged() {
+            return preferredTermChanged && !modelingChanged && !fsnChanged;
+        }
 	}
 }

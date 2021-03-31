@@ -10,6 +10,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import org.assertj.core.util.Maps;
+import org.elasticsearch.common.collect.MapBuilder;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.jetbrains.annotations.NotNull;
@@ -46,7 +47,7 @@ import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
-import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 import static org.snomed.snowstorm.core.data.domain.review.ReviewStatus.CURRENT;
 import static org.snomed.snowstorm.core.data.domain.review.ReviewStatus.PENDING;
 
@@ -1584,6 +1585,43 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertNull(branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK/G/G1").getVersionsReplacedCounts().get("Concept"));
 		assertNull(branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK/G").getVersionsReplacedCounts().get("Concept"));
 		assertEquals(0, branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK").getVersionsReplacedCounts().get("Concept").intValue());
+	}
+
+	@Test
+	void testNoMergeReviewIfOnlyPreferredTermChangedOrOnlyModelingChanged() throws InterruptedException, ServiceException {
+		final Concept concept = new Concept("10000100", 20020131, true, "900000000000207008", "900000000000074008");
+		concept.addDescription(new Description("84923010", 20020131, true, "900000000000207008", "10000100", "en", FSN,
+				"Bleeding (morphologic abnormality)", "900000000000020002").addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED));
+		concept.addDescription(new Description("74923010", 20020131, true, "900000000000207008", "10000100", "en", SYNONYM,
+				"Bleeding", "900000000000020002").addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED));
+
+		conceptService.create(concept, DEFAULT_LANGUAGE_DIALECTS, "MAIN");
+		branchService.create("MAIN/A1");
+
+		// Update preferred SYN for concept 10000100 on MAIN
+		Concept savedConcept = conceptService.find("10000100", "MAIN");
+		Description description = savedConcept.getDescriptions().stream()
+				.filter(des -> "Bleeding".equals(des.getTerm()))
+				.findAny()
+				.orElse(null);
+		assertNotNull(description);
+		description.clearLanguageRefsetMembers();
+		description.setAcceptabilityMap(MapBuilder.newMapBuilder(new HashMap<String, String>()).put(US_EN_LANG_REFSET, PREFERRED_CONSTANT).map());
+		conceptService.update(savedConcept, DEFAULT_LANGUAGE_DIALECTS, "MAIN");
+
+		// Modify modeling of concept 10000100 on A1
+		savedConcept = conceptService.find("10000100", "MAIN/A1");
+		savedConcept.addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING));
+		conceptService.update(savedConcept, DEFAULT_LANGUAGE_DIALECTS, "MAIN/A1");
+
+		String source = "MAIN";
+		String target = "MAIN/A1";
+		MergeReview review = getMergeReviewInCurrentState(source, target);
+
+		assertEquals(ReviewStatus.CURRENT, review.getStatus());
+
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
+		assertEquals(0, mergeReviewConflictingConcepts.size());
 	}
 
 	private MergeReview getMergeReviewInCurrentState(String source, String target) throws InterruptedException {
