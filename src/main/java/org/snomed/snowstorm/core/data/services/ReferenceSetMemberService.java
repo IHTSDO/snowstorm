@@ -32,7 +32,10 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.elasticsearch.core.*;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
@@ -128,7 +131,10 @@ public class ReferenceSetMemberService extends ComponentService {
 		}
 		Map<String, String> additionalFields = searchRequest.getAdditionalFields();
 		for (String additionalFieldName : additionalFields.keySet()) {
-			query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(additionalFieldName), additionalFields.get(additionalFieldName)));
+			String additionalFieldNameValue = additionalFields.get(additionalFieldName);
+			if (!Strings.isNullOrEmpty(additionalFieldNameValue)) {
+				query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(additionalFieldName), additionalFieldNameValue));
+			}
 		}
 		String owlExpressionConceptId = searchRequest.getOwlExpressionConceptId();
 		if (!Strings.isNullOrEmpty(owlExpressionConceptId)) {
