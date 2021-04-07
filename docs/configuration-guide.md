@@ -5,7 +5,7 @@ Snowstorm uses the Spring Boot framework so this [general information about Spri
 
 See also: 
 - [Security Configuration Guide](security-configuration.md)
-- [Language Specific Search Behaviour](docs/language-specific-search.md)
+- [Language Specific Search Behaviour](language-specific-search.md)
 
 ## Default Configuration Options
 
