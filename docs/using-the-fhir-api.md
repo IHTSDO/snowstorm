@@ -8,9 +8,9 @@ Snowstorms's FHIR capabilities are managed using the HAPI Server package, which 
 
 Unfortunately HAPI does not easily support a Swagger interface for testing, but if you are used to working with **[Postman](https://www.getpostman.com/downloads/)**, here is a Postman project to try out some of the FHIR API calls.
 
-[![Run in Postman](https://run.pstmn.io/button.svg)](https://app.getpostman.com/run-collection/5d66502069270fc020ca)
+[![Run in Postman](https://run.pstmn.io/button.svg)](https://app.getpostman.com/run-collection/46ece7cbc44cffed9f26)
 
-You can find a description of the capabilities here - https://documenter.getpostman.com/view/462462/S1TVXJ3k
+You can find a description of the capabilities here - https://documenter.getpostman.com/view/7704601/TzCTYk3R
 
 You can also find the HTTP requests in [the fhir-requests.http file](fhir-requests.http) in this repo.
 
