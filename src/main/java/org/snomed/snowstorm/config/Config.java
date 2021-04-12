@@ -122,9 +122,6 @@ public abstract class Config extends ElasticsearchConfig {
 
 	@Autowired
 	private ElasticsearchRestTemplate elasticsearchTemplate;
-	
-	@Autowired
-	private DialectConfigurationService dialectService;
 
 	@Autowired
 	private IntegrityService integrityService;
@@ -148,11 +145,6 @@ public abstract class Config extends ElasticsearchConfig {
 		});
 	}
 	
-	@PostConstruct
-	public void initialseDialectService() {
-		dialectService.report();
-	}
-
 	private String secondsDuration(Date timepoint) {
 		return "" + (float) (new Date().getTime() - timepoint.getTime()) / 1000f;
 	}
@@ -221,6 +213,12 @@ public abstract class Config extends ElasticsearchConfig {
 	@ConfigurationProperties(prefix = "search.language")
 	public SearchLanguagesConfiguration searchLanguagesConfiguration() {
 		return new SearchLanguagesConfiguration();
+	}
+	
+	@Bean
+	@ConfigurationProperties(prefix = "uri.deferencing")
+	public WebRouterConfigurationService getWebRouterConfigurationService() {
+		return new WebRouterConfigurationService();
 	}
 
 	@Bean
