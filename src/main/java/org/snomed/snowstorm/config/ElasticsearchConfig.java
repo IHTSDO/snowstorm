@@ -2,7 +2,6 @@ package org.snomed.snowstorm.config;
 
 import com.amazonaws.auth.AWS4Signer;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.http.AWSRequestSigningApacheInterceptor;
 import com.amazonaws.regions.DefaultAwsRegionProviderChain;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.ComponentService;
@@ -19,6 +18,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.config.aws.AWSRequestSigningApacheInterceptor;
 import org.snomed.snowstorm.config.elasticsearch.DateToLongConverter;
 import org.snomed.snowstorm.config.elasticsearch.IndexConfig;
 import org.snomed.snowstorm.config.elasticsearch.LongToDateConverter;
