@@ -1,32 +1,15 @@
 package org.snomed.snowstorm.fhir.services;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.rest.annotation.Create;
-import ca.uhn.fhir.rest.annotation.Delete;
-import ca.uhn.fhir.rest.annotation.IdParam;
-import ca.uhn.fhir.rest.annotation.Operation;
-import ca.uhn.fhir.rest.annotation.OperationParam;
-import ca.uhn.fhir.rest.annotation.OptionalParam;
-import ca.uhn.fhir.rest.annotation.Read;
-import ca.uhn.fhir.rest.annotation.ResourceParam;
-import ca.uhn.fhir.rest.annotation.Search;
-import ca.uhn.fhir.rest.annotation.Update;
+import ca.uhn.fhir.rest.annotation.*;
 import ca.uhn.fhir.rest.api.MethodOutcome;
 import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
 import ca.uhn.fhir.rest.server.IResourceProvider;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.BooleanType;
-import org.hl7.fhir.r4.model.CodeType;
-import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.DateTimeType;
-import org.hl7.fhir.r4.model.IdType;
+import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
-import org.hl7.fhir.r4.model.Parameters;
-import org.hl7.fhir.r4.model.StringType;
-import org.hl7.fhir.r4.model.UriType;
-import org.hl7.fhir.r4.model.ValueSet;
 import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
 import org.hl7.fhir.r4.model.ValueSet.ValueSetComposeComponent;
 import org.slf4j.Logger;
@@ -56,10 +39,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -520,9 +500,53 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			if (!branchPathForced) {
 				branchPath.set(obtainConsistentCodeSystemVersionFromCompose(vs.getCompose(), branchPath));
 			}
-			String ecl = covertComposeToEcl(vs.getCompose());
-			conceptMiniPage = fhirHelper.eclSearch(queryService, ecl, active, filter, designations, branchPath, offset, pageSize);
-			logger.info("Recovered: {} concepts from branch: {} with ecl from compose: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
+			ValueSetComposeComponent compose = vs.getCompose();
+			Set<String> conceptIds = new HashSet<>();
+			StringBuilder filterECL = new StringBuilder();
+			boolean firstItem = true;
+			for (ConceptSetComponent include : compose.getInclude()) {
+				conceptIds.addAll(
+						include
+								.getConcept()
+								.stream()
+								.map(ValueSet.ConceptReferenceComponent::getCode)
+								.collect(Collectors.toSet())
+				);
+				filterECL.append(fhirHelper.convertFilterToECL(include, firstItem));
+				if (firstItem) {
+					firstItem = false;
+				}
+			}
+
+			firstItem = true;
+			for (ConceptSetComponent exclude : compose.getExclude()) {
+				conceptIds.addAll(
+						exclude
+								.getConcept()
+								.stream()
+								.map(ValueSet.ConceptReferenceComponent::getCode)
+								.collect(Collectors.toSet())
+				);
+
+				filterECL.append(fhirHelper.convertFilterToECL(exclude, firstItem));
+				if (firstItem) {
+					firstItem = false;
+				}
+			}
+
+			String branch = branchPath.toString();
+			Collection<ConceptMini> fromService = conceptService.findConceptMinis(branch, conceptIds, designations).getResultsMap().values();
+			logger.info("Recovered {} Concepts from branch {}.", fromService.size(), branch);
+
+			String ecl = filterECL.toString();
+			Collection<ConceptMini> fromECL = fhirHelper.eclSearch(queryService, ecl, active, filter, designations, branchPath, offset, pageSize).getContent();
+			logger.info("Recovered {} Concepts from branch {} with ECL {}.", fromECL.size(), branch, filterECL);
+
+			List<ConceptMini> conceptMinis = new ArrayList<>();
+			conceptMinis.addAll(fromService);
+			conceptMinis.addAll(fromECL);
+			conceptMiniPage = new PageImpl<>(conceptMinis);
+			logger.info("Collectively recovered {} Concepts from branch {}.", conceptMinis.size(), branch);
 		} else {
 			String msg = "Compose element(s) or 'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ";
 			//We don't need ECL if we're expanding a named valueset

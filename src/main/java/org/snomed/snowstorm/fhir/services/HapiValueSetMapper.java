@@ -1,15 +1,19 @@
 package org.snomed.snowstorm.fhir.services;
 
-import java.util.List;
-import java.util.Map;
-
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.ValueSet;
 import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceDesignationComponent;
 import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionComponent;
 import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionContainsComponent;
-import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.Concepts;
+import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
+
+import java.util.List;
+import java.util.Map;
 
 public class HapiValueSetMapper implements FHIRConstants {
 	
@@ -45,6 +49,7 @@ public class HapiValueSetMapper implements FHIRConstants {
 					if (!designations.isEmpty() && d.hasAcceptability(Concepts.PREFERRED, designations.get(0)) &&
 							d.getTypeId().equals(Concepts.SYNONYM)) {
 						component.setDisplay(d.getTerm());
+						component.setInactive(!c.isActive());
 					}
 				}
 			}
