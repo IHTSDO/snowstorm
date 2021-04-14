@@ -74,6 +74,7 @@ public class RF2Filter {
 				try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFile))) {
 					System.out.printf("Output %s\n", outputFile.getAbsolutePath());
 					writer.write(reader.readLine());
+					writer.newLine();
 					String line, id;
 					while ((line = reader.readLine()) != null) {
 						id = line.split("\t", 2)[0];
