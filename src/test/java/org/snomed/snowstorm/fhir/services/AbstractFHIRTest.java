@@ -82,6 +82,7 @@ public abstract class AbstractFHIRTest {
 	private boolean rolesEnabled;
 
 	protected static final String sampleSCTID = "257751006";
+	protected static final String sampleInactiveSCTID = "60363000";
 	protected static final String sampleConcreteSCTID = "2577513006";
 	protected static final String sampleModuleId = "1234";
 	protected static final String sampleVersion = "20190731";
@@ -142,6 +143,7 @@ public abstract class AbstractFHIRTest {
 			createDummyData(x, concepts, false);
 		}
 		branchService.create(MAIN);
+		concepts.add(new Concept(sampleInactiveSCTID).setActive(false));
 		conceptService.batchCreate(concepts, MAIN);
 		
 		// Version content to fill effectiveTime fields
@@ -240,6 +242,14 @@ public abstract class AbstractFHIRTest {
 		} else {
 			return value.toString();
 		}
+	}
+
+	protected Boolean toBoolean(Type value) {
+		if (value instanceof BooleanType) {
+			return ((BooleanType) value).booleanValue();
+		}
+
+		return null;
 	}
 
 	protected void checkForError(ResponseEntity<String> response) throws FHIROperationException {

@@ -1,9 +1,9 @@
 package org.snomed.snowstorm.fhir.services;
 
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Parameters;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 class CodeSystemProviderLookupTest extends AbstractFHIRTest {
 
@@ -35,6 +35,26 @@ class CodeSystemProviderLookupTest extends AbstractFHIRTest {
 		
 		String sdProperty = toString(getProperty(p, "sufficientlyDefined"));
 		assertNotNull(sdProperty);
+	}
+
+	@Test
+	void testParameterActiveWhenActive() throws FHIROperationException {
+		String url = "http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleSCTID + "&property=normalForm&property=sufficientlyDefined&_format=json";
+		Parameters p = get(url);
+
+		Boolean active = toBoolean(getProperty(p, "active"));
+
+		assertTrue(active);
+	}
+
+	@Test
+	void testParameterActiveWhenInactive() throws FHIROperationException {
+		String url = "http://localhost:" + port + "/fhir/CodeSystem/$lookup?system=http://snomed.info/sct&code=" + sampleInactiveSCTID + "&property=normalForm&property=sufficientlyDefined&_format=json";
+		Parameters p = get(url);
+
+		Boolean active = toBoolean(getProperty(p, "active"));
+
+		assertFalse(active);
 	}
 	
 }
