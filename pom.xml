@@ -36,6 +36,7 @@
 
 		<docker.image.prefix>snomedinternational</docker.image.prefix>
 		<slf4j.version>1.7.5</slf4j.version>
+		<aws-java-sdk.version>1.11.221</aws-java-sdk.version>
 	</properties>
 
 	<dependencies>
@@ -181,9 +182,10 @@
 			<version>${hapi.version}</version>
 		</dependency>
 		<dependency>
-			<groupId>com.github.awslabs</groupId>
-			<artifactId>aws-request-signing-apache-interceptor</artifactId>
-			<version>b3772780da</version>
+			<groupId>com.amazonaws</groupId>
+			<artifactId>aws-java-sdk-core</artifactId>
+			<version>${aws-java-sdk.version}</version>
+			<scope>compile</scope>
 		</dependency>
 
 		<!-- Caching -->
