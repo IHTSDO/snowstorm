@@ -49,7 +49,10 @@ public class HapiValueSetMapper implements FHIRConstants {
 					if (!designations.isEmpty() && d.hasAcceptability(Concepts.PREFERRED, designations.get(0)) &&
 							d.getTypeId().equals(Concepts.SYNONYM)) {
 						component.setDisplay(d.getTerm());
-						component.setInactive(!c.isActive());
+						boolean inactive = !c.isActive();
+						if (inactive) {
+							component.setInactive(inactive);
+						}
 					}
 				}
 			}
