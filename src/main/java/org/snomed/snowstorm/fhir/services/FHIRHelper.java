@@ -1,19 +1,23 @@
 package org.snomed.snowstorm.fhir.services;
 
-import java.text.ParseException;
-import java.util.*;
-
-import javax.servlet.http.HttpServletRequest;
-
+import ca.uhn.fhir.rest.param.StringParam;
+import ca.uhn.fhir.rest.param.TokenParam;
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.apache.commons.lang3.StringUtils;
-import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.CodeSystem;
-import org.hl7.fhir.r4.model.ValueSet.*;
+import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
+import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceComponent;
+import org.hl7.fhir.r4.model.ValueSet.ConceptSetComponent;
+import org.hl7.fhir.r4.model.ValueSet.ConceptSetFilterComponent;
+import org.hl7.fhir.r4.model.ValueSet.FilterOperator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
+import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
@@ -24,9 +28,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
-import ca.uhn.fhir.rest.param.StringParam;
-import ca.uhn.fhir.rest.param.TokenParam;
-import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import javax.servlet.http.HttpServletRequest;
+import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
@@ -182,27 +188,32 @@ public class FHIRHelper implements FHIRConstants {
 			ecl += concept.getCode() + "|" + concept.getDisplay() + "|";
 		}
 
+		ecl += convertFilterToECL(setDefn, firstItem);
+		return ecl;
+	}
+
+	public String convertFilterToECL(ConceptSetComponent setDefn, boolean firstItem) throws FHIROperationException {
+		StringBuilder eclBuilder = new StringBuilder();
 		for (ConceptSetFilterComponent filter : setDefn.getFilter()) {
 			if (firstItem) {
 				firstItem = false;
 			} else {
-				ecl += " AND ";
+				eclBuilder.append(" AND ");
 			}
 			if (filter.getProperty().equals("concept")) {
-				ecl += convertOperationToECL(filter.getOp());
-				ecl += filter.getValue();
+				eclBuilder.append(convertOperationToECL(filter.getOp()));
+				eclBuilder.append(filter.getValue());
 			} else if (filter.getProperty().equals("constraint")) {
 				if (filter.getOp().toCode() != "=") {
-					throw new FHIROperationException (IssueType.NOTSUPPORTED , "ValueSet compose filter 'constaint' operation - only '=' currently implemented");
+					throw new FHIROperationException(IssueType.NOTSUPPORTED, "ValueSet compose filter 'constaint' operation - only '=' currently implemented");
 				}
-				ecl += filter.getValue();
+				eclBuilder.append(filter.getValue());
 			} else {
-				throw new FHIROperationException (IssueType.NOTSUPPORTED , "ValueSet compose filter property - only 'concept' and 'constraint' currently implemented");
+				throw new FHIROperationException(IssueType.NOTSUPPORTED, "ValueSet compose filter property - only 'concept' and 'constraint' currently implemented");
 			}
-
 		}
 
-		return ecl;
+		return eclBuilder.toString();
 	}
 
 	private String convertOperationToECL(FilterOperator op) throws FHIROperationException {
