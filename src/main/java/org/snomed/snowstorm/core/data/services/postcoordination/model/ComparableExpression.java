@@ -22,10 +22,11 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 					.thenComparing(ComparableExpression::getComparableAttributes, nullsFirst(CollectionComparators::compareSets))
 					.thenComparing(ComparableExpression::getComparableAttributeGroups, nullsFirst(CollectionComparators::compareSets));
 
+	private Long expressionId;
 	private Set<String> sortedFocusConcepts;
 	private Set<ComparableAttribute> comparableAttributes;
 	private Set<ComparableAttributeGroup> comparableAttributeGroups;
-	private Set<String> mergedConcepts;
+	private final Set<String> mergedConcepts;
 
 	public ComparableExpression() {
 		mergedConcepts = new HashSet<>();
@@ -202,5 +203,13 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 				group.getAllConceptIds(ids);
 			}
 		}
+	}
+
+	public Long getExpressionId() {
+		return expressionId;
+	}
+
+	public void setExpressionId(Long expressionId) {
+		this.expressionId = expressionId;
 	}
 }

@@ -290,6 +290,13 @@ public class ExpressionTransformationService {
 	}
 
 	public String addHumanPTsToExpressionString(String expressionString, Set<String> conceptIds, ExpressionContext context) {
+		return addHumanPTsToExpressionStrings(Collections.singletonList(expressionString), conceptIds, context).get(0);
+	}
+
+	public List<String> addHumanPTsToExpressionStrings(List<String> expressionStrings, Set<String> conceptIds, ExpressionContext context) {
+		if (expressionStrings.isEmpty()) {
+			return Collections.emptyList();
+		}
 		final ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(context.getBranchCriteria(), conceptIds, Config.DEFAULT_LANGUAGE_DIALECTS);
 		final Map<String, ConceptMini> conceptMap = conceptMinis.getResultsMap();
 		for (String conceptId : conceptMap.keySet()) {
@@ -298,10 +305,16 @@ public class ExpressionTransformationService {
 				final TermLangPojo pt = conceptMini.getPt();
 				final String term = pt != null ? pt.getTerm() : "-";
 				if (term != null) {
-					expressionString = expressionString.replace(conceptId, format("%s |%s|", conceptId, term));
+					for (int i = 0; i < expressionStrings.size(); i++) {
+						String expressionString = expressionStrings.get(i);
+						if (expressionString != null) {
+							expressionString = expressionString.replace(conceptId, format("%s |%s|", conceptId, term));
+							expressionStrings.set(i, expressionString);
+						}
+					}
 				}
 			}
 		}
-		return expressionString;
+		return expressionStrings;
 	}
 }

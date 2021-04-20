@@ -1,4 +1,4 @@
-package org.snomed.snowstorm.core.data.services.postcoordination;
+package org.snomed.snowstorm.core.data.services.postcoordination.model;
 
 import java.util.Objects;
 
@@ -8,14 +8,17 @@ public class PostCoordinatedExpression {
 	private String closeToUserForm;
 	private String classifiableForm;
 	private String humanReadableClassifiableForm;
+	private String necessaryNormalForm;
+	private String humanReadableNecessaryNormalForm;
 
 	public PostCoordinatedExpression() {
 	}
 
-	public PostCoordinatedExpression(String id, String closeToUserForm, String classifiableForm) {
+	public PostCoordinatedExpression(String id, String closeToUserForm, String classifiableForm, String necessaryNormalForm) {
 		this.id = id;
 		this.closeToUserForm = closeToUserForm;
 		this.classifiableForm = classifiableForm;
+		this.necessaryNormalForm = necessaryNormalForm;
 	}
 
 	public String getId() {
@@ -34,12 +37,24 @@ public class PostCoordinatedExpression {
 		return classifiableForm;
 	}
 
+	public String getNecessaryNormalForm() {
+		return necessaryNormalForm;
+	}
+
 	public void setHumanReadableClassifiableForm(String humanReadableClassifiableForm) {
 		this.humanReadableClassifiableForm = humanReadableClassifiableForm;
 	}
 
 	public String getHumanReadableClassifiableForm() {
 		return humanReadableClassifiableForm;
+	}
+
+	public String getHumanReadableNecessaryNormalForm() {
+		return humanReadableNecessaryNormalForm;
+	}
+
+	public void setHumanReadableNecessaryNormalForm(String humanReadableNecessaryNormalForm) {
+		this.humanReadableNecessaryNormalForm = humanReadableNecessaryNormalForm;
 	}
 
 	@Override

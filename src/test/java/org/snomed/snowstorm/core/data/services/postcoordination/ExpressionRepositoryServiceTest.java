@@ -1,9 +1,14 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
+import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
+import org.snomed.snowstorm.core.data.services.postcoordination.model.PostCoordinatedExpression;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
@@ -11,12 +16,21 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
+	private static final ComparableExpression MOCK_CLASSIFIED_EXPRESSION = new ComparableExpression("404684003");
+	static {
+		MOCK_CLASSIFIED_EXPRESSION.setExpressionId(28984902063L);
+	}
+
 	@Autowired
 	private ExpressionRepositoryService expressionRepository;
+
+	@MockBean
+	private IncrementalClassificationService incrementalClassificationService;
 
 	@Test
 	public void createExpression() throws ServiceException {
 		String branch = "MAIN";
+		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any())).thenReturn(MOCK_CLASSIFIED_EXPRESSION);
 
 		PostCoordinatedExpression expression = expressionRepository.createExpression(branch, "83152002 |Oophorectomy|", "");
 		String expressionId = expression.getId();
@@ -45,8 +59,10 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 
 
 		// With single refinement
+		final PostCoordinatedExpression expression1 = expressionRepository.createExpression(branch, "83152002 |Oophorectomy| :  405815000 |Procedure device|  =  122456005 |Laser device|", "");
 		assertEquals("=== 83152002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }",
-				expressionRepository.createExpression(branch, "83152002 |Oophorectomy| :  405815000 |Procedure device|  =  122456005 |Laser device|", "").getClassifiableForm());
+				expression1.getClassifiableForm());
+		assertEquals("83152002 |Oophorectomy| :  405815000 |Procedure device|  =  122456005 |Laser device|", expression1.getCloseToUserForm());
 
 		// With multiple refinements, attributes are sorted
 		assertEquals("=== 71388002 : { 260686004 = 129304002, 405813007 = 15497006, 405815000 = 122456005 }",
@@ -83,6 +99,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 	@Test
 	public void attributeRangeMRCMValidation() throws ServiceException {
 		String branch = "MAIN";
+		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any())).thenReturn(MOCK_CLASSIFIED_EXPRESSION);
 
 		// All in range as per data in setup
 		expressionRepository.createExpression(branch, "   71388002 |Procedure| :" +
@@ -106,6 +123,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 	@Test
 	public void attributeRangeMRCMValidationOfAttributeValueWithinExpression() throws ServiceException {
 		String branch = "MAIN";
+		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any())).thenReturn(MOCK_CLASSIFIED_EXPRESSION);
 
 		// All in range as per data in setup
 		expressionRepository.createExpression(branch, "71388002 |Procedure| :" +
@@ -129,6 +147,7 @@ class ExpressionRepositoryServiceTest extends AbstractExpressionTest {
 	@Test
 	public void attributeRangeMRCMValidationOfAttributeWithExpressionValue() throws ServiceException {
 		String branch = "MAIN";
+		Mockito.when(incrementalClassificationService.classify(ArgumentMatchers.any())).thenReturn(MOCK_CLASSIFIED_EXPRESSION);
 
 		// All in range as per data in setup
 		expressionRepository.createExpression(branch, "71388002 |Procedure| :" +

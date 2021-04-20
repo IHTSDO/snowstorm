@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.postcoordination.ExpressionRepositoryService;
-import org.snomed.snowstorm.core.data.services.postcoordination.PostCoordinatedExpression;
+import org.snomed.snowstorm.core.data.services.postcoordination.model.PostCoordinatedExpression;
 import org.snomed.snowstorm.rest.pojo.CreatePostCoordinatedExpressionRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,13 +37,13 @@ public class ExpressionRepositoryController {
 		return expressionRepository.createExpression(branch, request.getCloseToUserForm(), request.getModuleId());
 	}
 
-	@Operation(summary = "Validate and transform a postcoordinated expression.",
+	@Operation(summary = "Validate, transform and classify a postcoordinated expression.",
             description = "<b>Work In Progress</b>. This endpoint can be used for testing the validation of a postcoordinated expression, stated in close to user form, and " +
                     "any transformation to the classifiable form as required.")
 	@PostMapping(value = "/{branch}/expressions/transform")
 	public PostCoordinatedExpression transformExpression(@PathVariable String branch, @RequestBody CreatePostCoordinatedExpressionRequest request) throws ServiceException {
 		branch = BranchPathUriUtil.decodePath(branch);
-		return expressionRepository.parseValidateAndTransformExpression(branch, request.getCloseToUserForm());
+		return expressionRepository.parseValidateTransformAndClassifyExpression(branch, request.getCloseToUserForm());
 	}
 
 }
