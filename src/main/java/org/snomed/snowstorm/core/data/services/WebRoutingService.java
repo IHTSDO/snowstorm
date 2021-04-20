@@ -5,6 +5,7 @@ import org.snomed.snowstorm.core.data.services.WebRouterConfigurationService.Web
 import org.snomed.snowstorm.core.data.services.identifier.VerhoeffCheck;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -14,10 +15,12 @@ import java.util.*;
 @Service
 public class WebRoutingService {
 	
-	public static int NS_LEN = 7;
-	public static int PTN_CHK_LEN = 3;
-	public static String SNOMED_URI_PREFIX = "http://snomed.info/";
-	public static String DEFAULT_NAMESPACE = "default";
+	@Value("${uri.deferencing.prefix}")
+	private String SNOMED_URI_PREFIX;
+	
+	private static int NS_LEN = 7;
+	private static int PTN_CHK_LEN = 3;
+	private static String DEFAULT_NAMESPACE = "default";
 	
 	@Autowired
 	private WebRouterConfigurationService webRoutes;
