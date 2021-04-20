@@ -15,7 +15,7 @@ import java.util.*;
 @Service
 public class WebRoutingService {
 	
-	@Value("${uri.deferencing.prefix}")
+	@Value("${uri.dereferencing.prefix}")
 	private String SNOMED_URI_PREFIX;
 	
 	private static int NS_LEN = 7;

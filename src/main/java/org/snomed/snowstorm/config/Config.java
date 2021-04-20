@@ -216,7 +216,7 @@ public abstract class Config extends ElasticsearchConfig {
 	}
 	
 	@Bean
-	@ConfigurationProperties(prefix = "uri.deferencing")
+	@ConfigurationProperties(prefix = "uri.dereferencing")
 	public WebRouterConfigurationService getWebRouterConfigurationService() {
 		return new WebRouterConfigurationService();
 	}

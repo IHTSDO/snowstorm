@@ -22,7 +22,7 @@ public class WebRouteController {
 
 	@ApiOperation(value = "Issue 302 redirection based on locally configured web routing", 
 					notes = "")
-	@RequestMapping(value = "/web-route/", method = RequestMethod.GET)
+	@RequestMapping(value = "/web-route", method = RequestMethod.GET)
 	@CrossOrigin
 	public ResponseEntity<?> issueRedirect(@RequestParam String uri,
 			@RequestParam(required = false) String _format,
