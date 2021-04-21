@@ -310,6 +310,11 @@ public class CodeSystemService {
 		codeSystem.setLanguages(cachedCodeSystem.getLanguages());
 		codeSystem.setModules(cachedCodeSystem.getModules());
 		codeSystem.setDependantVersionEffectiveTime(cachedCodeSystem.getDependantVersionEffectiveTime());
+		CodeSystemVersion latestVersion = codeSystem.getLatestVersion();
+		CodeSystemVersion cachedLatestVersion = cachedCodeSystem.getLatestVersion();
+		if (latestVersion != null && cachedLatestVersion != null) {
+			latestVersion.setDependantVersionEffectiveTime(cachedLatestVersion.getDependantVersionEffectiveTime());
+		}
 	}
 
 	private synchronized void doJoinContentInformation(CodeSystem codeSystem, String branchPath, Branch latestBranch) {
@@ -381,6 +386,12 @@ public class CodeSystemService {
 		}
 
 		// Add to cache
+		CodeSystemVersion previousVersion = findPreviousVisibleVersion(codeSystem.getShortName());
+		CodeSystemVersion latestVersion = codeSystem.getLatestVersion();
+		if (latestVersion != null && previousVersion != null) {
+			latestVersion.setDependantVersionEffectiveTime(previousVersion.getEffectiveDate());
+		}
+
 		contentInformationCache.put(branchPath, Pair.of(latestBranch.getHead(), codeSystem));
 	}
 
@@ -480,6 +491,14 @@ public class CodeSystemService {
 		List<CodeSystemVersion> versions = findAllVersions(shortName, false, latestVersionCanBeFuture);
 		if (versions != null && versions.size() > 0) {
 			return versions.get(0);
+		}
+		return null;
+	}
+
+	public CodeSystemVersion findPreviousVisibleVersion(String shortName) {
+		List<CodeSystemVersion> versions = findAllVersions(shortName, false, latestVersionCanBeFuture);
+		if (versions != null && versions.size() > 1) {
+			return versions.get(1);
 		}
 		return null;
 	}
