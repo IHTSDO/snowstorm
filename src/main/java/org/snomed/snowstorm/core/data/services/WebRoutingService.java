@@ -6,17 +6,19 @@ import org.snomed.snowstorm.core.data.services.identifier.VerhoeffCheck;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
 
 import java.util.*;
 
 @Service
 public class WebRoutingService {
 	
+	public static String CANONICAL_URI_PREFIX = "http://snomed.info/";
+	
 	@Value("${uri.dereferencing.prefix}")
-	private String SNOMED_URI_PREFIX;
+	private String hostedPrefix;
 	
 	private static int NS_LEN = 7;
 	private static int PTN_CHK_LEN = 3;
@@ -67,7 +69,14 @@ public class WebRoutingService {
 		}
 		
 		if (template.contains("{VERSION_URI}")) {
-			String versionUri = SNOMED_URI_PREFIX + "sct/" + uriParts.moduleId;
+			String versionUri = CANONICAL_URI_PREFIX + "sct/";
+			if (uriParts.moduleId != null) {
+				versionUri += uriParts.moduleId;
+			} else {
+				//TODO Watch what happens when we have the model module rather than 
+				//the default module for the branch.
+				versionUri += concept.getModuleId();
+			}
 			if (uriParts.effectiveDate != null) {
 				versionUri += "/" + uriParts.effectiveDate;
 			}
@@ -127,10 +136,10 @@ public class WebRoutingService {
 
 	private UriParts parse (String uri) {
 		UriParts parts = new UriParts();
-		if (!uri.startsWith(SNOMED_URI_PREFIX)) {
-			throw new IllegalArgumentException(uri + " URI did not start with expected '" + SNOMED_URI_PREFIX + "'");
+		if (!uri.startsWith(hostedPrefix)) {
+			throw new IllegalArgumentException(uri + " URI did not start with expected '" + hostedPrefix + "'");
 		}
-		String uriTrimmed = uri.substring(SNOMED_URI_PREFIX.length());
+		String uriTrimmed = uri.substring(hostedPrefix.length());
 		//If we get given a code system version URI, we can just say the module and the SCTID are one and the same
 		String[] uriSplit = uriTrimmed.split("\\/");
 		if (uriSplit.length < 2) {
