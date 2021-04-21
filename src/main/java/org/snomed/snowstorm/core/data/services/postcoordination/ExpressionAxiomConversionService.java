@@ -61,7 +61,7 @@ public class ExpressionAxiomConversionService {
 			for (ComparableAttributeGroup attributeGroup : classifiableForm.getComparableAttributeGroups()) {
 				group++;
 				for (ComparableAttribute attribute : attributeGroup.getComparableAttributes()) {
-					rep.addRightHandSideRelationship(group, new Relationship(parseLong(attribute.getAttributeId()), getAttributeValue(attribute, axioms)));
+					rep.addRightHandSideRelationship(group, new Relationship(group, parseLong(attribute.getAttributeId()), getAttributeValue(attribute, axioms)));
 				}
 			}
 		}

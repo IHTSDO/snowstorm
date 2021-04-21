@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.services.postcoordination;
 
+import com.google.common.collect.Lists;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.languages.scg.domain.model.Attribute;
@@ -290,10 +291,10 @@ public class ExpressionTransformationService {
 	}
 
 	public String addHumanPTsToExpressionString(String expressionString, Set<String> conceptIds, ExpressionContext context) {
-		return addHumanPTsToExpressionStrings(Collections.singletonList(expressionString), conceptIds, context).get(0);
+		return addHumanPTsToExpressionStrings(Lists.newArrayList(expressionString), conceptIds, context).get(0);
 	}
 
-	public List<String> addHumanPTsToExpressionStrings(List<String> expressionStrings, Set<String> conceptIds, ExpressionContext context) {
+	public synchronized List<String> addHumanPTsToExpressionStrings(List<String> expressionStrings, Set<String> conceptIds, ExpressionContext context) {
 		if (expressionStrings.isEmpty()) {
 			return Collections.emptyList();
 		}

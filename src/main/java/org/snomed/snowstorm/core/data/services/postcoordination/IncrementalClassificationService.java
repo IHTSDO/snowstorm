@@ -3,6 +3,8 @@ package org.snomed.snowstorm.core.data.services.postcoordination;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.otf.resourcemanager.ResourceManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.domain.AxiomRepresentation;
 import org.snomed.otf.owltoolkit.domain.Relationship;
 import org.snomed.otf.owltoolkit.normalform.RelationshipChangeProcessor;
@@ -46,6 +48,8 @@ public class IncrementalClassificationService {
 	@Autowired
 	private ExpressionAxiomConversionService expressionAxiomConversionService;
 
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+
 	public IncrementalClassificationService(
 			@Autowired ResourceLoader cloudResourceLoader,
 			@Autowired SnomedReleaseResourceConfiguration snomedReleaseResourceConfiguration) {
@@ -68,10 +72,8 @@ public class IncrementalClassificationService {
 		Map<Long, Long> equivalentConceptMap = getEquivalentConceptMap(changeProcessor.getEquivalentConceptIds());
 
 		// Create necessary normal form expression from classification results
-		return createNNFExpression(classifiableForm.getExpressionId(), addedStatements);
 	}
 
-	private ComparableExpression createNNFExpression(Long expressionId, Map<Long, Set<Relationship>> addedStatements) {
 		ComparableExpression nnfExpression = new ComparableExpression();
 		nnfExpression.setExpressionId(expressionId);
 
@@ -89,6 +91,9 @@ public class IncrementalClassificationService {
 				relationshipGroups.computeIfAbsent(nnfRelationship.getGroup(), (i) -> new ComparableAttributeGroup())
 						.addAttribute(getComparableAttribute(nnfRelationship, addedStatements));
 			}
+		}
+		for (ComparableAttributeGroup group : relationshipGroups.values()) {
+			nnfExpression.addAttributeGroup(group);
 		}
 		return nnfExpression;
 	}
@@ -130,9 +135,12 @@ public class IncrementalClassificationService {
 	}
 
 	private void createClassificationContainer() throws ReasonerServiceException {
-		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow("MAIN", true);
+		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow("MAIN", false);
 		Map<String, String> metadata = branchWithInheritedMetadata.getMetadata();
 		String previousPackage = metadata != null ? metadata.get(BranchMetadataKeys.PREVIOUS_PACKAGE) : null;
+		if (previousPackage == null) {
+			throw new IllegalStateException(format("No %s set in branch metadata.", BranchMetadataKeys.PREVIOUS_PACKAGE));
+		}
 
 		try (InputStream previousReleaseStream = releaseResourceManager.readResourceStream(previousPackage)) {
 			classificationContainer = snomedReasonerService.classify(

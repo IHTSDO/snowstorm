@@ -10,10 +10,7 @@ import org.snomed.languages.scg.domain.model.Expression;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.postcoordination.model.ComparableExpression;
@@ -250,7 +247,7 @@ public class ExpressionRepositoryService {
 
 	private String createHumanReadableExpression(String expression, ExpressionContext context) throws ServiceException {
 		if (expression != null) {
-			return createHumanReadableExpressions(Collections.singletonList(expression), context).get(0);
+			return createHumanReadableExpressions(Lists.newArrayList(expression), context).get(0);
 		}
 		return null;
 	}
