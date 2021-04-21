@@ -70,26 +70,35 @@ public class IncrementalClassificationService {
 		}
 		final Map<Long, Set<Relationship>> addedStatements = changeProcessor.getAddedStatements();
 		Map<Long, Long> equivalentConceptMap = getEquivalentConceptMap(changeProcessor.getEquivalentConceptIds());
+		logger.info("Equivalent classes: {}", equivalentConceptMap);
 
 		// Create necessary normal form expression from classification results
+		return createNNFExpression(classifiableForm.getExpressionId(), addedStatements, equivalentConceptMap);
 	}
 
+	private ComparableExpression createNNFExpression(Long expressionId, Map<Long, Set<Relationship>> addedStatements, Map<Long, Long> equivalentConceptMap) {
 		ComparableExpression nnfExpression = new ComparableExpression();
 		nnfExpression.setExpressionId(expressionId);
 
+		final boolean equivalent = equivalentConceptMap.containsKey(expressionId);
+		if (equivalent) {
+			nnfExpression.addFocusConcept(Long.toString(equivalentConceptMap.get(expressionId)));
+		}
 		final Set<Relationship> nnfRelationships = addedStatements.get(nnfExpression.getExpressionId());
 		// Put relationships into map to form groups
 		Map<Integer, ComparableAttributeGroup> relationshipGroups = new HashMap<>();
 		for (Relationship nnfRelationship : nnfRelationships) {
 			if (nnfRelationship.getGroup() == 0) {
 				if (nnfRelationship.getTypeId() == Concepts.IS_A_LONG) {
-					nnfExpression.addFocusConcept(Long.toString(nnfRelationship.getDestinationId()));
+					if (!equivalent) {
+						nnfExpression.addFocusConcept(Long.toString(nnfRelationship.getDestinationId()));
+					}
 				} else {
-					nnfExpression.addAttribute(getComparableAttribute(nnfRelationship, addedStatements));
+					nnfExpression.addAttribute(getComparableAttribute(nnfRelationship, addedStatements, equivalentConceptMap));
 				}
 			} else {
 				relationshipGroups.computeIfAbsent(nnfRelationship.getGroup(), (i) -> new ComparableAttributeGroup())
-						.addAttribute(getComparableAttribute(nnfRelationship, addedStatements));
+						.addAttribute(getComparableAttribute(nnfRelationship, addedStatements, equivalentConceptMap));
 			}
 		}
 		for (ComparableAttributeGroup group : relationshipGroups.values()) {
@@ -98,11 +107,13 @@ public class IncrementalClassificationService {
 		return nnfExpression;
 	}
 
-	private ComparableAttribute getComparableAttribute(Relationship nnfRelationship, Map<Long, Set<Relationship>> addedStatements) {
+	private ComparableAttribute getComparableAttribute(Relationship nnfRelationship, Map<Long, Set<Relationship>> addedStatements, Map<Long, Long> equivalentConceptMap) {
 		final long destinationId = nnfRelationship.getDestinationId();
-		if (addedStatements.containsKey(destinationId)) {
+		if (equivalentConceptMap.containsKey(destinationId)) {
+			return new ComparableAttribute(Long.toString(nnfRelationship.getTypeId()), Long.toString(equivalentConceptMap.get(destinationId)));
+		} else if (addedStatements.containsKey(destinationId)) {
 			// Destination is nested expression
-			return new ComparableAttribute(Long.toString(nnfRelationship.getTypeId()), new ComparableAttributeValue(createNNFExpression(destinationId, addedStatements)));
+			return new ComparableAttribute(Long.toString(nnfRelationship.getTypeId()), new ComparableAttributeValue(createNNFExpression(destinationId, addedStatements, equivalentConceptMap)));
 		} else {
 			return new ComparableAttribute(Long.toString(nnfRelationship.getTypeId()), Long.toString(destinationId));
 		}
@@ -149,6 +160,7 @@ public class IncrementalClassificationService {
 					null,
 					new FileOutputStream(Files.createTempFile("results" + UUID.randomUUID(), ".txt").toFile()), ELK_REASONER_FACTORY, false);
 		} catch (IOException e) {
+			e.printStackTrace();
 			throw new ReasonerServiceException(format("Failed to load previous package %s", previousPackage), e);
 		}
 	}
