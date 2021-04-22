@@ -70,7 +70,11 @@ public class ComparableAttributeGroup extends AttributeGroup implements Comparab
 
 	@Override
 	public int compareTo(ComparableAttributeGroup other) {
-		return CollectionComparators.compareSets(getComparableAttributes(), other.getComparableAttributes());
+		if (sortedAttributes.size() == other.sortedAttributes.size()) {
+			return CollectionComparators.compareSets(getComparableAttributes(), other.getComparableAttributes());
+		} else {
+			return sortedAttributes.size() > other.sortedAttributes.size() ? 1 : -1;
+		}
 	}
 
 	public void getAllConceptIds(Set<String> ids) {

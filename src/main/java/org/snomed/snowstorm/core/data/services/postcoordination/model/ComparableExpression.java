@@ -158,7 +158,7 @@ public class ComparableExpression extends Expression implements Comparable<Compa
 
 	@Override
 	public Set<AttributeGroup> getAttributeGroups() {
-		return comparableAttributeGroups == null ? null : Set.copyOf(comparableAttributeGroups);
+		return comparableAttributeGroups == null ? null : Collections.unmodifiableSet(comparableAttributeGroups);
 	}
 
 	private String getDefinitionStatusString() {
