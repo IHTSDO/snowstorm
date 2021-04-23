@@ -196,10 +196,31 @@ public class PermissionService {
 
 	private void fixGlobalFlag() {
 		// There was a bug where the global flag was not set correctly, this fixes any existing records.
+		Map<String, List<PermissionRecord>> globalRecords = new HashMap<>();
 		for (PermissionRecord permissionRecord : repository.findAll()) {
 			if (!permissionRecord.isGlobal() && permissionRecord.getPath() == null) {
+				logger.info("Fixing 'global' flag on permission record {}", permissionRecord);
 				repository.delete(permissionRecord);
 				save(permissionRecord);
+			}
+			if (permissionRecord.isGlobal()) {
+				globalRecords.computeIfAbsent(permissionRecord.getRole(), (i) -> new ArrayList<>()).add(permissionRecord);
+			}
+		}
+
+		for (String role : globalRecords.keySet()) {
+			final List<PermissionRecord> permissionRecords = globalRecords.get(role);
+			if (permissionRecords.size() > 1) {
+				// Consolidate records
+				Set<String> groups = new HashSet<>();
+				for (PermissionRecord record : permissionRecords) {
+					groups.addAll(record.getUserGroups());
+				}
+				logger.info("Consolidating permission records for global role {} and groups {}", role, groups);
+				repository.deleteAll(permissionRecords);
+				final PermissionRecord newRecord = new PermissionRecord(role);
+				newRecord.setUserGroups(groups);
+				save(newRecord);
 			}
 		}
 	}

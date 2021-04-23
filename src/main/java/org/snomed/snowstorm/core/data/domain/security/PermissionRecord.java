@@ -94,4 +94,15 @@ public class PermissionRecord {
 		this.userGroups = Sets.newHashSet(userGroups);
 		return this;
 	}
+
+	@Override
+	public String toString() {
+		return "PermissionRecord{" +
+				"key='" + key + '\'' +
+				", global=" + global +
+				", role='" + role + '\'' +
+				", path='" + path + '\'' +
+				", userGroups=" + userGroups +
+				'}';
+	}
 }
