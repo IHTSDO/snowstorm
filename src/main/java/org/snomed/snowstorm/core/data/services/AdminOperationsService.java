@@ -687,7 +687,7 @@ public class AdminOperationsService {
 	private Set<ReferenceSetMember> getAllRefsetMembers(Set<Description> descriptions) {
 		Set<ReferenceSetMember> members = new HashSet<>();
 		for (Description description : descriptions) {
-			members.addAll(description.getLangRefsetMembers().values());
+			members.addAll(description.getLangRefsetMembers());
 			Collection<ReferenceSetMember> inactivationIndicatorMembers = description.getInactivationIndicatorMembers();
 			if (inactivationIndicatorMembers != null) {
 				members.addAll(inactivationIndicatorMembers);

@@ -70,7 +70,7 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		concept.addDescription(description);
 
 		conceptService.create(concept, snomedct.getBranchPath());
-		codeSystemService.createVersion(snomedct, new Integer("20190731"), "2019-07-31 release");
+		codeSystemService.createVersion(snomedct, 20190731, "2019-07-31 release");
 
 		ReferenceSetMember enGbLanguageMemberLatest = new ReferenceSetMember(null, null, true,
 				"900000000000207008", "900000000000508004", "675173019");
@@ -89,7 +89,7 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 
 		// this is for testing complete copy as only active ones are copied.
 		Description existing = concept.getDescription("675173018");
-		ReferenceSetMember existingGbMember = existing.getLangRefsetMembers().get("900000000000508004");
+		ReferenceSetMember existingGbMember = existing.getLangRefsetMembersFirstValuesMap().get("900000000000508004");
 		existingGbMember.setActive(false);
 		referenceSetMemberService.updateMember("MAIN", existingGbMember);
 
@@ -102,10 +102,10 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		assertNotNull(updatedResult);
 		assertEquals(2, updatedResult.getContent().size());
 
-		codeSystemService.createVersion(snomedct, new Integer("20200131"), "2020-01-31 release");
+		codeSystemService.createVersion(snomedct, 20200131, "2020-01-31 release");
 
 		snomedctNZ = new CodeSystem("SNOMEDCT-NZ", "MAIN/SNOMEDCT-NZ");
-		snomedctNZ.setDependantVersionEffectiveTime(new Integer("20200131"));
+		snomedctNZ.setDependantVersionEffectiveTime(20200131);
 		codeSystemService.createCodeSystem(snomedctNZ);
 		Map<String, String> metaData = new HashMap<>();
 		metaData.put(BranchMetadataKeys.DEPENDENCY_PACKAGE, "International_Release.zip");
@@ -183,7 +183,7 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		assertEquals(3, updatedResult.getContent().size());
 
 		Concept concept = conceptService.find("123456", Config.DEFAULT_LANGUAGE_DIALECTS, snomedctNZ.getBranchPath());
-		Set<String> refsetIds = concept.getDescription("675173019").getLangRefsetMembers().keySet();
+		Set<String> refsetIds = concept.getDescription("675173019").getLangRefsetMembersMap().keySet();
 		assertEquals(3, refsetIds.size());
 		assertTrue(refsetIds.contains("271000210107"));
 	}
@@ -217,7 +217,7 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		ReferenceSetMember enNzLanguageMember = new ReferenceSetMember(null, 20190931, true,
 				"21000210109", "271000210107", "675173018");
 		enNzLanguageMember.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, "900000000000549004");
-		enNzLanguageMember.release(new Integer("20190931"));
+		enNzLanguageMember.release(20190931);
 
 		enNzLanguageMember = referenceSetMemberService.createMember(snomedctNZ.getBranchPath(), enNzLanguageMember);
 		enNzLanguageMember = referenceSetMemberService.findMember(snomedctNZ.getBranchPath(), enNzLanguageMember.getMemberId());
@@ -252,7 +252,7 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		}
 
 		Concept concept = conceptService.find("123456", Config.DEFAULT_LANGUAGE_DIALECTS, snomedctNZ.getBranchPath());
-		Set<String> refsetIds = concept.getDescription("675173019").getLangRefsetMembers().keySet();
+		Set<String> refsetIds = concept.getDescription("675173019").getLangRefsetMembersMap().keySet();
 		assertEquals(3, refsetIds.size());
 		assertTrue(refsetIds.contains("271000210107"));
 	}

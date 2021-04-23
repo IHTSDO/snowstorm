@@ -263,7 +263,7 @@ class ImportServiceTest extends AbstractTest {
 		}
 		Assert.assertNotNull(description);
 		Assert.assertEquals("Bleeding", description.getTerm());
-		final Map<String, ReferenceSetMember> members = description.getLangRefsetMembers();
+		final Map<String, ReferenceSetMember> members = description.getLangRefsetMembersFirstValuesMap();
 		Assert.assertEquals(1, members.size());
 		Assert.assertEquals("900000000000548007", members.get("900000000000508004").getAdditionalField("acceptabilityId"));
 

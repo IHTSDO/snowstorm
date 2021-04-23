@@ -2,6 +2,7 @@ package org.snomed.snowstorm.core.data.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonView;
+import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
@@ -16,6 +17,7 @@ import javax.validation.constraints.Size;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Document(indexName = "description")
 public class Description extends SnomedComponent<Description> implements SnomedComponentWithInactivationIndicator, SnomedComponentWithAssociations {
@@ -79,7 +81,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	@JsonIgnore
 	// Populated manually when loading from store
 	@Transient
-	private final Map<String, ReferenceSetMember> langRefsetMembers;
+	private final Map<String, Set<ReferenceSetMember>> langRefsetMembersMap;
 
 	@JsonIgnore
 	@Transient
@@ -109,7 +111,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		typeId = Concepts.SYNONYM;
 		caseSignificanceId = Concepts.CASE_INSENSITIVE;
 		acceptabilityMap = new HashMap<>();
-		langRefsetMembers = new HashMap<>();
+		langRefsetMembersMap = new HashMap<>();
 		inactivationIndicatorMembers = new ArrayList<>();
 	}
 
@@ -190,34 +192,30 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	}
 
 	public Description clearLanguageRefsetMembers() {
-		langRefsetMembers.clear();
+		langRefsetMembersMap.clear();
 		acceptabilityMap.clear();
 		return this;
 	}
 
 	public Description setLanguageRefsetMembers(Collection<ReferenceSetMember> members) {
-		langRefsetMembers.clear();
+		langRefsetMembersMap.clear();
 		members.forEach(this::addLanguageRefsetMember);
 		return this;
 	}
 
 	public Description addLanguageRefsetMember(ReferenceSetMember member) {
 		member.setReferencedComponentId(descriptionId);
-		final ReferenceSetMember previousMember = langRefsetMembers.put(member.getRefsetId(), member);
-		if (previousMember != null) {
-			logger.debug("Lang member replaced other:\n{}\n{}", member, previousMember);
-		}
+		langRefsetMembersMap.computeIfAbsent(member.getRefsetId(), (i) -> new HashSet<>()).add(member);
 		return this;
 	}
 
 	public Description addLanguageRefsetMember(String refsetId, String acceptability) {
 		final ReferenceSetMember member = new ReferenceSetMember(getModuleId(), refsetId, descriptionId);
 		member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, acceptability);
-		final ReferenceSetMember previousMember = langRefsetMembers.put(member.getRefsetId(), member);
-		if (previousMember != null) {
-			logger.debug("Lang member replaced other:\n{}\n{}", member, previousMember);
-		}
-		return this;
+		member.setReferencedComponentId(descriptionId);
+		// Replace any existing entry with new set containing just this member
+		langRefsetMembersMap.put(member.getRefsetId(), Sets.newHashSet(member));
+		return addLanguageRefsetMember(member);
 	}
 
 	@Override
@@ -228,7 +226,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public Map<String, String> getAcceptabilityMapFromLangRefsetMembers() {
 		Map<String, String> map = new HashMap<>();
-		for (ReferenceSetMember member : langRefsetMembers.values()) {
+		for (ReferenceSetMember member : getLangRefsetMembers()) {
 			if (member.isActive()) {
 				String acceptabilityId = member.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
 				String acceptabilityStr = Concepts.descriptionAcceptabilityNames.get(acceptabilityId);
@@ -238,13 +236,29 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return map;
 	}
 
-	public Map<String, ReferenceSetMember> getLangRefsetMembers() {
-		return langRefsetMembers;
+	@JsonIgnore
+	public Map<String, Set<ReferenceSetMember>> getLangRefsetMembersMap() {
+		return langRefsetMembersMap;
 	}
 
-	@JsonView(value = View.Component.class)
+	@JsonIgnore
+	public Map<String, ReferenceSetMember> getLangRefsetMembersFirstValuesMap() {
+		// Simplify map into one with single values
+		Map<String, ReferenceSetMember> map = new HashMap<>();
+		for (String refset : langRefsetMembersMap.keySet()) {
+			map.put(refset, langRefsetMembersMap.get(refset).iterator().next());
+		}
+		return map;
+	}
+
+	@JsonIgnore
+	public Set<ReferenceSetMember> getLangRefsetMembers() {
+		return langRefsetMembersMap.values().stream().flatMap(Collection::stream).collect(Collectors.toSet());
+	}
+
+		@JsonView(value = View.Component.class)
 	public Map<String, String> getAcceptabilityMap() {
-		if (!langRefsetMembers.isEmpty()) {
+		if (!langRefsetMembersMap.isEmpty()) {
 			return getAcceptabilityMapFromLangRefsetMembers();
 		} else {
 			return acceptabilityMap;
@@ -260,6 +274,11 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 
 	public Description setAcceptabilityMap(Map<String, String> acceptabilityMap) {
 		this.acceptabilityMap = acceptabilityMap;
+		return this;
+	}
+
+	public Description addAcceptability(String langRefset, String acceptabilityConstant) {
+		this.acceptabilityMap.put(langRefset, acceptabilityConstant);
 		return this;
 	}
 
@@ -421,6 +440,54 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 		return this;
 	}
 
+	public boolean hasAcceptability(String acceptability, String refsetId) {
+		Set<ReferenceSetMember> members = langRefsetMembersMap.get(refsetId);
+		if (members != null) {
+			for (ReferenceSetMember member : members) {
+				if (member.isActive() && (acceptability == null || member.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability))) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	/**
+	 * @param acceptability one of Concept.PREFERRED, Concept.ACCEPTABLE or null for either
+	 * @return true if the description has that acceptability in ANY langrefset
+	 */
+	public boolean hasAcceptability(String acceptability) {
+		for (Set<ReferenceSetMember> members : langRefsetMembersMap.values()) {
+			for (ReferenceSetMember entry : members) {
+				if (entry.isActive()
+						&& acceptability == null || entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability)) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * @return true if the description has the specified acceptability (or either, if null)
+	 * for the given language refset and/or language where specified in the dialect
+	 */
+	public boolean hasAcceptability(String acceptability, LanguageDialect dialect) {
+		//Is the language refset specified in the dialect?
+		if (dialect.getLanguageReferenceSet() != null) {
+			return hasAcceptability(acceptability, dialect.getLanguageReferenceSet().toString());
+		} 
+		//Fall back to just checking the language is as specified
+		return languageCode.equals(dialect.getLanguageCode());
+	}
+
+	/**
+	 * @return true if the description has any acceptability in any of the dialects specified
+	 */
+	public boolean hasAcceptability(List<LanguageDialect> dialects) {
+		return dialects.stream().anyMatch(d -> hasAcceptability(null, d));
+	}
+
 	@Override
 	public boolean equals(Object o) {
 		if (this == o) return true;
@@ -466,58 +533,5 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 				", end='" + getEnd() + '\'' +
 				", path='" + getPath() + '\'' +
 				'}';
-	}
-
-	//TODO would be better to agree if refsetIds are Strings or Long and make consistent everywhere
-	public boolean hasAcceptability(String acceptability, Object refsetId) {
-		ReferenceSetMember entry = langRefsetMembers.get(refsetId.toString());
-		return (entry != null 
-				&& entry.isActive() 
-				&& (acceptability == null || entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability)));
-	}
-	
-	/**
-	 * @param acceptability one of Concept.PREFERRED, Concept.ACCEPTABLE or null for either
-	 * @return true if the description has that acceptability in ANY langrefset
-	 */
-	public boolean hasAcceptability(String acceptability) {
-		for (ReferenceSetMember entry : langRefsetMembers.values()) {
-			if (entry.isActive() 
-					&& acceptability == null || entry.getAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID).equals(acceptability)) {
-				return true;
-			}
-		}
-		return false;
-	}
-	
-	/**
-	 * @return true if the description is either accepted or preferred 
-	 * in the given language refset 
-	 */
-	public boolean hasLanguageRefset(Long langRefsetId) {
-		String langRefsetIdStr = langRefsetId.toString();
-		return langRefsetMembers.values().stream()
-				.filter(l -> l.isActive())
-				.anyMatch(l ->l.getRefsetId().equals(langRefsetIdStr));
-	}
-	
-	/**
-	 * @return true if the description has the specified acceptability (or either, if null)
-	 * for the given language refset and/or language where specified in the dialect
-	 */
-	public boolean hasAcceptability(String acceptability, LanguageDialect dialect) {
-		//Is the language refset specified in the dialect?
-		if (dialect.getLanguageReferenceSet() != null) {
-			return hasAcceptability(acceptability, dialect.getLanguageReferenceSet());
-		} 
-		//Fall back to just checking the language is as specified
-		return languageCode.equals(dialect.getLanguageCode());
-	}
-	
-	/**
-	 * @return true if the description has any acceptability in any of the dialects specified
-	 */
-	public boolean hasAcceptability(List<LanguageDialect> dialects) {
-		return dialects.stream().anyMatch(d -> hasAcceptability(null, d));
 	}
 }

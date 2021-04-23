@@ -1148,6 +1148,73 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void testConflictSamePTChangeOnBothSides() throws ServiceException {
+		final String conceptId = "10000100";
+
+		final Concept firstConcept = new Concept(conceptId)
+				.addDescription(new Description("10000011", "Orig PT")
+						.addAcceptability(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED_CONSTANT))
+				.addDescription(new Description("20000011", "Other")
+						.addAcceptability(Concepts.US_EN_LANG_REFSET, Concepts.ACCEPTABLE_CONSTANT));
+
+		final Concept leftConcept = new Concept(conceptId)
+				.addDescription(new Description("10000011", "Orig PT")
+						.addAcceptability(Concepts.US_EN_LANG_REFSET, Concepts.ACCEPTABLE_CONSTANT)
+						.addAcceptability(Concepts.GB_EN_LANG_REFSET, Concepts.PREFERRED_CONSTANT)
+				)
+				.addDescription(new Description("20000011", "Other")
+						.addAcceptability(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED_CONSTANT)
+						.addAcceptability(Concepts.GB_EN_LANG_REFSET, Concepts.ACCEPTABLE_CONSTANT)
+				);
+
+		final Concept rightConcept = new Concept(conceptId)
+				.addDescription(new Description("10000011", "Orig PT")
+						.addAcceptability(Concepts.US_EN_LANG_REFSET, Concepts.ACCEPTABLE_CONSTANT)
+						.addAcceptability(Concepts.GB_EN_LANG_REFSET, Concepts.ACCEPTABLE_CONSTANT)
+				)
+				.addDescription(new Description("20000011", "Other")
+						.addAcceptability(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED_CONSTANT)
+						.addAcceptability(Concepts.GB_EN_LANG_REFSET, Concepts.PREFERRED_CONSTANT)
+				);
+
+
+		setupConflictSituation(firstConcept, leftConcept, rightConcept);
+
+		Page<ReferenceSetMember> descriptionMembers = memberService.findMembers("MAIN/A/A2", "10000011", PageRequest.of(0, 10));
+		assertEquals(2, descriptionMembers.getTotalElements(), printCollection(descriptionMembers));
+
+		descriptionMembers = memberService.findMembers("MAIN/A/A2", "20000011", PageRequest.of(0, 10));
+		assertEquals(2, descriptionMembers.getTotalElements(), printCollection(descriptionMembers));
+
+		// Rebase the diverged branch supplying the manually merged concept
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(rightConcept));
+
+		descriptionMembers = memberService.findMembers("MAIN/A/A2", "10000011", PageRequest.of(0, 10));
+		assertEquals(2, descriptionMembers.getTotalElements(), printCollection(descriptionMembers));
+
+		descriptionMembers = memberService.findMembers("MAIN/A/A2", "20000011", PageRequest.of(0, 10));
+		assertEquals(2, descriptionMembers.getTotalElements(), printCollection(descriptionMembers));
+
+		// Promote the branch (no conflicts at this point)
+		branchMergeService.mergeBranchSync("MAIN/A/A2", "MAIN/A", null);
+
+		descriptionMembers = memberService.findMembers("MAIN/A", "10000011", PageRequest.of(0, 10));
+		assertEquals(2, descriptionMembers.getTotalElements(), printCollection(descriptionMembers));
+
+		descriptionMembers = memberService.findMembers("MAIN/A", "20000011", PageRequest.of(0, 10));
+		assertEquals(2, descriptionMembers.getTotalElements(), printCollection(descriptionMembers));
+
+	}
+
+	@NotNull
+	private Supplier<String> printCollection(Page<ReferenceSetMember> finalDescriptionMembers) {
+		return () -> {
+			finalDescriptionMembers.stream().forEach(System.out::println);
+			return "";
+		};
+	}
+
+	@Test
 	void testConflictDescriptionInactiveWithDifferentReasonOnBothSides() throws ServiceException, InterruptedException {
 		final String conceptId = "100001000";
 
@@ -1606,9 +1673,10 @@ class BranchMergeServiceTest extends AbstractTest {
 	 * leftConcept is then saved and promoted from MAIN/A/A1 to MAIN/A.
 	 * rightConcept is then saved to MAIN/A/A2.
 	 * At that point MAIN/A/A2 has a conflict in the rebase.
+	 * @return The list of concepts after save, parent, left and right.
 	 */
-	private void setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept) throws ServiceException {
-		setupConflictSituation(parentConcept, leftConcept, rightConcept, false, null, new String[] { "MAIN/A/A1", "MAIN/A/A2"});
+	private List<Concept> setupConflictSituation(Concept parentConcept, Concept leftConcept, Concept rightConcept) throws ServiceException {
+		return setupConflictSituation(parentConcept, leftConcept, rightConcept, false, null, new String[] { "MAIN/A/A1", "MAIN/A/A2"});
 	}
 
 	private List<Concept> setupConflictSituationReleaseFirstVersion(Concept parentConcept, Concept leftConcept, Concept rightConcept) throws ServiceException {

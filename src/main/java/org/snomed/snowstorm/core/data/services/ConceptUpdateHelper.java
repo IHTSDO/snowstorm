@@ -31,6 +31,7 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
@@ -181,9 +182,9 @@ public class ConceptUpdateHelper extends ComponentService {
 				final Description existingDescription = getExistingComponent(existingConcept, ConceptView::getDescriptions, description.getDescriptionId());
 				final Description existingDescriptionFromParent = getExistingComponent(existingConceptFromParent, ConceptView::getDescriptions, description.getDescriptionId());
 				
-				final Map<String, ReferenceSetMember> existingMembersToMatch = new HashMap<>();
+				final Map<String, Set<ReferenceSetMember>> existingMembersToMatch = new HashMap<>();
 				if (existingDescription != null) {
-					existingMembersToMatch.putAll(existingDescription.getLangRefsetMembers());
+					existingMembersToMatch.putAll(existingDescription.getLangRefsetMembersMap());
 				}
 
 				// Description inactivation indicator changes
@@ -201,7 +202,8 @@ public class ConceptUpdateHelper extends ComponentService {
 						throw new IllegalArgumentException("Acceptability value not recognised '" + acceptability.getValue() + "'.");
 					}
 
-					final ReferenceSetMember existingMember = existingMembersToMatch.get(languageRefsetId);
+					final Set<ReferenceSetMember> existingMembers = existingMembersToMatch.get(languageRefsetId);
+					ReferenceSetMember existingMember = existingMembers != null && !existingMembers.isEmpty() ? existingMembers.iterator().next() : null;
 					ReferenceSetMember member;
 					if (existingMember != null) {
 						member = new ReferenceSetMember(existingMember.getMemberId(), null, true, existingMember.getModuleId(), languageRefsetId, description.getId());
@@ -214,7 +216,7 @@ public class ConceptUpdateHelper extends ComponentService {
 				}
 				description.setLanguageRefsetMembers(newMembers);
 
-				markDeletionsAndUpdates(description, existingDescription, existingDescriptionFromParent, (item) -> item.getLangRefsetMembers().values(),
+				markDeletionsAndUpdates(description, existingDescription, existingDescriptionFromParent, Description::getLangRefsetMembers,
 						refsetMembersToPersist, rebaseConflictSave);
 			}
 
@@ -485,7 +487,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		Set<ReferenceSetMember> membersToDelete = new HashSet<>(concept.getAllOwlAxiomMembers());
 		concept.getDescriptions().forEach(description -> {
 			description.markDeleted();
-			membersToDelete.addAll(description.getLangRefsetMembers().values());
+			membersToDelete.addAll(description.getLangRefsetMembers());
 			ReferenceSetMember inactivationIndicatorMember = description.getInactivationIndicatorMember();
 			if (inactivationIndicatorMember != null) {
 				membersToDelete.add(inactivationIndicatorMember);
@@ -591,10 +593,11 @@ public class ConceptUpdateHelper extends ComponentService {
 		}
 		componentsToPersist.addAll(newComponents);// All added but only those with changed or deleted flag will be written to store.
 
-		// Mark deletions
-		for (C existingComponent : existingComponents) {
+		// Mark deletions on existing versions from this branch (and the parent branch if rebasing)
+		Set<String> uniqueIds = new HashSet<>();
+		existingComponents.forEach(existingComponent -> {
 			if (!newComponents.contains(existingComponent)) {
-				if (existingComponent.isReleased()) {
+				if (uniqueIds.add(existingComponent.getId()) && existingComponent.isReleased()) {
 					existingComponent.setActive(false);
 					existingComponent.setChanged(true);
 					existingComponent.updateEffectiveTime();
@@ -603,7 +606,7 @@ public class ConceptUpdateHelper extends ComponentService {
 				}
 				componentsToPersist.add(existingComponent);
 			}
-		}
+		});
 	}
 
 	@SuppressWarnings("unchecked")

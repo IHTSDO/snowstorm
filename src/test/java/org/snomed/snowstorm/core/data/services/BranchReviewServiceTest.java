@@ -205,7 +205,7 @@ class BranchReviewServiceTest extends AbstractTest {
 		// Change on B1 (FSN lang refset)
 		workingBranch = "MAIN/B/B1";
 		concept = conceptService.find("10000100", workingBranch);
-		getDescription(concept, true).getLangRefsetMembers()
+		getDescription(concept, true).getLangRefsetMembersFirstValuesMap()
 				.get(Concepts.US_EN_LANG_REFSET).setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, Concepts.PREFERRED);
 		conceptService.update(concept, workingBranch);
 

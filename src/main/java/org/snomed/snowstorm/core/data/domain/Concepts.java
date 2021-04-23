@@ -24,6 +24,7 @@ public class Concepts {
 	public static final String TEXT_DEFINITION = "900000000000550004";
 
 	public static final String ACCEPTABLE = "900000000000549004";
+	public static final String ACCEPTABLE_CONSTANT = "ACCEPTABLE";
 	public static final String PREFERRED = "900000000000548007";
 	public static final String PREFERRED_CONSTANT = "PREFERRED";
 

@@ -882,7 +882,7 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(1, savedConcept.getDescriptions().size());
 		final Description description = savedConcept.getDescriptions().iterator().next();
 		assertEquals("84923010", description.getDescriptionId());
-		final Map<String, ReferenceSetMember> members = description.getLangRefsetMembers();
+		final Map<String, ReferenceSetMember> members = description.getLangRefsetMembersFirstValuesMap();
 		assertEquals(1, members.size());
 		assertEquals(Concepts.PREFERRED, members.get("900000000000509007").getAdditionalField("acceptabilityId"));
 	}
@@ -899,7 +899,7 @@ class ConceptServiceTest extends AbstractTest {
 		// Check acceptability on MAIN
 		final Concept savedConcept1 = conceptService.find("50960005", "MAIN");
 		final Description description1 = savedConcept1.getDescriptions().iterator().next();
-		final Map<String, ReferenceSetMember> members1 = description1.getLangRefsetMembers();
+		final Map<String, ReferenceSetMember> members1 = description1.getLangRefsetMembersFirstValuesMap();
 		assertEquals(Concepts.PREFERRED, members1.get("900000000000509007").getAdditionalField("acceptabilityId"));
 
 		// Update acceptability on MAIN/branch1
@@ -911,13 +911,13 @@ class ConceptServiceTest extends AbstractTest {
 		logger.info("Loading updated concept on MAIN/branch1");
 		final Concept savedConcept2 = conceptService.find("50960005", "MAIN/branch1");
 		final Description description2 = savedConcept2.getDescriptions().iterator().next();
-		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembers();
+		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembersFirstValuesMap();
 		assertEquals(Concepts.ACCEPTABLE, members2.get("900000000000509007").getAdditionalField("acceptabilityId"));
 
 		// Check acceptability still the same on MAIN
 		final Concept savedConcept3 = conceptService.find("50960005", "MAIN");
 		final Description description3 = savedConcept3.getDescriptions().iterator().next();
-		final Map<String, ReferenceSetMember> members3 = description3.getLangRefsetMembers();
+		final Map<String, ReferenceSetMember> members3 = description3.getLangRefsetMembersFirstValuesMap();
 		assertEquals(Concepts.PREFERRED, members3.get("900000000000509007").getAdditionalField("acceptabilityId"));
 	}
 
@@ -988,7 +988,7 @@ class ConceptServiceTest extends AbstractTest {
 		// Check acceptability
 		final Concept savedConcept1 = conceptService.find("50960005", "MAIN");
 		final Description description1 = savedConcept1.getDescriptions().iterator().next();
-		final Map<String, ReferenceSetMember> members1 = description1.getLangRefsetMembers();
+		final Map<String, ReferenceSetMember> members1 = description1.getLangRefsetMembersFirstValuesMap();
 		assertEquals(Concepts.PREFERRED, members1.get("900000000000509007").getAdditionalField("acceptabilityId"));
 		assertTrue(members1.get("900000000000509007").isReleased());
 		assertTrue(members1.get("900000000000509007").isActive());
@@ -997,14 +997,14 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(1, description1.getAcceptabilityMap().size());
 
 		// Remove acceptability in next request
-		members1.clear();
+		description1.getLangRefsetMembersMap().clear();
 		conceptService.update(savedConcept1, "MAIN");
 
 		// Check acceptability is inactive
 		logger.info("Loading updated concept");
 		final Concept savedConcept2 = conceptService.find("50960005", "MAIN");
 		final Description description2 = savedConcept2.getDescriptions().iterator().next();
-		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembers();
+		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembersFirstValuesMap();
 		assertEquals(1, members2.size());
 		assertFalse(members2.get("900000000000509007").isActive());
 		assertNull(members2.get("900000000000509007").getEffectiveTime());
@@ -1027,7 +1027,7 @@ class ConceptServiceTest extends AbstractTest {
 		// Check acceptability
 		final Concept savedConcept1 = conceptService.find("50960005", "MAIN");
 		final Description description1 = savedConcept1.getDescriptions().iterator().next();
-		final Map<String, ReferenceSetMember> members1 = description1.getLangRefsetMembers();
+		final Map<String, ReferenceSetMember> members1 = description1.getLangRefsetMembersFirstValuesMap();
 		assertEquals(Concepts.PREFERRED, members1.get("900000000000509007").getAdditionalField("acceptabilityId"));
 		assertTrue(members1.get("900000000000509007").isReleased());
 		assertTrue(members1.get("900000000000509007").isActive());
@@ -1043,7 +1043,7 @@ class ConceptServiceTest extends AbstractTest {
 		logger.info("Loading updated concept");
 		final Concept savedConcept2 = conceptService.find("50960005", "MAIN");
 		final Description description2 = savedConcept2.getDescriptions().iterator().next();
-		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembers();
+		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembersFirstValuesMap();
 		assertEquals(1, members2.size());
 		assertFalse(members2.get("900000000000509007").isActive());
 		assertNull(members2.get("900000000000509007").getEffectiveTime());
@@ -1081,7 +1081,7 @@ class ConceptServiceTest extends AbstractTest {
 		logger.info("Loading updated concept");
 		final Concept savedConcept2 = conceptService.find("50960005", "MAIN");
 		final Description description2 = savedConcept2.getDescriptions().iterator().next();
-		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembers();
+		final Map<String, ReferenceSetMember> members2 = description2.getLangRefsetMembersFirstValuesMap();
 		assertEquals(2, members2.size());
 		assertFalse(members2.get(US_EN_LANG_REFSET).isActive());
 		assertNull(members2.get(US_EN_LANG_REFSET).getEffectiveTime());
@@ -1155,7 +1155,7 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(effectiveTime, savedDescription.getReleasedEffectiveTime());
 		assertEquals("true|Pizza|900000000000207008|en|900000000000003001|900000000000448009", savedDescription.getReleaseHash());
 
-		ReferenceSetMember savedMember = savedDescription.getLangRefsetMembers().values().iterator().next();
+		ReferenceSetMember savedMember = savedDescription.getLangRefsetMembersFirstValuesMap().values().iterator().next();
 		assertEquals(effectiveTime, savedMember.getEffectiveTimeI());
 		assertEquals(effectiveTime, savedMember.getReleasedEffectiveTime());
 		assertEquals("true|900000000000207008|acceptabilityId|900000000000548007", savedMember.getReleaseHash());
@@ -1175,7 +1175,7 @@ class ConceptServiceTest extends AbstractTest {
 		assertTrue(conceptAfterUpdate.isReleased());
 		Description descriptionAfterUpdate = conceptAfterUpdate.getDescriptions().iterator().next();
 		assertNull(descriptionAfterUpdate.getEffectiveTimeI());
-		assertNull(descriptionAfterUpdate.getLangRefsetMembers().values().iterator().next().getEffectiveTimeI());
+		assertNull(descriptionAfterUpdate.getLangRefsetMembersFirstValuesMap().values().iterator().next().getEffectiveTimeI());
 		assertNull(conceptAfterUpdate.getRelationships().iterator().next().getEffectiveTimeI());
 
 		// Change concept back
@@ -1197,13 +1197,13 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals(effectiveTime, conceptWithRestoredDate.getDescriptions().iterator().next().getEffectiveTimeI());
 
 		// Change lang member back
-		ReferenceSetMember member = conceptWithRestoredDate.getDescriptions().iterator().next().getLangRefsetMembers().values().iterator().next();
+		ReferenceSetMember member = conceptWithRestoredDate.getDescriptions().iterator().next().getLangRefsetMembersFirstValuesMap().values().iterator().next();
 		member.setAdditionalField(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID, Concepts.PREFERRED);
 		conceptService.update(conceptWithRestoredDate, "MAIN");
 
 		// Lang member effectiveTime restored
 		conceptWithRestoredDate = conceptService.find(conceptId, path);
-		ReferenceSetMember memberWithRestoredDate = conceptWithRestoredDate.getDescriptions().iterator().next().getLangRefsetMembers().values().iterator().next();
+		ReferenceSetMember memberWithRestoredDate = conceptWithRestoredDate.getDescriptions().iterator().next().getLangRefsetMembersFirstValuesMap().values().iterator().next();
 		assertEquals(effectiveTime, memberWithRestoredDate.getEffectiveTimeI());
 
 		// Change relationship back

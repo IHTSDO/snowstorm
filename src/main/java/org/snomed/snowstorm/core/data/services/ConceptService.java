@@ -113,7 +113,7 @@ public class ConceptService extends ComponentService {
 
 	private final Cache<String, AsyncConceptChangeBatch> batchConceptChanges;
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public static final String DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY = "disableContentAutomations";
 
@@ -514,7 +514,7 @@ public class ConceptService extends ComponentService {
 
 	public Iterable<Concept> batchCreate(List<Concept> concepts, List<LanguageDialect> languageDialects, String path) throws ServiceException {
 		final Branch branch = branchService.findBranchOrThrow(path);
-		final Set<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toSet());
+		final Set<String> conceptIds = concepts.stream().map(Concept::getConceptId).filter(Objects::nonNull).collect(Collectors.toSet());
 		if (!conceptIds.isEmpty()) {
 			final Collection<String> nonExistentConceptIds = getNonExistentConceptIds(conceptIds, path);
 			conceptIds.removeAll(nonExistentConceptIds);
@@ -725,13 +725,13 @@ public class ConceptService extends ComponentService {
 		}
 	}
 
-	<T extends DomainEntity> void doSaveBatchComponents(List<T> componentsToSave, Class<T> componentType, Commit commit) {
+	<T extends DomainEntity<?>> void doSaveBatchComponents(List<T> componentsToSave, Class<T> componentType, Commit commit) {
 		conceptUpdateHelper.doSaveBatchComponents(componentsToSave, componentType, commit);
 	}
 
 	private Map<String, Concept> getExistingConceptsForSave(Collection<Concept> concepts, Commit commit) {
 		Map<String, Concept> existingConceptsMap = new HashMap<>();
-		final List<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toList());
+		final List<String> conceptIds = concepts.stream().map(Concept::getConceptId).filter(Objects::nonNull).collect(Collectors.toList());
 		if (!conceptIds.isEmpty()) {
 			for (List<String> conceptIdPartition : Iterables.partition(conceptIds, 500)) {
 				final List<Concept> existingConcepts = doFind(conceptIdPartition, DEFAULT_LANGUAGE_DIALECTS, commit, PageRequest.of(0, conceptIds.size())).getContent();
@@ -745,7 +745,7 @@ public class ConceptService extends ComponentService {
 	
 	private Map<String, Concept> getExistingSourceConceptsForSave(Collection<Concept> concepts, Commit commit) {
 		Map<String, Concept> existingSourceConceptsMap = new HashMap<>();
-		final List<String> conceptIds = concepts.stream().filter(concept -> concept.getConceptId() != null).map(Concept::getConceptId).collect(Collectors.toList());
+		final List<String> conceptIds = concepts.stream().map(Concept::getConceptId).filter(Objects::nonNull).collect(Collectors.toList());
 		if (!conceptIds.isEmpty()) {
 			BranchTimepoint branchTimePoint = new BranchTimepoint(commit.getSourceBranchPath(), BranchTimepoint.DATE_FORMAT.format(commit.getBranch().getBase()));
 			for (List<String> conceptIdPartition : Iterables.partition(conceptIds, 500)) {
@@ -760,7 +760,7 @@ public class ConceptService extends ComponentService {
 
 	public void deleteAll() {
 		ExecutorService executorService = Executors.newCachedThreadPool();
-		List<Future> futures = Lists.newArrayList(
+		List<Future<?>> futures = Lists.newArrayList(
 				executorService.submit(() -> conceptRepository.deleteAll()),
 				executorService.submit(() -> descriptionRepository.deleteAll()),
 				executorService.submit(() -> relationshipRepository.deleteAll()),
