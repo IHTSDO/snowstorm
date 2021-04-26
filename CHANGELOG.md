@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
+## 7.0.0 Release (April 2021) - Major Release for Java 11
+Major release with Java 11 upgrade.
+
+### Breaking
+- Java 11 is now required to run Snowstorm
+
+### Improvements
+- TODO
+
+### Fixes
+- TODO
+
+
 ## 6.2.1 Fix Release (March 2021) - Latest semantic index bug fixes
 Minor fix release for semantic index bug fixes and improvements.
 
