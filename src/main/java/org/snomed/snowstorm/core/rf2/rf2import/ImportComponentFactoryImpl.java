@@ -215,6 +215,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		persistBuffers.forEach(PersistBuffer::flush);
 		commit.markSuccessful();
 		commit.close();
+		commit = null;
 	}
 
 	@Override
@@ -306,6 +307,10 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	private boolean isActive(String active) {
 		return "1".equals(active);
+	}
+
+	public Commit getCommit() {
+		return commit;
 	}
 
 	private abstract class PersistBuffer<E extends Entity> {

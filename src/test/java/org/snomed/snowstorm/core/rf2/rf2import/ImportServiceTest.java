@@ -5,6 +5,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.Assert;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -571,6 +572,30 @@ class ImportServiceTest extends AbstractTest {
 
 		assertNotNull(referenceSetMemberService.findMember("MAIN", "01a78d22-ad0b-5e76-8fd4-9fed481e5de5"));
 		assertFalse(branchService.findLatest("MAIN").getMetadata().containsKey(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY));
+	}
+
+	@Test
+	void testImportBadFileRollback() throws IOException, ReleaseImportException {
+		final long commitBeforeImport = branchService.findLatest("MAIN").getHeadTimestamp();
+
+		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_bad_delta");
+		String importId = importService.createJob(RF2Type.DELTA, "MAIN", false, false);
+
+		Exception exceptionThrown = null;
+		try {
+			importService.importArchive(importId, new FileInputStream(zipFile));
+		} catch (ReleaseImportException e) {
+			exceptionThrown = e;
+		}
+		Assertions.assertNotNull(exceptionThrown);
+
+		final ImportJob importJob = importService.getImportJobOrThrow(importId);
+		Assertions.assertEquals(ImportJob.ImportStatus.FAILED, importJob.getStatus());
+		final Branch mainBranch = branchService.findLatest("MAIN");
+		Assertions.assertFalse(mainBranch.isLocked());
+		final long commitAfterImport = mainBranch.getHeadTimestamp();
+		Assertions.assertEquals(commitBeforeImport, commitAfterImport,
+				"Commit after import must be equal to commit before import because the import commut must roll back");
 	}
 
 	private void collectContentCounts(List<Concept> concepts, Map<String, AtomicInteger> conceptDefinitionStatuses, Map<String, AtomicInteger> descriptionCaseSignificance, Map<String, AtomicInteger> descriptionAcceptability, Map<Integer, AtomicInteger> relationshipGroups) {
