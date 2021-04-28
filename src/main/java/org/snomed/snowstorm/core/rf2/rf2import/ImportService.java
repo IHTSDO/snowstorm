@@ -2,19 +2,14 @@ package org.snomed.snowstorm.core.rf2.rf2import;
 
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.ihtsdo.otf.snomedboot.ReleaseImporter;
-import org.ihtsdo.otf.snomedboot.factory.HistoryAwareComponentFactory;
 import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptUpdateHelper;
-import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
-import org.snomed.snowstorm.core.data.services.TraceabilityLogService;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,11 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ExecutorService;
 
 import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
@@ -198,16 +189,27 @@ public class ImportService {
 
 	private Integer fullImport(final InputStream releaseFileStream, final String branchPath, final ReleaseImporter releaseImporter,
 			final LoadingProfile loadingProfile) throws ReleaseImportException {
-		releaseImporter.loadFullReleaseFiles(releaseFileStream, loadingProfile, getFullImportComponentFactory(branchPath));
-		return null;
+		final FullImportComponentFactoryImpl importComponentFactory = getFullImportComponentFactory(branchPath);
+		try {
+			releaseImporter.loadFullReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
+			return null;
+		} catch (ReleaseImportException e) {
+			rollbackIncompleteCommit(importComponentFactory);
+			throw e;
+		}
 	}
 
 	private Integer snapshotImport(final InputStream releaseFileStream, final String branchPath, final Integer patchReleaseVersion,
 			final ReleaseImporter releaseImporter, final LoadingProfile loadingProfile) throws ReleaseImportException {
 		final ImportComponentFactoryImpl importComponentFactory =
 				getImportComponentFactory(branchPath, patchReleaseVersion, false, false);
-		releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
-		return importComponentFactory.getMaxEffectiveTime();
+		try {
+			releaseImporter.loadSnapshotReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
+			return importComponentFactory.getMaxEffectiveTime();
+		} catch (ReleaseImportException e) {
+			rollbackIncompleteCommit(importComponentFactory);
+			throw e;
+		}
 	}
 
 	private Integer deltaImport(final InputStream releaseFileStream, final ImportJob job, final String branchPath, final Integer patchReleaseVersion,
@@ -215,15 +217,29 @@ public class ImportService {
 		// If we are not creating a new version copy the release fields from the existing components
 		final ImportComponentFactoryImpl importComponentFactory =
 				getImportComponentFactory(branchPath, patchReleaseVersion, !job.isCreateCodeSystemVersion(), job.isClearEffectiveTimes());
-		releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
-		return importComponentFactory.getMaxEffectiveTime();
+		try {
+			releaseImporter.loadDeltaReleaseFiles(releaseFileStream, loadingProfile, importComponentFactory);
+			return importComponentFactory.getMaxEffectiveTime();
+		} catch (ReleaseImportException e) {
+			rollbackIncompleteCommit(importComponentFactory);
+			throw e;
+		}
+	}
+
+	private void rollbackIncompleteCommit(ImportComponentFactoryImpl importComponentFactory) {
+		final Commit commit = importComponentFactory.getCommit();
+		if (commit != null) {
+			logger.info("Triggering rollback of failed import commit on {} at {}", commit.getBranch().getPath(), commit.getTimepoint().getTime());
+			// Closing the commit without marking as successful causes commit rollback.
+			commit.close();
+		}
 	}
 
 	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath, Integer patchReleaseVersion, boolean copyReleaseFields, boolean clearEffectiveTimes) {
 		return new ImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, branchPath, patchReleaseVersion, copyReleaseFields, clearEffectiveTimes);
 	}
 
-	private HistoryAwareComponentFactory getFullImportComponentFactory(String branchPath) {
+	private FullImportComponentFactoryImpl getFullImportComponentFactory(String branchPath) {
 		return new FullImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, codeSystemService, branchPath, null);
 	}
 
