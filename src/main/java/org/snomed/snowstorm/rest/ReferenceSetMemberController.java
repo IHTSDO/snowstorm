@@ -60,6 +60,8 @@ public class ReferenceSetMemberController {
 			@PathVariable String branch,
 			@ApiParam("A reference set identifier or ECL expression can be used to limit the reference sets searched. Example: <723564002")
 			@RequestParam(required = false) String referenceSet,
+			@ApiParam("A concept identifier or ECL expression can be used to limit the modules searched. Example: <900000000000445007")
+			@RequestParam(required = false) String module,
 			@RequestParam(required = false) String referencedComponentId,
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(defaultValue = "0") int offset,
@@ -75,6 +77,7 @@ public class ReferenceSetMemberController {
 		MemberSearchRequest searchRequest = new MemberSearchRequest()
 				.active(active)
 				.referenceSet(referenceSet)
+				.module(module)
 				.referencedComponentId(referencedComponentId);
 		PageWithBucketAggregations<ReferenceSetMember> page = memberService.findReferenceSetMembersWithAggregations(branch, pageRequest, searchRequest);
 		timer.checkpoint("aggregation");
