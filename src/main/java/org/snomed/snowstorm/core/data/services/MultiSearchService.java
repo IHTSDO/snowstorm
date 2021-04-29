@@ -5,6 +5,8 @@ import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
@@ -24,9 +26,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -51,6 +51,10 @@ public class MultiSearchService {
 
 	@Autowired
 	private ElasticsearchRestTemplate elasticsearchTemplate;
+	
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+	
+	Map<String, String> publishedBranches = new HashMap<>();
 
 	public Page<Description> findDescriptions(DescriptionCriteria criteria, PageRequest pageRequest) {
 		final BoolQueryBuilder branchesQuery = getBranchesQuery();
@@ -114,8 +118,11 @@ public class MultiSearchService {
 	}
 
 	private BoolQueryBuilder getBranchesQuery() {
+		long startTime = System.currentTimeMillis();
 		Set<String> branchPaths = getAllPublishedVersionBranchPaths();
-
+		//long endTime = System.currentTimeMillis();
+		//logger.info("Mutisearch finding published paths took " + (endTime - startTime) + "ms");
+		
 		BoolQueryBuilder branchesQuery = boolQuery();
 		if (branchPaths.isEmpty()) {
 			branchesQuery.must(termQuery("path", "this-will-match-nothing"));
@@ -129,18 +136,34 @@ public class MultiSearchService {
 			branchQuery.must(versionControlHelper.getBranchCriteria(branchPath).getEntityBranchCriteria(Description.class));
 			branchesQuery.should(branchQuery);
 		}
+		long endTime = System.currentTimeMillis();
+		logger.info("Mutisearch branches query took " + (endTime - startTime) + "ms");
 		return branchesQuery;
 	}
 
 	public Set<String> getAllPublishedVersionBranchPaths() {
-		Set<String> branchPaths = new HashSet<>();
-		for (CodeSystem codeSystem : codeSystemService.findAll()) {
-			CodeSystemVersion latestVisibleVersion = codeSystemService.findLatestVisibleVersion(codeSystem.getShortName());
-			if (latestVisibleVersion != null) {
-				branchPaths.add(latestVisibleVersion.getBranchPath());
+		List<CodeSystem> codeSystems = codeSystemService.findAll();
+		Set<String> publishedVersionBranchPaths = new HashSet<>();
+		synchronized(this) {
+			publishedBranches.clear();
+			for (CodeSystem cs : codeSystems) {
+				//Cache the latest version paths so we can repopulate it on the concept
+				if (cs.getLatestVersion() != null) {
+					publishedBranches.put(cs.getBranchPath(), cs.getLatestVersion().getBranchPath());
+					publishedVersionBranchPaths.add(cs.getLatestVersion().getBranchPath());
+				}
 			}
 		}
-		return branchPaths;
+		
+		return publishedVersionBranchPaths;
+	}
+	
+	public String getPublishedVersionOfBranch(String branch) {
+		if (publishedBranches.isEmpty()) {
+			getAllPublishedVersionBranchPaths();
+		}
+		//If we don't find a published version, return the branch we were given
+		return publishedBranches.containsKey(branch) ? publishedBranches.get(branch) : branch;
 	}
 	
 	public Set<CodeSystemVersion> getAllPublishedVersions() {
@@ -159,6 +182,11 @@ public class MultiSearchService {
 				.withPageable(pageRequest)
 				.build();
 		SearchHits<Concept> searchHits = elasticsearchTemplate.search(query, Concept.class);
-		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
+		//Populate the published version path back in
+		List<Concept> concepts = searchHits.get()
+				.map(SearchHit::getContent)
+				.map(c -> { c.setPath(getPublishedVersionOfBranch(c.getPath())) ; return c; })
+				.collect(Collectors.toList());
+		return new PageImpl<>(concepts, pageRequest, searchHits.getTotalHits());
 	}
 }

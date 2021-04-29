@@ -99,13 +99,10 @@ public class WebRoutingService {
 
 	private CodeSystemVersion determineVersion(UriParts uriParts) {
 		CodeSystem codeSystem = codeSystemService.findByDefaultModule(uriParts.moduleId);
-		
 		if (codeSystem == null) {
-			//Well what's the defaul code system on MAIN then?
-			codeSystem = codeSystemService.findByBranchPath("MAIN").get();
-			if (codeSystem == null) {
-				throw new IllegalStateException("Malconfigured lookup server, MAIN branch does not specify a CodeSystem");
-			}
+			//What's the default code system on MAIN then, get it's latest version?
+			String shortName = codeSystemService.findByBranchPath("MAIN").get().getShortName();
+			return codeSystemService.findLatestVisibleVersion(shortName);
 		}
 		
 		if (uriParts.effectiveDate == null) {
@@ -121,6 +118,10 @@ public class WebRoutingService {
 		
 		if (version != null) {
 			concept = conceptService.find(uriParts.sctiId, null, version.getBranchPath());
+			if (concept != null) {
+				//Ensure we're redirecting to a published version 
+				concept.setPath(multiSearchService.getPublishedVersionOfBranch(concept.getPath()));
+			}
 		}
 		
 		if (concept == null) {
