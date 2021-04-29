@@ -20,7 +20,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -97,11 +99,13 @@ class ExportServiceTest extends AbstractTest {
 						.addLanguageRefsetMember(
 								new ReferenceSetMember(null, null, true, Concepts.CORE_MODULE, Concepts.GB_EN_LANG_REFSET, null)
 										.setAdditionalField("acceptabilityId", Concepts.PREFERRED)));
+
 		concept.addDescription(
 				new Description(textDefId, null, true, Concepts.CORE_MODULE, conceptId, "en", Concepts.TEXT_DEFINITION, "Bleeding Text Def", Concepts.CASE_INSENSITIVE)
 						.addLanguageRefsetMember(
 								new ReferenceSetMember(null, null, true, Concepts.CORE_MODULE, Concepts.GB_EN_LANG_REFSET, null)
-										.setAdditionalField("acceptabilityId", Concepts.PREFERRED)));
+									.setAdditionalField("acceptabilityId", Concepts.PREFERRED)));
+								
 
 		concept.addRelationship(new Relationship("125021", null, true, Concepts.CORE_MODULE, conceptId, "100001", 0, Concepts.ISA, Concepts.STATED_RELATIONSHIP, Concepts.EXISTENTIAL));
 		concept.addRelationship(new Relationship("125022", null, true, Concepts.CORE_MODULE, conceptId, "100002", 0, Concepts.ISA, Concepts.INFERRED_RELATIONSHIP, Concepts.EXISTENTIAL));
@@ -482,7 +486,46 @@ class ExportServiceTest extends AbstractTest {
 			assertEquals(owlMember.getId() + "\t\t1\t900000000000207008\t733073007\t123005000\tTransitiveObjectProperty(:123005000)", lines.get(1));
 		}
 	}
+	
+	@Test
+	void exportRF2ArchiveForRefsetOnly() throws Exception {
+		File exportFile = getTempFile("export", ".zip");
+		exportFile.deleteOnExit();
 
+		// Run export
+		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
+			ExportConfiguration exportConfiguration = new ExportConfiguration("MAIN", RF2Type.SNAPSHOT);
+
+			// FOR Refsets only
+			Set<String> refsetIds = new HashSet<>();
+			refsetIds.add("900000000000508004");
+			exportConfiguration.setRefsetIds(refsetIds);
+			exportConfiguration.setConceptsAndRelationshipsOnly(false);
+			exportConfiguration.setLegacyZipNaming(false);
+			exportConfiguration.setUnpromotedChangesOnly(false);
+
+			exportConfiguration.setFilenameEffectiveDate("20210731");
+			exportService.createJob(exportConfiguration);
+			exportService.exportRF2Archive(exportConfiguration, outputStream);
+		}
+		
+		String descriptionTypeRefsetMemberId = referenceSetMemberService.findMembers("MAIN", Concepts.FSN, PAGE_OF_ONE).getContent().get(0).getMemberId();
+		String descriptionLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", descriptionId, PAGE_OF_ONE).getContent().get(0).getMemberId();
+		String textDefLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", textDefId, PAGE_OF_ONE).getContent().get(0).getMemberId();
+
+
+		// Test export
+		try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(exportFile))) {
+
+			ZipEntry axioms = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/Snapshot/Refset/Language/der2_cRefset_Language900000000000508004Snapshot_INT_20210731.txt", axioms.getName());
+			List<String> lines = getLines(zipInputStream);
+			assertEquals(3, lines.size());
+			assertEquals(RF2Constants.SIMPLE_REFSET_HEADER + "\tacceptabilityId", lines.get(0));
+			assertEquals(textDefLanguageRefsetMemberId + "\t\t1\t900000000000207008\t900000000000508004\t124012\t900000000000548007", lines.get(1));
+		}
+	}
+	
 	@Test
 	void exportRF2ArchiveWithTransientEffectiveTime() throws Exception {
 		File exportFile = getTempFile("export", ".zip");
