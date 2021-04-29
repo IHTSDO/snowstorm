@@ -125,6 +125,9 @@ public abstract class Config extends ElasticsearchConfig {
 
 	@Autowired
 	private IntegrityService integrityService;
+	
+	@Autowired
+	private MultiSearchService multiSearchService;
 
 	@Autowired
 	private MRCMLoader mrcmLoader;
@@ -140,6 +143,7 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(mrcmUpdateService);
 		branchService.addCommitListener(traceabilityLogService);
 		branchService.addCommitListener(integrityService);
+		branchService.addCommitListener(multiSearchService);
 		branchService.addCommitListener(commit -> {
 			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint()));
 		});
