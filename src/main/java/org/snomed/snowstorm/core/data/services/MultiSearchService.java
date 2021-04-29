@@ -1,8 +1,11 @@
 package org.snomed.snowstorm.core.data.services;
 
+import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.Commit.CommitType;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
@@ -26,6 +29,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -35,7 +39,7 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 /*
  * Service specifically for searching across multiple code systems or branches.
  */
-public class MultiSearchService {
+public class MultiSearchService implements CommitListener {
 
 	@Autowired
 	private DescriptionService descriptionService;
@@ -55,6 +59,9 @@ public class MultiSearchService {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
 	Map<String, String> publishedBranches = new HashMap<>();
+	
+	BoolQueryBuilder cachedBranchesQuery = null;
+	LocalDate cacheDate = null;
 
 	public Page<Description> findDescriptions(DescriptionCriteria criteria, PageRequest pageRequest) {
 		final BoolQueryBuilder branchesQuery = getBranchesQuery();
@@ -118,27 +125,31 @@ public class MultiSearchService {
 	}
 
 	private BoolQueryBuilder getBranchesQuery() {
-		long startTime = System.currentTimeMillis();
-		Set<String> branchPaths = getAllPublishedVersionBranchPaths();
-		//long endTime = System.currentTimeMillis();
-		//logger.info("Mutisearch finding published paths took " + (endTime - startTime) + "ms");
-		
-		BoolQueryBuilder branchesQuery = boolQuery();
-		if (branchPaths.isEmpty()) {
-			branchesQuery.must(termQuery("path", "this-will-match-nothing"));
-		}
-		for (String branchPath : branchPaths) {
-			BoolQueryBuilder branchQuery = boolQuery();
-			if (!Branch.MAIN.equals(PathUtil.getParentPath(branchPath))) {
-				// Prevent content on MAIN being found in every other code system
-				branchQuery.mustNot(termQuery("path", Branch.MAIN));
+		LocalDate today = LocalDate.now();
+		if (cachedBranchesQuery == null || !cacheDate.equals(today)) {
+			long startTime = System.currentTimeMillis();
+			Set<String> branchPaths = getAllPublishedVersionBranchPaths();
+			//long endTime = System.currentTimeMillis();
+			//logger.info("Mutisearch finding published paths took " + (endTime - startTime) + "ms");
+			
+			cachedBranchesQuery = boolQuery();
+			if (branchPaths.isEmpty()) {
+				cachedBranchesQuery.must(termQuery("path", "this-will-match-nothing"));
 			}
-			branchQuery.must(versionControlHelper.getBranchCriteria(branchPath).getEntityBranchCriteria(Description.class));
-			branchesQuery.should(branchQuery);
+			for (String branchPath : branchPaths) {
+				BoolQueryBuilder branchQuery = boolQuery();
+				if (!Branch.MAIN.equals(PathUtil.getParentPath(branchPath))) {
+					// Prevent content on MAIN being found in every other code system
+					branchQuery.mustNot(termQuery("path", Branch.MAIN));
+				}
+				branchQuery.must(versionControlHelper.getBranchCriteria(branchPath).getEntityBranchCriteria(Description.class));
+				cachedBranchesQuery.should(branchQuery);
+			}
+			long endTime = System.currentTimeMillis();
+			logger.info("Mutisearch branches query took " + (endTime - startTime) + "ms");
 		}
-		long endTime = System.currentTimeMillis();
-		logger.info("Mutisearch branches query took " + (endTime - startTime) + "ms");
-		return branchesQuery;
+		cacheDate = today;
+		return cachedBranchesQuery;
 	}
 
 	public Set<String> getAllPublishedVersionBranchPaths() {
@@ -188,5 +199,12 @@ public class MultiSearchService {
 				.map(c -> { c.setPath(getPublishedVersionOfBranch(c.getPath())) ; return c; })
 				.collect(Collectors.toList());
 		return new PageImpl<>(concepts, pageRequest, searchHits.getTotalHits());
+	}
+
+	@Override
+	public void preCommitCompletion(Commit commit) throws IllegalStateException {
+		if (commit.getCommitType().equals(CommitType.CONTENT)) {
+			cachedBranchesQuery = null;
+		}
 	}
 }
