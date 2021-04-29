@@ -16,8 +16,6 @@ import java.util.*;
  */
 public class WebRouterConfigurationService {
 	
-	private static String CONFIG_KEY_PREFIX = "uri.dereferencing.namespaceConfig.";
-	
 	private static String FALL_BACK = "fall-back";
 	
 	private static String DEFAULT_ROUTE_INDICATOR = "all";
