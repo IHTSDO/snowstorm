@@ -114,6 +114,8 @@ public class SBranchService {
 		if (!latest.isLocked()) {
 			throw new IllegalStateException("Branch is not locked so no there is no partial commit.");
 		}
+		//Unlock the branch we're going to end.  Rollback commit will want to lock it anew
+		latest = branchService.unlock(branchPath);
 
 		Date partialCommitTimestamp = getPartialCommitTimestamp(branchPath);
 		if (partialCommitTimestamp == null) {
@@ -146,6 +148,9 @@ public class SBranchService {
 
 	public Date getPartialCommitTimestamp(String branchPath) {
 		Branch latestCompleteCommit = branchService.findLatest(branchPath);
+		if (latestCompleteCommit == null) {
+			throw new IllegalStateException("Branch " + branchPath + " either not found, or has been marked as ended.");
+		}
 		for (Class<? extends DomainEntity> entityType : domainEntityConfiguration.getAllDomainEntityTypes()) {
 			NativeSearchQuery query = new NativeSearchQueryBuilder().withQuery(
 					boolQuery()
@@ -158,5 +163,26 @@ public class SBranchService {
 			}
 		}
 		return null;
+	}
+
+	public void unEndIfAllBranchesEnded(String branchPath, long endTimePoint) {
+		//We must FAIL to find an ended branch for this function to work
+		Branch latestBranch = branchService.findLatest(branchPath);
+		if (latestBranch != null) {
+			throw new IllegalStateException("Branch " + branchPath + " is not in an 'all-ended' state.  Function not required.");
+		}
+		
+		latestBranch = branchService.findLatest(branchPath, true); //Include ended branches
+		if (latestBranch == null) {
+			throw new IllegalStateException("Branch " + branchPath + " does not exist.");
+		}
+		
+		if (!latestBranch.getEnd().equals(new Date(endTimePoint))) {
+			throw new IllegalStateException("Incorrect end time supplied, unwilling to proceed.");
+		}
+		
+		logger.warn("Removing end time on ended branch {}. Previously ended at {}. No non-ended branch exists.", branchPath, latestBranch.getEnd());
+		latestBranch.setEnd(null);
+		branchRepository.save(latestBranch);
 	}
 }

@@ -130,6 +130,15 @@ public class AdminController {
 	public void rollbackPartialCommit(@PathVariable String branch) {
 		sBranchService.rollbackPartialCommit(BranchPathUriUtil.decodePath(branch));
 	}
+	
+	@ApiOperation(value = "Remove the 'end' field when all instances of a branch are ended.",
+			notes = "There should NEVER be a need to use this function.  It will only work when all instances of a branch are ended which eg prevents lock removal.  You must provide the end time of the branch to be un-ended as a fail-safe check."
+	)
+	@RequestMapping(value = "/{branch}/actions/un-end-if-all-branches-ended", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
+	public void unEndIfAllBranchesEnded(@PathVariable String branch,  @RequestParam long latestEndTime) {
+		sBranchService.unEndIfAllBranchesEnded(BranchPathUriUtil.decodePath(branch), latestEndTime);
+	}
 
 	@ApiOperation(value = "Hard delete a branch including its content and history.",
 			notes = "This function is not usually needed but can be used to remove a branch which needs to be recreated with the same path. " +
