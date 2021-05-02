@@ -124,7 +124,8 @@ public class IncrementalClassificationService {
 		for (Set<Long> equivalentConceptSet : equivalentConceptSets) {
 			for (Long concept : equivalentConceptSet) {
 				for (Long otherConcept : equivalentConceptSet) {
-					if (!concept.equals(otherConcept)) {
+					final String otherConceptId = otherConcept.toString();
+					if (!concept.equals(otherConcept) && !otherConceptId.substring(otherConceptId.length() - 3, otherConceptId.length() - 1).equals("06")) {
 						map.put(concept, otherConcept);
 					}
 				}
