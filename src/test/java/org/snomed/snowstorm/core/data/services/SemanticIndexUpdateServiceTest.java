@@ -64,7 +64,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
-
+	
 	@Autowired
 	private QueryConceptRepository queryConceptRepository;
 
@@ -73,13 +73,14 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	@Test
 	void testCommitListenerOrderingConfig() {
 		List<CommitListener> commitListeners = branchService.getCommitListeners();
-		assertEquals(7, commitListeners.size());
+		assertEquals(8, commitListeners.size());
 		assertEquals(MRCMLoader.class, commitListeners.get(0).getClass());
 		assertEquals(ConceptDefinitionStatusUpdateService.class, commitListeners.get(1).getClass());
 		assertEquals(SemanticIndexUpdateService.class, commitListeners.get(2).getClass());
 		assertEquals(MRCMUpdateService.class, commitListeners.get(3).getClass());
 		assertEquals(TraceabilityLogService.class, commitListeners.get(4).getClass());
 		assertEquals(IntegrityService.class, commitListeners.get(5).getClass());
+		assertEquals(MultiSearchService.class, commitListeners.get(6).getClass());
 	}
 
 	@Test
