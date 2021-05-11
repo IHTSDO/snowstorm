@@ -189,7 +189,8 @@ public class HapiParametersMapper implements FHIRConstants {
 		if (isCode) {
 			property.addPart().setName(VALUE).setValue(new CodeType(propertyValue.toString()));
 		} else {
-			property.addPart().setName(getTypeName(propertyValue)).setValue(new StringType(propertyValue.toString()));
+			StringType value = new StringType(propertyValue == null ? "" : propertyValue.toString());
+			property.addPart().setName(getTypeName(propertyValue)).setValue(value);
 		}
 		return property;
 	}
@@ -200,6 +201,6 @@ public class HapiParametersMapper implements FHIRConstants {
 		} else if (obj instanceof Boolean) {
 			return VALUE_BOOLEAN;
 		}
-		return "UNKNOWN_TYPE";
+		return null;
 	}
 }
