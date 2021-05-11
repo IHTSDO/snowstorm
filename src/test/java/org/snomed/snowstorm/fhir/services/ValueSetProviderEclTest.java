@@ -151,6 +151,16 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		restTemplate.delete(baseUrl + "/reason-for-encounter");
 	}
 	
+	@Test
+	void testECLWithUnpublishedVersion() throws FHIROperationException {
+		//Asking for 5 at a time, expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?system-version=http://snomed.info/xsct/1234&" + 
+				"url=http://snomed.info/sct/" + sampleModuleId + "?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + 
+				"&_format=json";
+		ValueSet v = getValueSet(url);
+		assertEquals(14,v.getExpansion().getContains().size());
+	}
+	
 	private void storeVs(String id, String vsJson) {
 		HttpEntity<String> request = new HttpEntity<>(vsJson, headers);
 		ResponseEntity<MethodOutcome> response = restTemplate.exchange(baseUrl + "/" + id, HttpMethod.PUT, request, MethodOutcome.class);
