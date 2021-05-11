@@ -148,7 +148,6 @@ public abstract class AbstractFHIRTest {
 		
 		// Version content to fill effectiveTime fields
 		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", MAIN);
-		//codeSystemConfigurationService.getConfigurations().add(config);
 
 		codeSystemService.createCodeSystem(codeSystem);
 		codeSystemService.createVersion(codeSystem, Integer.parseInt(sampleVersion), "");

@@ -197,6 +197,9 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		} else {
 			branchPath = fhirHelper.getBranchPathFromURI(system);
 			fullConcept = conceptService.find(conceptId, designations, branchPath.toString());
+			if (fullConcept == null) {
+				throw new NotFoundException("Concept " + conceptId + " was not found on branch " + branchPath);
+			}
 		}
 		Page<Long> childIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl("<!" + conceptId), branchPath.toString(), LARGE_PAGE);
 		Set<FhirSctProperty> properties = FhirSctProperty.parse(propertiesType);

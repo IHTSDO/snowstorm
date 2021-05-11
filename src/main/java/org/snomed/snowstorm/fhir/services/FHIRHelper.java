@@ -398,7 +398,7 @@ public class FHIRHelper implements FHIRConstants {
 				if (version.asStringValue().contains(VERSION)) {
 					throw new FHIROperationException(IssueType.CONFLICT, "Use either xsct or version, not both");
 				}
-				versionStr = SNOMED_URI + getSnomedEditionModule(versionStr) + VERSION + UNVERSIONED_STR;
+				versionStr = SNOMED_URI + "/" + getSnomedEditionModule(versionStr) + VERSION + UNVERSIONED_STR;
 				version.setValue(versionStr);
 			}
 			getSnomedVersion(version.asStringValue());  //for validation only
