@@ -599,7 +599,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 				codeSystemVersionUri = new StringType(system);
 			}
 		} else {
-			codeSystemVersionUri = new StringType(system + "/" + version);
+			codeSystemVersionUri = new StringType(version);
 		}
 		
 		return fhirHelper.getBranchPathFromURI(codeSystemVersionUri);
