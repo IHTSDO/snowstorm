@@ -4,8 +4,10 @@ import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.CodeSystemVersionService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.StartupException;
 import org.snomed.snowstorm.core.rf2.RF2Type;
@@ -50,6 +52,9 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 	@Autowired
 	private ApplicationContext applicationContext;
 
+	@Autowired
+	private CodeSystemVersionService codeSystemVersionService;
+
 	private static final Logger logger = LoggerFactory.getLogger(SnowstormApplication.class);
 
 	public static void main(String[] args) {
@@ -83,7 +88,11 @@ public class SnowstormApplication extends Config implements ApplicationRunner {
 			logger.info("--- Snowstorm startup complete ---");
 
 			logger.info("Warming CodeSystem aggregation cache...");
-			codeSystemService.findAll();
+			List<CodeSystem> codeSystems = codeSystemService.findAll();
+
+			logger.info("Warming CodeSystemVersion dependency cache...");
+			codeSystemVersionService.initDependantVersionCache(codeSystems);
+
 			logger.info("Caches are hot.");
 
 			if (applicationArguments.containsOption(IMPORT_ARG)) {
