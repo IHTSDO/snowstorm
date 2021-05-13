@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 import static java.lang.Boolean.TRUE;
 
@@ -44,6 +45,9 @@ public class CodeSystemController {
 
 	@Autowired
 	private ExtensionAdditionalLanguageRefsetUpgradeService extensionAdditionalLanguageRefsetUpgradeService;
+
+	@Autowired
+	private CodeSystemVersionService codeSystemVersionService;
 
 	@ApiOperation(value = "Create a code system",
 			notes = "Required fields are shortName and branch.\n" +
@@ -102,7 +106,11 @@ public class CodeSystemController {
 	@ApiOperation("Retrieve all code system versions")
 	@RequestMapping(value = "/{shortName}/versions", method = RequestMethod.GET)
 	public ItemsPage<CodeSystemVersion> findAllVersions(@PathVariable String shortName, @RequestParam(required = false) Boolean showFutureVersions) {
-		return new ItemsPage<>(codeSystemService.findAllVersions(shortName, showFutureVersions));
+		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(shortName, showFutureVersions);
+		for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
+			codeSystemVersionService.getDependantVersionForCodeSystemVersion(codeSystemVersion).ifPresent(codeSystemVersion::setDependantVersionEffectiveTime);
+		}
+		return new ItemsPage<>(codeSystemVersions);
 	}
 
 	@ApiOperation("Create a new code system version")
@@ -192,6 +200,7 @@ public class CodeSystemController {
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public void clearCodeSystemInformationCache() {
 		codeSystemService.clearCache();
+		codeSystemVersionService.clearCache();
 	}
 
 	private CodeSystem joinUserPermissionsInfo(CodeSystem codeSystem) {
@@ -204,6 +213,13 @@ public class CodeSystemController {
 			final String branchPath = codeSystem.getBranchPath();
 			if (branchPath != null) {
 				codeSystem.setUserRoles(permissionService.getUserRolesForBranch(branchPath).getGrantedBranchRole());
+				CodeSystemVersion latestVersion = codeSystem.getLatestVersion();
+				if (latestVersion == null) {
+					continue;
+				}
+				codeSystemVersionService
+						.getDependantVersionForCodeSystemVersion(latestVersion)
+						.ifPresent(latestVersion::setDependantVersionEffectiveTime);
 			}
 		}
 		return codeSystems;

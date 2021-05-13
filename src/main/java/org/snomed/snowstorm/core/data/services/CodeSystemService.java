@@ -384,7 +384,7 @@ public class CodeSystemService {
 		contentInformationCache.put(branchPath, Pair.of(latestBranch.getHead(), codeSystem));
 	}
 
-	private void setDependantVersionEffectiveTime(CodeSystem codeSystem, String branchPath, Branch latestBranch) {
+	public void setDependantVersionEffectiveTime(CodeSystem codeSystem, String branchPath, Branch latestBranch) {
 		String parentPath = PathUtil.getParentPath(branchPath);
 		if (parentPath != null) {
 			CodeSystem parentCodeSystem = findByBranchPath(parentPath).orElse(null);
