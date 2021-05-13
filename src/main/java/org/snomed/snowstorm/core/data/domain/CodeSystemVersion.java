@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.domain;
 
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.DateFormat;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
@@ -9,6 +10,10 @@ import java.util.Date;
 
 @Document(indexName = "codesystem-version")
 public class CodeSystemVersion {
+
+	public interface Fields {
+		String VERSION = "version";
+	}
 
 	@Field(type = FieldType.Keyword)
 	private String id;
@@ -33,6 +38,9 @@ public class CodeSystemVersion {
 
 	@Field(type = FieldType.Keyword)
 	private String releasePackage;
+
+	@Transient
+	private Integer dependantVersionEffectiveTime;
 
 	public CodeSystemVersion() {
 	}
@@ -112,5 +120,28 @@ public class CodeSystemVersion {
 
 	public void setReleasePackage(String releasePackage) {
 		this.releasePackage = releasePackage;
+	}
+
+	public Integer getDependantVersionEffectiveTime() {
+		return dependantVersionEffectiveTime;
+	}
+
+	public void setDependantVersionEffectiveTime(Integer dependantVersionEffectiveTime) {
+		this.dependantVersionEffectiveTime = dependantVersionEffectiveTime;
+	}
+
+	@Override
+	public String toString() {
+		return "CodeSystemVersion{" +
+				"id='" + id + '\'' +
+				", shortName='" + shortName + '\'' +
+				", importDate=" + importDate +
+				", parentBranchPath='" + parentBranchPath + '\'' +
+				", effectiveDate=" + effectiveDate +
+				", version='" + version + '\'' +
+				", description='" + description + '\'' +
+				", releasePackage='" + releasePackage + '\'' +
+				", dependantVersionEffectiveTime=" + dependantVersionEffectiveTime +
+				'}';
 	}
 }
