@@ -45,6 +45,9 @@ public class ExportConfiguration {
 
 	private Set<String> moduleIds;
 
+	@ApiModelProperty(notes = "If refsetIds are included, this indicates that the export will be a refset-only export.")
+	private Set<String> refsetIds;
+
 	public ExportConfiguration() {
 	}
 
@@ -139,5 +142,13 @@ public class ExportConfiguration {
 
 	public void setModuleIds(Set<String> moduleIds) {
 		this.moduleIds = moduleIds;
+	}
+	
+	public Set<String> getRefsetIds() {
+		return refsetIds;
+	}
+
+	public void setRefsetIds(Set<String> refsetIds) {
+		this.refsetIds = refsetIds;
 	}
 }
