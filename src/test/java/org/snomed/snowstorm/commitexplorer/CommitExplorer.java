@@ -1,6 +1,17 @@
 package org.snomed.snowstorm.commitexplorer;
 
 import io.kaicode.elasticvc.domain.Branch;
+import org.elasticsearch.action.search.SearchRequest;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.search.aggregations.Aggregation;
+import org.elasticsearch.search.aggregations.AggregationBuilder;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.bucket.terms.Terms;
+import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
+import org.elasticsearch.search.aggregations.support.ValueType;
+import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.snomed.snowstorm.config.ElasticsearchConfig;
@@ -20,7 +31,10 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
+import java.io.IOException;
+
 import static java.lang.String.format;
+import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
 /**
@@ -33,9 +47,9 @@ public class CommitExplorer {
 	private final String indexNamePrefix;
 
 	private void run() {
-		//listCommits("MAIN");
+		listCommits("MAIN/SNOMEDCT-SE/SE/SE-578");
 		//listRecentVersions("209889006", Concept.class);
-		listRecentVersions("890431008", Concept.class);
+//		listRecentVersions("890431008", Concept.class);
 		//listRecentVersions("646067016", Description.class);
 		//listRecentVersions("84fd3311-705d-4ab0-ab84-989eaa048839", ReferenceSetMember.class);
 	}
@@ -58,7 +72,8 @@ public class CommitExplorer {
 	}
 
 	private CommitExplorer(String indexPrefix, String elasticsearchClusterHost) {
-		ApplicationContext applicationContext = SpringApplication.run(Config.class, "--elasticsearch.urls=" + elasticsearchClusterHost, "--elasticsearch.index.prefix=" + indexPrefix);
+		ApplicationContext applicationContext = SpringApplication.run(Config.class, "--elasticsearch.urls=" + elasticsearchClusterHost,
+				"--elasticsearch.index.prefix=" + indexPrefix, "--server.port=8099");
 		template = applicationContext.getBean(ElasticsearchRestTemplate.class);
 		this.indexNamePrefix = indexPrefix;
 		this.elasticsearchClusterHost = elasticsearchClusterHost;
@@ -121,6 +136,16 @@ public class CommitExplorer {
 		for (SearchHit<Branch> hit : branchVersions) {
 			Branch branchVersion = hit.getContent();
 			System.out.println(format("%s (%s)", branchVersion.getStartDebugFormat(), branchVersion.getStart().getTime()));
+			final SearchResponse searchResponse = template.execute(restHighLevelClient -> restHighLevelClient.search(new SearchRequest(new String[]{""},
+					new SearchSourceBuilder().query(boolQuery()
+							.must(termQuery("path", path))
+							.must(termQuery("start", branchVersion.getHead())))
+							.aggregation(AggregationBuilders.terms("types").field("_type"))
+			), RequestOptions.DEFAULT));
+			final Terms types = searchResponse.getAggregations().get("types");
+			for (Terms.Bucket bucket : types.getBuckets()) {
+				System.out.printf(" - %s %s\n", bucket.getDocCount(), bucket.getKey());
+			}
 		}
 		System.out.println(format("%s total", branchVersions.getTotalHits()));
 	}
