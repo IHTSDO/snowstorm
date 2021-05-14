@@ -20,7 +20,9 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -480,6 +482,47 @@ class ExportServiceTest extends AbstractTest {
 			assertEquals(2, lines.size());
 			assertEquals(RF2Constants.SIMPLE_REFSET_HEADER + "\towlExpression", lines.get(0));
 			assertEquals(owlMember.getId() + "\t\t1\t900000000000207008\t733073007\t123005000\tTransitiveObjectProperty(:123005000)", lines.get(1));
+		}
+	}
+
+	@Test
+	void exportRF2ArchiveForRefsetOnly() throws Exception {
+		File exportFile = getTempFile("export", ".zip");
+		exportFile.deleteOnExit();
+
+		// Run export
+		try (FileOutputStream outputStream = new FileOutputStream(exportFile)) {
+			ExportConfiguration exportConfiguration = new ExportConfiguration("MAIN", RF2Type.SNAPSHOT);
+
+			// FOR Refsets only
+			Set<String> refsetIds = new HashSet<>();
+			refsetIds.add("900000000000508004");
+			exportConfiguration.setRefsetIds(refsetIds);
+			exportConfiguration.setConceptsAndRelationshipsOnly(false);
+			exportConfiguration.setLegacyZipNaming(false);
+			exportConfiguration.setUnpromotedChangesOnly(false);
+
+			exportConfiguration.setFilenameEffectiveDate("20210731");
+			exportService.createJob(exportConfiguration);
+			exportService.exportRF2Archive(exportConfiguration, outputStream);
+		}
+		
+		String descriptionTypeRefsetMemberId = referenceSetMemberService.findMembers("MAIN", Concepts.FSN, PAGE_OF_ONE).getContent().get(0).getMemberId();
+		String descriptionLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", descriptionId, PAGE_OF_ONE).getContent().get(0).getMemberId();
+		String textDefLanguageRefsetMemberId = referenceSetMemberService.findMembers("MAIN", textDefId, PAGE_OF_ONE).getContent().get(0).getMemberId();
+
+
+		// Test export
+		try (ZipInputStream zipInputStream = new ZipInputStream(new FileInputStream(exportFile))) {
+
+			ZipEntry file = zipInputStream.getNextEntry();
+			assertEquals("SnomedCT_Export/Snapshot/Refset/Language/der2_cRefset_Language900000000000508004Snapshot_INT_20210731.txt", file.getName());
+			List<String> lines = getLines(zipInputStream);
+			assertEquals(3, lines.size());
+			assertEquals(RF2Constants.SIMPLE_REFSET_HEADER + "\tacceptabilityId", lines.get(0));
+			assertEquals(textDefLanguageRefsetMemberId + "\t\t1\t900000000000207008\t900000000000508004\t124012\t900000000000548007", lines.get(1));
+			ZipEntry file2 = zipInputStream.getNextEntry();
+			assertNull(file2);
 		}
 	}
 
