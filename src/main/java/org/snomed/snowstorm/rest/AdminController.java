@@ -213,6 +213,16 @@ public class AdminController {
 
 		adminOperationsService.restoreReleasedStatus(BranchPathUriUtil.decodePath(branch), conceptIds, setDeletedComponentsToInactive);
 	}
+
+	@ApiOperation(value = "Clean newly inactive inferred relationships during authoring.",
+			notes = "The previous release and dependant release (if applicable) branches are considered.\n\n" +
+					"For inactive inferred relationships with no effectiveTime:\n\n" +
+					" - if they were already inactive then restore that version\n\n" +
+					" - if they did not previously exist then delete them")
+	@RequestMapping(value = "/{branch}/actions/clean-inferred", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
+	public void cleanInferredRelationships(@PathVariable String branch) {
+		adminOperationsService.cleanInferredRelationships(BranchPathUriUtil.decodePath(branch));
 	}
 
 }
