@@ -340,6 +340,10 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return relationshipId;
 	}
 
+	public Long getRelationshipIdAsLong() {
+		return relationshipId != null ? Long.parseLong(relationshipId) : null;
+	}
+
 	public void setRelationshipId(String relationshipId) {
 		this.relationshipId = relationshipId;
 	}
