@@ -790,6 +790,79 @@ public class AdminOperationsService {
 		}
 	}
 
+	public void cleanInferredRelationships(String branchPath) {
+		logger.info("Cleaning up un-versioned inferred relationships on {}", branchPath);
+
+		Pair<String, Optional<String>> latestReleaseAndDependantRelease = getLatestReleaseAndDependantReleaseBranches(branchPath);
+
+		// Find all un-versioned inactive inferred relationships
+		Set<Long> relationshipIds = new LongOpenHashSet();
+		final BranchCriteria thisBranchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(thisBranchCriteria.getEntityBranchCriteria(Relationship.class))
+						.must(termQuery(Relationship.Fields.ACTIVE, false))
+						.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP))
+						.mustNot(existsQuery(Relationship.Fields.EFFECTIVE_TIME)))
+				.withPageable(LARGE_PAGE).build(), Relationship.class)) {
+			relationships.forEachRemaining(hit -> relationshipIds.add(hit.getContent().getRelationshipIdAsLong()));
+		}
+
+		for (List<Long> relationshipBatch : partition(relationshipIds, 1_000)) {
+			// Find previous version in this code system
+			final Map<Long, Relationship> previousVersion = new Long2ObjectOpenHashMap<>();
+			try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+					.withQuery(boolQuery()
+							.must(versionControlHelper.getBranchCriteria(latestReleaseAndDependantRelease.getFirst()).getEntityBranchCriteria(Relationship.class))
+							.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP)))
+					.withFilter(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipBatch))
+					.withPageable(LARGE_PAGE).build(), Relationship.class)) {
+				relationships.forEachRemaining(hit -> {
+					final Relationship existingRelationship = hit.getContent();
+					previousVersion.put(existingRelationship.getRelationshipIdAsLong(), existingRelationship);
+				});
+			}
+			String dependantReleaseBranch = latestReleaseAndDependantRelease.getSecond().orElse(null);
+			if (dependantReleaseBranch != null) {
+				try (final SearchHitsIterator<Relationship> relationships = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								.must(versionControlHelper.getBranchCriteria(dependantReleaseBranch).getEntityBranchCriteria(Relationship.class))
+								.must(termQuery(Relationship.Fields.CHARACTERISTIC_TYPE_ID, Concepts.INFERRED_RELATIONSHIP)))
+						.withFilter(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipBatch))
+						.withPageable(LARGE_PAGE).build(), Relationship.class)) {
+					relationships.forEachRemaining(hit -> {
+						final Relationship existingRelationship = hit.getContent();
+						final Long id = existingRelationship.getRelationshipIdAsLong();
+						if (!previousVersion.containsKey(id) || previousVersion.get(id).getEffectiveTimeI() < existingRelationship.getEffectiveTimeI()) {
+							// Dependent version is newer
+							previousVersion.put(id, existingRelationship);
+						}
+					});
+				}
+			}
+
+			// Restore previous version of relationships that were already inactive
+			final List<Relationship> toRestore = previousVersion.values().stream().filter(relationship -> !relationship.isActive()).collect(Collectors.toList());
+			if (!toRestore.isEmpty()) {
+				try (final Commit commit = branchService.openCommit(branchPath)) {
+					toRestore.forEach(Relationship::markChanged);
+					conceptUpdateHelper.doSaveBatchRelationships(toRestore, commit);
+					commit.markSuccessful();
+				}
+			}
+
+			// Delete relationships which are inactive and have no previous state
+			final Set<Long> bornInactive = relationshipBatch.stream().filter(relationshipId -> !previousVersion.containsKey(relationshipId)).collect(Collectors.toSet());
+			if (!bornInactive.isEmpty()) {
+				relationshipService.deleteRelationships(bornInactive.stream().map(Object::toString).collect(Collectors.toSet()), branchPath, true);
+			}
+			logger.info("Cleaned up batch of {} of un-versioned inferred relationships on {}: " +
+					"{} relationships replaced with the previously released version, " +
+					"{} deleted due to born inactive.",	relationshipBatch.size(), branchPath, toRestore.size(), bornInactive.size());
+		}
+		logger.info("Completed clean up of un-versioned inferred relationships on {}", branchPath);
+	}
+
 	private Pair<String, Optional<String>> getLatestReleaseAndDependantReleaseBranches(String branchPath) {
 		final CodeSystem closestCodeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branchPath, true);
 		if (closestCodeSystem == null) {
