@@ -1,6 +1,5 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchCriteria;
@@ -30,6 +29,7 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.data.elasticsearch.core.query.UpdateQuery;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
+import org.springframework.data.util.Pair;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -81,6 +81,9 @@ public class AdminOperationsService {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private RelationshipService relationshipService;
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 	public static final int ONE_SECOND_IN_MILLIS = 1000;
@@ -642,46 +645,82 @@ public class AdminOperationsService {
 		}
 	}
 
-	public Concept restoreReleasedStatus(String branchPath, String alternateSourceBranch, String conceptId, boolean setDeletedComponentsToInactive) {
-		String sourceBranch;
-		if (Strings.isNullOrEmpty(alternateSourceBranch)) {
-			CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branchPath, false);
-			if (codeSystem == null) {
-				throw new IllegalStateException(format("No code system found for branch '%s'.", branchPath));
-			}
-			CodeSystemVersion latestImportedVersion = codeSystemService.findLatestImportedVersion(codeSystem.getShortName());
-			if (latestImportedVersion == null) {
-				throw new IllegalStateException(format("No version found for code system '%s'.", codeSystem.getShortName()));
-			}
-			sourceBranch = latestImportedVersion.getBranchPath();
-		} else {
-			sourceBranch = alternateSourceBranch;
-		}
-		logger.info("Restoring components of {} on branch {} from branch {}.", conceptId, branchPath, sourceBranch);
-
-		Concept releasedConcept = conceptService.find(conceptId, sourceBranch);
-		Concept conceptToFix = conceptService.find(conceptId, branchPath);
-
-		if (releasedConcept == null) {
-			throw new IllegalArgumentException("Concept not found on source branch.");
-		}
+	public void restoreReleasedStatus(String branchPath, Set<String> unbatchedConceptIds, boolean setDeletedComponentsToInactive) {
+		final Pair<String, Optional<String>> latestReleaseAndDependantReleaseBranches = getLatestReleaseAndDependantReleaseBranches(branchPath);
+		final String releaseBranch = latestReleaseAndDependantReleaseBranches.getFirst();
+		final String dependantReleaseBranch = latestReleaseAndDependantReleaseBranches.getSecond().orElse(null);
+		logger.info("Restoring components of {} concepts using release branch {} and dependant release branch {}.", unbatchedConceptIds.size(), releaseBranch, dependantReleaseBranch);
 
 		try (Commit commit = branchService.openCommit(branchPath)) {
-			if (!conceptToFix.isReleased()) {
-				conceptToFix.copyReleaseDetails(releasedConcept);
-				conceptToFix.markChanged();
-				conceptUpdateHelper.doSaveBatchComponents(Collections.singleton(conceptToFix), Concept.class, commit);
-				System.out.println("Restoring missing released status of concept.");
+			for (List<String> conceptIds : partition(unbatchedConceptIds, 1_000)) {
+
+				final List<Long> conceptIdsLongs = conceptIds.stream().map(Long::parseLong).collect(Collectors.toList());
+
+				Map<String, Concept> conceptsToFix = conceptService.find(conceptIdsLongs, null, branchPath, LARGE_PAGE).stream()
+						.collect(Collectors.toMap(Concept::getConceptId, Function.identity()));
+
+				Map<String, Concept> releasedConcepts = conceptService.find(conceptIdsLongs, null, releaseBranch, LARGE_PAGE).stream()
+						.collect(Collectors.toMap(Concept::getConceptId, Function.identity()));
+
+				Map<String, Concept> dependantReleasedConcepts = conceptService.find(conceptIdsLongs, null, dependantReleaseBranch, LARGE_PAGE).stream()
+						.collect(Collectors.toMap(Concept::getConceptId, Function.identity()));
+
+				for (String conceptId : conceptIds) {
+					logger.info("Restoring components of {} on branch {}.", conceptId, branchPath);
+
+					Concept conceptToFix = conceptsToFix.get(conceptId);
+					Concept releasedConcept = releasedConcepts.get(conceptId);
+					Concept dependantReleasedConcept = dependantReleasedConcepts.get(conceptId);
+
+					if (releasedConcept == null && dependantReleasedConcept == null) {
+						logger.warn("Concept {} not found on source branch so release status could not be restored.", conceptId);
+						continue;
+					}
+					if (releasedConcept == null) {
+						releasedConcept = dependantReleasedConcept;
+						dependantReleasedConcept = new Concept();
+					}
+					if (dependantReleasedConcept == null) {
+						dependantReleasedConcept = new Concept();
+					}
+					if (!conceptToFix.isReleased()) {
+						conceptToFix.copyReleaseDetails(releasedConcept);
+						conceptToFix.markChanged();
+						conceptUpdateHelper.doSaveBatchComponents(Collections.singleton(conceptToFix), Concept.class, commit);
+					}
+					restoreComponentReleasedStatus(conceptToFix.getDescriptions(),
+							resolveEffectiveComponents(releasedConcept.getDescriptions(), dependantReleasedConcept.getDescriptions()),
+							commit, setDeletedComponentsToInactive);
+
+					restoreComponentReleasedStatus(getAllRefsetMembers(conceptToFix.getDescriptions()),
+							resolveEffectiveComponents(getAllRefsetMembers(releasedConcept.getDescriptions()), getAllRefsetMembers(dependantReleasedConcept.getDescriptions())),
+							commit, setDeletedComponentsToInactive);
+
+					restoreComponentReleasedStatus(conceptToFix.getRelationships(),
+							resolveEffectiveComponents(releasedConcept.getRelationships(), dependantReleasedConcept.getRelationships()),
+							commit, setDeletedComponentsToInactive);
+
+					restoreComponentReleasedStatus(conceptToFix.getAllOwlAxiomMembers(),
+							resolveEffectiveComponents(releasedConcept.getAllOwlAxiomMembers(), dependantReleasedConcept.getAllOwlAxiomMembers()),
+							commit, setDeletedComponentsToInactive);
+				}
 			}
-			restoreComponentReleasedStatus(conceptToFix.getDescriptions(), releasedConcept.getDescriptions(), commit, setDeletedComponentsToInactive);
-			restoreComponentReleasedStatus(getAllRefsetMembers(conceptToFix.getDescriptions()), getAllRefsetMembers(releasedConcept.getDescriptions()), commit, setDeletedComponentsToInactive);
-			restoreComponentReleasedStatus(conceptToFix.getRelationships(), releasedConcept.getRelationships(), commit, setDeletedComponentsToInactive);
-			restoreComponentReleasedStatus(conceptToFix.getAllOwlAxiomMembers(), releasedConcept.getAllOwlAxiomMembers(), commit, setDeletedComponentsToInactive);
 
 			commit.markSuccessful();
 		}
+	}
 
-		return conceptToFix;
+	private <T extends SnomedComponent> Set<T> resolveEffectiveComponents(Set<T> releasedComponents, Set<T> dependantComponents) {
+		Map<String, T> effectiveComponents = releasedComponents.stream().collect(Collectors.toMap(T::getId, Function.identity()));
+		if (dependantComponents != null) {
+			for (T dependantComponent : dependantComponents) {
+				final T current = effectiveComponents.get(dependantComponent.getId());
+				if (current == null || current.getEffectiveTimeI() < dependantComponent.getEffectiveTimeI()) {
+					effectiveComponents.put(dependantComponent.getId(), dependantComponent);
+				}
+			}
+		}
+		return new HashSet<>(effectiveComponents.values());
 	}
 
 	private Set<ReferenceSetMember> getAllRefsetMembers(Set<Description> descriptions) {
@@ -702,6 +741,7 @@ public class AdminOperationsService {
 
 	@SuppressWarnings("unchecked")
 	private <T extends SnomedComponent> void restoreComponentReleasedStatus(Set<T> componentsToFix, Set<T> releasedComponents, Commit commit, boolean setDeletedComponentsToInactive) {
+
 		Map<String, T> componentsToFixMap = componentsToFix.stream().collect(Collectors.toMap(SnomedComponent::getId, Function.identity()));
 		if (releasedComponents.isEmpty()) {
 			return;
@@ -748,5 +788,27 @@ public class AdminOperationsService {
 		if (!componentsToSave.isEmpty()) {
 			conceptUpdateHelper.doSaveBatchComponents(componentsToSave, componentClass, commit);
 		}
+	}
+
+	private Pair<String, Optional<String>> getLatestReleaseAndDependantReleaseBranches(String branchPath) {
+		final CodeSystem closestCodeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branchPath, true);
+		if (closestCodeSystem == null) {
+			throw new IllegalStateException("No code system found.");
+		}
+		final CodeSystemVersion latestImportedVersion = codeSystemService.findLatestImportedVersion(closestCodeSystem.getShortName());
+		if (latestImportedVersion == null) {
+			throw new IllegalStateException("No code system version found.");
+		}
+		String latestReleaseBranch = latestImportedVersion.getBranchPath();
+
+		String dependantReleaseBranch = null;
+		if (closestCodeSystem.getDependantVersionEffectiveTime() != null) {
+			final Optional<CodeSystem> parentCodeSystem = codeSystemService.findByBranchPath(PathUtil.getParentPath(closestCodeSystem.getBranchPath()));
+			if (parentCodeSystem.isEmpty()) {
+				throw new IllegalStateException("Dependant version set but parent code system not found.");
+			}
+			dependantReleaseBranch = codeSystemService.findVersion(parentCodeSystem.get().getShortName(), closestCodeSystem.getDependantVersionEffectiveTime()).getBranchPath();
+		}
+		return Pair.of(latestReleaseBranch, Optional.ofNullable(dependantReleaseBranch));
 	}
 }
