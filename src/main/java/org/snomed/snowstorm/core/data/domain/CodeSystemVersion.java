@@ -129,19 +129,4 @@ public class CodeSystemVersion {
 	public void setDependantVersionEffectiveTime(Integer dependantVersionEffectiveTime) {
 		this.dependantVersionEffectiveTime = dependantVersionEffectiveTime;
 	}
-
-	@Override
-	public String toString() {
-		return "CodeSystemVersion{" +
-				"id='" + id + '\'' +
-				", shortName='" + shortName + '\'' +
-				", importDate=" + importDate +
-				", parentBranchPath='" + parentBranchPath + '\'' +
-				", effectiveDate=" + effectiveDate +
-				", version='" + version + '\'' +
-				", description='" + description + '\'' +
-				", releasePackage='" + releasePackage + '\'' +
-				", dependantVersionEffectiveTime=" + dependantVersionEffectiveTime +
-				'}';
-	}
 }
