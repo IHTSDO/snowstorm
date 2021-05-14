@@ -27,7 +27,7 @@ public class CodeSystemVersionService {
     private static final String SNOMEDCT = "SNOMEDCT";
 
     /*
-     * K => CodeSystemVersion.toString()
+     * K => CodeSystemVersion.getShortName() + "_" + CodeSystemVersion.getEffectiveDate() + "_" + Branch..getHeadTimestamp()
      * V => CodeSystemVersion.getDependantVersionEffectiveTime()
      * */
     private final Map<String, Integer> dependantVersionCache = new HashMap<>();
@@ -54,7 +54,10 @@ public class CodeSystemVersionService {
                 continue;
             }
             this.doGetDependantVersionForCodeSystemVersion(latestVersion)
-                .ifPresent(dependantVersion -> dependantVersionCache.putIfAbsent(latestVersion.toString(), dependantVersion));
+                .ifPresent(dependantVersion -> {
+                    String cacheKey = buildKeyForCache(latestVersion, branchService.findLatest(latestVersion.getBranchPath()).getHeadTimestamp());
+                    dependantVersionCache.putIfAbsent(cacheKey, dependantVersion);
+                });
         }
     }
 
@@ -84,7 +87,8 @@ public class CodeSystemVersionService {
 
         LOGGER.debug("Looking for {}'s dependency version.", shortName);
         String codeSystemVersionString = codeSystemVersion.toString();
-        Integer dependantVersion = dependantVersionCache.get(codeSystemVersionString);
+        String cacheKey = buildKeyForCache(codeSystemVersion, branchService.findLatest(codeSystemVersion.getBranchPath()).getHeadTimestamp());
+        Integer dependantVersion = dependantVersionCache.get(cacheKey);
         if (dependantVersion == null) {
             LOGGER.debug("CodeSystemVersion '{}' not found in cache.", codeSystemVersionString);
             Optional<Integer> optionalDependency = this.doGetDependantVersionForCodeSystemVersion(codeSystemVersion);
@@ -95,7 +99,7 @@ public class CodeSystemVersionService {
 
             LOGGER.debug("Adding '{}' to cache.", codeSystemVersionString);
             dependantVersion = optionalDependency.get();
-            dependantVersionCache.put(codeSystemVersionString, dependantVersion);
+            dependantVersionCache.put(cacheKey, dependantVersion);
         }
 
         return Optional.of(dependantVersion);
@@ -180,5 +184,9 @@ public class CodeSystemVersionService {
 
         String effectiveDateString = effectiveDate.toString();
         return effectiveDateString.substring(0, 4) + "-" + effectiveDateString.substring(4, 6) + "-" + effectiveDateString.substring(6, 8);
+    }
+
+    private String buildKeyForCache(CodeSystemVersion codeSystemVersion, long headTimestamp) {
+        return codeSystemVersion.getShortName() + "_" + codeSystemVersion.getEffectiveDate() + "_" + headTimestamp;
     }
 }
