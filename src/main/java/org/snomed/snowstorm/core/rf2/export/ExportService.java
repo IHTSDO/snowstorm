@@ -104,7 +104,7 @@ public class ExportService {
 		File exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
 				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(), exportConfiguration.isUnpromotedChangesOnly(),
 				exportConfiguration.getTransientEffectiveTime(), exportConfiguration.getStartEffectiveTime(), exportConfiguration.getModuleIds(),
-				exportConfiguration.isLegacyZipNaming());
+				exportConfiguration.isLegacyZipNaming(), exportConfiguration.getRefsetIds());
 		try (FileInputStream inputStream = new FileInputStream(exportFile)) {
 			Streams.copy(inputStream, outputStream, false);
 		} catch (IOException e) {
@@ -115,11 +115,11 @@ public class ExportService {
 	}
 
 	public File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification) throws ExportException {
-		return exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, forClassification, false, null, null, null, true);
+		return exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, forClassification, false, null, null, null, true, new HashSet<String>());
 	}
 
 	private File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification,
-			boolean unpromotedChangesOnly, String transientEffectiveTime, String startEffectiveTime, Set<String> moduleIds, boolean legacyZipNaming) throws ExportException {
+			boolean unpromotedChangesOnly, String transientEffectiveTime, String startEffectiveTime, Set<String> moduleIds, boolean legacyZipNaming, Set<String> refsetIds) throws ExportException {
 		if (exportType == RF2Type.FULL) {
 			throw new IllegalArgumentException("FULL RF2 export is not implemented.");
 		}
@@ -145,6 +145,9 @@ public class ExportService {
 			branchService.lockBranch(branchPath, branchMetadataHelper.getBranchLockMetadata("Exporting RF2 " + exportType.getName()));
 			File exportFile = File.createTempFile("export-" + new Date().getTime(), ".zip");
 			try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(exportFile))) {
+				
+			  // if not refeset-only export	
+			  if (refsetIds == null || (refsetIds != null && refsetIds.size() == 0)) {
 				// Write Concepts
 				int conceptLines = exportComponents(Concept.class, entryDirectoryPrefix, "Terminology/", "sct2_Concept_", filenameEffectiveDate, exportType, zipOutputStream,
 						getContentQuery(exportType, moduleIds, startEffectiveTime, selectionBranchCriteria.getEntityBranchCriteria(Concept.class)), transientEffectiveTime, null, codeSystemRF2Name);
@@ -226,6 +229,54 @@ public class ExportService {
 						}
 					}
 				}
+			  // refset-only export
+			  } else {
+				  List<ReferenceSetType> allReferenceSetTypes = getReferenceSetTypes(
+							allContentBranchCriteria.getEntityBranchCriteria(ReferenceSetType.class)).stream()
+									.collect(Collectors.toList());
+
+					logger.info("{} allReferenceSetTypes : {}", allReferenceSetTypes.size(), allReferenceSetTypes);
+
+					BoolQueryBuilder memberBranchCriteria = selectionBranchCriteria
+							.getEntityBranchCriteria(ReferenceSetMember.class);
+					for (String refsetToExportString : refsetIds) {
+
+						List<Long> ancestorRefsets = new ArrayList<>(
+								queryService.findAncestorIdsAsUnion(allContentBranchCriteria, true,
+										Collections.singleton(Long.parseLong(refsetToExportString))));
+						ancestorRefsets.add(Long.parseLong(refsetToExportString));
+
+						ReferenceSetType referenceSetType = null;
+						for (ReferenceSetType type : allReferenceSetTypes) {
+							if (ancestorRefsets.contains(Long.parseLong(type.getConceptId()))) {
+								referenceSetType = type;
+								break;
+							}
+						}
+						logger.info("referenceSetType : {}", referenceSetType);
+
+						Long refsetToExport = Long.parseLong(refsetToExportString);
+						BoolQueryBuilder memberQuery = getContentQuery(exportType, moduleIds, startEffectiveTime,
+								memberBranchCriteria);
+						memberQuery.must(QueryBuilders.termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetToExport));
+						long memberCount = elasticsearchTemplate.count(getNativeSearchQuery(memberQuery),
+								ReferenceSetMember.class);
+						if (memberCount > 0 && referenceSetType != null) {
+							logger.info("Exporting Reference Set {} {} with {} members", refsetToExport,
+									referenceSetType.getName(), memberCount);
+							String exportDir = referenceSetType.getExportDir();
+							String entryDirectory = !exportDir.startsWith("/") ? "Refset/" + exportDir + "/"
+									: exportDir.substring(1) + "/";
+							String entryFilenamePrefix = (!entryDirectory.startsWith("Terminology/") ? "der2_" : "sct2_")
+									+ referenceSetType.getFieldTypes() + "Refset_" + referenceSetType.getName()
+									+ refsetToExport;
+							exportComponents(ReferenceSetMember.class, entryDirectoryPrefix, entryDirectory,
+									entryFilenamePrefix, filenameEffectiveDate, exportType, zipOutputStream, memberQuery,
+									transientEffectiveTime, referenceSetType.getFieldNameList(), codeSystemRF2Name);
+						}
+
+					}
+				}
 			}
 			logger.info("{} export complete in {} seconds.", exportType, TimerUtil.secondsSince(startTime));
 			return exportFile;
@@ -236,6 +287,8 @@ public class ExportService {
 		}
 	}
 
+	
+	
 	public String getFilename(ExportConfiguration exportConfiguration) {
 		return format("snomed-%s-%s-%s.zip",
 				exportConfiguration.getBranchPath().replace("/", "_"),
@@ -322,4 +375,6 @@ public class ExportService {
 	private BufferedWriter getBufferedWriter(OutputStream outputStream) {
 		return new BufferedWriter(new OutputStreamWriter(outputStream));
 	}
+	
+	
 }
