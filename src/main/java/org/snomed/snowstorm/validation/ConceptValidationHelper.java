@@ -11,7 +11,6 @@ import org.snomed.snowstorm.validation.domain.DroolsRelationship;
 import java.util.*;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 public final class ConceptValidationHelper {
 
@@ -20,9 +19,8 @@ public final class ConceptValidationHelper {
 
 	public static InvalidContentWithSeverityStatus validate(final Concept concept, final String branchPath, final DroolsValidationService validationService) throws ServiceException {
 		final List<InvalidContent> invalidContents = validationService.validateConcept(branchPath, generateTemporaryUUIDsIfNotSet(concept));
-		final List<InvalidContent> invalidContentErrors = invalidContents.stream().filter(invalidContent -> invalidContent.getSeverity() == Severity.ERROR).collect(Collectors.toList());
-		return invalidContentErrors.isEmpty() ? new InvalidContentWithSeverityStatus(invalidContents, Severity.WARNING) :
-				new InvalidContentWithSeverityStatus(invalidContents, Severity.ERROR);
+		return invalidContents.stream().anyMatch(invalidContent -> invalidContent.getSeverity() == Severity.ERROR) ?
+				new InvalidContentWithSeverityStatus(invalidContents, Severity.ERROR) : new InvalidContentWithSeverityStatus(invalidContents, Severity.WARNING);
 	}
 
 	public static Concept stripTemporaryUUIDsIfSet(final Concept concept) {
@@ -108,7 +106,8 @@ public final class ConceptValidationHelper {
 		for (final Iterator<InvalidContent> iterator = invalidContentWarnings.iterator(); iterator.hasNext();) {
 			final InvalidContent invalidContent = iterator.next();
 			if (!invalidContent.getConceptId().equals(conceptId)) {
-				newInvalidContentWarnings.add(new InvalidContent(conceptId, invalidContent.getComponent(), invalidContent.getMessage(), invalidContent.getSeverity()));
+				newInvalidContentWarnings.add(new InvalidContent(invalidContent.getRuleId(), conceptId, invalidContent.getComponent(),
+						invalidContent.getMessage(), invalidContent.getSeverity()));
 				iterator.remove();
 			}
 		}

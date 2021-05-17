@@ -18,7 +18,8 @@ rule "Active FSNs cannot start with open parentheses"
 		c : Concept(active)
 		d : Description(conceptId == c.id && active == true && typeId == Constants.FSN && term matches "\\(.*")
 	then
-		invalidContent.add(new InvalidContent(d, "An FSN should not start with open parentheses.", Severity.WARNING));
+		invalidContent.add(new InvalidContent("ae7cb80a-aa7d-4656-b34b-f80066e5dcf9",
+				d, "An FSN should not start with open parentheses.", Severity.WARNING));
 end
 
 rule "FSN ends in closing parentheses"
@@ -27,7 +28,8 @@ rule "FSN ends in closing parentheses"
 		c : Concept(active)
 		d : Description(conceptId == c.id && active == true && typeId == Constants.FSN && term matches ".*[^\\)]")
 	then
-		invalidContent.add(new InvalidContent(d, "An FSN must end in closing parentheses."));
+		invalidContent.add(new InvalidContent("61913efa-739f-4707-8937-bd5cb728c4d2",
+				d, "An FSN must end in closing parentheses."));
 end
 
 rule "Active FSN must end with a semantic tag"
@@ -36,7 +38,8 @@ rule "Active FSN must end with a semantic tag"
 		c : Concept(active)
 		d : Description(conceptId == c.id && active == true && typeId == Constants.FSN && (term not matches ".*\\(.+\\)"))
 	then
-		invalidContent.add(new InvalidContent(d, "Active FSN must end with a semantic tag."));
+		invalidContent.add(new InvalidContent("fc2b864c-5939-45e4-8369-d5bb8beb27d6",
+				d, "Active FSN must end with a semantic tag."));
 end
 
 rule "Active FSN should end with a valid semantic tag"
@@ -45,7 +48,8 @@ rule "Active FSN should end with a valid semantic tag"
 		c : Concept(active)
 		d : Description(conceptId == c.id && active == true && typeId == Constants.FSN && !descriptionService.isRecognisedSemanticTag(DescriptionHelper.getTag(d.term)))
 	then
-		invalidContent.add(new InvalidContent(d, "Active FSN should end with a valid semantic tag.", Severity.WARNING));
+		invalidContent.add(new InvalidContent("011559f8-a333-4317-8764-cf0ab41e42c0",
+				d, "Active FSN should end with a valid semantic tag.", Severity.WARNING));
 end
 
 rule "FSN Comma"
@@ -55,7 +59,8 @@ rule "FSN Comma"
 		topLevelHierarchies : ArrayList() from collect( String() from conceptService.findTopLevelHierarchiesOfConcept(c))
 		d : Description(active == true && typeId == Constants.FSN && term matches ".*,.*" && topLevelHierarchies not contains "105590001" && topLevelHierarchies not contains "373873005")
 	then
-		invalidContent.add(new InvalidContent(d, "An FSN should not include commas.", Severity.WARNING));
+		invalidContent.add(new InvalidContent("010bed01-0ad2-4918-8d0d-c9b8d68b6257",
+				d, "An FSN should not include commas.", Severity.WARNING));
 end
 
 rule "FSN special characters"
@@ -64,7 +69,8 @@ rule "FSN special characters"
 		c : Concept(active)
 		d : Description(conceptId == c.id && active == true && typeId == Constants.FSN && term matches ".*[&%$@#].*")
 	then
-		invalidContent.add(new InvalidContent(d, "An active FSN should not contain the special characters &, %, $, @ or #.", Severity.WARNING));
+		invalidContent.add(new InvalidContent("923a540f-5fd0-4248-bbfc-9da5886db041",
+				d, "An active FSN should not contain the special characters &, %, $, @ or #.", Severity.WARNING));
 end
 
 rule "FSN capitalized"
@@ -73,5 +79,6 @@ rule "FSN capitalized"
 		c : Concept(active)
 		d : Description(conceptId == c.id && active == true && typeId == Constants.FSN && term matches "[a-z].*")
 	then
-		invalidContent.add(new InvalidContent(d, "The first letter of an active FSN should be capitalized.", Severity.WARNING));
+		invalidContent.add(new InvalidContent("01b3ad3e-6bbb-4cde-a768-bedfa1b56abd",
+				d, "The first letter of an active FSN should be capitalized.", Severity.WARNING));
 end

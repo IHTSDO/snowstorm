@@ -12,9 +12,10 @@ rule "Active concept must have a parent"
 	when
 		c : Concept(active)
 		activeStatedIsA: ArrayList( size == 0 )
-           from collect( Relationship(active, !axiomGCI, sourceId == c.id, typeId == Constants.IS_A, characteristicTypeId == Constants.STATED_RELATIONSHIP) )
+				from collect( Relationship(active, !axiomGCI, sourceId == c.id, typeId == Constants.IS_A, characteristicTypeId == Constants.STATED_RELATIONSHIP) )
 	then
-		InvalidContent invalid = new InvalidContent(c, "Active concepts must have at least one IS A relationship.");
-        invalid.ignorePublishedCheck();
-        invalidContent.add(invalid);
+		InvalidContent invalid = new InvalidContent("04e53e87-8800-4519-893c-dd1e5e7cedf5",
+				c, "Active concepts must have at least one IS A relationship.");
+		invalid.ignorePublishedCheck();
+		invalidContent.add(invalid);
 end

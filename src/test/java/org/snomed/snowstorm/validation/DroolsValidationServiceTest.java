@@ -19,12 +19,12 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.*;
 
-import static org.junit.Assert.*;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
-public class DroolValidationServiceTest extends AbstractTest {
+class DroolsValidationServiceTest extends AbstractTest {
     private static final String DEFAULT_BRANCH = "MAIN";
 
     @Autowired
@@ -65,7 +65,7 @@ public class DroolValidationServiceTest extends AbstractTest {
         Concept foundConcept = conceptService.find("100001", DEFAULT_BRANCH);
         assertNotNull(foundConcept);
 
-        foundConcept.getDescriptions().stream().forEach(description -> description.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
+        foundConcept.getDescriptions().forEach(description -> description.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
                 Concepts.descriptionAcceptabilityNames.get(PREFERRED))));
 
         foundConcept.addRelationship(new Relationship("100002", ISA, SNOMEDCT_ROOT));
@@ -79,21 +79,24 @@ public class DroolValidationServiceTest extends AbstractTest {
         int index = 0;
         assertEquals(Severity.WARNING, invalidContents.get(index).getSeverity());
         assertEquals("Test resources were not available so assertions like case significance and US specific terms checks will not have run.", invalidContents.get(index).getMessage());
+        assertEquals("setup-issue", invalidContents.get(index).getRuleId());
 
         index++;
         assertEquals(Severity.WARNING, invalidContents.get(index).getSeverity());
         assertEquals("A concept's semantic tags should be compatible with those of the active parents.", invalidContents.get(index).getMessage());
+		assertEquals("7f622c65-6fcc-4db7-9903-e9ec2aea5be5", invalidContents.get(index).getRuleId());
 
         index++;
         assertEquals(Severity.WARNING, invalidContents.get(index).getSeverity());
         assertEquals("Active FSN should end with a valid semantic tag.", invalidContents.get(index).getMessage());
+		assertEquals("011559f8-a333-4317-8764-cf0ab41e42c0", invalidContents.get(index).getRuleId());
     }
 
     @Test
     void testValidateConceptWithoutRelationship() throws ServiceException {
         Concept foundConcept = conceptService.find("100001", DEFAULT_BRANCH);
         assertNotNull(foundConcept);
-        foundConcept.getDescriptions().stream().forEach(description -> description.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
+        foundConcept.getDescriptions().forEach(description -> description.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
                 Concepts.descriptionAcceptabilityNames.get(PREFERRED))));
 
         final Concept updatedConcept = conceptService.update(foundConcept, DEFAULT_BRANCH);
@@ -124,7 +127,7 @@ public class DroolValidationServiceTest extends AbstractTest {
         Concept foundConcept = conceptService.find("100001", DEFAULT_BRANCH);
         assertNotNull(foundConcept);
 
-        foundConcept.getDescriptions().stream().forEach(description -> description.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
+        foundConcept.getDescriptions().forEach(description -> description.setAcceptabilityMap(Collections.singletonMap(Concepts.US_EN_LANG_REFSET,
                 Concepts.descriptionAcceptabilityNames.get(PREFERRED))));
 
         foundConcept.addRelationship(new Relationship("100002", ISA, SNOMEDCT_ROOT));
