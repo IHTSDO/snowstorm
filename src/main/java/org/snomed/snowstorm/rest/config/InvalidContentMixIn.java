@@ -11,6 +11,9 @@ public interface InvalidContentMixIn {
 	void ignorePublishedCheck();
 
 	@JsonView(value = View.Component.class)
+	String getRuleId();
+
+	@JsonView(value = View.Component.class)
 	String getConceptId();
 
 	@JsonView(value = View.Component.class)
