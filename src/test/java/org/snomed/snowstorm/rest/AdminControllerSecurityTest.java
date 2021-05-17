@@ -208,13 +208,13 @@ class AdminControllerSecurityTest extends AbstractControllerSecurityTest {
 
 	@Test
 	void restoreReleasedStatus() throws URISyntaxException {
-		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN" + "/actions/restore-released-status?conceptId=123"));
+		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN" + "/actions/restore-released-status?conceptIds=123"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, extensionAdminHeaders, requestMAIN);
 		testStatusCode(HttpStatus.BAD_REQUEST, globalAdminHeaders, requestMAIN);
 
-		RequestEntity<Object> requestA = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN/SNOMEDCT-A" + "/actions/restore-released-status?conceptId=123"));
+		RequestEntity<Object> requestA = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN/SNOMEDCT-A" + "/actions/restore-released-status?conceptIds=123"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestA);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestA);
 		testStatusCode(HttpStatus.BAD_REQUEST, extensionAdminHeaders, requestA);
