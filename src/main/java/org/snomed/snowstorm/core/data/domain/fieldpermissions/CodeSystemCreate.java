@@ -8,6 +8,7 @@ public interface CodeSystemCreate {
 
 	String getShortName();
 	String getName();
+	String getOwner();
 	String getCountryCode();
 	String getMaintainerType();
 	String getDefaultLanguageCode();

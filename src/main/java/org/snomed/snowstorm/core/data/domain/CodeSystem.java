@@ -20,7 +20,7 @@ import java.util.Set;
  * Represents an edition or extension of SNOMED-CT
  */
 @Document(indexName = "codesystem")
-@JsonPropertyOrder({"name", "shortName", "branchPath", "dependantVersionEffectiveTime", "dailyBuildAvailable",
+@JsonPropertyOrder({"name", "owner", "shortName", "branchPath", "dependantVersionEffectiveTime", "dailyBuildAvailable",
 		"countryCode", "defaultLanguageCode", "defaultLanguageReferenceSets", "maintainerType", "latestVersion", "languages", "modules"})
 public class CodeSystem implements CodeSystemCreate {
 
@@ -36,6 +36,9 @@ public class CodeSystem implements CodeSystemCreate {
 
 	@Field(type = FieldType.Keyword)
 	private String name;
+
+	@Field(type = FieldType.Keyword)
+	private String owner;
 
 	@Field(type = FieldType.Keyword)
 	private String countryCode;
@@ -109,6 +112,15 @@ public class CodeSystem implements CodeSystemCreate {
 
 	public void setName(String name) {
 		this.name = name;
+	}
+
+	public String getOwner() {
+		return owner;
+	}
+
+	public CodeSystem setOwner(String owner) {
+		this.owner = owner;
+		return this;
 	}
 
 	public String getCountryCode() {

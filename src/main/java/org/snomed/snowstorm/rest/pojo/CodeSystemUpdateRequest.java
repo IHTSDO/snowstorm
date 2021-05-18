@@ -5,6 +5,7 @@ import io.swagger.annotations.ApiModelProperty;
 public class CodeSystemUpdateRequest {
 
 	public String name;
+	public String owner;
 	public String countryCode;
 	public String maintainerType;
 	public String defaultLanguageCode;
@@ -22,6 +23,10 @@ public class CodeSystemUpdateRequest {
 
 	public String getName() {
 		return name;
+	}
+
+	public String getOwner() {
+		return owner;
 	}
 
 	public String getCountryCode() {
