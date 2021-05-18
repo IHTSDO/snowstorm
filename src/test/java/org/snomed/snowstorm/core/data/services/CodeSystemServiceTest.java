@@ -15,7 +15,7 @@ class CodeSystemServiceTest extends AbstractTest {
 
 	@Test
 	void createCodeSystems() {
-		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN").setOwner("SNOMED International"));
 
 		assertEquals(1, codeSystemService.findAll().size());
 
