@@ -93,7 +93,7 @@ class DescriptionServiceTest extends AbstractTest {
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100002", "Lung", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100003", "Foot cramps", "en");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100004", "Région de l'Afrique", "fr");
-		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100005", "déficit de apolipoproteína", "es");
+		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100005", "dåficit de apolipoproteína", "fi");// This is not a real Finish term, it's hacked Spanish.
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100006", "thing", "zz");
 		testUtil.createConceptWithPathIdAndTermWithLang("MAIN", "100007", "Ernährungsberater", "de");
 
@@ -102,18 +102,18 @@ class DescriptionServiceTest extends AbstractTest {
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "région", newArrayList("fr"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "region", newArrayList("fr"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
-		// In the Spanish language 'é' IS configured as an extra character in the alphabet. It is kept as 'é' in the index.
-		// Searching for 'é' should match but 'e' should not because it's considered as a different letter altogether.
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "déficit", newArrayList("es"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "deficit", newArrayList("es"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		// Searching for both es and en language codes does not allow matching against the Spanish description with the é character
+		// In the Finish language 'å' IS configured as an extra character in the alphabet. It is kept as 'å' in the index.
+		// Searching for 'å' should match but 'a' should not because it's considered as a different letter altogether.
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "dåficit", newArrayList("fi"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "daficit", newArrayList("fi"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		// Searching for both fi and en language codes does not allow matching against the Finish description with the å character
 		// because when the search term is folded for the English language matches are restricted to descriptions with en language code.
-		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "deficit", newArrayList("es", "en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(0, descriptionService.findDescriptionsWithAggregations("MAIN", "daficit", newArrayList("fi", "en"), ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
 		// Search all languages
 		List<String> languageCodes = null;
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "région", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
-		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "déficit", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
+		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "dåficit", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 		assertEquals(1, descriptionService.findDescriptionsWithAggregations("MAIN", "thing", languageCodes, ServiceTestUtil.PAGE_REQUEST).getTotalElements());
 
 		assertNull("No configuration exists for the de language.", searchLanguagesConfiguration.getCharactersNotFolded().get("de"));
