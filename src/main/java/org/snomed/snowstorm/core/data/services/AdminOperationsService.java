@@ -12,7 +12,6 @@ import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.repositories.BranchRepository;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import org.elasticsearch.action.update.UpdateRequest;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.slf4j.Logger;
@@ -24,6 +23,7 @@ import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
+import org.springframework.data.elasticsearch.core.document.Document;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.core.query.Query;
@@ -46,7 +46,6 @@ import static com.google.common.collect.Iterables.partition;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
@@ -110,17 +109,11 @@ public class AdminOperationsService {
 					String newFoldedTerm = DescriptionHelper.foldTerm(description.getTerm(), foldedCharacters);
 					descriptionCount.incrementAndGet();
 					if (!newFoldedTerm.equals(description.getTermFolded())) {
-						UpdateRequest updateRequest = new UpdateRequest();
-						try {
-							updateRequest.doc(jsonBuilder()
-									.startObject()
-									.field(Description.Fields.TERM_FOLDED, newFoldedTerm)
-									.endObject());
-						} catch (IOException e) {
-							exceptionThrown.set(e);
-						}
-
-						updateQueries.add(UpdateQuery.builder(description.getInternalId()).build());
+						final Document document = Document.create();
+						document.put(Description.Fields.TERM_FOLDED, newFoldedTerm);
+						updateQueries.add(UpdateQuery.builder(description.getInternalId())
+								.withDocument(document)
+								.build());
 						descriptionUpdateCount.incrementAndGet();
 					}
 					if (updateQueries.size() == 10_000) {
