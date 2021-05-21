@@ -4,6 +4,26 @@
 
 A somewhat obvious point, but please make sure you have installed Docker. Between the three containers, Elasticsearch, Snowstorm and the SNOMED CT Browser, 8Gb memory is used, so make sure that your installation of docker has the necessary memory allocated.
 
+## Docker Virtual Memory Limits
+
+Due to default virtual memory limits set by operating systems which is now too low for Elasticsearch and the Elasticsearch container in this deployment will fail.
+
+In Ubuntu 20.04 onwards, You will need to run the following command before running `docker-compose up` :
+
+```bash
+sudo sysctl -w vm.max_map_count=262144
+```
+
+When using Windows and WSL2, the following command should be run in Powershell:
+
+```
+wsl -d docker-desktop sysctl -w vm.max_map_count=262144
+```
+
+. Equivalent commands can be found for other operating systems.
+
+More information can be found here - https://www.elastic.co/guide/en/elasticsearch/reference/current/vm-max-map-count.html
+
 ## Starting Snowstorm
 
 From the project directory run:
