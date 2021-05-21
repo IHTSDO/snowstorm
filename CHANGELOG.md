@@ -4,17 +4,38 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 
-## 7.0.0 Release (April 2021) - Major Release for Java 11
+## 7.0.1 Release (May 2021) - Major Release for Java 11
 Major release with Java 11 upgrade.
 
 ### Breaking
 - Java 11 is now required to run Snowstorm
 
+### Features
+- BROWSE-218 Concept URI routing to correct CodeSystem and branch, configurable URL for any webapp. See [Web Router Configuration](docs/webrouter-configuration.md).
+- Include the SNOMED CT Browser in Docker image.
+
 ### Improvements
-- TODO
+- PIP-62 Java 11 is used to take advantage of the latest language features and avoid Java 8 End of Life.
+- Dockerfile now compiles the application.
+- BROWSE-409 Make ECL utility POST methods accessible when in read-only mode.
+- FHIR
+  - #199 MAINT-1567 Allow dialect to be specified in displayLanguage and designation parameters.
+  - MAINT-1030 Add Concept active state to CodeSystem `$lookup` and ValueSet `$expand` operation responses.
+- Authoring
+  - MAINT-1618 When creating refset members via the API if no module is given the `defaultModuleId` from branch metadata will be used. Branch metadata is inherited across branches but not Code Systems.
+  - MAINT-1616 RF2 export entry paths now include export type `Delta`, `Snapshot` or `Full`. Filenames include 2 digit country code from CodeSystem entry rather than 'INT'. This new behaviour can be suppressed with `legacyZipNaming` flag.
+  - MAINT-386 Include changes to preferred terms in branch rebase conflict detection.
+  - MAINT-1572 Improve extension concept save by prefetching SCTIDs from CIS for namespaces other than International.
 
 ### Fixes
-- TODO
+- Fix #259 MAINT-1653 Failed RF2 import triggers commit rollback.
+- MAINT-1372 Validate requests to `/browser/{branch}/concepts/bulk-load` to prevent "No value specified for terms query" Elasticsearch error.
+- MAINT-1621 Fix creation of RBAC permission records when using `global` flag.
+- CDI-107 In ECL prevent concrete values matching conceptIds and vice versa.
+- Fix AWS signing with empty request entity.
+- Authoring
+  - MAINT-1624 Apply attribute sorting to classification save concept preview.
+  - MAINT-1628 Squash duplicate language refset members caused by branch merge.
 
 
 ## 6.2.1 Fix Release (March 2021) - Latest semantic index bug fixes
