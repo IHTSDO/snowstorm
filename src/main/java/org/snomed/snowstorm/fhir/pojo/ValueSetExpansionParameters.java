@@ -2,6 +2,13 @@ package org.snomed.snowstorm.fhir.pojo;
 
 import org.hl7.fhir.r4.model.BooleanType;
 import org.hl7.fhir.r4.model.Parameters.ParametersParameterComponent;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.fhir.domain.BranchPath;
+import org.snomed.snowstorm.fhir.services.FHIRHelper;
+import org.snomed.snowstorm.fhir.services.FHIRValueSetProvider;
+import org.snomed.snowstorm.rest.ControllerHelper;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.ValueSet;
 
@@ -68,6 +75,13 @@ public final class ValueSetExpansionParameters {
 
 	public final String getCountStr() {
 		return countStr;
+	}
+	
+	public final PageRequest getPageRequest() {
+		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
+		int pageSize = (countStr == null || countStr.isEmpty()) ? FHIRValueSetProvider.DEFAULT_PAGESIZE : Integer.parseInt(countStr);
+		return ControllerHelper.getPageRequest(offset, pageSize, FHIRHelper.DEFAULT_SORT);
+
 	}
 
 	public final StringType getSystemVersion() {

@@ -16,6 +16,7 @@ import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -28,6 +29,7 @@ import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
@@ -59,7 +61,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	@Autowired
 	private MultiSearchService multiSearchService;
 	
-	List<LanguageDialect> defaultLanguages;
+	private List<LanguageDialect> defaultLanguages;
 	
 	FHIRCodeSystemProvider() {
 		defaultLanguages = new ArrayList<>();
@@ -383,8 +385,8 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 
 	private boolean matchesConcept(String ecl, BranchPath branchPath) {
 		//We don't care about language, use defaults
-		Page<ConceptMini> result = fhirHelper.eclSearch(queryService, ecl, (Boolean)null, 
-				(String)null, defaultLanguages, branchPath, 0, 1);
+		Page<ConceptMini> result = fhirHelper.eclSearch(ecl, (Boolean)null, 
+				(String)null, defaultLanguages, branchPath, FHIRHelper.SINGLE_ITEM_PAGE);
 		return (result != null && result.hasContent() && result.getContent().size() == 1);
 	}
 

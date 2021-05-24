@@ -72,7 +72,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	@Autowired
 	private FHIRHelper fhirHelper;
 	
-	private static int DEFAULT_PAGESIZE = 1000;
+	public static int DEFAULT_PAGESIZE = 1000;
 	
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	
@@ -330,7 +330,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			BranchPath branchPath = fhirHelper.getBranchPathFromURI(codeSystem);
 			//Construct ECL to find the intersection of these two sets
 			String intersectionEcl = conceptId + " AND (" + ecl + ")";
-			Page<ConceptMini> result = fhirHelper.eclSearch(queryService, intersectionEcl, null, null, languageDialects, branchPath, 0, 1);
+			Page<ConceptMini> result = fhirHelper.eclSearch(intersectionEcl, null, null, languageDialects, branchPath, FHIRHelper.SINGLE_ITEM_PAGE);
 			if (result.getContent().size() == 1) {
 				ConceptMini concept = result.getContent().get(0);
 				if (!concept.getConceptId().equals(conceptId)) {
@@ -341,7 +341,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			} else {
 				//Now it might be that in this case we do not have this ValueSet loaded at all - or it's been 
 				//defined or the substrate has changed such that it has no members.   MAINT-1261 refers
-				result = fhirHelper.eclSearch(queryService, ecl, null, null, languageDialects, branchPath, 0, 1);
+				result = fhirHelper.eclSearch(ecl, null, null, languageDialects, branchPath, FHIRHelper.SINGLE_ITEM_PAGE);
 				if (result.getContent().size() == 0) {
 					throw new FHIROperationException (IssueType.PROCESSING, "Concept not found and additionally the Valueset contains no members when expanded against the specified substrate. Check any relevant reference set is actually loaded.  ECL = " + ecl + ", branch path = " + branchPath);
 				}
@@ -401,6 +401,8 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 
 		ValueSet vs = valueSetExpansionParameters.getValueSet();
 		String url = valueSetExpansionParameters.getUrl();
+		PageRequest pageRequest = valueSetExpansionParameters.getPageRequest();
+		
 		if (id != null && vs == null) {
 			logger.info("Expanding '{}'",id.getIdPart());
 			vs = getValueSet(id);
@@ -414,10 +416,6 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			url = vs.getUrl();
 		}
 
-		final String offsetStr = valueSetExpansionParameters.getOffsetStr();
-		int offset = (offsetStr == null || offsetStr.isEmpty()) ? 0 : Integer.parseInt(offsetStr);
-		final String countStr = valueSetExpansionParameters.getCountStr();
-		int pageSize = (countStr == null || countStr.isEmpty()) ? DEFAULT_PAGESIZE : Integer.parseInt(countStr);
 		final BooleanType activeType = valueSetExpansionParameters.getActiveType();
 		Boolean active = activeType == null ? null : activeType.booleanValue();
 		BranchPath branchPath = new BranchPath();
@@ -449,7 +447,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		int cutPoint = url == null ? -1 : url.indexOf("?");
 		final String filter = valueSetExpansionParameters.getFilter();
 		if (cutPoint == NOT_SET) {
-			conceptMiniPage = doExplicitExpansion(vs, active, filter, branchPath, designations, offset, pageSize, branchPathForced);
+			conceptMiniPage = doExplicitExpansion(vs, active, filter, branchPath, designations, pageRequest, branchPathForced);
 		} else {
 			if (!branchPathForced) {
 				StringType codeSystemVersionUri = new StringType(url.substring(0, cutPoint));
@@ -459,16 +457,18 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 					branchPath.set(fhirHelper.getBranchPathFromURI(codeSystemVersionUri));
 				}
 			}
-			conceptMiniPage = doImplcitExpansion(cutPoint, url, active, filter, branchPath, designations, offset, pageSize, branchPathForced);
+			conceptMiniPage = doImplcitExpansion(cutPoint, url, active, filter, branchPath, designations, pageRequest, branchPathForced);
 		}
 		
 		//We will always need the PT, so recover further details
 		Map<String, Concept> conceptDetails = getConceptDetailsMap(branchPath, conceptMiniPage, designations);
 		ValueSet valueSet = mapper.mapToFHIR(vs, conceptMiniPage.getContent(), url, conceptDetails, designations, includeDesignations); 
 		valueSet.getExpansion().setTotal((int)conceptMiniPage.getTotalElements());
-		valueSet.getExpansion().setOffset(offset);
+		valueSet.getExpansion().setOffset((int)pageRequest.getOffset());
 		return valueSet;
 	}
+	
+	
 
 	/**
 	 * An implicit ValueSet is one that hasn't been saved on the server, but is being 
@@ -476,13 +476,13 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	 * @param branchPathForced 
 	 */
 	private Page<ConceptMini> doImplcitExpansion(int cutPoint, String url, Boolean active, String filter,
-			BranchPath branchPath, List<LanguageDialect> designations, int offset, int pageSize, boolean branchPathForced) throws FHIROperationException {
+			BranchPath branchPath, List<LanguageDialect> designations, PageRequest pageRequest, boolean branchPathForced) throws FHIROperationException {
 		//Are we looking for all known refsets?  Special case.
 		if (url.endsWith("?fhir_vs=refset")) {
-			return findAllRefsets(branchPath, PageRequest.of(offset, pageSize));
+			return findAllRefsets(branchPath, pageRequest);
 		} else {
 			String ecl = determineEcl(url, true);
-			Page<ConceptMini> conceptMiniPage = fhirHelper.eclSearch(queryService, ecl, active, filter, designations, branchPath, offset, pageSize);
+			Page<ConceptMini> conceptMiniPage = fhirHelper.eclSearch(ecl, active, filter, designations, branchPath, pageRequest);
 			logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
 			return conceptMiniPage;
 		}
@@ -494,7 +494,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	 * @param branchPathForced 
 	 */
 	private Page<ConceptMini> doExplicitExpansion(ValueSet vs, Boolean active, String filter,
-			BranchPath branchPath, List<LanguageDialect> designations, int offset, int pageSize, boolean branchPathForced) throws FHIROperationException {
+			BranchPath branchPath, List<LanguageDialect> designations, PageRequest pageRequest, boolean branchPathForced) throws FHIROperationException {
 		Page<ConceptMini> conceptMiniPage = new PageImpl<>(new ArrayList<>());
 		if (vs != null && vs.getCompose() != null && !vs.getCompose().isEmpty()) {
 			if (!branchPathForced) {
@@ -539,7 +539,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			logger.info("Recovered {} Concepts from branch {}.", fromService.size(), branch);
 
 			String ecl = filterECL.toString();
-			Collection<ConceptMini> fromECL = fhirHelper.eclSearch(queryService, ecl, active, filter, designations, branchPath, offset, pageSize).getContent();
+			Collection<ConceptMini> fromECL = fhirHelper.eclSearch(ecl, active, filter, designations, branchPath, pageRequest).getContent();
 			logger.info("Recovered {} Concepts from branch {} with ECL {}.", fromECL.size(), branch, filterECL);
 
 			List<ConceptMini> conceptMinis = new ArrayList<>();

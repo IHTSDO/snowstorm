@@ -2,6 +2,8 @@ package org.snomed.snowstorm.fhir.services;
 
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
+import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.hl7.fhir.r4.model.CodeSystem;
@@ -15,17 +17,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.QueryService.ConceptQueryBuilder;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.fhir.config.FHIRConstants;
 import org.snomed.snowstorm.fhir.domain.BranchPath;
 import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
@@ -50,11 +59,25 @@ public class FHIRHelper implements FHIRConstants {
 
 	@Autowired
 	private FHIRValueSetProvider vsService;
+	
+	@Autowired
+	private VersionControlHelper versionControlHelper;
+	
+	@Autowired
+	private QueryService queryService;
+	
+	@Autowired
+	private ConceptService conceptService;
+	
+	public static final Sort DEFAULT_SORT = Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending();
+	
+	public static final PageRequest SINGLE_ITEM_PAGE = PageRequest.of(0, 1);
 
 	private static final Logger logger = LoggerFactory.getLogger(FHIRHelper.class);
 
 	public static final String UNVERSIONED_STR = "UNVERSIONED";
 	public static final int UNVERSIONED = -1;
+	public static final int MAX_RETURN_COUNT = 10000;
 
 	public static Integer getSnomedVersion(String versionStr) throws FHIROperationException {
 		if (versionStr.contains(UNVERSIONED_STR) || versionStr.startsWith(SNOMED_URI_UNVERSIONED)) {
@@ -284,11 +307,11 @@ public class FHIRHelper implements FHIRConstants {
 		return null;
 	}
 
-	public boolean expansionContainsCode(QueryService queryService, ValueSet vs, String code) throws FHIROperationException {
+	public boolean expansionContainsCode(ValueSet vs, String code) throws FHIROperationException {
 		String vsEcl = vsService.covertComposeToEcl(vs.getCompose());
 		String filteredEcl = code + " AND (" + vsEcl + ")";
 		BranchPath branchPath = getBranchPathFromURI(null);
-		Page<ConceptMini> concepts = eclSearch(queryService, filteredEcl, true, null, null, branchPath, 0, NOT_SET);
+		Page<ConceptMini> concepts = eclSearch(filteredEcl, true, null, null, branchPath, SINGLE_ITEM_PAGE);
 		return concepts.getSize() > 0;
 	}
 
@@ -411,8 +434,7 @@ public class FHIRHelper implements FHIRConstants {
 		return codeSystem;
 	}
 
-	public Page<ConceptMini> eclSearch(QueryService queryService, String ecl, Boolean active, String termFilter, List<LanguageDialect> languageDialects, BranchPath branchPath, int offset, int pageSize) {
-		Page<ConceptMini> conceptMiniPage;
+	public Page<ConceptMini> eclSearch(String ecl, Boolean active, String termFilter, List<LanguageDialect> languageDialects, BranchPath branchPath, PageRequest pageRequest) {
 		QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false);  //Inferred view only for now
 		queryBuilder.ecl(ecl)
 				.descriptionCriteria(descriptionCriteria -> descriptionCriteria
@@ -420,8 +442,37 @@ public class FHIRHelper implements FHIRConstants {
 						.searchLanguageCodes(LanguageDialect.toLanguageCodes(languageDialects)))
 				.resultLanguageDialects(languageDialects)
 				.activeFilter(active);
-		conceptMiniPage = queryService.search(queryBuilder, BranchPathUriUtil.decodePath(branchPath.toString()), PageRequest.of(offset, pageSize));
-		return conceptMiniPage;
+		String branchPathStr = BranchPathUriUtil.decodePath(branchPath.toString());
+		
+		//Are we going to exceed the elasticsearch limits for pageSize/offset?
+		if (pageRequest.getPageNumber() * pageRequest.getPageSize() >= MAX_RETURN_COUNT) {
+			return scrollForward(queryBuilder, branchPathStr, pageRequest, languageDialects);
+		} else {
+			return queryService.search(queryBuilder, branchPathStr, pageRequest);
+		}
+	}
+
+	private Page<ConceptMini> scrollForward(ConceptQueryBuilder conceptQuery, String branchPath,
+			PageRequest pageRequest, List<LanguageDialect> languageDialects) {
+		//What's the last page we can safely recover to scroll forward from there?
+		int lastSafePage = (MAX_RETURN_COUNT / pageRequest.getPageSize()) -1;
+		long totalRequested = pageRequest.getPageSize() * pageRequest.getPageNumber();
+		PageRequest currPageReq = PageRequest.of(lastSafePage, pageRequest.getPageSize(), DEFAULT_SORT);
+		int currPageCount = lastSafePage;
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+		SearchAfterPage<Long> page = null;
+		while (currPageCount <= pageRequest.getPageNumber()) {
+			page = queryService.searchForIds(conceptQuery, branchPath, branchCriteria, currPageReq);
+			//Check we're not asking for a page number larger than we have available results - otherwise we'd loop unnecessarily
+			if (totalRequested > page.getTotalElements()) {
+				throw new IllegalArgumentException("Offset requested " + pageRequest.getOffset() + " exceeds total elements available " + page.getTotalElements());
+			}
+			currPageReq = SearchAfterPageRequest.of(page.getSearchAfter(), pageRequest.getPageSize(), DEFAULT_SORT);
+			currPageCount++;
+		}
+		//Now we've got the right page, recover ConceptMinis for these Ids
+		ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, page.getContent(), languageDialects);
+		return new PageImpl<>(new ArrayList<>(conceptMinis.getResultsMap().values()), pageRequest, page.getTotalElements());
 	}
 
 	public boolean hasUsageContext(MetadataResource r, TokenParam context) {

@@ -68,13 +68,13 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		assertEquals(13,v.getExpansion().getTotal());
 		
 		//When not specifying a module, we'll read from MAIN so only the original 10 dummy concepts there
-		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=1&count=5&_format=json";
+		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=5&count=5&_format=json";
 		v = getValueSet(url);
 		assertEquals(5,v.getExpansion().getContains().size());
 		assertEquals(10,v.getExpansion().getTotal());
 		
 		//With a total of 13 concepts and 5 per page, we expect our 3rd page (offset 2) to contain the last 3 concepts
-		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=2&count=5&_format=json";
+		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/<" + Concepts.SNOMEDCT_ROOT + "&offset=10&count=5&_format=json";
 		v = getValueSet(url);
 		assertEquals(3,v.getExpansion().getContains().size());
 		assertEquals(13,v.getExpansion().getTotal());

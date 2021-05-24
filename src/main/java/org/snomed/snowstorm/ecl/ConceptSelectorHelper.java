@@ -3,6 +3,8 @@ package org.snomed.snowstorm.ecl;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongComparators;
+
+import org.apache.commons.lang3.NotImplementedException;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.sort.FieldSortBuilder;
@@ -15,6 +17,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
@@ -51,6 +54,11 @@ public class ConceptSelectorHelper {
 			// Fetch a page of IDs
 			if (Sort.unsorted().equals(pageRequest.getSort())
 					|| pageRequest.getSort().getOrderFor(QueryConcept.Fields.CONCEPT_ID) == null) {
+				//Check the page request isn't a SearchAfter because we explicitly use page number here
+				if (pageRequest instanceof SearchAfterPageRequest) {
+					throw new NotImplementedException("searchAfter in ConceptSelector must be accompanied with a sort order");
+				}
+				
 				searchQueryBuilder.withSort(getDefaultSortForQueryConcept());
 				searchQueryBuilder.withPageable(PageRequest.of(pageRequest.getPageNumber(), pageRequest.getPageSize()));
 			} else {
