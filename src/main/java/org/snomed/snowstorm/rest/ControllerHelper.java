@@ -186,7 +186,7 @@ public class ControllerHelper {
 		}
 
 		if ((offset + limit) > 10_000) {
-			throw new IllegalArgumentException("Maximum offset + page size is 10,000.");
+			throw new IllegalArgumentException("Maximum unsorted offset + page size is 10,000.");
 		}
 	}
 }
