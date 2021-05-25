@@ -79,9 +79,9 @@ public class TraceabilityLogService implements CommitListener {
 
 		PersistedComponents persistedComponents = null;
 		String commitPrefix = null;
-		final Map<String, String> metadata = commit.getBranch().getMetadata();
-		if (metadata != null && metadata.containsKey(ImportService.IMPORT_TYPE_KEY)) {
-			commitPrefix = metadata.get(ImportService.IMPORT_TYPE_KEY);
+		final Map<String, String> internalMetadataMap = commit.getBranch().getMetadata().getMapOrCreate(BranchMetadataHelper.INTERNAL_METADATA_KEY);
+		if (internalMetadataMap.containsKey(ImportService.IMPORT_TYPE_KEY)) {
+			commitPrefix = internalMetadataMap.get(ImportService.IMPORT_TYPE_KEY);
 			if (commit.getCommitType() == CONTENT && RF2Type.DELTA.getName().equals(commitPrefix)) {
 				// RF2 Delta import
 				persistedComponents = buildPersistedComponents(commit);
@@ -194,7 +194,7 @@ public class TraceabilityLogService implements CommitListener {
 				if (IdentifierService.isConceptId(referencedComponentId)) {
 					conceptActivity = getConceptActivityForComponent(useChangeFlag, activity, activityMap, referencedComponentLong);
 					Map<String, String> additionalFields = refsetMember.getAdditionalFields();
-					if (additionalFields != null && additionalFields.size() == 1 && additionalFields.keySet().contains(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION)) {
+					if (additionalFields != null && additionalFields.size() == 1 && additionalFields.containsKey(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION)) {
 						componentType = "OWLAxiom";
 						componentId = refsetMember.getMemberId();
 					} else {

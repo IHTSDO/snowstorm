@@ -107,7 +107,7 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		snomedctNZ = new CodeSystem("SNOMEDCT-NZ", "MAIN/SNOMEDCT-NZ");
 		snomedctNZ.setDependantVersionEffectiveTime(20200131);
 		codeSystemService.createCodeSystem(snomedctNZ);
-		Map<String, String> metaData = new HashMap<>();
+		Map<String, Object> metaData = new HashMap<>();
 		metaData.put(BranchMetadataKeys.DEPENDENCY_PACKAGE, "International_Release.zip");
 		metaData.put(BranchMetadataKeys.PREVIOUS_PACKAGE, "NZExtension_Release.zip");
 		metaData.put("defaultModuleId", "21000210109");

@@ -8,6 +8,7 @@ import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
@@ -105,10 +106,10 @@ public class ConceptUpdateHelper extends ComponentService {
 		validateConcepts(newVersionConcepts);
 
 		// Grab branch metadata including values inherited from ancestor branches
-		Map<String, String> metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
-		String defaultModuleId = metadata != null ? metadata.get(Config.DEFAULT_MODULE_ID_KEY) : null;
-		String defaultNamespace = metadata != null ? metadata.get(Config.DEFAULT_NAMESPACE_KEY) : null;
-		boolean enableContentAutomations = metadata == null || !"true".equals(metadata.get(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY));
+		Metadata metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
+		String defaultModuleId = metadata.getString(Config.DEFAULT_MODULE_ID_KEY);
+		String defaultNamespace = metadata.getString(Config.DEFAULT_NAMESPACE_KEY);
+		boolean enableContentAutomations = !Boolean.parseBoolean(metadata.getString(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY));
 		TimerUtil timerUtil = new TimerUtil("identifierService.reserveIdentifierBlock", Level.INFO, 1);
 		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(newVersionConcepts, defaultNamespace);
 		timerUtil.finish();

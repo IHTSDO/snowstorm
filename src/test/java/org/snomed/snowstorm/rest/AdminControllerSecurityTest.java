@@ -88,6 +88,9 @@ class AdminControllerSecurityTest extends AbstractControllerSecurityTest {
 
 	@Test
 	void rollbackCommit() throws URISyntaxException {
+		System.out.println("---");
+		System.out.println("rollbackCommit");
+		System.out.println("---");
 		RequestEntity<Object> requestMAIN = new RequestEntity<>(HttpMethod.POST, new URI(url + "/admin/" + "MAIN" + "/actions/rollback-commit?commitHeadTime=123"));
 		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, requestMAIN);
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestMAIN);
@@ -100,6 +103,9 @@ class AdminControllerSecurityTest extends AbstractControllerSecurityTest {
 		testStatusCode(HttpStatus.FORBIDDEN, authorHeaders, requestA);
 		testStatusCode(HttpStatus.BAD_REQUEST, extensionAdminHeaders, requestA);
 		testStatusCode(HttpStatus.BAD_REQUEST, globalAdminHeaders, requestA);
+		System.out.println("---");
+		System.out.println("rollbackCommit end");
+		System.out.println("---");
 	}
 
 	@Test

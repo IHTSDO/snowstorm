@@ -122,9 +122,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		traceabilityLogService.setEnabled(true);
 		final Commit commit = new Commit(new Branch("MAIN/Delta"), Commit.CommitType.CONTENT, null, null);
 		commit.setSourceBranchPath("MAIN");
-		final Branch branch = commit.getBranch();
-		branch.setMetadata(ImmutableMap.of("importType", "Delta"));
-		final PersistedComponents persistedComponents = new PersistedComponents();
+		commit.getBranch().getMetadata().putString("importType", "Delta");
 		traceabilityLogService.preCommitCompletion(commit);
 		final List<ILoggingEvent> logsList = listAppender.list;
 		assertEquals("Skipping traceability because there was no traceable change.", logsList.get(0).getMessage());

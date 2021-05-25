@@ -32,6 +32,7 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 
 import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
@@ -152,8 +153,8 @@ public class CommitExplorer {
 
 	private <T extends SnomedComponent> String getIdField(Class<T> componentClass) {
 		try {
-			return componentClass.newInstance().getIdField();
-		} catch (InstantiationException | IllegalAccessException e) {
+			return componentClass.getDeclaredConstructor().newInstance().getIdField();
+		} catch (ReflectiveOperationException e) {
 			throw new RuntimeException(format("Not able to create instance of %s", componentClass.getSimpleName()), e);
 		}
 	}

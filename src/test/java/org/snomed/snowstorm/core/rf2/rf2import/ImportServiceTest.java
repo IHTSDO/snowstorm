@@ -251,7 +251,7 @@ class ImportServiceTest extends AbstractTest {
 
 		final Concept conceptBleeding = conceptService.find("131148009", branchPath);
 		Assert.assertTrue(conceptBleeding.isReleased());
-		Assert.assertEquals(new Integer(20050131), conceptBleeding.getEffectiveTimeI());
+		Assert.assertEquals(20050131, conceptBleeding.getEffectiveTimeI().intValue());
 		Assert.assertEquals("true|900000000000207008|900000000000073002", conceptBleeding.getReleaseHash());
 
 		final Set<Description> descriptions = conceptBleeding.getDescriptions();
@@ -315,7 +315,7 @@ class ImportServiceTest extends AbstractTest {
 		assertEquals(1, allVersions.size());
 		CodeSystemVersion codeSystemVersion = allVersions.get(0);
 		assertEquals("SNOMEDCT", codeSystemVersion.getShortName());
-		assertEquals(new Integer(20180731), codeSystemVersion.getEffectiveDate());
+		assertEquals(20180731, codeSystemVersion.getEffectiveDate().intValue());
 		assertEquals("2018-07-31", codeSystemVersion.getVersion());
 		assertEquals("MAIN", codeSystemVersion.getParentBranchPath());
 

@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
@@ -16,8 +17,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEPENDENCY_PACKAGE;
@@ -46,9 +45,6 @@ public class CodeSystemUpgradeService {
 
 	@Autowired
 	private UpgradeInactivationService upgradeInactivationService;
-
-	@Autowired
-	private BranchMetadataHelper branchMetadataHelper;
 
 	@Value("${snowstorm.rest-api.readonly}")
 	private boolean isReadOnly;
@@ -119,25 +115,22 @@ public class CodeSystemUpgradeService {
 	}
 
 	private void updateBranchMetaData(String branchPath, CodeSystemVersion newParentVersion, Branch extensionBranch, boolean isReportEmpty) {
-		Map<String, Object> metaDataExpanded = branchMetadataHelper.expandObjectValues(extensionBranch.getMetadata());
-		metaDataExpanded = (metaDataExpanded == null) ? new HashMap<>() : metaDataExpanded;
+		final Metadata metadata = extensionBranch.getMetadata();
 
 		if (newParentVersion.getReleasePackage() != null) {
-			metaDataExpanded.put(DEPENDENCY_PACKAGE, newParentVersion.getReleasePackage());
+			metadata.putString(DEPENDENCY_PACKAGE, newParentVersion.getReleasePackage());
 		} else {
 			logger.error("No release package is set for version {}", newParentVersion);
 		}
-		metaDataExpanded.put(DEPENDENCY_RELEASE, String.valueOf(newParentVersion.getEffectiveDate()));
+		metadata.putString(DEPENDENCY_RELEASE, String.valueOf(newParentVersion.getEffectiveDate()));
 		if (!isReportEmpty) {
 			logger.warn("Bad integrity found on {}", branchPath);
-			Map<String, String> integrityIssueMetaData = new HashMap<>();
-			integrityIssueMetaData.put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "true");
-			metaDataExpanded.put(INTERNAL_METADATA_KEY, integrityIssueMetaData);
+			metadata.getMapOrCreate(INTERNAL_METADATA_KEY).put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "true");
 		} else {
 			logger.info("No issues found in the integrity issue report.");
 		}
 
 		// update branch metadata
-		branchService.updateMetadata(branchPath, branchMetadataHelper.flattenObjectValues(metaDataExpanded));
+		branchService.updateMetadata(branchPath, metadata);
 	}
 }

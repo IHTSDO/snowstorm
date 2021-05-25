@@ -28,11 +28,14 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
+import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
 @Service
 public class MRCMUpdateService extends ComponentService implements CommitListener {
+
 	@Autowired
 	private MRCMLoader mrcmLoader;
 
@@ -60,15 +63,13 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	@Autowired
 	private ECLQueryService eclQueryService;
 
-	private Logger logger = LoggerFactory.getLogger(MRCMUpdateService.class);
+	private final Logger logger = LoggerFactory.getLogger(MRCMUpdateService.class);
 
 	public static final String DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY = "disableMrcmAutoUpdate";
 
 	@Override
 	public void preCommitCompletion(Commit commit) {
-		 boolean isMRCMAutoUpdatedDisabled = commit.getBranch().getMetadata() != null
-				&& "true".equals(commit.getBranch().getMetadata().get(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY));
-		if (isMRCMAutoUpdatedDisabled) {
+		if (Boolean.parseBoolean(commit.getBranch().getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY))) {
 			logger.info("MRCM auto update is disabled on branch {}", commit.getBranch().getPath());
 			return;
 		}
@@ -136,7 +137,6 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		Map<String, List<AttributeDomain>> attributeToDomainsMap = new HashMap<>();
 		Map<String, List<AttributeDomain>> domainToAttributesMap = new HashMap<>();
 		Set<Long> domainIds = new HashSet<>();
-		Set<Long> conceptIds = new HashSet<>();
 		// map domains by domain id
 		Map<String, Domain> domainMapByDomainId = new HashMap<>();
 		for (Domain domain : mrcm.getDomains()) {
@@ -144,14 +144,14 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		}
 
 		for (AttributeDomain attributeDomain : mrcm.getAttributeDomains()) {
-			domainIds.add(new Long(attributeDomain.getDomainId()));
+			domainIds.add(parseLong(attributeDomain.getDomainId()));
 			attributeToDomainsMap.computeIfAbsent(attributeDomain.getReferencedComponentId(), v -> new ArrayList<>()).add(attributeDomain);
 			domainToAttributesMap.computeIfAbsent(attributeDomain.getDomainId(), v ->  new ArrayList<>()).add(attributeDomain);
 		}
-		conceptIds.addAll(domainIds);
+		Set<Long> conceptIds = new HashSet<>(domainIds);
 		Map<String, List<AttributeRange>> attributeToRangesMap = new HashMap<>();
 		for (AttributeRange range : mrcm.getAttributeRanges()) {
-			conceptIds.add(new Long(range.getReferencedComponentId()));
+			conceptIds.add(parseLong(range.getReferencedComponentId()));
 			attributeToRangesMap.computeIfAbsent(range.getReferencedComponentId(), ranges -> new ArrayList<>()).add(range);
 		}
 		// fetch FSN for concepts
@@ -173,7 +173,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 		// domain templates
 		toUpdate.addAll(updateDomainTemplates(commit, domainMapByDomainId, domainToAttributesMap, attributeToRangesMap, conceptToTermMap, dataAttributes));
 		// update effective time
-		toUpdate.stream().forEach(ReferenceSetMember :: updateEffectiveTime);
+		toUpdate.forEach(ReferenceSetMember::updateEffectiveTime);
 
 		// Find MRCM members where new versions have already been created in the current commit.
 		// Update these documents to avoid having two versions of the same concepts in the commit.
@@ -200,7 +200,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 														  Map<String, String> conceptToTermMap, List<Long> dataAttributes) {
 
 		List<AttributeRange> attributeRanges = generator.generateAttributeRules(domainMapByDomainId, attributeToDomainsMap, attributeToRangesMap, conceptToTermMap, dataAttributes);
-		if (attributeRanges.size() > 0) {
+		if (!attributeRanges.isEmpty()) {
 			logger.info("{} changes generated for attribute rules.", attributeRanges.size());
 		}
 
@@ -256,7 +256,7 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 			if (!scriptBuilder.toString().isEmpty()) {
 				scriptBuilder.append(";");
 			}
-			scriptBuilder.append("ctx._source.additionalFields." + fieldName + "='" + value + "'");
+			scriptBuilder.append("ctx._source.additionalFields.").append(fieldName).append("='").append(value).append("'");
 		}
 		return scriptBuilder.toString();
 	}

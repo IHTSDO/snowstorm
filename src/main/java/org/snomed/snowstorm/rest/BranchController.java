@@ -26,10 +26,7 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
-import java.util.Collection;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
@@ -43,9 +40,6 @@ public class BranchController {
 
 	@Autowired
 	private SBranchService sBranchService;
-
-	@Autowired
-	private BranchMetadataHelper branchMetadataHelper;
 
 	@Autowired
 	private BranchReviewService reviewService;
@@ -80,13 +74,12 @@ public class BranchController {
 	@RequestMapping(value = "/branches", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('AUTHOR', #request.branch)")
 	public BranchPojo createBranch(@RequestBody CreateBranchRequest request) {
-		Map<String, String> flatMetadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
-		return getBranchPojo(branchService.create(request.getBranch(), flatMetadata));
+		return getBranchPojo(branchService.create(request.getBranch(), request.getMetadata()));
 	}
 
 	private BranchPojo getBranchPojo(Branch branch) {
 		final UserBranchRoles userRolesForBranch = permissionService.getUserRolesForBranch(branch.getPath());
-		return new BranchPojo(branch, branchMetadataHelper.expandObjectValues(branch.getMetadata()), userRolesForBranch);
+		return new BranchPojo(branch, branch.getMetadata().getAsMap(), userRolesForBranch);
 	}
 
 	@ApiOperation("Update branch metadata")
@@ -97,15 +90,10 @@ public class BranchController {
 		if (branchService.findBranchOrThrow(branch).isLocked()) {
 			throw new IllegalStateException("Branch metadata can not be updated when branch is locked.");
 		}
-		Branch branchObject = branchService.findBranchOrThrow(branch);
-		Map<String, String> metadata = branchMetadataHelper.flattenObjectValues(request.getMetadata());
+		final Map<String, Object> update = request.getMetadata() != null ? request.getMetadata() : new HashMap<>();
 		// Prevent updating internal values via REST api
-		metadata.remove(INTERNAL_METADATA_KEY);
-		Map<String, String> existing = branchObject.getMetadata();
-		if (existing != null && existing.containsKey(INTERNAL_METADATA_KEY)) {
-			metadata.put(INTERNAL_METADATA_KEY, existing.get(INTERNAL_METADATA_KEY));
-		}
-		return getBranchPojo(branchService.updateMetadata(branch, metadata));
+		update.remove(INTERNAL_METADATA_KEY);
+		return getBranchPojo(branchService.updateMetadata(branch, update));
 	}
 
 	@ApiOperation("Retrieve a single branch")

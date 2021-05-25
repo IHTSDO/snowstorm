@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.rf2.rf2import;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.ihtsdo.otf.snomedboot.ReleaseImporter;
 import org.ihtsdo.otf.snomedboot.factory.LoadingProfile;
@@ -11,7 +12,6 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
-import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
 import static org.snomed.snowstorm.mrcm.MRCMUpdateService.DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY;
 
@@ -52,10 +53,7 @@ public class ImportService {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
-	@Autowired
-	private TraceabilityLogService traceabilityLogService;
-
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public ImportService() {
 		importJobMap = new HashMap<>();
@@ -96,8 +94,7 @@ public class ImportService {
 		RF2Type importType = job.getType();
 		String branchPath = job.getBranchPath();
 		Integer patchReleaseVersion = job.getPatchReleaseVersion();
-		Map<String, String> metaData = branchService.findLatest(branchPath).getMetadata();
-		setImportMetadata(branchPath, importType, (metaData == null ? new HashMap<>() : metaData));
+		setImportMetadata(importType, branchPath);
 		try {
 			Date start = new Date();
 			logger.info("Starting RF2 {}{} import on branch {}. ID {}", importType, patchReleaseVersion != null ? " RELEASE PATCH on effectiveTime " + patchReleaseVersion : "", branchPath, importId);
@@ -163,28 +160,20 @@ public class ImportService {
 		}
 	}
 
-	/**
-	 * Updates the <code>metaData</code> with the {@link MRCMUpdateService#DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY} state
-	 * and specific {@link RF2Type} import type then updates the {@link Branch}.
-	 *
-	 * @param branchPath Path to the {@link Branch}.
-	 * @param importType Being performed.
-	 * @param metaData   Being updated.
-	 */
-	private void setImportMetadata(final String branchPath, final RF2Type importType, final Map<String, String> metaData) {
-		metaData.put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
-		metaData.put(IMPORT_TYPE_KEY, importType.getName());
-		branchService.updateMetadata(branchPath, metaData);
+	private void setImportMetadata(RF2Type importType, String branchPath) {
+		Metadata metadata = branchService.findLatest(branchPath).getMetadata();
+		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
+		internalMetadataMap.put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
+		internalMetadataMap.put(IMPORT_TYPE_KEY, importType.getName());
+		branchService.updateMetadata(branchPath, metadata);
 	}
 
 	private void clearImportMetadata(String branchPath) {
-		Map<String, String> metaData;
-		metaData = branchService.findLatest(branchPath).getMetadata();
-		if (metaData != null) {
-			metaData.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
-			metaData.remove(IMPORT_TYPE_KEY);
-			branchService.updateMetadata(branchPath, metaData);
-		}
+		Metadata metadata = branchService.findLatest(branchPath).getMetadata();
+		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
+		internalMetadataMap.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
+		internalMetadataMap.remove(IMPORT_TYPE_KEY);
+		branchService.updateMetadata(branchPath, metadata);
 	}
 
 	private Integer fullImport(final InputStream releaseFileStream, final String branchPath, final ReleaseImporter releaseImporter,

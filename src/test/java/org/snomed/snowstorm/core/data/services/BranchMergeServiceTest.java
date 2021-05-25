@@ -9,6 +9,7 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.assertj.core.util.Maps;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
@@ -103,9 +104,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	void setup() throws ServiceException {
 		conceptService.deleteAll();
 
-		Map<String, String> metadata = new HashMap<>();
-		metadata.put(BranchMetadataKeys.ASSERTION_GROUP_NAMES, "common-authoring");
-		branchService.updateMetadata("MAIN", metadata);
+		branchService.updateMetadata("MAIN", new Metadata().putString(BranchMetadataKeys.ASSERTION_GROUP_NAMES, "common-authoring"));
 		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), "MAIN");
 		branchService.create("MAIN/A");
 		branchService.create("MAIN/A/A1");
@@ -198,8 +197,9 @@ class BranchMergeServiceTest extends AbstractTest {
 		// Check MAIN metadata still present
 		Branch mainBranch = branchService.findLatest("MAIN");
 		assertNotNull(mainBranch.getMetadata());
-		assertEquals(1, mainBranch.getMetadata().size());
-		assertEquals("common-authoring", mainBranch.getMetadata().get(BranchMetadataKeys.ASSERTION_GROUP_NAMES));
+		System.out.println(mainBranch.getMetadata());
+		assertEquals(2, mainBranch.getMetadata().size());
+		assertEquals("common-authoring", mainBranch.getMetadata().getString(BranchMetadataKeys.ASSERTION_GROUP_NAMES));
 
 		adminOperationsService.hardDeleteBranch("MAIN/C");
 		assertNull(branchService.findLatest("MAIN/C"));

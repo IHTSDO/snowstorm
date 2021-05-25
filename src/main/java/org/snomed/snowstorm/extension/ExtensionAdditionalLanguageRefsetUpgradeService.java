@@ -8,6 +8,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -184,11 +185,11 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 	private AdditionalRefsetExecutionConfig createExecutionConfig(CodeSystem codeSystem, Boolean completeCopy) {
 		AdditionalRefsetExecutionConfig config = new AdditionalRefsetExecutionConfig(codeSystem, completeCopy);
 		Branch branch = branchService.findLatest(codeSystem.getBranchPath());
-		Map<String, Object> expandedMetadata = branchMetadataHelper.expandObjectValues(branch.getMetadata());
+		final Metadata metadata = branch.getMetadata();
 		String defaultEnglishLanguageRefsetId = null;
-		if (expandedMetadata != null && expandedMetadata.containsKey(REQUIRED_LANGUAGE_REFSETS)) {
-			Object jsonObject = expandedMetadata.get(REQUIRED_LANGUAGE_REFSETS);
-			LanguageRefsetMetadataConfig[] configs = gson.fromJson(jsonObject.toString(), LanguageRefsetMetadataConfig[].class);
+		if (metadata.containsKey(REQUIRED_LANGUAGE_REFSETS)) {
+			String jsonString = metadata.getString(REQUIRED_LANGUAGE_REFSETS);
+			LanguageRefsetMetadataConfig[] configs = gson.fromJson(jsonString, LanguageRefsetMetadataConfig[].class);
 			for (LanguageRefsetMetadataConfig metadataConfig : configs) {
 				if (metadataConfig.usedByDefault && metadataConfig.getEnglishLanguageRestId() != null) {
 					defaultEnglishLanguageRefsetId = metadataConfig.getEnglishLanguageRestId();
@@ -199,7 +200,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		if (defaultEnglishLanguageRefsetId == null) {
 			throw new IllegalStateException("Missing default language refset id for en language in the metadata.");
 		}
-		String defaultModuleId = branch.getMetadata().get(DEFAULT_MODULE_ID);
+		String defaultModuleId = metadata.getString(DEFAULT_MODULE_ID);
 		if (defaultModuleId == null) {
 			throw new IllegalStateException("Missing default module id config in the metadata.");
 		}
