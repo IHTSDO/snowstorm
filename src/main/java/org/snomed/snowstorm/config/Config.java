@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
@@ -159,8 +160,8 @@ public abstract class Config extends ElasticsearchConfig {
 	}
 
 	@Bean
-	public BranchService getBranchService() {
-		return new BranchService();
+	public BranchService getBranchService(@Autowired ObjectMapper objectMapper) {
+		return new BranchService(objectMapper);
 	}
 
 	@Bean

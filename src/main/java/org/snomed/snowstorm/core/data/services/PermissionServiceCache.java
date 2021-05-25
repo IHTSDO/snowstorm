@@ -27,7 +27,7 @@ public class PermissionServiceCache {
 
 	@CacheEvict(value = "permission-records", allEntries = true)
 	public void clearCache() {
-		logger.info("Cleared permissions cache.");
+		logger.debug("Cleared permissions cache.");
 	}
 
 }

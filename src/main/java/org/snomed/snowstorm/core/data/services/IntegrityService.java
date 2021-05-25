@@ -62,27 +62,18 @@ public class IntegrityService extends ComponentService implements CommitListener
 		if (commit.isRebase()) {
 			return;
 		}
-		Map<String, String> metadata = commit.getBranch().getMetadata();
-		if (metadata != null && metadata.containsKey(INTERNAL_METADATA_KEY)) {
-			Map<String, String> internalExpanded = (Map<String, String>) branchMetadataHelper.expandObjectValues(metadata).get(INTERNAL_METADATA_KEY);
-			if (Boolean.valueOf(internalExpanded.get(INTEGRITY_ISSUE_METADATA_KEY))) {
-				try {
-					BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-					IntegrityIssueReport integrityIssueReport = findChangedComponentsWithBadIntegrity(branchCriteriaIncludingOpenCommit, commit.getBranch());
-					if (integrityIssueReport.isEmpty()) {
-						if (internalExpanded.keySet().size() > 1) {
-							internalExpanded.remove(INTEGRITY_ISSUE_METADATA_KEY);
-							Map<String, Object> updatedInternal = new HashMap<>();
-							updatedInternal.put(INTERNAL_METADATA_KEY, internalExpanded);
-							metadata.put(INTERNAL_METADATA_KEY, branchMetadataHelper.flattenObjectValues(updatedInternal).get(INTERNAL_METADATA_KEY));
-						} else {
-							metadata.remove(INTERNAL_METADATA_KEY);
-						}
-						logger.info("No integrity issue found on branch {} after commit {}", commit.getBranch().getPath(), commit.getTimepoint().getTime());
-					}
-				} catch (ServiceException e) {
-					logger.error("Integrity check didn't complete successfully.", e);
+		Map<String, String> internalMap = commit.getBranch().getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY);
+		final String integrityIssueString = internalMap.get(INTEGRITY_ISSUE_METADATA_KEY);
+		if (Boolean.parseBoolean(integrityIssueString)) {
+			try {
+				BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+				IntegrityIssueReport integrityIssueReport = findChangedComponentsWithBadIntegrity(branchCriteriaIncludingOpenCommit, commit.getBranch());
+				if (integrityIssueReport.isEmpty()) {
+					internalMap.remove(INTEGRITY_ISSUE_METADATA_KEY);
+					logger.info("No integrity issue found on branch {} after commit {}", commit.getBranch().getPath(), commit.getTimepoint().getTime());
 				}
+			} catch (ServiceException e) {
+				logger.error("Integrity check didn't complete successfully.", e);
 			}
 		}
 	}
@@ -439,14 +430,8 @@ public class IntegrityService extends ComponentService implements CommitListener
 		IntegrityIssueReport fixedReport = getReport(axiomsMinisAndInactiveConcepts, relationshipStillWithInactiveSource, relationshipStillWithInactiveType, relationshipStillWithInactiveDestination);
 		if (fixedReport.isEmpty()) {
 			// update the internal flag to false on the fix branch
-			Map<String, Object> metaDataExpanded = branchMetadataHelper.expandObjectValues(taskBranch.getMetadata());
-			Map<String, String> integrityIssueMetaData = new HashMap<>();
-			integrityIssueMetaData.put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "false");
-			if (metaDataExpanded == null) {
-				metaDataExpanded = new HashMap<>();
-			}
-			metaDataExpanded.put(INTERNAL_METADATA_KEY, integrityIssueMetaData);
-			branchService.updateMetadata(taskBranch.getPath(), branchMetadataHelper.flattenObjectValues(metaDataExpanded));
+			taskBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "false");
+			branchService.updateMetadata(taskBranch.getPath(), taskBranch.getMetadata());
 			logger.info("Integrity issues have been fixed on branch {}", taskBranch.getPath());
 		}
 		return fixedReport;

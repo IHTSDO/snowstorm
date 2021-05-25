@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.validation;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.drools.response.Severity;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,9 +42,7 @@ class DroolsValidationServiceTest extends AbstractTest {
 
     @BeforeEach
     void setup() throws ServiceException {
-        Map <String, String> metadata = new HashMap <>();
-        metadata.put(BranchMetadataKeys.ASSERTION_GROUP_NAMES, "common-authoring");
-        branchService.updateMetadata(DEFAULT_BRANCH, metadata);
+        branchService.updateMetadata(DEFAULT_BRANCH, new Metadata().putString(BranchMetadataKeys.ASSERTION_GROUP_NAMES, "common-authoring"));
 
         conceptService.create(new Concept(SNOMEDCT_ROOT, null, true, CORE_MODULE, PRIMITIVE), DEFAULT_BRANCH);
         conceptService.create(new Concept(ISA, null, true, CORE_MODULE, Concepts.PRIMITIVE), DEFAULT_BRANCH);

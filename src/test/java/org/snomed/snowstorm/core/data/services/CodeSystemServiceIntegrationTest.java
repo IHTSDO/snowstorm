@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,9 +49,6 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
-
-	@Autowired
-	private BranchMetadataHelper branchMetadataHelper;
 
 	private CodeSystem codeSystem;
 
@@ -185,10 +183,9 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 		assertEquals(20190131, codeSystemService.find(extensionCodeSystem.getShortName()).getDependantVersionEffectiveTime().intValue());
 
 		// check branch metadata
-		Map<String, String> branchMetaData = branchService.findLatest(extensionCodeSystem.getBranchPath()).getMetadata();
-		Map<String, Object> expanded = branchMetadataHelper.expandObjectValues(branchMetaData);
-		assertEquals("Dependant release version is updated", "20190131", expanded.get(DEPENDENCY_RELEASE));
-		assertEquals("DependencyPackage is updated", releasePackage, expanded.get(DEPENDENCY_PACKAGE));
+		Metadata branchMetaData = branchService.findLatest(extensionCodeSystem.getBranchPath()).getMetadata();
+		assertEquals("Dependant release version is updated", "20190131", branchMetaData.getString(DEPENDENCY_RELEASE));
+		assertEquals("DependencyPackage is updated", releasePackage, branchMetaData.getString(DEPENDENCY_PACKAGE));
 
 
 		extensionCodeSystem = codeSystemService.find("SNOMEDCT-BE");

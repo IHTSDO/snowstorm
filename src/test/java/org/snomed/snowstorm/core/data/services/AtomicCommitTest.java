@@ -1,9 +1,12 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -145,14 +148,14 @@ class AtomicCommitTest extends AbstractTest {
 	}
 
 	@Test
-	@SuppressWarnings("unchecked")
 	void testBranchLockMetadata() {
 		try (Commit commit = branchService.openCommit("MAIN/task", branchMetadataHelper.getBranchLockMetadata("Testing lock metadata"))) {
-			Branch branch = branchService.findLatest("MAIN/task");
-			Map<String, Object> metadata = branchMetadataHelper.expandObjectValues(branch.getMetadata());
-			Map<String, Object> lockMetadata = (Map<String, Object>) metadata.get("lock");
-			Map<String, Object> lockMetadataContext = (Map<String, Object>) lockMetadata.get("context");
-			assertEquals("Testing lock metadata", lockMetadataContext.get("description"));
+			Metadata metadata = branchService.findLatest("MAIN/task").getMetadata();
+			Map lockMetadata = metadata.getMap("lock");
+			@SuppressWarnings("unchecked")
+			Map<String, String> lockContext = (Map<String, String>) lockMetadata.get("context");
+			final String description = lockContext.get("description");
+			assertEquals("Testing lock metadata", description);
 		}
 	}
 

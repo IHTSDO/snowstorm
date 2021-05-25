@@ -6,6 +6,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import org.elasticsearch.ElasticsearchException;
 import org.elasticsearch.common.Strings;
@@ -319,10 +320,9 @@ public class ClassificationService {
 		classification.setCreationDate(new Date());
 		classification.setLastCommitDate(branch.getHead());
 
-		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow(path, true);
-		Map<String, String> metadata = branchWithInheritedMetadata.getMetadata();
-		String previousPackage = metadata != null ? metadata.get(BranchMetadataKeys.PREVIOUS_PACKAGE) : null;
-		String dependencyPackage = metadata != null ? metadata.get(BranchMetadataKeys.DEPENDENCY_PACKAGE) : null;
+		Metadata metadata = branchService.findBranchOrThrow(path, true).getMetadata();
+		String previousPackage = metadata.getString(BranchMetadataKeys.PREVIOUS_PACKAGE);
+		String dependencyPackage = metadata.getString(BranchMetadataKeys.DEPENDENCY_PACKAGE);
 		if (Strings.isNullOrEmpty(previousPackage) && Strings.isNullOrEmpty(dependencyPackage)) {
 			throw new IllegalStateException("Missing branch metadata for " + BranchMetadataKeys.PREVIOUS_PACKAGE + " or " + BranchMetadataKeys.DEPENDENCY_PACKAGE);
 		}
@@ -356,7 +356,7 @@ public class ClassificationService {
 				try {
 					// Commit in auto-close try block like this will roll back if an exception is thrown
 					try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Saving classification " + classification.getId()))) {
-						commit.getBranch().getMetadata().put(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY, "true");
+						commit.getBranch().getMetadata().putString(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY, "true");
 
 						List<RelationshipChange> changesBatch = null;
 						Object[] searchAfterToken = null;

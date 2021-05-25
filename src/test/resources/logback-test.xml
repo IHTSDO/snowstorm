@@ -3,6 +3,7 @@
 	<property name="CONSOLE_LOG_PATTERN" value="%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
 	<include resource="org/springframework/boot/logging/logback/base.xml" />
 	<logger name="org.snomed.snowstorm.core.util" level="warn" />
+	<logger name="org.snomed.snowstorm.rest.config" level="info" />
 	<logger name="org.ihtsdo.drools" level="warn" />
 	<logger name="io.kaicode.elasticvc" level="warn" />
 	<logger name="org.springframework.jms.connection" level="error" />
