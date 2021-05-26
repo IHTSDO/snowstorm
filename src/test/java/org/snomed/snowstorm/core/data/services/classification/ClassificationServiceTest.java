@@ -3,6 +3,8 @@ package org.snomed.snowstorm.core.data.services.classification;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.config.Config;
@@ -12,10 +14,7 @@ import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus
 import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
 import org.snomed.snowstorm.core.data.repositories.ClassificationRepository;
 import org.snomed.snowstorm.core.data.repositories.classification.RelationshipChangeRepository;
-import org.snomed.snowstorm.core.data.services.CodeSystemService;
-import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -117,6 +116,8 @@ class ClassificationServiceTest extends AbstractTest {
 		// Save the classification results to branch
 		assertEquals(SAVED, saveClassificationAndWaitForCompletion(branch, classification.getId()));
 
+		assertEquals(Boolean.TRUE, BranchClassificationStatusService.getClassificationStatus(branchService.findLatest(branch)));
+
 		Concept concept = conceptService.find("123123123001", branch);
 		assertEquals(6, concept.getRelationships().size());
 
@@ -136,6 +137,7 @@ class ClassificationServiceTest extends AbstractTest {
 	void testSaveRelationshipChangesFailsWithLoop() throws IOException, ServiceException, InterruptedException {
 		// Create concept with some stated modeling in an axiom
 		final String branch = "MAIN";
+		branchService.updateMetadata(branch, new Metadata());
 		createRangeConstraint("1142135004", "dec(>#0..)");
 		createRangeConstraint("1142139005", "int(>#0..)");
 		conceptService.create(
@@ -185,6 +187,8 @@ class ClassificationServiceTest extends AbstractTest {
 
 		// Save the classification results to branch
 		assertEquals(SAVE_FAILED, saveClassificationAndWaitForCompletion(branch, classification.getId()));
+		assertNotEquals(Boolean.TRUE, BranchClassificationStatusService.getClassificationStatus(branchService.findLatest(branch)));
+
 
 		// One inferred relationship after
 		assertEquals(1, conceptService.find("10000000001", branch).getRelationships().size());
@@ -215,6 +219,8 @@ class ClassificationServiceTest extends AbstractTest {
 				"").getBytes()), false);
 
 		assertEquals(SAVED, saveClassificationAndWaitForCompletion(extensionBranchPath, classification.getId()));
+		final Branch latest = branchService.findLatest(extensionBranchPath);
+		assertEquals(Boolean.TRUE, BranchClassificationStatusService.getClassificationStatus(latest));
 
 		Concept concept = conceptService.find("123123123001", extensionBranchPath);
 		assertEquals(4, concept.getRelationships().size());
@@ -222,6 +228,53 @@ class ClassificationServiceTest extends AbstractTest {
 			assertEquals(relationship.getModuleId(), "45991000052106", "New inferred relationships have the configured module applied.");
 			assertTrue(relationship.getId().contains("1000052" + "12"), "New inferred relationships have SCTIDs in the configured namespace and correct partition ID");
 		}
+
+		concept.addFSN("thing");
+		concept = conceptService.update(concept, extensionBranchPath);
+		assertEquals(Boolean.TRUE, BranchClassificationStatusService.getClassificationStatus(branchService.findLatest(extensionBranchPath)));
+
+		concept.getClassAxioms().iterator().next().setDefinitionStatusId(Concepts.FULLY_DEFINED);
+		conceptService.update(concept, extensionBranchPath);
+		assertEquals(Boolean.FALSE, BranchClassificationStatusService.getClassificationStatus(branchService.findLatest(extensionBranchPath)));
+	}
+
+	@Test
+	void testSaveRelationshipChangesInExtensionThenDeleteInChildBranch() throws IOException, ServiceException, InterruptedException {
+		// Create concept with some stated modeling in an axiom
+		conceptService.create(
+				new Concept("123123123001")
+						.addAxiom(
+								new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT),
+								new Relationship("363698007", "84301002")
+						), "MAIN");
+
+		String extensionBranchPath = "MAIN/SNOMEDCT-SE";
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-SE", extensionBranchPath));
+		branchService.updateMetadata(extensionBranchPath, ImmutableMap.of(Config.DEFAULT_MODULE_ID_KEY, "45991000052106", Config.DEFAULT_NAMESPACE_KEY, "1000052"));
+
+		// Save mock classification results
+		Classification classification = createClassification(extensionBranchPath, UUID.randomUUID().toString());
+		classificationService.saveRelationshipChanges(classification, new ByteArrayInputStream(("" +
+				"id\teffectiveTime\tactive\tmoduleId\tsourceId\tdestinationId\trelationshipGroup\ttypeId\tcharacteristicTypeId\tmodifierId\n" +
+				"\t\t1\t\t123123123001\t138875005\t0\t116680003\t900000000000227009\t900000000000451002\n" +
+				"\t\t1\t\t123123123001\t84301002\t0\t363698007\t900000000000227009\t900000000000451002\n" +
+				"\t\t1\t\t123123123001\t50960005\t0\t116676008\t900000000000227009\t900000000000451002\n" +
+				"\t\t1\t\t123123123001\t247247001\t0\t116680003\t900000000000227009\t900000000000451002\n" +
+				"").getBytes()), false);
+
+		assertEquals(SAVED, saveClassificationAndWaitForCompletion(extensionBranchPath, classification.getId()));
+		final Branch latest = branchService.findLatest(extensionBranchPath);
+		assertEquals(Boolean.TRUE, BranchClassificationStatusService.getClassificationStatus(latest));
+
+		String childBranch = extensionBranchPath + "/SE/SE-10";
+		branchService.create(extensionBranchPath + "/SE");
+		branchService.create(childBranch);
+		final Concept concept = conceptService.find("123123123001", childBranch);
+		final Relationship relationship = concept.getRelationships().iterator().next();
+		concept.getRelationships().remove(relationship);
+		conceptService.update(concept, childBranch);
+		assertEquals(Boolean.TRUE, BranchClassificationStatusService.getClassificationStatus(branchService.findLatest(extensionBranchPath)));
+		assertEquals(Boolean.FALSE, BranchClassificationStatusService.getClassificationStatus(branchService.findLatest(childBranch)));
 	}
 
 	@Test

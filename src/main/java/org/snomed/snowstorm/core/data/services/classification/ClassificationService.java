@@ -220,15 +220,24 @@ public class ClassificationService {
 
 											downloadRemoteResults(classification);
 
-											Boolean inferredRelationshipChangesFound = doGetRelationshipChanges(classification.getPath(), classification.getId(),
+											final String branchPath = classification.getPath();
+											boolean inferredRelationshipChangesFound = doGetRelationshipChanges(branchPath, classification.getId(),
 													Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1), false, null).getTotalElements() > 0;
 
-											Boolean equivalentConceptsFound = doGetEquivalentConcepts(classification.getPath(), classification.getId(),
+											boolean equivalentConceptsFound = doGetEquivalentConcepts(branchPath, classification.getId(),
 													Config.DEFAULT_LANGUAGE_DIALECTS, PageRequest.of(0, 1)).getTotalElements() > 0;
 
 											classification.setInferredRelationshipChangesFound(inferredRelationshipChangesFound);
 											classification.setEquivalentConceptsFound(equivalentConceptsFound);
 											classification.setCompletionDate(new Date());
+
+											// If classification not stale, update branch classification status
+											final Branch latestBranchCommit = branchService.findLatest(branchPath);
+											if (!latestBranchCommit.getHead().after(classification.getCreationDate())) {
+												final boolean classified = !inferredRelationshipChangesFound && !equivalentConceptsFound;
+												BranchClassificationStatusService.setClassificationStatus(latestBranchCommit, classified);
+												branchService.updateMetadata(latestBranchCommit.getPath(), latestBranchCommit.getMetadata());
+											}
 
 										} catch (IOException | ElasticsearchException e) {
 											classification.setStatus(ClassificationStatus.FAILED);
@@ -368,7 +377,7 @@ public class ClassificationService {
 							if (searchAfterToken != null) {
 								pageRequest = SearchAfterPageRequest.of(searchAfterToken, LARGE_PAGE.getPageSize(), Sort.by(SOURCE_ID, "_id"));
 							} else {
-								pageRequest = SearchAfterPageRequest.of(0, LARGE_PAGE.getPageSize(), Sort.by(SOURCE_ID, "_id"));
+								pageRequest = PageRequest.of(0, LARGE_PAGE.getPageSize(), Sort.by(SOURCE_ID, "_id"));
 							}
 
 							NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
@@ -407,9 +416,11 @@ public class ClassificationService {
 
 						traceabilityLogService.logActivityUsingComponentLookup(SecurityUtil.getUsername(), commit);
 						commit.getBranch().getMetadata().remove(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY);
+						BranchClassificationStatusService.setClassificationStatus(commit.getBranch(), true);
 						commit.markSuccessful();
 						classification.setStatus(SAVED);
-						classification.setSaveDate(new Date());
+						classification.setSaveDate(commit.getTimepoint());
+						classificationRepository.save(classification);// Must save classification before commit closes for branch classification status
 					}
 				} catch (ServiceException | IllegalStateException e) {
 					classification.setStatus(SAVE_FAILED);
@@ -430,7 +441,7 @@ public class ClassificationService {
 		// Check completed
 		Classification classification = findClassification(path, classificationId);
 		if (classification.getStatus() != COMPLETED) {
-			throw new IllegalStateException("Classification status must be " + COMPLETED.toString() + " in order to save results.");
+			throw new IllegalStateException("Classification status must be " + COMPLETED + " in order to save results.");
 		}
 
 		// Check not stale

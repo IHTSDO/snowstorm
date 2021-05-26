@@ -165,7 +165,7 @@ public class CodeSystemService {
 
 		} else if (!branchExists) {
 			logger.info("Creating Code System branch '{}'.", branchPath);
-			branchService.create(branchPath);
+			sBranchService.create(branchPath);
 		}
 		repository.save(newCodeSystem);
 		logger.info("Code System '{}' created.", newCodeSystem.getShortName());
@@ -219,7 +219,7 @@ public class CodeSystemService {
 		releaseService.createVersion(effectiveDate, branchPath);
 
 		logger.info("Creating version branch content...");
-		Branch branch = branchService.create(releaseBranchPath);
+		Branch branch = sBranchService.create(releaseBranchPath);
 
 		logger.info("Persisting Code System Version...");
 		versionRepository.save(new CodeSystemVersion(codeSystem.getShortName(), branch.getHead(), branchPath, effectiveDate, version, description));

@@ -165,4 +165,14 @@ public class Classification {
 	public void setEquivalentConceptsFound(Boolean equivalentConceptsFound) {
 		this.equivalentConceptsFound = equivalentConceptsFound;
 	}
+
+	@Override
+	public String toString() {
+		return "Classification{" +
+				"id='" + id + '\'' +
+				", path='" + path + '\'' +
+				", status=" + status +
+				", saveDate=" + (saveDate != null ? saveDate.getTime() : null) +
+				'}';
+	}
 }

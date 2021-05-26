@@ -22,6 +22,7 @@ import org.snomed.snowstorm.core.data.domain.classification.RelationshipChange;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.data.domain.jobs.IdentifiersForRegistration;
 import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierCacheManager;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
@@ -119,6 +120,9 @@ public abstract class Config extends ElasticsearchConfig {
 	private MRCMUpdateService mrcmUpdateService;
 
 	@Autowired
+	private BranchClassificationStatusService branchClassificationStatusService;
+
+	@Autowired
 	private TraceabilityLogService traceabilityLogService;
 
 	@Autowired
@@ -142,6 +146,7 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(conceptDefinitionStatusUpdateService);
 		branchService.addCommitListener(semanticIndexUpdateService);
 		branchService.addCommitListener(mrcmUpdateService);
+		branchService.addCommitListener(branchClassificationStatusService);
 		branchService.addCommitListener(traceabilityLogService);
 		branchService.addCommitListener(integrityService);
 		branchService.addCommitListener(multiSearchService);
