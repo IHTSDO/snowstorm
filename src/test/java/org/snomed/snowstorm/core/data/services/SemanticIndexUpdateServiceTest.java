@@ -14,6 +14,7 @@ import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.QueryConceptRepository;
+import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
 import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilderException;
 import org.snomed.snowstorm.mrcm.MRCMLoader;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
@@ -73,14 +74,15 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	@Test
 	void testCommitListenerOrderingConfig() {
 		List<CommitListener> commitListeners = branchService.getCommitListeners();
-		assertEquals(8, commitListeners.size());
+		assertEquals(9, commitListeners.size());
 		assertEquals(MRCMLoader.class, commitListeners.get(0).getClass());
 		assertEquals(ConceptDefinitionStatusUpdateService.class, commitListeners.get(1).getClass());
 		assertEquals(SemanticIndexUpdateService.class, commitListeners.get(2).getClass());
 		assertEquals(MRCMUpdateService.class, commitListeners.get(3).getClass());
-		assertEquals(TraceabilityLogService.class, commitListeners.get(4).getClass());
-		assertEquals(IntegrityService.class, commitListeners.get(5).getClass());
-		assertEquals(MultiSearchService.class, commitListeners.get(6).getClass());
+		assertEquals(BranchClassificationStatusService.class, commitListeners.get(4).getClass());
+		assertEquals(TraceabilityLogService.class, commitListeners.get(5).getClass());
+		assertEquals(IntegrityService.class, commitListeners.get(6).getClass());
+		assertEquals(MultiSearchService.class, commitListeners.get(7).getClass());
 	}
 
 	@Test
