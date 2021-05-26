@@ -101,6 +101,55 @@ class TraceabilityLogServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void createDeleteConceptOnChildBranch() throws ServiceException, InterruptedException {
+		Concept concept = conceptService.create(new Concept().addFSN("New concept"), MAIN);
+
+		Activity activity = getTraceabilityActivity();
+		assertEquals("Creating concept New concept", activity.getCommitComment());
+
+		// Add description
+		concept.addDescription(new Description("another"));
+		conceptService.update(concept, MAIN);
+		activity = getTraceabilityActivity();
+		assertEquals("Updating concept New concept", activity.getCommitComment());
+		assertEquals(1, activity.getChanges().size());
+
+		// Add axiom
+		concept.addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING));
+		conceptService.update(concept, MAIN);
+		activity = getTraceabilityActivity();
+		assertEquals("Updating concept New concept", activity.getCommitComment());
+		Map<String, Activity.ConceptActivity> changes = activity.getChanges();
+		assertEquals(1, changes.size());
+		Activity.ConceptActivity conceptActivity = changes.get(concept.getConceptId());
+		Set<Activity.ComponentChange> conceptChanges = conceptActivity.getChanges();
+		assertEquals(1, conceptChanges.size());
+		Activity.ComponentChange axiomChange = conceptChanges.iterator().next();
+		assertEquals("OWLAxiom", axiomChange.getComponentType());
+		assertEquals(concept.getClassAxioms().iterator().next().getAxiomId(), axiomChange.getComponentId());
+
+		// Add inferred relationship
+		concept.addRelationship(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING).setInferred(true));
+		conceptService.update(concept, MAIN);
+		activity = getTraceabilityActivity();
+		assertEquals("Classified ontology.", activity.getCommitComment());
+		assertEquals(1, activity.getChanges().size());
+
+		// Update concept with no change
+		conceptService.update(concept, MAIN);
+		activity = getTraceabilityActivityWithTimeout(10);// Shorter timeout here because we know the test JMS broker is up and we don't expect a message to come.
+		assertNull("No concept changes so no traceability commit.", activity);
+
+		branchService.create("MAIN/A");
+
+		conceptService.deleteConceptAndComponents(concept.getConceptId(), "MAIN/A", false);
+		activity = getTraceabilityActivity();
+		assertNotNull(activity);
+		assertEquals("Deleting concept New concept", activity.getCommitComment());
+		assertEquals(1, activity.getChanges().size());
+	}
+
+	@Test
 	void createCommitCommentRebase() {
 		Commit commit = new Commit(new Branch("MAIN/A"), Commit.CommitType.REBASE, null, null);
 		commit.setSourceBranchPath("MAIN");

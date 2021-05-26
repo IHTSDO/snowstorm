@@ -1,7 +1,5 @@
 package org.snomed.snowstorm.mrcm;
 
-import static org.junit.Assert.*;
-
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Branch;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,14 +14,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
+
+import static org.junit.Assert.*;
 
 @Testcontainers
 @ExtendWith(SpringExtension.class)
 class MRCMUpdateServiceTest extends AbstractTest {
-
-	@Autowired
-	private MRCMUpdateService mrcmUpdateService;
 
 	@Autowired
 	private BranchService branchService;
@@ -57,7 +55,7 @@ class MRCMUpdateServiceTest extends AbstractTest {
 				.setAdditionalField("proximalPrimitiveRefinement", null)
 				.setAdditionalField("guideURL", "");
 
-		ReferenceSetMember clinicalFindingDomain = new ReferenceSetMember(null, new Integer("20200309"),true,
+		ReferenceSetMember clinicalFindingDomain = new ReferenceSetMember(null, 20200309, true,
 				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL,"404684003")
 				.setAdditionalField("domainConstraint", "<< 404684003 |Clinical finding (finding)|")
 				.setAdditionalField("parentDomain", null)

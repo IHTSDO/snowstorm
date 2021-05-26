@@ -67,6 +67,9 @@ public class ReferenceSetMemberService extends ComponentService {
 	private BranchService branchService;
 
 	@Autowired
+	private SBranchService sBranchService;
+
+	@Autowired
 	private BranchMetadataHelper branchMetadataHelper;
 
 	@Autowired
@@ -358,7 +361,7 @@ public class ReferenceSetMemberService extends ComponentService {
 	private void setupTypes(Set<ReferenceSetType> referenceSetTypes) {
 		String path = MAIN;
 		if (!branchService.exists(path)) {
-			branchService.create(path);
+			sBranchService.create(path);
 		}
 		List<ReferenceSetType> existingTypes = findConfiguredReferenceSetTypes(path);
 		Set<ReferenceSetType> typesToRemove = new HashSet<>(existingTypes);

@@ -5,6 +5,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
+import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
@@ -49,6 +50,10 @@ public class ReleaseService {
 			for (Class<? extends SnomedComponent> componentType : componentTypes) {
 				releaseComponentsOfType(componentType, effectiveTime, commit, branchCriteria);
 			}
+
+			// Assume versioned content is classified
+			BranchClassificationStatusService.setClassificationStatus(commit.getBranch(), true);
+
 			commit.markSuccessful();
 		}
 	}

@@ -35,9 +35,6 @@ public class ConceptDefinitionStatusUpdateService extends ComponentService imple
 	private static final String DEFINED_CLASS_AXIOM_PREFIX = "EquivalentClasses(:";
 
 	@Autowired
-	private ConceptService conceptService;
-
-	@Autowired
 	private BranchService branchService;
 
 	@Autowired

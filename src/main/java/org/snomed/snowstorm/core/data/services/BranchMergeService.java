@@ -16,6 +16,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.review.MergeReview;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.snomed.snowstorm.core.data.repositories.*;
+import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -245,6 +246,11 @@ public class BranchMergeService {
 				final Map<String, Set<String>> versionsReplaced = sourceBranch.getVersionsReplaced();
 				final Map<Class<? extends DomainEntity>, ElasticsearchRepository> componentTypeRepoMap = domainEntityConfiguration.getAllTypeRepositoryMap();
 				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
+
+				// Promote classification status
+				final Boolean classificationStatus = BranchClassificationStatusService.getClassificationStatus(sourceBranch);
+				BranchClassificationStatusService.setClassificationStatus(commit.getBranch(), classificationStatus != null && classificationStatus);
+
 				commit.markSuccessful();
 			}
 		}

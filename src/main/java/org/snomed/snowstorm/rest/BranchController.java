@@ -3,6 +3,7 @@ package org.snomed.snowstorm.rest;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Metadata;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -16,9 +17,11 @@ import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.snomed.snowstorm.core.data.domain.security.UserBranchRoles;
 import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -53,6 +56,9 @@ public class BranchController {
 	@Autowired
 	private PermissionService permissionService;
 
+	@Value("${snowstorm.rest-api.readonly}")
+	private boolean restApiReadOnly;
+
 	@ApiOperation("Retrieve all branches")
 	@RequestMapping(value = "/branches", method = RequestMethod.GET)
 	public List<Branch> retrieveAllBranches() {
@@ -74,11 +80,14 @@ public class BranchController {
 	@RequestMapping(value = "/branches", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('AUTHOR', #request.branch)")
 	public BranchPojo createBranch(@RequestBody CreateBranchRequest request) {
-		return getBranchPojo(branchService.create(request.getBranch(), request.getMetadata()));
+		return getBranchPojo(sBranchService.create(request.getBranch(), request.getMetadata()));
 	}
 
 	private BranchPojo getBranchPojo(Branch branch) {
 		final UserBranchRoles userRolesForBranch = permissionService.getUserRolesForBranch(branch.getPath());
+		if (restApiReadOnly) {
+			BranchClassificationStatusService.clearClassificationStatus(branch.getMetadata());
+		}
 		return new BranchPojo(branch, branch.getMetadata().getAsMap(), userRolesForBranch);
 	}
 
@@ -87,13 +96,15 @@ public class BranchController {
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public BranchPojo updateBranch(@PathVariable String branch, @RequestBody UpdateBranchRequest request) {
 		branch = BranchPathUriUtil.decodePath(branch);
-		if (branchService.findBranchOrThrow(branch).isLocked()) {
+		final Branch latestBranch = branchService.findBranchOrThrow(branch);
+		if (latestBranch.isLocked()) {
 			throw new IllegalStateException("Branch metadata can not be updated when branch is locked.");
 		}
-		final Map<String, Object> update = request.getMetadata() != null ? request.getMetadata() : new HashMap<>();
+		Metadata newMetadata = new Metadata(request.getMetadata());
 		// Prevent updating internal values via REST api
-		update.remove(INTERNAL_METADATA_KEY);
-		return getBranchPojo(branchService.updateMetadata(branch, update));
+		newMetadata.remove(INTERNAL_METADATA_KEY);
+		newMetadata.putMap(INTERNAL_METADATA_KEY, latestBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY));
+		return getBranchPojo(branchService.updateMetadata(branch, newMetadata));
 	}
 
 	@ApiOperation("Retrieve a single branch")
