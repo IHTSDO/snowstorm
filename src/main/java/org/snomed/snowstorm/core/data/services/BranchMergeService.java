@@ -193,7 +193,6 @@ public class BranchMergeService {
 			// This just locks the target branch.
 			// Content will be taken from the latest complete commit on the source branch.
 			try (Commit commit = branchService.openRebaseCommit(targetBranch.getPath(), branchMetadataHelper.getBranchLockMetadata("Rebasing changes from " + source))) {
-				commit.setSourceBranchPath(source);
 				if (manuallyMergedConcepts != null && !manuallyMergedConcepts.isEmpty()) {
 					Set<String> conceptsToDelete = manuallyMergedConcepts.stream()
 							.filter(Concept::isDeleted).map(Concept::getConceptId).collect(Collectors.toSet());
@@ -246,10 +245,6 @@ public class BranchMergeService {
 				final Map<String, Set<String>> versionsReplaced = sourceBranch.getVersionsReplaced();
 				final Map<Class<? extends DomainEntity>, ElasticsearchRepository> componentTypeRepoMap = domainEntityConfiguration.getAllTypeRepositoryMap();
 				componentTypeRepoMap.entrySet().parallelStream().forEach(entry -> promoteEntities(source, commit, entry.getKey(), entry.getValue(), versionsReplaced));
-
-				// Promote classification status
-				final Boolean classificationStatus = BranchClassificationStatusService.getClassificationStatus(sourceBranch);
-				BranchClassificationStatusService.setClassificationStatus(commit.getBranch(), classificationStatus != null && classificationStatus);
 
 				commit.markSuccessful();
 			}

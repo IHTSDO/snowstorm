@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services.classification;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
@@ -12,7 +13,6 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.classification.Classification;
 import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus;
 import org.snomed.snowstorm.core.data.repositories.ClassificationRepository;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
@@ -38,6 +38,9 @@ public class BranchClassificationStatusService implements CommitListener {
 	@Autowired
 	private ClassificationRepository classificationRepository;
 
+	@Autowired
+	private BranchService branchService;
+
 	public static Boolean getClassificationStatus(Branch branch) {
 		final String classificationStatus = branch.getMetadata().getMapOrCreate(BranchMetadataHelper.INTERNAL_METADATA_KEY).get(CLASSIFIED_METADATA_KEY);
 		return classificationStatus == null ? null : Boolean.parseBoolean(classificationStatus);
@@ -57,24 +60,47 @@ public class BranchClassificationStatusService implements CommitListener {
 
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
-		final Boolean classificationStatus = getClassificationStatus(commit.getBranch());
+		final Commit.CommitType commitType = commit.getCommitType();
 
-		// If classified (or status not set)
-		if ((classificationStatus == null || classificationStatus) && !classificationSavedForThisCommit(commit) && anyClassifiableChange(commit)) {
-			setClassificationStatus(commit.getBranch(), false);
+		if (commitType == Commit.CommitType.CONTENT) {
+			// Mark branch as not classified if a classifiable change is being made and it's not a classification save.
+			// If classified (or status not set)
+			if (falseStatusNotSet(commit) && !classificationSavedForThisCommit(commit) && anyClassifiableChange(commit)) {
+				setClassificationStatus(commit.getBranch(), false);
+			}
+
+		} else if (commitType == Commit.CommitType.REBASE) {
+			// Mark branch as not classified if:
+			// - the parent branch is not classified
+			// - or this branch contain classifiable changes
+			if (falseStatusNotSet(commit) && (trueStatusNotSet(commit.getSourceBranchPath()) || anyClassifiableChangesUnpromoted(commit.getBranch()))) {
+				setClassificationStatus(commit.getBranch(), false);
+			}
+
+		} else if (commitType == Commit.CommitType.PROMOTION) {
+			// Promote classification status
+			final Boolean classificationStatus = getClassificationStatus(branchService.findBranchOrThrow(commit.getSourceBranchPath()));
+			setClassificationStatus(commit.getBranch(), classificationStatus != null && classificationStatus);
 		}
 	}
 
+	private boolean falseStatusNotSet(Commit commit) {
+		return !Boolean.FALSE.equals(getClassificationStatus(commit.getBranch()));
+	}
+
+	private boolean trueStatusNotSet(String branchPath) {
+		return !Boolean.TRUE.equals(getClassificationStatus(branchService.findBranchOrThrow(branchPath)));
+	}
+
 	private boolean classificationSavedForThisCommit(Commit commit) {
-		System.out.println();
-		System.out.println("all");
-		final Iterable<Classification> all = classificationRepository.findAll();
-		all.forEach(System.out::println);
-		System.out.println();
-		System.out.println("Commit timepoint " + commit.getTimepoint().getTime());
-		final Classification oneByPathAndStatusAndSaveDate = classificationRepository.findOneByPathAndStatusAndSaveDate(commit.getBranch().getPath(), ClassificationStatus.SAVED, commit.getTimepoint().getTime());
-		return oneByPathAndStatusAndSaveDate
-				!= null;
+		return classificationRepository.findOneByPathAndStatusAndSaveDate(commit.getBranch().getPath(), ClassificationStatus.SAVED, commit.getTimepoint().getTime()) != null;
+	}
+
+	private boolean anyClassifiableChangesUnpromoted(Branch branch) {
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaUnpromotedChangesAndDeletions(branch);
+		return anyChangeOfType(branchCriteria, Concept.class, null) ||
+				anyChangeOfType(branchCriteria, Relationship.class, null) ||
+				anyChangeOfType(branchCriteria, ReferenceSetMember.class, boolQuery().must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET)));
 	}
 
 	private boolean anyClassifiableChange(Commit commit) {
