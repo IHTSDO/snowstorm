@@ -8,7 +8,7 @@ Snowstorm is a SNOMED CT terminology server built on top of Elasticsearch, with 
 ## Project Status
 
 ### Read-Only Use
-Snowstorm provides the API for the SNOMED International Browser including the International Edition and many Extensions. 
+Snowstorm provides the terminology server API for the SNOMED International Browser including the International Edition and around fourteen national Extensions.
 
 Snowstorm can be used in local implementations to query SNOMED CT with the following features:
 - Hosting multiple extensions alongside the International Edition of SNOMED CT
@@ -18,9 +18,9 @@ Snowstorm can be used in local implementations to query SNOMED CT with the follo
 - Read-only FHIR API :fire:
 
 ### Authoring Use
-Snowstorm provides the API for the Authoring Platform of the International Edition of SNOMED CT.
+Snowstorm also provides the terminology server API for the SNOMED International Authoring Platform.
 
-Development and testing is currently in progress for the authoring of SNOMED CT extensions.
+The Authoring Platform is used for the maintenance of the International Edition of SNOMED CT as well as nine national Extensions and several community content Extensions.
 
 ## Documentation
 
