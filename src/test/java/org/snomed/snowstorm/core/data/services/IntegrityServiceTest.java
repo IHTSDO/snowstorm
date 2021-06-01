@@ -11,6 +11,8 @@ import org.snomed.snowstorm.TestConfig;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConcreteValue;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
+import org.snomed.snowstorm.core.data.services.classification.ClassificationService;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
@@ -288,6 +290,16 @@ class IntegrityServiceTest extends AbstractTest {
 		assertTrue(metadata.containsKey(INTERNAL_METADATA_KEY));
 		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
 		assertTrue(Boolean.parseBoolean(integrityIssueFound));
+		final String taskBranchPath = path + "/task";
+		branchService.create(taskBranchPath);
+		conceptService.create(new Concept("999100001"), taskBranchPath);
+		final Branch taskBranch = branchService.findBranchOrThrow(taskBranchPath, true);
+		final String taskClassifiedFlag = taskBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(BranchClassificationStatusService.CLASSIFIED_METADATA_KEY);
+		assertNotNull(taskClassifiedFlag);
+		assertFalse(Boolean.parseBoolean(taskClassifiedFlag));
+		final String taskIntegrityFlag = taskBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
+		assertNotNull(taskIntegrityFlag);
+		assertTrue(Boolean.parseBoolean(taskIntegrityFlag));
 
 		// complete fix
 		conceptService.create(new Concept("100002"), path);

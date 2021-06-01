@@ -27,7 +27,7 @@ import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 @Service
 public class BranchClassificationStatusService implements CommitListener {
 
-	private static final String CLASSIFIED_METADATA_KEY = "classified";
+	public static final String CLASSIFIED_METADATA_KEY = "classified";
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
