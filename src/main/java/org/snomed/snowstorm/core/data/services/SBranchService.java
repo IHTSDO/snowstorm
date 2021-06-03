@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.DomainEntity;
 import io.kaicode.elasticvc.domain.Metadata;
 import io.kaicode.elasticvc.repositories.BranchRepository;
@@ -13,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
+import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -53,15 +55,18 @@ public class SBranchService {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
+	@Autowired
+	private CommitServiceHookClient commitServiceHookClient;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Branch create(String branch) {
 		return create(branch, null);
 	}
 
-	public Branch create(String branch, Map<String, Object> metadataMap) {
+	public Branch create(String branchPath, Map<String, Object> metadataMap) {
 		// Copy classification state from parent branch
-		final String parentPath = PathUtil.getParentPath(branch);
+		final String parentPath = PathUtil.getParentPath(branchPath);
 		final Metadata metadata = new Metadata(metadataMap);
 		if (parentPath != null) {
 			final Branch latest = branchService.findLatest(parentPath);
@@ -70,7 +75,12 @@ public class SBranchService {
 				BranchClassificationStatusService.setClassificationStatus(metadata, classificationStatus != null && classificationStatus);
 			}
 		}
-		return branchService.create(branch, metadata.getAsMap());
+		final Branch branch = branchService.create(branchPath, metadata.getAsMap());
+
+		// Simulate an empty commit for the service-hook
+		commitServiceHookClient.preCommitCompletion(new Commit(branch, Commit.CommitType.CONTENT, null, null));
+
+		return branch;
 	}
 
 	public Page<Branch> findAllVersionsAfterOrEqualToTimestamp(String path, Date timestamp, Pageable pageable) {
