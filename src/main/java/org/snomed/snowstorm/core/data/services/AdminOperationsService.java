@@ -642,7 +642,8 @@ public class AdminOperationsService {
 		final Pair<String, Optional<String>> latestReleaseAndDependantReleaseBranches = getLatestReleaseAndDependantReleaseBranches(branchPath);
 		final String releaseBranch = latestReleaseAndDependantReleaseBranches.getFirst();
 		final String dependantReleaseBranch = latestReleaseAndDependantReleaseBranches.getSecond().orElse(null);
-		logger.info("Restoring components of {} concepts using release branch {} and dependant release branch {}.", unbatchedConceptIds.size(), releaseBranch, dependantReleaseBranch);
+		logger.info("Restoring components of {} concepts using release branch {}{}{}.", unbatchedConceptIds.size(), releaseBranch,
+				dependantReleaseBranch != null ? " and dependant release branch " : "", dependantReleaseBranch != null ? dependantReleaseBranch : "");
 
 		try (Commit commit = branchService.openCommit(branchPath)) {
 			for (List<String> conceptIds : partition(unbatchedConceptIds, 1_000)) {
@@ -655,8 +656,10 @@ public class AdminOperationsService {
 				Map<String, Concept> releasedConcepts = conceptService.find(conceptIdsLongs, null, releaseBranch, LARGE_PAGE).stream()
 						.collect(Collectors.toMap(Concept::getConceptId, Function.identity()));
 
-				Map<String, Concept> dependantReleasedConcepts = conceptService.find(conceptIdsLongs, null, dependantReleaseBranch, LARGE_PAGE).stream()
-						.collect(Collectors.toMap(Concept::getConceptId, Function.identity()));
+				Map<String, Concept> dependantReleasedConcepts = dependantReleaseBranch != null ?
+						conceptService.find(conceptIdsLongs, null, dependantReleaseBranch, LARGE_PAGE).stream()
+								.collect(Collectors.toMap(Concept::getConceptId, Function.identity()))
+						: new HashMap<>();
 
 				for (String conceptId : conceptIds) {
 					logger.info("Restoring components of {} on branch {}.", conceptId, branchPath);
