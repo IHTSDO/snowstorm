@@ -32,7 +32,6 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
@@ -181,7 +180,6 @@ public class ConceptUpdateHelper extends ComponentService {
 				}
 
 				final Description existingDescription = getExistingComponent(existingConcept, ConceptView::getDescriptions, description.getDescriptionId());
-				final Description existingDescriptionFromParent = getExistingComponent(existingConceptFromParent, ConceptView::getDescriptions, description.getDescriptionId());
 				
 				final Map<String, Set<ReferenceSetMember>> existingMembersToMatch = new HashMap<>();
 				if (existingDescription != null) {
@@ -216,9 +214,6 @@ public class ConceptUpdateHelper extends ComponentService {
 					newMembers.add(member);
 				}
 				description.setLanguageRefsetMembers(newMembers);
-
-				markDeletionsAndUpdates(description, existingDescription, existingDescriptionFromParent, Description::getLangRefsetMembers,
-						refsetMembersToPersist, rebaseConflictSave);
 			}
 
 			// Apply relationship source ids
@@ -242,23 +237,27 @@ public class ConceptUpdateHelper extends ComponentService {
 				newVersionConcept.setChanged(true);
 				newVersionConcept.clearReleaseDetails();
 			}
-			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getDescriptions, descriptionsToPersist, rebaseConflictSave);
-			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getRelationships, relationshipsToPersist, rebaseConflictSave);
-			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getAllOwlAxiomMembers, refsetMembersToPersist, rebaseConflictSave);
+
+			if (newVersionConcept.getModuleId() == null) {
+				newVersionConcept.setModuleId(defaultModuleId);
+			}
+
+			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getDescriptions, defaultModuleId, descriptionsToPersist, rebaseConflictSave);
+			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getRelationships, defaultModuleId, relationshipsToPersist, rebaseConflictSave);
+			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getAllOwlAxiomMembers, defaultModuleId, refsetMembersToPersist, rebaseConflictSave);
+
+			for (Description description : newVersionConcept.getDescriptions()) {
+				Description existingDescription = getExistingComponent(existingConcept, ConceptView::getDescriptions, description.getDescriptionId());
+				Description existingDescriptionFromParent = getExistingComponent(existingConceptFromParent, ConceptView::getDescriptions, description.getDescriptionId());
+
+				markDeletionsAndUpdates(description, existingDescription, existingDescriptionFromParent, Description::getLangRefsetMembers, defaultModuleId, refsetMembersToPersist, rebaseConflictSave);
+			}
 
 			// Detach concept's components to ensure concept persisted without collections
 			newVersionConcept.getDescriptions().clear();
 			newVersionConcept.getRelationships().clear();
 			newVersionConcept.getClassAxioms().clear();
 			newVersionConcept.getGciAxioms().clear();
-		}
-
-		// Apply default module to changed components
-		if (defaultModuleId != null) {
-			applyDefaultModule(newVersionConcepts, defaultModuleId);
-			applyDefaultModule(descriptionsToPersist, defaultModuleId);
-			applyDefaultModule(relationshipsToPersist, defaultModuleId);
-			applyDefaultModule(refsetMembersToPersist, defaultModuleId);
 		}
 
 		// TODO: Try saving all core component types at once - Elasticsearch likes multi-threaded writes.
@@ -570,7 +569,7 @@ public class ConceptUpdateHelper extends ComponentService {
 	}
 
 	private <C extends SnomedComponent, T extends SnomedComponent<?>> void markDeletionsAndUpdates(T newConcept, T existingConcept, T existingConceptFromParent,
-			Function<T, Collection<C>> getter, Collection<C> componentsToPersist, boolean rebase) {
+			Function<T, Collection<C>> getter, String defaultModuleId, Collection<C> componentsToPersist, boolean rebase) {
 
 		final Collection<C> newComponents = getExistingComponents(newConcept, getter);
 		final Collection<C> existingComponents = getExistingComponents(existingConcept, getter);
@@ -582,6 +581,15 @@ public class ConceptUpdateHelper extends ComponentService {
 		// Mark updates
 		for (C newComponent : newComponents) {
 			final C existingComponent = existingComponentMap.get(newComponent.getId());
+
+			// Trying Concept module in attempt to restore effective time for the case
+			// where content has changed and then been reverted.
+			newComponent.setModuleId(newConcept.getModuleId());
+			newComponent.updateEffectiveTime();
+			if (newComponent.getEffectiveTime() == null) {
+				newComponent.setModuleId(defaultModuleId);
+			}
+
 			newComponent.setChanged(existingComponent == null || newComponent.isComponentChanged(existingComponent) || rebase);
 			if (existingComponent != null) {
 				newComponent.setCreating(false);// May have been set true earlier
