@@ -664,7 +664,7 @@ class ECLQueryServiceTest extends AbstractTest {
 	}
 
 	protected Collection<Long> selectConceptIds(String ecl) {
-		return selectConceptIds(ecl, null);
+		return selectConceptIds(ecl, PageRequest.of(0, 10000));
 	}
 
 	protected Collection<Long> selectConceptIds(String ecl, PageRequest pageRequest) {

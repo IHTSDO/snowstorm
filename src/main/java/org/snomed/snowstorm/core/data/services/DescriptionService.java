@@ -62,6 +62,8 @@ import java.util.stream.Collectors;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.*;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.REFSET_ID;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH;
 
 @Service
 public class DescriptionService extends ComponentService {
@@ -87,7 +89,7 @@ public class DescriptionService extends ComponentService {
 	private int aggregationMaxProcessableResultsSize;
 
 	public enum SearchMode {
-		STANDARD, REGEX, WHOLE_WORD
+		STANDARD, REGEX, WHOLE_WORD, WILDCARD
 	}
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -252,7 +254,7 @@ public class DescriptionService extends ComponentService {
 						.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
 				)
 				.withPageable(PAGE_OF_ONE)
-				.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID))
+				.addAggregation(AggregationBuilders.terms("membership").field(REFSET_ID))
 				.build(), ReferenceSetMember.class);
 		allAggregations.add(membershipResults.getAggregations().get("membership"));
 		timer.checkpoint("Concept refset membership aggregation");
@@ -446,7 +448,7 @@ public class DescriptionService extends ComponentService {
 
 			queryBuilder.withQuery(boolQuery()
 					.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-					.must(termsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED, Concepts.ACCEPTABLE))
+					.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED, Concepts.ACCEPTABLE))
 					.must(termsQuery("conceptId", conceptIds)))
 					.withPageable(LARGE_PAGE);
 			// Join Lang Refset Members
@@ -533,7 +535,8 @@ public class DescriptionService extends ComponentService {
 		Set<Long> acceptableIn = criteria.getAcceptableIn();
 		Set<Long> preferredOrAcceptableIn = criteria.getPreferredOrAcceptableIn();
 		Set<Long> conceptIds;
-		if (!CollectionUtils.isEmpty(preferredIn) || !CollectionUtils.isEmpty(acceptableIn) || !CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
+		if (!CollectionUtils.isEmpty(preferredIn) || !CollectionUtils.isEmpty(acceptableIn)
+				|| !CollectionUtils.isEmpty(preferredOrAcceptableIn) || !CollectionUtils.isEmpty(criteria.getDisjunctionAcceptabilityCriteria())) {
 
 			BoolQueryBuilder queryBuilder = boolQuery()
 					.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
@@ -541,19 +544,45 @@ public class DescriptionService extends ComponentService {
 
 			if (!CollectionUtils.isEmpty(preferredIn)) {
 				queryBuilder
-						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, preferredIn))
-						.must(termQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED));
+						.must(termsQuery(REFSET_ID, preferredIn))
+						.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED));
 			}
 			if (!CollectionUtils.isEmpty(acceptableIn)) {
 				queryBuilder
-						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, acceptableIn))
-						.must(termQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Concepts.ACCEPTABLE));
+						.must(termsQuery(REFSET_ID, acceptableIn))
+						.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.ACCEPTABLE));
 			}
 			if (!CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
 				queryBuilder
-						.must(termsQuery(ReferenceSetMember.Fields.REFSET_ID, preferredOrAcceptableIn))
-						.must(termsQuery(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH, Sets.newHashSet(Concepts.PREFERRED, Concepts.ACCEPTABLE)));
+						.must(termsQuery(REFSET_ID, preferredOrAcceptableIn))
+						.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, Sets.newHashSet(Concepts.PREFERRED, Concepts.ACCEPTABLE)));
 			}
+			// processing DisjunctionAcceptabilityCriteria
+			for(DescriptionCriteria.DisjunctionAcceptabilityCriteria criteria1 : criteria.getDisjunctionAcceptabilityCriteria()) {
+				if (criteria1.hasMultiple()) {
+					// should
+
+				}
+				if (!CollectionUtils.isEmpty(criteria1.getPreferred())) {
+					queryBuilder
+							.must(termsQuery(REFSET_ID, criteria1.getPreferred()))
+							.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED));
+				}
+			}
+
+//			if (!CollectionUtils.isEmpty(preferredOr)) {
+//				preferredOr.forEach(preferredSet -> {
+//					queryBuilder.must(termsQuery(REFSET_ID, preferredSet))
+//							.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED));
+//				});
+//			}
+//
+//			if (!CollectionUtils.isEmpty(acceptableOr)) {
+//				acceptableOr.forEach(acceptableSet -> {
+//					queryBuilder.must(termsQuery(REFSET_ID, acceptableSet))
+//							.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.ACCEPTABLE));
+//				});
+//			}
 
 			NativeSearchQuery nativeSearchQuery = new NativeSearchQueryBuilder()
 					.withQuery(queryBuilder)
@@ -608,7 +637,7 @@ public class DescriptionService extends ComponentService {
 				try (SearchHitsIterator<ReferenceSetMember> stream = elasticsearchTemplate.searchForStream(
 						new NativeSearchQueryBuilder()
 								.withQuery(boolQuery()
-										.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, criteria.getConceptRefset()))
+										.must(termQuery(REFSET_ID, criteria.getConceptRefset()))
 										.filter(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
 										.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
 								)
@@ -695,6 +724,9 @@ public class DescriptionService extends ComponentService {
 						BoolQueryBuilder languageQuery = boolQuery();
 						if (SearchMode.WHOLE_WORD == searchMode) {
 							languageQuery.filter(matchQuery(Description.Fields.TERM_FOLDED, foldedSearchTerm).operator(Operator.AND));
+						} else if (SearchMode.WILDCARD == searchMode) {
+							// TODO add support for term folding
+							languageQuery.filter(wildcardQuery(Description.Fields.TERM_FOLDED, term));
 						} else {
 							languageQuery.filter(simpleQueryStringQuery(constructSimpleQueryString(foldedSearchTerm))
 											.field(Description.Fields.TERM_FOLDED).defaultOperator(Operator.AND));
@@ -705,7 +737,7 @@ public class DescriptionService extends ComponentService {
 						shouldClauses.should(languageQuery);
 					}
 
-					if (containingNonAlphanumeric(term)) {
+					if (SearchMode.WILDCARD != searchMode && containingNonAlphanumeric(term)) {
 						String regexString = constructRegexQuery(term);
 						termFilter.must(regexpQuery(Description.Fields.TERM, regexString));
 					}
