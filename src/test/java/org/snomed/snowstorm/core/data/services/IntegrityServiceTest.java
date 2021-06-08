@@ -12,7 +12,6 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConcreteValue;
 import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
-import org.snomed.snowstorm.core.data.services.classification.ClassificationService;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
@@ -281,15 +280,7 @@ class IntegrityServiceTest extends AbstractTest {
 		String integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
 		assertTrue(Boolean.parseBoolean(integrityIssueFound));
 
-		// partial fix
-		conceptService.create(new Concept("100001"), path);
-		branch = branchService.findLatest(path);
-		reportProject = integrityService.findChangedComponentsWithBadIntegrity(branch);
-		assertFalse(reportProject.isEmpty());
-		metadata = branch.getMetadata();
-		assertTrue(metadata.containsKey(INTERNAL_METADATA_KEY));
-		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
-		assertTrue(Boolean.parseBoolean(integrityIssueFound));
+		// Test metadata inheritance from project
 		final String taskBranchPath = path + "/task";
 		branchService.create(taskBranchPath);
 		conceptService.create(new Concept("999100001"), taskBranchPath);
@@ -301,6 +292,16 @@ class IntegrityServiceTest extends AbstractTest {
 		assertNotNull(taskIntegrityFlag);
 		assertTrue(Boolean.parseBoolean(taskIntegrityFlag));
 
+		// partial fix
+		conceptService.create(new Concept("100001"), path);
+		branch = branchService.findLatest(path);
+		reportProject = integrityService.findChangedComponentsWithBadIntegrity(branch);
+		assertFalse(reportProject.isEmpty());
+		metadata = branch.getMetadata();
+		assertTrue(metadata.containsKey(INTERNAL_METADATA_KEY));
+		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
+		assertTrue(Boolean.parseBoolean(integrityIssueFound));
+
 		// complete fix
 		conceptService.create(new Concept("100002"), path);
 		branch = branchService.findLatest(path);
@@ -309,9 +310,9 @@ class IntegrityServiceTest extends AbstractTest {
 		metadata = branch.getMetadata();
 		assertTrue(metadata.containsKey(INTERNAL_METADATA_KEY));
 		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
-		assertFalse(Boolean.parseBoolean(integrityIssueFound));
+
+		assertNull("The integrityIssue flag should be removed after all issues are fixed", integrityIssueFound);
 		assertTrue(metadata.getMapOrCreate(INTERNAL_METADATA_KEY).containsKey("other_key"));
 		assertTrue(metadata.containsKey("existingConfig"));
-
 	}
 }
