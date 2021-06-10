@@ -27,6 +27,7 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierCacheManager
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.SnowstormCISClient;
+import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
 import org.snomed.snowstorm.mrcm.MRCMLoader;
@@ -135,6 +136,9 @@ public abstract class Config extends ElasticsearchConfig {
 	private MultiSearchService multiSearchService;
 
 	@Autowired
+	private CommitServiceHookClient commitServiceHookClient;
+
+	@Autowired
 	private MRCMLoader mrcmLoader;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -150,6 +154,7 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(traceabilityLogService);
 		branchService.addCommitListener(integrityService);
 		branchService.addCommitListener(multiSearchService);
+		branchService.addCommitListener(commitServiceHookClient);
 		branchService.addCommitListener(commit -> {
 			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint()));
 		});
