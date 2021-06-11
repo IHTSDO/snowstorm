@@ -14,6 +14,8 @@ import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.PathVariable;
 
@@ -234,7 +236,9 @@ public class ImportService {
 
 	@PreAuthorize("hasPermission('AUTHOR', #branchPath)")
 	public void importArchiveAsync(String importId, @SuppressWarnings("unused") String branchPath, InputStream releaseFileStream) {
+		final SecurityContext securityContext = SecurityContextHolder.getContext();
 		executorService.submit(() -> {
+			SecurityContextHolder.setContext(securityContext);
 			try {
 				importArchive(importId, releaseFileStream);
 			} catch (ReleaseImportException e) {
