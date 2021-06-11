@@ -74,7 +74,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	@Test
 	void testCommitListenerOrderingConfig() {
 		List<CommitListener> commitListeners = branchService.getCommitListeners();
-		assertEquals(9, commitListeners.size());
+		assertEquals(10, commitListeners.size());
 		assertEquals(MRCMLoader.class, commitListeners.get(0).getClass());
 		assertEquals(ConceptDefinitionStatusUpdateService.class, commitListeners.get(1).getClass());
 		assertEquals(SemanticIndexUpdateService.class, commitListeners.get(2).getClass());
