@@ -114,6 +114,7 @@ public class ClassificationService {
 	private ConceptAttributeSortHelper conceptAttributeSortHelper;
 
 	private final List<Classification> classificationsInProgress;
+	private final Map<String, SecurityContext> classificationUserIdToUserContextMap;
 
 	private Thread classificationStatusPollingThread;
 	private boolean shutdownRequested;
@@ -130,6 +131,7 @@ public class ClassificationService {
 
 	public ClassificationService() {
 		classificationsInProgress = new ArrayList<>();
+		classificationUserIdToUserContextMap = new HashMap<>();
 	}
 
 	@PostConstruct
@@ -175,6 +177,9 @@ public class ClassificationService {
 						}
 						Date remoteClassificationCutoffTime = DateUtil.newDatePlus(Calendar.MINUTE, -abortRemoteClassificationAfterMinutes);
 						for (Classification classification : classificationsToCheck) {
+							synchronized (classificationUserIdToUserContextMap) {
+								SecurityContextHolder.setContext(classificationUserIdToUserContextMap.get(classification.getUserId()));
+							}
 							ClassificationStatusResponse statusResponse = serviceClient.getStatus(classification.getId());
 							ClassificationStatus newStatus = statusResponse.getStatus();
 							boolean timeout = false;
@@ -344,6 +349,9 @@ public class ClassificationService {
 			classificationRepository.save(classification);
 			synchronized (classificationsInProgress) {
 				classificationsInProgress.add(classification);
+			}
+			synchronized (classificationUserIdToUserContextMap) {
+				classificationUserIdToUserContextMap.put(classification.getUserId(), SecurityContextHolder.getContext());
 			}
 		} catch (RestClientException | ExportException e) {
 			throw new ServiceException("Failed to create classification.", e);

@@ -16,7 +16,6 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.review.MergeReview;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.snomed.snowstorm.core.data.repositories.*;
-import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
 import org.snomed.snowstorm.core.data.services.pojo.IntegrityIssueReport;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +26,8 @@ import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.data.elasticsearch.repository.ElasticsearchRepository;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -128,7 +129,10 @@ public class BranchMergeService {
 		mergeJob.setStartDate(new Date());
 		mergeJob.setStatus(JobStatus.IN_PROGRESS);
 		branchMergeJobRepository.save(mergeJob);
+		final SecurityContext securityContext = SecurityContextHolder.getContext();
 		executorService.submit(() -> {
+			// Bring user security context into new thread
+			SecurityContextHolder.setContext(securityContext);
 			try {
 				if (mergeReview != null) {
 					branchReviewService.applyMergeReview(mergeReview);

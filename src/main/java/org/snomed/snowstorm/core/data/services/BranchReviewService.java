@@ -28,6 +28,8 @@ import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -96,7 +98,9 @@ public class BranchReviewService {
 				sourceToTarget.getId(), targetToSource.getId());
 		mergeReview.setStatus(ReviewStatus.PENDING);
 
+		final SecurityContext securityContext = SecurityContextHolder.getContext();
 		executorService.submit(() -> {
+			SecurityContextHolder.setContext(securityContext);
 			try {
 				lookupBranchReviewConceptChanges(sourceToTarget);
 				lookupBranchReviewConceptChanges(targetToSource);
@@ -272,7 +276,9 @@ public class BranchReviewService {
 		BranchReview review = getCreateReview(sourceBranch, targetBranch);
 
 		if (review.getStatus() == ReviewStatus.PENDING) {
+			final SecurityContext securityContext = SecurityContextHolder.getContext();
 			executorService.submit(() -> {
+				SecurityContextHolder.setContext(securityContext);
 				try {
 					lookupBranchReviewConceptChanges(review);
 				} catch (Exception e) {
