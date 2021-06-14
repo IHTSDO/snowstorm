@@ -584,10 +584,12 @@ public class ConceptUpdateHelper extends ComponentService {
 
 			// Trying Concept module in attempt to restore effective time for the case
 			// where content has changed and then been reverted.
-			newComponent.setModuleId(newConcept.getModuleId());
-			newComponent.updateEffectiveTime();
-			if (newComponent.getEffectiveTime() == null) {
-				newComponent.setModuleId(defaultModuleId);
+			if (defaultModuleId != null) {
+				newComponent.setModuleId(newConcept.getModuleId());
+				newComponent.updateEffectiveTime();
+				if (newComponent.getEffectiveTime() == null) {
+					newComponent.setModuleId(defaultModuleId);
+				}
 			}
 
 			newComponent.setChanged(existingComponent == null || newComponent.isComponentChanged(existingComponent) || rebase);
