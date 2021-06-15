@@ -23,12 +23,15 @@ class ConceptUpdateHelperTest extends AbstractTest {
 
 	private static final String FINDING_SITE = "363698007";
 	private static final String STOMACH = "69695003";
+	private static final String WITH_SIZE = "103373006";
+	private static final String LARGE = "255509001";
 
 	private static final String CONCEPT_ID = "12345";
 	private static final Concept CONCEPT = new Concept(CONCEPT_ID, MODULE_A)
 			.addFSN("Pizza (food)")
-			.addDescription(new Description("123456", "Cheese."))
-			.addDescription(new Description("1234567", "Tomato."))
+			.addDescription(new Description("123456", "Cheese.").setModuleId(MODULE_A))
+			.addDescription(new Description("1234567", "Tomato.").setModuleId(MODULE_A))
+			.addDescription(new Description("12345678", "Basil.").setModuleId(MODULE_AB))
 			.addRelationship(new Relationship("1", Concepts.ISA, Concepts.SNOMEDCT_ROOT))
 			.addRelationship(new Relationship("2", FINDING_SITE, STOMACH));
 
@@ -48,17 +51,49 @@ class ConceptUpdateHelperTest extends AbstractTest {
 		givenBranchExists(BRANCH_A, MODULE_A);
 		givenConceptExists();
 		givenCodeSystemVersionExists();
-		assertEffectiveTimeAndModuleId(getRelationship(getConcept(BRANCH_A)), 20210131, MODULE_A);
+		assertEffectiveTimeAndModuleId(getRelationship(FINDING_SITE, getConcept(BRANCH_A)), 20210131, MODULE_A);
 
 		// Extension B modifies Extension A's Concept by de-activating a Relationship
 		givenCodeSystemExists(SHORTNAME_AB, BRANCH_AB);
 		givenBranchExists(BRANCH_AB, MODULE_AB);
 		whenConceptModified(getConcept(BRANCH_A), false);
-		assertEffectiveTimeAndModuleId(getRelationship(getConcept(BRANCH_AB)), null, MODULE_AB);
+		assertEffectiveTimeAndModuleId(getRelationship(FINDING_SITE, getConcept(BRANCH_AB)), null, MODULE_AB);
 
 		// Extension B modifies Extension A's Concept (again) by reverting their change (inactivating Relationship)
 		whenConceptModified(getConcept(BRANCH_AB), true);
-		assertEffectiveTimeAndModuleId(getRelationship(getConcept(BRANCH_AB)), 20210131, MODULE_A); //Effective Time and Module Id restored from parent.
+		assertEffectiveTimeAndModuleId(getRelationship(FINDING_SITE, getConcept(BRANCH_AB)), 20210131, MODULE_A); //Effective Time and Module Id restored from parent.
+	}
+
+	@Test
+	void saveNewOrUpdatedConcepts_ShouldNotMoveDescriptionToDifferentCodeSystem() throws ServiceException {
+		// Extension A has a Component in one module, but a Description is another (which is wrong).
+		givenCodeSystemExists(SHORTNAME_A, BRANCH_A);
+		givenBranchExists(BRANCH_A, MODULE_A);
+		givenConceptExists();
+		givenCodeSystemVersionExists();
+		assertEffectiveTimeAndModuleId(getDescription("Basil.", getConcept(BRANCH_A)), 20210131, MODULE_A); // Changed to be same as Concept
+
+		// Extension B modifies Extension A's Concept by de-activating a Relationship. Description should be not be moved to Extension B.
+		givenCodeSystemExists(SHORTNAME_AB, BRANCH_AB);
+		givenBranchExists(BRANCH_AB, MODULE_AB);
+		whenConceptModified(getConcept(BRANCH_A), false);
+		assertEffectiveTimeAndModuleId(getDescription("Basil.", getConcept(BRANCH_AB)), 20210131, MODULE_A);
+	}
+
+	@Test
+	void saveNewOrUpdatedConcepts_ShouldAddNewRelationshipToCorrectModule() throws ServiceException {
+		// Extension A has a Component in one module, but a Description is another (which is wrong).
+		givenCodeSystemExists(SHORTNAME_A, BRANCH_A);
+		givenBranchExists(BRANCH_A, MODULE_A);
+		givenConceptExists();
+		givenCodeSystemVersionExists();
+		assertEffectiveTimeAndModuleId(getRelationship(FINDING_SITE, getConcept(BRANCH_A)), 20210131, MODULE_A);
+
+		// Extension B modifies Extension A's Concept by adding a Relationship.
+		givenCodeSystemExists(SHORTNAME_AB, BRANCH_AB);
+		givenBranchExists(BRANCH_AB, MODULE_AB);
+		whenRelationshipAdded(getConcept(BRANCH_A));
+		assertEffectiveTimeAndModuleId(getRelationship(WITH_SIZE, getConcept(BRANCH_AB)), null, MODULE_AB); //New Relationship in correct module.
 	}
 
 	private void givenCodeSystemExists(String shortName, String branchPath) {
@@ -85,11 +120,22 @@ class ConceptUpdateHelperTest extends AbstractTest {
 		return conceptService.find(CONCEPT_ID, branchPath);
 	}
 
-	private Relationship getRelationship(Concept concept) {
+	private Relationship getRelationship(String typeId, Concept concept) {
 		Set<Relationship> relationships = concept.getRelationships();
 		for (Relationship relationship : relationships) {
-			if (relationship.getTypeId().equals(FINDING_SITE)) {
+			if (relationship.getTypeId().equals(typeId)) {
 				return relationship;
+			}
+		}
+
+		return null;
+	}
+
+	private Description getDescription(String name, Concept concept) {
+		Set<Description> descriptions = concept.getDescriptions();
+		for (Description description : descriptions) {
+			if (description.getTerm().equals(name)) {
+				return description;
 			}
 		}
 
@@ -101,6 +147,11 @@ class ConceptUpdateHelperTest extends AbstractTest {
 		assertEquals(expectedModuleId, relationship.getModuleId());
 	}
 
+	private void assertEffectiveTimeAndModuleId(Description description, Integer expectedEffectiveTime, String expectedModuleId) {
+		assertEquals(expectedEffectiveTime, description.getEffectiveTimeI());
+		assertEquals(expectedModuleId, description.getModuleId());
+	}
+
 	private void whenConceptModified(Concept concept, boolean newState) throws ServiceException {
 		Set<Relationship> relationships = concept.getRelationships();
 		for (Relationship relationship : relationships) {
@@ -109,6 +160,11 @@ class ConceptUpdateHelperTest extends AbstractTest {
 				relationship.setEffectiveTimeI(null);
 			}
 		}
+		conceptService.update(concept, BRANCH_AB);
+	}
+
+	private void whenRelationshipAdded(Concept concept) throws ServiceException {
+		concept.addRelationship(new Relationship(WITH_SIZE, LARGE));
 		conceptService.update(concept, BRANCH_AB);
 	}
 }
