@@ -26,6 +26,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
@@ -884,6 +885,20 @@ class ConceptControllerTest extends AbstractTest {
 
 		//when
 		ResponseEntity<?> responseEntity = this.restTemplate.exchange(request, Collection.class);
+
+		//then
+		assertEquals(200, responseEntity.getStatusCodeValue());
+	}
+
+	@Test
+	void testAcceptLanguageHeaderWithWhitespaceBetweenValues() throws URISyntaxException {
+		//given
+		MultiValueMap<String, String> headers = new HttpHeaders();
+		headers.add("Accept-Language", "en, us");
+		RequestEntity<?> request = new RequestEntity<>(headers, HttpMethod.GET, new URI("http://localhost:" + port + "/browser/MAIN/concepts/257751006"));
+
+		//when
+		ResponseEntity<?> responseEntity = this.restTemplate.exchange(request, Concept.class);
 
 		//then
 		assertEquals(200, responseEntity.getStatusCodeValue());
