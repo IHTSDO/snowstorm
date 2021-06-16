@@ -129,9 +129,9 @@ public class ReferenceSetMemberService extends ComponentService {
 			List<Long> conceptIds = getConceptIds(branch, branchCriteria, module);
 			query.must(termsQuery(ReferenceSetMember.Fields.MODULE_ID, conceptIds));
 		}
-		String referencedComponentId = searchRequest.getReferencedComponentId();
-		if (!Strings.isNullOrEmpty(referencedComponentId)) {
-			query.must(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, referencedComponentId));
+		Set<String> referencedComponentIds = searchRequest.getReferencedComponentIds();
+		if (referencedComponentIds != null && referencedComponentIds.size() > 0) {
+			query.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, referencedComponentIds));
 		}
 		Map<String, String> additionalFields = searchRequest.getAdditionalFields();
 		for (String additionalFieldName : additionalFields.keySet()) {
