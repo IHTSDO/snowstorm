@@ -7,6 +7,7 @@ import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.DialectConfigurationService;
 import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.ecl.ConceptSelectorHelper;
 import org.snomed.snowstorm.ecl.domain.RefinementBuilder;
@@ -109,32 +110,30 @@ public class SExpressionConstraintHelper {
 		final Set<Long> preferredOrAcceptable = new HashSet<>();
 		final Set<Long> preferred = new HashSet<>();
 		final Set<Long> acceptable = new HashSet<>();
-		final List<Set<Long>> preferredOrList = new ArrayList<>();
-		final List<Set<Long>> acceptableOrList = new ArrayList<>();
+		List<DescriptionCriteria.DisjunctionAcceptabilityCriteria> disjunctionAcceptabilityList = new ArrayList<>();
 		filterConstraint.getDialectFilters().forEach(dialectFilter -> {
 			// process dialect set
 			if (dialectFilter.getDialects().size() > 1) {
+				final Set<Long> preferredOr = new HashSet<>();
+				final Set<Long> acceptableOr = new HashSet<>();
+				final Set<Long> disjunctionPreferredOrAcceptable = new HashSet<>();
 				if (dialectFilter.getAcceptabilityMap().isEmpty()) {
 					// preferred or acceptable
-					dialectFilter.getDialects().forEach(dialect -> preferredOrAcceptable.add(getDialectId(dialect)));
+					dialectFilter.getDialects().forEach(dialect -> disjunctionPreferredOrAcceptable.add(getDialectId(dialect)));
+
 				} else {
-					final Set<Long> preferredOr = new HashSet<>();
-					final Set<Long> acceptableOr = new HashSet<>();
 					for (Dialect dialect : dialectFilter.getDialects()) {
 						if (dialectFilter.getAcceptabilityMap().get(dialect).size() > 1) {
-							preferredOrAcceptable.add(getDialectId(dialect));
+							disjunctionPreferredOrAcceptable.add(getDialectId(dialect));
 						} else if (dialectFilter.getAcceptabilityMap().get(dialect).contains(Acceptability.ACCEPTABLE)) {
 							acceptableOr.add(getDialectId(dialect));
 						} else if (dialectFilter.getAcceptabilityMap().get(dialect).contains(Acceptability.PREFERRED)) {
 							preferredOr.add(getDialectId(dialect));
 						}
 					}
-					if (!preferredOr.isEmpty()) {
-						preferredOrList.add(preferredOr);
-					}
-					if (!acceptableOr.isEmpty()) {
-						acceptableOrList.add(acceptableOr);
-					}
+				}
+				if (!preferredOr.isEmpty() || !acceptableOr.isEmpty() || !disjunctionPreferredOrAcceptable.isEmpty()) {
+					disjunctionAcceptabilityList.add(new DescriptionCriteria.DisjunctionAcceptabilityCriteria(preferredOr, acceptableOr, disjunctionPreferredOrAcceptable));
 				}
 			} else {
 				Dialect dialect = dialectFilter.getDialects().get(0);
@@ -153,10 +152,9 @@ public class SExpressionConstraintHelper {
 		});
 		queryBuilder.descriptionCriteria(descriptionCriteria -> {
 			descriptionCriteria.preferredOrAcceptableIn(preferredOrAcceptable);
-//			descriptionCriteria.preferredOr(preferredOrList);
 			descriptionCriteria.preferredIn(preferred);
 			descriptionCriteria.acceptableIn(acceptable);
-//			descriptionCriteria.acceptableOr(acceptableOrList);
+			descriptionCriteria.disjunctionAcceptabilityCriteria(disjunctionAcceptabilityList);
 		});
 	}
 

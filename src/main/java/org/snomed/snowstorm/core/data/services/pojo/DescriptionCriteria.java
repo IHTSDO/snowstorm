@@ -242,7 +242,7 @@ public class DescriptionCriteria {
 
 		private final Set<Long> preferredOrAcceptable;
 
-		DisjunctionAcceptabilityCriteria(Set<Long> preferred, Set<Long> acceptable, Set<Long> preferredOrAcceptable) {
+		public DisjunctionAcceptabilityCriteria(Set<Long> preferred, Set<Long> acceptable, Set<Long> preferredOrAcceptable) {
 			this.preferred = preferred;
 			this.acceptable = acceptable;
 			this.preferredOrAcceptable = preferredOrAcceptable;
