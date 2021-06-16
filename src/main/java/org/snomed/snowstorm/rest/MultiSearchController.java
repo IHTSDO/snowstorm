@@ -103,6 +103,65 @@ public class MultiSearchController {
 		return new ItemsPage<>(new PageImpl<>(results, pageRequest, descriptions.getTotalElements()));
 	}
 	
+	@ApiOperation("Search descriptions across multiple Code Systems returning reference set membership bucket.")
+	@RequestMapping(value = "multisearch/descriptions/referencesets", method = RequestMethod.GET)
+	@JsonView(value = View.Component.class)
+	public Page<BrowserDescriptionSearchResult> findDescriptionsReferenceSets(
+			@RequestParam String term,// Required!
+			@RequestParam(required = false) Boolean active,
+			@RequestParam(required = false) Collection<String> module,
+
+			@ApiParam(value = "Set of two character language codes to match. " +
+					"The English language code 'en' will not be added automatically, in contrast to the Accept-Language header which always includes it. " +
+					"Accept-Language header still controls result FSN and PT language selection.")
+			@RequestParam(required = false) Set<String> language,
+
+			@ApiParam(value = "Set of description types to include. Pick descendants of '900000000000446008 | Description type (core metadata concept) |'.")
+			@RequestParam(required = false) Set<Long> type,
+
+			@RequestParam(required = false) Boolean conceptActive,
+			@RequestParam(defaultValue = "ALL_PUBLISHED_CONTENT") ContentScope contentScope,
+			@RequestParam(defaultValue = "0") int offset,
+			@RequestParam(defaultValue = "50") int limit,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws TooCostlyException {
+
+		TimerUtil timer = new TimerUtil("MultiSearch - Descriptions with Reference Set buckets");
+
+		DescriptionCriteria descriptionCriteria = new DescriptionCriteria()
+				.term(term)
+				.active(active)
+				.modules(module)
+				.searchLanguageCodes(language)
+				.type(type)
+				.conceptActive(conceptActive);
+
+		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
+		PageWithBucketAggregations<Description> page = multiSearchService.findDescriptionsReferenceSets(descriptionCriteria, pageRequest);
+		timer.checkpoint("description search with reference sets");
+
+		Map<String, List<Description>> branchDescriptions = new HashMap<>();
+		Map<String, List<String>> branchConceptIds = new HashMap<>();
+		for (Description description : page) {
+			branchDescriptions.computeIfAbsent(description.getPath(), s -> new ArrayList<>()).add(description);
+			branchConceptIds.computeIfAbsent(description.getPath(), s -> new ArrayList<>()).add(description.getConceptId());
+		}
+
+		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader);
+		Map<String, ConceptMini> conceptMiniMap = new HashMap<>();
+		for (String branchPath : branchConceptIds.keySet()) {
+			conceptMiniMap.putAll(conceptService.findConceptMinis(branchPath, branchConceptIds.get(branchPath), languageDialects).getResultsMap());
+			timer.checkpoint("Join concepts from " + branchPath);
+		}
+
+		timer.finish();
+		
+		List<BrowserDescriptionSearchResult> results = new ArrayList<>();
+		page.getContent().forEach(d -> results.add(new BrowserDescriptionSearchResult(d.getTerm(), d.isActive(), d.getLanguageCode(), d.getModuleId(), conceptMiniMap.get(d.getConceptId()))));
+
+		PageWithBucketAggregations<BrowserDescriptionSearchResult> pageWithBucketAggregations = new PageWithBucketAggregations<>(results, page.getPageable(), page.getTotalElements(), page.getBuckets());
+		return pageWithBucketAggregations;
+	}
+	
 	@ApiOperation("Search concepts across multiple Code Systems.")
 	@RequestMapping(value = "multisearch/concepts", method = RequestMethod.GET)
 	@JsonView(value = View.Component.class)
