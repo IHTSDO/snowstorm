@@ -426,7 +426,7 @@ class ClassificationServiceTest extends AbstractTest {
 		classificationService.saveClassificationResultsToBranch(path, classificationId, SecurityContextHolder.getContext());
 		Set<ClassificationStatus> inProgressStatuses = Sets.newHashSet(COMPLETED, ClassificationStatus.SAVING_IN_PROGRESS);
 		for (int i = 0; inProgressStatuses.contains(classificationService.findClassification(path, classificationId).getStatus()) && i < 20; i++) {
-			Thread.sleep(1_000);
+			Thread.sleep(2_000);
 		}
 		return classificationService.findClassification(path, classificationId).getStatus();
 	}
