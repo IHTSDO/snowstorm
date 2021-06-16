@@ -1,14 +1,13 @@
 package org.snomed.snowstorm.core.data.services.pojo;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class MemberSearchRequest {
 
 	private Boolean active;
 	private String referenceSet;
 	private String module;
-	private String referencedComponentId;
+	private Set<String> referencedComponentIds;
 	private String owlExpressionConceptId;
 	private Boolean owlExpressionGCI;
 	private final Map<String, String> additionalFields;
@@ -53,13 +52,13 @@ public class MemberSearchRequest {
 	/**
 	 * @param referencedComponentId  Filter by the referencedComponentId field.
 	 */
-	public MemberSearchRequest referencedComponentId(String referencedComponentId) {
-		this.referencedComponentId = referencedComponentId;
+	public MemberSearchRequest referencedComponentIds(Set<String> referencedComponentIds) {
+		this.referencedComponentIds = referencedComponentIds;
 		return this;
 	}
 
-	public String getReferencedComponentId() {
-		return referencedComponentId;
+	public Set<String> getReferencedComponentIds() {
+		return referencedComponentIds;
 	}
 
 	/**
@@ -111,5 +110,9 @@ public class MemberSearchRequest {
 
 	public Map<String, String> getAdditionalFields() {
 		return additionalFields;
+	}
+
+	public MemberSearchRequest referencedComponentId(String referencedComponentId) {
+		return referencedComponentIds(Collections.singleton(referencedComponentId));
 	}
 }
