@@ -13,6 +13,7 @@ import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.data.services.TooCostlyException;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.rest.pojo.BrowserDescriptionSearchResult;
