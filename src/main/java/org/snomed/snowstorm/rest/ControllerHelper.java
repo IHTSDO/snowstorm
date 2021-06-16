@@ -141,6 +141,7 @@ public class ControllerHelper {
 			acceptLanguageHeader = "";
 		}
 
+		acceptLanguageHeader = acceptLanguageHeader.replaceAll("\\s+", "");
 		String[] acceptLanguageList = acceptLanguageHeader.toLowerCase().split(",");
 		for (String acceptLanguage : acceptLanguageList) {
 			if (acceptLanguage.isEmpty()) {
