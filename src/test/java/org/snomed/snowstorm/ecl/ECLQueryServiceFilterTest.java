@@ -32,6 +32,9 @@ class ECLQueryServiceFilterTest extends ECLQueryServiceTest {
 				.addDescription(new Description( "Heart disease (disorder)").setLanguageCode("en").setType("FSN")
 						.addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED)
 						.addLanguageRefsetMember(GB_EN_LANG_REFSET, PREFERRED))
+				.addDescription(new Description("Heart disease").setLanguageCode("en").setType("SYNONYM")
+						.addLanguageRefsetMember(US_EN_LANG_REFSET, PREFERRED)
+						.addLanguageRefsetMember(GB_EN_LANG_REFSET, ACCEPTABLE))
 				.addDescription(new Description("hjärtsjukdom").setLanguageCode("sv").setType("SYNONYM")
 						.addLanguageRefsetMember("46011000052107", PREFERRED))
 				.addRelationship(ISA, DISORDER));
@@ -142,9 +145,16 @@ class ECLQueryServiceFilterTest extends ECLQueryServiceTest {
 
 	@Test
 	void testAcceptabilityFilters() {
+		// TO debug
+//		String ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (prefer), dialect = (en-us en-nhs-clinical) (prefer) }}";
+//		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+//		String ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = (en-us en-nhs-clinical) (prefer), dialect = (en-gb en-uk-ext) (prefer) }}";
+		String ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = syn, dialect = en-gb (accept), dialect = en-us (prefer) }}";
+//		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
+
 		// dialectId and acceptability keyword
-//		String ecl = "< 64572001 |Disease| {{ term = \"hjärt\", type = syn, dialectId = 46011000052107(prefer) }}";
-		String ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = (en-gb(accept) en-us(prefer)) }}";
+		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", type = syn, dialectId = 46011000052107(prefer) }}";
 		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
 
 		ecl = "< 64572001 |Disease| {{ term = \"hjärt\", type = syn, dialectId = 46011000052107(accept) }}";
@@ -183,20 +193,31 @@ class ECLQueryServiceFilterTest extends ECLQueryServiceTest {
 
 		// multiple dialects
 		// en-gb preferred and en-us preferred
-		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (prefer), dialect = en-gb (prefer) }}";
+		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (prefer), dialect = en-us (prefer) }}";
 		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
 
-		// en-gb acceptable and en-us preferred
-		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (accept), dialect = en-gb (prefer) }}";
+		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (accept), dialect = en-us (prefer) }}";
 		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
 
 		// multiple dialects with dialect set
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-nhs-clinical (accept), dialect = (en-us en-gb) (prefer) }}";
+		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+
+		// en-gb preferred and preferred in (en-us or en-nhs-clinical)
+		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (prefer), dialect = (en-us en-nhs-clinical) (prefer) }}";
 		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
 
+		// en-gb accept and preferred in (en-us or en-nhs-clinical) should return no results
+		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = en-gb (accept), dialect = (en-us en-gb en-nhs-clinical) (prefer) }}";
+		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+
 		// multiple dialect sets
+		// preferred in en-uk-ext or en-nhs-clinical AND preferred in en-us or en-gb
 		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = (en-uk-ext en-nhs-clinical) (prefer), dialect = (en-us en-gb) (prefer) }}";
 		assertEquals(Sets.newHashSet(), strings(selectConceptIds(ecl)));
+
+		ecl = "< 64572001 |Disease| {{ term = \"Heart disease\", type = (syn fsn), dialect = (en-us en-nhs-clinical) (prefer), dialect = (en-gb en-uk-ext) (prefer) }}";
+		assertEquals(Sets.newHashSet("100002"), strings(selectConceptIds(ecl)));
 	}
 
 }

@@ -558,31 +558,33 @@ public class DescriptionService extends ComponentService {
 						.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, Sets.newHashSet(Concepts.PREFERRED, Concepts.ACCEPTABLE)));
 			}
 			// processing DisjunctionAcceptabilityCriteria
-			for(DescriptionCriteria.DisjunctionAcceptabilityCriteria criteria1 : criteria.getDisjunctionAcceptabilityCriteria()) {
-				if (criteria1.hasMultiple()) {
-					// should
-
-				}
-				if (!CollectionUtils.isEmpty(criteria1.getPreferred())) {
-					queryBuilder
-							.must(termsQuery(REFSET_ID, criteria1.getPreferred()))
-							.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED));
+			if (criteria.getDisjunctionAcceptabilityCriteria() != null) {
+				for (DescriptionCriteria.DisjunctionAcceptabilityCriteria disjunctionCriteria : criteria.getDisjunctionAcceptabilityCriteria()) {
+					BoolQueryBuilder shouldClause = boolQuery();
+					if (!CollectionUtils.isEmpty(disjunctionCriteria.getPreferred())) {
+						disjunctionCriteria.getPreferred().forEach(refsetId -> {
+								shouldClause.should(boolQuery()
+										.must(termQuery(REFSET_ID, refsetId))
+										.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED)));
+						});
+					}
+					if (!CollectionUtils.isEmpty(acceptableIn)) {
+						disjunctionCriteria.getPreferred().forEach(refsetId -> {
+							shouldClause.should(boolQuery()
+									.must(termQuery(REFSET_ID, refsetId))
+									.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.ACCEPTABLE)));
+						});
+					}
+					if (!CollectionUtils.isEmpty(preferredOrAcceptableIn)) {
+						shouldClause.should(boolQuery()
+								.must(termsQuery(REFSET_ID, preferredOrAcceptableIn))
+								.must(termsQuery(ACCEPTABILITY_ID_FIELD_PATH, Sets.newHashSet(Concepts.PREFERRED, Concepts.ACCEPTABLE))));
+					}
+					if (!shouldClause.should().isEmpty()) {
+						queryBuilder.must(shouldClause);
+					}
 				}
 			}
-
-//			if (!CollectionUtils.isEmpty(preferredOr)) {
-//				preferredOr.forEach(preferredSet -> {
-//					queryBuilder.must(termsQuery(REFSET_ID, preferredSet))
-//							.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.PREFERRED));
-//				});
-//			}
-//
-//			if (!CollectionUtils.isEmpty(acceptableOr)) {
-//				acceptableOr.forEach(acceptableSet -> {
-//					queryBuilder.must(termsQuery(REFSET_ID, acceptableSet))
-//							.must(termQuery(ACCEPTABILITY_ID_FIELD_PATH, Concepts.ACCEPTABLE));
-//				});
-//			}
 
 			NativeSearchQuery nativeSearchQuery = new NativeSearchQueryBuilder()
 					.withQuery(queryBuilder)
