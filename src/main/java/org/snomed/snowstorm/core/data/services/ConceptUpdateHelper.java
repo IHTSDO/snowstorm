@@ -582,16 +582,6 @@ public class ConceptUpdateHelper extends ComponentService {
 		for (C newComponent : newComponents) {
 			final C existingComponent = existingComponentMap.get(newComponent.getId());
 
-			// Trying Concept module in attempt to restore effective time for the case
-			// where content has changed and then been reverted.
-			if (defaultModuleId != null) {
-				newComponent.setModuleId(newConcept.getModuleId());
-				newComponent.updateEffectiveTime();
-				if (newComponent.getEffectiveTime() == null) {
-					newComponent.setModuleId(defaultModuleId);
-				}
-			}
-
 			newComponent.setChanged(existingComponent == null || newComponent.isComponentChanged(existingComponent) || rebase);
 			if (existingComponent != null) {
 				newComponent.setCreating(false);// May have been set true earlier
@@ -600,6 +590,16 @@ public class ConceptUpdateHelper extends ComponentService {
 			} else {
 				newComponent.setCreating(true);
 				newComponent.clearReleaseDetails();
+			}
+
+			// Trying Concept module in attempt to restore effective time for the case
+			// where content has changed and then been reverted.
+			if (defaultModuleId != null) {
+				newComponent.setModuleId(newConcept.getModuleId());
+				newComponent.updateEffectiveTime();
+				if (newComponent.getEffectiveTime() == null) {
+					newComponent.setModuleId(defaultModuleId);
+				}
 			}
 		}
 		componentsToPersist.addAll(newComponents);// All added but only those with changed or deleted flag will be written to store.
