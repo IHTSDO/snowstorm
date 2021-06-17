@@ -30,6 +30,7 @@ import org.snomed.snowstorm.core.data.services.identifier.SnowstormCISClient;
 import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
+import org.snomed.snowstorm.ecl.validation.ECLPreprocessingService;
 import org.snomed.snowstorm.mrcm.MRCMLoader;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -141,6 +142,9 @@ public abstract class Config extends ElasticsearchConfig {
 	@Autowired
 	private MRCMLoader mrcmLoader;
 
+	@Autowired
+	private ECLPreprocessingService eclPreprocessingService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
@@ -154,6 +158,7 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(traceabilityLogService);
 		branchService.addCommitListener(integrityService);
 		branchService.addCommitListener(multiSearchService);
+		branchService.addCommitListener(eclPreprocessingService);
 		branchService.addCommitListener(commitServiceHookClient);
 		branchService.addCommitListener(commit -> {
 			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint()));
