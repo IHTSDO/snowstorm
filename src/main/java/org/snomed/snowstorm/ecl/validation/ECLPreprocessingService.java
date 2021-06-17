@@ -49,7 +49,7 @@ public class ECLPreprocessingService implements CommitListener {
 	public SExpressionConstraint replaceIncorrectConcreteAttributeValue(final SExpressionConstraint sExpressionConstraint, final String branch, final PageRequest pageRequest) {
 		if (sExpressionConstraint != null) {
 			if (!CACHED_CONCRETE_CONCEPT_IDS.containsKey(branch) || (CACHED_CONCRETE_CONCEPT_IDS.containsKey(branch) && CACHED_CONCRETE_CONCEPT_IDS.get(branch).isEmpty())) {
-				cacheConcreteConceptIds(branch, pageRequest);
+				cacheConcreteConceptIds(branch);
 			}
 			iterateOverExpressionInstance(sExpressionConstraint, branch);
 		}
@@ -164,9 +164,9 @@ public class ECLPreprocessingService implements CommitListener {
 		return sEclAttributes;
 	}
 
-	private void cacheConcreteConceptIds(final String branch, final PageRequest pageRequest) {
+	private void cacheConcreteConceptIds(final String branch) {
 		CACHED_CONCRETE_CONCEPT_IDS.put(branch, eclQueryService.doSelectConceptIds(RETURN_ALL_CONCRETE_ATTRIBUTES_ECL_QUERY,
-				versionControlHelper.getBranchCriteria(branch), branch, false, null, pageRequest, null)
+				versionControlHelper.getBranchCriteria(branch), branch, false, null, PageRequest.of(0, 100), null)
 				.toList().stream().map(Functions.toStringFunction()).collect(Collectors.toList()));
 	}
 }
