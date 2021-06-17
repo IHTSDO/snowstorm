@@ -86,11 +86,14 @@ public class MultiSearchService implements CommitListener {
 	
 	public PageWithBucketAggregations<Description> findDescriptionsReferenceSets(DescriptionCriteria criteria, PageRequest pageRequest) {
 
+		// all search results are required to determine total refset bucket membership
+		SearchHits<Description> allSearchHits = findDescriptionsHelper(criteria, null);
+		// paged results are required for the list of descriptions returned
 		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest);
 		
 		List<Aggregation> allAggregations = new ArrayList<>();
 		Set<Long> conceptIds = new HashSet<>();
-		for (SearchHit<Description> desc : searchHits) {
+		for (SearchHit<Description> desc : allSearchHits) {
 			conceptIds.add(Long.parseLong(desc.getContent().getConceptId()));
 		}
 		// Fetch concept refset membership aggregation
@@ -127,9 +130,16 @@ public class MultiSearchService implements CommitListener {
 			descriptionQuery.must(termsQuery(Description.Fields.MODULE_ID, modules));
 		}
 
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(descriptionQuery)
-				.withPageable(pageRequest);
+		NativeSearchQueryBuilder queryBuilder;
+		// if pageRequest is null, get all (needed for bucket membership
+		if (pageRequest == null) {
+		  queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(descriptionQuery);
+		} else {
+		  queryBuilder = new NativeSearchQueryBuilder()
+						.withQuery(descriptionQuery)
+						.withPageable(pageRequest);
+		}
 		if (criteria.getConceptActive() != null) {
 			Set<Long> conceptsToFetch = getMatchedConcepts(criteria.getConceptActive(), branchesQuery, descriptionQuery);
 			queryBuilder.withFilter(boolQuery().must(termsQuery(Description.Fields.CONCEPT_ID, conceptsToFetch)));
