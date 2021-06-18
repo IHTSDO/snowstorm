@@ -535,18 +535,21 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			}
 
 			String branch = branchPath.toString();
+			
 			Collection<ConceptMini> fromService = conceptService.findConceptMinis(branch, conceptIds, designations).getResultsMap().values();
-			logger.info("Recovered {} Concepts from branch {}.", fromService.size(), branch);
+			logger.info("Recovered {} Concepts from branch {} with Compose.", fromService.size(), branch);
 
 			String ecl = filterECL.toString();
-			Collection<ConceptMini> fromECL = fhirHelper.eclSearch(ecl, active, filter, designations, branchPath, pageRequest).getContent();
-			logger.info("Recovered {} Concepts from branch {} with ECL {}.", fromECL.size(), branch, filterECL);
+			Page<ConceptMini> page = fhirHelper.eclSearch(ecl, active, filter, designations, branchPath, pageRequest);
+			Collection<ConceptMini> fromECL = page.getContent();
+			logger.info("Recovered {} Concepts from branch {} with ECL {}.", page.getTotalElements(), branch, filterECL);
 
 			List<ConceptMini> conceptMinis = new ArrayList<>();
 			conceptMinis.addAll(fromService);
 			conceptMinis.addAll(fromECL);
-			conceptMiniPage = new PageImpl<>(conceptMinis);
-			logger.info("Collectively recovered {} Concepts from branch {}.", conceptMinis.size(), branch);
+			long totalCount = fromService.size() + page.getTotalElements(); 
+			conceptMiniPage = new PageImpl<ConceptMini>(conceptMinis, page.getPageable(), totalCount);
+			logger.info("Collectively recovered {} Concepts from branch {}.", conceptMiniPage.getTotalElements(), branch);
 		} else {
 			String msg = "Compose element(s) or 'url' parameter is expected to be present for an expansion, containing eg http://snomed.info/sct?fhir_vs=ecl/ or http://snomed.info/sct/45991000052106?fhir_vs=ecl/ ";
 			//We don't need ECL if we're expanding a named valueset
