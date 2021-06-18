@@ -221,7 +221,7 @@ public class FHIRHelper implements FHIRConstants {
 			if (firstItem) {
 				firstItem = false;
 			} else {
-				eclBuilder.append(" AND ");
+				eclBuilder.append(" OR ");
 			}
 			if (filter.getProperty().equals("concept")) {
 				eclBuilder.append(convertOperationToECL(filter.getOp()));
@@ -461,14 +461,28 @@ public class FHIRHelper implements FHIRConstants {
 		int currPageCount = lastSafePage;
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		SearchAfterPage<Long> page = null;
+		int scrollFowardPageCount = pageRequest.getPageNumber() - currPageCount;
+		logger.debug("Scrolling forward " + scrollFowardPageCount + " pages");
 		while (currPageCount <= pageRequest.getPageNumber()) {
+			//Can I warp towards the final page using a larger page size?
+			//Need to start from a page with a searchAfter, check page not null
+			if (currPageCount < pageRequest.getPageNumber() - 1 && page != null) {
+				int scrollFowardSize = (pageRequest.getPageNumber() - currPageCount) * pageRequest.getPageSize();
+				int maxPageSize = scrollFowardSize < MAX_RETURN_COUNT ? scrollFowardSize : MAX_RETURN_COUNT;
+				//May need to be one page back from this so we leave our last page for the next loop
+				maxPageSize -= maxPageSize == MAX_RETURN_COUNT ? 0 : pageRequest.getPageSize();
+				//How far are we warping?
+				currPageCount += maxPageSize / pageRequest.getPageSize();
+				currPageReq = SearchAfterPageRequest.of(page.getSearchAfter(), maxPageSize, DEFAULT_SORT);
+			} else {
+				currPageCount++;
+			}
 			page = queryService.searchForIds(conceptQuery, branchPath, branchCriteria, currPageReq);
 			//Check we're not asking for a page number larger than we have available results - otherwise we'd loop unnecessarily
 			if (totalRequested > page.getTotalElements()) {
 				throw new IllegalArgumentException("Offset requested " + pageRequest.getOffset() + " exceeds total elements available " + page.getTotalElements());
 			}
 			currPageReq = SearchAfterPageRequest.of(page.getSearchAfter(), pageRequest.getPageSize(), DEFAULT_SORT);
-			currPageCount++;
 		}
 		//Now we've got the right page, recover ConceptMinis for these Ids
 		ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, page.getContent(), languageDialects);
