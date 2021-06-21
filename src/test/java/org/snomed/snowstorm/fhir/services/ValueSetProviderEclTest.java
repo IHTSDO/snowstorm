@@ -107,17 +107,17 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		
 		// ?fhir_vs -> all concepts
 		// expect 13 Total - 10 on MAIN + 3 in the sample module + 1 Root concept
-		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs&_format=json";
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs";
 		ValueSet v = getValueSet(url);
 		assertEquals(14,v.getExpansion().getTotal());
 		
 		// ?fhir_vs=refset -> all concepts representing refsets
-		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=refset&_format=json";
+		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=refset";
 		v = getValueSet(url);
 		assertEquals("Two value sets in the latest release branch.", 3, v.getExpansion().getTotal());
 		
 		// ?fhir_vs=isa/<root concept> -> all concepts under root plus self
-		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT + "&_format=json";
+		url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=isa/" + Concepts.SNOMEDCT_ROOT;
 		v = getValueSet(url);
 		assertEquals(14,v.getExpansion().getTotal());
 		
