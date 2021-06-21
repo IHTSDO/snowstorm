@@ -30,6 +30,7 @@ import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.snomed.snowstorm.fhir.domain.ValueSetWrapper;
 import org.snomed.snowstorm.fhir.pojo.ValueSetExpansionParameters;
 import org.snomed.snowstorm.fhir.repositories.FHIRValuesetRepository;
+import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -645,8 +646,12 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 	}
 	
 	private Page<ConceptMini> findAllRefsets(BranchPath branchPath, PageRequest pageRequest) {
+		//Can't use a default page request here as members don't have a conceptId field
+		pageRequest = ControllerHelper.getPageRequest((int)pageRequest.getOffset(), pageRequest.getPageSize(), FHIRHelper.MEMBER_SORT);
+		
 		PageWithBucketAggregations<ReferenceSetMember> bucketPage = refsetService.findReferenceSetMembersWithAggregations(branchPath.toString(), pageRequest, new MemberSearchRequest().active(true));
 		List<ConceptMini> refsets = new ArrayList<>();
+		
 		if (bucketPage.getBuckets() != null && bucketPage.getBuckets().containsKey(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET)) {
 			refsets = bucketPage.getBuckets().get(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET).keySet().stream()
 					.map(s -> new ConceptMini(s, null))
