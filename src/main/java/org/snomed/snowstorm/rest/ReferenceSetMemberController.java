@@ -62,8 +62,8 @@ public class ReferenceSetMemberController {
 			@RequestParam(required = false) String referenceSet,
 			@ApiParam("A concept identifier or ECL expression can be used to limit the modules searched. Example: <900000000000445007")
 			@RequestParam(required = false) String module,
-			@ApiParam(value = "Set of referencedComponentId ids to limit search", name="referencedComponentId")
-			@RequestParam(required = false) Set<String> referencedComponentIds,
+			@ApiParam(value = "Set of referencedComponentId ids to limit search")
+			@RequestParam(required = false) Set<String> referencedComponentId, //Ideally this would be plural, but that would break backwards compatibility
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "10") int limit,
@@ -79,7 +79,7 @@ public class ReferenceSetMemberController {
 				.active(active)
 				.referenceSet(referenceSet)
 				.module(module)
-				.referencedComponentIds(referencedComponentIds);
+				.referencedComponentIds(referencedComponentId);
 		PageWithBucketAggregations<ReferenceSetMember> page = memberService.findReferenceSetMembersWithAggregations(branch, pageRequest, searchRequest);
 		timer.checkpoint("aggregation");
 
