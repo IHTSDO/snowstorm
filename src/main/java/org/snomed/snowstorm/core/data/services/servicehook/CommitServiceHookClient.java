@@ -21,9 +21,10 @@ public class CommitServiceHookClient implements CommitListener {
 	private final RestTemplate restTemplate;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+	private final String serviceUrl;
 
 	public CommitServiceHookClient(@Value("${service-hook.commit.url}") String serviceUrl) {
-
+		this.serviceUrl = serviceUrl;
 		if (!StringUtils.isEmpty(serviceUrl)) {
 			final RestTemplateBuilder builder = new RestTemplateBuilder()
 					.rootUri(serviceUrl);
@@ -39,14 +40,31 @@ public class CommitServiceHookClient implements CommitListener {
 			return;
 		}
 
+		final String authenticationToken = SecurityUtil.getAuthenticationToken();
 		try {
 			final HttpHeaders httpHeaders = new HttpHeaders();
 			httpHeaders.setContentType(MediaType.APPLICATION_JSON);
-			httpHeaders.add(HttpHeaders.COOKIE, SecurityUtil.getAuthenticationToken());
+			if (authenticationToken == null) {
+				logger.info("Authentication token is null.");
+			}
+			httpHeaders.add(HttpHeaders.COOKIE, authenticationToken);
 			restTemplate.postForEntity("/integration/snowstorm/commit",
 					new HttpEntity<>(new CommitInformation(commit), httpHeaders), Void.class);
 		} catch (RestClientException e) {
-			logger.warn("Commit service hook failed for branch {}, commit {}.", commit.getBranch().getPath(), commit.getTimepoint().getTime(), e);
+			logger.error("Commit service hook failed for branch {}, commit {}, url {}, cookie {}",
+					commit.getBranch().getPath(), commit.getTimepoint().getTime(), serviceUrl,
+					obfuscateToken(authenticationToken), e);
 		}
+	}
+
+	private Object obfuscateToken(String authenticationToken) {
+		if (authenticationToken != null) {
+			if (authenticationToken.contains("=")) {
+				return authenticationToken.substring(0, authenticationToken.indexOf("=") + 4) + "...";
+			} else {
+				return authenticationToken.substring(0, 4) + "...";
+			}
+		}
+		return null;
 	}
 }
