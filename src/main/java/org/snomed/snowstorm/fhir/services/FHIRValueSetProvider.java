@@ -484,7 +484,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		} else {
 			String ecl = determineEcl(url, true);
 			Page<ConceptMini> conceptMiniPage = fhirHelper.eclSearch(ecl, active, filter, designations, branchPath, pageRequest);
-			logger.info("Recovered: {} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), branchPath, ecl);
+			logger.info("Recovered: {}/{} concepts from branch: {} with ecl: '{}'", conceptMiniPage.getContent().size(), conceptMiniPage.getTotalElements(), branchPath, ecl);
 			return conceptMiniPage;
 		}
 	}

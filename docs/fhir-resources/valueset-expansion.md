@@ -11,6 +11,12 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=e
 #### Expansion of an intentionally defined value set using ECL against a specific edition/version
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&system-version=http://snomed.info/sct/900000000000207008/version/20190731
 
+##### alternatively, the url parameter can also take a version URI.  This is an equivalent request:
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct/900000000000207008/version/20190731?fhir_vs=ecl/<<27624003
+
+#### Expansion of an intentionally defined value set using ECL against unpublished content (eg concepts newly created on the MAIN branch)
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/xsct?fhir_vs=ecl/<<27624003
+
 #### Expansion of an intentionally defined value set using ISA
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=isa/27624003
 
@@ -32,8 +38,8 @@ http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct/459910000
 #### Expansion specifying a language reference set for the designation.  However, since includeDesigntations is set to false, this results in a very minimal return with just the display returning as "Acetaminophen" due to being the US preferred term.   Note that setting includeDesignations=true will return both preferred and acceptable terms
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/322280009&designation=http://snomed.info/sct|900000000000509007&includeDesignations=false
 
-#### Paging through 10 at a time, request the 2nd page
-http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&count=10&offset=1
+#### Paging through 10 at a time, request the 2nd page.  Note that the offset is a number of elements, rather than a page offset, and must be a multiple of the page size ie count.
+http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<27624003&count=10&offset=10
 
 #### Term filtering - ValueSet of all <<763158003 |Medicinal product (product)| containing the word aspirin.  This is not case sensitive.
 http://localhost:8080/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<763158003&filter=Aspirin
