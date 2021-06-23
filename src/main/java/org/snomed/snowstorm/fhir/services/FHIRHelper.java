@@ -143,7 +143,7 @@ public class FHIRHelper implements FHIRConstants {
 			// Lookup specific version, or the "daily build" branch if we detect "UNVERSIONED" as the version
 			if (version.equals(UNVERSIONED)) {
 				branchPathStr = codeSystem.getBranchPath();
-				logger.debug("Request to use unversioned content, using daily build branchpath: " + branchPathStr);
+				logger.info("Request to use unversioned content, using daily build branchpath: " + branchPathStr);
 			} else {
 				codeSystemVersion = codeSystemService.findVersion(shortName, version);
 				if (codeSystemVersion == null) {
