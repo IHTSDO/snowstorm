@@ -23,6 +23,7 @@ import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.validation.ECLValidator;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
@@ -500,16 +501,39 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
+			@RequestParam(required = false, defaultValue = "") String refsetId,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		TimerUtil timer = new TimerUtil("Child listing: " + conceptId, Level.INFO, 5);
 
+		@SuppressWarnings("unchecked")
 		List<ConceptMini> children = (List<ConceptMini>) findConceptsWithECL("<!" + conceptId, form == Relationship.CharacteristicType.stated, branch, acceptLanguageHeader,
 				0, LARGE_PAGE.getPageSize()).getItems();
 
 		timer.checkpoint("Find children");
 
+		//For each child, determine if any its descendants are members of the passed-in refset
+		if(!refsetId.equals("")) {
+			for(ConceptMini child : children) {
+				
+				QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false)
+						.activeFilter(true)
+						.ecl("^ " + refsetId + " AND < " + child.getConceptId());
+								
+				PageRequest pageRequest = getPageRequestWithSort(0, 1, null, Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending());
+
+				SearchAfterPage<Long> ids = queryService.searchForIds(queryBuilder, branch, pageRequest);
+				
+				if(ids.getNumberOfElements() > 0) {
+					child.addExtraField("descendantsAreMemberOfRefset", "true");
+				}
+				else {
+					child.addExtraField("descendantsAreMemberOfRefset", "false");
+				}
+			}
+		}		
+		
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		if (!includeDescendantCount) {
 			queryService.joinIsLeafFlag(children, form, branchCriteria, branch);
