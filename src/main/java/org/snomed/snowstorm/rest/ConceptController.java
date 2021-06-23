@@ -485,6 +485,7 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
+			@RequestParam(required = false, defaultValue = "") String refsetId,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
@@ -495,6 +496,27 @@ public class ConceptController {
 
 		timer.checkpoint("Find children");
 
+		//For each child, determine if any its descendants are members of the passed-in refset
+		if(!refsetId.equals("")) {
+			for(ConceptMini child : children) {
+				
+				QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false)
+						.activeFilter(true)
+						.ecl("^ " + refsetId + " AND < " + child.getConceptId());
+								
+				PageRequest pageRequest = getPageRequestWithSort(0, 1, null, Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending());
+
+				SearchAfterPage<Long> ids = queryService.searchForIds(queryBuilder, branch, pageRequest);
+				
+				if(ids.getNumberOfElements() > 0) {
+					child.addExtraField("descendantsAreMemberOfRefset", "true");
+				}
+				else {
+					child.addExtraField("descendantsAreMemberOfRefset", "false");
+				}
+			}
+		}		
+		
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		if (!includeDescendantCount) {
 			queryService.joinIsLeafFlag(children, form, branchCriteria);
