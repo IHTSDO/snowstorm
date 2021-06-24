@@ -273,6 +273,10 @@ public class QueryService implements ApplicationContextAware {
 		if (conceptQuery.conceptIds != null && !conceptQuery.conceptIds.isEmpty()) {
 			conceptIdFilter = conceptQuery.conceptIds.stream().map(Long::valueOf).collect(Collectors.toSet());
 		}
+		if(conceptQuery.getRefsetId() != null) {
+			Page<Long> refsetConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), null, null);
+			conceptIdFilter = refsetConceptIds.getContent();
+		}
 		if (conceptQuery.hasPropertyFilter()) {
 			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, null);
 			List<Long> filteredConceptIds = applyConceptPropertyFilters(allConceptIds.getContent(), conceptQuery, branchCriteria, new LongArrayList());
@@ -533,6 +537,7 @@ public class QueryService implements ApplicationContextAware {
 		private Integer effectiveTime;
 		private Boolean isNullEffectiveTime;
 		private Boolean isReleased;
+		private String refsetId;
 
 		private ConceptQueryBuilder(boolean stated) {
 			this.stated = stated;
@@ -549,7 +554,7 @@ public class QueryService implements ApplicationContextAware {
 		}
 
 		private boolean hasLogicalConditions() {
-			return ecl != null || activeFilter != null || effectiveTime != null || isReleased != null || definitionStatusFilter != null || conceptIds != null || module != null;
+			return ecl != null || activeFilter != null || effectiveTime != null || isReleased != null || definitionStatusFilter != null || conceptIds != null || module != null || refsetId != null;
 		}
 
 		public ConceptQueryBuilder ecl(String ecl) {
@@ -616,6 +621,11 @@ public class QueryService implements ApplicationContextAware {
 			descriptionCriteriaUpdater.accept(descriptionCriteria);
 			return this;
 		}
+		
+		public ConceptQueryBuilder refsetId(String refsetId) {
+			this.refsetId = refsetId;
+			return this;
+		}		
 
 		ConceptQueryBuilder descriptionTerm(String term) {
 			descriptionCriteria.term(term);
@@ -687,6 +697,9 @@ public class QueryService implements ApplicationContextAware {
 				conceptClauses.must(termQuery(SnomedComponent.Fields.RELEASED, isReleased));
 			}
 		}
+		private String getRefsetId() {
+			return refsetId;
+		}		
 	}
 
 }
