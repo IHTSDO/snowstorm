@@ -37,6 +37,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -44,6 +45,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilder;
 
 import javax.validation.Valid;
 import java.util.*;
@@ -503,9 +506,10 @@ public class ConceptController {
 				
 				QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false)
 						.activeFilter(true)
-						.ecl("^ " + refsetId + " AND < " + child.getConceptId());
-								
-				PageRequest pageRequest = getPageRequestWithSort(0, 1, null, Sort.sort(QueryConcept.class).by(QueryConcept::getConceptIdL).descending());
+						.ecl("< " + child.getConceptId())
+						.refsetId(refsetId);
+				
+				PageRequest pageRequest = getPageRequestWithSort(0, 1, null, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
 
 				SearchAfterPage<Long> ids = queryService.searchForIds(queryBuilder, branch, pageRequest);
 				
