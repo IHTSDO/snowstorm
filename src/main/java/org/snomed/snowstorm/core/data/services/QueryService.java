@@ -275,6 +275,10 @@ public class QueryService implements ApplicationContextAware {
 		if (conceptQuery.conceptIds != null && !conceptQuery.conceptIds.isEmpty()) {
 			conceptIdFilter = conceptQuery.conceptIds.stream().map(Long::valueOf).collect(Collectors.toSet());
 		}
+		if(conceptQuery.getRefsetId() != null) {
+			Page<Long> refsetConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), null, null);
+			conceptIdFilter = refsetConceptIds.getContent();
+		}
 		if (conceptQuery.hasPropertyFilter()) {
 			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, null);
 			List<Long> filteredConceptIds = applyConceptPropertyFilters(allConceptIds.getContent(), conceptQuery, branchCriteria, new LongArrayList());
@@ -550,6 +554,7 @@ public class QueryService implements ApplicationContextAware {
 		private Integer effectiveTime;
 		private Boolean isNullEffectiveTime;
 		private Boolean isReleased;
+		private String refsetId;
 
 		private ConceptQueryBuilder(boolean stated) {
 			this.stated = stated;
@@ -562,7 +567,7 @@ public class QueryService implements ApplicationContextAware {
 		}
 
 		private boolean hasLogicalConditions() {
-			return ecl != null || activeFilter != null || effectiveTime != null || isReleased != null || definitionStatusFilter != null || conceptIds != null || module != null;
+			return ecl != null || activeFilter != null || effectiveTime != null || isReleased != null || definitionStatusFilter != null || conceptIds != null || module != null || refsetId != null;
 		}
 
 		public ConceptQueryBuilder ecl(String ecl) {
@@ -615,6 +620,11 @@ public class QueryService implements ApplicationContextAware {
 			return this;
 		}
 
+		public ConceptQueryBuilder refsetId(String refsetId) {
+			this.refsetId = refsetId;
+			return this;
+		}
+
 		public ConceptQueryBuilder resultLanguageDialects(List<LanguageDialect> resultLanguageDialects) {
 			this.resultLanguageDialects = resultLanguageDialects;
 			return this;
@@ -657,6 +667,10 @@ public class QueryService implements ApplicationContextAware {
 
 		public Set<Long> getModule() {
 			return module;
+		}
+
+		private String getRefsetId() {
+			return refsetId;
 		}
 
 		private List<LanguageDialect> getResultLanguageDialects() {
@@ -708,6 +722,7 @@ public class QueryService implements ApplicationContextAware {
 					", activeFilter=" + activeFilter +
 					", definitionStatusFilter='" + definitionStatusFilter + '\'' +
 					", module=" + module +
+					", refsetId=" + refsetId +
 					", resultLanguageDialects=" + resultLanguageDialects +
 					", ecl='" + ecl + '\'' +
 					", conceptIds=" + conceptIds +
@@ -727,6 +742,7 @@ public class QueryService implements ApplicationContextAware {
 					Objects.equals(activeFilter, that.activeFilter) &&
 					Objects.equals(definitionStatusFilter, that.definitionStatusFilter) &&
 					Objects.equals(module, that.module) &&
+					Objects.equals(refsetId, that.refsetId) &&
 					Objects.equals(resultLanguageDialects, that.resultLanguageDialects) &&
 					Objects.equals(ecl, that.ecl) &&
 					Objects.equals(conceptIds, that.conceptIds) &&
@@ -738,9 +754,10 @@ public class QueryService implements ApplicationContextAware {
 
 		@Override
 		public int hashCode() {
-			return Objects.hash(stated, activeFilter, definitionStatusFilter, module, resultLanguageDialects, ecl,
+			return Objects.hash(stated, activeFilter, definitionStatusFilter, module, refsetId, resultLanguageDialects, ecl,
 					conceptIds, descriptionCriteria, effectiveTime, isNullEffectiveTime, isReleased);
 		}
+
 	}
 
 }
