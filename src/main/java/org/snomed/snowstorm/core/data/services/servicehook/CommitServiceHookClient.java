@@ -5,6 +5,7 @@ import io.kaicode.elasticvc.domain.Commit;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.core.data.services.RuntimeServiceException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
@@ -54,6 +55,15 @@ public class CommitServiceHookClient implements CommitListener {
 			logger.error("Commit service hook failed for branch {}, commit {}, url {}, cookie {}",
 					commit.getBranch().getPath(), commit.getTimepoint().getTime(), serviceUrl,
 					obfuscateToken(authenticationToken), e);
+			// e will be HttpClientErrorException.Conflict if review for branch is incomplete.
+			// Regardless, if the commit is a promotion, we will always abort if an exception is encountered.
+			boolean promotion = commit.getCommitType().equals(Commit.CommitType.PROMOTION);
+			if (promotion) {
+				logger.error("Review for branch is incomplete; promotion aborted.");
+				throw new RuntimeServiceException("Review for branch is incomplete; promotion aborted.");
+			}
+
+			throw e;
 		}
 	}
 
