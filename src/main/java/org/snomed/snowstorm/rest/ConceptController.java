@@ -526,8 +526,7 @@ public class ConceptController {
 				
 				QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false)
 						.activeFilter(true)
-						.ecl("< " + child.getConceptId())
-						.refsetId(refsetId);
+						.ecl("^ " + refsetId + " AND < " + child.getConceptId());
 				
 				PageRequest pageRequest = getPageRequestWithSort(0, 1, null, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
 
