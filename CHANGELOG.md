@@ -3,12 +3,14 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 7.1.0 - In Progress...
+## 7.1.0 -
+
+.. TODO
 
 ### Breaking
 - Admin function to restore release flags has parameter changes
-  - An alternate release branch can no longer be specified 
-    because any dependant release branch is now looked up, and the effectiveComponents resolved, automatically. 
+  - An alternate release branch can no longer be specified
+    because any dependant release branch is now looked up, and the effectiveComponents resolved, automatically.
 
 
 ## 7.0.1 Release (May 2021) - Major Release for Java 11
