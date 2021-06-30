@@ -276,7 +276,7 @@ public class QueryService implements ApplicationContextAware {
 			conceptIdFilter = conceptQuery.conceptIds.stream().map(Long::valueOf).collect(Collectors.toSet());
 		}
 		if(conceptQuery.getRefsetId() != null) {
-			Page<Long> refsetConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), null, null);
+			Page<Long> refsetConceptIds = eclQueryService.selectConceptIds("^ " + conceptQuery.getRefsetId(), branchCriteria, branchPath, conceptQuery.isStated(), null, null);
 			conceptIdFilter = refsetConceptIds.getContent();
 		}
 		if (conceptQuery.hasPropertyFilter()) {
