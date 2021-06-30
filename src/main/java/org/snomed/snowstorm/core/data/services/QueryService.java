@@ -70,6 +70,8 @@ public class QueryService implements ApplicationContextAware {
 
 	private ConceptService conceptService;
 
+	private static Map<String, Page<Long>> refsetMemberCache = new HashMap<>();
+			
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Page<ConceptMini> eclSearch(String ecl, boolean stated, String branchPath, PageRequest pageRequest) {
@@ -331,8 +333,16 @@ public class QueryService implements ApplicationContextAware {
 			conceptIdFilter = conceptQuery.conceptIds.stream().map(Long::valueOf).collect(Collectors.toSet());
 		}
 		if(conceptQuery.getRefsetId() != null) {
-			Page<Long> refsetConceptIds = eclQueryService.selectConceptIds("^ " + conceptQuery.getRefsetId(), branchCriteria, branchPath, conceptQuery.isStated(), null, null);
-			conceptIdFilter = refsetConceptIds.getContent();
+			final String refsetMemberQuery = "^ " + conceptQuery.getRefsetId();
+			if(refsetMemberCache.containsKey(refsetMemberQuery + "|" + branchCriteria + "|" + branchPath + "|" + conceptQuery.isStated())) {
+				conceptIdFilter = refsetMemberCache.get(refsetMemberQuery + "|" + branchCriteria + "|" + branchPath + "|" + conceptQuery.isStated()).getContent();
+			}
+			else {
+				Page<Long> refsetConceptIds = eclQueryService.selectConceptIds(refsetMemberQuery, branchCriteria, branchPath, conceptQuery.isStated(), null, null);
+				conceptIdFilter = refsetConceptIds.getContent();
+				refsetMemberCache.put(refsetMemberQuery + "|" + branchCriteria + "|" + branchPath + "|" + conceptQuery.isStated(), refsetConceptIds);
+			}
+
 		}
 		if (conceptQuery.hasPropertyFilter()) {
 			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, conceptQuery.isStated(), conceptIdFilter, null);
