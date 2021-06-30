@@ -99,7 +99,7 @@ public abstract class AbstractFHIRTest {
 	protected final Logger logger = LoggerFactory.getLogger(getClass());
 	protected static final Logger slogger = LoggerFactory.getLogger(AbstractFHIRTest.class);
 	
-	private static final int TOTAL_TEST_CLASSES = 6;
+	private static final int TOTAL_TEST_CLASSES = 7;
 	private static int testClassesRun = 0;
 
 	@AfterAll
@@ -250,6 +250,24 @@ public abstract class AbstractFHIRTest {
 
 		return null;
 	}
+	
+	protected void checkForExpectedError(ResponseEntity<String> response) throws FHIROperationException {
+		String body = response.getBody();
+		boolean expectedErrorEncountered = false;
+		if (!HttpStatus.OK.equals(response.getStatusCode())) {
+			if (body.contains("\"status\":5") ||
+					body.contains("\"status\":4") ||
+					body.contains("\"status\":3")) {
+				expectedErrorEncountered = true;
+			} else if (body.contains("\"resourceType\":\"OperationOutcome\"")) {
+				expectedErrorEncountered = true;
+			}
+		}
+		
+		if (!expectedErrorEncountered) {
+			throw new FHIROperationException(IssueType.EXCEPTION, "Expected error was NOT encountered");
+		}
+	}
 
 	protected void checkForError(ResponseEntity<String> response) throws FHIROperationException {
 		String body = response.getBody();
@@ -261,7 +279,7 @@ public abstract class AbstractFHIRTest {
 					ErrorResponse error = mapper.readValue(body, ErrorResponse.class);
 					throw new FHIROperationException(IssueType.EXCEPTION, error.getMessage());
 				} else if (body.contains("\"resourceType\":\"OperationOutcome\"")) {
-					OperationOutcome outcome = fhirJsonParser.parseResource(OperationOutcome.class, body);
+					//OperationOutcome outcome = fhirJsonParser.parseResource(OperationOutcome.class, body);
 					//TODO Find or write pretty print to give structured output of OperationOutcome
 					throw new FHIROperationException(IssueType.EXCEPTION, body);
 				}
@@ -271,7 +289,7 @@ public abstract class AbstractFHIRTest {
 		}
 	}
 	
-	protected Parameters get(String url) throws FHIROperationException {
+	protected Parameters getParameters(String url) throws FHIROperationException {
 		ResponseEntity<String> response = this.restTemplate.exchange(url, HttpMethod.GET, defaultRequestEntity, String.class);
 		checkForError(response);
 		return fhirJsonParser.parseResource(Parameters.class, response.getBody());

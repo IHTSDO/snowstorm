@@ -15,19 +15,19 @@ class CodeSystemProviderSubsumesTest extends AbstractFHIRTest {
 		
 		//Test subsumption using defaults
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$subsumes?version=" + version + "&codeA=" + Concepts.SNOMEDCT_ROOT +"&codeB=" + sampleSCTID;
-		Parameters p = get(url);
+		Parameters p = getParameters(url);
 		String result = toString(getProperty(p, "outcome"));
 		assertEquals("subsumes", result);
 		
 		//Test reverse subsumption using defaults
 		url = "http://localhost:" + port + "/fhir/CodeSystem/$subsumes?version=" + version + "&codeB=" + Concepts.SNOMEDCT_ROOT +"&codeA=" + sampleSCTID;
-		p = get(url);
+		p = getParameters(url);
 		result = toString(getProperty(p, "outcome"));
 		assertEquals("subsumed-by", result);
 		
 		//Alternative URLs using coding saying the same thing
 		url = "http://localhost:" + port + "/fhir/CodeSystem/$subsumes?version=" + version + "&codingA=" + FHIRConstants.SNOMED_URI + "|" + Concepts.SNOMEDCT_ROOT +"&codingB=" + FHIRConstants.SNOMED_URI + "|"  + sampleSCTID;
-		p = get(url);
+		p = getParameters(url);
 		result = toString(getProperty(p, "outcome"));
 		assertEquals("subsumes", result);
 	}

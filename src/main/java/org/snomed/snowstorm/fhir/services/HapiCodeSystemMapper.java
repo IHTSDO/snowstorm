@@ -26,12 +26,25 @@ public class HapiCodeSystemMapper implements FHIRConstants {
 		c.setId(id);
 		c.setUrl(SNOMED_URI);
 		c.setVersion(version);
+		c.setTitle(generateTitle(cv));
+		c.setPublisher(cv.getCodeSystem() == null ? null : cv.getCodeSystem().getOwner());
 		try {
 			c.setDate(sdf.parse(cv.getEffectiveDate().toString()));
 		} catch (Exception e) {}
 		return c;
 	}
 	
+	private String generateTitle(CodeSystemVersion cv) {
+		String title = "";
+		org.snomed.snowstorm.core.data.domain.CodeSystem cs = cv.getCodeSystem();
+		if (cs != null) {
+			title = cs.getName() + " SNOMED CT release " + cv.getVersion();
+		} else {
+			title = cv.getDescription();
+		}
+		return title;
+	}
+
 	private CodeSystem getStandardCodeSystem() {
 		CodeSystem cs = new CodeSystem();
 		cs.setPublisher(SNOMED_INTERNATIONAL);

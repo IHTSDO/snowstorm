@@ -14,26 +14,26 @@ class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 		String version = "version=http://snomed.info/sct/1234";
 		//Test recovery using code with version
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?" + version + "&code=" + sampleSCTID;
-		Parameters p = get(url);
+		Parameters p = getParameters(url);
 		String result = toString(getProperty(p, "result"));
 		assertEquals("true", result);
 		
 		//Alternative URLs using coding saying the same thing
 		url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?" + version + "&coding=http://snomed.info/sct|" + sampleSCTID;
-		p = get(url);
+		p = getParameters(url);
 		result = toString(getProperty(p, "result"));
 		assertEquals("true", result);
 		
 		//Known not present
 		url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?" + version + "&code=1234501";
-		p = get(url);
+		p = getParameters(url);
 		result = toString(getProperty(p, "result"));
 		assertEquals("false", result);
 		
 		//Also check the preferred term
 		url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?" + version + "&coding=http://snomed.info/sct|" + sampleSCTID;
 		url += "&display=Baked potato 1";
-		p = get(url);
+		p = getParameters(url);
 		result = toString(getProperty(p, "result"));
 		assertEquals("true", result);
 		String msg = toString(getProperty(p, "message"));
@@ -41,7 +41,7 @@ class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 		
 		url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?" + version + "&coding=http://snomed.info/sct|" + sampleSCTID;
 		url += "&display=Baked potato 1 (substance)";
-		p = get(url);
+		p = getParameters(url);
 		result = toString(getProperty(p, "result"));
 		assertEquals("true", result);
 		msg = toString(getProperty(p, "message"));
@@ -50,7 +50,7 @@ class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 		//Check for completely wrong display value
 		url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?" + version + "&coding=http://snomed.info/sct|" + sampleSCTID;
 		url += "&display=foo";
-		p = get(url);
+		p = getParameters(url);
 		result = toString(getProperty(p, "result"));
 		assertEquals("false", result);
 		//TODO However we do get the actual PT here, so check that
@@ -61,7 +61,7 @@ class CodeSystemProviderValidateTest extends AbstractFHIRTest {
 		String version = "version=http://snomed.info/xsct/" + sampleModuleId;
 		//Test recovery using code with version with "unpublished" indicator
 		String url = "http://localhost:" + port + "/fhir/CodeSystem/$validate-code?" + version + "&code=" + sampleSCTID;
-		Parameters p = get(url);
+		Parameters p = getParameters(url);
 		String result = toString(getProperty(p, "result"));
 		assertEquals("true", result);
 	}
