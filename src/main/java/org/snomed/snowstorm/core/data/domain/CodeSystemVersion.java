@@ -41,6 +41,9 @@ public class CodeSystemVersion {
 
 	@Transient
 	private Integer dependantVersionEffectiveTime;
+	
+	@Transient
+	private CodeSystem codeSystem;
 
 	public CodeSystemVersion() {
 	}
@@ -128,5 +131,13 @@ public class CodeSystemVersion {
 
 	public void setDependantVersionEffectiveTime(Integer dependantVersionEffectiveTime) {
 		this.dependantVersionEffectiveTime = dependantVersionEffectiveTime;
+	}
+
+	public CodeSystem getCodeSystem() {
+		return codeSystem;
+	}
+
+	public void setCodeSystem(CodeSystem codeSystem) {
+		this.codeSystem = codeSystem;
 	}
 }

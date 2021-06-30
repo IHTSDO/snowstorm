@@ -70,7 +70,7 @@ class ValueSetProviderScrudTest extends AbstractFHIRTest {
 	}
 	
 	@Test
-	void testValueSetExpansion() {
+	void testValueSetExpansion() throws FHIROperationException {
 		ClassLoader classloader = Thread.currentThread().getContextClassLoader();
 		InputStream is = classloader.getResourceAsStream("dummy-fhir-content/exampleVS_ECL.json");
 		assertNotNull(is);
@@ -81,12 +81,17 @@ class ValueSetProviderScrudTest extends AbstractFHIRTest {
 		
 		//Now expand that ValueSet we just saved
 		String url = baseUrl + "/chronic-diseases/$expand";
-		ResponseEntity<String> response2 = restTemplate.getForEntity(url, String.class);
-		ValueSet savedVS = fhirJsonParser.parseResource(ValueSet.class, response2.getBody());
+		ValueSet savedVS = getValueSet(url);
 		assertEquals(0, savedVS.getExpansion().getTotal());
 		
 		restTemplate.delete(baseUrl + "/chronic-diseases");
 		logger.info("ValueSet expansion tested OK!");
+	}
+
+	private ValueSet getValueSet(String url) throws FHIROperationException {
+		ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+		checkForError(response);
+		return fhirJsonParser.parseResource(ValueSet.class, response.getBody());
 	}
 
 	private void storeVs(String id, String vsJson) {

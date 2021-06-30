@@ -6,6 +6,7 @@ import ca.uhn.fhir.rest.annotation.OperationParam;
 import ca.uhn.fhir.rest.annotation.OptionalParam;
 import ca.uhn.fhir.rest.annotation.Read;
 import ca.uhn.fhir.rest.annotation.Search;
+import ca.uhn.fhir.rest.api.server.RequestDetails;
 import ca.uhn.fhir.rest.param.QuantityParam;
 import ca.uhn.fhir.rest.param.StringParam;
 import ca.uhn.fhir.rest.param.TokenParam;
@@ -16,7 +17,6 @@ import org.hl7.fhir.r4.model.OperationOutcome.IssueType;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
-import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.MultiSearchService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
@@ -29,7 +29,6 @@ import org.snomed.snowstorm.fhir.domain.SearchFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import javax.servlet.http.HttpServletRequest;
@@ -68,10 +67,32 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		defaultLanguages.addAll(DEFAULT_LANGUAGE_DIALECTS);
 	}
 	
+	private static String[] defaultSortOrder = new String[] { "title", "-date" };
+	
+	//See https://stackoverflow.com/questions/61073018/streams-sorting-by-runtime-parameter
+	private static Map<String, Comparator<CodeSystem>> comparatorMap = Map.ofEntries(
+			new AbstractMap.SimpleEntry<>("_id", Comparator.comparing(CodeSystem::getId)),
+			new AbstractMap.SimpleEntry<>("-_id", Comparator.comparing(CodeSystem::getId).reversed()),
+			new AbstractMap.SimpleEntry<>("date", Comparator.comparing(CodeSystem::getDate)),
+			new AbstractMap.SimpleEntry<>("-date", Comparator.comparing(CodeSystem::getDate).reversed()),
+			new AbstractMap.SimpleEntry<>("description", Comparator.comparing(CodeSystem::getDescription)),
+			new AbstractMap.SimpleEntry<>("-description", Comparator.comparing(CodeSystem::getDescription).reversed()),
+			new AbstractMap.SimpleEntry<>("name", Comparator.comparing(CodeSystem::getName)),
+			new AbstractMap.SimpleEntry<>("-name", Comparator.comparing(CodeSystem::getName).reversed()),
+			new AbstractMap.SimpleEntry<>("publisher", Comparator.comparing(CodeSystem::getPublisher)),
+			new AbstractMap.SimpleEntry<>("-publisher", Comparator.comparing(CodeSystem::getPublisher).reversed()),
+			new AbstractMap.SimpleEntry<>("title", Comparator.comparing(CodeSystem::getTitle)),
+			new AbstractMap.SimpleEntry<>("-title", Comparator.comparing(CodeSystem::getTitle).reversed()),
+			new AbstractMap.SimpleEntry<>("url", Comparator.comparing(CodeSystem::getUrl)),
+			new AbstractMap.SimpleEntry<>("-url", Comparator.comparing(CodeSystem::getUrl).reversed()),
+			new AbstractMap.SimpleEntry<>("version", Comparator.comparing(CodeSystem::getVersion)),
+			new AbstractMap.SimpleEntry<>("-version", Comparator.comparing(CodeSystem::getVersion).reversed())
+		);
+	
 	//See https://www.hl7.org/fhir/valueset.html#search
 	@Search
 	public List<CodeSystem> findCodeSystems(
-			HttpServletRequest theRequest, 
+			RequestDetails theRequest, 
 			HttpServletResponse theResponse,
 			@OptionalParam(name="_id") String id,
 			@OptionalParam(name="code") String code,
@@ -106,9 +127,28 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 									.withTitle(title)
 									.withUrl(url)
 									.withVersion(version);
+		
+		List<String> sortOn;
+		if (theRequest.getParameters().get("_sort") != null) {
+			sortOn = new ArrayList<>();
+			for (String param : theRequest.getParameters().get("_sort")) {
+				sortOn.addAll(Arrays.asList(param.split("\\,")));
+			}
+		} else {
+			sortOn = Arrays.asList(defaultSortOrder);
+		}
+		
+		for (String sortField : sortOn) {
+			if (!comparatorMap.containsKey(sortField)) {
+				throw new FHIROperationException(IssueType.PROCESSING, sortField + " is not supported as a field to sort on.");
+			}
+		}
+		
+		Comparator<CodeSystem> chainedComparator = sortOn.stream().map(comparatorMap::get).reduce(Comparator::thenComparing).get();
 		return multiSearchService.getAllPublishedVersions().stream()
 				.map(cv -> csMapper.mapToFHIR(cv))
 				.filter(cs -> csFilter.apply(cs, fhirHelper))
+				.sorted(chainedComparator)
 				.collect(Collectors.toList());
 	}
 	
@@ -394,4 +434,5 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 	public Class<? extends IBaseResource> getResourceType() {
 		return CodeSystem.class;
 	}
+	
 }
