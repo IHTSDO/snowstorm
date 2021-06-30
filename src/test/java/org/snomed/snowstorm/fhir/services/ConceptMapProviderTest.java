@@ -21,7 +21,7 @@ class ConceptMapProviderTest extends AbstractFHIRTest {
 		String vs = "http://snomed.info/sct/900000000000207008/version/UNVERSIONED?fhir_cm=" + Concepts.REFSET_SAME_AS_ASSOCIATION;
 		String sourceTarget = "source=http://snomed.info/sct?fhir_vs&target=http://snomed.info/sct?fhir_vs";
 		String url = "http://localhost:" + port + "/fhir/ConceptMap/$translate?code=" + sampleSCTID + "&system=http://snomed.info/sct&" + sourceTarget + "&url=" + vs;
-		Parameters parameters = get(url);
+		Parameters parameters = getParameters(url);
 		assertNotNull(parameters);
 		Type t = parameters.getParameter("result");
 		assertTrue(t.castToBoolean(t).booleanValue());
@@ -29,7 +29,7 @@ class ConceptMapProviderTest extends AbstractFHIRTest {
 		//We can also use the xsct form to specify unpublished content
 		vs = "http://snomed.info/xsct?fhir_cm=" + Concepts.REFSET_SAME_AS_ASSOCIATION;
 		url = "http://localhost:" + port + "/fhir/ConceptMap/$translate?code=" + sampleSCTID + "&system=http://snomed.info/sct&" + sourceTarget + "&url=" + vs;
-		parameters = get(url);
+		parameters = getParameters(url);
 		assertNotNull(parameters);
 		t = parameters.getParameter("result");
 		assertTrue(t.castToBoolean(t).booleanValue());
