@@ -99,7 +99,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			@OptionalParam(name="context") TokenParam context,
 			@OptionalParam(name="context-quantity") QuantityParam contextQuantity,
 			@OptionalParam(name="context-type") String contextType,
-			@OptionalParam(name="date") String date,
+			@OptionalParam(name="date") StringParam date,
 			@OptionalParam(name="description") StringParam description,
 			@OptionalParam(name="identifier") StringParam identifier,
 			@OptionalParam(name="jurisdiction") StringParam jurisdiction,

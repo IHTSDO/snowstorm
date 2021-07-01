@@ -41,6 +41,7 @@ import javax.servlet.http.HttpServletRequest;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODE;
@@ -531,6 +532,18 @@ public class FHIRHelper implements FHIRConstants {
 			}
 		}
 		return false;
+	}
+	
+	public boolean objectMatches(Object obj, StringParam searchTerm) {
+		//If we've specified a search term but the target element is not populated, that's not a match
+		if (obj == null) {
+			return false;
+		}
+		String value = obj.toString();
+		if (obj instanceof Date) {
+			value = sdf.format((Date)obj);
+		}
+		return stringMatches(value.toString(), searchTerm);
 	}
 
 	public boolean stringMatches(String value, StringParam searchTerm) {

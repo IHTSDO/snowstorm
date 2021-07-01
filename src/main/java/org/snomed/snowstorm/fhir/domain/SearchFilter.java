@@ -19,7 +19,7 @@ public class SearchFilter {
 	TokenParam context;
 	QuantityParam contextQuantity;
 	String contextType;
-	String date;
+	StringParam date;
 	StringParam description;
 	String expansion;
 	StringParam identifier;
@@ -80,14 +80,11 @@ public class SearchFilter {
 		}
 		return this;
 	}
-	public String getDate() {
+	public StringParam getDate() {
 		return date;
 	}
-	public SearchFilter withDate(String date) {
+	public SearchFilter withDate(StringParam date) {
 		this.date = date;
-		if (date != null) {
-			throw new UnsupportedOperationException();
-		}
 		return this;
 	}
 	public StringParam getDescription() {
@@ -261,6 +258,10 @@ public class SearchFilter {
 		}
 		
 		if (!fhirHelper.stringMatches(cs.getTitle(), getTitle())) {
+			return false;
+		}
+		
+		if (!fhirHelper.objectMatches(cs.getDate(), getDate())) {
 			return false;
 		}
 		
