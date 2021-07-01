@@ -28,6 +28,10 @@ public class HapiCodeSystemMapper implements FHIRConstants {
 		c.setVersion(version);
 		c.setTitle(generateTitle(cv));
 		c.setPublisher(cv.getCodeSystem() == null ? null : cv.getCodeSystem().getOwner());
+		if (c.getPublisher() == null) {
+			c.setPublisher("Unknown");
+		}
+		
 		try {
 			c.setDate(sdf.parse(cv.getEffectiveDate().toString()));
 		} catch (Exception e) {}
