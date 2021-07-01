@@ -21,6 +21,11 @@ public class CodeSystemUpdateRequest {
 		this.name = name;
 	}
 
+	public CodeSystemUpdateRequest(String name, String owner) {
+		this.name = name;
+		this.owner = owner;
+	}
+
 	public String getName() {
 		return name;
 	}

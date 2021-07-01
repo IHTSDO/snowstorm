@@ -530,4 +530,15 @@ public class CodeSystemService {
 	protected void setLatestVersionCanBeFuture(boolean latestVersionCanBeFuture) {
 		this.latestVersionCanBeFuture = latestVersionCanBeFuture;
 	}
+
+	public void updateDetailsFromConfig() {
+		final Map<String, CodeSystemConfiguration> configurationsMap = codeSystemConfigurationService.getConfigurations().stream()
+				.collect(Collectors.toMap(CodeSystemConfiguration::getShortName, Function.identity()));
+		for (CodeSystem codeSystem : findAll()) {
+			final CodeSystemConfiguration configuration = configurationsMap.get(codeSystem.getShortName());
+			if (configuration != null) {
+				update(codeSystem, new CodeSystemUpdateRequest(configuration.getName(), configuration.getOwner()));
+			}
+		}
+	}
 }
