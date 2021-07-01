@@ -105,7 +105,7 @@ public abstract class AbstractFHIRTest {
 	@AfterAll
 	void finalTearDown() {
 		if (testClassesRun >= TOTAL_TEST_CLASSES) {
-			logger.warn("Digging up the Potatoes");
+			logger.warn("Digging up the Potatoes - if tests have not completed, increment TOTAL_TEST_CLASSES");
 			branchService.deleteAll();
 			conceptService.deleteAll();
 			codeSystemService.deleteAll();
