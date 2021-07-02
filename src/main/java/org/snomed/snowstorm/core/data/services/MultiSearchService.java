@@ -1,21 +1,36 @@
 package org.snomed.snowstorm.core.data.services;
 
-import io.kaicode.elasticvc.api.CommitListener;
-import io.kaicode.elasticvc.api.PathUtil;
-import io.kaicode.elasticvc.api.VersionControlHelper;
-import io.kaicode.elasticvc.domain.Branch;
-import io.kaicode.elasticvc.domain.Commit;
-import io.kaicode.elasticvc.domain.Commit.CommitType;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
+
+import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.elasticsearch.search.aggregations.Aggregation;
+import org.elasticsearch.search.aggregations.AggregationBuilders;
+import org.elasticsearch.search.aggregations.Aggregations;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
+import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -29,11 +44,13 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
-import java.time.LocalDate;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import static org.elasticsearch.index.query.QueryBuilders.*;
+import io.kaicode.elasticvc.api.CommitListener;
+import io.kaicode.elasticvc.api.PathUtil;
+import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.Commit.CommitType;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 @Service
 /*
@@ -64,6 +81,41 @@ public class MultiSearchService implements CommitListener {
 	LocalDate cacheDate = null;
 
 	public Page<Description> findDescriptions(DescriptionCriteria criteria, PageRequest pageRequest) {
+		
+		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest);
+		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
+	}
+	
+	public PageWithBucketAggregations<Description> findDescriptionsReferenceSets(DescriptionCriteria criteria, PageRequest pageRequest) {
+
+		// all search results are required to determine total refset bucket membership
+		SearchHits<Description> allSearchHits = findDescriptionsHelper(criteria, null);
+		// paged results are required for the list of descriptions returned
+		SearchHits<Description> searchHits = findDescriptionsHelper(criteria, pageRequest);
+		
+		List<Aggregation> allAggregations = new ArrayList<>();
+		Set<Long> conceptIds = new HashSet<>();
+		for (SearchHit<Description> desc : allSearchHits) {
+			conceptIds.add(Long.parseLong(desc.getContent().getConceptId()));
+		}
+		// Fetch concept refset membership aggregation
+		SearchHits<ReferenceSetMember> membershipResults = elasticsearchTemplate.search(new NativeSearchQueryBuilder()
+						.withQuery(boolQuery()
+								//.must(branchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
+								.must(termsQuery(ReferenceSetMember.Fields.ACTIVE, true))
+								.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
+						)
+						.withPageable(PageRequest.of(0, 1))
+						.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE))
+						.build(), ReferenceSetMember.class);
+		allAggregations.add(membershipResults.getAggregations().get("membership"));
+		
+		PageWithBucketAggregations<Description> page = PageWithBucketAggregationsFactory.createPage(searchHits, new Aggregations(allAggregations), pageRequest);
+		
+		return page;
+	}
+	
+	private SearchHits<Description> findDescriptionsHelper(DescriptionCriteria criteria, PageRequest pageRequest) {
 		final BoolQueryBuilder branchesQuery = getBranchesQuery();
 		final BoolQueryBuilder descriptionQuery = boolQuery()
 				.must(branchesQuery);
@@ -80,9 +132,16 @@ public class MultiSearchService implements CommitListener {
 			descriptionQuery.must(termsQuery(Description.Fields.MODULE_ID, modules));
 		}
 
-		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
-				.withQuery(descriptionQuery)
-				.withPageable(pageRequest);
+		NativeSearchQueryBuilder queryBuilder;
+		// if pageRequest is null, get all (needed for bucket membership
+		if (pageRequest == null) {
+		  queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(descriptionQuery);
+		} else {
+		  queryBuilder = new NativeSearchQueryBuilder()
+						.withQuery(descriptionQuery)
+						.withPageable(pageRequest);
+		}
 		if (criteria.getConceptActive() != null) {
 			Set<Long> conceptsToFetch = getMatchedConcepts(criteria.getConceptActive(), branchesQuery, descriptionQuery);
 			queryBuilder.withFilter(boolQuery().must(termsQuery(Description.Fields.CONCEPT_ID, conceptsToFetch)));
@@ -91,8 +150,10 @@ public class MultiSearchService implements CommitListener {
 		query.setTrackTotalHits(true);
 		DescriptionService.addTermSort(query);
 		SearchHits<Description> searchHits = elasticsearchTemplate.search(query, Description.class);
-		return new PageImpl<>(searchHits.get().map(SearchHit::getContent).collect(Collectors.toList()), pageRequest, searchHits.getTotalHits());
+		
+		return searchHits;
 	}
+
 
 	private Set<Long> getMatchedConcepts(Boolean conceptActiveFlag, BoolQueryBuilder branchesQuery, BoolQueryBuilder descriptionQuery) {
 		// return description and concept ids
