@@ -4,6 +4,8 @@ import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 
+import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -104,7 +106,7 @@ public class MultiSearchService implements CommitListener {
 								.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
 						)
 						.withPageable(PageRequest.of(0, 1))
-						.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID))
+						.addAggregation(AggregationBuilders.terms("membership").field(ReferenceSetMember.Fields.REFSET_ID).size(AGGREGATION_SEARCH_SIZE))
 						.build(), ReferenceSetMember.class);
 		allAggregations.add(membershipResults.getAggregations().get("membership"));
 		
