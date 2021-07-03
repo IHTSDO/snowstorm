@@ -23,8 +23,8 @@ import org.snomed.snowstorm.core.data.services.pojo.ResultMapPage;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
-import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.ecl.validation.ECLValidator;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.*;
@@ -37,7 +37,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
-import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -45,8 +44,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.util.UriComponentsBuilder;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
 
 import javax.validation.Valid;
 import java.util.*;
@@ -87,6 +84,9 @@ public class ConceptController {
 	@Autowired
 	private ECLValidator eclValidator;
 
+	@Autowired
+	private ECLQueryService eclQueryService;
+	
 	@Autowired
 	private CodeSystemService codeSystemService;
 
@@ -500,27 +500,24 @@ public class ConceptController {
 
 		timer.checkpoint("Find children");
 
-		//For each child, determine if any its descendants are members of the passed-in refset
-		if(!refsetId.equals("")) {
-			for(ConceptMini child : children) {
-				
-				QueryService.ConceptQueryBuilder queryBuilder = queryService.createQueryBuilder(false)
-						.activeFilter(true)
-						.ecl("< " + child.getConceptId())
-						.refsetId(refsetId);
-				
-				PageRequest pageRequest = getPageRequestWithSort(0, 1, null, Sort.sort(Concept.class).by(Concept::getConceptId).descending());
+		// For each child, determine if any its descendants are members of the passed-in
+		// refset
+		if (!refsetId.equals("")) {
+			// Calculate refset membership once, and pass in as a filter for each
+			// child-descendents query
+			Collection<Long> refsetMemberIds = eclQueryService.selectConceptIds("^" + refsetId,
+					versionControlHelper.getBranchCriteria(branch), branch, true, null, null).getContent();
 
-				SearchAfterPage<Long> ids = queryService.searchForIds(queryBuilder, branch, pageRequest);
-				
-				if(ids.getNumberOfElements() > 0) {
+			for (ConceptMini child : children) {
+
+				if (eclQueryService.hasAnyResults("<< " + child.getConceptId(), branch,
+						versionControlHelper.getBranchCriteria(branch), true, refsetMemberIds)) {
 					child.addExtraField("descendantsAreMemberOfRefset", "true");
-				}
-				else {
+				} else {
 					child.addExtraField("descendantsAreMemberOfRefset", "false");
 				}
 			}
-		}		
+		}
 		
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		if (!includeDescendantCount) {

@@ -10,6 +10,7 @@ import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.domain.expressionconstraint.SExpressionConstraint;
 import org.snomed.snowstorm.ecl.validation.ECLPreprocessingService;
+import org.snomed.snowstorm.rest.ControllerHelper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -66,6 +67,17 @@ public class ECLQueryService {
 		});
 	}
 
+	public Boolean hasAnyResults (String ecl, String branch, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter) {
+		
+		SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
+		Optional<Page<Long>> pageOptional = expressionConstraint.select(branch, branchCriteria, stated, conceptIdFilter, ControllerHelper.getPageRequest(0,1), queryService);
+		
+		if(pageOptional.get().hasNext()) {
+			return true;
+		}
+		return false;	
+	}
+	
 	private TimerUtil getEclSlowQueryTimer() {
 		return new TimerUtil(String.format("ECL took more than %s seconds.", eclDurationLoggingThreshold), Level.INFO, eclDurationLoggingThreshold);
 	}
