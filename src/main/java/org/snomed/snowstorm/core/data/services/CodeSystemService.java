@@ -537,7 +537,7 @@ public class CodeSystemService {
 		for (CodeSystem codeSystem : findAll()) {
 			final CodeSystemConfiguration configuration = configurationsMap.get(codeSystem.getShortName());
 			if (configuration != null) {
-				update(codeSystem, new CodeSystemUpdateRequest(configuration.getName(), configuration.getOwner()));
+				update(codeSystem, new CodeSystemUpdateRequest(codeSystem).setOwner(configuration.getOwner()));
 			}
 		}
 	}
