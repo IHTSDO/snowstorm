@@ -112,7 +112,7 @@ public class CommitServiceHookClient implements CommitListener {
 	}
 
 	private Object obfuscateToken(String authenticationToken) {
-		if (authenticationToken != null) {
+		if (authenticationToken != null && !authenticationToken.isEmpty()) {
 			if (authenticationToken.contains("=")) {
 				return authenticationToken.substring(0, authenticationToken.indexOf("=") + 4) + "...";
 			} else {
