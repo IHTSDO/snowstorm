@@ -42,6 +42,11 @@ public class ConceptMini implements Serializable {
 
 	public ConceptMini(Concept concept, List<LanguageDialect> requestedLanguageDialects) {
 		this(concept.getConceptId(), requestedLanguageDialects);
+		populate(concept);
+	}
+
+	public void populate(Concept concept) {
+		conceptId = concept.getConceptId();
 		effectiveTime = concept.getEffectiveTime();
 		active = concept.isActive();
 		definitionStatusId = concept.getDefinitionStatusId();

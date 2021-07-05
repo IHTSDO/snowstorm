@@ -20,6 +20,7 @@ import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.validation.domain.DroolsConcept;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -30,8 +31,13 @@ import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilde
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
+import javax.annotation.PreDestroy;
 import java.io.File;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
@@ -40,6 +46,8 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 
 @Service
 public class DroolsValidationService {
+
+	public static final String TERM_VALIDATION_SERVICE_ASSERTION_GROUP = "term-validation-service";
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -56,11 +64,15 @@ public class DroolsValidationService {
 	@Autowired
 	private BranchService branchService;
 
+	@Autowired
+	private TermValidationServiceClient termValidationServiceClient;
+
 	private final String droolsRulesPath;
 	private final ResourceManager testResourceManager;
 
 	private RuleExecutor ruleExecutor;
 	private TestResourceProvider testResourceProvider;
+	private final ExecutorService termValidationExecutorService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -72,6 +84,12 @@ public class DroolsValidationService {
 		this.droolsRulesPath = droolsRulesPath;
 		testResourceManager = new ResourceManager(resourceManagerConfiguration, cloudResourceLoader);
 		newRuleExecutorAndResources();
+		termValidationExecutorService = Executors.newCachedThreadPool();
+	}
+
+	public InvalidContentWithSeverityStatus validate(final Concept concept, final String branchPath) throws ServiceException {
+		final List<InvalidContent> invalidContents = validateConcept(branchPath, ConceptValidationHelper.generateTemporaryUUIDsIfNotSet(concept));
+		return new InvalidContentWithSeverityStatus(invalidContents);
 	}
 
 	public List<InvalidContent> validateConcept(String branchPath, Concept concept) throws ServiceException {
@@ -92,6 +110,17 @@ public class DroolsValidationService {
 			return Collections.emptyList();
 		}
 
+		Future<List<InvalidContent>> termValidationFuture = null;
+		if (ruleSetNames.contains(TERM_VALIDATION_SERVICE_ASSERTION_GROUP)) {
+			if (concepts.size() == 1) {
+				final Concept concept = concepts.iterator().next();
+				termValidationFuture = termValidationExecutorService.submit(() -> termValidationServiceClient.validateConcept(branchPath, concept));
+			} else {
+				logger.info("Not yet able to validate batches of concepts using the term-validation-service.");
+			}
+			ruleSetNames.remove(TERM_VALIDATION_SERVICE_ASSERTION_GROUP);
+		}
+
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchWithInheritedMetadata);
 		Set<DroolsConcept> droolsConcepts = concepts.stream().map(DroolsConcept::new).collect(Collectors.toSet());
 
@@ -102,7 +131,22 @@ public class DroolsValidationService {
 		DescriptionDroolsValidationService droolsDescriptionService = new DescriptionDroolsValidationService(branchPath, branchCriteria, versionControlHelper, elasticsearchOperations,
 				this.descriptionService, queryService, testResourceProvider);
 		RelationshipDroolsValidationService relationshipService = new RelationshipDroolsValidationService(branchPath, branchCriteria, queryService);
-		return ruleExecutor.execute(ruleSetNames, droolsConcepts, droolsConceptService, droolsDescriptionService, relationshipService, false, false);
+		final List<InvalidContent> invalidContents = ruleExecutor.execute(ruleSetNames, droolsConcepts, droolsConceptService, droolsDescriptionService, relationshipService, false, false);
+
+		// If term-validation-service called join results
+		if (termValidationFuture != null) {
+			try {
+				final List<InvalidContent> termValidationInvalidContents = termValidationFuture.get();
+				invalidContents.addAll(termValidationInvalidContents);
+			} catch (InterruptedException e) {
+				logger.warn("Term validation interrupted.");
+			} catch (ExecutionException e) {
+				final Throwable cause = e.getCause();
+				logger.error(cause.getMessage(), cause);
+			}
+		}
+
+		return invalidContents;
 	}
 
 	private void setReleaseHashAndEffectiveTime(Set<Concept> concepts, BranchCriteria branchCriteria) {
@@ -191,5 +235,10 @@ public class DroolsValidationService {
 		}
 		this.ruleExecutor = new RuleExecutorFactory().createRuleExecutor(droolsRulesPath);
 		this.testResourceProvider = ruleExecutor.newTestResourceProvider(testResourceManager);
+	}
+
+	@PreDestroy
+	public void onShutdown() {
+		termValidationExecutorService.shutdown();
 	}
 }

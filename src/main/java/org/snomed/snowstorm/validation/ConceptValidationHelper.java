@@ -17,12 +17,6 @@ public final class ConceptValidationHelper {
 	private ConceptValidationHelper() {
 	}
 
-	public static InvalidContentWithSeverityStatus validate(final Concept concept, final String branchPath, final DroolsValidationService validationService) throws ServiceException {
-		final List<InvalidContent> invalidContents = validationService.validateConcept(branchPath, generateTemporaryUUIDsIfNotSet(concept));
-		return invalidContents.stream().anyMatch(invalidContent -> invalidContent.getSeverity() == Severity.ERROR) ?
-				new InvalidContentWithSeverityStatus(invalidContents, Severity.ERROR) : new InvalidContentWithSeverityStatus(invalidContents, Severity.WARNING);
-	}
-
 	public static Concept stripTemporaryUUIDsIfSet(final Concept concept) {
 		if (concept != null) {
 			if (concept.getConceptId() != null && concept.getConceptId().contains("-")) {
@@ -36,7 +30,7 @@ public final class ConceptValidationHelper {
 		return concept;
 	}
 
-	private static Concept generateTemporaryUUIDsIfNotSet(final Concept concept) {
+	public static Concept generateTemporaryUUIDsIfNotSet(final Concept concept) {
 		if (concept != null) {
 			if (concept.getConceptId() == null) {
 				concept.setConceptId(UUID.randomUUID().toString());
@@ -47,6 +41,8 @@ public final class ConceptValidationHelper {
 					.forEach(relationship -> relationship.setRelationshipId(UUID.randomUUID().toString()));
 			concept.getAllOwlAxiomMembers().stream().filter(referenceSetMember -> referenceSetMember != null && referenceSetMember.getRefsetId() == null)
 					.forEach(referenceSetMember -> referenceSetMember.setRefsetId(UUID.randomUUID().toString()));
+			concept.getClassAndGciAxioms().stream().filter(axiom -> axiom.getAxiomId() == null)
+					.forEach(axiom -> axiom.setAxiomId(UUID.randomUUID().toString()));
 		}
 		return concept;
 	}
@@ -114,22 +110,4 @@ public final class ConceptValidationHelper {
 		invalidContentWarnings.addAll(newInvalidContentWarnings);
 	}
 
-	public static class InvalidContentWithSeverityStatus {
-
-		private final List<InvalidContent> invalidContents;
-		private final Severity severity;
-
-		public InvalidContentWithSeverityStatus(final List<InvalidContent> invalidContents, final Severity severity) {
-			this.invalidContents = invalidContents;
-			this.severity = severity;
-		}
-
-		public final List<InvalidContent> getInvalidContents() {
-			return invalidContents;
-		}
-
-		public final Severity getSeverity() {
-			return severity;
-		}
-	}
 }
