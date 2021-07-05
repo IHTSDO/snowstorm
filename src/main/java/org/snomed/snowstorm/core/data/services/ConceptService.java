@@ -318,14 +318,13 @@ public class ConceptService extends ComponentService {
 				concepts.getTotalElements());
 	}
 
-	private void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate, List<LanguageDialect> languageDialects) {
+	public void populateConceptMinis(BranchCriteria branchCriteria, Map<String, ConceptMini> minisToPopulate, List<LanguageDialect> languageDialects) {
 		if (!minisToPopulate.isEmpty()) {
 			Set<String> conceptIds = minisToPopulate.keySet();
 			Page<Concept> concepts = doFind(conceptIds, languageDialects, branchCriteria, PageRequest.of(0, conceptIds.size()), false, false, null);
 			concepts.getContent().forEach(c -> {
 				ConceptMini conceptMini = minisToPopulate.get(c.getConceptId());
-				conceptMini.setDefinitionStatus(c.getDefinitionStatus());
-				conceptMini.addActiveDescriptions(c.getDescriptions().stream().filter(SnomedComponent::isActive).collect(Collectors.toSet()));
+				conceptMini.populate(c);
 			});
 		}
 	}
@@ -783,7 +782,7 @@ public class ConceptService extends ComponentService {
 
 	public void addClauses(Set<String> conceptIds, Boolean active, BoolQueryBuilder conceptQuery) {
 		conceptQuery.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds));
-		
+
 		if (active != null) {
 			conceptQuery.must(termsQuery(SnomedComponent.Fields.ACTIVE, active));
 		}
