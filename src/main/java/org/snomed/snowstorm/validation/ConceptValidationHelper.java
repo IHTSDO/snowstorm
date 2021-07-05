@@ -28,7 +28,7 @@ public final class ConceptValidationHelper {
 		return concept;
 	}
 
-	static void generateTemporaryUUIDsIfNotSet(final Concept concept) {
+	public static Concept generateTemporaryUUIDsIfNotSet(final Concept concept) {
 		if (concept != null) {
 			if (concept.getConceptId() == null) {
 				concept.setConceptId(UUID.randomUUID().toString());

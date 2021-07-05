@@ -30,6 +30,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
@@ -272,7 +273,7 @@ public class BranchMergeService {
 		String idField;
 		try {
 			idField = componentClass.getConstructor().newInstance().getIdField();
-		} catch (ReflectiveOperationException e) {
+		} catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
 			throw new ServiceException("Failed to resolve id field of snomed component.", e);
 		}
 
