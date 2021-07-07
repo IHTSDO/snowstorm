@@ -92,6 +92,9 @@ public class DroolsValidationService {
 			return Collections.emptyList();
 		}
 
+		// Set temp component ids if needed
+		concepts.forEach(ConceptValidationHelper::generateTemporaryUUIDsIfNotSet);
+
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchWithInheritedMetadata);
 		Set<DroolsConcept> droolsConcepts = concepts.stream().map(DroolsConcept::new).collect(Collectors.toSet());
 

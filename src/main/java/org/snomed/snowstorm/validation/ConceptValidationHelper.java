@@ -18,7 +18,7 @@ public final class ConceptValidationHelper {
 	}
 
 	public static InvalidContentWithSeverityStatus validate(final Concept concept, final String branchPath, final DroolsValidationService validationService) throws ServiceException {
-		final List<InvalidContent> invalidContents = validationService.validateConcept(branchPath, generateTemporaryUUIDsIfNotSet(concept));
+		final List<InvalidContent> invalidContents = validationService.validateConcept(branchPath, concept);
 		return invalidContents.stream().anyMatch(invalidContent -> invalidContent.getSeverity() == Severity.ERROR) ?
 				new InvalidContentWithSeverityStatus(invalidContents, Severity.ERROR) : new InvalidContentWithSeverityStatus(invalidContents, Severity.WARNING);
 	}
@@ -36,7 +36,7 @@ public final class ConceptValidationHelper {
 		return concept;
 	}
 
-	private static Concept generateTemporaryUUIDsIfNotSet(final Concept concept) {
+	static void generateTemporaryUUIDsIfNotSet(final Concept concept) {
 		if (concept != null) {
 			if (concept.getConceptId() == null) {
 				concept.setConceptId(UUID.randomUUID().toString());
@@ -48,7 +48,6 @@ public final class ConceptValidationHelper {
 			concept.getAllOwlAxiomMembers().stream().filter(referenceSetMember -> referenceSetMember != null && referenceSetMember.getRefsetId() == null)
 					.forEach(referenceSetMember -> referenceSetMember.setRefsetId(UUID.randomUUID().toString()));
 		}
-		return concept;
 	}
 
 	public static List<InvalidContent> replaceTemporaryUUIDWithSCTID(final List<InvalidContent> invalidContentWarnings, final Concept concept) {
