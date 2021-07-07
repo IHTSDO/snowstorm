@@ -21,7 +21,6 @@ import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.validation.domain.DroolsConcept;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -93,7 +92,7 @@ public class DroolsValidationService {
 	}
 
 	public InvalidContentWithSeverityStatus validate(final Concept concept, final String branchPath) throws ServiceException {
-		final List<InvalidContent> invalidContents = validateConcept(branchPath, ConceptValidationHelper.generateTemporaryUUIDsIfNotSet(concept));
+		final List<InvalidContent> invalidContents = validateConcept(branchPath, concept);
 		return new InvalidContentWithSeverityStatus(invalidContents);
 	}
 
@@ -115,6 +114,9 @@ public class DroolsValidationService {
 			logger.info("Branch metadata item '{}' set as empty for {}, skipping Snomed-Drools validation.", BranchMetadataKeys.ASSERTION_GROUP_NAMES, branchPath);
 			return Collections.emptyList();
 		}
+
+		// Set temp component ids if needed
+		concepts.forEach(ConceptValidationHelper::generateTemporaryUUIDsIfNotSet);
 
 		Future<List<InvalidContent>> termValidationFuture = null;
 		if (ruleSetNames.contains(TERM_VALIDATION_SERVICE_ASSERTION_GROUP)) {
