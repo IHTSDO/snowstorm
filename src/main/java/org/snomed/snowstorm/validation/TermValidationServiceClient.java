@@ -116,19 +116,19 @@ public class TermValidationServiceClient {
 	public static final class ValidationRequest {
 
 		private final String status;
-		private final Concept payload;
+		private final Concept concept;
 
 		public ValidationRequest(Concept concept) {
 			status = "on-save";
-			payload = concept;
+			this.concept = concept;
 		}
 
 		public String getStatus() {
 			return status;
 		}
 
-		public Concept getPayload() {
-			return payload;
+		public Concept getConcept() {
+			return concept;
 		}
 	}
 
