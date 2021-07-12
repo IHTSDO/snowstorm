@@ -542,6 +542,42 @@ public class ConceptController {
 		return findConceptsWithECL(">" + conceptId, form == Relationship.CharacteristicType.stated, branch, acceptLanguageHeader, 0, LARGE_PAGE.getPageSize()).getItems();
 	}
 
+	@GetMapping(value = "/browser/{branch}/concepts/ancestorPaths")
+	@JsonView(value = View.Component.class)
+	public Collection<ConceptMini> findConceptAncestorPaths(@PathVariable String branch,
+			@RequestParam(required = false) List<Long> conceptIds,		
+			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		branch = BranchPathUriUtil.decodePath(branch);	
+		
+		Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branch, conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)).getResultsMap();
+		
+		// For each concept, lookup a single ancestor-path from it to the top-level concept, and add the path to the result output.
+		Collection<ConceptMini> conceptsWithAncestorPaths = new ArrayList<>();
+		
+		for(final String conceptId : conceptMiniMap.keySet()) {
+			ArrayList<ConceptMini> ancestorPath = ancestorPathHelper(branch, form, conceptId, new ArrayList(), acceptLanguageHeader);
+			conceptMiniMap.get(conceptId).addExtraField("ancestorPath", ancestorPath);
+			conceptsWithAncestorPaths.add(conceptMiniMap.get(conceptId));
+		}
+		
+		return conceptsWithAncestorPaths;
+	}	
+	
+	private ArrayList<ConceptMini> ancestorPathHelper(String branch, Relationship.CharacteristicType form, String conceptId, ArrayList<ConceptMini> pathSoFar, String acceptLanguageHeader) {
+		Collection<ConceptMini> conceptParents = findConceptParents(branch, conceptId, form, false, acceptLanguageHeader);
+		
+		if(conceptParents.isEmpty()) {
+			return pathSoFar;
+		}
+		else {
+			ConceptMini conceptParent = conceptParents.iterator().next();
+			pathSoFar.add(conceptParent);
+			return ancestorPathHelper(branch, form, conceptParent.getConceptId(), pathSoFar, acceptLanguageHeader);
+		}
+	}
+	
 	@GetMapping(value = "/{branch}/concepts/{conceptId}/authoring-form")
 	public Expression getConceptAuthoringForm(
 			@PathVariable String branch,
