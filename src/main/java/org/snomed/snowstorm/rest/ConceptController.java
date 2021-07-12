@@ -1,21 +1,44 @@
 package org.snomed.snowstorm.rest;
 
-import ch.qos.logback.classic.Level;
-import com.fasterxml.jackson.annotation.JsonView;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.kaicode.elasticvc.api.BranchCriteria;
-import io.kaicode.elasticvc.api.VersionControlHelper;
-import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
-import io.swagger.annotations.Api;
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiParam;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static org.apache.commons.lang3.StringUtils.isNotBlank;
+import static org.snomed.snowstorm.core.pojo.BranchTimepoint.BRANCH_CREATION_TIMEPOINT;
+import static org.snomed.snowstorm.rest.ControllerHelper.getCreatedLocationHeaders;
+import static org.snomed.snowstorm.rest.ControllerHelper.parseBranchTimepoint;
+import static org.springframework.util.CollectionUtils.isEmpty;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+
+import javax.validation.Valid;
+
 import org.elasticsearch.common.Strings;
 import org.ihtsdo.drools.response.Severity;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
+import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.ConceptView;
+import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.QueryConcept;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 import org.snomed.snowstorm.core.data.domain.expression.Expression;
-import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.DescriptionService;
+import org.snomed.snowstorm.core.data.services.ExpressionService;
+import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.RelationshipService;
+import org.snomed.snowstorm.core.data.services.SemanticIndexService;
+import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncConceptChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.ConceptHistory;
 import org.snomed.snowstorm.core.data.services.pojo.MapPage;
@@ -26,10 +49,17 @@ import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.ecl.validation.ECLValidator;
 import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
-import org.snomed.snowstorm.rest.pojo.*;
+import org.snomed.snowstorm.rest.pojo.ConceptBulkLoadRequest;
+import org.snomed.snowstorm.rest.pojo.ConceptDescriptionsResult;
+import org.snomed.snowstorm.rest.pojo.ConceptReferencesResult;
+import org.snomed.snowstorm.rest.pojo.ConceptSearchRequest;
+import org.snomed.snowstorm.rest.pojo.ExpressionStringPojo;
+import org.snomed.snowstorm.rest.pojo.InboundRelationshipsResult;
+import org.snomed.snowstorm.rest.pojo.ItemsPage;
+import org.snomed.snowstorm.rest.pojo.TypeReferences;
 import org.snomed.snowstorm.validation.ConceptValidationHelper;
-import org.snomed.snowstorm.validation.InvalidContentWithSeverityStatus;
 import org.snomed.snowstorm.validation.DroolsValidationService;
+import org.snomed.snowstorm.validation.InvalidContentWithSeverityStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -41,18 +71,29 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.Assert;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import javax.validation.Valid;
-import java.util.*;
+import com.fasterxml.jackson.annotation.JsonView;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static org.apache.commons.lang3.StringUtils.isNotBlank;
-import static org.snomed.snowstorm.core.pojo.BranchTimepoint.BRANCH_CREATION_TIMEPOINT;
-import static org.snomed.snowstorm.rest.ControllerHelper.getCreatedLocationHeaders;
-import static org.snomed.snowstorm.rest.ControllerHelper.parseBranchTimepoint;
-import static org.springframework.util.CollectionUtils.isEmpty;
+import ch.qos.logback.classic.Level;
+import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import io.swagger.annotations.ApiParam;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 @RestController
 @Api(tags = "Concepts", description = "-")
@@ -535,6 +576,42 @@ public class ConceptController {
 		return findConceptsWithECL(">" + conceptId, form == Relationship.CharacteristicType.stated, branch, acceptLanguageHeader, 0, LARGE_PAGE.getPageSize()).getItems();
 	}
 
+	@GetMapping(value = "/browser/{branch}/concepts/ancestorPaths")
+	@JsonView(value = View.Component.class)
+	public Collection<ConceptMini> findConceptAncestorPaths(@PathVariable String branch,
+			@RequestParam(required = false) List<Long> conceptIds,		
+			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		branch = BranchPathUriUtil.decodePath(branch);	
+		
+		Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branch, conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)).getResultsMap();
+		
+		// For each concept, lookup a single ancestor-path from it to the top-level concept, and add the path to the result output.
+		Collection<ConceptMini> conceptsWithAncestorPaths = new ArrayList<>();
+		
+		for(final String conceptId : conceptMiniMap.keySet()) {
+			ArrayList<ConceptMini> ancestorPath = ancestorPathHelper(branch, form, conceptId, new ArrayList(), acceptLanguageHeader);
+			conceptMiniMap.get(conceptId).addExtraField("ancestorPath", ancestorPath);
+			conceptsWithAncestorPaths.add(conceptMiniMap.get(conceptId));
+		}
+		
+		return conceptsWithAncestorPaths;
+	}	
+	
+	private ArrayList<ConceptMini> ancestorPathHelper(String branch, Relationship.CharacteristicType form, String conceptId, ArrayList<ConceptMini> pathSoFar, String acceptLanguageHeader) {
+		Collection<ConceptMini> conceptParents = findConceptParents(branch, conceptId, form, false, acceptLanguageHeader);
+		
+		if(conceptParents.isEmpty()) {
+			return pathSoFar;
+		}
+		else {
+			ConceptMini conceptParent = conceptParents.iterator().next();
+			pathSoFar.add(conceptParent);
+			return ancestorPathHelper(branch, form, conceptParent.getConceptId(), pathSoFar, acceptLanguageHeader);
+		}
+	}
+	
 	@GetMapping(value = "/{branch}/concepts/{conceptId}/authoring-form")
 	public Expression getConceptAuthoringForm(
 			@PathVariable String branch,
