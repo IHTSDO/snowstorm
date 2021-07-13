@@ -58,8 +58,8 @@ public class CommitServiceHookClient implements CommitListener {
 					obfuscateToken(authenticationToken), e);
 			boolean promotion = commit.getCommitType().equals(Commit.CommitType.PROMOTION);
 			if (promotion && e instanceof HttpClientErrorException.Conflict) {
-				logger.error("Review for branch is incomplete; promotion aborted.");
-				throw new RuntimeServiceException("Review for branch is incomplete; promotion aborted.");
+				logger.error("Promotion blocked; not all criteria have been met.");
+				throw new RuntimeServiceException("Promotion blocked; not all criteria have been met.");
 			}
 
 			throw e;

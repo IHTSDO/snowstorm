@@ -1672,7 +1672,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// Promotion should fail
 		String message = assertThrows(RuntimeServiceException.class, () -> branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptyList())).getMessage();
-		assertEquals("Review for branch is incomplete; promotion aborted.", message);
+		assertEquals("Promotion blocked; not all criteria have been met.", message);
 	}
 
 	private MergeReview getMergeReviewInCurrentState(String source, String target) throws InterruptedException {
@@ -1837,7 +1837,7 @@ class BranchMergeServiceTest extends AbstractTest {
 			Object[] arguments = invocationOnMock.getArguments();
 			Commit commit = (Commit) arguments[0];
 			if (commit.getCommitType().equals(Commit.CommitType.PROMOTION)) {
-				throw new RuntimeServiceException("Review for branch is incomplete; promotion aborted.");
+				throw new RuntimeServiceException("Promotion blocked; not all criteria have been met.");
 			}
 			return null;
 		}).when(commitServiceHookClient).preCommitCompletion(any());
