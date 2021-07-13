@@ -53,23 +53,33 @@ public class IntegrityService extends ComponentService implements CommitListener
 	@Autowired
 	private DescriptionService descriptionService;
 
+	@Autowired
+	private CodeSystemService codeSystemService;
+
 	public static final String INTEGRITY_ISSUE_METADATA_KEY = "integrityIssue";
 
 	private Logger logger = LoggerFactory.getLogger(getClass());
 
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
-		if (commit.isRebase()) {
-			return;
-		}
-		Map<String, String> internalMap = commit.getBranch().getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY);
-		final String integrityIssueString = internalMap.get(INTEGRITY_ISSUE_METADATA_KEY);
+		final String integrityIssueString = commit.getBranch().getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
 		if (Boolean.parseBoolean(integrityIssueString)) {
 			try {
-				BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-				IntegrityIssueReport integrityIssueReport = findChangedComponentsWithBadIntegrity(branchCriteriaIncludingOpenCommit, commit.getBranch());
+				CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(commit.getBranch().getPath(), false);
+				if (codeSystem == null) {
+					throw new IllegalStateException(String.format("No CodeSystem found for branch %s", commit.getBranch().getPath()));
+				}
+				IntegrityIssueReport integrityIssueReport;
+				if (codeSystem.getBranchPath().equals(commit.getBranch().getPath())) {
+					// Run integrity check for content changed only on the CodeSystem branch
+					BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+					integrityIssueReport = findChangedComponentsWithBadIntegrity(branchCriteriaIncludingOpenCommit, commit.getBranch());
+				} else {
+					// check with fix branch against code system branch
+					integrityIssueReport = findChangedComponentsWithBadIntegrity(commit.getBranch(), codeSystem.getBranchPath());
+				}
 				if (integrityIssueReport.isEmpty()) {
-					internalMap.remove(INTEGRITY_ISSUE_METADATA_KEY);
+					commit.getBranch().getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).remove(INTEGRITY_ISSUE_METADATA_KEY);
 					logger.info("No integrity issue found on branch {} after commit {}", commit.getBranch().getPath(), commit.getTimepoint().getTime());
 				}
 			} catch (ServiceException e) {

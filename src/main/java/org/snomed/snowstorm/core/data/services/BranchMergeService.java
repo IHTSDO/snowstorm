@@ -37,6 +37,8 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
+import static org.snomed.snowstorm.core.data.services.IntegrityService.INTEGRITY_ISSUE_METADATA_KEY;
 import static org.snomed.snowstorm.core.util.PredicateUtil.not;
 
 @Service
@@ -229,6 +231,8 @@ public class BranchMergeService {
 				// Merge non-concept reference set members
 				removeRebaseDuplicateVersions(ReferenceSetMember.class, boolQuery().mustNot(existsQuery(ReferenceSetMember.Fields.CONCEPT_ID)), changesOnBranchIncludingOpenCommit, branchCriteriaIncludingOpenCommit, commit);
 
+				// add integrity metadata in target branch if integrity issue found in source.
+				updateIntegrityMetadata(sourceBranch, commit.getBranch());
 				commit.markSuccessful();
 			}
 		} else {
@@ -253,6 +257,13 @@ public class BranchMergeService {
 
 				commit.markSuccessful();
 			}
+		}
+	}
+
+	private void updateIntegrityMetadata(Branch sourceBranch, Branch targetBranch) {
+		String integrityIssueFound = sourceBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
+		if (Boolean.parseBoolean(integrityIssueFound)) {
+			targetBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).put(INTEGRITY_ISSUE_METADATA_KEY, integrityIssueFound);
 		}
 	}
 
