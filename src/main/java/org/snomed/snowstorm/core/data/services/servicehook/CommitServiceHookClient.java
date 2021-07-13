@@ -13,6 +13,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -55,10 +56,8 @@ public class CommitServiceHookClient implements CommitListener {
 			logger.error("Commit service hook failed for branch {}, commit {}, url {}, cookie {}",
 					commit.getBranch().getPath(), commit.getTimepoint().getTime(), serviceUrl,
 					obfuscateToken(authenticationToken), e);
-			// e will be HttpClientErrorException.Conflict if review for branch is incomplete.
-			// Regardless, if the commit is a promotion, we will always abort if an exception is encountered.
 			boolean promotion = commit.getCommitType().equals(Commit.CommitType.PROMOTION);
-			if (promotion) {
+			if (promotion && e instanceof HttpClientErrorException.Conflict) {
 				logger.error("Review for branch is incomplete; promotion aborted.");
 				throw new RuntimeServiceException("Review for branch is incomplete; promotion aborted.");
 			}
