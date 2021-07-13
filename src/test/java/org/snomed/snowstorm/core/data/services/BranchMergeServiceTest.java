@@ -9,6 +9,7 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Metadata;
 import org.assertj.core.util.Maps;
 import org.elasticsearch.index.query.BoolQueryBuilder;
@@ -18,6 +19,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.domain.review.BranchReview;
@@ -46,6 +48,7 @@ import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION;
 import static org.snomed.snowstorm.core.data.domain.review.ReviewStatus.CURRENT;
@@ -1653,6 +1656,25 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(0, branchService.findBranchOrThrow("MAIN/SNOMEDCT-DK").getVersionsReplacedCounts().get("Concept").intValue());
 	}
 
+	@Test
+	void testPromotionAbortedIfBranchReviewIncomplete() throws ServiceException {
+		assertBranchState("MAIN", Branch.BranchState.UP_TO_DATE);
+		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
+		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
+		givenBranchReviewIncomplete();
+
+		// Create concept on A1
+		final String conceptId = "10000123";
+		conceptService.create(new Concept(conceptId), "MAIN/A/A1");
+		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
+		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.UP_TO_DATE, conceptId, false);
+		assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.FORWARD, conceptId, true);
+
+		// Promotion should fail
+		String message = assertThrows(RuntimeServiceException.class, () -> branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptyList())).getMessage();
+		assertEquals("Promotion blocked; not all criteria have been met.", message);
+	}
+
 	private MergeReview getMergeReviewInCurrentState(String source, String target) throws InterruptedException {
 		MergeReview review = reviewService.createMergeReview(source, target);
 
@@ -1808,5 +1830,16 @@ class BranchMergeServiceTest extends AbstractTest {
 		childBranches.put(aPath, branchService.create(aPath));
 		aPath = testRootPath + "/CHILD-1/CHILD-2";
 		childBranches.put(aPath, branchService.create(aPath));
+	}
+
+	private void givenBranchReviewIncomplete() {
+		Mockito.doAnswer(invocationOnMock -> {
+			Object[] arguments = invocationOnMock.getArguments();
+			Commit commit = (Commit) arguments[0];
+			if (commit.getCommitType().equals(Commit.CommitType.PROMOTION)) {
+				throw new RuntimeServiceException("Promotion blocked; not all criteria have been met.");
+			}
+			return null;
+		}).when(commitServiceHookClient).preCommitCompletion(any());
 	}
 }
