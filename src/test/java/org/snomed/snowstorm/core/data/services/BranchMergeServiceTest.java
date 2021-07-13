@@ -1657,7 +1657,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testPromotionAbortedIfBranchReviewIncomplete() throws ServiceException, InterruptedException {
+	void testPromotionAbortedIfBranchReviewIncomplete() throws ServiceException {
 		assertBranchState("MAIN", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A", Branch.BranchState.UP_TO_DATE);
 		assertBranchState("MAIN/A/A1", Branch.BranchState.UP_TO_DATE);
@@ -1670,15 +1670,9 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.UP_TO_DATE, conceptId, false);
 		assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.FORWARD, conceptId, true);
 
-		// Promote
-		MergeRequest mergeRequest = new MergeRequest("MAIN/A/A1", "MAIN/A", null, null);
-		BranchMergeJob branchMergeJob = branchMergeService.mergeBranchAsync(mergeRequest);
-
-		// Promotion should have failed
-		Thread.sleep(5000);
-		branchMergeJob = branchMergeService.getBranchMergeJobOrThrow(branchMergeJob.getId());
-		assertEquals(JobStatus.FAILED, branchMergeJob.getStatus());
-		assertEquals("Review for branch is incomplete; promotion aborted.", branchMergeJob.getMessage());
+		// Promotion should fail
+		String message = assertThrows(RuntimeServiceException.class, () -> branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", Collections.emptyList())).getMessage();
+		assertEquals("Review for branch is incomplete; promotion aborted.", message);
 	}
 
 	private MergeReview getMergeReviewInCurrentState(String source, String target) throws InterruptedException {
