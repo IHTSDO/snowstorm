@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
+import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConcreteValue;
 import org.snomed.snowstorm.core.data.domain.Relationship;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 import static org.junit.Assert.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
+import static org.snomed.snowstorm.core.data.services.IntegrityService.INTEGRITY_ISSUE_METADATA_KEY;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -30,6 +32,9 @@ class IntegrityServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchService branchService;
+
+	@Autowired
+	private SBranchService sBranchService;
 
 	@Autowired
 	private BranchMergeService branchMergeService;
@@ -46,14 +51,17 @@ class IntegrityServiceTest extends AbstractTest {
 	@Autowired
 	private RelationshipService relationshipService;
 
+	@Autowired
+	private CodeSystemService codeSystemService;
+
 	@Test
 	/*
 		Test the method that checks all the components visible on the branch.
 	 */
 	void testFindAllComponentsWithBadIntegrity() throws ServiceException {
-		branchService.create("MAIN/project");
+		sBranchService.create("MAIN/project");
 
-		branchService.create("MAIN/project/test1");
+		sBranchService.create("MAIN/project/test1");
 
 		conceptService.create(new Concept("100001"), "MAIN/project");
 		// Valid relationship on MAIN/project
@@ -143,9 +151,9 @@ class IntegrityServiceTest extends AbstractTest {
 		The purpose of this method is to check only what's changed for speed but to block promotion until changes are fixed.
 	 */
 	void testFindChangedComponentsWithBadIntegrity() throws ServiceException {
-		branchService.create("MAIN/project");
+		sBranchService.create("MAIN/project");
 
-		branchService.create("MAIN/project/test1");
+		sBranchService.create("MAIN/project/test1");
 
 		conceptService.create(new Concept(ISA), "MAIN/project");
 		conceptService.create(new Concept("100001"), "MAIN/project");
@@ -255,64 +263,103 @@ class IntegrityServiceTest extends AbstractTest {
 
 	@Test
 	void testIntegrityCommitHook() throws Exception {
-		String path = "MAIN/project";
-		Branch branch = branchService.create(path);
+		// create US CodeSystem for testing
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT-US", "MAIN/SNOMEDCT-US");
+		codeSystemService.createCodeSystem(codeSystem);
+
+		// create extension project branch
+		String project = "MAIN/SNOMEDCT-US/project";
+		sBranchService.create(project);
+
+		// add some bad data on the code system branch to simulate extension upgrade results
+		String path = codeSystem.getBranchPath();
 		// invalid relationship
 		conceptService.create(new Concept("10000101").addRelationship(new Relationship("100002", "100001").setInferred(false)), path);
 
-		// Two bad relationships are on project
+		// Two bad relationships are on the CodeSystem branch
 		IntegrityIssueReport reportProject = integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest(path));
 		assertNull(reportProject.getRelationshipsWithMissingOrInactiveSource());
 		assertEquals(1, reportProject.getRelationshipsWithMissingOrInactiveType().size());
 		assertEquals(1, reportProject.getRelationshipsWithMissingOrInactiveDestination().size());
 
+		Branch branch = branchService.findBranchOrThrow(path);
 		Map<String, Object> metadataMap = branch.getMetadata().getAsMap();
-		metadataMap.put("existingConfig", "test");
 		Map<String, String> integrityIssueMetaData = new HashMap<>();
-		integrityIssueMetaData.put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "true");
-		integrityIssueMetaData.put("other_key", "something else");
+		integrityIssueMetaData.put(INTEGRITY_ISSUE_METADATA_KEY, "true");
 		metadataMap.put(INTERNAL_METADATA_KEY, integrityIssueMetaData);
 		branchService.updateMetadata(branch.getPath(), metadataMap);
 
 		branch = branchService.findLatest(path);
 		Metadata metadata = branch.getMetadata();
 		assertTrue(metadata.containsKey(INTERNAL_METADATA_KEY));
-		String integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
+		String integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
 		assertTrue(Boolean.parseBoolean(integrityIssueFound));
 
-		// Test metadata inheritance from project
-		final String taskBranchPath = path + "/task";
-		branchService.create(taskBranchPath);
-		conceptService.create(new Concept("999100001"), taskBranchPath);
-		final Branch taskBranch = branchService.findBranchOrThrow(taskBranchPath, true);
-		final String taskClassifiedFlag = taskBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(BranchClassificationStatusService.CLASSIFIED_METADATA_KEY);
-		assertNotNull(taskClassifiedFlag);
-		assertFalse(Boolean.parseBoolean(taskClassifiedFlag));
-		final String taskIntegrityFlag = taskBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
+		// rebase extension project branch and check the integrity flag is updated in branch metadata
+		branchMergeService.mergeBranchSync(codeSystem.getBranchPath(), project, Collections.EMPTY_LIST);
+		branch = branchService.findLatest(project);
+		metadata = branch.getMetadata();
+		assertTrue(metadata.containsKey(INTERNAL_METADATA_KEY));
+		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
+		assertTrue(Boolean.parseBoolean(integrityIssueFound));
+
+		// create a fix task and check the integrity issue flag is set to true
+		String taskBranchPath = project + "/taskA";
+		sBranchService.create(taskBranchPath);
+
+		Branch taskBranch = branchService.findBranchOrThrow(taskBranchPath, false);
+		String taskIntegrityFlag = taskBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
 		assertNotNull(taskIntegrityFlag);
 		assertTrue(Boolean.parseBoolean(taskIntegrityFlag));
 
-		// partial fix
-		conceptService.create(new Concept("100001"), path);
-		branch = branchService.findLatest(path);
-		reportProject = integrityService.findChangedComponentsWithBadIntegrity(branch);
-		assertFalse(reportProject.isEmpty());
+		// make partial fix
+		conceptService.create(new Concept("100001"), taskBranchPath);
+		taskBranch = branchService.findBranchOrThrow(taskBranchPath, true);
+		String taskClassifiedFlag = taskBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(BranchClassificationStatusService.CLASSIFIED_METADATA_KEY);
+		assertNotNull(taskClassifiedFlag);
+		assertFalse(Boolean.parseBoolean(taskClassifiedFlag));
+		taskIntegrityFlag = taskBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
+		assertTrue(Boolean.parseBoolean(taskIntegrityFlag));
+
+		taskClassifiedFlag = taskBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(BranchClassificationStatusService.CLASSIFIED_METADATA_KEY);
+		assertNotNull(taskClassifiedFlag);
+		assertFalse(Boolean.parseBoolean(taskClassifiedFlag));
+
+		// promote partial fix to project and check the integrity on project is still set to true
+		branchMergeService.mergeBranchSync(taskBranchPath, project, null);
+		branch = branchService.findLatest(project);
 		metadata = branch.getMetadata();
-		assertTrue(metadata.containsKey(INTERNAL_METADATA_KEY));
-		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
+		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
 		assertTrue(Boolean.parseBoolean(integrityIssueFound));
 
-		// complete fix
-		conceptService.create(new Concept("100002"), path);
-		branch = branchService.findLatest(path);
+		// add complete fix in another task and promote
+		taskBranchPath = project + "/taskB";
+		sBranchService.create(taskBranchPath);
+		conceptService.create(new Concept("100002"), taskBranchPath);
+		branch = branchService.findLatest(taskBranchPath);
 		reportProject = integrityService.findChangedComponentsWithBadIntegrity(branch);
 		assertTrue(reportProject.isEmpty());
 		metadata = branch.getMetadata();
-		assertTrue(metadata.containsKey(INTERNAL_METADATA_KEY));
-		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY);
+		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
+		// CodeSystem integrity issue flag should be cleared on the fix task as all fixes are completed.
+		assertNull(integrityIssueFound);
 
+		// promote task to project
+		branchMergeService.mergeBranchSync(taskBranchPath, project, null);
+		branch = branchService.findLatest(project);
+		metadata = branch.getMetadata();
+		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
+		assertNull("The integrityIssue flag should be removed after all issues are fixed on the project", integrityIssueFound);
+
+		// promote project
+		branchMergeService.mergeBranchSync(project, codeSystem.getBranchPath(), null);
+
+		branch = branchService.findLatest(codeSystem.getBranchPath());
+		reportProject = integrityService.findChangedComponentsWithBadIntegrity(branch);
+		assertTrue(reportProject.isEmpty());
+		metadata = branch.getMetadata();
+		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
+		// CodeSystem integrity issue flag should be cleared
 		assertNull("The integrityIssue flag should be removed after all issues are fixed", integrityIssueFound);
-		assertTrue(metadata.getMapOrCreate(INTERNAL_METADATA_KEY).containsKey("other_key"));
-		assertTrue(metadata.containsKey("existingConfig"));
 	}
 }

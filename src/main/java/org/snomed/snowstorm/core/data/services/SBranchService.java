@@ -32,6 +32,8 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
+import static org.snomed.snowstorm.core.data.services.IntegrityService.INTEGRITY_ISSUE_METADATA_KEY;
 
 @Service
 // Snowstorm branch service has some methods in addition to the ElasticVC library service.
@@ -73,6 +75,11 @@ public class SBranchService {
 			if (latest != null) {
 				final Boolean classificationStatus = BranchClassificationStatusService.getClassificationStatus(latest);
 				BranchClassificationStatusService.setClassificationStatus(metadata, classificationStatus != null && classificationStatus);
+
+				final String integrityFlag = latest.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
+				if (Boolean.parseBoolean(integrityFlag)) {
+					metadata.getMapOrCreate(INTERNAL_METADATA_KEY).put(INTEGRITY_ISSUE_METADATA_KEY, integrityFlag);
+				}
 			}
 		}
 		final Branch branch = branchService.create(branchPath, metadata.getAsMap());

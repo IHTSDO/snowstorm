@@ -3,18 +3,16 @@ package org.snomed.snowstorm.rest;
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.rest.pojo.*;
+import org.snomed.snowstorm.rest.pojo.ConceptBulkLoadRequest;
+import org.snomed.snowstorm.rest.pojo.ConceptSearchRequest;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.RequestEntity;
-import org.springframework.http.ResponseEntity;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.*;
-
-import static java.lang.String.format;
-import static org.junit.Assert.fail;
+import java.util.Collections;
+import java.util.List;
 
 class ConceptControllerSecurityTest extends AbstractControllerSecurityTest {
 
