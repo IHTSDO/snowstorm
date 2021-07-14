@@ -86,16 +86,12 @@ public class DroolsValidationService {
 		termValidationExecutorService = Executors.newCachedThreadPool();
 	}
 
-	public InvalidContentWithSeverityStatus validate(final Concept concept, final String branchPath) throws ServiceException {
-		final List<InvalidContent> invalidContents = validateConcept(branchPath, concept);
+	public InvalidContentWithSeverityStatus validateConceptBeforeClassification(final Concept concept, final String branchPath) throws ServiceException {
+		final List<InvalidContent> invalidContents = validateConcepts(branchPath, Collections.singleton(concept), false);
 		return new InvalidContentWithSeverityStatus(invalidContents);
 	}
 
-	public List<InvalidContent> validateConcept(String branchPath, Concept concept) throws ServiceException {
-		return validateConcepts(branchPath, Collections.singleton(concept));
-	}
-
-	public List<InvalidContent> validateConcepts(String branchPath, Set<Concept> concepts) throws ServiceException {
+	public List<InvalidContent> validateConcepts(String branchPath, Set<Concept> concepts, boolean afterClassification) throws ServiceException {
 		// Get drools assertion groups to run
 		Branch branchWithInheritedMetadata = branchService.findBranchOrThrow(branchPath, true);
 		String assertionGroupNamesMetaString = branchWithInheritedMetadata.getMetadata().getString(BranchMetadataKeys.ASSERTION_GROUP_NAMES);
@@ -116,7 +112,7 @@ public class DroolsValidationService {
 		if (ruleSetNames.contains(TERM_VALIDATION_SERVICE_ASSERTION_GROUP)) {
 			if (concepts.size() == 1) {
 				final Concept concept = concepts.iterator().next();
-				termValidationFuture = termValidationExecutorService.submit(() -> termValidationServiceClient.validateConcept(branchPath, concept));
+				termValidationFuture = termValidationExecutorService.submit(() -> termValidationServiceClient.validateConcept(branchPath, concept, afterClassification));
 			} else {
 				logger.info("Not yet able to validate batches of concepts using the term-validation-service.");
 			}

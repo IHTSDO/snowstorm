@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -9,12 +10,14 @@ import org.ihtsdo.drools.response.InvalidContent;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.ContentReportService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
 import org.snomed.snowstorm.validation.DroolsValidationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.constraints.NotNull;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -29,22 +32,36 @@ public class ConceptValidationController {
 	@Autowired
 	private ContentReportService contentReportService;
 
+	@Autowired
+	private BranchService branchService;
+
 	@RequestMapping(value = "/browser/{branch}/validate/concept", method = RequestMethod.POST)
-	@ApiOperation("Validation using the Snomed-Drools project.")
+	@ApiOperation(value = "Validation using the Snomed-Drools project.",
+			notes = "The afterClassification flag runs additional validation when using the snomed-term-validation service. If this flag is not set explicitly the branch " +
+					"classification status will be used.")
 	public List<InvalidContent> validateConcept(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull String branchPath,
+			@RequestParam(required = false) Boolean afterClassification,
 			@ApiParam(value="The concept to validate") @RequestBody Concept concept) throws ServiceException {
 
 		branchPath = BranchPathUriUtil.decodePath(branchPath);
-		return validationService.validateConcept(branchPath, concept);
+		return validationService.validateConcepts(branchPath, Collections.singleton(concept), getAfterClassification(branchPath, afterClassification));
 	}
 
 	@RequestMapping(value = "/browser/{branch}/validate/concepts", method = RequestMethod.POST)
-	@ApiOperation("Validation using the Snomed-Drools project.")
+	@ApiOperation(value = "Validation using the Snomed-Drools project.",
+			notes = "The afterClassification flag runs additional validation when using the snomed-term-validation service. If this flag is not set explicitly the branch " +
+					"classification status will be used.")
 	public List<InvalidContent> validateConcepts(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull String branchPath,
+			@RequestParam(required = false) Boolean afterClassification,
 			@ApiParam(value="The concepts to validate") @RequestBody Set<Concept> concepts) throws ServiceException {
 
 		branchPath = BranchPathUriUtil.decodePath(branchPath);
-		return validationService.validateConcepts(branchPath, concepts);
+		return validationService.validateConcepts(branchPath, concepts, getAfterClassification(branchPath, afterClassification));
+	}
+
+	private boolean getAfterClassification(String branchPath, Boolean afterClassification) {
+		return afterClassification != null ? afterClassification :
+				Boolean.TRUE.equals(BranchClassificationStatusService.getClassificationStatus(branchService.findBranchOrThrow(branchPath)));
 	}
 
 	@RequestMapping(value = "/validation-maintenance/reload-validation-rules", method = RequestMethod.POST)
