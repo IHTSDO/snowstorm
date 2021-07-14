@@ -14,7 +14,6 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -231,19 +230,15 @@ public class Relationship extends SnomedComponent<Relationship> {
 		return this.value != null && this.destinationId == null;
 	}
 
-	public Map<String, ConceptMini> createConceptMinis(List<LanguageDialect> languageDialects) {
-		Map<String, ConceptMini> relationshipConceptMinis = new HashMap<>();
+	public Map<String, ConceptMini> createConceptMinis(List<LanguageDialect> languageDialects, Map<String, ConceptMini> relationshipConceptMinis) {
 		if (sourceId != null) {
-			setSource(new ConceptMini(sourceId, languageDialects));
-			relationshipConceptMinis.put(sourceId, getSource());
+			setSource(relationshipConceptMinis.computeIfAbsent(sourceId, id -> new ConceptMini(id, languageDialects)));
 		}
 		if (typeId != null) {
-			setType(new ConceptMini(typeId, languageDialects));
-			relationshipConceptMinis.put(typeId, getType());
+			setType(relationshipConceptMinis.computeIfAbsent(typeId, id -> new ConceptMini(id, languageDialects)));
 		}
 		if (destinationId != null) {
-			setTarget(new ConceptMini(destinationId, languageDialects));
-			relationshipConceptMinis.put(destinationId, getTarget());
+			setTarget(relationshipConceptMinis.computeIfAbsent(destinationId, id -> new ConceptMini(id, languageDialects)));
 		}
 		return relationshipConceptMinis;
 	}
