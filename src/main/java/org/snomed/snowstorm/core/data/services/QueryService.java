@@ -312,7 +312,7 @@ public class QueryService implements ApplicationContextAware {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
+						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
 						.must(termQuery(QueryConcept.Fields.STATED, stated))
 				)
 				.withPageable(PAGE_OF_ONE)
