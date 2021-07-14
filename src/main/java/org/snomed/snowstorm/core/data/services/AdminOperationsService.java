@@ -752,6 +752,7 @@ public class AdminOperationsService {
 				componentToFix = releasedComponent;
 				if (setDeletedComponentsToInactive) {
 					componentToFix.setActive(false);
+					componentToFix.updateEffectiveTime();
 				}
 				componentToFix.markChanged();
 				componentsToSave.add(componentToFix);
