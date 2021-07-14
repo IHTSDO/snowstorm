@@ -439,8 +439,8 @@ public class IntegrityService extends ComponentService implements CommitListener
 		timer.finish();
 		IntegrityIssueReport fixedReport = getReport(axiomsMinisAndInactiveConcepts, relationshipStillWithInactiveSource, relationshipStillWithInactiveType, relationshipStillWithInactiveDestination);
 		if (fixedReport.isEmpty()) {
-			// update the internal flag to false on the fix branch
-			taskBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).put(IntegrityService.INTEGRITY_ISSUE_METADATA_KEY, "false");
+			// remove integrity issue flag when report is clean
+			taskBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).remove(INTEGRITY_ISSUE_METADATA_KEY);
 			branchService.updateMetadata(taskBranch.getPath(), taskBranch.getMetadata());
 			logger.info("Integrity issues have been fixed on branch {}", taskBranch.getPath());
 		}
