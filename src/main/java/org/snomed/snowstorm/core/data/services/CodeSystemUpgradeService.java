@@ -98,7 +98,7 @@ public class CodeSystemUpgradeService {
 
 			logger.info("Running integrity check on {}", branchPath);
 			Branch extensionBranch = branchService.findLatest(branchPath);
-			IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrity(extensionBranch);
+			IntegrityIssueReport integrityReport = integrityService.findChangedComponentsWithBadIntegrityNotFixed(extensionBranch);
 			logger.info("Completed integrity check on {}", branchPath);
 
 			updateBranchMetaData(branchPath, newParentVersion, extensionBranch, integrityReport.isEmpty());

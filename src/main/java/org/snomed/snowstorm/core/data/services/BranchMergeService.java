@@ -242,7 +242,7 @@ public class BranchMergeService {
 					branchMetadataHelper.getBranchLockMetadata("Receiving promotion from " + source))) {
 
 				logger.info("Integrity check before promotion of {}", source);
-				IntegrityIssueReport issueReport = integrityService.findChangedComponentsWithBadIntegrity(sourceBranch);
+				IntegrityIssueReport issueReport = integrityService.findChangedComponentsWithBadIntegrityNotFixed(sourceBranch);
 				if (!issueReport.isEmpty()) {
 					logger.error("Aborting promotion of {}. Integrity issues found: {}", source, issueReport);
 					throw new IntegrityException("Aborting promotion of " + source + ". Integrity issues found.", issueReport);
