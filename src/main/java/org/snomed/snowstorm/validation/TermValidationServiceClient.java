@@ -1,9 +1,7 @@
 package org.snomed.snowstorm.validation;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
-import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
-import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.drools.response.Severity;
 import org.slf4j.Logger;
@@ -13,7 +11,6 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
-import org.snomed.snowstorm.core.data.services.SBranchService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
@@ -32,7 +29,6 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class TermValidationServiceClient {
@@ -83,7 +79,9 @@ public class TermValidationServiceClient {
 		Map<String, ConceptMini> relationshipConceptMinis = new HashMap<>();
 		final List<LanguageDialect> languageDialects = Config.DEFAULT_LANGUAGE_DIALECTS;
 		concept.getClassAndGciAxioms().stream().flatMap(axiom -> axiom.getRelationships().stream()).forEach(
-				relationship -> relationshipConceptMinis.putAll(relationship.createConceptMinis(languageDialects)));
+				relationship -> relationship.createConceptMinis(languageDialects, relationshipConceptMinis));
+		concept.getRelationships().forEach(
+				relationship -> relationship.createConceptMinis(languageDialects, relationshipConceptMinis));
 
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		conceptService.populateConceptMinis(branchCriteria, relationshipConceptMinis, languageDialects);
@@ -100,7 +98,7 @@ public class TermValidationServiceClient {
 				final Set<Long> childrenIds = queryService.findChildrenIdsAsUnion(branchCriteria, false, Collections.singleton(conceptIdAsLong));
 				validationRequest.addConceptGraphCounts(conceptIdAsLong,
 						new GraphCounts(parentIds.size(), grandParentIds.size(), ancestorIds.size(), siblingIds.size(), childrenIds.size()));
-				termValidation.checkpoint("Populate linked concept details (not yet sent)");
+				termValidation.checkpoint("Gather graph counts");
 			}
 
 			logger.info("Calling term-validation-service for branch {}", branchPath);
