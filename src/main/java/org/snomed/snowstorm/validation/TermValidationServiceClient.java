@@ -1,7 +1,9 @@
 package org.snomed.snowstorm.validation;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
+import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Branch;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.drools.response.Severity;
 import org.slf4j.Logger;
@@ -10,6 +12,8 @@ import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.QueryService;
+import org.snomed.snowstorm.core.data.services.SBranchService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
@@ -28,6 +32,7 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class TermValidationServiceClient {
@@ -47,6 +52,9 @@ public class TermValidationServiceClient {
 	private ConceptService conceptService;
 
 	@Autowired
+	private QueryService queryService;
+
+	@Autowired
 	private VersionControlHelper versionControlHelper;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -63,7 +71,7 @@ public class TermValidationServiceClient {
 		this.duplicateScoreThreshold = duplicateScoreThreshold;
 	}
 
-	public List<InvalidContent> validateConcept(String branchPath, Concept concept) throws ServiceException {
+	public List<InvalidContent> validateConcept(String branchPath, Concept concept, boolean afterClassification) throws ServiceException {
 		final ArrayList<InvalidContent> invalidContents = new ArrayList<>();
 		final TimerUtil termValidation = new TimerUtil("term-validation");
 
@@ -81,9 +89,21 @@ public class TermValidationServiceClient {
 		conceptService.populateConceptMinis(branchCriteria, relationshipConceptMinis, languageDialects);
 		termValidation.checkpoint("Populate linked concept details.");
 
-		logger.info("Calling term-validation-service for branch {}", branchPath);
 		try {
 			final ValidationRequest validationRequest = new ValidationRequest(concept);
+			if (afterClassification) {
+				final Long conceptIdAsLong = concept.getConceptIdAsLong();
+				final Set<Long> parentIds = queryService.findParentIds(branchCriteria, false, Collections.singleton(conceptIdAsLong));
+				final Set<Long> grandParentIds = queryService.findParentIds(branchCriteria, false, parentIds);
+				final Set<Long> ancestorIds = queryService.findAncestorIds(branchCriteria, branchPath, false, concept.getConceptId());
+				final Set<Long> siblingIds = queryService.findChildrenIdsAsUnion(branchCriteria, false, parentIds);
+				final Set<Long> childrenIds = queryService.findChildrenIdsAsUnion(branchCriteria, false, Collections.singleton(conceptIdAsLong));
+				validationRequest.addConceptGraphCounts(conceptIdAsLong,
+						new GraphCounts(parentIds.size(), grandParentIds.size(), ancestorIds.size(), siblingIds.size(), childrenIds.size()));
+				termValidation.checkpoint("Populate linked concept details (not yet sent)");
+			}
+
+			logger.info("Calling term-validation-service for branch {}", branchPath);
 			final ResponseEntity<ValidationResponse> response = restTemplate.postForEntity("/validate-concept",
 					new HttpEntity<>(validationRequest, HTTP_HEADERS), ValidationResponse.class);
 
@@ -117,10 +137,18 @@ public class TermValidationServiceClient {
 
 		private final String status;
 		private final Concept concept;
+		private Map<Long, GraphCounts> conceptGraphCounts;
 
 		public ValidationRequest(Concept concept) {
 			status = "on-save";
 			this.concept = concept;
+		}
+
+		public void addConceptGraphCounts(Long conceptId, GraphCounts graphCounts) {
+			if (conceptGraphCounts == null) {
+				conceptGraphCounts = new HashMap<>();
+			}
+			conceptGraphCounts.put(conceptId, graphCounts);
 		}
 
 		public String getStatus() {
@@ -129,6 +157,47 @@ public class TermValidationServiceClient {
 
 		public Concept getConcept() {
 			return concept;
+		}
+
+		public Map<Long, GraphCounts> getConceptGraphCounts() {
+			return conceptGraphCounts;
+		}
+	}
+
+	public static final class GraphCounts {
+
+		private final int parentsCount;
+		private final int grandparentsCount;
+		private final int ancestorsCount;
+		private final int siblingsCount;
+		private final int childrenCount;
+
+		public GraphCounts(int parentsCount, int grandparentsCount, int ancestorsCount, int siblingsCount, int childrenCount) {
+			this.parentsCount = parentsCount;
+			this.grandparentsCount = grandparentsCount;
+			this.ancestorsCount = ancestorsCount;
+			this.siblingsCount = siblingsCount;
+			this.childrenCount = childrenCount;
+		}
+
+		public int getParentsCount() {
+			return parentsCount;
+		}
+
+		public int getGrandparentsCount() {
+			return grandparentsCount;
+		}
+
+		public int getAncestorsCount() {
+			return ancestorsCount;
+		}
+
+		public int getSiblingsCount() {
+			return siblingsCount;
+		}
+
+		public int getChildrenCount() {
+			return childrenCount;
 		}
 	}
 
