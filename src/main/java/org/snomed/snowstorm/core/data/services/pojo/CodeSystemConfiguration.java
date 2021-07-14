@@ -2,15 +2,17 @@ package org.snomed.snowstorm.core.data.services.pojo;
 
 public class CodeSystemConfiguration {
 
-	private final String owner;
 	private final String name;
 	private final String shortName;
 	private final String module;
+	private final String countryCode;
+	private final String owner;
 
-	public CodeSystemConfiguration(String name, String shortName, String module, String owner) {
+	public CodeSystemConfiguration(String name, String shortName, String module, String countryCode, String owner) {
 		this.name = name;
 		this.shortName = shortName;
 		this.module = module;
+		this.countryCode = countryCode;
 		this.owner = owner;
 	}
 
@@ -26,6 +28,10 @@ public class CodeSystemConfiguration {
 		return module;
 	}
 
+	public String getCountryCode() {
+		return countryCode;
+	}
+
 	public String getOwner() {
 		return owner;
 	}
@@ -36,6 +42,7 @@ public class CodeSystemConfiguration {
 				"name='" + name + '\'' +
 				", shortName='" + shortName + '\'' +
 				", module='" + module + '\'' +
+				", countryCode='" + countryCode + '\'' +
 				", owner='" + owner + '\'' +
 				'}';
 	}

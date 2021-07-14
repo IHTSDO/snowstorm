@@ -159,7 +159,7 @@ public abstract class AbstractFHIRTest {
 		branchService.create(branchWK);
 
 		//And tell the configuration about that new module
-		CodeSystemConfiguration config = new CodeSystemConfiguration("SNOMEDCT-WK", "SNOMEDCT-WK", sampleModuleId, null);
+		CodeSystemConfiguration config = new CodeSystemConfiguration("SNOMEDCT-WK", "SNOMEDCT-WK", sampleModuleId, null, null);
 		codeSystemConfigurationService.getConfigurations().add(config);
 
 		concepts.clear();
