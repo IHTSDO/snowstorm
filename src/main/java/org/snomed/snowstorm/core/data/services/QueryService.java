@@ -227,19 +227,6 @@ public class QueryService implements ApplicationContextAware {
 		if (conceptQuery.getModule() != null) {
 			conceptBoolQuery.must(termsQuery(SnomedComponent.Fields.MODULE_ID, conceptQuery.getModule()));
 		}
-		if (conceptQuery.getEffectiveTime() !=null) {
-			conceptBoolQuery.must(termQuery(SnomedComponent.Fields.EFFECTIVE_TIME, conceptQuery.getEffectiveTime()));
-		}
-		if (conceptQuery.isNullEffectiveTime() !=null) {
-			if (conceptQuery.isNullEffectiveTime()) {
-				conceptBoolQuery.mustNot(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME));
-			} else {
-				conceptBoolQuery.must(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME));
-			}
-		}
-		if (conceptQuery.isReleased() != null) {
-			conceptBoolQuery.must(termQuery(SnomedComponent.Fields.RELEASED, conceptQuery.isReleased()));
-		}
 		return conceptBoolQuery;
 	}
 
@@ -251,7 +238,12 @@ public class QueryService implements ApplicationContextAware {
 
 		for (List<Long> batch : Iterables.partition(conceptIds, CLAUSE_LIMIT)) {
 			final BoolQueryBuilder conceptClauses = boolQuery();
-			queryBuilder.applyConceptClauses(conceptClauses);
+			if (definitionStatus != null) {
+				conceptClauses.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, definitionStatus));
+			}
+			if (module != null) {
+				conceptClauses.must(termsQuery(SnomedComponent.Fields.MODULE_ID, module));
+			}
 			NativeSearchQueryBuilder conceptDefinitionQuery = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(branchCriteria.getEntityBranchCriteria(Concept.class))
@@ -314,7 +306,7 @@ public class QueryService implements ApplicationContextAware {
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(QueryConcept.class))
-						.must(termsQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
+						.must(termQuery(QueryConcept.Fields.CONCEPT_ID, conceptIds))
 						.must(termQuery(QueryConcept.Fields.STATED, stated))
 				)
 				.withPageable(PAGE_OF_ONE)

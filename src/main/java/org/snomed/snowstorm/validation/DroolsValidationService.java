@@ -91,11 +91,6 @@ public class DroolsValidationService {
 		termValidationExecutorService = Executors.newCachedThreadPool();
 	}
 
-	public InvalidContentWithSeverityStatus validate(final Concept concept, final String branchPath) throws ServiceException {
-		final List<InvalidContent> invalidContents = validateConcept(branchPath, concept);
-		return new InvalidContentWithSeverityStatus(invalidContents);
-	}
-
 	public InvalidContentWithSeverityStatus validateConceptBeforeClassification(final Concept concept, final String branchPath) throws ServiceException {
 		final List<InvalidContent> invalidContents = validateConcepts(branchPath, Collections.singleton(concept), false);
 		return new InvalidContentWithSeverityStatus(invalidContents);
@@ -122,7 +117,7 @@ public class DroolsValidationService {
 		if (ruleSetNames.contains(TERM_VALIDATION_SERVICE_ASSERTION_GROUP)) {
 			if (concepts.size() == 1) {
 				final Concept concept = concepts.iterator().next();
-				termValidationFuture = termValidationExecutorService.submit(() -> termValidationServiceClient.validateConcept(branchPath, concept));
+				termValidationFuture = termValidationExecutorService.submit(() -> termValidationServiceClient.validateConcept(branchPath, concept, afterClassification));
 			} else {
 				logger.info("Not yet able to validate batches of concepts using the term-validation-service.");
 			}

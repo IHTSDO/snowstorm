@@ -59,14 +59,6 @@ public class ConceptValidationController {
 		return validationService.validateConcepts(branchPath, concepts, getAfterClassification(branchPath, afterClassification));
 	}
 
-
-	@ApiOperation(value = "Temp function to bulk validate concepts using ECL (async).")
-	@RequestMapping(value = "/browser/{branch}/validate/batch", method = RequestMethod.POST)
-	public void startBatchValidation(@PathVariable String branch, @RequestParam String ecl, @RequestParam(required = false) Boolean afterClassification) {
-		branch = BranchPathUriUtil.decodePath(branch);
-		validationService.validateBatch(branch, ecl, afterClassification);
-	}
-
 	private boolean getAfterClassification(String branchPath, Boolean afterClassification) {
 		return afterClassification != null ? afterClassification :
 				Boolean.TRUE.equals(BranchClassificationStatusService.getClassificationStatus(branchService.findBranchOrThrow(branchPath)));
