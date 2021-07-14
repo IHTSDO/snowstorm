@@ -208,7 +208,7 @@ public class BranchController {
 	@RequestMapping(value = "/{branch}/integrity-check", method = RequestMethod.POST)
 	public IntegrityIssueReport integrityCheck(@ApiParam(value="The branch path") @PathVariable(value="branch") @NotNull final String branchPath) throws ServiceException {
 		Branch branch = branchService.findBranchOrThrow(BranchPathUriUtil.decodePath(branchPath));
-		return integrityService.findChangedComponentsWithBadIntegrity(branch);
+		return integrityService.findChangedComponentsWithBadIntegrityNotFixed(branch);
 	}
 
 
@@ -231,7 +231,7 @@ public class BranchController {
 		if (!branch.getPath().startsWith(extensionMainBranchPath)) {
 			throw new IllegalArgumentException(String.format("Branch %s is not a descendant of %s", branch.getPath(), extensionMainBranchPath));
 		}
-		return integrityService.findChangedComponentsWithBadIntegrity(branch, extensionMainBranchPath);
+		return integrityService.findChangedComponentsWithBadIntegrityNotFixed(branch, extensionMainBranchPath);
 	}
 
 	@RequestMapping(value = "/{branch}/integrity-check-full", method = RequestMethod.POST)

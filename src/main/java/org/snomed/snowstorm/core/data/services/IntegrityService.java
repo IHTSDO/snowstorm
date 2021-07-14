@@ -73,10 +73,10 @@ public class IntegrityService extends ComponentService implements CommitListener
 				if (codeSystem.getBranchPath().equals(commit.getBranch().getPath())) {
 					// Run integrity check for content changed only on the CodeSystem branch
 					BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-					integrityIssueReport = findChangedComponentsWithBadIntegrity(branchCriteriaIncludingOpenCommit, commit.getBranch());
+					integrityIssueReport = findChangedComponentsWithBadIntegrityNotFixed(branchCriteriaIncludingOpenCommit, commit.getBranch());
 				} else {
 					// check with fix branch against code system branch
-					integrityIssueReport = findChangedComponentsWithBadIntegrity(commit.getBranch(), codeSystem.getBranchPath());
+					integrityIssueReport = findChangedComponentsWithBadIntegrityNotFixed(commit.getBranch(), codeSystem.getBranchPath());
 				}
 				if (integrityIssueReport.isEmpty()) {
 					commit.getBranch().getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).remove(INTEGRITY_ISSUE_METADATA_KEY);
@@ -88,11 +88,11 @@ public class IntegrityService extends ComponentService implements CommitListener
 		}
 	}
 
-	public IntegrityIssueReport findChangedComponentsWithBadIntegrity(Branch branch) throws ServiceException {
-		return  findChangedComponentsWithBadIntegrity(versionControlHelper.getBranchCriteria(branch), branch);
+	public IntegrityIssueReport findChangedComponentsWithBadIntegrityNotFixed(Branch branch) throws ServiceException {
+		return  findChangedComponentsWithBadIntegrityNotFixed(versionControlHelper.getBranchCriteria(branch), branch);
 	}
 
-	public IntegrityIssueReport findChangedComponentsWithBadIntegrity(BranchCriteria branchCriteria, Branch branch) throws ServiceException {
+	public IntegrityIssueReport findChangedComponentsWithBadIntegrityNotFixed(BranchCriteria branchCriteria, Branch branch) throws ServiceException {
 
 		if (branch.getPath().equals("MAIN")) {
 			throw new RuntimeServiceException("This function can not be used on the MAIN branch. " +
@@ -284,9 +284,9 @@ public class IntegrityService extends ComponentService implements CommitListener
 	}
 
 
-	public IntegrityIssueReport findChangedComponentsWithBadIntegrity(Branch taskBranch, String extensionMainBranchPath) throws ServiceException {
+	public IntegrityIssueReport findChangedComponentsWithBadIntegrityNotFixed(Branch fixBranch, String extensionMainBranchPath) throws ServiceException {
 		Branch extensionMain = branchService.findBranchOrThrow(extensionMainBranchPath);
-		Branch projectBranch = branchService.findBranchOrThrow(PathUtil.getParentPath(taskBranch.getPath()));
+		Branch projectBranch = branchService.findBranchOrThrow(PathUtil.getParentPath(fixBranch.getPath()));
 		if (!projectBranch.getPath().equalsIgnoreCase(extensionMainBranchPath) && !PathUtil.getParentPath(projectBranch.getPath()).equalsIgnoreCase(extensionMain.getPath())) {
 			throw new RuntimeServiceException(String.format("Branch %s is not a descendant of %s", projectBranch.getPath(), extensionMainBranchPath));
 		}
@@ -294,15 +294,15 @@ public class IntegrityService extends ComponentService implements CommitListener
 		if (!projectBranch.getPath().equalsIgnoreCase(extensionMain.getPath()) && projectBranch.getBaseTimestamp() < extensionMain.getHeadTimestamp()) {
 			throw new RuntimeServiceException(String.format("Branch %s needs to rebase first before running integrity check", projectBranch.getPath()));
 		}
-		if (taskBranch.getBaseTimestamp() < extensionMain.getHeadTimestamp()) {
-			throw new RuntimeServiceException(String.format("Branch %s needs to rebase first before running integrity check", taskBranch.getPath()));
+		if (fixBranch.getBaseTimestamp() < extensionMain.getHeadTimestamp()) {
+			throw new RuntimeServiceException(String.format("Branch %s needs to rebase first before running integrity check", fixBranch.getPath()));
 		}
 
-		TimerUtil timer = new TimerUtil("Changed component integrity check on " + taskBranch.getPath() + " and " + extensionMainBranchPath, Level.INFO, 1);
-		IntegrityIssueReport integrityIssueReportOnExtensionMain = findChangedComponentsWithBadIntegrity(extensionMain);
+		TimerUtil timer = new TimerUtil("Changed component integrity check on " + fixBranch.getPath() + " and " + extensionMainBranchPath, Level.INFO, 1);
+		IntegrityIssueReport integrityIssueReportOnExtensionMain = findChangedComponentsWithBadIntegrityNotFixed(extensionMain);
 		if (integrityIssueReportOnExtensionMain.isEmpty()) {
 			logger.info("No integrity issue found on {}", extensionMainBranchPath);
-			return findChangedComponentsWithBadIntegrity(taskBranch);
+			return findChangedComponentsWithBadIntegrityNotFixed(fixBranch);
 		}
 		Map<Long, Long> relationshipWithInactiveSource = integrityIssueReportOnExtensionMain.getRelationshipsWithMissingOrInactiveSource();
 		Map<Long, Long> relationshipWithInactiveType = integrityIssueReportOnExtensionMain.getRelationshipsWithMissingOrInactiveType();
@@ -328,7 +328,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 		timer.checkpoint("Integrity check completed on " + extensionMainBranchPath);
 
 		// fetch source, type and destination in the fix task for relationships reported
-		BranchCriteria taskBranchCriteria = versionControlHelper.getBranchCriteria(taskBranch);
+		BranchCriteria taskBranchCriteria = versionControlHelper.getBranchCriteria(fixBranch);
 		Map<Long, Long> relationshipIdToSourceMap = new HashMap<>();
 		Map<Long, Long> relationshipIdToTypeMap = new HashMap<>();
 		Map<Long, Long> relationshipIdToDestinationMap = new HashMap<>();
@@ -394,7 +394,7 @@ public class IntegrityService extends ComponentService implements CommitListener
 				.build(), Concept.class)) {
 			activeConceptStream.forEachRemaining(hit -> activeConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
-		timer.checkpoint("Collect active concepts referenced in changed relationships and axioms: " + activeConcepts.size() + " on " + taskBranch.getPath());
+		timer.checkpoint("Collect active concepts referenced in changed relationships and axioms: " + activeConcepts.size() + " on " + fixBranch.getPath());
 
 		// check axioms still with bad integrity
 		Map<String, Set<Long>> axiomWithInactiveReferencedConcept = new HashMap<>();
@@ -434,15 +434,15 @@ public class IntegrityService extends ComponentService implements CommitListener
 		for (String axiomId : axiomWithInactiveReferencedConcept.keySet()) {
 			addConceptMini(axiomsMinisAndInactiveConcepts, conceptMiniMap, axiomId, axiomIdReferenceComponentMap.get(axiomId), axiomWithInactiveReferencedConcept.get(axiomId));
 		}
-		descriptionService.joinActiveDescriptions(taskBranch.getPath(), conceptMiniMap);
+		descriptionService.joinActiveDescriptions(fixBranch.getPath(), conceptMiniMap);
 
 		timer.finish();
 		IntegrityIssueReport fixedReport = getReport(axiomsMinisAndInactiveConcepts, relationshipStillWithInactiveSource, relationshipStillWithInactiveType, relationshipStillWithInactiveDestination);
 		if (fixedReport.isEmpty()) {
 			// remove integrity issue flag when report is clean
-			taskBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).remove(INTEGRITY_ISSUE_METADATA_KEY);
-			branchService.updateMetadata(taskBranch.getPath(), taskBranch.getMetadata());
-			logger.info("Integrity issues have been fixed on branch {}", taskBranch.getPath());
+			fixBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).remove(INTEGRITY_ISSUE_METADATA_KEY);
+			branchService.updateMetadata(fixBranch.getPath(), fixBranch.getMetadata());
+			logger.info("Integrity issues have been fixed on branch {}", fixBranch.getPath());
 		}
 		return fixedReport;
 	}

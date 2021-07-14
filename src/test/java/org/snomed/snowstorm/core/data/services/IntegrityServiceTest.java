@@ -196,14 +196,14 @@ class IntegrityServiceTest extends AbstractTest {
 		wrongConcept.getRelationships().stream().forEach(System.out::println);
 		assertNotNull(wrongConcept);
 		try {
-			integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest("MAIN"));
+			integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN"));
 			fail("We should never get to this line because we should throw an exception when attempting the incremental integrity check on MAIN - use the full check there!");
 		} catch (Exception e) {
 			// Pass
 		}
 
 		// Two bad relationships are on MAIN/project
-		IntegrityIssueReport reportProject = integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest("MAIN/project"));
+		IntegrityIssueReport reportProject = integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN/project"));
 		assertNull(reportProject.getRelationshipsWithMissingOrInactiveSource());
 		assertEquals(1, reportProject.getRelationshipsWithMissingOrInactiveType().size());
 		assertEquals(1, reportProject.getRelationshipsWithMissingOrInactiveDestination().size());
@@ -211,7 +211,7 @@ class IntegrityServiceTest extends AbstractTest {
 		assertEquals("[100001000]", getAxiomReferencedConcepts(reportProject));
 
 		// MAIN/project/test1 was created before the bad relationships so there should be no issue on that branch
-		IntegrityIssueReport reportProjectTest1 = integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest("MAIN/project/test1"));
+		IntegrityIssueReport reportProjectTest1 = integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN/project/test1"));
 		assertNull(reportProjectTest1.getRelationshipsWithMissingOrInactiveSource());
 		assertNull(reportProjectTest1.getRelationshipsWithMissingOrInactiveType());
 		assertNull(reportProjectTest1.getRelationshipsWithMissingOrInactiveDestination());
@@ -219,7 +219,7 @@ class IntegrityServiceTest extends AbstractTest {
 
 		// MAIN/project/test2 was created after the bad relationships and axiom so can see the issues on MAIN/project,
 		// however this method only reports issues created on that branch so we are only expecting the 1 issue created on MAIN/project/test2 to be reported
-		IntegrityIssueReport reportProjectTest2 = integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest("MAIN/project/test2"));
+		IntegrityIssueReport reportProjectTest2 = integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN/project/test2"));
 		assertNull(reportProjectTest2.getRelationshipsWithMissingOrInactiveSource());
 		assertEquals(1, reportProjectTest2.getRelationshipsWithMissingOrInactiveType().size());
 		assertEquals(1, reportProjectTest2.getRelationshipsWithMissingOrInactiveDestination().size());
@@ -232,11 +232,11 @@ class IntegrityServiceTest extends AbstractTest {
 		// MAIN/project should have no new issues. Concept 5's relationship will not have a missing source concept because the relationship will have been deleted automatically
 
 		// Still just two bad relationships are on MAIN/project
-		assertEquals("MAIN/project report should be unchanged.", reportProject, integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest("MAIN/project")));
+		assertEquals("MAIN/project report should be unchanged.", reportProject, integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN/project")));
 
 		// There is a relationship and an axiom on MAIN/project/test2 which will break now that concept 5 is inactive,
 		// however the report on MAIN/project/test2 should not have changed yet because we have not rebased.
-		assertEquals("MAIN/project/test2 report should be unchanged", reportProjectTest2, integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest("MAIN/project/test2")));
+		assertEquals("MAIN/project/test2 report should be unchanged", reportProjectTest2, integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN/project/test2")));
 
 		// Let's rebase MAIN/project/test2
 		branchMergeService.mergeBranchSync("MAIN/project", "MAIN/project/test2", Collections.emptySet());
@@ -244,7 +244,7 @@ class IntegrityServiceTest extends AbstractTest {
 		// MAIN/project/test2 should now have a new issues because the stated relationship on concept 100006 and the axiom on concept 101006 points to the inactive concept 100005.
 		// Although this method only reports changes on that branch and the concept was not made inactive on that branch because the relationship was created (or modified) on
 		// that branch it will still be reported.
-		IntegrityIssueReport reportProjectTest2Run2 = integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest("MAIN/project/test2"));
+		IntegrityIssueReport reportProjectTest2Run2 = integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest("MAIN/project/test2"));
 		assertNotEquals("MAIN/project/test2 report should be unchanged", reportProjectTest2, reportProjectTest2Run2);
 		assertNull(reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveSource());
 		assertEquals(1, reportProjectTest2Run2.getRelationshipsWithMissingOrInactiveType().size());
@@ -277,7 +277,7 @@ class IntegrityServiceTest extends AbstractTest {
 		conceptService.create(new Concept("10000101").addRelationship(new Relationship("100002", "100001").setInferred(false)), path);
 
 		// Two bad relationships are on the CodeSystem branch
-		IntegrityIssueReport reportProject = integrityService.findChangedComponentsWithBadIntegrity(branchService.findLatest(path));
+		IntegrityIssueReport reportProject = integrityService.findChangedComponentsWithBadIntegrityNotFixed(branchService.findLatest(path));
 		assertNull(reportProject.getRelationshipsWithMissingOrInactiveSource());
 		assertEquals(1, reportProject.getRelationshipsWithMissingOrInactiveType().size());
 		assertEquals(1, reportProject.getRelationshipsWithMissingOrInactiveDestination().size());
@@ -337,7 +337,7 @@ class IntegrityServiceTest extends AbstractTest {
 		sBranchService.create(taskBranchPath);
 		conceptService.create(new Concept("100002"), taskBranchPath);
 		branch = branchService.findLatest(taskBranchPath);
-		reportProject = integrityService.findChangedComponentsWithBadIntegrity(branch);
+		reportProject = integrityService.findChangedComponentsWithBadIntegrityNotFixed(branch);
 		assertTrue(reportProject.isEmpty());
 		metadata = branch.getMetadata();
 		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
@@ -355,7 +355,7 @@ class IntegrityServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync(project, codeSystem.getBranchPath(), null);
 
 		branch = branchService.findLatest(codeSystem.getBranchPath());
-		reportProject = integrityService.findChangedComponentsWithBadIntegrity(branch);
+		reportProject = integrityService.findChangedComponentsWithBadIntegrityNotFixed(branch);
 		assertTrue(reportProject.isEmpty());
 		metadata = branch.getMetadata();
 		integrityIssueFound = metadata.getMapOrCreate(INTERNAL_METADATA_KEY).get(INTEGRITY_ISSUE_METADATA_KEY);
