@@ -5,6 +5,8 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMicro;
+import org.snomed.snowstorm.core.data.domain.Description;
+import org.snomed.snowstorm.core.data.domain.DescriptionMicro;
 import org.snomed.snowstorm.core.data.services.AuthoringStatsService;
 import org.snomed.snowstorm.core.data.services.pojo.AuthoringStatsSummary;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,9 +32,19 @@ public class AuthoringStatsController {
 	@RequestMapping(value = "{branch}/authoring-stats/new-concepts", method = RequestMethod.GET, produces = "application/json")
 	public List<ConceptMicro> getNewConcepts(
 			@PathVariable String branch,
+			@RequestParam(required = false, defaultValue = "false") boolean unpromotedChangesOnly,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
-		return authoringStatsService.getNewConcepts(BranchPathUriUtil.decodePath(branch), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
+		return authoringStatsService.getNewConcepts(BranchPathUriUtil.decodePath(branch), unpromotedChangesOnly, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
+	}
+	
+	@RequestMapping(value = "{branch}/authoring-stats/new-descriptions", method = RequestMethod.GET, produces = "application/json")
+	public List<DescriptionMicro> getNewDescriptions(
+			@PathVariable String branch,
+			@RequestParam(required = false, defaultValue = "false") boolean unpromotedChangesOnly,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		return authoringStatsService.getNewDescriptions(BranchPathUriUtil.decodePath(branch), unpromotedChangesOnly, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader));
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/inactivated-concepts", method = RequestMethod.GET, produces = "application/json")
