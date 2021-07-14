@@ -45,8 +45,9 @@ public class CodeSystemConfigurationService {
 			String[] split = configString.split("\\|");
 			String name = split[0];
 			String moduleId = split[1];
-			String owner = split.length > 2 ? split[2] : null;
-			configurations.add(new CodeSystemConfiguration(name, codeSystemShortName, moduleId, owner));
+			String countryCode = split.length > 2 ? split[2] : null;
+			String owner = split.length > 3 ? split[3] : null;
+			configurations.add(new CodeSystemConfiguration(name, codeSystemShortName, moduleId, countryCode, owner));
 		}
 	}
 

@@ -470,7 +470,7 @@ public class CodeSystemService {
 
 	public CodeSystemVersion findLatestImportedVersion(String shortName) {
 		List<CodeSystemVersion> versions = findAllVersions(shortName, false, true);
-		if (versions != null && versions.size() > 0) {
+		if (versions != null && !versions.isEmpty()) {
 			return versions.get(0);
 		}
 		return null;
@@ -478,7 +478,7 @@ public class CodeSystemService {
 
 	public CodeSystemVersion findLatestVisibleVersion(String shortName) {
 		List<CodeSystemVersion> versions = findAllVersions(shortName, false, latestVersionCanBeFuture);
-		if (versions != null && versions.size() > 0) {
+		if (versions != null && !versions.isEmpty()) {
 			return versions.get(0);
 		}
 		return null;
@@ -532,12 +532,14 @@ public class CodeSystemService {
 	}
 
 	public void updateDetailsFromConfig() {
+		logger.info("Updating the details of all code systems using values from configuration.");
 		final Map<String, CodeSystemConfiguration> configurationsMap = codeSystemConfigurationService.getConfigurations().stream()
 				.collect(Collectors.toMap(CodeSystemConfiguration::getShortName, Function.identity()));
 		for (CodeSystem codeSystem : findAll()) {
 			final CodeSystemConfiguration configuration = configurationsMap.get(codeSystem.getShortName());
 			if (configuration != null) {
-				update(codeSystem, new CodeSystemUpdateRequest(codeSystem).setOwner(configuration.getOwner()));
+				logger.info("Updating code system {}", codeSystem.getShortName());
+				update(codeSystem, new CodeSystemUpdateRequest(codeSystem).populate(configuration));
 			}
 		}
 	}

@@ -203,7 +203,7 @@ public class CodeSystemController {
 		codeSystemVersionService.clearCache();
 	}
 
-	@ApiOperation("Update details from config. For each existing Code System the name and owner are set using the values in configuration.")
+	@ApiOperation("Update details from config. For each existing Code System the name, country code and owner are set using the values in configuration.")
 	@RequestMapping(value = "/update-details-from-config", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public void updateDetailsFromConfig() {

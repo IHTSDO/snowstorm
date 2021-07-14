@@ -2,6 +2,7 @@ package org.snomed.snowstorm.rest.pojo;
 
 import io.swagger.annotations.ApiModelProperty;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
+import org.snomed.snowstorm.core.data.services.pojo.CodeSystemConfiguration;
 
 public class CodeSystemUpdateRequest {
 
@@ -37,6 +38,19 @@ public class CodeSystemUpdateRequest {
 		this.owner = owner;
 	}
 
+	public CodeSystemUpdateRequest populate(CodeSystemConfiguration configuration) {
+		if (configuration.getName() != null) {
+			name = configuration.getName();
+		}
+		if (configuration.getCountryCode() != null) {
+			countryCode = configuration.getCountryCode();
+		}
+		if (configuration.getOwner() != null) {
+			owner = configuration.getOwner();
+		}
+		return this;
+	}
+
 	public String getName() {
 		return name;
 	}
@@ -65,8 +79,4 @@ public class CodeSystemUpdateRequest {
 		return dailyBuildAvailable;
 	}
 
-	public CodeSystemUpdateRequest setOwner(String owner) {
-		this.owner = owner;
-		return this;
-	}
 }
