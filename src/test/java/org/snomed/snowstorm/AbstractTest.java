@@ -12,11 +12,9 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.PermissionService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.classification.ClassificationService;
-import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -56,9 +54,6 @@ public abstract class AbstractTest {
 	@Autowired
 	private ReferenceSetMemberService referenceSetMemberService;
 
-	@MockBean
-	protected CommitServiceHookClient commitServiceHookClient; // Mocked as calls on external service.
-
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
 
@@ -68,7 +63,7 @@ public abstract class AbstractTest {
 	void before() {
 		// Setup security
 		if (!rolesEnabled) {
-			PreAuthenticatedAuthenticationToken authentication = new PreAuthenticatedAuthenticationToken("test-admin", "1234", Sets.newHashSet(new SimpleGrantedAuthority("USER")));
+			PreAuthenticatedAuthenticationToken authentication = new PreAuthenticatedAuthenticationToken("test-admin", "123", Sets.newHashSet(new SimpleGrantedAuthority("USER")));
 			SecurityContextHolder.setContext(new SecurityContextImpl(authentication));
 		} else {
 			SecurityContextHolder.clearContext();
