@@ -398,7 +398,7 @@ public class ConceptController {
 		branch = BranchPathUriUtil.decodePath(branch);
 		Concept concept = (Concept) conceptView;
 		if (validate) {
-			final InvalidContentWithSeverityStatus invalidContent = validationService.validate(concept, branch);
+			final InvalidContentWithSeverityStatus invalidContent = validationService.validateConceptBeforeClassification(concept, branch);
 			if (invalidContent.getSeverity() == Severity.WARNING) {
 				// Remove temporary ids before the underlying create operation.
 				concept = ConceptValidationHelper.stripTemporaryUUIDsIfSet(concept);
@@ -431,7 +431,7 @@ public class ConceptController {
 
 		Concept concept = (Concept) conceptView;
 		if (validate) {
-			final InvalidContentWithSeverityStatus invalidContent = validationService.validate(concept, branch);
+			final InvalidContentWithSeverityStatus invalidContent = validationService.validateConceptBeforeClassification(concept, branch);
 			if (invalidContent.getSeverity() == Severity.WARNING) {
 				// Remove temporary ids before the underlying update operation.
 				concept = ConceptValidationHelper.stripTemporaryUUIDsIfSet(concept);
