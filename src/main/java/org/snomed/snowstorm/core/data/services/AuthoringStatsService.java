@@ -12,6 +12,7 @@ import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -141,14 +142,26 @@ public class AuthoringStatsService {
 				);
 	}
 
-	public List<ConceptMicro> getNewConcepts(String branch, List<LanguageDialect> languageDialects) {
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+	public List<ConceptMicro> getNewConcepts(String branch, boolean unpromotedChangesOnly, List<LanguageDialect> languageDialects) {
+		BranchCriteria allContentBranchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BranchCriteria selectionBranchCriteria = unpromotedChangesOnly ? versionControlHelper.getChangesOnBranchCriteria(branch) : allContentBranchCriteria;
 
 		List<Long> conceptIds = new LongArrayList();
-		try (SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(getNewConceptCriteria(branchCriteria).withPageable(LARGE_PAGE).build(), Concept.class)) {
+		try (SearchHitsIterator<Concept> stream = elasticsearchOperations.searchForStream(getNewConceptCriteria(selectionBranchCriteria).withPageable(LARGE_PAGE).build(), Concept.class)) {
 			stream.forEachRemaining(hit -> conceptIds.add(hit.getContent().getConceptIdAsLong()));
 		}
-		return getConceptMicros(conceptIds, languageDialects, branchCriteria);
+		return getConceptMicros(conceptIds, languageDialects, selectionBranchCriteria);
+	}
+	
+	public List<DescriptionMicro> getNewDescriptions(String branch, boolean unpromotedChangesOnly, List<LanguageDialect> languageDialects) {
+		BranchCriteria allContentBranchCriteria = versionControlHelper.getBranchCriteria(branch);
+		BranchCriteria selectionBranchCriteria = unpromotedChangesOnly ? versionControlHelper.getChangesOnBranchCriteria(branch) : allContentBranchCriteria;
+
+		Query query = getNewDescriptionCriteria(selectionBranchCriteria).withPageable(LARGE_PAGE).build();
+		return elasticsearchOperations.search(query, Description.class)
+				.get().map(SearchHit::getContent)
+				.map(d -> new DescriptionMicro(d))
+				.collect(Collectors.toList());
 	}
 
 	public List<ConceptMicro> getInactivatedConcepts(String branch, List<LanguageDialect> languageDialects) {
@@ -213,6 +226,16 @@ public class AuthoringStatsService {
 						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
 						.must(termQuery(Concept.Fields.RELEASED, "false")))
 				.withFields(Concept.Fields.CONCEPT_ID);
+	}
+	
+	private NativeSearchQueryBuilder getNewDescriptionCriteria(BranchCriteria branchCriteria) {
+		return new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Description.class))
+						.must(termQuery(Concept.Fields.ACTIVE, "true"))
+						.mustNot(existsQuery(Concept.Fields.EFFECTIVE_TIME))
+						.must(termQuery(Concept.Fields.RELEASED, "false")))
+				.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID, Description.Fields.TERM);
 	}
 
 	private NativeSearchQueryBuilder getInactivatedConceptsCriteria(BranchCriteria branchCriteria) {
