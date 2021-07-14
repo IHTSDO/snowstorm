@@ -72,7 +72,7 @@ class DroolsValidationServiceTest extends AbstractTest {
 
         final Concept updatedConcept = conceptService.update(foundConcept, DEFAULT_BRANCH);
         assertEquals(1, updatedConcept.getClassAxioms().size());
-        List <InvalidContent> invalidContents = droolValidationService.validateConcept(DEFAULT_BRANCH, updatedConcept);
+		List<InvalidContent> invalidContents = droolValidationService.validateConcepts(DEFAULT_BRANCH, Collections.singleton(updatedConcept), false);
         assertEquals(3, invalidContents.size());
 
         int index = 0;
@@ -101,7 +101,7 @@ class DroolsValidationServiceTest extends AbstractTest {
         final Concept updatedConcept = conceptService.update(foundConcept, DEFAULT_BRANCH);
 
         assertEquals(0, updatedConcept.getClassAxioms().size());
-        List <InvalidContent> invalidContents = droolValidationService.validateConcept(DEFAULT_BRANCH, updatedConcept);
+		List<InvalidContent> invalidContents = droolValidationService.validateConcepts(DEFAULT_BRANCH, Collections.singleton(updatedConcept), false);
         assertEquals(4, invalidContents.size());
 
         int index = 0;
@@ -147,7 +147,7 @@ class DroolsValidationServiceTest extends AbstractTest {
             }
         }
 
-        List <InvalidContent> invalidContents = droolValidationService.validateConcept(DEFAULT_BRANCH, updatedConcept);
+		List<InvalidContent> invalidContents = droolValidationService.validateConcepts(DEFAULT_BRANCH, Collections.singleton(updatedConcept), false);
         assertEquals(3, invalidContents.size());
 
         int index = 0;
