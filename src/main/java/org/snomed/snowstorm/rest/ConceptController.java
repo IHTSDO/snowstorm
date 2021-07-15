@@ -576,6 +576,7 @@ public class ConceptController {
 		
 		for(final String conceptId : conceptMiniMap.keySet()) {
 			ArrayList<ConceptMini> ancestorPath = ancestorPathHelper(branch, form, conceptId, new ArrayList(), acceptLanguageHeader);
+			conceptMiniMap.get(conceptId).addExtraField("descriptions", conceptMiniMap.get(conceptId).getActiveDescriptions());
 			conceptMiniMap.get(conceptId).addExtraField("ancestorPath", ancestorPath);
 			conceptsWithAncestorPaths.add(conceptMiniMap.get(conceptId));
 		}
@@ -591,6 +592,7 @@ public class ConceptController {
 		}
 		else {
 			ConceptMini conceptParent = conceptParents.iterator().next();
+			conceptParent.addExtraField("descriptions", conceptParent.getActiveDescriptions());
 			pathSoFar.add(conceptParent);
 			return ancestorPathHelper(branch, form, conceptParent.getConceptId(), pathSoFar, acceptLanguageHeader);
 		}
