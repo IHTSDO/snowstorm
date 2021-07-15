@@ -30,7 +30,7 @@ import org.snomed.snowstorm.core.data.repositories.classification.RelationshipCh
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.classification.pojo.ClassificationStatusResponse;
 import org.snomed.snowstorm.core.data.services.classification.pojo.EquivalentConceptsResponse;
-import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
+import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.export.ExportException;
@@ -107,10 +107,10 @@ public class ClassificationService {
 	private ConceptService conceptService;
 
 	@Autowired
-	private TraceabilityLogService traceabilityLogService;
+	private VersionControlHelper versionControlHelper;
 
 	@Autowired
-	private VersionControlHelper versionControlHelper;
+	private CommitServiceHookClient commitServiceHookClient;
 
 	@Autowired
 	private ConceptAttributeSortHelper conceptAttributeSortHelper;
@@ -132,7 +132,6 @@ public class ClassificationService {
 	private static final PageRequest PAGE_FIRST_1K = PageRequest.of(0, 1000);
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-	private static final SimpleDateFormat SIMPLE_DATE_FORMAT = new SimpleDateFormat("yyyyMMdd");
 
 	public ClassificationService() {
 		classificationsInProgress = new ArrayList<>();
@@ -244,6 +243,7 @@ public class ClassificationService {
 												final boolean classified = !inferredRelationshipChangesFound && !equivalentConceptsFound;
 												BranchClassificationStatusService.setClassificationStatus(latestBranchCommit, classified);
 												branchService.updateMetadata(latestBranchCommit.getPath(), latestBranchCommit.getMetadata());
+												mockCommitCompletion(latestBranchCommit);
 											}
 
 										} catch (IOException | ElasticsearchException e) {
@@ -344,7 +344,7 @@ public class ClassificationService {
 		}
 
 		try {
-			File deltaExport = exportService.exportRF2ArchiveFile(path, SIMPLE_DATE_FORMAT.format(new Date()), RF2Type.DELTA, true);
+			File deltaExport = exportService.exportRF2ArchiveFile(path, new SimpleDateFormat("yyyyMMdd").format(new Date()), RF2Type.DELTA, true);
 			String remoteClassificationId = serviceClient.createClassification(previousPackage, dependencyPackage, deltaExport, path, reasonerId);
 			classification.setId(remoteClassificationId);
 			classification.setStatus(ClassificationStatus.SCHEDULED);
@@ -757,6 +757,12 @@ public class ClassificationService {
 				equivalentConceptsRepository.saveAll(equivalentConcepts);
 			}
 		}
+	}
+
+	private void mockCommitCompletion(Branch latestBranchCommit) {
+		// AAG will act accordingly by updating criteria.
+		logger.info("Letting external system know of classification results.");
+		commitServiceHookClient.preCommitCompletion(new Commit(latestBranchCommit, Commit.CommitType.CONTENT, null, null));
 	}
 
 	public void deleteAll() {
