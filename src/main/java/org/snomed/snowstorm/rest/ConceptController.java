@@ -560,6 +560,8 @@ public class ConceptController {
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);	
+		Date date = new Date();
+		System.out.println("[" + date.toString() + "] " + "TEST 1 - Finding concepts");
 		
 		Map<String, ConceptMini> conceptMiniMap = conceptService.findConceptMinis(branch, conceptIds, ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader)).getResultsMap();
 		
@@ -567,7 +569,13 @@ public class ConceptController {
 		Collection<ConceptMini> conceptsWithAncestorPaths = new ArrayList<>();
 		
 		for(final String conceptId : conceptMiniMap.keySet()) {
+			date = new Date();
+			System.out.println("[" + date.toString() + "] " + "TEST 2 - Looking up ancestor path for concept:" + conceptId);
+
 			ArrayList<ConceptMini> ancestorPath = ancestorPathHelper(branch, form, conceptId, new ArrayList(), acceptLanguageHeader);
+			date = new Date();
+			System.out.println("[" + date.toString() + "] " + "TEST 3 - Ancestor path found for concept:" + conceptId);
+
 			conceptMiniMap.get(conceptId).addExtraField("descriptions", conceptMiniMap.get(conceptId).getActiveDescriptions());
 			conceptMiniMap.get(conceptId).addExtraField("ancestorPath", ancestorPath);
 			conceptsWithAncestorPaths.add(conceptMiniMap.get(conceptId));
@@ -577,6 +585,9 @@ public class ConceptController {
 	}	
 	
 	private ArrayList<ConceptMini> ancestorPathHelper(String branch, Relationship.CharacteristicType form, String conceptId, ArrayList<ConceptMini> pathSoFar, String acceptLanguageHeader) {
+		Date date = new Date();
+		System.out.println("[" + date.toString() + "] " + "TEST 4 - Getting parent for concept:" + conceptId);
+
 		Collection<ConceptMini> conceptParents = findConceptParents(branch, conceptId, form, false, acceptLanguageHeader);
 		
 		if(conceptParents.isEmpty()) {
