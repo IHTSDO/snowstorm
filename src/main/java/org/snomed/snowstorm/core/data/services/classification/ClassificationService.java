@@ -111,6 +111,9 @@ public class ClassificationService {
 	private CommitServiceHookClient commitServiceHookClient;
 
 	@Autowired
+	private CommitServiceHookClient commitServiceHookClient;
+
+	@Autowired
 	private ConceptAttributeSortHelper conceptAttributeSortHelper;
 
 	private final List<Classification> classificationsInProgress;
