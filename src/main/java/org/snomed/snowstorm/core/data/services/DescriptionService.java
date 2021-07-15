@@ -48,7 +48,6 @@ import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
-import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
@@ -354,7 +353,7 @@ public class DescriptionService extends ComponentService {
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
 						.must(termQuery(Concept.Fields.ACTIVE, true)))
-				.withSourceFilter(new FetchSourceFilter(new String[] {Concept.Fields.CONCEPT_ID}, new String[] {}))
+				.withFields(Concept.Fields.CONCEPT_ID)
 				.withPageable(LARGE_PAGE).build(), Concept.class)) {
 			stream.forEachRemaining(hit -> activeConcepts.add(hit.getContent().getConceptIdAsLong()));
 		}
@@ -506,7 +505,7 @@ public class DescriptionService extends ComponentService {
 		final Map<Long, Long> descriptionToConceptMap = new Long2ObjectLinkedOpenHashMap<>();
 		NativeSearchQueryBuilder searchQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(descriptionQuery)
-				.withSourceFilter(new FetchSourceFilter(new String[] {Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID}, new String[]{}));
+				.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID);
 
 		NativeSearchQuery query = searchQueryBuilder.withPageable(PAGE_OF_ONE).build();
 		query.setTrackTotalHits(true);
@@ -557,7 +556,7 @@ public class DescriptionService extends ComponentService {
 			NativeSearchQuery nativeSearchQuery = new NativeSearchQueryBuilder()
 					.withQuery(queryBuilder)
 					.withFilter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, descriptionToConceptMap.keySet()))
-					.withSourceFilter(new FetchSourceFilter(new String[]{ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, new String[]{}))
+					.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 					.withPageable(LARGE_PAGE)
 					.build();
 			Set<Long> filteredDescriptionIds = new LongOpenHashSet();
@@ -592,7 +591,7 @@ public class DescriptionService extends ComponentService {
 										.filter(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds))
 								)
 								.withSort(SortBuilders.fieldSort("_doc"))
-								.withSourceFilter(new FetchSourceFilter(new String[] {Concept.Fields.CONCEPT_ID}, new String[]{}))
+								.withFields(Concept.Fields.CONCEPT_ID)
 								.withPageable(LARGE_PAGE)
 								.build(), Concept.class)) {
 					stream.forEachRemaining(hit -> filteredConceptIds.add(hit.getContent().getConceptIdAsLong()));
@@ -612,7 +611,7 @@ public class DescriptionService extends ComponentService {
 										.filter(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptIds))
 								)
 								.withSort(SortBuilders.fieldSort("_doc"))
-								.withSourceFilter(new FetchSourceFilter(new String[] {ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID}, new String[] {}))
+								.withFields(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID)
 								.withPageable(LARGE_PAGE)
 								.build(), ReferenceSetMember.class)) {
 					stream.forEachRemaining(hit -> filteredConceptIds.add(parseLong(hit.getContent().getReferencedComponentId())));
