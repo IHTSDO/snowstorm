@@ -3,7 +3,6 @@ package org.snomed.snowstorm.validation;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.ihtsdo.drools.response.InvalidContent;
@@ -26,11 +25,10 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
@@ -92,17 +90,9 @@ public class TermValidationServiceClient {
 		conceptService.populateConceptMinis(branchCriteria, relationshipConceptMinis, languageDialects);
 		termValidation.checkpoint("Populate linked concept details.");
 
+		final ValidationRequest validationRequest = new ValidationRequest(concept, afterClassification);
 		try {
-			final ValidationRequest validationRequest = new ValidationRequest(concept, afterClassification);
 			logger.info("Calling term-validation-service for branch {}", branchPath);
-
-//			try {
-//				final ObjectMapper objectMapper = new ObjectMapper();
-//				objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-//				System.out.println(objectMapper.writeValueAsString(validationRequest));
-//			} catch (JsonProcessingException e) {
-//				e.printStackTrace();
-//			}
 
 			final ResponseEntity<ValidationResponse> response = restTemplate.postForEntity("/validate-concept",
 					new HttpEntity<>(validationRequest, HTTP_HEADERS), ValidationResponse.class);
@@ -119,7 +109,8 @@ public class TermValidationServiceClient {
 							Severity.WARNING));
 				}
 			}
-		} catch (HttpClientErrorException e) {
+		} catch (HttpStatusCodeException e) {
+			logger.info("Request failed, request body: {}", getRequestStringForDebug(validationRequest));
 			throw new ServiceException(String.format("Call to term-validation-service was not successful: %s, %s", e.getStatusCode(), e.getMessage()));
 		} finally {
 			termValidation.checkpoint("Validation");
@@ -127,6 +118,17 @@ public class TermValidationServiceClient {
 		}
 
 		return invalidContents;
+	}
+
+	private String getRequestStringForDebug(ValidationRequest validationRequest) {
+		try {
+			final ObjectMapper objectMapper = new ObjectMapper();
+			objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+			return objectMapper.writeValueAsString(validationRequest);
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 
 	public void setRestTemplate(RestTemplate restTemplate) {
