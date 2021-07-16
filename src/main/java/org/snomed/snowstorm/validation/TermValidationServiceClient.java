@@ -1,5 +1,9 @@
 package org.snomed.snowstorm.validation;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.ihtsdo.drools.response.InvalidContent;
@@ -22,6 +26,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -88,20 +93,17 @@ public class TermValidationServiceClient {
 		termValidation.checkpoint("Populate linked concept details.");
 
 		try {
-			final ValidationRequest validationRequest = new ValidationRequest(concept);
-			if (afterClassification) {
-				final Long conceptIdAsLong = concept.getConceptIdAsLong();
-				final Set<Long> parentIds = queryService.findParentIds(branchCriteria, false, Collections.singleton(conceptIdAsLong));
-				final Set<Long> grandParentIds = queryService.findParentIds(branchCriteria, false, parentIds);
-				final Set<Long> ancestorIds = queryService.findAncestorIds(branchCriteria, branchPath, false, concept.getConceptId());
-				final Set<Long> siblingIds = queryService.findChildrenIdsAsUnion(branchCriteria, false, parentIds);
-				final Set<Long> childrenIds = queryService.findChildrenIdsAsUnion(branchCriteria, false, Collections.singleton(conceptIdAsLong));
-				validationRequest.addConceptGraphCounts(conceptIdAsLong,
-						new GraphCounts(parentIds.size(), grandParentIds.size(), ancestorIds.size(), siblingIds.size(), childrenIds.size()));
-				termValidation.checkpoint("Gather graph counts");
-			}
-
+			final ValidationRequest validationRequest = new ValidationRequest(concept, afterClassification);
 			logger.info("Calling term-validation-service for branch {}", branchPath);
+
+//			try {
+//				final ObjectMapper objectMapper = new ObjectMapper();
+//				objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+//				System.out.println(objectMapper.writeValueAsString(validationRequest));
+//			} catch (JsonProcessingException e) {
+//				e.printStackTrace();
+//			}
+
 			final ResponseEntity<ValidationResponse> response = restTemplate.postForEntity("/validate-concept",
 					new HttpEntity<>(validationRequest, HTTP_HEADERS), ValidationResponse.class);
 
@@ -135,18 +137,10 @@ public class TermValidationServiceClient {
 
 		private final String status;
 		private final Concept concept;
-		private Map<Long, GraphCounts> conceptGraphCounts;
 
-		public ValidationRequest(Concept concept) {
-			status = "on-save";
+		public ValidationRequest(Concept concept, boolean afterClassification) {
+			status = afterClassification ? "post-classification" : "on-save";
 			this.concept = concept;
-		}
-
-		public void addConceptGraphCounts(Long conceptId, GraphCounts graphCounts) {
-			if (conceptGraphCounts == null) {
-				conceptGraphCounts = new HashMap<>();
-			}
-			conceptGraphCounts.put(conceptId, graphCounts);
 		}
 
 		public String getStatus() {
@@ -157,46 +151,6 @@ public class TermValidationServiceClient {
 			return concept;
 		}
 
-		public Map<Long, GraphCounts> getConceptGraphCounts() {
-			return conceptGraphCounts;
-		}
-	}
-
-	public static final class GraphCounts {
-
-		private final int parentsCount;
-		private final int grandparentsCount;
-		private final int ancestorsCount;
-		private final int siblingsCount;
-		private final int childrenCount;
-
-		public GraphCounts(int parentsCount, int grandparentsCount, int ancestorsCount, int siblingsCount, int childrenCount) {
-			this.parentsCount = parentsCount;
-			this.grandparentsCount = grandparentsCount;
-			this.ancestorsCount = ancestorsCount;
-			this.siblingsCount = siblingsCount;
-			this.childrenCount = childrenCount;
-		}
-
-		public int getParentsCount() {
-			return parentsCount;
-		}
-
-		public int getGrandparentsCount() {
-			return grandparentsCount;
-		}
-
-		public int getAncestorsCount() {
-			return ancestorsCount;
-		}
-
-		public int getSiblingsCount() {
-			return siblingsCount;
-		}
-
-		public int getChildrenCount() {
-			return childrenCount;
-		}
 	}
 
 	public static final class ValidationResponse {
