@@ -650,6 +650,8 @@ public class DescriptionService extends ComponentService {
 	void addTermClauses(String term, Collection<String> languageCodes, Collection<Long> descriptionTypes, BoolQueryBuilder boolBuilder, SearchMode searchMode) {
 		if (IdentifierService.isConceptId(term)) {
 			boolBuilder.must(termQuery(Description.Fields.CONCEPT_ID, term));
+		} else if (IdentifierService.isDescriptionId(term)) {
+			boolBuilder.must(termQuery(Description.Fields.DESCRIPTION_ID, term));
 		} else {
 			if (!Strings.isNullOrEmpty(term)) {
 				BoolQueryBuilder termFilter = new BoolQueryBuilder();
