@@ -1,8 +1,13 @@
 package org.snomed.snowstorm.validation;
 
+import com.amazonaws.util.StringInputStream;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonView;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.ihtsdo.drools.response.InvalidContent;
@@ -16,28 +21,34 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.rest.View;
 import org.snomed.snowstorm.validation.domain.DroolsConcept;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.http.converter.HttpMessageNotWritableException;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @Service
 public class TermValidationServiceClient {
 
 	public static final String DUPLICATE_RULE_ID = "21c099d0-594f-4473-bc46-d5701fcfac0e";
+	public static final String SIMILAR_TO_INACTIVE_RULE_ID = "fe9a5f26-d9e5-493c-a0c5-0206d4a036a1";
 
 	private static final HttpHeaders HTTP_HEADERS = new HttpHeaders();
+
 	static {
 		HTTP_HEADERS.setContentType(MediaType.APPLICATION_JSON);
 	}
@@ -52,6 +63,8 @@ public class TermValidationServiceClient {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
+	private final ObjectWriter objectWriter;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public TermValidationServiceClient(@Value("${term-validation-service.url}") String termValidationServiceUrl,
@@ -64,6 +77,11 @@ public class TermValidationServiceClient {
 					.build();
 		}
 		this.duplicateScoreThreshold = duplicateScoreThreshold;
+
+		final ObjectMapper objectMapper = new ObjectMapper();
+		objectMapper.disable(MapperFeature.DEFAULT_VIEW_INCLUSION);
+		objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+		objectWriter = objectMapper.writerWithView(View.Component.class);
 	}
 
 	public List<InvalidContent> validateConcept(String branchPath, Concept concept, boolean afterClassification) throws ServiceException {
@@ -87,17 +105,21 @@ public class TermValidationServiceClient {
 		termValidation.checkpoint("Populate linked concept details.");
 
 		final ValidationRequest validationRequest = new ValidationRequest(concept, afterClassification);
+		String body = null;
 		try {
 			logger.info("Calling term-validation-service for branch {}", branchPath);
-
+			body = objectWriter.writeValueAsString(validationRequest);
+			final HttpEntity<String> request = new HttpEntity<>(body, HTTP_HEADERS);
 			final ResponseEntity<ValidationResponse> response = restTemplate.postForEntity("/validate-concept",
-					new HttpEntity<>(validationRequest, HTTP_HEADERS), ValidationResponse.class);
+					request, ValidationResponse.class);
 
 			final ValidationResponse validationResponse = response.getBody();
-			handleResponse(validationResponse, concept, invalidContents);
+			handleResponse(validationResponse, concept, branchPath, invalidContents);
 		} catch (HttpStatusCodeException e) {
-			logger.info("Request failed, request body: {}", getRequestStringForDebug(validationRequest));
+			logger.info("Request failed, request body: {}", body);
 			throw new ServiceException(String.format("Call to term-validation-service was not successful: %s, %s", e.getStatusCode(), e.getMessage()));
+		} catch (JsonProcessingException e) {
+			e.printStackTrace();
 		} finally {
 			termValidation.checkpoint("Validation");
 			termValidation.finish();
@@ -106,29 +128,36 @@ public class TermValidationServiceClient {
 		return invalidContents;
 	}
 
-	void handleResponse(ValidationResponse validationResponse, Concept concept, List<InvalidContent> invalidContents) {
+	void handleResponse(ValidationResponse validationResponse, Concept concept, String branchPath, List<InvalidContent> invalidContents) {
 		if (validationResponse != null) {
-			final Optional<Match> first = validationResponse.getDuplication().getMatches().stream()
-					.filter(match -> match.getScore() > duplicateScoreThreshold && (concept.getConceptId().contains("-") || !match.getConceptId().equals(concept.getConceptIdAsLong())))
-					.findFirst();
-			if (first.isPresent()) {
-				final Match match = first.get();
-				invalidContents.add(new InvalidContent(DUPLICATE_RULE_ID, new DroolsConcept(concept),
-						String.format("Terms are similar to description '%s' in concept %s. Is this a duplicate?", match.getTerm(), match.getConceptId()),
-						Severity.WARNING));
+			// Duplicate
+			if (validationResponse.getDuplication() != null) {
+				final Optional<Match> first = validationResponse.getDuplication().getMatches().stream()
+						.filter(match -> match.getScore() > duplicateScoreThreshold && (concept.getConceptId().contains("-") || !match.getConceptId().equals(concept.getConceptIdAsLong())))
+						.max(Comparator.comparing(Match::getScore));
+				if (first.isPresent()) {
+					final Match match = first.get();
+					invalidContents.add(new InvalidContent(DUPLICATE_RULE_ID, new DroolsConcept(concept),
+							String.format("Terms are similar to description '%s' in concept %s. Is this a duplicate?", match.getTerm(), match.getConceptId()),
+							Severity.WARNING));
+				}
+			}
+
+			// Inactivation prediction
+			final ModelPrediction modelPrediction = validationResponse.getModelPrediction();
+			if (modelPrediction != null && !modelPrediction.isOkay()) {
+				final Optional<ModelPredictionDetail> highestScoringDetail = modelPrediction.getHighestScoringDetail();
+				if (highestScoringDetail.isPresent()) {
+					final String inactivationReason = highestScoringDetail.get().getType();
+					invalidContents.add(new InvalidContent(SIMILAR_TO_INACTIVE_RULE_ID, new DroolsConcept(concept),
+							String.format("Concept is similar to many that have been made inactive in the past with inactivation reason '%s'.",	inactivationReason),
+							Severity.WARNING));
+				} else {
+					logger.warn("TVS indicated that future concept inactivation likely but gave no details so nothing shown to user. Branch {}, concept {}",
+							branchPath, concept.getConceptId());
+				}
 			}
 		}
-	}
-
-	private String getRequestStringForDebug(ValidationRequest validationRequest) {
-		try {
-			final ObjectMapper objectMapper = new ObjectMapper();
-			objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-			return objectMapper.writeValueAsString(validationRequest);
-		} catch (JsonProcessingException e) {
-			e.printStackTrace();
-		}
-		return null;
 	}
 
 	public void setRestTemplate(RestTemplate restTemplate) {
@@ -149,10 +178,12 @@ public class TermValidationServiceClient {
 			this.concept = concept;
 		}
 
+		@JsonView(View.Component.class)
 		public String getStatus() {
 			return status;
 		}
 
+		@JsonView(View.Component.class)
 		public Concept getConcept() {
 			return concept;
 		}
@@ -161,10 +192,22 @@ public class TermValidationServiceClient {
 
 	public static final class ValidationResponse {
 
+		// Detect duplicate concepts
 		private Duplication duplication;
+
+		// Measure similarity to previously inactivated concepts
+		private ModelPrediction modelPrediction;
 
 		public Duplication getDuplication() {
 			return duplication;
+		}
+
+		public ModelPrediction getModelPrediction() {
+			return modelPrediction;
+		}
+
+		public void setModelPrediction(ModelPrediction modelPrediction) {
+			this.modelPrediction = modelPrediction;
 		}
 	}
 
@@ -198,6 +241,38 @@ public class TermValidationServiceClient {
 
 		public Float getScore() {
 			return score;
+		}
+	}
+
+	public static final class ModelPrediction {
+
+		private boolean okay;
+		private List<ModelPredictionDetail> detail;
+
+		public Optional<ModelPredictionDetail> getHighestScoringDetail() {
+			return detail.stream().max(Comparator.comparing(ModelPredictionDetail::getScore));
+		}
+
+		public boolean isOkay() {
+			return okay;
+		}
+
+		public List<ModelPredictionDetail> getDetail() {
+			return detail;
+		}
+	}
+
+	public static final class ModelPredictionDetail {
+
+		private String type;
+		private float score;
+
+		public float getScore() {
+			return score;
+		}
+
+		public String getType() {
+			return type;
 		}
 	}
 }

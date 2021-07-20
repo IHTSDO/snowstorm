@@ -1,5 +1,5 @@
 {
-  "local_context": {
+  "localContext": {
     "fsn": {
       "term": "Atypical diabetes mellitus (disorder)",
       "lemmatized_term": "atypical diabetes mellitus",
@@ -215,7 +215,7 @@
       }
     ]
   },
-  "model_prediction": {
+  "modelPrediction": {
     "okay": false,
     "detail": [
       {
