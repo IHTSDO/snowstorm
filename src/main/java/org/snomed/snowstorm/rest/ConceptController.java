@@ -129,9 +129,13 @@ public class ConceptController {
 			@RequestParam(required = false) Set<Long> preferredOrAcceptableIn,
 
 			@RequestParam(required = false) String ecl,
+			@RequestParam(required = false) Integer effectiveTime,
+			@RequestParam(required = false) Boolean isNullEffectiveTime,
+			@RequestParam(required = false) Boolean isPublished,
 			@RequestParam(required = false) String statedEcl,
 			@RequestParam(required = false) Set<String> conceptIds,
 			@RequestParam(required = false) boolean returnIdOnly,
+			
 			@RequestParam(required = false, defaultValue = "0") int offset,
 			@RequestParam(required = false, defaultValue = "50") int limit,
 			@RequestParam(required = false) String searchAfter,
@@ -170,6 +174,9 @@ public class ConceptController {
 				.definitionStatusFilter(definitionStatusFilter)
 				.module(module)
 				.ecl(ecl)
+				.effectiveTime(effectiveTime)
+				.isNullEffectiveTime(isNullEffectiveTime)
+				.isReleased(isPublished)
 				.resultLanguageDialects(languageDialects)
 				.conceptIds(conceptIds);
 
@@ -217,6 +224,9 @@ public class ConceptController {
 				searchRequest.getAcceptableIn(),
 				searchRequest.getPreferredOrAcceptableIn(),
 				searchRequest.getEclFilter(),
+				searchRequest.getEffectiveTime(),
+				searchRequest.isNullEffectiveTime(),
+				searchRequest.isPublished(),
 				searchRequest.getStatedEclFilter(),
 				searchRequest.getConceptIds(),
 				searchRequest.isReturnIdOnly(),
