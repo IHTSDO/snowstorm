@@ -13,7 +13,6 @@ import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.services.ConceptService;
-import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
@@ -49,9 +48,6 @@ public class TermValidationServiceClient {
 
 	@Autowired
 	private ConceptService conceptService;
-
-	@Autowired
-	private QueryService queryService;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -98,17 +94,7 @@ public class TermValidationServiceClient {
 					new HttpEntity<>(validationRequest, HTTP_HEADERS), ValidationResponse.class);
 
 			final ValidationResponse validationResponse = response.getBody();
-			if (validationResponse != null) {
-				final Optional<Match> first = validationResponse.getDuplication().getMatches().stream()
-						.filter(match -> match.getScore() > duplicateScoreThreshold && (concept.getConceptId().contains("-") || !match.getConceptId().equals(concept.getConceptIdAsLong())))
-						.findFirst();
-				if (first.isPresent()) {
-					final Match match = first.get();
-					invalidContents.add(new InvalidContent(DUPLICATE_RULE_ID, new DroolsConcept(concept),
-							String.format("Terms are similar to description '%s' in concept %s. Is this a duplicate?", match.getTerm(), match.getConceptId()),
-							Severity.WARNING));
-				}
-			}
+			handleResponse(validationResponse, concept, invalidContents);
 		} catch (HttpStatusCodeException e) {
 			logger.info("Request failed, request body: {}", getRequestStringForDebug(validationRequest));
 			throw new ServiceException(String.format("Call to term-validation-service was not successful: %s, %s", e.getStatusCode(), e.getMessage()));
@@ -118,6 +104,20 @@ public class TermValidationServiceClient {
 		}
 
 		return invalidContents;
+	}
+
+	void handleResponse(ValidationResponse validationResponse, Concept concept, List<InvalidContent> invalidContents) {
+		if (validationResponse != null) {
+			final Optional<Match> first = validationResponse.getDuplication().getMatches().stream()
+					.filter(match -> match.getScore() > duplicateScoreThreshold && (concept.getConceptId().contains("-") || !match.getConceptId().equals(concept.getConceptIdAsLong())))
+					.findFirst();
+			if (first.isPresent()) {
+				final Match match = first.get();
+				invalidContents.add(new InvalidContent(DUPLICATE_RULE_ID, new DroolsConcept(concept),
+						String.format("Terms are similar to description '%s' in concept %s. Is this a duplicate?", match.getTerm(), match.getConceptId()),
+						Severity.WARNING));
+			}
+		}
 	}
 
 	private String getRequestStringForDebug(ValidationRequest validationRequest) {
@@ -133,6 +133,10 @@ public class TermValidationServiceClient {
 
 	public void setRestTemplate(RestTemplate restTemplate) {
 		this.restTemplate = restTemplate;
+	}
+
+	public RestTemplate getRestTemplate() {
+		return restTemplate;
 	}
 
 	public static final class ValidationRequest {
