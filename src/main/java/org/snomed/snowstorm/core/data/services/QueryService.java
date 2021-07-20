@@ -227,6 +227,19 @@ public class QueryService implements ApplicationContextAware {
 		if (conceptQuery.getModule() != null) {
 			conceptBoolQuery.must(termsQuery(SnomedComponent.Fields.MODULE_ID, conceptQuery.getModule()));
 		}
+		if (conceptQuery.getEffectiveTime() !=null) {
+			conceptBoolQuery.must(termQuery(SnomedComponent.Fields.EFFECTIVE_TIME, conceptQuery.getEffectiveTime()));
+		}
+		if (conceptQuery.isNullEffectiveTime() !=null) {
+			if (conceptQuery.isNullEffectiveTime()) {
+				conceptBoolQuery.mustNot(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME));
+			} else {
+				conceptBoolQuery.must(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME));
+			}
+		}
+		if (conceptQuery.isReleased() != null) {
+			conceptBoolQuery.must(termQuery(SnomedComponent.Fields.RELEASED, conceptQuery.isReleased()));
+		}
 		return conceptBoolQuery;
 	}
 
@@ -238,12 +251,7 @@ public class QueryService implements ApplicationContextAware {
 
 		for (List<Long> batch : Iterables.partition(conceptIds, CLAUSE_LIMIT)) {
 			final BoolQueryBuilder conceptClauses = boolQuery();
-			if (definitionStatus != null) {
-				conceptClauses.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, definitionStatus));
-			}
-			if (module != null) {
-				conceptClauses.must(termsQuery(SnomedComponent.Fields.MODULE_ID, module));
-			}
+			queryBuilder.applyConceptClauses(conceptClauses);
 			NativeSearchQueryBuilder conceptDefinitionQuery = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(branchCriteria.getEntityBranchCriteria(Concept.class))
@@ -551,6 +559,10 @@ public class QueryService implements ApplicationContextAware {
 		public boolean hasPropertyFilter() {
 			return definitionStatusFilter != null || module != null || effectiveTime != null
 					|| isNullEffectiveTime != null || isReleased != null;
+		}
+
+		private ConceptQueryBuilder() {
+			this(false);
 		}
 
 		private boolean hasLogicalConditions() {
