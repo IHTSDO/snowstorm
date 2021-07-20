@@ -15,6 +15,9 @@ public class ConceptSearchRequest {
 	private String definitionStatusFilter;
 	private Set<Long> module;
 	private String eclFilter;
+	private Integer effectiveTime;
+	private Boolean isNullEffectiveTime;
+	private Boolean isPublished;
 	private String statedEclFilter;
 	private Set<String> conceptIds;
 	private boolean returnIdOnly;
@@ -102,6 +105,22 @@ public class ConceptSearchRequest {
 	public String getStatedEclFilter() {
 		return statedEclFilter;
 	}
+	
+	public void setEffectiveTime(Integer effectiveTime) {
+		this.effectiveTime = effectiveTime;
+	}
+
+	public Integer getEffectiveTime() {
+		return this.effectiveTime;
+	}
+
+	public void isPublished(Boolean isPublished) {
+		this.isPublished = isPublished;
+	}
+	
+	public Boolean isPublished() {
+		return this.isPublished;
+	}
 
 	public void setStatedEclFilter(String statedEclFilter) {
 		this.statedEclFilter = statedEclFilter;
@@ -146,4 +165,9 @@ public class ConceptSearchRequest {
 	public void setSearchAfter(String searchAfter) {
 		this.searchAfter = searchAfter;
 	}
+
+	public Boolean isNullEffectiveTime() {
+		return isNullEffectiveTime;
+	}
+
 }

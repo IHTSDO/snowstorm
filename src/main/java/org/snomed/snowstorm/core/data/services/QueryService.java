@@ -225,31 +225,35 @@ public class QueryService implements ApplicationContextAware {
 		if (conceptQuery.getModule() != null) {
 			conceptBoolQuery.must(termsQuery(SnomedComponent.Fields.MODULE_ID, conceptQuery.getModule()));
 		}
+		if (conceptQuery.getEffectiveTime() !=null) {
+			conceptBoolQuery.must(termQuery(SnomedComponent.Fields.EFFECTIVE_TIME, conceptQuery.getEffectiveTime()));
+		}
+		if (conceptQuery.isNullEffectiveTime() !=null) {
+			if (conceptQuery.isNullEffectiveTime()) {
+				conceptBoolQuery.mustNot(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME));
+			} else {
+				conceptBoolQuery.must(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME));
+			}
+		}
+		if (conceptQuery.isReleased() != null) {
+			conceptBoolQuery.must(termQuery(SnomedComponent.Fields.RELEASED, conceptQuery.isReleased()));
+		}
 		return conceptBoolQuery;
 	}
 
 	private <C extends Collection<Long>> C applyConceptPropertyFilters(C conceptIds, ConceptQueryBuilder queryBuilder, BranchCriteria branchCriteria, C filteredConceptIds) {
-		final String definitionStatus = queryBuilder.getDefinitionStatusFilter();
-		final Set<Long> module = queryBuilder.getModule();
-
-		if (definitionStatus == null && module == null) {
+		if (!queryBuilder.hasPropertyFilter()) {
 			filteredConceptIds.addAll(conceptIds);
 			return filteredConceptIds;
 		}
 
 		for (List<Long> batch : Iterables.partition(conceptIds, CLAUSE_LIMIT)) {
 			final BoolQueryBuilder conceptClauses = boolQuery();
-			if (definitionStatus != null) {
-				conceptClauses.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, definitionStatus));
-			}
-			if (module != null) {
-				conceptClauses.must(termsQuery(SnomedComponent.Fields.MODULE_ID, module));
-			}
+			queryBuilder.applyConceptClauses(conceptClauses);
 			NativeSearchQueryBuilder conceptDefinitionQuery = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-							.must(conceptClauses)
-					)
+							.must(conceptClauses))
 					.withFilter(termsQuery(Concept.Fields.CONCEPT_ID, batch))
 					.withFields(Concept.Fields.CONCEPT_ID)
 					.withSort(getDefaultSortForConcept())
@@ -265,14 +269,11 @@ public class QueryService implements ApplicationContextAware {
 	private SearchAfterPage<Long> doEclSearchAndConceptPropertyFilters(ConceptQueryBuilder conceptQuery, String branchPath, PageRequest pageRequest, BranchCriteria branchCriteria) {
 		String ecl = conceptQuery.getEcl();
 		logger.debug("ECL Search {}", ecl);
-
-		String definitionStatusFilter = conceptQuery.getDefinitionStatusFilter();
-		final Set<Long> module = conceptQuery.getModule();
 		Collection<Long> conceptIdFilter = null;
 		if (conceptQuery.conceptIds != null && !conceptQuery.conceptIds.isEmpty()) {
 			conceptIdFilter = conceptQuery.conceptIds.stream().map(Long::valueOf).collect(Collectors.toSet());
 		}
-		if (definitionStatusFilter != null || module != null) {
+		if (conceptQuery.hasPropertyFilter()) {
 			Page<Long> allConceptIds = eclQueryService.selectConceptIds(ecl, branchCriteria, branchPath, conceptQuery.isStated(), conceptIdFilter, null);
 			List<Long> filteredConceptIds = applyConceptPropertyFilters(allConceptIds.getContent(), conceptQuery, branchCriteria, new LongArrayList());
 			return PageHelper.fullListToPage(filteredConceptIds, pageRequest, CONCEPT_ID_SEARCH_AFTER_EXTRACTOR);
@@ -539,10 +540,18 @@ public class QueryService implements ApplicationContextAware {
 		private String ecl;
 		private Set<String> conceptIds;
 		private final DescriptionCriteria descriptionCriteria;
+		private Integer effectiveTime;
+		private Boolean isNullEffectiveTime;
+		private Boolean isReleased;
 
 		private ConceptQueryBuilder(boolean stated) {
 			this.stated = stated;
 			this.descriptionCriteria = new DescriptionCriteria();
+		}
+
+		public boolean hasPropertyFilter() {
+			return definitionStatusFilter != null || module != null || effectiveTime != null
+					|| isNullEffectiveTime != null || isReleased != null;
 		}
 
 		private ConceptQueryBuilder() {
@@ -550,14 +559,29 @@ public class QueryService implements ApplicationContextAware {
 		}
 
 		private boolean hasLogicalConditions() {
-			return ecl != null || activeFilter != null || definitionStatusFilter != null || conceptIds != null || module != null;
+			return ecl != null || activeFilter != null || effectiveTime != null || isReleased != null || definitionStatusFilter != null || conceptIds != null || module != null;
 		}
 
 		public ConceptQueryBuilder ecl(String ecl) {
 			this.ecl = ecl;
 			return this;
 		}
-
+		
+		public ConceptQueryBuilder effectiveTime(Integer effectiveTime) {
+			this.effectiveTime = effectiveTime;
+			return this;
+		}
+		
+		public ConceptQueryBuilder isNullEffectiveTime(Boolean isNullEffectiveTime) {
+			this.isNullEffectiveTime = isNullEffectiveTime;
+			return this;
+		}
+		
+		public ConceptQueryBuilder isReleased(Boolean isReleased) {
+			this.isReleased = isReleased;
+			return this;
+		}
+		
 		public ConceptQueryBuilder conceptIds(Set<String> conceptIds) {
 			if (conceptIds != null && !conceptIds.isEmpty()) {
 				this.conceptIds = conceptIds;
@@ -638,6 +662,40 @@ public class QueryService implements ApplicationContextAware {
 
 		public DescriptionCriteria getDescriptionCriteria() {
 			return descriptionCriteria;
+		}
+		
+		public Integer getEffectiveTime() {
+			return this.effectiveTime;
+		}
+		
+		public Boolean isNullEffectiveTime() {
+			return this.isNullEffectiveTime;
+		}
+		
+		public Boolean isReleased() {
+			return isReleased;
+		}
+		
+		public void applyConceptClauses(BoolQueryBuilder conceptClauses) {
+			if (definitionStatusFilter != null) {
+				conceptClauses.must(termQuery(Concept.Fields.DEFINITION_STATUS_ID, definitionStatusFilter));
+			}
+			if (module != null) {
+				conceptClauses.must(termsQuery(SnomedComponent.Fields.MODULE_ID, module));
+			}
+			if (effectiveTime != null) {
+				conceptClauses.must(termQuery(SnomedComponent.Fields.EFFECTIVE_TIME, effectiveTime));
+			}
+			if (isNullEffectiveTime != null) {
+				if (isNullEffectiveTime) {
+					conceptClauses.mustNot(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME));
+				} else {
+					conceptClauses.must(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME));
+				}
+			}
+			if (isReleased != null) {
+				conceptClauses.must(termQuery(SnomedComponent.Fields.RELEASED, isReleased));
+			}
 		}
 	}
 

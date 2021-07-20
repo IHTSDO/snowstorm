@@ -30,9 +30,13 @@ class QueryServiceTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
+	
+	@Autowired
+	private CodeSystemService codeSystemService;
 
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 	public static final String PATH = "MAIN";
+	public static final int TEST_ET = 20210131;
 	private Concept root;
 	private Concept pizza_2;
 	private Concept cheesePizza_3;
@@ -54,6 +58,10 @@ class QueryServiceTest extends AbstractTest {
 				.addDescription(new Description("additional pizza"))
 				.setActive(false);
 		conceptService.batchCreate(Lists.newArrayList(root, pizza_2, cheesePizza_3, reallyCheesyPizza_4, reallyCheesyPizza_5, inactivePizza_6), PATH);
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT-TEST", PATH);
+		codeSystemService.createCodeSystem(codeSystem);
+		codeSystemService.createVersion(codeSystem, TEST_ET, "Unit Test Version");
+		
 	}
 
 	@Test
@@ -126,6 +134,62 @@ class QueryServiceTest extends AbstractTest {
 				.ecl(pizza_2.getConceptId())
 				.definitionStatusFilter(Concepts.PRIMITIVE);
 		assertEquals(1, service.search(query2, PATH, PAGE_REQUEST).getTotalElements());
+	}
+	
+	@Test
+	void testEffectiveTimeFilter() {
+		QueryService.ConceptQueryBuilder query = service.createQueryBuilder(false)
+				.ecl(pizza_2.getConceptId())
+				.effectiveTime(20210131);
+		assertEquals(1, service.search(query, PATH, PAGE_REQUEST).getTotalElements());
+		QueryService.ConceptQueryBuilder query2 = service.createQueryBuilder(false)
+				.ecl(pizza_2.getConceptId())
+				.effectiveTime(10661014);
+		assertEquals(0, service.search(query2, PATH, PAGE_REQUEST).getTotalElements());
+		QueryService.ConceptQueryBuilder query3 = service.createQueryBuilder(false)
+				.effectiveTime(20210131);
+		assertEquals(6, service.search(query3, PATH, PAGE_REQUEST).getTotalElements());
+
+	}
+	
+	@Test
+	void testNullEffectiveTimeFilter() {
+		QueryService.ConceptQueryBuilder query = service.createQueryBuilder(false)
+				.ecl(pizza_2.getConceptId())
+				.isNullEffectiveTime(true);
+		assertEquals(0, service.search(query, PATH, PAGE_REQUEST).getTotalElements());
+		QueryService.ConceptQueryBuilder query2 = service.createQueryBuilder(false)
+				.ecl(pizza_2.getConceptId())
+				.isNullEffectiveTime(false);
+		assertEquals(1, service.search(query2, PATH, PAGE_REQUEST).getTotalElements());
+	}
+	
+	@Test
+	void testIsPublishedFilter() {
+		//We've versioned this content so there will be no un-released content
+		QueryService.ConceptQueryBuilder query = service.createQueryBuilder(false)
+				.ecl(pizza_2.getConceptId())
+				.isReleased(true);
+		assertEquals(1, service.search(query, PATH, PAGE_REQUEST).getTotalElements());
+		QueryService.ConceptQueryBuilder query2 = service.createQueryBuilder(false)
+				.ecl(pizza_2.getConceptId())
+				.isReleased(false);
+		assertEquals(0, service.search(query2, PATH, PAGE_REQUEST).getTotalElements());
+	}
+	
+	@Test
+	void testFilterComboWithoutECL() {
+		//We've versioned this content so there will be no un-released content
+		QueryService.ConceptQueryBuilder query = service.createQueryBuilder(false)
+				.effectiveTime(TEST_ET)
+				.isReleased(true)
+				.isNullEffectiveTime(false);
+		assertEquals(6, service.search(query, PATH, PAGE_REQUEST).getTotalElements());
+		QueryService.ConceptQueryBuilder query2 = service.createQueryBuilder(false)
+				.effectiveTime(TEST_ET)
+				.isReleased(true)
+				.isNullEffectiveTime(true); //Contradiction shoudl force no results
+ 		assertEquals(0, service.search(query2, PATH, PAGE_REQUEST).getTotalElements());
 	}
 
 	@Test
