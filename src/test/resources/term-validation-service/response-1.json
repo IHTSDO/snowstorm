@@ -36,7 +36,7 @@
           "typeId": 900000000000003001,
           "score": 0.7092972666062738
         },
-        "recommendSwitch": false
+        "recommendSwitch": true
       },
       {
         "baseTerm": {
