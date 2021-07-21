@@ -31,13 +31,13 @@ class TermValidationServiceClientTest {
 		client.handleResponse(client.getObjectMapper().readValue(getClass().getResourceAsStream(dummyResponse),
 				TermValidationServiceClient.ValidationResponse.class),
 				new Concept(Concepts.CLINICAL_FINDING).addDescription(
-						new Description("2148514019", "Clinical finding (finding)")
+						new Description("2148514019", "Atypical diabetes mellitus (disorder)")
 								.setTypeId(Concepts.FSN)
 								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED)),
 				"MAIN/TEST/TEST-123", invalidContents);
 
 		final Map<String, InvalidContent> idToInvalidContentMap = invalidContents.stream().collect(Collectors.toMap(InvalidContent::getRuleId, Function.identity()));
-		assertEquals(3, invalidContents.size());
+		assertEquals(4, invalidContents.size());
 
 		final InvalidContent duplicate = idToInvalidContentMap.get(TermValidationServiceClient.DUPLICATE_RULE_ID);
 		assertNotNull(duplicate);
@@ -53,9 +53,18 @@ class TermValidationServiceClientTest {
 
 		final InvalidContent fsnCoverage = idToInvalidContentMap.get(TermValidationServiceClient.FSN_COVERAGE_RULE_ID);
 		assertNotNull(fsnCoverage);
-		assertEquals("The word 'left' in the FSN of this defined concept does not occur in the descriptions of any concept in the inferred relationships. Is this correct?",
+		assertEquals("The word 'left' in the FSN of this defined concept does not occur in the descriptions of any concept in the inferred relationships. " +
+						"Is the description and modeling correct?",
 				fsnCoverage.getMessage());
 		assertEquals("404684003", fsnCoverage.getConceptId());
 		assertEquals("2148514019", fsnCoverage.getComponentId());// FSN
+
+		final InvalidContent localContext = idToInvalidContentMap.get(TermValidationServiceClient.LOCAL_CONTEXT_RULE_ID);
+		assertNotNull(localContext);
+		assertEquals("Description 'Atypical diabetes mellitus (disorder)' seems better suited to concept 73211009, which has description 'Diabetes mellitus (disorder)'. " +
+						"Perhaps it should be moved or removed?",
+				localContext.getMessage());
+		assertEquals("404684003", localContext.getConceptId());
+		assertEquals("2148514019", localContext.getComponentId());// FSN
 	}
 }
