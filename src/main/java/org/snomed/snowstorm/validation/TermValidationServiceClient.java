@@ -1,13 +1,11 @@
 package org.snomed.snowstorm.validation;
 
-import com.amazonaws.util.StringInputStream;
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonView;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.*;
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import com.fasterxml.jackson.databind.annotation.JsonNaming;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.ihtsdo.drools.response.InvalidContent;
@@ -26,19 +24,16 @@ import org.snomed.snowstorm.validation.domain.DroolsConcept;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
-import org.springframework.http.*;
-import org.springframework.http.converter.HttpMessageConverter;
-import org.springframework.http.converter.HttpMessageNotReadableException;
-import org.springframework.http.converter.HttpMessageNotWritableException;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 @Service
@@ -63,25 +58,26 @@ public class TermValidationServiceClient {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
-	private final ObjectWriter objectWriter;
+	private final ObjectMapper mapper;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public TermValidationServiceClient(@Value("${term-validation-service.url}") String termValidationServiceUrl,
 			@Value("${term-validation-service.scoreThreshold.duplicate}") float duplicateScoreThreshold) {
 
+		mapper = new ObjectMapper()
+				.disable(MapperFeature.DEFAULT_VIEW_INCLUSION)
+				.setSerializationInclusion(JsonInclude.Include.NON_NULL)
+				.disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+		mapper.setConfig(mapper.getSerializationConfig().withView(View.Component.class));
+
 		if (!StringUtils.isEmpty(termValidationServiceUrl)) {
 			this.restTemplate = new RestTemplateBuilder()
 					.rootUri(termValidationServiceUrl)
-					.messageConverters(new MappingJackson2HttpMessageConverter())
+					.messageConverters(new MappingJackson2HttpMessageConverter(mapper))
 					.build();
 		}
 		this.duplicateScoreThreshold = duplicateScoreThreshold;
-
-		final ObjectMapper objectMapper = new ObjectMapper();
-		objectMapper.disable(MapperFeature.DEFAULT_VIEW_INCLUSION);
-		objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-		objectWriter = objectMapper.writerWithView(View.Component.class);
 	}
 
 	public List<InvalidContent> validateConcept(String branchPath, Concept concept, boolean afterClassification) throws ServiceException {
@@ -105,21 +101,21 @@ public class TermValidationServiceClient {
 		termValidation.checkpoint("Populate linked concept details.");
 
 		final ValidationRequest validationRequest = new ValidationRequest(concept, afterClassification);
-		String body = null;
 		try {
 			logger.info("Calling term-validation-service for branch {}", branchPath);
-			body = objectWriter.writeValueAsString(validationRequest);
-			final HttpEntity<String> request = new HttpEntity<>(body, HTTP_HEADERS);
+			final HttpEntity<ValidationRequest> request = new HttpEntity<>(validationRequest, HTTP_HEADERS);
 			final ResponseEntity<ValidationResponse> response = restTemplate.postForEntity("/validate-concept",
 					request, ValidationResponse.class);
 
 			final ValidationResponse validationResponse = response.getBody();
 			handleResponse(validationResponse, concept, branchPath, invalidContents);
 		} catch (HttpStatusCodeException e) {
-			logger.info("Request failed, request body: {}", body);
+			try {
+				logger.info("Request failed, request body: {}", mapper.writeValueAsString(validationRequest));
+			} catch (JsonProcessingException jsonProcessingException) {
+				logger.error("Request failed but also error serialising the object for the error message!", e);
+			}
 			throw new ServiceException(String.format("Call to term-validation-service was not successful: %s, %s", e.getStatusCode(), e.getMessage()));
-		} catch (JsonProcessingException e) {
-			e.printStackTrace();
 		} finally {
 			termValidation.checkpoint("Validation");
 			termValidation.finish();
@@ -160,12 +156,8 @@ public class TermValidationServiceClient {
 		}
 	}
 
-	public void setRestTemplate(RestTemplate restTemplate) {
-		this.restTemplate = restTemplate;
-	}
-
-	public RestTemplate getRestTemplate() {
-		return restTemplate;
+	public ObjectMapper getObjectMapper() {
+		return mapper;
 	}
 
 	public static final class ValidationRequest {

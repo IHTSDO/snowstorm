@@ -6,7 +6,6 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.testcontainers.shaded.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.testcontainers.shaded.com.fasterxml.jackson.databind.ObjectMapper;
-import org.testcontainers.shaded.com.fasterxml.jackson.databind.PropertyNamingStrategy;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -21,13 +20,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class TermValidationServiceClientTest {
 
 	private final TermValidationServiceClient client = new TermValidationServiceClient(null, 0.6f);
-	private final ObjectMapper objectMapper = new ObjectMapper().disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
 
 	@Test
 	void testHandleResponse() throws IOException {
 		final List<InvalidContent> invalidContents = new ArrayList<>();
 
-		client.handleResponse(objectMapper.readValue(getClass().getResourceAsStream("/term-validation-service/response-1.json"), TermValidationServiceClient.ValidationResponse.class),
+		client.handleResponse(client.getObjectMapper().readValue(getClass().getResourceAsStream("/term-validation-service/response-1.json"),
+				TermValidationServiceClient.ValidationResponse.class),
 				new Concept(Concepts.CLINICAL_FINDING), "MAIN/TEST/TEST-123", invalidContents);
 
 		final Map<String, InvalidContent> idToInvalidContentMap = invalidContents.stream().collect(Collectors.toMap(InvalidContent::getRuleId, Function.identity()));
