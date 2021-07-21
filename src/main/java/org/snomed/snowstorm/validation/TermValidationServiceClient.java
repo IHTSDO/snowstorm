@@ -160,6 +160,33 @@ public class TermValidationServiceClient {
 
 	void handleResponse(ValidationResponse validationResponse, Concept concept, String branchPath, List<InvalidContent> invalidContents) {
 		if (validationResponse != null) {
+
+			// FSN coverage
+			final FsnCoverage fsnCoverage = validationResponse.getFsnCoverage();
+			if (fsnCoverage != null) {
+				Set<String> wordsNotCovered = fsnCoverage.getWordCoverage().stream()
+						.filter(Predicate.not(WordCoverage::isPresentAnywhere))
+						.map(WordCoverage::getWord)
+						.collect(Collectors.toSet());
+
+				if (!wordsNotCovered.isEmpty()) {
+					String commonEnding = "not occur in the descriptions of any concept in the inferred relationships. " +
+							"Is the description and modeling correct?";
+					if (wordsNotCovered.size() == 1) {
+						invalidContents.add(new InvalidContent(FSN_COVERAGE_RULE_ID, new DroolsDescription(getEnFsnDescription(concept)),
+								String.format("The word '%s' in the FSN of this defined concept does %s", wordsNotCovered.iterator().next(), commonEnding),
+								Severity.WARNING));
+					} else {
+						String lastWord = Iterables.getLast(wordsNotCovered);
+						wordsNotCovered.remove(lastWord);
+						String otherWords = wordsNotCovered.stream().map(s -> String.format("'%s'", s)).collect(Collectors.joining(", "));
+						invalidContents.add(new InvalidContent(FSN_COVERAGE_RULE_ID, new DroolsDescription(getEnFsnDescription(concept)),
+								String.format("The words %s and '%s' in the FSN of this defined concept do %s", otherWords, lastWord, commonEnding),
+								Severity.WARNING));
+					}
+				}
+			}
+
 			// Duplicate
 			if (validationResponse.getDuplication() != null) {
 				final Optional<Match> first = validationResponse.getDuplication().getMatches().stream()
@@ -185,32 +212,6 @@ public class TermValidationServiceClient {
 				} else {
 					logger.warn("TVS indicated that future concept inactivation likely but gave no details so nothing shown to user. Branch {}, concept {}",
 							branchPath, concept.getConceptId());
-				}
-			}
-
-			// FSN coverage
-			final FsnCoverage fsnCoverage = validationResponse.getFsnCoverage();
-			if (fsnCoverage != null) {
-				Set<String> wordsNotCovered = fsnCoverage.getWordCoverage().stream()
-						.filter(Predicate.not(WordCoverage::isPresentAnywhere))
-						.map(WordCoverage::getWord)
-						.collect(Collectors.toSet());
-
-				if (!wordsNotCovered.isEmpty()) {
-					String commonEnding = "not occur in the descriptions of any concept in the inferred relationships. " +
-							"Is the description and modeling correct?";
-					if (wordsNotCovered.size() == 1) {
-						invalidContents.add(new InvalidContent(FSN_COVERAGE_RULE_ID, new DroolsDescription(getEnFsnDescription(concept)),
-								String.format("The word '%s' in the FSN of this defined concept does %s", wordsNotCovered.iterator().next(), commonEnding),
-								Severity.WARNING));
-					} else {
-						String lastWord = Iterables.getLast(wordsNotCovered);
-						wordsNotCovered.remove(lastWord);
-						String otherWords = wordsNotCovered.stream().map(s -> String.format("'%s'", s)).collect(Collectors.joining(", "));
-						invalidContents.add(new InvalidContent(FSN_COVERAGE_RULE_ID, new DroolsDescription(getEnFsnDescription(concept)),
-								String.format("The words %s and '%s' in the FSN of this defined concept do %s", otherWords, lastWord, commonEnding),
-								Severity.WARNING));
-					}
 				}
 			}
 
