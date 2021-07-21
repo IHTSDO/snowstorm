@@ -2,7 +2,7 @@
   "localContext": {
     "fsn": {
       "term": "Atypical diabetes mellitus (disorder)",
-      "lemmatized_term": "atypical diabetes mellitus",
+      "lemmatizedTerm": "atypical diabetes mellitus",
       "tag": "disorder",
       "pos": [
         "ADJ",
@@ -12,11 +12,11 @@
       "conceptId": 530558861000132104,
       "typeId": null
     },
-    "term_matches": [
+    "termMatches": [
       {
-        "base_term": {
+        "baseTerm": {
           "term": "Atypical diabetes mellitus (disorder)",
-          "lemmatized_term": "atypical diabetes mellitus",
+          "lemmatizedTerm": "atypical diabetes mellitus",
           "tag": "disorder",
           "pos": [
             "ADJ",
@@ -26,22 +26,22 @@
           "conceptId": 530558861000132104,
           "typeId": null
         },
-        "average_synonym_match": 0.8575460115758706,
-        "closest_term": {
+        "averageSynonymMatch": 0.8575460115758706,
+        "closestTerm": {
           "term": "Diabetes mellitus (disorder)",
-          "lemmatized_term": "diabetes mellitus",
+          "lemmatizedTerm": "diabetes mellitus",
           "tag": "disorder",
           "pos": null,
           "conceptId": 73211009,
           "typeId": 900000000000003001,
           "score": 0.7092972666062738
         },
-        "recommend_switch": false
+        "recommendSwitch": false
       },
       {
-        "base_term": {
+        "baseTerm": {
           "term": "Atypical diabetes mellitus",
-          "lemmatized_term": "atypical diabetes mellitus",
+          "lemmatizedTerm": "atypical diabetes mellitus",
           "tag": "",
           "pos": [
             "ADJ",
@@ -51,22 +51,22 @@
           "conceptId": 530558861000132104,
           "typeId": null
         },
-        "average_synonym_match": 0.8575460115758706,
-        "closest_term": {
+        "averageSynonymMatch": 0.8575460115758706,
+        "closestTerm": {
           "term": "Diabetes mellitus (disorder)",
-          "lemmatized_term": "diabetes mellitus",
+          "lemmatizedTerm": "diabetes mellitus",
           "tag": "disorder",
           "pos": null,
           "conceptId": 73211009,
           "typeId": 900000000000003001,
           "score": 0.7092972666062738
         },
-        "recommend_switch": false
+        "recommendSwitch": false
       },
       {
-        "base_term": {
+        "baseTerm": {
           "term": "ADM - atypical diabetes mellitus",
-          "lemmatized_term": "adm atypical diabetes mellitus",
+          "lemmatizedTerm": "adm atypical diabetes mellitus",
           "tag": "",
           "pos": [
             "NOUN",
@@ -77,17 +77,17 @@
           "conceptId": 530558861000132104,
           "typeId": null
         },
-        "average_synonym_match": 0.7150920231517413,
-        "closest_term": {
+        "averageSynonymMatch": 0.7150920231517413,
+        "closestTerm": {
           "term": "Diabetes mellitus (disorder)",
-          "lemmatized_term": "diabetes mellitus",
+          "lemmatizedTerm": "diabetes mellitus",
           "tag": "disorder",
           "pos": null,
           "conceptId": 73211009,
           "typeId": 900000000000003001,
           "score": 0.5797386715376657
         },
-        "recommend_switch": false
+        "recommendSwitch": false
       }
     ]
   },
@@ -102,7 +102,7 @@
       "75%": 0.3333333333333333,
       "max": 1.0
     },
-    "score_count": [
+    "scoreCount": [
       {
         "score": 0.0,
         "count": 36
@@ -120,12 +120,12 @@
         "count": 1
       }
     ],
-    "fsn_term": "Atypical diabetes mellitus (disorder)",
-    "number_of_top_terms": 10,
+    "fsnTerm": "Atypical diabetes mellitus (disorder)",
+    "numberOfTopTerms": 10,
     "matches": [
       {
         "term": "Atypical diabetes mellitus (disorder)",
-        "lemmatized_term": "atypical diabetes mellitus",
+        "lemmatizedTerm": "atypical diabetes mellitus",
         "tag": null,
         "pos": null,
         "conceptId": 530558861000132104,
@@ -134,7 +134,7 @@
       },
       {
         "term": "Diabetes mellitus",
-        "lemmatized_term": "diabetes mellitus",
+        "lemmatizedTerm": "diabetes mellitus",
         "tag": null,
         "pos": null,
         "conceptId": 267467004,
@@ -143,7 +143,7 @@
       },
       {
         "term": "Diabetes mellitus (disorder)",
-        "lemmatized_term": "diabetes mellitus",
+        "lemmatizedTerm": "diabetes mellitus",
         "tag": null,
         "pos": null,
         "conceptId": 73211009,
@@ -152,7 +152,7 @@
       },
       {
         "term": "Diabetes mellitus",
-        "lemmatized_term": "diabetes mellitus",
+        "lemmatizedTerm": "diabetes mellitus",
         "tag": null,
         "pos": null,
         "conceptId": 73211009,
@@ -161,7 +161,7 @@
       },
       {
         "term": "Diabetes mellitus (disorder)",
-        "lemmatized_term": "diabetes mellitus",
+        "lemmatizedTerm": "diabetes mellitus",
         "tag": null,
         "pos": null,
         "conceptId": 191044006,
@@ -170,7 +170,7 @@
       },
       {
         "term": "Diabetes mellitus",
-        "lemmatized_term": "diabetes mellitus",
+        "lemmatizedTerm": "diabetes mellitus",
         "tag": null,
         "pos": null,
         "conceptId": 191044006,
@@ -179,7 +179,7 @@
       },
       {
         "term": "Diabetes mellitus",
-        "lemmatized_term": "diabetes mellitus",
+        "lemmatizedTerm": "diabetes mellitus",
         "tag": null,
         "pos": null,
         "conceptId": 154671004,
@@ -188,7 +188,7 @@
       },
       {
         "term": "Diabetes mellitus (disorder)",
-        "lemmatized_term": "diabetes mellitus",
+        "lemmatizedTerm": "diabetes mellitus",
         "tag": null,
         "pos": null,
         "conceptId": 73211009,
@@ -197,7 +197,7 @@
       },
       {
         "term": "Diabetes mellitus (& [ketoacidosis])",
-        "lemmatized_term": "diabetes mellitus ketoacidosis",
+        "lemmatizedTerm": "diabetes mellitus ketoacidosis",
         "tag": null,
         "pos": null,
         "conceptId": 154671004,
@@ -206,7 +206,7 @@
       },
       {
         "term": "DM - Diabetes mellitus",
-        "lemmatized_term": "dm diabetes mellitus",
+        "lemmatizedTerm": "dm diabetes mellitus",
         "tag": null,
         "pos": null,
         "conceptId": 73211009,
@@ -240,6 +240,27 @@
       }
     ]
   },
-  "fsn_coverage": null,
-  "execution_time_ms": 840
+  "fsnCoverage": {
+    "wordCoverage": [
+      {
+        "word": "fracture",
+        "pos": "NOUN",
+        "samePosPresent": false,
+        "presentAnywhere": true
+      },
+      {
+        "word": "left",
+        "pos": "ADJ",
+        "samePosPresent": false,
+        "presentAnywhere": false
+      },
+      {
+        "word": "radius",
+        "pos": "NOUN",
+        "samePosPresent": false,
+        "presentAnywhere": true
+      }
+    ]
+  },
+  "executionTimeMs": 840
 }
