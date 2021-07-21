@@ -18,6 +18,7 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
+import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
@@ -64,6 +65,9 @@ public class TermValidationServiceClient {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
+	@Autowired
+	private QueryService queryService;
+
 	private final ObjectMapper mapper;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -108,19 +112,32 @@ public class TermValidationServiceClient {
 
 		final ValidationRequest validationRequest = new ValidationRequest(concept, afterClassification);
 		try {
-			logger.info("Calling term-validation-service for branch {}", branchPath);
 			final HttpEntity<ValidationRequest> request = new HttpEntity<>(validationRequest, HTTP_HEADERS);
+			if (afterClassification) {
+				final Long conceptIdAsLong = concept.getConceptIdAsLong();
+				final Set<Long> parentIds = queryService.findParentIds(branchCriteria, false, Collections.singleton(conceptIdAsLong));
+				final Set<Long> grandParentIds = queryService.findParentIds(branchCriteria, false, parentIds);
+				final Set<Long> ancestorIds = queryService.findAncestorIds(branchCriteria, branchPath, false, concept.getConceptId());
+				final Set<Long> siblingIds = queryService.findChildrenIdsAsUnion(branchCriteria, false, parentIds);
+				final Set<Long> childrenIds = queryService.findChildrenIdsAsUnion(branchCriteria, false, Collections.singleton(conceptIdAsLong));
+				validationRequest.addConceptGraphCounts(conceptIdAsLong,
+						new GraphCounts(parentIds.size(), grandParentIds.size(), ancestorIds.size(), siblingIds.size(), childrenIds.size()));
+				termValidation.checkpoint("Gather graph counts");
+			}
+
+			if (logger.isDebugEnabled()) {
+				logger.debug("Calling term-validation-service for branch {}, request body: {}", branchPath, getRequestBodyOrLogError(validationRequest));
+			} else {
+				logger.info("Calling term-validation-service for branch {}", branchPath);
+			}
+
 			final ResponseEntity<ValidationResponse> response = restTemplate.postForEntity("/validate-concept",
 					request, ValidationResponse.class);
 
 			final ValidationResponse validationResponse = response.getBody();
 			handleResponse(validationResponse, concept, branchPath, invalidContents);
 		} catch (HttpStatusCodeException e) {
-			try {
-				logger.info("Request failed, request body: {}", mapper.writeValueAsString(validationRequest));
-			} catch (JsonProcessingException jsonProcessingException) {
-				logger.error("Request failed but also error serialising the object for the error message!", e);
-			}
+			logger.info("Request failed, request body: {}", getRequestBodyOrLogError(validationRequest));
 			throw new ServiceException(String.format("Call to term-validation-service was not successful: %s, %s", e.getStatusCode(), e.getMessage()));
 		} finally {
 			termValidation.checkpoint("Validation");
@@ -128,6 +145,15 @@ public class TermValidationServiceClient {
 		}
 
 		return invalidContents;
+	}
+
+	private String getRequestBodyOrLogError(ValidationRequest validationRequest) {
+		try {
+			return mapper.writeValueAsString(validationRequest);
+		} catch (JsonProcessingException e) {
+			logger.error("Error serialising request.", e);
+		}
+		return null;
 	}
 
 	void handleResponse(ValidationResponse validationResponse, Concept concept, String branchPath, List<InvalidContent> invalidContents) {
@@ -200,10 +226,18 @@ public class TermValidationServiceClient {
 
 		private final String status;
 		private final Concept concept;
+		private Map<Long, GraphCounts> conceptGraphCounts;
 
 		public ValidationRequest(Concept concept, boolean afterClassification) {
 			status = afterClassification ? "post-classification" : "on-save";
 			this.concept = concept;
+		}
+
+		public void addConceptGraphCounts(Long conceptId, GraphCounts graphCounts) {
+			if (conceptGraphCounts == null) {
+				conceptGraphCounts = new HashMap<>();
+			}
+			conceptGraphCounts.put(conceptId, graphCounts);
 		}
 
 		@JsonView(View.Component.class)
@@ -216,6 +250,52 @@ public class TermValidationServiceClient {
 			return concept;
 		}
 
+		@JsonView(View.Component.class)
+		public Map<Long, GraphCounts> getConceptGraphCounts() {
+			return conceptGraphCounts;
+		}
+	}
+
+	public static final class GraphCounts {
+
+		private final int parentsCount;
+		private final int grandparentsCount;
+		private final int ancestorsCount;
+		private final int siblingsCount;
+		private final int childrenCount;
+
+		public GraphCounts(int parentsCount, int grandparentsCount, int ancestorsCount, int siblingsCount, int childrenCount) {
+			this.parentsCount = parentsCount;
+			this.grandparentsCount = grandparentsCount;
+			this.ancestorsCount = ancestorsCount;
+			this.siblingsCount = siblingsCount;
+			this.childrenCount = childrenCount;
+		}
+
+		@JsonView(View.Component.class)
+		public int getParentsCount() {
+			return parentsCount;
+		}
+
+		@JsonView(View.Component.class)
+		public int getGrandparentsCount() {
+			return grandparentsCount;
+		}
+
+		@JsonView(View.Component.class)
+		public int getAncestorsCount() {
+			return ancestorsCount;
+		}
+
+		@JsonView(View.Component.class)
+		public int getSiblingsCount() {
+			return siblingsCount;
+		}
+
+		@JsonView(View.Component.class)
+		public int getChildrenCount() {
+			return childrenCount;
+		}
 	}
 
 	public static final class ValidationResponse {
