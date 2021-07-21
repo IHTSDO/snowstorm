@@ -48,6 +48,7 @@ public class TermValidationServiceClient {
 	public static final String DUPLICATE_RULE_ID = "21c099d0-594f-4473-bc46-d5701fcfac0e";
 	public static final String SIMILAR_TO_INACTIVE_RULE_ID = "fe9a5f26-d9e5-493c-a0c5-0206d4a036a1";
 	public static final String FSN_COVERAGE_RULE_ID = "083b4a5f-6e01-4b78-a37f-11ebaaf8efca";
+	public static final String LOCAL_CONTEXT_RULE_ID = "6a355a4e-9855-4681-9b23-48b02958dbb3";
 
 	private static final HttpHeaders HTTP_HEADERS = new HttpHeaders();
 
@@ -195,19 +196,42 @@ public class TermValidationServiceClient {
 						.collect(Collectors.toSet());
 
 				if (!wordsNotCovered.isEmpty()) {
+					String commonEnding = "not occur in the descriptions of any concept in the inferred relationships. " +
+							"Is the description and modeling correct?";
 					if (wordsNotCovered.size() == 1) {
 						invalidContents.add(new InvalidContent(FSN_COVERAGE_RULE_ID, new DroolsDescription(getEnFsnDescription(concept)),
-								String.format("The word '%s' in the FSN of this defined concept does not occur " +
-										"in the descriptions of any concept in the inferred relationships. Is this correct?", wordsNotCovered.iterator().next()),
+								String.format("The word '%s' in the FSN of this defined concept does %s", wordsNotCovered.iterator().next(), commonEnding),
 								Severity.WARNING));
 					} else {
 						String lastWord = Iterables.getLast(wordsNotCovered);
 						wordsNotCovered.remove(lastWord);
 						String otherWords = wordsNotCovered.stream().map(s -> String.format("'%s'", s)).collect(Collectors.joining(", "));
 						invalidContents.add(new InvalidContent(FSN_COVERAGE_RULE_ID, new DroolsDescription(getEnFsnDescription(concept)),
-								String.format("The words %s and '%s' in the FSN of this defined concept do not occur " +
-										"in the descriptions of any concept in the inferred relationships. Is this correct?", otherWords, lastWord),
+								String.format("The words %s and '%s' in the FSN of this defined concept do %s", otherWords, lastWord, commonEnding),
 								Severity.WARNING));
+					}
+				}
+			}
+
+			// Local context
+			final LocalContext localContext = validationResponse.getLocalContext();
+			if (localContext != null) {
+				final Set<LocalContextTermMatch> recommendedSwitches = localContext.getTermMatches().stream()
+						.filter(LocalContextTermMatch::isRecommendSwitch)
+						.collect(Collectors.toSet());
+				for (LocalContextTermMatch recommendedSwitch : recommendedSwitches) {
+					final LocalContextTerm baseTerm = recommendedSwitch.getBaseTerm();
+					final Optional<Description> descriptionOptional = concept.getDescriptions().stream()
+							.filter(description -> description.getTerm().equals(baseTerm.getTerm())).findFirst();
+					final LocalContextTerm closestTerm = recommendedSwitch.getClosestTerm();
+					final String message = String.format("Description '%s' seems better suited to concept %s, which has description '%s'. " +
+									"Perhaps it should be moved or removed?",
+							baseTerm.getTerm(), closestTerm.getConceptId(), closestTerm.getTerm());
+
+					if (descriptionOptional.isPresent()) {
+						invalidContents.add(new InvalidContent(LOCAL_CONTEXT_RULE_ID, new DroolsDescription(descriptionOptional.get()), message, Severity.WARNING));
+					} else {
+						invalidContents.add(new InvalidContent(LOCAL_CONTEXT_RULE_ID, new DroolsConcept(concept), message, Severity.WARNING));
 					}
 				}
 			}
@@ -308,6 +332,8 @@ public class TermValidationServiceClient {
 
 		private FsnCoverage fsnCoverage;
 
+		private LocalContext localContext;
+
 		public Duplication getDuplication() {
 			return duplication;
 		}
@@ -318,6 +344,10 @@ public class TermValidationServiceClient {
 
 		public FsnCoverage getFsnCoverage() {
 			return fsnCoverage;
+		}
+
+		public LocalContext getLocalContext() {
+			return localContext;
 		}
 	}
 
@@ -416,6 +446,73 @@ public class TermValidationServiceClient {
 
 		public boolean isPresentAnywhere() {
 			return presentAnywhere;
+		}
+	}
+
+	public static final class LocalContext {
+
+		private LocalContextTerm fsn;
+		private List<LocalContextTermMatch> termMatches;
+
+		public LocalContextTerm getFsn() {
+			return fsn;
+		}
+
+		public List<LocalContextTermMatch> getTermMatches() {
+			return termMatches;
+		}
+	}
+
+	public static final class LocalContextTerm {
+
+		private String term;
+		private String lemmatizedTerm;
+		private String tag;
+		private List<String> pos;
+		private String conceptId;
+
+		public String getTerm() {
+			return term;
+		}
+
+		public String getLemmatizedTerm() {
+			return lemmatizedTerm;
+		}
+
+		public String getTag() {
+			return tag;
+		}
+
+		public List<String> getPos() {
+			return pos;
+		}
+
+		public String getConceptId() {
+			return conceptId;
+		}
+	}
+
+	public static final class LocalContextTermMatch {
+
+		private LocalContextTerm baseTerm;
+		private float averageSynonymMatch;
+		private LocalContextTerm closestTerm;
+		private boolean recommendSwitch;
+
+		public LocalContextTerm getBaseTerm() {
+			return baseTerm;
+		}
+
+		public float getAverageSynonymMatch() {
+			return averageSynonymMatch;
+		}
+
+		public LocalContextTerm getClosestTerm() {
+			return closestTerm;
+		}
+
+		public boolean isRecommendSwitch() {
+			return recommendSwitch;
 		}
 	}
 }
