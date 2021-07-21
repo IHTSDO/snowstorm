@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
+import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.QueryService;
@@ -239,7 +240,9 @@ public class TermValidationServiceClient {
 	}
 
 	private Description getEnFsnDescription(Concept concept) {
-		return concept.getDescriptions().stream().filter(d -> d.getLang().equals("en")).findFirst().orElse(null);
+		return concept.getDescriptions().stream()
+				.filter(d -> d.getLang().equals("en") && d.isActive() && d.getTypeId().equals(Concepts.FSN))
+				.findFirst().orElse(null);
 	}
 
 	public ObjectMapper getObjectMapper() {
