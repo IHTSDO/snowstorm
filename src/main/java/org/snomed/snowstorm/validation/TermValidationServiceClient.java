@@ -119,11 +119,9 @@ public class TermValidationServiceClient {
 				final Long conceptIdAsLong = concept.getConceptIdAsLong();
 				final Set<Long> parentIds = queryService.findParentIds(branchCriteria, false, Collections.singleton(conceptIdAsLong));
 				final Set<Long> grandParentIds = queryService.findParentIds(branchCriteria, false, parentIds);
-				final Set<Long> ancestorIds = queryService.findAncestorIds(branchCriteria, branchPath, false, concept.getConceptId());
 				final Set<Long> siblingIds = queryService.findChildrenIdsAsUnion(branchCriteria, false, parentIds);
 				final Set<Long> childrenIds = queryService.findChildrenIdsAsUnion(branchCriteria, false, Collections.singleton(conceptIdAsLong));
-				validationRequest.addConceptGraphCounts(conceptIdAsLong,
-						new GraphCounts(parentIds.size(), grandParentIds.size(), ancestorIds.size(), siblingIds.size(), childrenIds.size()));
+				validationRequest.addConceptGraphCount(new GraphCounts(conceptIdAsLong, parentIds.size(), grandParentIds.size(), siblingIds.size(), childrenIds.size()));
 				termValidation.checkpoint("Gather graph counts");
 			}
 
@@ -254,18 +252,18 @@ public class TermValidationServiceClient {
 
 		private final String status;
 		private final Concept concept;
-		private Map<Long, GraphCounts> conceptGraphCounts;
+		private List<GraphCounts> conceptGraphCounts;
 
 		public ValidationRequest(Concept concept, boolean afterClassification) {
 			status = afterClassification ? "post-classification" : "on-save";
 			this.concept = concept;
 		}
 
-		public void addConceptGraphCounts(Long conceptId, GraphCounts graphCounts) {
+		public void addConceptGraphCount(GraphCounts graphCounts) {
 			if (conceptGraphCounts == null) {
-				conceptGraphCounts = new HashMap<>();
+				conceptGraphCounts = new ArrayList<>();
 			}
-			conceptGraphCounts.put(conceptId, graphCounts);
+			conceptGraphCounts.add(graphCounts);
 		}
 
 		@JsonView(View.Component.class)
@@ -279,25 +277,30 @@ public class TermValidationServiceClient {
 		}
 
 		@JsonView(View.Component.class)
-		public Map<Long, GraphCounts> getConceptGraphCounts() {
+		public List<GraphCounts> getConceptGraphCounts() {
 			return conceptGraphCounts;
 		}
 	}
 
 	public static final class GraphCounts {
 
+		private final long conceptId;
 		private final int parentsCount;
 		private final int grandparentsCount;
-		private final int ancestorsCount;
 		private final int siblingsCount;
 		private final int childrenCount;
 
-		public GraphCounts(int parentsCount, int grandparentsCount, int ancestorsCount, int siblingsCount, int childrenCount) {
+		public GraphCounts(long conceptId, int parentsCount, int grandparentsCount, int siblingsCount, int childrenCount) {
+			this.conceptId = conceptId;
 			this.parentsCount = parentsCount;
 			this.grandparentsCount = grandparentsCount;
-			this.ancestorsCount = ancestorsCount;
 			this.siblingsCount = siblingsCount;
 			this.childrenCount = childrenCount;
+		}
+
+		@JsonView(View.Component.class)
+		public long getConceptId() {
+			return conceptId;
 		}
 
 		@JsonView(View.Component.class)
@@ -308,11 +311,6 @@ public class TermValidationServiceClient {
 		@JsonView(View.Component.class)
 		public int getGrandparentsCount() {
 			return grandparentsCount;
-		}
-
-		@JsonView(View.Component.class)
-		public int getAncestorsCount() {
-			return ancestorsCount;
 		}
 
 		@JsonView(View.Component.class)
