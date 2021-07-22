@@ -472,12 +472,17 @@ public class QueryService implements ApplicationContextAware {
 		return new ConceptQueryBuilder(form == Relationship.CharacteristicType.stated);
 	}
 
-	public void joinIsLeafFlag(List<ConceptMini> concepts, Relationship.CharacteristicType form, BranchCriteria branchCriteria) {
+	public void joinIsLeafFlag(List<ConceptMini> concepts, Relationship.CharacteristicType form, BranchCriteria branchCriteria, String branch) throws ServiceException {
 		if (concepts.isEmpty()) {
 			return;
 		}
-		Map<Long, ConceptMini> conceptMap = concepts.stream().map(mini -> mini.setLeaf(form, true))
-				.collect(Collectors.toMap(mini -> Long.parseLong(mini.getConceptId()), Function.identity(), StreamUtil.MERGE_FUNCTION));
+		Map<Long, ConceptMini> conceptMap;
+		try {
+			conceptMap = concepts.stream().map(mini -> mini.setLeaf(form, true))
+					.collect(Collectors.toMap(mini -> Long.parseLong(mini.getConceptId()), Function.identity(), StreamUtil.MERGE_FUNCTION));
+		} catch (IllegalStateException e) {
+			throw new ServiceException(String.format("Mutiple documents found with the same conceptId '%s' on branch %s", e.getMessage(), branch), e);
+		}
 		Set<Long> conceptIdsToFind = new HashSet<>(conceptMap.keySet());
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(new BoolQueryBuilder()

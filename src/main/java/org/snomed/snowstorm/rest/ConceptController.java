@@ -493,7 +493,7 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
-			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		TimerUtil timer = new TimerUtil("Child listing: " + conceptId, Level.INFO, 5);
@@ -505,7 +505,7 @@ public class ConceptController {
 
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 		if (!includeDescendantCount) {
-			queryService.joinIsLeafFlag(children, form, branchCriteria);
+			queryService.joinIsLeafFlag(children, form, branchCriteria, branch);
 			timer.checkpoint("Join leaf flag");
 		} else {
 			queryService.joinDescendantCountAndLeafFlag(children, form, branch, branchCriteria);
