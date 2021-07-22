@@ -98,7 +98,7 @@ public class RestControllerAdvice {
 	@ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
 	@ResponseBody
 	public Map<String,Object> handleException(Exception exception) {
-		logger.error("Unhandled exception.", exception);
+		logger.error(exception.getMessage(), exception);
 		HashMap<String, Object> result = new HashMap<>();
 		result.put("error", HttpStatus.INTERNAL_SERVER_ERROR);
 		result.put("message", exception.getMessage());
