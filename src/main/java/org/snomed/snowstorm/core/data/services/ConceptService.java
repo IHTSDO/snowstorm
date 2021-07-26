@@ -775,6 +775,18 @@ public class ConceptService extends ComponentService {
 		return ids;
 	}
 
+	public boolean isActive(String conceptId, BranchCriteria branchCriteria) {
+		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
+				.withQuery(boolQuery()
+						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
+						.must(termQuery(Concept.Fields.CONCEPT_ID, conceptId))
+				)
+				.withFields(Concept.Fields.CONCEPT_ID);
+		final SearchHits<Concept> hits = elasticsearchTemplate.search(queryBuilder.build(), Concept.class);
+		return hits.isEmpty();
+	}
+
 	public void addClauses(Set<String> conceptIds, Boolean active, BoolQueryBuilder conceptQuery) {
 		conceptQuery.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds));
 
