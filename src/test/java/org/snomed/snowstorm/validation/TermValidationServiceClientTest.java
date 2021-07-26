@@ -7,7 +7,6 @@ import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -22,19 +21,17 @@ class TermValidationServiceClientTest {
 
 	@Test
 	void testHandleResponse() throws IOException {
-		final List<InvalidContent> invalidContents = new ArrayList<>();
-
 		// The content of this response is intensionally inconsistent.
 		// It's made from parts of different example responses that trigger all the error cases.
 		final String dummyResponse = "/term-validation-service/response-1.json";
 
-		client.handleResponse(client.getObjectMapper().readValue(getClass().getResourceAsStream(dummyResponse),
+		final List<InvalidContent> invalidContents = client.handleResponse(client.getObjectMapper().readValue(getClass().getResourceAsStream(dummyResponse),
 				TermValidationServiceClient.ValidationResponse.class),
 				new Concept(Concepts.CLINICAL_FINDING).addDescription(
 						new Description("2148514019", "Atypical diabetes mellitus (disorder)")
 								.setTypeId(Concepts.FSN)
 								.addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED)),
-				"MAIN/TEST/TEST-123", invalidContents);
+				"MAIN/TEST/TEST-123");
 
 		final Map<String, InvalidContent> idToInvalidContentMap = invalidContents.stream().collect(Collectors.toMap(InvalidContent::getRuleId, Function.identity()));
 		assertEquals(4, invalidContents.size());

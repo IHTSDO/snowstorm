@@ -26,6 +26,7 @@ import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.rest.View;
 import org.snomed.snowstorm.validation.domain.DroolsConcept;
 import org.snomed.snowstorm.validation.domain.DroolsDescription;
+import org.snomed.snowstorm.validation.domain.InvalidContentDuplicate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
@@ -135,7 +136,18 @@ public class TermValidationServiceClient {
 					request, ValidationResponse.class);
 
 			final ValidationResponse validationResponse = response.getBody();
-			handleResponse(validationResponse, concept, branchPath, invalidContents);
+			final List<InvalidContent> conceptInvalidContents = handleResponse(validationResponse, concept, branchPath);
+			conceptInvalidContents.stream()
+					.filter(invalidContent -> {
+						// Only include duplicate warning if this concept is not released or the other concept is active
+						if (invalidContent.getRuleId().equals(DUPLICATE_RULE_ID)) {
+							InvalidContentDuplicate invalidContentDuplicate = (InvalidContentDuplicate) invalidContent;
+							return !concept.isReleased() || conceptService.isActive(invalidContentDuplicate.getOtherConceptId(), branchCriteria);
+						}
+						return true;
+					})
+					.forEach(invalidContents::add);
+
 		} catch (HttpStatusCodeException e) {
 			logger.info("Request failed, request body: {}", getRequestBodyOrLogError(validationRequest));
 			throw new ServiceException(String.format("Call to term-validation-service was not successful: %s, %s", e.getStatusCode(), e.getMessage()));
@@ -156,7 +168,8 @@ public class TermValidationServiceClient {
 		return null;
 	}
 
-	void handleResponse(ValidationResponse validationResponse, Concept concept, String branchPath, List<InvalidContent> invalidContents) {
+	List<InvalidContent> handleResponse(ValidationResponse validationResponse, Concept concept, String branchPath) {
+		List<InvalidContent> invalidContents = new ArrayList<>();
 		if (validationResponse != null) {
 
 			// FSN coverage
@@ -192,9 +205,9 @@ public class TermValidationServiceClient {
 						.max(Comparator.comparing(Match::getScore));
 				if (first.isPresent()) {
 					final Match match = first.get();
-					invalidContents.add(new InvalidContent(DUPLICATE_RULE_ID, new DroolsDescription(getEnFsnDescription(concept)),
+					invalidContents.add(new InvalidContentDuplicate(DUPLICATE_RULE_ID, new DroolsDescription(getEnFsnDescription(concept)),
 							String.format("FSN is similar to description '%s' in concept %s. Is this a duplicate?", match.getTerm(), match.getConceptId()),
-							Severity.WARNING));
+							Severity.WARNING, match.getConceptId().toString()));
 				}
 			}
 
@@ -236,6 +249,7 @@ public class TermValidationServiceClient {
 				}
 			}
 		}
+		return invalidContents;
 	}
 
 	private Description getEnFsnDescription(Concept concept) {
