@@ -155,50 +155,55 @@ public class DroolsValidationService {
 
 	public void validateBatch(String branch, String ecl, boolean afterClassification) {
 		batchExecutorService.submit(() -> {
-			final PageRequest page = PageRequest.of(0, 100_000);
-			long startTime = new Date().getTime();
-			final SearchAfterPage<Long> conceptIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl(ecl), branch, page);
-			final int total = conceptIds.getNumberOfElements();
-			long doneCount = 0;
-			final String fileName = "validation-bulk-" + new Date().getTime() + ".tsv";
-			logger.info("Validating batch of {} concepts using ECL {} on branch {}, writing to {}", total, ecl, branch, fileName);
+			try {
+				final PageRequest page = PageRequest.of(0, 2_000);
+				long startTime = new Date().getTime();
+				final SearchAfterPage<Long> conceptIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl(ecl), branch, page);
+				final int total = conceptIds.getNumberOfElements();
+				long doneCount = 0;
+				final String fileName = "validation-bulk-" + new Date().getTime() + ".tsv";
+				logger.info("Validating batch of {} concepts using ECL {} on branch {}, writing to {}", total, ecl, branch, fileName);
 
-			try (PrintWriter writer = new PrintWriter(fileName)) {
-				writer.println("conceptId\tfsn\terrorCount\tmessages\ttsv-duration\ttotal-duration");
-				writer.printf("-\t-\t-\tValidating batch of %s concepts using ECL %s on branch %s\t0\t0%n", total, ecl, branch);
-				for (List<Long> partition : Iterables.partition(conceptIds, 100)) {
-					final Page<Concept> concepts = conceptService.find(partition, Config.DEFAULT_LANGUAGE_DIALECTS, branch, page);
-					for (Concept concept : concepts) {
-						doneCount++;
-						if (doneCount % 10 == 0) {
-							logger.info("Validating concept {} of {}.", doneCount, total);
-						}
-						try {
-							final TermValidationResult termValidationResult = termValidationServiceClient.validateConcept(branch, concept, afterClassification);
-							final List<InvalidContent> invalidContents = termValidationResult.getInvalidContents();
-							writer.print(concept.getId());
-							writer.print("\t");
-							writer.print(concept.getFsn().getTerm());
-							writer.print("\t");
-							writer.print(invalidContents.size());
-							writer.print("\t");
-							writer.print(invalidContents.stream().map(InvalidContent::getMessage).collect(Collectors.toList()));
-							writer.print("\t");
-							writer.print(termValidationResult.getTsvDuration());
-							writer.print("\t");
-							writer.println(termValidationResult.getTotalDuration());
-						} catch (ServiceException e) {
-							e.printStackTrace();
+				try (PrintWriter writer = new PrintWriter(fileName)) {
+					writer.println("conceptId\tfsn\terrorCount\tmessages\ttsv-duration\ttotal-duration");
+					writer.printf("-\t-\t-\tValidating batch of %s concepts using ECL %s on branch %s\t0\t0%n", total, ecl, branch);
+					for (List<Long> partition : Iterables.partition(conceptIds, 100)) {
+						final Page<Concept> concepts = conceptService.find(partition, Config.DEFAULT_LANGUAGE_DIALECTS, branch, page);
+						for (Concept concept : concepts) {
+							doneCount++;
+							if (doneCount % 10 == 0) {
+								logger.info("Validating concept {} of {}.", doneCount, total);
+							}
+							try {
+								final TermValidationResult termValidationResult = termValidationServiceClient.validateConcept(branch, concept, afterClassification);
+								final List<InvalidContent> invalidContents = termValidationResult.getInvalidContents();
+								writer.print(concept.getId());
+								writer.print("\t");
+								writer.print(concept.getFsn().getTerm());
+								writer.print("\t");
+								writer.print(invalidContents.size());
+								writer.print("\t");
+								writer.print(invalidContents.stream().map(InvalidContent::getMessage).collect(Collectors.toList()));
+								writer.print("\t");
+								writer.print(termValidationResult.getTsvDuration());
+								writer.print("\t");
+								writer.println(termValidationResult.getTotalDuration());
+							} catch (ServiceException e) {
+								e.printStackTrace();
+							}
 						}
 					}
+					long end = new Date().getTime() - startTime;
+					writer.printf("-\t-\t-\tValidated batch of %s concepts using ECL %s on branch %s\t0\t%s%n", total, ecl, branch, end);
+				} catch (FileNotFoundException e) {
+					e.printStackTrace();
 				}
-				long end = new Date().getTime() - startTime;
-				writer.printf("-\t-\t-\tValidated batch of %s concepts using ECL %s on branch %s\t0\t%s%n", total, ecl, branch, end);
-			} catch (FileNotFoundException e) {
-				e.printStackTrace();
-			}
 
-			logger.info("Validated batch of {} concepts using ECL {} on branch {}, written to {}", total, ecl, branch, fileName);
+				logger.info("Validated batch of {} concepts using ECL {} on branch {}, written to {}", total, ecl, branch, fileName);
+			} catch (Exception e) {
+				logger.error("Failed to validate batch using ECL {} on branch {}", ecl, branch, e);
+				throw e;
+			}
 		});
 	}
 
