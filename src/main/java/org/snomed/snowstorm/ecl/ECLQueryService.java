@@ -208,10 +208,7 @@ public class ECLQueryService {
 		SExpressionConstraint expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
 		Optional<Page<Long>> pageOptional = expressionConstraint.select(branch, branchCriteria, stated, conceptIdFilter, ControllerHelper.getPageRequest(0,1), queryService);
 		
-		if(pageOptional.get().hasNext()) {
-			return true;
-		}
-		return false;	
+		return pageOptional.get().hasContent();
 	}
 	
 	private TimerUtil getEclSlowQueryTimer() {
