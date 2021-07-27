@@ -493,7 +493,8 @@ public class ConceptController {
 			@PathVariable String conceptId,
 			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestParam(required = false, defaultValue = "false") Boolean includeDescendantCount,
-			@RequestParam(required = false, defaultValue = "") String refsetId,
+			@ApiParam("If a refsetId is specified, new field \"descendantsAreMemberOfRefset\" will indicate whether each child has any descendents in that refset.")
+			@RequestParam(required = false) String checkDescendantsWithinRefsetId,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
@@ -507,20 +508,19 @@ public class ConceptController {
 
 		// For each child, determine if any its descendants are members of the passed-in
 		// refset
-		if (!refsetId.equals("")) {
+		if (!checkDescendantsWithinRefsetId.equals("")) {
+			final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+			
 			// Calculate refset membership once, and pass in as a filter for each
 			// child-descendents query
-			Collection<Long> refsetMemberIds = eclQueryService.selectConceptIds("^" + refsetId,
-					versionControlHelper.getBranchCriteria(branch), branch, true, null, null).getContent();
+			Collection<Long> refsetMemberIds = eclQueryService.selectConceptIds("^" + checkDescendantsWithinRefsetId,
+					branchCriteria, branch, true, null, null).getContent();
 
 			for (ConceptMini child : children) {
 
-				if (eclQueryService.hasAnyResults("<< " + child.getConceptId(), branch,
-						versionControlHelper.getBranchCriteria(branch), true, refsetMemberIds)) {
-					child.addExtraField("descendantsAreMemberOfRefset", "true");
-				} else {
-					child.addExtraField("descendantsAreMemberOfRefset", "false");
-				}
+				boolean childHasDescendantMembers = eclQueryService.hasAnyResults("<< " + child.getConceptId(), branch,
+						branchCriteria, true, refsetMemberIds);
+				child.addExtraField("descendantsAreMemberOfRefset", childHasDescendantMembers);
 			}
 		}
 		
