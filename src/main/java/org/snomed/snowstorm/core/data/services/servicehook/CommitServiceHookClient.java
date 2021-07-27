@@ -24,15 +24,24 @@ public class CommitServiceHookClient implements CommitListener {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String serviceUrl;
+	private final boolean blockPromotion;
 
-	public CommitServiceHookClient(@Value("${service-hook.commit.url}") String serviceUrl) {
+	public CommitServiceHookClient(@Value("${service-hook.commit.url}") String serviceUrl,
+								   @Value("${service-hook.commit.block-promotion-if-error:false}") String blockPromotion) {
 		this.serviceUrl = serviceUrl;
+		this.blockPromotion = Boolean.parseBoolean(blockPromotion);
 		if (!StringUtils.isEmpty(serviceUrl)) {
 			final RestTemplateBuilder builder = new RestTemplateBuilder()
 					.rootUri(serviceUrl);
 			restTemplate = builder.build();
 		} else {
 			restTemplate = null;
+		}
+
+		if (this.blockPromotion) {
+			logger.info("Promotions will be blocked if an error is encountered.");
+		} else {
+			logger.info("Promotions will not be blocked if an error is encountered.");
 		}
 	}
 
@@ -58,11 +67,16 @@ public class CommitServiceHookClient implements CommitListener {
 					obfuscateToken(authenticationToken), e);
 			boolean promotion = commit.getCommitType().equals(Commit.CommitType.PROMOTION);
 			if (promotion && e instanceof HttpClientErrorException.Conflict) {
-				logger.error("Promotion blocked; not all criteria have been met.");
-				throw new RuntimeServiceException("Promotion blocked; not all criteria have been met.");
+				if (blockPromotion) {
+					logger.error("Promotion blocked; not all criteria have been met.");
+					throw new RuntimeServiceException("Promotion blocked; not all criteria have been met.");
+				}
 			}
 
-			throw e;
+			if (blockPromotion) {
+				logger.error("Promotion blocked; unexpected error.");
+				throw e;
+			}
 		}
 	}
 
