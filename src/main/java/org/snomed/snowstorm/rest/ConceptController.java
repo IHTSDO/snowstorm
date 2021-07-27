@@ -576,7 +576,9 @@ public class ConceptController {
 		return findConceptsWithECL(">" + conceptId, form == Relationship.CharacteristicType.stated, branch, acceptLanguageHeader, 0, LARGE_PAGE.getPageSize()).getItems();
 	}
 
-	@GetMapping(value = "/browser/{branch}/concepts/ancestorPaths")
+	@ApiOperation(value = "Return concepts, and a path of each concept's ancestors to the top-level.",
+			notes = "Note: The output is intended to be displayed in a list view.  If there are multiple ancestor paths, only a single path will be returned per concept.")
+	@GetMapping(value = "/browser/{branch}/concepts/ancestor-paths")
 	@JsonView(value = View.Component.class)
 	public Collection<ConceptMini> findConceptAncestorPaths(@PathVariable String branch,
 			@RequestParam(required = false) List<Long> conceptIds,		
