@@ -155,7 +155,7 @@ public class DroolsValidationService {
 
 	public void validateBatch(String branch, String ecl, boolean afterClassification) {
 		batchExecutorService.submit(() -> {
-			final PageRequest page = PageRequest.of(0, 5);
+			final PageRequest page = PageRequest.of(0, 100_000);
 			long startTime = new Date().getTime();
 			final SearchAfterPage<Long> conceptIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl(ecl), branch, page);
 			final int total = conceptIds.getNumberOfElements();
