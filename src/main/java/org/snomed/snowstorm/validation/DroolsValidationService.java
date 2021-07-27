@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.validation;
 
+import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -12,18 +13,16 @@ import org.ihtsdo.drools.service.TestResourceProvider;
 import org.ihtsdo.otf.resourcemanager.ResourceManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.SnomedComponent;
-import org.snomed.snowstorm.core.data.services.BranchMetadataKeys;
-import org.snomed.snowstorm.core.data.services.DescriptionService;
-import org.snomed.snowstorm.core.data.services.QueryService;
-import org.snomed.snowstorm.core.data.services.ServiceException;
+import org.snomed.snowstorm.config.Config;
+import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.util.SearchAfterPage;
 import org.snomed.snowstorm.validation.domain.DroolsConcept;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
@@ -32,6 +31,8 @@ import org.springframework.util.Assert;
 
 import javax.annotation.PreDestroy;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -66,12 +67,16 @@ public class DroolsValidationService {
 	@Autowired
 	private TermValidationServiceClient termValidationServiceClient;
 
+	@Autowired
+	private ConceptService conceptService;
+
 	private final String droolsRulesPath;
 	private final ResourceManager testResourceManager;
 
 	private RuleExecutor ruleExecutor;
 	private TestResourceProvider testResourceProvider;
 	private final ExecutorService termValidationExecutorService;
+	private final ExecutorService batchExecutorService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -84,6 +89,7 @@ public class DroolsValidationService {
 		testResourceManager = new ResourceManager(resourceManagerConfiguration, cloudResourceLoader);
 		newRuleExecutorAndResources();
 		termValidationExecutorService = Executors.newCachedThreadPool();
+		batchExecutorService = Executors.newFixedThreadPool(1);
 	}
 
 	public InvalidContentWithSeverityStatus validateConceptBeforeClassification(final Concept concept, final String branchPath) throws ServiceException {
@@ -108,7 +114,7 @@ public class DroolsValidationService {
 		// Set temp component ids if needed
 		concepts.forEach(ConceptValidationHelper::generateTemporaryUUIDsIfNotSet);
 
-		Future<List<InvalidContent>> termValidationFuture = null;
+		Future<TermValidationResult> termValidationFuture = null;
 		if (ruleSetNames.contains(TERM_VALIDATION_SERVICE_ASSERTION_GROUP)) {
 			if (concepts.size() == 1) {
 				final Concept concept = concepts.iterator().next();
@@ -134,7 +140,7 @@ public class DroolsValidationService {
 		// If term-validation-service called join results
 		if (termValidationFuture != null) {
 			try {
-				final List<InvalidContent> termValidationInvalidContents = termValidationFuture.get();
+				final List<InvalidContent> termValidationInvalidContents = termValidationFuture.get().getInvalidContents();
 				invalidContents.addAll(termValidationInvalidContents);
 			} catch (InterruptedException e) {
 				logger.warn("Term validation interrupted.");
@@ -145,6 +151,55 @@ public class DroolsValidationService {
 		}
 
 		return invalidContents;
+	}
+
+	public void validateBatch(String branch, String ecl, boolean afterClassification) {
+		batchExecutorService.submit(() -> {
+			final PageRequest page = PageRequest.of(0, 5);
+			long startTime = new Date().getTime();
+			final SearchAfterPage<Long> conceptIds = queryService.searchForIds(queryService.createQueryBuilder(false).ecl(ecl), branch, page);
+			final int total = conceptIds.getNumberOfElements();
+			long doneCount = 0;
+			final String fileName = "validation-bulk-" + new Date().getTime() + ".tsv";
+			logger.info("Validating batch of {} concepts using ECL {} on branch {}, writing to {}", total, ecl, branch, fileName);
+
+			try (PrintWriter writer = new PrintWriter(fileName)) {
+				writer.println("conceptId\tfsn\terrorCount\tmessages\ttsv-duration\ttotal-duration");
+				writer.printf("-\t-\t-\tValidating batch of %s concepts using ECL %s on branch %s\t0\t0%n", total, ecl, branch);
+				for (List<Long> partition : Iterables.partition(conceptIds, 100)) {
+					final Page<Concept> concepts = conceptService.find(partition, Config.DEFAULT_LANGUAGE_DIALECTS, branch, page);
+					for (Concept concept : concepts) {
+						doneCount++;
+						if (doneCount % 10 == 0) {
+							logger.info("Validating concept {} of {}.", doneCount, total);
+						}
+						try {
+							final TermValidationResult termValidationResult = termValidationServiceClient.validateConcept(branch, concept, afterClassification);
+							final List<InvalidContent> invalidContents = termValidationResult.getInvalidContents();
+							writer.print(concept.getId());
+							writer.print("\t");
+							writer.print(concept.getFsn().getTerm());
+							writer.print("\t");
+							writer.print(invalidContents.size());
+							writer.print("\t");
+							writer.print(invalidContents.stream().map(InvalidContent::getMessage).collect(Collectors.toList()));
+							writer.print("\t");
+							writer.print(termValidationResult.getTsvDuration());
+							writer.print("\t");
+							writer.println(termValidationResult.getTotalDuration());
+						} catch (ServiceException e) {
+							e.printStackTrace();
+						}
+					}
+				}
+				long end = new Date().getTime() - startTime;
+				writer.printf("-\t-\t-\tValidated batch of %s concepts using ECL %s on branch %s\t0\t%s%n", total, ecl, branch, end);
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
+			}
+
+			logger.info("Validated batch of {} concepts using ECL {} on branch {}, written to {}", total, ecl, branch, fileName);
+		});
 	}
 
 	private void setReleaseHashAndEffectiveTime(Set<Concept> concepts, BranchCriteria branchCriteria) {

@@ -93,12 +93,12 @@ public class TermValidationServiceClient {
 		this.duplicateScoreThreshold = duplicateScoreThreshold;
 	}
 
-	public List<InvalidContent> validateConcept(String branchPath, Concept concept, boolean afterClassification) throws ServiceException {
+	public TermValidationResult validateConcept(String branchPath, Concept concept, boolean afterClassification) throws ServiceException {
 		final ArrayList<InvalidContent> invalidContents = new ArrayList<>();
 		final TimerUtil termValidation = new TimerUtil("term-validation");
 
 		if (restTemplate == null) {
-			return invalidContents;
+			return new TermValidationResult(invalidContents, 0, 0);
 		}
 
 		// Populate linked concept information
@@ -114,6 +114,8 @@ public class TermValidationServiceClient {
 		termValidation.checkpoint("Populate linked concept details.");
 
 		final ValidationRequest validationRequest = new ValidationRequest(concept, afterClassification);
+		long tsvDuration;
+		long totalDuration;
 		try {
 			final HttpEntity<ValidationRequest> request = new HttpEntity<>(validationRequest, HTTP_HEADERS);
 			if (afterClassification) {
@@ -132,8 +134,10 @@ public class TermValidationServiceClient {
 				logger.info("Calling term-validation-service for branch {}", branchPath);
 			}
 
+			long tsvStart = new Date().getTime();
 			final ResponseEntity<ValidationResponse> response = restTemplate.postForEntity("/validate-concept",
 					request, ValidationResponse.class);
+			tsvDuration = new Date().getTime() - tsvStart;
 
 			final ValidationResponse validationResponse = response.getBody();
 			final List<InvalidContent> conceptInvalidContents = handleResponse(validationResponse, concept, branchPath);
@@ -153,10 +157,10 @@ public class TermValidationServiceClient {
 			throw new ServiceException(String.format("Call to term-validation-service was not successful: %s, %s", e.getStatusCode(), e.getMessage()));
 		} finally {
 			termValidation.checkpoint("Validation");
-			termValidation.finish();
+			totalDuration = Math.round(termValidation.finish() * 1000f);
 		}
 
-		return invalidContents;
+		return new TermValidationResult(invalidContents, tsvDuration, totalDuration);
 	}
 
 	private String getRequestBodyOrLogError(ValidationRequest validationRequest) {
