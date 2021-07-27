@@ -4,18 +4,12 @@ import io.kaicode.elasticvc.domain.Branch;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.search.aggregations.Aggregation;
-import org.elasticsearch.search.aggregations.AggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
-import org.elasticsearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
-import org.elasticsearch.search.aggregations.support.ValueType;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.elasticsearch.search.sort.SortOrder;
 import org.snomed.snowstorm.config.ElasticsearchConfig;
-import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -31,12 +25,11 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static java.lang.String.format;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 
 /**
  * Local utility for exploring content within Snowstorm indices.
@@ -48,7 +41,7 @@ public class CommitExplorer {
 	private final String indexNamePrefix;
 
 	private void run() {
-		listCommits("MAIN/SNOMEDCT-SE/SE/SE-578");
+		listCommits("MAIN/SNOMEDCT-US");
 		//listRecentVersions("209889006", Concept.class);
 //		listRecentVersions("890431008", Concept.class);
 		//listRecentVersions("646067016", Description.class);
@@ -99,10 +92,10 @@ public class CommitExplorer {
 				.withSort(SortBuilders.fieldSort("start").order(SortOrder.DESC))
 				.withPageable(PageRequest.of(0, size))
 				.build(), componentClass);
-		System.out.println(format("Latest %s versions of %s '%s'", searchHits.getTotalHits(), componentClass.getSimpleName(), id));
+		System.out.printf("Latest %s versions of %s '%s'%n", searchHits.getTotalHits(), componentClass.getSimpleName(), id);
 		for (SearchHit<T> hit : searchHits) {
 			T componentVersion = hit.getContent();
-			System.out.println(format("%s (%s) - %s - %s,%s - %s - %s",
+			System.out.printf("%s (%s) - %s - %s,%s - %s - %s%n",
 					componentVersion.getStartDebugFormat(),
 					componentVersion.getStart().getTime(),
 					componentVersion.getPath(),
@@ -110,9 +103,9 @@ public class CommitExplorer {
 					componentVersion.isReleased() ? "Released" : "",
 					componentVersion.getEnd() == null ? "Current version on branch" : format("Ended @ %s (%s)", componentVersion.getEndDebugFormat(), componentVersion.getEnd().getTime()),
 					format("ID:%s %s/%s/%s", componentVersion.getInternalId(), elasticsearchClusterHost, getTypeMapping(componentClass), componentVersion.getInternalId())
-			));
+			);
 		}
-		System.out.println(format("%s total", searchHits.getTotalHits()));
+		System.out.printf("%s total%n", searchHits.getTotalHits());
 	}
 
 	private <T extends SnomedComponent> String getTypeMapping(Class<T> componentClass) {
@@ -133,10 +126,10 @@ public class CommitExplorer {
 				.withSort(SortBuilders.fieldSort("start").order(SortOrder.DESC))
 				.withPageable(PageRequest.of(0, size))
 				.build(), Branch.class);
-		System.out.println(format("Latest %s commits on %s", branchVersions.getTotalHits(), path));
+		System.out.printf("Latest %s commits on %s%n", branchVersions.getSearchHits().size(), path);
 		for (SearchHit<Branch> hit : branchVersions) {
 			Branch branchVersion = hit.getContent();
-			System.out.println(format("%s (%s)", branchVersion.getStartDebugFormat(), branchVersion.getStart().getTime()));
+			System.out.printf("%s (%s, base %s)%n", branchVersion.getStartDebugFormat(), branchVersion.getStart().getTime(), branchVersion.getBaseTimestamp());
 			final SearchResponse searchResponse = template.execute(restHighLevelClient -> restHighLevelClient.search(new SearchRequest(new String[]{""},
 					new SearchSourceBuilder().query(boolQuery()
 							.must(termQuery("path", path))
@@ -147,8 +140,17 @@ public class CommitExplorer {
 			for (Terms.Bucket bucket : types.getBuckets()) {
 				System.out.printf(" - %s %s\n", bucket.getDocCount(), bucket.getKey());
 			}
+			final SearchHits<Branch> childBranches = template.search(new NativeSearchQueryBuilder()
+					.withQuery(
+							boolQuery()
+									.must(prefixQuery("path", path + "/"))
+									.must(termQuery("base", branchVersion.getHead()))
+									.mustNot(existsQuery("end"))
+					).build(), Branch.class);
+			final Set<String> childPaths = childBranches.getSearchHits().stream().map(childHit -> childHit.getContent().getPath()).collect(Collectors.toSet());
+			System.out.printf(" - %s children with this base: %s%n", childPaths.size(), childPaths);
 		}
-		System.out.println(format("%s total", branchVersions.getTotalHits()));
+		System.out.printf("%s total%n", branchVersions.getTotalHits());
 	}
 
 	private <T extends SnomedComponent> String getIdField(Class<T> componentClass) {
