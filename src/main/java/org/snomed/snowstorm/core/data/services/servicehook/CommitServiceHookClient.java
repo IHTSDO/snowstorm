@@ -69,10 +69,25 @@ public class CommitServiceHookClient implements CommitListener {
 			logRequest(commit, authenticationToken, commit.getBranch());
 			ResponseEntity<?> responseEntity = restTemplate.postForEntity("/integration/snowstorm/commit",
 					new HttpEntity<>(new CommitInformation(commit), httpHeaders), Void.class);
+			logger.info("External system returned HTTP status code {}.", responseEntity.getStatusCodeValue());
+		} catch (HttpClientErrorException.Conflict e) {
+			// External system indicates criteria has not been completed.
+			logger.error("External system indicates not all criteria have been completed.");
+			boolean promotion = commit.getCommitType().equals(Commit.CommitType.PROMOTION);
+			if (promotion && this.blockPromotion) {
+				logger.info("Promotion blocked as not all criteria have been completed; throwing exception.");
+				throw new RuntimeServiceException("Promotion blocked as not all criteria have been completed.", e);
+			} else if (promotion) {
+				logger.info("Promotion will go ahead, despite not all criteria being completed, as per configuration.");
+			}
 		} catch (RestClientException e) {
-			logger.error("Commit service hook failed for branch {}, commit {}, url {}, cookie {}",
-					commit.getBranch().getPath(), commit.getTimepoint().getTime(), serviceUrl,
-					obfuscateToken(authenticationToken), e);
+			// Cannot communicate with external system; perhaps lacking authentication or url configured incorrectly.
+			if (this.failIfError) {
+				logger.error("Cannot communicate with external system; throwing exception.");
+				throw new RuntimeServiceException("Cannot communicate with external system.", e);
+			} else {
+				logger.error("Cannot communicate with external system, however, failure will be ignored as per configuration.");
+			}
 		}
 	}
 
