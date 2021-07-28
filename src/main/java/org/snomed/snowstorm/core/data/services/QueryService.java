@@ -78,7 +78,7 @@ public class QueryService implements ApplicationContextAware {
 
 	private static final Function<Long, Object[]> CONCEPT_ID_SEARCH_AFTER_EXTRACTOR =
 			conceptId -> conceptId == null ? null : SearchAfterHelper.convertToTokenAndBack(new Object[]{conceptId});
-
+			
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public Page<ConceptMini> eclSearch(String ecl, boolean stated, String branchPath, PageRequest pageRequest) {
@@ -586,7 +586,7 @@ public class QueryService implements ApplicationContextAware {
 		public ConceptQueryBuilder descriptionCriteria(Consumer<DescriptionCriteria> descriptionCriteriaUpdater) {
 			descriptionCriteriaUpdater.accept(descriptionCriteria);
 			return this;
-		}
+		}	
 
 		ConceptQueryBuilder descriptionTerm(String term) {
 			descriptionCriteria.term(term);
@@ -623,7 +623,7 @@ public class QueryService implements ApplicationContextAware {
 
 		public DescriptionCriteria getDescriptionCriteria() {
 			return descriptionCriteria;
-		}
+		}	
 	}
 
 }
