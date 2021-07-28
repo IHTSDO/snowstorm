@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services.servicehook;
 
 import io.kaicode.elasticvc.api.CommitListener;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
@@ -11,6 +12,7 @@ import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.HttpClientErrorException;
@@ -24,15 +26,36 @@ public class CommitServiceHookClient implements CommitListener {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 	private final String serviceUrl;
+	private final boolean failIfError;
+	private final boolean blockPromotion;
 
-	public CommitServiceHookClient(@Value("${service-hook.commit.url}") String serviceUrl) {
+	public CommitServiceHookClient(@Value("${service-hook.commit.url}") String serviceUrl,
+								   @Value("${service-hook.commit.fail-if-error:true}") String failIfError,
+								   @Value("${service-hook.commit.block-promotion-if-error:false}") String blockPromotion) {
 		this.serviceUrl = serviceUrl;
+		this.failIfError = Boolean.parseBoolean(failIfError);
+		this.blockPromotion = Boolean.parseBoolean(blockPromotion);
 		if (!StringUtils.isEmpty(serviceUrl)) {
 			final RestTemplateBuilder builder = new RestTemplateBuilder()
 					.rootUri(serviceUrl);
 			restTemplate = builder.build();
 		} else {
+			logger.info("CommitServiceHookClient is muted as service url not configured.");
 			restTemplate = null;
+		}
+
+		if (restTemplate != null) {
+			if (this.failIfError) {
+				logger.info("Commits will fail if external system cannot be reached.");
+			} else {
+				logger.info("Commits will not fail if external system cannot be reached.");
+			}
+
+			if (this.blockPromotion) {
+				logger.info("Promotions will be blocked if an error is encountered.");
+			} else {
+				logger.info("Promotions will not be blocked if an error is encountered.");
+			}
 		}
 	}
 
@@ -42,28 +65,50 @@ public class CommitServiceHookClient implements CommitListener {
 			return;
 		}
 
-		final String authenticationToken = SecurityUtil.getAuthenticationToken();
 		try {
-			final HttpHeaders httpHeaders = new HttpHeaders();
-			httpHeaders.setContentType(MediaType.APPLICATION_JSON);
-			if (authenticationToken == null) {
-				logger.info("Authentication token is null.");
-			}
-			httpHeaders.add(HttpHeaders.COOKIE, authenticationToken);
-			restTemplate.postForEntity("/integration/snowstorm/commit",
+			String authenticationToken = SecurityUtil.getAuthenticationToken();
+			HttpHeaders httpHeaders = buildHttpHeaders(authenticationToken);
+			logRequest(commit, authenticationToken, commit.getBranch());
+			ResponseEntity<?> responseEntity = restTemplate.postForEntity("/integration/snowstorm/commit",
 					new HttpEntity<>(new CommitInformation(commit), httpHeaders), Void.class);
-		} catch (RestClientException e) {
-			logger.error("Commit service hook failed for branch {}, commit {}, url {}, cookie {}",
-					commit.getBranch().getPath(), commit.getTimepoint().getTime(), serviceUrl,
-					obfuscateToken(authenticationToken), e);
+			logger.info("External system returned HTTP status code {}.", responseEntity.getStatusCodeValue());
+		} catch (HttpClientErrorException.Conflict e) {
+			// External system indicates criteria has not been completed.
+			logger.error("External system indicates not all criteria have been completed.");
 			boolean promotion = commit.getCommitType().equals(Commit.CommitType.PROMOTION);
-			if (promotion && e instanceof HttpClientErrorException.Conflict) {
-				logger.error("Promotion blocked; not all criteria have been met.");
-				throw new RuntimeServiceException("Promotion blocked; not all criteria have been met.");
+			if (promotion && this.blockPromotion) {
+				logger.info("Promotion blocked as not all criteria have been completed; throwing exception.");
+				throw new RuntimeServiceException("Promotion blocked as not all criteria have been completed.", e);
+			} else if (promotion) {
+				logger.info("Promotion will go ahead, despite not all criteria being completed, as per configuration.");
 			}
-
-			throw e;
+		} catch (RestClientException e) {
+			// Cannot communicate with external system; perhaps lacking authentication or url configured incorrectly.
+			if (this.failIfError) {
+				logger.error("Cannot communicate with external system; throwing exception.");
+				throw new RuntimeServiceException("Cannot communicate with external system.", e);
+			} else {
+				logger.error("Cannot communicate with external system, however, failure will be ignored as per configuration.");
+			}
 		}
+	}
+
+	private HttpHeaders buildHttpHeaders(String authenticationToken) {
+		HttpHeaders httpHeaders = new HttpHeaders();
+		httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+		httpHeaders.add(HttpHeaders.COOKIE, authenticationToken);
+
+		return httpHeaders;
+	}
+
+	private void logRequest(Commit commit, String authenticationToken, Branch branch) {
+		Commit.CommitType commitType = commit.getCommitType();
+		logger.info("CommitType {} being sent to external system.", commitType);
+		logger.debug("CommitType: {}. Source Branch: {}. Target Branch: {}", commitType, commit.getSourceBranchPath(), branch.getPath());
+		logger.trace("Commit: {}", commit);
+		logger.trace("Branch: {}", branch);
+		logger.trace("Cookie: {}", obfuscateToken(authenticationToken));
+		logger.trace("Service URL: {}", serviceUrl);
 	}
 
 	private Object obfuscateToken(String authenticationToken) {
