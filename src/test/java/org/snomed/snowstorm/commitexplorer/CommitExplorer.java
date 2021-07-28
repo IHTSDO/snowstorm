@@ -119,7 +119,7 @@ public class CommitExplorer {
 	 * @param path The branch path.
 	 */
 	private void listCommits(String path) {
-		int size = 20;
+		int size = 5;
 		System.out.println();
 		SearchHits<Branch> branchVersions = template.search(new NativeSearchQueryBuilder()
 				.withQuery(termQuery("path", path))
@@ -129,17 +129,15 @@ public class CommitExplorer {
 		System.out.printf("Latest %s commits on %s%n", branchVersions.getSearchHits().size(), path);
 		for (SearchHit<Branch> hit : branchVersions) {
 			Branch branchVersion = hit.getContent();
-			System.out.printf("%s (%s, base %s)%n", branchVersion.getStartDebugFormat(), branchVersion.getStart().getTime(), branchVersion.getBaseTimestamp());
+			System.out.printf("%s (%s, base %s) versions replaced %s%n", branchVersion.getStartDebugFormat(), branchVersion.getStart().getTime(),
+					branchVersion.getBaseTimestamp(), branchVersion.getVersionsReplacedCounts());
 			final SearchResponse searchResponse = template.execute(restHighLevelClient -> restHighLevelClient.search(new SearchRequest(new String[]{""},
 					new SearchSourceBuilder().query(boolQuery()
 							.must(termQuery("path", path))
 							.must(termQuery("start", branchVersion.getHead())))
 							.aggregation(AggregationBuilders.terms("types").field("_type"))
 			), RequestOptions.DEFAULT));
-			final Terms types = searchResponse.getAggregations().get("types");
-			for (Terms.Bucket bucket : types.getBuckets()) {
-				System.out.printf(" - %s %s\n", bucket.getDocCount(), bucket.getKey());
-			}
+
 			final SearchHits<Branch> childBranches = template.search(new NativeSearchQueryBuilder()
 					.withQuery(
 							boolQuery()
@@ -148,7 +146,12 @@ public class CommitExplorer {
 									.mustNot(existsQuery("end"))
 					).build(), Branch.class);
 			final Set<String> childPaths = childBranches.getSearchHits().stream().map(childHit -> childHit.getContent().getPath()).collect(Collectors.toSet());
-			System.out.printf(" - %s children with this base: %s%n", childPaths.size(), childPaths);
+			System.out.printf(" > %s children with this base: %s%n", childPaths.size(), childPaths);
+
+			final Terms types = searchResponse.getAggregations().get("types");
+			for (Terms.Bucket bucket : types.getBuckets()) {
+				System.out.printf(" - %s %s\n", bucket.getDocCount(), bucket.getKey());
+			}
 		}
 		System.out.printf("%s total%n", branchVersions.getTotalHits());
 	}
