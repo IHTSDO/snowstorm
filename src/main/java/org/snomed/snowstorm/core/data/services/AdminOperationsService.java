@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.SearchLanguagesConfiguration;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.rf2.RF2Constants;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -648,7 +649,21 @@ public class AdminOperationsService {
 		try (Commit commit = branchService.openCommit(branchPath)) {
 			for (List<String> conceptIds : partition(unbatchedConceptIds, 1_000)) {
 
-				final List<Long> conceptIdsLongs = conceptIds.stream().map(Long::parseLong).collect(Collectors.toList());
+				Set<String> verifiedConceptIds = conceptIds.stream().filter(IdentifierService::isConceptId).collect(Collectors.toSet());
+
+				final Set<String> descriptionIds = conceptIds.stream().filter(IdentifierService::isDescriptionId).collect(Collectors.toSet());
+				if (!descriptionIds.isEmpty()) {
+					logger.info("Looking up concept id for {} descriptions.", descriptionIds.size());
+					final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
+					try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+							.withQuery(branchCriteria.getEntityBranchCriteria(Description.class).must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIds)))
+							.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
+							.build(), Description.class)) {
+						stream.forEachRemaining(hit -> verifiedConceptIds.add(hit.getContent().getConceptId()));
+					}
+				}
+
+				final List<Long> conceptIdsLongs = verifiedConceptIds.stream().map(Long::parseLong).collect(Collectors.toList());
 
 				Map<String, Concept> conceptsToFix = conceptService.find(conceptIdsLongs, null, branchPath, LARGE_PAGE).stream()
 						.collect(Collectors.toMap(Concept::getConceptId, Function.identity()));
@@ -661,7 +676,7 @@ public class AdminOperationsService {
 								.collect(Collectors.toMap(Concept::getConceptId, Function.identity()))
 						: new HashMap<>();
 
-				for (String conceptId : conceptIds) {
+				for (String conceptId : verifiedConceptIds) {
 					logger.info("Restoring components of {} on branch {}.", conceptId, branchPath);
 
 					Concept conceptToFix = conceptsToFix.get(conceptId);
