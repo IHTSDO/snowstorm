@@ -3,14 +3,45 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## 7.1.0 -
-
-.. TODO
+## 7.1.2 Release (July 2021)
+Maintenance release with a couple of new features and many improvements and fixes.
 
 ### Breaking
-- Admin function to restore release flags has parameter changes
-  - An alternate release branch can no longer be specified
-    because any dependant release branch is now looked up, and the effectiveComponents resolved, automatically.
+- Admin function to restore release flags now accepts less parameters because the dependant release branch is now looked up automatically.
+
+### Features
+- Authoring
+  - FRI-60 Maintain classification status flag for all branches when authoring. This prevents the need to classify description changes.
+  - FRI-61 Add service hook to send commit information to Authoring Acceptance Gateway or other service.
+
+### Improvements
+- BROWSE-415 Update default search config for Spanish language, all characters folded.
+  - Admin function to reindex descriptions must be used to apply config change to existing data.
+- MAINT-1671 Add Code System "owner" field for display purposes. Added API function to set all owners, from all known defaults in config.
+- MAINT-1649 Add module filter to aggregated refset member search.
+- MAINT-1268 Show dependant version effectiveTime when viewing a CodeSystem. 
+- RT2-56 Add refset filter to RF2 export.
+- RP-475 Add bulk feature for finding refset members
+- MAINT-1657 allow "Accept Language" header formats with more than two characters in the dialect.
+- FHIR
+  - MAINT-1663 Add support for version element in ValueSet compose.
+  - MAINT-1354 Add support for FHIR to return results past 10K.
+  - Fix #285 Allow disjunction in FHIR filters. Also correct expansion item count and warp when skipping forward pages
+  - MAINT-1575 Documentation: Clarify use of xsct in ValueSet expansion url parameter. 
+- Authoring
+  - MAINT-1667 Add admin function to clean up inactive inferred relationships during an authoring cycle.
+  - FRI-101 Drools validation failures now include unique ruleId, to be used in whitelisting.
+
+### Fixes
+- Fix #278 BROWSE-436 Allow whitespace in Accept-Language HTTP header.
+- FHIR
+  - MAINT-1660 Fix regression for CodeSystem operations on unpublished content via http://snomed.info/xsct.
+- Authoring
+  - MAINT-1416 Do not apply default module if record matches previously released version.
+  - MAINT-1642 Fix partial commit rollback function.
+  - MAINT-1666 Fix release flag restore when there is no dependant release.
+  - FRI-128 Consistently keep user security-context whenever switching to a new thread.
+  - MAINT-1692 Refactored integrity-issue branch metadata flag for extension upgrade.
 
 
 ## 7.0.1 Release (May 2021) - Major Release for Java 11
