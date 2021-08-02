@@ -25,7 +25,7 @@
 		Current Elasticsearch _Server_ version supported by AWS is 7.7.0
 		N.B. Remember to keep TestConfig.ELASTIC_SEARCH_SERVER_VERSION and getting-started guide updated.
 		-->
-		<elasticvc.version>3.1.1</elasticvc.version>
+		<elasticvc.version>3.1.2-SNAPSHOT</elasticvc.version>
 		<elasticsearch.version>7.7.0</elasticsearch.version>
 
 		<spring-boot.version>${project.parent.version}</spring-boot.version>
