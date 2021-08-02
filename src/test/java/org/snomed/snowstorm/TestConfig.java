@@ -72,7 +72,7 @@ public class TestConfig extends Config {
 
 	public static class SnowstormElasticsearchContainer extends ElasticsearchContainer {
 		public SnowstormElasticsearchContainer() {
-			super("elasticsearch:" + ELASTIC_SEARCH_SERVER_VERSION);
+			super("docker.elastic.co/elasticsearch/elasticsearch:" + ELASTIC_SEARCH_SERVER_VERSION);
 			// these are mapped ports used by the test container the actual ports used might be different
 			this.addFixedExposedPort(9235, 9235);
 			this.addFixedExposedPort(9330, 9330);
