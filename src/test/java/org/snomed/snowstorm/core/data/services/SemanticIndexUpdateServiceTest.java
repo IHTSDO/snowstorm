@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.CommitListener;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -1065,6 +1066,10 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		assertEquals(1, eclSearchForIds("300000001:" + FINDING_SITE + "=*", "MAIN/A").size());
 	}
 
+	private void addRelationship(Concept concept, String type, Concept target, String branch) throws ServiceException {
+		addRelationship(concept.getConceptId(), type, target.getConceptId(), branch);
+	}
+
 	private void addRelationship(String conceptId, String type, String target, String branch) throws ServiceException {
 		final Concept concept = conceptService.find(conceptId, branch);
 		concept.addRelationship(new Relationship(type, target));
@@ -1242,7 +1247,39 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 		conceptService.batchCreate(concepts, path);
 		// ECL query will return 1 result
 		assertEquals(1, queryService.search(queryService.createQueryBuilder(false).ecl("<<34020008:396070083 = #100"), path, PageRequest.of(0,1)).getTotalElements());
+	}
 
+	@Test
+	void testProjectVersionsReplacedRebase() throws ServiceException {
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		Concept n11 = new Concept("1000011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+		Concept n12 = new Concept("1000012").addRelationship(new Relationship(ISA, n11.getId()));
+		Concept n13 = new Concept("1000013").addRelationship(new Relationship(ISA, n12.getId()));
+		Concept n14 = new Concept("1000014").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT));
+
+		String branch = "MAIN";
+		conceptService.batchCreate(Lists.newArrayList(root, n11, n12, n13, n14), branch);
+
+		assertTC(n14, "MAIN", root);
+
+		branchService.create("MAIN/A");
+		addRelationship(n14, ISA, n12, "MAIN/A");
+		assertTC(n14, "MAIN/A", n12, n11, root);
+		final Date projectCommit1 = branchService.findBranchOrThrow("MAIN/A").getHead();
+		assertEquals(1, branchService.findAtTimepointOrThrow("MAIN/A", projectCommit1)
+				.getVersionsReplacedCounts().get(QueryConcept.class.getSimpleName()));
+
+		branchService.create("MAIN/A/A1");
+		addRelationship(n14, ISA, n13, "MAIN/A/A1");
+		assertTC(n14, "MAIN/A/A1", n13, n12, n11, root);
+
+		addRelationship(n14, ISA, n13, "MAIN");
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.singleton(conceptService.find(n14.getConceptId(), "MAIN")));
+
+		assertEquals(1, branchService.findAtTimepointOrThrow("MAIN/A", projectCommit1)
+				.getVersionsReplacedCounts().get(QueryConcept.class.getSimpleName()), "Versions replaced within old commit must stay intact.");
+
+		assertTC(n14, "MAIN/A/A1", n13, n12, n11, root);
 	}
 
 	private void simulateRF2Import(String path, List<Concept> concepts) {
