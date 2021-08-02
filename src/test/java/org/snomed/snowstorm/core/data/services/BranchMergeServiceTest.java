@@ -14,7 +14,6 @@ import io.kaicode.elasticvc.domain.Metadata;
 import org.assertj.core.util.Maps;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -1209,7 +1208,6 @@ class BranchMergeServiceTest extends AbstractTest {
 
 	}
 
-	@NotNull
 	private Supplier<String> printCollection(Page<ReferenceSetMember> finalDescriptionMembers) {
 		return () -> {
 			finalDescriptionMembers.stream().forEach(System.out::println);
@@ -1323,7 +1321,6 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(4, memberService.findMembers("MAIN/A", descriptionId, LARGE_PAGE).getTotalElements());
 	}
 
-	@NotNull
 	private <T> Supplier<String> itemsToString(String message, Iterable<T> items) {
 		return () -> {
 			final StringBuilder builder = new StringBuilder(message);
