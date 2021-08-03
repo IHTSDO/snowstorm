@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Java 8
+- Java 11
 - Maven 3
 - [SNOMED CT International Edition RF2 release files](https://www.snomed.org/snomed-ct/get-snomed)
 - About 8G of memory
