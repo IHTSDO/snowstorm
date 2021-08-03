@@ -95,10 +95,11 @@ public class ImportController {
 	@RequestMapping(value = "/release-patch", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('AUTHOR', #importPatchRequest.branchPath)")
 	public ResponseEntity<Void> createReleasePatchImportJob(@RequestBody ImportPatchCreationRequest importPatchRequest) {
+		ControllerHelper.requiredParam(importPatchRequest.getType(), "type");
 		ControllerHelper.requiredParam(importPatchRequest.getBranchPath(), "branchPath");
 		ControllerHelper.requiredParam(importPatchRequest.getPatchReleaseVersion(), "patchReleaseVersion");
 
-		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(RF2Type.DELTA, importPatchRequest.getBranchPath());
+		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(importPatchRequest.getType(), importPatchRequest.getBranchPath());
 		importConfiguration.setPatchReleaseVersion(importPatchRequest.getPatchReleaseVersion());
 		String id = importService.createJob(importConfiguration);
 		HttpHeaders httpHeaders = new HttpHeaders();
