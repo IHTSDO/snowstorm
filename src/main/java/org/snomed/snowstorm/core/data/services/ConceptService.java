@@ -236,7 +236,7 @@ public class ConceptService extends ComponentService {
 	public Collection<String> getNonExistentConceptIds(Collection<String> ids, BranchCriteria branchCriteria) {
 		final BoolQueryBuilder builder = boolQuery()
 				.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-				.must(termsQuery("conceptId", ids));
+				.must(termsQuery(Concept.Fields.CONCEPT_ID, ids));
 
 		Set<String> conceptsNotFound = new HashSet<>(ids);
 		try (final SearchHitsIterator<Concept> conceptStream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
@@ -254,11 +254,6 @@ public class ConceptService extends ComponentService {
 
 	public Page<Concept> findAll(String path, List<LanguageDialect> languageDialects, PageRequest pageRequest) {
 		return doFind(null, languageDialects, new BranchTimepoint(path), pageRequest);
-	}
-
-	private Page<Concept> doFind(Collection<?> conceptIds, List<LanguageDialect> languageDialects, Commit commit, PageRequest pageRequest) {
-		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-		return doFind(conceptIds, languageDialects, branchCriteria, pageRequest, true, true, null);
 	}
 
 	private Page<Concept> doFind(Collection<?> conceptIds, List<LanguageDialect> languageDialects, BranchTimepoint branchTimepoint, PageRequest pageRequest) {
@@ -505,6 +500,7 @@ public class ConceptService extends ComponentService {
 		return conceptMiniMap.computeIfAbsent(id, i -> new ConceptMini(id, languageDialects));
 	}
 
+	// Used by tests
 	public Concept create(Concept conceptVersion, String path) throws ServiceException {
 		return create(conceptVersion, DEFAULT_LANGUAGE_DIALECTS, path);
 	}
@@ -517,11 +513,9 @@ public class ConceptService extends ComponentService {
 		return doSave(conceptVersion, languageDialects, branch);
 	}
 
+	// Used by tests
 	public Iterable<Concept> batchCreate(List<Concept> concepts, String path) throws ServiceException {
-		return batchCreate(concepts, DEFAULT_LANGUAGE_DIALECTS, path);
-	}
-
-	public Iterable<Concept> batchCreate(List<Concept> concepts, List<LanguageDialect> languageDialects, String path) throws ServiceException {
+		final List<LanguageDialect> languageDialects = DEFAULT_LANGUAGE_DIALECTS;
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final Set<String> conceptIds = concepts.stream().map(Concept::getConceptId).filter(Objects::nonNull).collect(Collectors.toSet());
 		if (!conceptIds.isEmpty()) {
@@ -744,7 +738,8 @@ public class ConceptService extends ComponentService {
 		final List<String> conceptIds = concepts.stream().map(Concept::getConceptId).filter(Objects::nonNull).collect(Collectors.toList());
 		if (!conceptIds.isEmpty()) {
 			for (List<String> conceptIdPartition : Iterables.partition(conceptIds, 500)) {
-				final List<Concept> existingConcepts = doFind(conceptIdPartition, DEFAULT_LANGUAGE_DIALECTS, commit, PageRequest.of(0, conceptIds.size())).getContent();
+				final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+				final List<Concept> existingConcepts = doFind(conceptIdPartition, DEFAULT_LANGUAGE_DIALECTS, branchCriteria, PageRequest.of(0, conceptIds.size()), true, true, null).getContent();
 				for (Concept existingConcept : existingConcepts) {
 					existingConceptsMap.put(existingConcept.getConceptId(), existingConcept);
 				}
@@ -768,7 +763,7 @@ public class ConceptService extends ComponentService {
 		return existingSourceConceptsMap;
 	}
 
-	public void deleteAll() {
+	public void deleteAll() throws InterruptedException {
 		ExecutorService executorService = Executors.newCachedThreadPool();
 		List<Future<?>> futures = Lists.newArrayList(
 				executorService.submit(() -> conceptRepository.deleteAll()),
@@ -783,10 +778,10 @@ public class ConceptService extends ComponentService {
 		executorService.shutdown();
 	}
 
-	private void getFutureWithTimeoutOrCancel(Future<?> future, int index) {
+	private void getFutureWithTimeoutOrCancel(Future<?> future, int index) throws InterruptedException {
 		try {
 			future.get(20, TimeUnit.SECONDS);
-		} catch (InterruptedException | ExecutionException | TimeoutException e) {
+		} catch (ExecutionException | TimeoutException e) {
 			logger.info("Canceling deletion of type {}.", index);
 			future.cancel(true);
 		}

@@ -48,7 +48,7 @@ public class PersistedComponents {
 		return persistedReferenceSetMembers;
 	}
 
-	public static Builder newBuilder() {
+	public static Builder builder() {
 		return new Builder();
 	}
 

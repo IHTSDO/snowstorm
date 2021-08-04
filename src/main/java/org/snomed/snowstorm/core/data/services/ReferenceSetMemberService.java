@@ -295,7 +295,7 @@ public class ReferenceSetMemberService extends ComponentService {
 					}
 				});
 
-		if (descriptionIds.size() != 0) {
+		if (!descriptionIds.isEmpty()) {
 			// Lookup the conceptId of members which are considered part of the description
 			final NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder();
 
@@ -303,8 +303,9 @@ public class ReferenceSetMemberService extends ComponentService {
 			for (List<Long> descriptionIdsSegment : Iterables.partition(descriptionIds, CLAUSE_LIMIT)) {
 				queryBuilder
 						.withQuery(boolQuery()
-								.must(termsQuery("descriptionId", descriptionIdsSegment))
+								.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsSegment))
 								.must(versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit).getEntityBranchCriteria(Description.class)))
+						.withFields(Description.Fields.CONCEPT_ID, Description.Fields.DESCRIPTION_ID)
 						.withPageable(LARGE_PAGE);
 				try (final SearchHitsIterator<Description> descriptions = elasticsearchTemplate.searchForStream(queryBuilder.build(), Description.class)) {
 					descriptions.forEachRemaining(description ->

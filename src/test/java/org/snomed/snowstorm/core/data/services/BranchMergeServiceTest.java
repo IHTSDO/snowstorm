@@ -103,7 +103,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	private ObjectMapper objectMapper;
 
 	@BeforeEach
-	void setup() throws ServiceException {
+	void setup() throws ServiceException, InterruptedException {
 		conceptService.deleteAll();
 
 		branchService.updateMetadata("MAIN", new Metadata().putString(BranchMetadataKeys.ASSERTION_GROUP_NAMES, "common-authoring"));
@@ -123,7 +123,7 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@AfterEach
-	void tearDown() {
+	void tearDown() throws InterruptedException {
 		conceptService.deleteAll();
 		traceabilityLogService.setEnabled(false);
 	}
@@ -147,7 +147,10 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// Promote to A
 		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", null);
-		assertEquals("test-admin performed merge of MAIN/A/A1 to MAIN/A", getLatestTraceabilityCommitComment());
+		Activity activity = getLatestTraceabilityActivity();
+		assertEquals(Activity.MergeOperation.PROMOTE, activity.getMergeOperation());
+		assertEquals("MAIN/A/A1", activity.getSourceBranch());
+		assertEquals("MAIN/A", activity.getBranchPath());
 		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
 		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.FORWARD, conceptId, true);
 		assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.UP_TO_DATE, conceptId, true);
@@ -165,7 +168,10 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(branchA2BeforeRebase.getBase(), branchService.findAtTimepointOrThrow("MAIN/A/A2", beforeRebaseTimepoint).getBase(), "The base timepoint of the original version of the branch should not have changed."
 		);
 
-		assertEquals("test-admin performed merge of MAIN/A to MAIN/A/A2", getLatestTraceabilityCommitComment());
+		activity = getLatestTraceabilityActivity();
+		assertEquals(Activity.MergeOperation.REBASE, activity.getMergeOperation());
+		assertEquals("MAIN/A", activity.getSourceBranch());
+		assertEquals("MAIN/A/A2", activity.getBranchPath());
 		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
 		assertBranchStateAndConceptVisibility("MAIN/A", Branch.BranchState.FORWARD, conceptId, true);
 		assertBranchStateAndConceptVisibility("MAIN/A/A1", Branch.BranchState.UP_TO_DATE, conceptId, true);
@@ -211,8 +217,8 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertBranchStateAndConceptVisibility("MAIN/A/A2", Branch.BranchState.BEHIND, conceptId, true);
 	}
 
-	private String getLatestTraceabilityCommitComment() {
-		return activities.get(activities.size() - 1).getCommitComment();
+	private Activity getLatestTraceabilityActivity() {
+		return activities.get(activities.size() - 1);
 	}
 
 	@Test

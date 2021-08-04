@@ -1328,7 +1328,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	}
 
 	@AfterEach
-	void teardown() {
+	void teardown() throws InterruptedException {
 		conceptService.deleteAll();
 	}
 }

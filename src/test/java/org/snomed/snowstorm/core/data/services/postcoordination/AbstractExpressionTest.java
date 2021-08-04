@@ -81,7 +81,7 @@ public abstract class AbstractExpressionTest extends AbstractTest {
     }
 
     @AfterEach
-    public void tearDown() {
+    public void tearDown() throws InterruptedException {
         conceptService.deleteAll();
     }
 }

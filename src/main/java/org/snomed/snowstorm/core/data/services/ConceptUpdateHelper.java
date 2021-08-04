@@ -194,7 +194,8 @@ public class ConceptUpdateHelper extends ComponentService {
 
 				// Description acceptability / language reference set changes
 				Set<ReferenceSetMember> newMembers = new HashSet<>();
-				for (Map.Entry<String, String> acceptability : description.getAcceptabilityMap().entrySet()) {
+				final Map<String, String> acceptabilityMap = description.getAcceptabilityMap();
+				for (Map.Entry<String, String> acceptability : acceptabilityMap.entrySet()) {
 					final String languageRefsetId = acceptability.getKey();
 					final String acceptabilityId = Concepts.descriptionAcceptabilityNames.inverse().get(acceptability.getValue());
 					if (acceptabilityId == null) {

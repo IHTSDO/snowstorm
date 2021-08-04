@@ -78,7 +78,7 @@ public abstract class AbstractTest {
 	}
 
 	@AfterEach
-	void defaultTearDown() {
+	void defaultTearDown() throws InterruptedException {
 		branchService.deleteAll();
 		conceptService.deleteAll();
 		codeSystemService.deleteAll();
@@ -108,16 +108,16 @@ public abstract class AbstractTest {
 
 	@JmsListener(destination = "${jms.queue.prefix}.traceability")
 	void messageConsumer(Activity activity) {
-		System.out.println("Got activity " + activity.getCommitComment());
+		System.out.println("Got activity " + activity.getBranchPath());
 		traceabilityActivitiesLogged.push(activity);
 	}
 
 	public Activity getTraceabilityActivity() throws InterruptedException {
 		return getTraceabilityActivityWithTimeout(20);
 	}
-	public Activity getTraceabilityActivityWithTimeout(int maxWait) throws InterruptedException {
+	public Activity getTraceabilityActivityWithTimeout(int maxWaitSeconds) throws InterruptedException {
 		int waited = 0;
-		while (traceabilityActivitiesLogged.isEmpty() && waited < maxWait) {
+		while (traceabilityActivitiesLogged.isEmpty() && waited < maxWaitSeconds) {
 			Thread.sleep(1_000);
 			waited++;
 		}

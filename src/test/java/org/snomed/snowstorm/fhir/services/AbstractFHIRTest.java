@@ -68,13 +68,13 @@ public abstract class AbstractFHIRTest {
 
 	@Autowired
 	protected ConceptService conceptService;
-	
+
 	@Autowired
 	protected CodeSystemService codeSystemService;
-	
+
 	@Autowired
 	protected ReferenceSetMemberService memberService;
-	
+
 	@Autowired
 	protected CodeSystemConfigurationService codeSystemConfigurationService;
 
@@ -90,20 +90,19 @@ public abstract class AbstractFHIRTest {
 	protected final String MAIN = "MAIN";
 	static String baseUrl;
 	static HttpHeaders headers;
-	
+
 	static protected IParser fhirJsonParser;
 	static HttpEntity<String> defaultRequestEntity;
 	static boolean setupComplete = false;
 	static ObjectMapper mapper = new ObjectMapper();
 
 	protected final Logger logger = LoggerFactory.getLogger(getClass());
-	protected static final Logger slogger = LoggerFactory.getLogger(AbstractFHIRTest.class);
-	
+
 	private static final int TOTAL_TEST_CLASSES = 7;
 	private static int testClassesRun = 0;
 
 	@AfterAll
-	void finalTearDown() {
+	void finalTearDown() throws InterruptedException {
 		if (testClassesRun >= TOTAL_TEST_CLASSES) {
 			logger.warn("Digging up the Potatoes - if tests have not completed, increment TOTAL_TEST_CLASSES");
 			branchService.deleteAll();
@@ -113,7 +112,7 @@ public abstract class AbstractFHIRTest {
 	}
 
 	@BeforeAll
-	void setup() throws ServiceException, InterruptedException {
+	void setup() throws ServiceException {
 		testClassesRun++;
 		if (setupComplete) {
 			return;

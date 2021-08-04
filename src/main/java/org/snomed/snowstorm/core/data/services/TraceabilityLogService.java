@@ -3,21 +3,19 @@ package org.snomed.snowstorm.core.data.services;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Iterables;
+import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.CommitListener;
-import io.kaicode.elasticvc.api.PathUtil;
+import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Commit;
 import it.unimi.dsi.fastutil.longs.Long2ObjectArrayMap;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.SnomedComponent;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
@@ -25,25 +23,33 @@ import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHitsIterator;
+import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
-import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
-import static io.kaicode.elasticvc.domain.Commit.CommitType.PROMOTION;
+import static io.kaicode.elasticvc.api.ComponentService.CLAUSE_LIMIT;
+import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
+import static io.kaicode.elasticvc.domain.Commit.CommitType.*;
 import static java.lang.Long.parseLong;
+import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 
 @Service
 public class TraceabilityLogService implements CommitListener {
+
+	private static final String INFERRED_RELATIONSHIP = "INFERRED_RELATIONSHIP";
+	private static final String STATED_RELATIONSHIP = "STATED_RELATIONSHIP";
 
 	@Autowired
 	private JmsTemplate jmsTemplate;
@@ -59,6 +65,12 @@ public class TraceabilityLogService implements CommitListener {
 
 	@Autowired
 	private TraceabilityLogServiceHelper traceabilityLogServiceHelper;
+
+	@Autowired
+	private ElasticsearchOperations elasticsearchTemplate;
+
+	@Autowired
+	private VersionControlHelper versionControlHelper;
 
 	private Consumer<Activity> activityConsumer;
 
@@ -96,7 +108,7 @@ public class TraceabilityLogService implements CommitListener {
 	}
 
 	private PersistedComponents buildPersistedComponents(final Commit commit) {
-		return PersistedComponents.newBuilder().withPersistedConcepts(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, Concept.class))
+		return PersistedComponents.builder().withPersistedConcepts(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, Concept.class))
 				.withPersistedDescriptions(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, Description.class))
 				.withPersistedRelationships(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, Relationship.class))
 				.withPersistedReferenceSetMembers(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, ReferenceSetMember.class)).build();
@@ -124,20 +136,20 @@ public class TraceabilityLogService implements CommitListener {
 	 * on these states, the <code>useChangeFlag</code> should be set accordingly.
 	 *
 	 * @param userId                       The Id of the user.
-	 * @param commit                       The commit which contains the {@link RF2Type#DELTA} import.
-	 * @param batchSavePersistedComponents Contains all the persisted components.
+	 * @param commit                       The commit which contains any type of change.
+	 * @param persistedComponents          Contains all the persisted components.
 	 * @param useChangeFlag                Used to determine whether the {@code changed} and
 	 *                                     {@code deleted} should be used when doing comparison between what has changed.
 	 * @param commitPrefix                 The prefix of the commit.
 	 */
-	void logActivity(String userId, final Commit commit, final PersistedComponents batchSavePersistedComponents, boolean useChangeFlag, final String commitPrefix) {
+	void logActivity(String userId, final Commit commit, final PersistedComponents persistedComponents, boolean useChangeFlag, final String commitPrefix) {
 
 		if (!enabled) {
 			return;
 		}
 
-		if (batchSavePersistedComponents == null) {
-			logger.debug("Persisted components should not be null when writing to the traceability log.");
+		if (persistedComponents == null) {
+			logger.error("Persisted components should not be null when writing to the traceability log.");
 			return;
 		}
 
@@ -145,79 +157,49 @@ public class TraceabilityLogService implements CommitListener {
 			userId = Config.SYSTEM_USERNAME;
 		}
 
-		Iterable<Concept> persistedConcepts = batchSavePersistedComponents.getPersistedConcepts();
-		Iterable<Description> persistedDescriptions = batchSavePersistedComponents.getPersistedDescriptions();
-		Iterable<Relationship> persistedRelationships = batchSavePersistedComponents.getPersistedRelationships();
-		Iterable<ReferenceSetMember> persistedReferenceSetMembers = batchSavePersistedComponents.getPersistedReferenceSetMembers();
-
-		Set<Concept> concepts = StreamSupport.stream(persistedConcepts.spliterator(), false).collect(Collectors.toSet());
+		Iterable<Concept> persistedConcepts = persistedComponents.getPersistedConcepts();
+		Iterable<Description> persistedDescriptions = persistedComponents.getPersistedDescriptions();
+		Iterable<Relationship> persistedRelationships = persistedComponents.getPersistedRelationships();
+		Iterable<ReferenceSetMember> persistedReferenceSetMembers = persistedComponents.getPersistedReferenceSetMembers();
 
 		Activity activity = new Activity(userId, commit.getBranch().getPath(), commit.getTimepoint().getTime());
+		if (commit.getCommitType() == REBASE) {
+			activity.setBranchOperation(Activity.MergeOperation.REBASE, commit.getSourceBranchPath());
+		} else if (commit.getCommitType() == PROMOTION) {
+			activity.setBranchOperation(Activity.MergeOperation.PROMOTE, commit.getSourceBranchPath());
+		}
+
 		Map<Long, Activity.ConceptActivity> activityMap = new Long2ObjectArrayMap<>();
 		Map<Long, Long> componentToConceptIdMap = new Long2ObjectArrayMap<>();
-		for (Concept concept : concepts) {
-			Activity.ConceptActivity conceptActivity = addActivityForConcept(activity, concept, activityMap);
+		for (Concept concept : persistedConcepts) {
 			if (!useChangeFlag || (concept.isChanged() || concept.isDeleted())) {
-				conceptActivity.addComponentChange(getChange(concept)).statedChange();
+				getConceptActivityForComponent(activity, activityMap, concept.getConceptIdAsLong()).addComponentChange(getChange(concept));
 			}
 		}
 		for (Description description : persistedDescriptions) {
 			final long conceptId = parseLong(description.getConceptId());
 			if (!useChangeFlag || (description.isChanged() || description.isDeleted())) {
-				final Activity.ComponentChange change = getChange(description);
-				final Activity.ConceptActivity conceptActivity = getConceptActivityForComponent(useChangeFlag, activity, activityMap, conceptId);
-				if (conceptActivity != null) {
-					conceptActivity.addComponentChange(change).statedChange();
-				}
+				getConceptActivityForComponent(activity, activityMap, conceptId).addComponentChange(getChange(description));
 			}
 			componentToConceptIdMap.put(parseLong(description.getDescriptionId()), conceptId);
 		}
 		for (Relationship relationship : persistedRelationships) {
 			final long sourceId = parseLong(relationship.getSourceId());
 			if (!useChangeFlag || (relationship.isChanged() || relationship.isDeleted())) {
-				final Activity.ConceptActivity conceptActivity = getConceptActivityForComponent(useChangeFlag, activity, activityMap, sourceId);
-				if (conceptActivity != null) {
-					conceptActivity
-							.addComponentChange(getChange(relationship))
-							.addStatedChange(!Concepts.INFERRED_RELATIONSHIP.equals(relationship.getCharacteristicTypeId()));
-				}
+				getConceptActivityForComponent(activity, activityMap, sourceId).addComponentChange(getChange(relationship));
 			}
 			componentToConceptIdMap.put(parseLong(relationship.getRelationshipId()), sourceId);
 		}
-		for (ReferenceSetMember refsetMember : persistedReferenceSetMembers) {
-			if (!useChangeFlag || (refsetMember.isChanged() || refsetMember.isDeleted())) {
-				String referencedComponentId = refsetMember.getReferencedComponentId();
-				String componentId = referencedComponentId;
-				long referencedComponentLong = parseLong(referencedComponentId);
-				Activity.ConceptActivity conceptActivity = null;
-				String componentType = null;
-				if (IdentifierService.isConceptId(referencedComponentId)) {
-					conceptActivity = getConceptActivityForComponent(useChangeFlag, activity, activityMap, referencedComponentLong);
-					Map<String, String> additionalFields = refsetMember.getAdditionalFields();
-					if (additionalFields != null && additionalFields.size() == 1 && additionalFields.containsKey(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION)) {
-						componentType = "OWLAxiom";
-						componentId = refsetMember.getMemberId();
-					} else {
-						componentType = "Concept";
-					}
-				} else {
-					Long conceptId = componentToConceptIdMap.get(referencedComponentLong);
-					if (IdentifierService.isDescriptionId(referencedComponentId)) {
-						componentType = "Description";
-					} else if (IdentifierService.isRelationshipId(referencedComponentId)) {
-						componentType = "Relationship";
-					}
-					if (conceptId != null) {
-						conceptActivity = getConceptActivityForComponent(useChangeFlag, activity, activityMap, conceptId);
-					}
-				}
-				if (conceptActivity != null && componentType != null) {
-					conceptActivity.addComponentChange(new Activity.ComponentChange(
-							componentType,
-							componentId,
-							"UPDATE"))
-							.statedChange();
-				}
+
+		// Deal with members that refer to descriptions or relationships by looking up their concepts.
+		final Map<Long, List<ReferenceSetMember>> conceptMembersMap =
+				filterRefsetMembersAndLookupComponentConceptIds(persistedReferenceSetMembers, useChangeFlag, commit, componentToConceptIdMap);
+
+		// Record all refset members against concept activities
+		for (Map.Entry<Long, List<ReferenceSetMember>> entry : conceptMembersMap.entrySet()) {
+			final Activity.ConceptActivity conceptActivityForComponent = getConceptActivityForComponent(activity, activityMap, entry.getKey());
+			for (ReferenceSetMember referenceSetMember : entry.getValue()) {
+				conceptActivityForComponent.addComponentChange(getChange(referenceSetMember));
 			}
 		}
 
@@ -228,35 +210,29 @@ public class TraceabilityLogService implements CommitListener {
 			return;
 		}
 
-		boolean anyStatedChanges = false;
+		// Limit the number of inferred relationship changes logged
+		long inferredChangesAccepted = 0;
+		List<String> conceptChangesToRemove = new ArrayList<>();
+		for (Activity.ConceptActivity conceptActivity : activityMap.values()) {
+			if (inferredChangesAccepted > inferredMax) {
+				// Remove activities with only inferred changes
+				if (!conceptActivity.getChanges().stream().anyMatch(componentChange -> !componentChange.getChangeType().equals(INFERRED_RELATIONSHIP))) {
+					conceptChangesToRemove.add(conceptActivity.getConceptId());
+				}
+			} else {
+				inferredChangesAccepted += conceptActivity.getChanges().stream().filter(componentChange -> componentChange.getChangeType().equals(INFERRED_RELATIONSHIP)).count();
+			}
+		}
+		conceptChangesToRemove.forEach(changes::remove);
+
 		if (!activityMap.isEmpty()) {
 			List<Long> conceptsWithNoChange = new LongArrayList();
 			for (Activity.ConceptActivity conceptActivity : activityMap.values()) {
 				if (conceptActivity.getChanges().isEmpty()) {
-					conceptsWithNoChange.add(conceptActivity.getConcept().getConceptIdAsLong());
-				} else if (conceptActivity.isStatedChange()) {
-					anyStatedChanges = true;
+					conceptsWithNoChange.add(conceptActivity.getConceptIdAsLong());
 				}
 			}
 			conceptsWithNoChange.stream().map(Object::toString).forEach(changes::remove);
-		}
-
-		activity.setCommitComment(createCommitComment(userId, commit, concepts, anyStatedChanges, commitPrefix));
-
-		if (activityMap.size() > inferredMax) {
-			// Limit the number of inferred changes recorded
-			List<String> conceptChangesToRemove = new ArrayList<>();
-			int inferredChangesAccepted = 0;
-			for (Activity.ConceptActivity conceptActivity : activityMap.values()) {
-				if (!conceptActivity.isStatedChange()) {
-					if (inferredChangesAccepted < inferredMax) {
-						inferredChangesAccepted++;
-					} else {
-						conceptChangesToRemove.add(conceptActivity.getConcept().getConceptId());
-					}
-				}
-			}
-			conceptChangesToRemove.forEach(changes::remove);
 		}
 
 		try {
@@ -268,37 +244,130 @@ public class TraceabilityLogService implements CommitListener {
 		activityConsumer.accept(activity);
 	}
 
-	private Activity.ConceptActivity getConceptActivityForComponent(boolean useChangeFlag, Activity activity, Map<Long, Activity.ConceptActivity> activityMap, long conceptId) {
-		// If using the change flag we expect component changes to be made using a concept
-		// but when the flag is false we should automatically create activity map entries for any missing concepts.
-		final Activity.ConceptActivity conceptActivity = useChangeFlag ? activityMap.get(conceptId) : activityMap.computeIfAbsent(conceptId,
-				(id) -> addActivityForConcept(activity, new Concept(conceptId + ""), activityMap));
-		return conceptActivity;
-	}
+	private Map<Long, List<ReferenceSetMember>> filterRefsetMembersAndLookupComponentConceptIds(Iterable<ReferenceSetMember> persistedReferenceSetMembers, boolean useChangeFlag,
+			Commit commit, Map<Long, Long> componentToConceptIdMap) {
 
-	private Activity.ConceptActivity addActivityForConcept(Activity activity, Concept concept, Map<Long, Activity.ConceptActivity> activityMap) {
-		Activity.ConceptActivity conceptActivity = activity.addConceptActivity(concept);
-		activityMap.put(concept.getConceptIdAsLong(), conceptActivity);
-		return conceptActivity;
-	}
+		Map<Long, List<ReferenceSetMember>> conceptToMembersMap = new Long2ObjectArrayMap<>();
 
-	String createCommitComment(final String userId, final Commit commit, final Collection<Concept> concepts, final boolean anyStatedChanges, final String commitPrefix) {
-		Commit.CommitType commitType = commit.getCommitType();
-		final String commitCommentPrefix = RF2Type.DELTA.getName().equals(commitPrefix) ? "RF2 Import - " : "";
-		if (commitType == CONTENT) {
-			if (!anyStatedChanges) {
-				return "Classified ontology.";
-			} else if (concepts.size() == 1) {
-				Concept concept = concepts.iterator().next();
-				return commitCommentPrefix + (concept.isCreating() ? "Creating " : concept.isDeleted() ? "Deleting " : "Updating ") + "concept " + concept.getFsn().getTerm();
-			} else {
-				return commitCommentPrefix + "Bulk update to " + concepts.size() + " concepts.";
+		List<ReferenceSetMember> membersToLog = new ArrayList<>();
+		Set<Long> referencedDescriptions = new LongOpenHashSet();
+		Set<Long> referencedRelationships = new LongOpenHashSet();
+		for (ReferenceSetMember refsetMember : persistedReferenceSetMembers) {
+			if (!useChangeFlag || (refsetMember.isChanged() || refsetMember.isDeleted())) {
+				String conceptId = refsetMember.getConceptId();
+				if (conceptId != null) {
+					conceptToMembersMap.computeIfAbsent(parseLong(conceptId), id -> new ArrayList<>()).add(refsetMember);
+				} else {
+					membersToLog.add(refsetMember);
+					final Long referencedComponentId = parseLong(refsetMember.getReferencedComponentId());
+					if (!IdentifierService.isConceptId(referencedComponentId.toString())) {
+						if (IdentifierService.isDescriptionId(referencedComponentId.toString())) {
+							referencedDescriptions.add(referencedComponentId);
+						} else if (IdentifierService.isRelationshipId(referencedComponentId.toString())) {
+							referencedRelationships.add(referencedComponentId);
+						}
+					}
+				}
 			}
-		} else {
-			String path = commit.getBranch().getPath();
-			String sourceBranchPath = commitType == PROMOTION ? commit.getSourceBranchPath() : PathUtil.getParentPath(path);
-			return String.format("%s performed merge of %s to %s", userId, sourceBranchPath, path);
 		}
+		final Set<Long> descriptionIdsToLookup = referencedDescriptions.stream().filter(Predicate.not(componentToConceptIdMap::containsKey)).collect(Collectors.toSet());
+		final Set<Long> relationshipIdsToLookup = referencedRelationships.stream().filter(Predicate.not(componentToConceptIdMap::containsKey)).collect(Collectors.toSet());
+		BranchCriteria branchCriteria = null;
+		if (!descriptionIdsToLookup.isEmpty()) {
+			branchCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
+			for (List<Long> descriptionIdsSegment : Iterables.partition(descriptionIdsToLookup, CLAUSE_LIMIT)) {
+				try (final SearchHitsIterator<Description> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+						.withQuery(branchCriteria.getEntityBranchCriteria(Description.class)
+								.must(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsSegment)))
+						.withFields(Description.Fields.DESCRIPTION_ID, Description.Fields.CONCEPT_ID)
+						.withPageable(LARGE_PAGE)
+						.build(), Description.class)) {
+					stream.forEachRemaining(hit -> {
+						final Description description = hit.getContent();
+						componentToConceptIdMap.put(parseLong(description.getDescriptionId()), parseLong(description.getConceptId()));
+					});
+				}
+			}
+		}
+		if (!relationshipIdsToLookup.isEmpty()) {
+			if (branchCriteria == null) {
+				branchCriteria = versionControlHelper.getBranchCriteria(commit.getBranch());
+			}
+			for (List<Long> relationshipsIdsSegment : Iterables.partition(relationshipIdsToLookup, CLAUSE_LIMIT)) {
+				try (final SearchHitsIterator<Relationship> stream = elasticsearchTemplate.searchForStream(new NativeSearchQueryBuilder()
+						.withQuery(branchCriteria.getEntityBranchCriteria(Relationship.class)
+								.must(termsQuery(Relationship.Fields.RELATIONSHIP_ID, relationshipsIdsSegment)))
+						.withSourceFilter(new FetchSourceFilter(new String[]{Relationship.Fields.RELATIONSHIP_ID, Relationship.Fields.SOURCE_ID}, new String[]{}))
+						.withPageable(LARGE_PAGE)
+						.build(), Relationship.class)) {
+					stream.forEachRemaining(hit -> {
+						final Relationship relationship = hit.getContent();
+						componentToConceptIdMap.put(parseLong(relationship.getRelationshipId()), parseLong(relationship.getSourceId()));
+					});
+				}
+			}
+		}
+		membersToLog.forEach(refsetMember -> {
+			final String referencedComponentId = refsetMember.getReferencedComponentId();
+			final Long conceptId = componentToConceptIdMap.get(parseLong(referencedComponentId));
+			if (conceptId != null) {
+				conceptToMembersMap.computeIfAbsent(conceptId, id -> new ArrayList<>()).add(refsetMember);
+			} else {
+				logger.error("Refset member {} with referenced component {} can not be mapped to a concept id for traceability on branch {}",
+						refsetMember.getId(), refsetMember.getReferencedComponentId(), commit.getBranch().getPath());
+			}
+		});
+		return conceptToMembersMap;
+	}
+
+	private Activity.ConceptActivity getConceptActivityForComponent(Activity activity, Map<Long, Activity.ConceptActivity> activityMap, long conceptId) {
+		return activityMap.computeIfAbsent(conceptId, id -> {
+			String conceptId1 = Long.toString(conceptId);
+			Activity.ConceptActivity conceptActivity = activity.addConceptActivity(conceptId1);
+			activityMap.put(Long.parseLong(conceptId1), conceptActivity);
+			return conceptActivity;
+		});
+	}
+
+	private Activity.ComponentChange getChange(SnomedComponent<?> component) {
+		Activity.ChangeType type;
+		if (component.isCreating()) {
+			type = Activity.ChangeType.CREATE;
+		} else if (component.isDeleted()) {
+			type = Activity.ChangeType.DELETE;
+		} else if (!component.isActive()) {
+			type = Activity.ChangeType.INACTIVATE;
+		} else {
+			type = Activity.ChangeType.UPDATE;
+		}
+
+
+		final Activity.ComponentChange componentChange = new Activity.ComponentChange(
+				Activity.ComponentType.valueOf(component.getClass().getSimpleName().replaceAll("([a-z])([A-Z]+)", "$1_$2").toUpperCase()),
+				getComponentSubType(component),
+				component.getId(),
+				type,
+				component.getEffectiveTime() == null);
+		logger.debug("Component change {} for component {}", componentChange, component);
+		return componentChange;
+	}
+
+	private Activity.ComponentSubType getComponentSubType(SnomedComponent<?> component) {
+		if (component instanceof Relationship) {
+			Relationship relationship = (Relationship) component;
+			return relationship.isInferred() ? Activity.ComponentSubType.INFERRED_RELATIONSHIP : Activity.ComponentSubType.STATED_RELATIONSHIP;
+			// Stated relationships are generally not used any more
+		} else if (component instanceof Description) {
+			Description description = (Description) component;
+			return Activity.ComponentSubType.valueOf(description.getType());
+		} else if (component instanceof ReferenceSetMember) {
+			ReferenceSetMember refsetMember = (ReferenceSetMember) component;
+			Map<String, String> additionalFields = refsetMember.getAdditionalFields();
+			if (additionalFields != null && additionalFields.size() == 1 && additionalFields.containsKey(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION)) {
+				return Activity.ComponentSubType.OWL_AXIOM;
+			}
+		}
+		return null;
 	}
 
 	void setActivityConsumer(Consumer<Activity> activityConsumer) {
@@ -311,23 +380,5 @@ public class TraceabilityLogService implements CommitListener {
 
 	public boolean isEnabled() {
 		return enabled;
-	}
-
-	private Activity.ComponentChange getChange(SnomedComponent component) {
-		String type;
-		if (component.isCreating()) {
-			type = "CREATE";
-		} else if (component.isDeleted()) {
-			type = "DELETE";
-		} else if (!component.isActive()) {
-			type = "INACTIVATE";
-		} else {
-			type = "UPDATE";
-		}
-
-		return new Activity.ComponentChange(
-				component.getClass().getSimpleName(),
-				component.getId(),
-				type);
 	}
 }

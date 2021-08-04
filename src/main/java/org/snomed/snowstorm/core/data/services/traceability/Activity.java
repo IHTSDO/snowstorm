@@ -1,8 +1,5 @@
 package org.snomed.snowstorm.core.data.services.traceability;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.snomed.snowstorm.core.data.domain.Concept;
-
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -11,8 +8,9 @@ import java.util.Set;
 public class Activity {
 
 	private String userId;
-	private String commitComment;
 	private String branchPath;
+	private String sourceBranch;
+	private MergeOperation mergeOperation;
 	private Long commitTimestamp;
 	private Map<String, ConceptActivity> changes;
 
@@ -26,19 +24,19 @@ public class Activity {
 		changes = new HashMap<>();
 	}
 
-	public ConceptActivity addConceptActivity(Concept concept) {
-		String conceptId = concept.getConceptId();
-		ConceptActivity conceptActivity = new ConceptActivity(concept);
+	public void setBranchOperation(MergeOperation mergeOperation, String sourceBranch) {
+		this.mergeOperation = mergeOperation;
+		this.sourceBranch = sourceBranch;
+	}
+
+	public ConceptActivity addConceptActivity(String conceptId) {
+		ConceptActivity conceptActivity = new ConceptActivity(conceptId);
 		changes.put(conceptId, conceptActivity);
 		return conceptActivity;
 	}
 
 	public String getUserId() {
 		return userId;
-	}
-
-	public String getCommitComment() {
-		return commitComment;
 	}
 
 	public String getBranchPath() {
@@ -49,92 +47,103 @@ public class Activity {
 		return commitTimestamp;
 	}
 
-	public Map<String, ConceptActivity> getChanges() {
-		return changes;
+	public MergeOperation getMergeOperation() {
+		return mergeOperation;
 	}
 
-	public void setCommitComment(String commitComment) {
-		this.commitComment = commitComment;
+	public String getSourceBranch() {
+		return sourceBranch;
+	}
+
+	public Map<String, ConceptActivity> getChanges() {
+		return changes;
 	}
 
 	@Override
 	public String toString() {
 		return "Activity{" +
 				"userId='" + userId + '\'' +
-				", commitComment='" + commitComment + '\'' +
 				", branchPath='" + branchPath + '\'' +
 				", commitTimestamp=" + commitTimestamp +
+				", changes=" + changes +
 				'}';
 	}
 
 	public static final class ConceptActivity {
 
-		private Concept concept;
+		private String conceptId;
 		private Set<ComponentChange> changes;
-		private boolean statedChange;
 
 		public ConceptActivity() {
 		}
 
-		public ConceptActivity(Concept concept) {
-			this.concept = concept;
+		public ConceptActivity(String conceptId) {
+			this.conceptId = conceptId;
 			changes = new HashSet<>();
 		}
 
-		public ConceptActivity addComponentChange(ComponentChange change) {
+		public void addComponentChange(ComponentChange change) {
 			changes.add(change);
-			return this;
 		}
 
-		public Concept getConcept() {
-			return concept;
+		public String getConceptId() {
+			return conceptId;
+		}
+
+		public Long getConceptIdAsLong() {
+			return Long.parseLong(conceptId);
 		}
 
 		public Set<ComponentChange> getChanges() {
 			return changes;
 		}
 
-		public void statedChange() {
-			statedChange = true;
-		}
-
-		public void addStatedChange(boolean addStatedChange) {
-			if (addStatedChange) {
-				statedChange();
-			}
-		}
-
-		@JsonIgnore
-		public boolean isStatedChange() {
-			return statedChange;
+		@Override
+		public String toString() {
+			return "ConceptActivity{" +
+					"conceptId='" + conceptId + '\'' +
+					", changes=" + changes +
+					'}';
 		}
 	}
 
 	public static final class ComponentChange {
 
-		private String componentType;
+		private ComponentType componentType;
+		private ComponentSubType componentSubType;
 		private String componentId;
-		private String type;
+		private ChangeType changeType;
+		private boolean effectiveTimeNull;
 
 		public ComponentChange() {
 		}
 
-		public ComponentChange(String componentType, String componentId, String type) {
-			this.componentType = componentType;
+		public ComponentChange(ComponentType componentType, ComponentSubType componentSubType, String componentId, ChangeType changeType, boolean effectiveTimeNull) {
 			this.componentId = componentId;
-			this.type = type;
-		}
-
-		public String getComponentType() {
-			return componentType;
+			this.componentType = componentType;
+			this.componentSubType = componentSubType;
+			this.changeType = changeType;
+			this.effectiveTimeNull = effectiveTimeNull;
 		}
 
 		public String getComponentId() {
 			return componentId;
 		}
 
-		public String getType() {
-			return type;
+		public ComponentType getComponentType() {
+			return componentType;
+		}
+
+		public ComponentSubType getComponentSubType() {
+			return componentSubType;
+		}
+
+		public ChangeType getChangeType() {
+			return changeType;
+		}
+
+		public boolean isEffectiveTimeNull() {
+			return effectiveTimeNull;
 		}
 
 		@Override
@@ -151,5 +160,32 @@ public class Activity {
 		public int hashCode() {
 			return componentId.hashCode();
 		}
+
+		@Override
+		public String toString() {
+			return "ComponentChange{" +
+					"componentType=" + componentType +
+					", componentSubType=" + componentSubType +
+					", componentId='" + componentId + '\'' +
+					", changeType=" + changeType +
+					", effectiveTimeNull=" + effectiveTimeNull +
+					'}';
+		}
+	}
+
+	public enum MergeOperation {
+		REBASE, PROMOTE
+	}
+
+	public enum ComponentType {
+		CONCEPT, DESCRIPTION, RELATIONSHIP, REFERENCE_SET_MEMBER
+	}
+
+	public enum ComponentSubType {
+		INFERRED_RELATIONSHIP, STATED_RELATIONSHIP, FSN, SYNONYM, OWL_AXIOM, TEXT_DEFINITION
+	}
+
+	public enum ChangeType {
+		CREATE, DELETE, INACTIVATE, UPDATE
 	}
 }

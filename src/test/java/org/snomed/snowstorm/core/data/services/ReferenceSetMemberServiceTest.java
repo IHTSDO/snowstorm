@@ -43,7 +43,7 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 	private static final PageRequest PAGE = PageRequest.of(0, 10);
 
 	@BeforeEach
-	void setup() throws ServiceException {
+	void setup() throws ServiceException, InterruptedException {
 		conceptService.deleteAll();
 		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), MAIN);
 		conceptService.create(new Concept(Concepts.ISA)
@@ -308,7 +308,7 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 
 
 	@AfterEach
-	void tearDown() {
+	void tearDown() throws InterruptedException {
 		conceptService.deleteAll();
 	}
 
