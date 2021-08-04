@@ -542,7 +542,7 @@ public class ConceptController {
 
 		// For each child, determine if any its descendants are members of the passed-in
 		// refset
-		if (!checkDescendantsWithinRefsetId.equals("")) {
+		if (checkDescendantsWithinRefsetId != null) {
 			final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
 			
 			// Calculate refset membership once, and pass in as a filter for each
