@@ -59,6 +59,7 @@ public class TermValidationServiceClient {
 	}
 
 	private final float duplicateScoreThreshold;
+	private final float inactivationPredictionScoreThreshold;
 
 	private RestTemplate restTemplate;
 
@@ -76,7 +77,8 @@ public class TermValidationServiceClient {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public TermValidationServiceClient(@Value("${term-validation-service.url}") String termValidationServiceUrl,
-			@Value("${term-validation-service.scoreThreshold.duplicate}") float duplicateScoreThreshold) {
+			@Value("${term-validation-service.scoreThreshold.duplicate}") float duplicateScoreThreshold,
+			@Value("${term-validation-service.scoreThreshold.inactivationPrediction}") float inactivationPredictionScoreThreshold) {
 
 		mapper = new ObjectMapper()
 				.disable(MapperFeature.DEFAULT_VIEW_INCLUSION)
@@ -91,6 +93,7 @@ public class TermValidationServiceClient {
 					.build();
 		}
 		this.duplicateScoreThreshold = duplicateScoreThreshold;
+		this.inactivationPredictionScoreThreshold = inactivationPredictionScoreThreshold;
 	}
 
 	public TermValidationResult validateConcept(String branchPath, Concept concept, boolean afterClassification) throws ServiceException {
@@ -217,8 +220,8 @@ public class TermValidationServiceClient {
 
 			// Inactivation prediction
 			final ModelPrediction modelPrediction = validationResponse.getModelPrediction();
-			if (modelPrediction != null && !modelPrediction.isOkay()) {
-				final Optional<ModelPredictionDetail> highestScoringDetail = modelPrediction.getHighestScoringDetail();
+			if (modelPrediction != null && modelPrediction.getInactivationProbability() >= inactivationPredictionScoreThreshold) {
+				final Optional<InactivationReasonScore> highestScoringDetail = modelPrediction.getHighestScoringReason();
 				if (highestScoringDetail.isPresent()) {
 					final String inactivationReason = highestScoringDetail.get().getType();
 					invalidContents.add(new InvalidContent(SIMILAR_TO_INACTIVE_RULE_ID, new DroolsConcept(concept),
@@ -406,23 +409,23 @@ public class TermValidationServiceClient {
 
 	public static final class ModelPrediction {
 
-		private boolean okay;
-		private List<ModelPredictionDetail> detail;
+		private float inactivationProbability;
+		private List<InactivationReasonScore> inactivationReason;
 
-		public Optional<ModelPredictionDetail> getHighestScoringDetail() {
-			return detail.stream().max(Comparator.comparing(ModelPredictionDetail::getScore));
+		public Optional<InactivationReasonScore> getHighestScoringReason() {
+			return inactivationReason.stream().max(Comparator.comparing(InactivationReasonScore::getScore));
 		}
 
-		public boolean isOkay() {
-			return okay;
+		public float getInactivationProbability() {
+			return inactivationProbability;
 		}
 
-		public List<ModelPredictionDetail> getDetail() {
-			return detail;
+		public List<InactivationReasonScore> getInactivationReason() {
+			return inactivationReason;
 		}
 	}
 
-	public static final class ModelPredictionDetail {
+	public static final class InactivationReasonScore {
 
 		private String type;
 		private float score;
