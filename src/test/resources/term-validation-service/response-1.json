@@ -216,8 +216,8 @@
     ]
   },
   "modelPrediction": {
-    "okay": false,
-    "detail": [
+    "inactivationProbability": 0.7696970105171204,
+    "inactivationReason": [
       {
         "type": "Ambiguous / Erroneous",
         "score": 0.0756329819560051

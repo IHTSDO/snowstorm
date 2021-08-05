@@ -17,7 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class TermValidationServiceClientTest {
 
-	private final TermValidationServiceClient client = new TermValidationServiceClient(null, 0.6f);
+	private final TermValidationServiceClient client = new TermValidationServiceClient(null, 0.6f, 0.6f);
 
 	@Test
 	void testHandleResponse() throws IOException {
