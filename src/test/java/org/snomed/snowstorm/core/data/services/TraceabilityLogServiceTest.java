@@ -23,6 +23,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.snomed.snowstorm.core.data.services.traceability.Activity.MergeOperation.PROMOTE;
+import static org.snomed.snowstorm.core.data.services.traceability.Activity.MergeOperation.REBASE;
 
 class TraceabilityLogServiceTest extends AbstractTest {
 
@@ -35,6 +37,8 @@ class TraceabilityLogServiceTest extends AbstractTest {
 	@Autowired
 	private BranchService branchService;
 
+	@Autowired
+	private BranchMergeService branchMergeService;
 
 	private boolean traceabilityOriginallyEnabled;
 
@@ -157,17 +161,31 @@ class TraceabilityLogServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void createCommitCommentRebase() {
-		Commit commit = new Commit(new Branch("MAIN/A"), Commit.CommitType.REBASE, null, null);
-		commit.setSourceBranchPath("MAIN");
-//		assertEquals("kkewley performed merge of MAIN to MAIN/A", traceabilityLogService.createCommitComment("kkewley", commit, Collections.emptySet(), null, false, null));
+	void rebase() throws InterruptedException, ServiceException {
+		branchService.create("MAIN/A");
+		conceptService.create(new Concept().addFSN("New concept"), MAIN);
+		clearActivities();
+
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/A", Collections.emptyList());
+
+		Activity activity = getTraceabilityActivity();
+		assertEquals(REBASE, activity.getMergeOperation());
+		assertEquals("MAIN/A", activity.getBranchPath());
+		assertEquals("MAIN", activity.getSourceBranch());
 	}
 
 	@Test
-	void createCommitCommentPromotion() {
-		Commit commit = new Commit(new Branch("MAIN"), Commit.CommitType.PROMOTION, null, null);
-		commit.setSourceBranchPath("MAIN/A");
-//		assertEquals("kkewley performed merge of MAIN/A to MAIN", traceabilityLogService.createCommitComment("kkewley", commit, Collections.emptySet(), null, false, null));
+	void promote() throws ServiceException, InterruptedException {
+		branchService.create("MAIN/A");
+		conceptService.create(new Concept().addFSN("New concept"), "MAIN/A");
+		clearActivities();
+
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN", Collections.emptyList());
+
+		Activity activity = getTraceabilityActivity();
+		assertEquals(PROMOTE, activity.getMergeOperation());
+		assertEquals("MAIN", activity.getBranchPath());
+		assertEquals("MAIN/A", activity.getSourceBranch());
 	}
 
 	@Test
