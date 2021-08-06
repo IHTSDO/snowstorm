@@ -403,13 +403,19 @@ public class CodeSystemService {
 			List<Branch> parentVersionBranchMatchingCodeSystemBase = sBranchService.findByPathAndBaseTimepoint(pathToVersionMap.keySet(), codeSystemBranchBase);
 			if (parentVersionBranchMatchingCodeSystemBase.isEmpty()) {
 				logger.warn("Code System {} is not dependant on a specific version of the parent Code System {}. " +
-						"The main branch {} has a base timepoint of {} which does not match the base of any version branches of {}.",
+						"The working branch {} has a base timepoint of {} which does not match the base of any version branches of {}.",
 						codeSystem, parentCodeSystem, branchPath, codeSystemBranchBase.getTime(), parentCodeSystem);
 				return;
 			}
 			Branch parentCodeSystemVersionBranch = parentVersionBranchMatchingCodeSystemBase.iterator().next();
-			CodeSystemVersion parentCodeSystemVersion = pathToVersionMap.get(parentCodeSystemVersionBranch.getPath());
-			codeSystem.setDependantVersionEffectiveTime(parentCodeSystemVersion.getEffectiveDate());
+			if (parentCodeSystemVersionBranch.getEnd() != null) {
+				logger.warn("Code System {} is dependant on a version of the parent Code System {} that no longer exists. " +
+								"The working branch {} has a base timepoint of {} that matches the base of an outdated version of branch {}.",
+						codeSystem, parentCodeSystem, branchPath, codeSystemBranchBase.getTime(), parentCodeSystemVersionBranch.getPath());
+			} else {
+				CodeSystemVersion parentCodeSystemVersion = pathToVersionMap.get(parentCodeSystemVersionBranch.getPath());
+				codeSystem.setDependantVersionEffectiveTime(parentCodeSystemVersion.getEffectiveDate());
+			}
 		}
 	}
 
