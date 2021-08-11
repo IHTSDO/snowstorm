@@ -25,6 +25,8 @@ public class BranchMetadataHelper {
 	private static final String DISABLE_TRACEABILITY_TRANSIENT_METADATA_KEY = transientKey("disableTraceabilityAutomations");
 	private static final String CLASSIFICATION_COMMIT_TRANSIENT_METADATA_KEY = transientKey("classificationCommit");
 
+	public static final String AUTHOR_FLAGS_METADATA_KEY = "authorFlags";
+
 	@Autowired
 	private ObjectMapper objectMapper;
 
