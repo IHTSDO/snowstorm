@@ -60,6 +60,7 @@ public class TermValidationServiceClient {
 
 	private final float duplicateScoreThreshold;
 	private final float inactivationPredictionScoreThreshold;
+	private final float localContextScoreThreshold;
 
 	private RestTemplate restTemplate;
 
@@ -78,7 +79,8 @@ public class TermValidationServiceClient {
 
 	public TermValidationServiceClient(@Value("${term-validation-service.url}") String termValidationServiceUrl,
 			@Value("${term-validation-service.scoreThreshold.duplicate}") float duplicateScoreThreshold,
-			@Value("${term-validation-service.scoreThreshold.inactivationPrediction}") float inactivationPredictionScoreThreshold) {
+			@Value("${term-validation-service.scoreThreshold.inactivationPrediction}") float inactivationPredictionScoreThreshold,
+			@Value("${term-validation-service.scoreThreshold.localContext}") float localContextScoreThreshold) {
 
 		mapper = new ObjectMapper()
 				.disable(MapperFeature.DEFAULT_VIEW_INCLUSION)
@@ -94,6 +96,7 @@ public class TermValidationServiceClient {
 		}
 		this.duplicateScoreThreshold = duplicateScoreThreshold;
 		this.inactivationPredictionScoreThreshold = inactivationPredictionScoreThreshold;
+		this.localContextScoreThreshold = localContextScoreThreshold;
 	}
 
 	public TermValidationResult validateConcept(String branchPath, Concept concept, boolean afterClassification) throws ServiceException {
@@ -238,6 +241,7 @@ public class TermValidationServiceClient {
 			if (localContext != null) {
 				final Set<LocalContextTermMatch> recommendedSwitches = localContext.getTermMatches().stream()
 						.filter(LocalContextTermMatch::isRecommendSwitch)
+						.filter(match -> match.getClosestTerm().getScore() >= localContextScoreThreshold)
 						.collect(Collectors.toSet());
 				for (LocalContextTermMatch recommendedSwitch : recommendedSwitches) {
 					final LocalContextTerm baseTerm = recommendedSwitch.getBaseTerm();
@@ -493,6 +497,7 @@ public class TermValidationServiceClient {
 		private String tag;
 		private List<String> pos;
 		private String conceptId;
+		private float score;
 
 		public String getTerm() {
 			return term;
@@ -512,6 +517,10 @@ public class TermValidationServiceClient {
 
 		public String getConceptId() {
 			return conceptId;
+		}
+
+		public float getScore() {
+			return score;
 		}
 	}
 
