@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.snomed.snowstorm.core.data.services.IntegrityService;
 import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
+import org.snomed.snowstorm.rest.pojo.SetAuthorFlag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -15,9 +16,9 @@ import org.springframework.http.ResponseEntity;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.LinkedHashMap;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class BranchControllerTest extends AbstractControllerSecurityTest {
 
@@ -78,11 +79,122 @@ class BranchControllerTest extends AbstractControllerSecurityTest {
 
 	}
 
+	@Test
+	void setAuthorFlag_ShouldReturnExpectedResponse_WhenNoPermission() throws URISyntaxException {
+		// given
+		String requestUrl = url + "/branches/MAIN/actions/set-author-flag";
+		SetAuthorFlag setAuthorFlag = new SetAuthorFlag("complex", true);
+		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+
+		// when & then
+		testStatusCode(HttpStatus.FORBIDDEN, userWithoutRoleHeaders, request);
+	}
+
+	@Test
+	void setAuthorFlag_ShouldReturnExpectedResponse_WhenBranchNotFound() throws URISyntaxException {
+		// given
+		String requestUrl = url + "/branches/MAIN/IDoNotExist/actions/set-author-flag";
+		SetAuthorFlag setAuthorFlag = new SetAuthorFlag("complex", true);
+		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+
+		// when & then
+		testStatusCode(HttpStatus.NOT_FOUND, authorHeaders, request);
+	}
+
+	@Test
+	void setAuthorFlag_ShouldReturnExpectedResponse_WhenRequestIsMissingName() throws URISyntaxException {
+		// given
+		String requestUrl = url + "/branches/MAIN/actions/set-author-flag";
+		SetAuthorFlag setAuthorFlag = new SetAuthorFlag(null, true);
+		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+
+		// when & then
+		testStatusCode(HttpStatus.BAD_REQUEST, authorHeaders, request);
+	}
+
+	@Test
+	void setAuthorFlag_ShouldReturnExpectedResponse_WhenBranchHasBeenUpdated() throws URISyntaxException {
+		// given
+		String requestUrl = url + "/branches/MAIN/actions/set-author-flag";
+		SetAuthorFlag setAuthorFlag = new SetAuthorFlag("complex", true);
+		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+
+		// when
+		ResponseEntity<Object> responseEntity = testExchange(authorHeaders, request);
+		LinkedHashMap<String, Object> authorFlags = getAuthorFlags(responseEntity);
+
+		// then
+		assertEquals("true", authorFlags.get("complex"));
+	}
+
+	@Test
+	void setAuthorFlag_ShouldReturnExpectedResponse_WhenRequestingTwice() throws URISyntaxException {
+		// given
+		String requestUrl = url + "/branches/MAIN/actions/set-author-flag";
+
+		// first request
+		SetAuthorFlag setAuthorFlag = new SetAuthorFlag("complex", true);
+		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+
+		ResponseEntity<Object> responseEntity = testExchange(authorHeaders, request);
+		LinkedHashMap<String, Object> authorFlags = getAuthorFlags(responseEntity);
+
+		assertEquals("true", authorFlags.get("complex"));
+		assertNull(authorFlags.get("simple"));
+
+		// second request
+		setAuthorFlag.setName("simple");
+		setAuthorFlag.setValue(true);
+		request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+
+		responseEntity = testExchange(authorHeaders, request);
+		authorFlags = getAuthorFlags(responseEntity);
+
+		assertEquals("true", authorFlags.get("complex"));
+		assertEquals("true", authorFlags.get("simple"));
+	}
+
+	@Test
+	void setAuthorFlag_ShouldNotOverwritePreviousData() throws URISyntaxException {
+		// given
+		Metadata metadata = new Metadata();
+		metadata.putString("assertionGroupNames", "common-authoring");
+		branchService.updateMetadata("MAIN", metadata);
+		String requestUrl = url + "/branches/MAIN/actions/set-author-flag";
+		SetAuthorFlag setAuthorFlag = new SetAuthorFlag("complex", true);
+		RequestEntity<Object> request = new RequestEntity<>(setAuthorFlag, null, HttpMethod.POST, new URI(requestUrl));
+
+		// when
+		ResponseEntity<Object> responseEntity = testExchange(authorHeaders, request);
+		LinkedHashMap<String, Object> authorFlags = getAuthorFlags(responseEntity);
+		LinkedHashMap<String, Object> receivedMetaData = getMetadata(responseEntity);
+
+		// then
+		assertEquals("true", authorFlags.get("complex"));
+		assertEquals("common-authoring", receivedMetaData.get("assertionGroupNames"));
+	}
+
 	private void assertMetadataContains(String rawJson, String expected) {
 		rawJson = rawJson.replace("  ", "").replace("\n", "");
 		System.out.println("rawJson");
 		System.out.println(rawJson);
 		System.out.println();
 		assertTrue(rawJson.contains(expected));
+	}
+
+	@SuppressWarnings("unchecked")
+	private LinkedHashMap<String, Object> getMetadata(ResponseEntity<Object> responseEntity) {
+		LinkedHashMap<String, Object> body = (LinkedHashMap<String, Object>) responseEntity.getBody();
+		if (body == null) {
+			return new LinkedHashMap<>();
+		}
+
+		return (LinkedHashMap<String, Object>) body.get("metadata");
+	}
+
+	@SuppressWarnings("unchecked")
+	private LinkedHashMap<String, Object> getAuthorFlags(ResponseEntity<Object> responseEntity) {
+		LinkedHashMap<String, Object> metadata = getMetadata(responseEntity);
+		return (LinkedHashMap<String, Object>) metadata.get("authorFlags");
 	}
 }

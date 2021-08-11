@@ -106,6 +106,14 @@ public abstract class AbstractControllerSecurityTest extends AbstractTest {
 		return testStatusCode(expectedStatusCode.value(), imsHeaders, requestEntity);
 	}
 
+	protected ResponseEntity<Object> testExchange(HttpHeaders imsHeaders, RequestEntity<Object> requestEntity) {
+		HttpHeaders combinedHeaders = new HttpHeaders();
+		combinedHeaders.addAll(requestEntity.getHeaders());
+		combinedHeaders.addAll(imsHeaders);
+
+		return restTemplate.exchange(new RequestEntity<>(requestEntity.getBody(), combinedHeaders, requestEntity.getMethod(), requestEntity.getUrl()), Object.class);
+	}
+
 	protected ResponseEntity<String> testStatusCode(int expectedStatusCode, HttpHeaders imsHeaders, RequestEntity<Object> requestEntity) {
 		HttpHeaders combinedHeaders = new HttpHeaders();
 		combinedHeaders.addAll(requestEntity.getHeaders());
