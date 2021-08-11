@@ -29,6 +29,8 @@ public class BranchMetadataHelper {
 	public static final String AUTHOR_FLAGS_METADATA_KEY = "authorFlags";
 	public static final String IMPORTING_CODE_SYSTEM_VERSION = "importingCodeSystemVersion";
 
+	public static final String AUTHOR_FLAGS_METADATA_KEY = "authorFlags";
+
 	@Autowired
 	private ObjectMapper objectMapper;
 
