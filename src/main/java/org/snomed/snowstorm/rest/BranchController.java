@@ -31,6 +31,7 @@ import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import java.util.*;
 
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.AUTHOR_FLAGS_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
 @RestController
@@ -129,6 +130,26 @@ public class BranchController {
 					"Please wait for the commit to complete, or if you are sure that it has failed use the rollback partial commit admin function.");
 		}
 		branchService.unlock(branch);
+	}
+
+	@RequestMapping(value = "/branches/{branchPath}/actions/set-author-flag", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('AUTHOR', #branchPath)")
+	public BranchPojo setAuthorFlag(@PathVariable String branchPath, @RequestBody SetAuthorFlag setAuthorFlag) {
+		branchPath = BranchPathUriUtil.decodePath(branchPath);
+		Branch branch = branchService.findBranchOrThrow(branchPath);
+
+		String name = setAuthorFlag.getName();
+		String value = String.valueOf(setAuthorFlag.isValue());
+		if (name == null || name.isEmpty()) {
+			throw new IllegalArgumentException("Name for author flag not present");
+		}
+
+		Metadata metadata = branch.getMetadata();
+		Map<String, String> authFlagMap = metadata.getMapOrCreate(AUTHOR_FLAGS_METADATA_KEY);
+		authFlagMap.put(name, value);
+		metadata.putMap(AUTHOR_FLAGS_METADATA_KEY, authFlagMap);
+
+		return getBranchPojo(branchService.updateMetadata(branchPath, metadata));
 	}
 
 	@RequestMapping(value = "/reviews", method = RequestMethod.POST)
