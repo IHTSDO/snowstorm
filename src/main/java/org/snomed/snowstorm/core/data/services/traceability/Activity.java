@@ -1,37 +1,36 @@
 package org.snomed.snowstorm.core.data.services.traceability;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import io.kaicode.elasticvc.domain.Commit;
+
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class Activity {
 
 	private String userId;
 	private String branchPath;
 	private String sourceBranch;
-	private MergeOperation mergeOperation;
+	private ActivityType activityType;
 	private Long commitTimestamp;
-	private Map<String, ConceptActivity> changes;
+	private List<ConceptActivity> changes;
 
 	public Activity() {
 	}
 
-	public Activity(String userId, String branchPath, Long commitTimestamp) {
+	public Activity(String userId, String branchPath, long commitTimestamp, String sourceBranchPath, ActivityType activityType) {
 		this.userId = userId;
 		this.branchPath = branchPath;
 		this.commitTimestamp = commitTimestamp;
-		changes = new HashMap<>();
-	}
-
-	public void setBranchOperation(MergeOperation mergeOperation, String sourceBranch) {
-		this.mergeOperation = mergeOperation;
-		this.sourceBranch = sourceBranch;
+		this.sourceBranch = sourceBranchPath;
+		this.activityType = activityType;
+		changes = new ArrayList<>();
 	}
 
 	public ConceptActivity addConceptActivity(String conceptId) {
 		ConceptActivity conceptActivity = new ConceptActivity(conceptId);
-		changes.put(conceptId, conceptActivity);
+		changes.add(conceptActivity);
 		return conceptActivity;
 	}
 
@@ -47,16 +46,25 @@ public class Activity {
 		return commitTimestamp;
 	}
 
-	public MergeOperation getMergeOperation() {
-		return mergeOperation;
+	public ActivityType getActivityType() {
+		return activityType;
 	}
 
 	public String getSourceBranch() {
 		return sourceBranch;
 	}
 
-	public Map<String, ConceptActivity> getChanges() {
+	public void setSourceBranch(String sourceBranch) {
+		this.sourceBranch = sourceBranch;
+	}
+
+	public Collection<ConceptActivity> getChanges() {
 		return changes;
+	}
+
+	@JsonIgnore
+	public Map<String, ConceptActivity> getChangesMap() {
+		return changes.stream().collect(Collectors.toMap(ConceptActivity::getConceptId, Function.identity()));
 	}
 
 	@Override
@@ -72,53 +80,54 @@ public class Activity {
 	public static final class ConceptActivity {
 
 		private String conceptId;
-		private Set<ComponentChange> changes;
+		private Set<ComponentChange> componentChanges;
 
 		public ConceptActivity() {
 		}
 
 		public ConceptActivity(String conceptId) {
 			this.conceptId = conceptId;
-			changes = new HashSet<>();
+			componentChanges = new HashSet<>();
 		}
 
 		public void addComponentChange(ComponentChange change) {
-			changes.add(change);
+			componentChanges.add(change);
 		}
 
 		public String getConceptId() {
 			return conceptId;
 		}
 
+		@JsonIgnore
 		public Long getConceptIdAsLong() {
 			return Long.parseLong(conceptId);
 		}
 
-		public Set<ComponentChange> getChanges() {
-			return changes;
+		public Set<ComponentChange> getComponentChanges() {
+			return componentChanges;
 		}
 
 		@Override
 		public String toString() {
 			return "ConceptActivity{" +
 					"conceptId='" + conceptId + '\'' +
-					", changes=" + changes +
+					", changes=" + componentChanges +
 					'}';
 		}
 	}
 
 	public static final class ComponentChange {
 
-		private ComponentType componentType;
-		private ComponentSubType componentSubType;
-		private String componentId;
 		private ChangeType changeType;
+		private ComponentType componentType;
+		private Long componentSubType;
+		private String componentId;
 		private boolean effectiveTimeNull;
 
 		public ComponentChange() {
 		}
 
-		public ComponentChange(ComponentType componentType, ComponentSubType componentSubType, String componentId, ChangeType changeType, boolean effectiveTimeNull) {
+		public ComponentChange(ComponentType componentType, Long componentSubType, String componentId, ChangeType changeType, boolean effectiveTimeNull) {
 			this.componentId = componentId;
 			this.componentType = componentType;
 			this.componentSubType = componentSubType;
@@ -126,20 +135,24 @@ public class Activity {
 			this.effectiveTimeNull = effectiveTimeNull;
 		}
 
-		public String getComponentId() {
-			return componentId;
+		public boolean isComponentSubType(Long type) {
+			return Objects.equals(type, getComponentSubType());
+		}
+
+		public ChangeType getChangeType() {
+			return changeType;
 		}
 
 		public ComponentType getComponentType() {
 			return componentType;
 		}
 
-		public ComponentSubType getComponentSubType() {
+		public Long getComponentSubType() {
 			return componentSubType;
 		}
 
-		public ChangeType getChangeType() {
-			return changeType;
+		public String getComponentId() {
+			return componentId;
 		}
 
 		public boolean isEffectiveTimeNull() {
@@ -173,16 +186,15 @@ public class Activity {
 		}
 	}
 
-	public enum MergeOperation {
-		REBASE, PROMOTE
+	public enum ActivityType {
+		CONTENT_CHANGE,
+		CLASSIFICATION_SAVE,
+		REBASE,
+		PROMOTION
 	}
 
 	public enum ComponentType {
 		CONCEPT, DESCRIPTION, RELATIONSHIP, REFERENCE_SET_MEMBER
-	}
-
-	public enum ComponentSubType {
-		INFERRED_RELATIONSHIP, STATED_RELATIONSHIP, FSN, SYNONYM, OWL_AXIOM, TEXT_DEFINITION
 	}
 
 	public enum ChangeType {

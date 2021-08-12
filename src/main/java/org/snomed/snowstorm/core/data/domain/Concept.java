@@ -220,7 +220,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	public Concept addFSN(String term) {
-		addDescription(new Description(term).setTypeId(Concepts.FSN).addLanguageRefsetMember(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED));
+		addDescription(new Description(term).setTypeId(Concepts.FSN).addAcceptability(Concepts.US_EN_LANG_REFSET, Concepts.PREFERRED_CONSTANT));
 		return this;
 	}
 

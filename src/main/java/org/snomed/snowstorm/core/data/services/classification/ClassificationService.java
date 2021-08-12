@@ -30,6 +30,7 @@ import org.snomed.snowstorm.core.data.repositories.classification.RelationshipCh
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.classification.pojo.ClassificationStatusResponse;
 import org.snomed.snowstorm.core.data.services.classification.pojo.EquivalentConceptsResponse;
+import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.export.ExportException;
@@ -419,10 +420,10 @@ public class ClassificationService {
 							}
 
 							// Update concepts
-							conceptService.updateWithinCommit(concepts, commit, false);
+							conceptService.updateWithinCommit(concepts, commit, false);// Traceability is skipped here because it gets logged soon after
 						}
 
-						traceabilityLogService.logActivityUsingComponentLookup(SecurityUtil.getUsername(), commit);
+						traceabilityLogService.logActivityUsingComponentLookup(SecurityUtil.getUsername(), commit, Activity.ActivityType.CLASSIFICATION_SAVE);
 						commit.getBranch().getMetadata().remove(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY);
 						BranchClassificationStatusService.setClassificationStatus(commit.getBranch(), true);
 						commit.markSuccessful();

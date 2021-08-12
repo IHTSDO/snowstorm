@@ -1,8 +1,6 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchCriteria;
@@ -27,7 +25,6 @@ import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
-import org.snomed.snowstorm.rest.View;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -99,9 +96,6 @@ class BranchMergeServiceTest extends AbstractTest {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
-	@Autowired
-	private ObjectMapper objectMapper;
-
 	@BeforeEach
 	void setup() throws ServiceException, InterruptedException {
 		conceptService.deleteAll();
@@ -148,7 +142,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		// Promote to A
 		branchMergeService.mergeBranchSync("MAIN/A/A1", "MAIN/A", null);
 		Activity activity = getLatestTraceabilityActivity();
-		assertEquals(Activity.MergeOperation.PROMOTE, activity.getMergeOperation());
+		assertEquals(Activity.ActivityType.PROMOTION, activity.getActivityType());
 		assertEquals("MAIN/A/A1", activity.getSourceBranch());
 		assertEquals("MAIN/A", activity.getBranchPath());
 		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
@@ -169,7 +163,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		);
 
 		activity = getLatestTraceabilityActivity();
-		assertEquals(Activity.MergeOperation.REBASE, activity.getMergeOperation());
+		assertEquals(Activity.ActivityType.REBASE, activity.getActivityType());
 		assertEquals("MAIN/A", activity.getSourceBranch());
 		assertEquals("MAIN/A/A2", activity.getBranchPath());
 		assertBranchStateAndConceptVisibility("MAIN", Branch.BranchState.UP_TO_DATE, conceptId, false);
@@ -768,13 +762,6 @@ class BranchMergeServiceTest extends AbstractTest {
 		members.getContent().forEach(System.out::println);
 		assertEquals(1, members.getTotalElements());
 		assertEquals("20210131", members.getContent().get(0).getEffectiveTime(), "Already versioned content must be kept.");
-	}
-
-	private Concept simulateRestTransfer(Concept concept) throws JsonProcessingException {
-		final ObjectWriter componentWriter = objectMapper.writerWithView(View.Component.class);
-		String conceptJson = componentWriter.writeValueAsString(concept);
-		concept = objectMapper.readValue(conceptJson, Concept.class);
-		return concept;
 	}
 
 	@Test

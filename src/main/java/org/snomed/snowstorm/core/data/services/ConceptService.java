@@ -23,6 +23,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.*;
+import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
@@ -625,7 +626,7 @@ public class ConceptService extends ComponentService {
 		// Log traceability activity
 		if (logTraceability && traceabilityLogService.isEnabled()) {
 			joinComponentsToConcepts(persistedComponents, null, null);
-			traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit, persistedComponents);
+			traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit, persistedComponents, Activity.ActivityType.CONTENT_CHANGE);
 		}
 
 		return persistedComponents;
@@ -634,22 +635,20 @@ public class ConceptService extends ComponentService {
 	public void deleteConceptAndComponents(String conceptId, String path, boolean force) {
 		try (final Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Deleting concept " + conceptId))) {
 			List<Concept> deletedConcepts = deleteConceptsAndComponentsWithinCommit(Collections.singleton(conceptId), commit, force);
-			if (traceabilityLogService.isEnabled()) {
-				if (!deletedConcepts.isEmpty()) {
-					Concept concept = deletedConcepts.get(0);
-					Set<ReferenceSetMember> members = new HashSet<>();
-					if (concept.getInactivationIndicatorMembers() != null) {
-						members.addAll(concept.getInactivationIndicatorMembers());
-					}
-					if (concept.getAssociationTargetMembers() != null) {
-						members.addAll(concept.getAssociationTargetMembers());
-					}
-					if (concept.getAllOwlAxiomMembers() != null) {
-						members.addAll(concept.getAllOwlAxiomMembers());
-					}
-					PersistedComponents persistedComponents = new PersistedComponents(deletedConcepts, concept.getDescriptions(), concept.getRelationships(), members);
-					traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit, persistedComponents);
+			if (traceabilityLogService.isEnabled() && !deletedConcepts.isEmpty()) {
+				Concept concept = deletedConcepts.get(0);
+				Set<ReferenceSetMember> members = new HashSet<>();
+				if (concept.getInactivationIndicatorMembers() != null) {
+					members.addAll(concept.getInactivationIndicatorMembers());
 				}
+				if (concept.getAssociationTargetMembers() != null) {
+					members.addAll(concept.getAssociationTargetMembers());
+				}
+				if (concept.getAllOwlAxiomMembers() != null) {
+					members.addAll(concept.getAllOwlAxiomMembers());
+				}
+				PersistedComponents persistedComponents = new PersistedComponents(deletedConcepts, concept.getDescriptions(), concept.getRelationships(), members);
+				traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit, persistedComponents, Activity.ActivityType.CONTENT_CHANGE);
 			}
 			commit.markSuccessful();
 		}

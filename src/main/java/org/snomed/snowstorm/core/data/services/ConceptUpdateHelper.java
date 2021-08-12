@@ -267,7 +267,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		doSaveBatchRelationships(relationshipsToPersist, commit);
 
 		memberService.doSaveBatchMembers(refsetMembersToPersist, commit);
-		doDeleteMembersWhereReferencedComponentDeleted(commit.getEntitiesDeleted(), commit);
+		refsetMembersToPersist.addAll(doDeleteMembersWhereReferencedComponentDeleted(commit.getEntitiesDeleted(), commit));
 
 		// Store assigned identifiers for registration with CIS
 		identifierService.persistAssignedIdsForRegistration(reservedIds);
@@ -547,7 +547,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		doSaveBatchComponents(queryConcepts, commit, QueryConcept.Fields.CONCEPT_ID_FORM, queryConceptRepository);
 	}
 
-	void doDeleteMembersWhereReferencedComponentDeleted(Set<String> entityVersionsDeleted, Commit commit) {
+	List<ReferenceSetMember> doDeleteMembersWhereReferencedComponentDeleted(Set<String> entityVersionsDeleted, Commit commit) {
 		NativeSearchQuery query = new NativeSearchQueryBuilder()
 				.withQuery(
 						boolQuery()
@@ -567,6 +567,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		for (List<ReferenceSetMember> membersBatch : Iterables.partition(membersToDelete, 500)) {
 			doSaveBatchComponents(membersBatch, ReferenceSetMember.class, commit);
 		}
+		return membersToDelete;
 	}
 
 	private <C extends SnomedComponent, T extends SnomedComponent<?>> void markDeletionsAndUpdates(T newConcept, T existingConcept, T existingConceptFromParent,

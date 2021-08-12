@@ -1,11 +1,15 @@
 package org.snomed.snowstorm;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -14,6 +18,7 @@ import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.classification.ClassificationService;
 import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
+import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.mock.mockito.MockBean;
@@ -58,6 +63,9 @@ public abstract class AbstractTest {
 
 	@MockBean
 	protected CommitServiceHookClient commitServiceHookClient; // Mocked as calls on external service.
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
@@ -133,5 +141,15 @@ public abstract class AbstractTest {
 
 	public Stack<Activity> getTraceabilityActivitiesLogged() {
 		return traceabilityActivitiesLogged;
+	}
+
+	public Concept simulateRestTransfer(Concept concept) {
+		try {
+			final ObjectWriter componentWriter = objectMapper.writerWithView(View.Component.class);
+			String conceptJson = componentWriter.writeValueAsString(concept);
+			return objectMapper.readValue(conceptJson, Concept.class);
+		} catch (JsonProcessingException e) {
+			throw new RuntimeException(e);
+		}
 	}
 }
