@@ -15,7 +15,7 @@
 			<maxHistory>${LOG_FILE_MAX_HISTORY:-0}</maxHistory>
 		</rollingPolicy>
 	</appender>
-	<logger name="org.snomed.snowstorm.core.data.services.TraceabilityLogService" level="INFO">
+	<logger name="org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService" level="INFO">
 		<appender-ref ref="traceability-appender" />
 	</logger>
 

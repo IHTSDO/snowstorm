@@ -15,7 +15,6 @@ import io.kaicode.elasticvc.domain.DomainEntity;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.ihtsdo.sso.integration.SecurityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.otf.owltoolkit.conversion.ConversionException;
@@ -23,7 +22,7 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.*;
-import org.snomed.snowstorm.core.data.services.traceability.Activity;
+import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
@@ -58,6 +57,7 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 
 @Service
 public class ConceptService extends ComponentService {
+
 	private static final Map<ComponentType, Class<? extends DomainEntity<?>>> COMPONENT_DOCUMENT_TYPES = new HashMap<>();
 
 	static {
@@ -115,8 +115,6 @@ public class ConceptService extends ComponentService {
 	private final Cache<String, AsyncConceptChangeBatch> batchConceptChanges;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
-
-	public static final String DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY = "disableContentAutomations";
 
 	public ConceptService() {
 		batchConceptChanges = CacheBuilder.newBuilder().expireAfterWrite(2, TimeUnit.HOURS).build();
@@ -602,13 +600,13 @@ public class ConceptService extends ComponentService {
 
 	private PersistedComponents doSave(Collection<Concept> concepts, Branch branch) throws ServiceException {
 		try (final Commit commit = branchService.openCommit(branch.getPath(), branchMetadataHelper.getBranchLockMetadata(String.format("Saving %s concepts.", concepts.size())))) {
-			final PersistedComponents persistedComponents = updateWithinCommit(concepts, commit, true);
+			final PersistedComponents persistedComponents = updateWithinCommit(concepts, commit);
 			commit.markSuccessful();
 			return persistedComponents;
 		}
 	}
 
-	public PersistedComponents updateWithinCommit(Collection<Concept> concepts, Commit commit, boolean logTraceability) throws ServiceException {
+	public PersistedComponents updateWithinCommit(Collection<Concept> concepts, Commit commit) throws ServiceException {
 		if (concepts.isEmpty()) {
 			return new PersistedComponents();
 		}
@@ -620,36 +618,13 @@ public class ConceptService extends ComponentService {
 		if (commit.getCommitType().equals(Commit.CommitType.REBASE)) {
 			existingRebaseSourceConceptsMap = getExistingSourceConceptsForSave(concepts, commit);
 		}
-		
-		PersistedComponents persistedComponents = conceptUpdateHelper.saveNewOrUpdatedConcepts(concepts, existingConceptsMap, existingRebaseSourceConceptsMap, commit);
 
-		// Log traceability activity
-		if (logTraceability && traceabilityLogService.isEnabled()) {
-			joinComponentsToConcepts(persistedComponents, null, null);
-			traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit, persistedComponents, Activity.ActivityType.CONTENT_CHANGE);
-		}
-
-		return persistedComponents;
+		return conceptUpdateHelper.saveNewOrUpdatedConcepts(concepts, existingConceptsMap, existingRebaseSourceConceptsMap, commit);
 	}
 
 	public void deleteConceptAndComponents(String conceptId, String path, boolean force) {
 		try (final Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Deleting concept " + conceptId))) {
-			List<Concept> deletedConcepts = deleteConceptsAndComponentsWithinCommit(Collections.singleton(conceptId), commit, force);
-			if (traceabilityLogService.isEnabled() && !deletedConcepts.isEmpty()) {
-				Concept concept = deletedConcepts.get(0);
-				Set<ReferenceSetMember> members = new HashSet<>();
-				if (concept.getInactivationIndicatorMembers() != null) {
-					members.addAll(concept.getInactivationIndicatorMembers());
-				}
-				if (concept.getAssociationTargetMembers() != null) {
-					members.addAll(concept.getAssociationTargetMembers());
-				}
-				if (concept.getAllOwlAxiomMembers() != null) {
-					members.addAll(concept.getAllOwlAxiomMembers());
-				}
-				PersistedComponents persistedComponents = new PersistedComponents(deletedConcepts, concept.getDescriptions(), concept.getRelationships(), members);
-				traceabilityLogService.logActivity(SecurityUtil.getUsername(), commit, persistedComponents, Activity.ActivityType.CONTENT_CHANGE);
-			}
+			deleteConceptsAndComponentsWithinCommit(Collections.singleton(conceptId), commit, force);
 			commit.markSuccessful();
 		}
 	}

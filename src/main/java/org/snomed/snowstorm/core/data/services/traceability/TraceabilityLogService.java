@@ -1,4 +1,4 @@
-package org.snomed.snowstorm.core.data.services;
+package org.snomed.snowstorm.core.data.services.traceability;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -16,26 +16,24 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
+import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
+import org.snomed.snowstorm.core.data.services.ServiceUtil;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
-import org.snomed.snowstorm.core.data.services.traceability.Activity;
-import org.snomed.snowstorm.core.rf2.RF2Type;
-import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.FetchSourceFilter;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.http.converter.json.Jackson2ObjectMapperBuilder;
-import org.springframework.jms.core.JmsTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -48,14 +46,14 @@ import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 @Service
 public class TraceabilityLogService implements CommitListener {
 
-	@Autowired
-	private JmsTemplate jmsTemplate;
+	public static final String DISABLE_IMPORT_TRACEABILITY = "disableImportTraceability";
 
 	@Value("${authoring.traceability.enabled}")
 	private boolean enabled;
 
-	@Value("${jms.queue.prefix}")
-	private String jmsQueuePrefix;
+	@Autowired
+	@Lazy // This should stop the JMS Template getting initialised if traceability is disabled.
+	private TraceabilityConsumer traceabilityConsumer;
 
 	@Value("${authoring.traceability.inferred-max}")
 	private int inferredMax;
@@ -69,8 +67,6 @@ public class TraceabilityLogService implements CommitListener {
 	@Autowired
 	private VersionControlHelper versionControlHelper;
 
-	private Consumer<Activity> activityConsumer;
-
 	private final ObjectMapper objectMapper;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -79,14 +75,16 @@ public class TraceabilityLogService implements CommitListener {
 		objectMapper = Jackson2ObjectMapperBuilder.json()
 				.serializationInclusion(JsonInclude.Include.NON_NULL)
 				.build();
-		activityConsumer = activity -> jmsTemplate.convertAndSend(jmsQueuePrefix + ".traceability", activity);
 	}
 
 	@Override
 	public void preCommitCompletion(final Commit commit) throws IllegalStateException {
-		// Most commits don't use this because ConceptService calls logActivity directly.
 
-		PersistedComponents persistedComponents = null;
+		if ("true".equals(commit.getBranch().getMetadata().getMapOrCreate(BranchMetadataHelper.INTERNAL_METADATA_KEY).get(DISABLE_IMPORT_TRACEABILITY))) {
+			return;
+		}
+
+		PersistedComponents persistedComponents = buildPersistedComponents(commit);
 
 		Activity.ActivityType activityType = null;
 		switch (commit.getCommitType()) {
@@ -100,41 +98,21 @@ public class TraceabilityLogService implements CommitListener {
 				activityType = Activity.ActivityType.REBASE;
 				break;
 		}
-
-		final Map<String, String> internalMetadataMap = commit.getBranch().getMetadata().getMapOrCreate(BranchMetadataHelper.INTERNAL_METADATA_KEY);
-		if (internalMetadataMap.containsKey(ImportService.IMPORT_TYPE_KEY)) {
-			String commitPrefix = internalMetadataMap.get(ImportService.IMPORT_TYPE_KEY);
+		if (BranchMetadataHelper.isClassificationCommit(commit)) {
 			activityType = Activity.ActivityType.CLASSIFICATION_SAVE;
-			if (commit.getCommitType() == CONTENT && RF2Type.DELTA.getName().equals(commitPrefix)) {
-				// RF2 Delta import
-				persistedComponents = buildPersistedComponents(commit);
-			}
-		} else {
-			// Rebase or Promotion
-			// Log an empty-change activity.
-			persistedComponents = new PersistedComponents();
 		}
+		ServiceUtil.assertNotNull("Traceability activity type", activityType);
 
-		logActivity(SecurityUtil.getUsername(), commit, persistedComponents, false, activityType);
+		logActivity(SecurityUtil.getUsername(), commit, persistedComponents, activityType);
 	}
 
 	private PersistedComponents buildPersistedComponents(final Commit commit) {
-		return PersistedComponents.builder().withPersistedConcepts(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, Concept.class))
-				.withPersistedDescriptions(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, Description.class))
-				.withPersistedRelationships(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, Relationship.class))
-				.withPersistedReferenceSetMembers(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(commit, ReferenceSetMember.class)).build();
-	}
-
-	public void logActivityUsingComponentLookup(final String userId, final Commit commit, Activity.ActivityType activityType) {
-		logActivity(userId, commit, buildPersistedComponents(commit), false, activityType);
-	}
-
-	/**
-	 * This method may be called by a service class as an optimisation. In this case
-	 * the transient change and delete flags may be populated.
-	 */
-	void logActivity(final String userId, final Commit commit, final PersistedComponents batchSavePersistedComponents, Activity.ActivityType activityType) {
-		logActivity(userId, commit, batchSavePersistedComponents, true, activityType);
+		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
+		final String branchPath = commit.getBranch().getPath();
+		return PersistedComponents.builder().withPersistedConcepts(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Concept.class, branchCriteria, branchPath))
+				.withPersistedDescriptions(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Description.class, branchCriteria, branchPath))
+				.withPersistedRelationships(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Relationship.class, branchCriteria, branchPath))
+				.withPersistedReferenceSetMembers(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(ReferenceSetMember.class, branchCriteria, branchPath)).build();
 	}
 
 	/**
@@ -142,7 +120,7 @@ public class TraceabilityLogService implements CommitListener {
 	 * case the transient change and delete flags may be populated and depending
 	 * on these states, the <code>useChangeFlag</code> should be set accordingly.
 	 */
-	void logActivity(String userId, final Commit commit, final PersistedComponents persistedComponents, boolean useChangeFlag, Activity.ActivityType activityType) {
+	void logActivity(String userId, final Commit commit, final PersistedComponents persistedComponents, Activity.ActivityType activityType) {
 
 		ServiceUtil.assertNotNull("activityType", activityType);
 		ServiceUtil.assertNotNull("persistedComponents", persistedComponents);
@@ -160,28 +138,22 @@ public class TraceabilityLogService implements CommitListener {
 		Map<Long, Activity.ConceptActivity> activityMap = new Long2ObjectArrayMap<>();
 		Map<Long, Long> componentToConceptIdMap = new Long2ObjectArrayMap<>();
 		for (Concept concept : persistedComponents.getPersistedConcepts()) {
-			if (!useChangeFlag || (concept.isChanged() || concept.isDeleted())) {
-				getConceptActivityForComponent(activity, activityMap, concept.getConceptIdAsLong()).addComponentChange(getChange(concept));
-			}
+			getConceptActivityForComponent(activity, activityMap, concept.getConceptIdAsLong()).addComponentChange(getChange(concept));
 		}
 		for (Description description : persistedComponents.getPersistedDescriptions()) {
 			final long conceptId = parseLong(description.getConceptId());
-			if (!useChangeFlag || (description.isChanged() || description.isDeleted())) {
-				getConceptActivityForComponent(activity, activityMap, conceptId).addComponentChange(getChange(description));
-			}
+			getConceptActivityForComponent(activity, activityMap, conceptId).addComponentChange(getChange(description));
 			componentToConceptIdMap.put(parseLong(description.getDescriptionId()), conceptId);
 		}
 		for (Relationship relationship : persistedComponents.getPersistedRelationships()) {
 			final long sourceId = parseLong(relationship.getSourceId());
-			if (!useChangeFlag || (relationship.isChanged() || relationship.isDeleted())) {
-				getConceptActivityForComponent(activity, activityMap, sourceId).addComponentChange(getChange(relationship));
-			}
+			getConceptActivityForComponent(activity, activityMap, sourceId).addComponentChange(getChange(relationship));
 			componentToConceptIdMap.put(parseLong(relationship.getRelationshipId()), sourceId);
 		}
 
 		// Deal with members that refer to descriptions or relationships by looking up their concepts.
 		final Map<Long, List<ReferenceSetMember>> conceptMembersMap =
-				filterRefsetMembersAndLookupComponentConceptIds(persistedComponents.getPersistedReferenceSetMembers(), useChangeFlag, commit, componentToConceptIdMap);
+				filterRefsetMembersAndLookupComponentConceptIds(persistedComponents.getPersistedReferenceSetMembers(), commit, componentToConceptIdMap);
 
 		// Record all refset members against concept activities
 		for (Map.Entry<Long, List<ReferenceSetMember>> entry : conceptMembersMap.entrySet()) {
@@ -231,10 +203,10 @@ public class TraceabilityLogService implements CommitListener {
 			logger.error("Failed to serialize activity {} to JSON.", activity.getCommitTimestamp());
 		}
 
-		activityConsumer.accept(activity);
+		traceabilityConsumer.accept(activity);
 	}
 
-	private Map<Long, List<ReferenceSetMember>> filterRefsetMembersAndLookupComponentConceptIds(Iterable<ReferenceSetMember> persistedReferenceSetMembers, boolean useChangeFlag,
+	private Map<Long, List<ReferenceSetMember>> filterRefsetMembersAndLookupComponentConceptIds(Iterable<ReferenceSetMember> persistedReferenceSetMembers,
 			Commit commit, Map<Long, Long> componentToConceptIdMap) {
 
 		Map<Long, List<ReferenceSetMember>> conceptToMembersMap = new Long2ObjectArrayMap<>();
@@ -243,19 +215,17 @@ public class TraceabilityLogService implements CommitListener {
 		Set<Long> referencedDescriptions = new LongOpenHashSet();
 		Set<Long> referencedRelationships = new LongOpenHashSet();
 		for (ReferenceSetMember refsetMember : persistedReferenceSetMembers) {
-			if (!useChangeFlag || (refsetMember.isChanged() || refsetMember.isDeleted())) {
-				String conceptId = refsetMember.getConceptId();
-				if (conceptId != null) {
-					conceptToMembersMap.computeIfAbsent(parseLong(conceptId), id -> new ArrayList<>()).add(refsetMember);
-				} else {
-					membersToLog.add(refsetMember);
-					final Long referencedComponentId = parseLong(refsetMember.getReferencedComponentId());
-					if (!IdentifierService.isConceptId(referencedComponentId.toString())) {
-						if (IdentifierService.isDescriptionId(referencedComponentId.toString())) {
-							referencedDescriptions.add(referencedComponentId);
-						} else if (IdentifierService.isRelationshipId(referencedComponentId.toString())) {
-							referencedRelationships.add(referencedComponentId);
-						}
+			String conceptId = refsetMember.getConceptId();
+			if (conceptId != null) {
+				conceptToMembersMap.computeIfAbsent(parseLong(conceptId), id -> new ArrayList<>()).add(refsetMember);
+			} else {
+				membersToLog.add(refsetMember);
+				final Long referencedComponentId = parseLong(refsetMember.getReferencedComponentId());
+				if (!IdentifierService.isConceptId(referencedComponentId.toString())) {
+					if (IdentifierService.isDescriptionId(referencedComponentId.toString())) {
+						referencedDescriptions.add(referencedComponentId);
+					} else if (IdentifierService.isRelationshipId(referencedComponentId.toString())) {
+						referencedRelationships.add(referencedComponentId);
 					}
 				}
 			}
@@ -344,7 +314,7 @@ public class TraceabilityLogService implements CommitListener {
 
 	private Long getComponentSubType(SnomedComponent<?> component) {
 		if (component instanceof Relationship) {
-			return parseLong(((Relationship) component).getTypeId());
+			return parseLong(((Relationship) component).getCharacteristicTypeId());
 		} else if (component instanceof Description) {
 			return parseLong(((Description) component).getTypeId());
 		} else if (component instanceof ReferenceSetMember) {
@@ -353,15 +323,15 @@ public class TraceabilityLogService implements CommitListener {
 		return null;
 	}
 
-	void setActivityConsumer(Consumer<Activity> activityConsumer) {
-		this.activityConsumer = activityConsumer;
-	}
-
 	public void setEnabled(boolean enabled) {
 		this.enabled = enabled;
 	}
 
 	public boolean isEnabled() {
 		return enabled;
+	}
+
+	public void setTraceabilityConsumer(TraceabilityConsumer traceabilityConsumer) {
+		this.traceabilityConsumer = traceabilityConsumer;
 	}
 }

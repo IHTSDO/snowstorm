@@ -25,6 +25,8 @@ import org.snomed.snowstorm.core.data.domain.review.MergeReviewConceptVersions;
 import org.snomed.snowstorm.core.data.domain.review.ReviewStatus;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
+import org.snomed.snowstorm.core.data.services.traceability.TraceabilityConsumer;
+import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
 import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -110,7 +112,12 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		traceabilityLogService.setEnabled(true);
 		activities = new ArrayList<>();
-		traceabilityLogService.setActivityConsumer(activities::add);
+		traceabilityLogService.setTraceabilityConsumer(new TraceabilityConsumer() {
+			@Override
+			public void accept(Activity activity) {
+				activities.add(activity);
+			}
+		});
 
 		// set up the branches for testing find children
 		setUpForChildBranchesTest();
@@ -159,8 +166,8 @@ class BranchMergeServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", null);
 
 		assertEquals(2, branchService.findAllVersions("MAIN/A/A2", LARGE_PAGE).getTotalElements(), "Before rebase, another version of the branch created.");
-		assertEquals(branchA2BeforeRebase.getBase(), branchService.findAtTimepointOrThrow("MAIN/A/A2", beforeRebaseTimepoint).getBase(), "The base timepoint of the original version of the branch should not have changed."
-		);
+		assertEquals(branchA2BeforeRebase.getBase(), branchService.findAtTimepointOrThrow("MAIN/A/A2", beforeRebaseTimepoint).getBase(),
+				"The base timepoint of the original version of the branch should not have changed.");
 
 		activity = getLatestTraceabilityActivity();
 		assertEquals(Activity.ActivityType.REBASE, activity.getActivityType());

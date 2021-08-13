@@ -211,7 +211,7 @@ public class BranchMergeService {
 					// Save merged version of manually merged concepts
 					// This has the effect of ending both visible versions of these components which prevents us seeing duplicates on the branch
 					conceptService.updateWithinCommit(manuallyMergedConcepts.stream()
-							.filter(not(Concept::isDeleted)).collect(Collectors.toSet()), commit, true);
+							.filter(not(Concept::isDeleted)).collect(Collectors.toSet()), commit);
 				}
 
 				// Find and resolve duplicate component versions.

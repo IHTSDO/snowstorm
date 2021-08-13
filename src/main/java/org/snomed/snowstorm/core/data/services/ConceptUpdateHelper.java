@@ -36,7 +36,6 @@ import java.util.stream.Collectors;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationIndicatorNames;
-import static org.snomed.snowstorm.core.data.services.ConceptService.DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY;
 
 @Service
 public class ConceptUpdateHelper extends ComponentService {
@@ -108,7 +107,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		Metadata metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
 		String defaultModuleId = metadata.getString(Config.DEFAULT_MODULE_ID_KEY);
 		String defaultNamespace = metadata.getString(Config.DEFAULT_NAMESPACE_KEY);
-		boolean enableContentAutomations = !Boolean.parseBoolean(metadata.getString(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY));
+		final boolean contentAutomationsDisabled = BranchMetadataHelper.isContentAutomationsDisabled(commit);
 		TimerUtil timerUtil = new TimerUtil("identifierService.reserveIdentifierBlock", Level.INFO, 1);
 		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(newVersionConcepts, defaultNamespace);
 		timerUtil.finish();
@@ -131,7 +130,7 @@ public class ConceptUpdateHelper extends ComponentService {
 			Concept existingConcept = existingConceptsMap.get(newVersionConcept.getConceptId());
 			Concept existingConceptFromParent = existingConceptsFromParentMap == null ? null : existingConceptsFromParentMap.get(newVersionConcept.getConceptId());
 
-			if (enableContentAutomations) {
+			if (!contentAutomationsDisabled) {
 				// Update the state of components automatically based on baked-in rules
 
 				if (newVersionConcept.isActive()) {

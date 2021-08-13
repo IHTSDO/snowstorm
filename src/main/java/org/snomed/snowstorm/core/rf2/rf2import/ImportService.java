@@ -25,6 +25,7 @@ import java.util.*;
 import java.util.concurrent.ExecutorService;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
+import static org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService.DISABLE_IMPORT_TRACEABILITY;
 import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
 import static org.snomed.snowstorm.mrcm.MRCMUpdateService.DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY;
 
@@ -96,7 +97,7 @@ public class ImportService {
 		RF2Type importType = job.getType();
 		String branchPath = job.getBranchPath();
 		Integer patchReleaseVersion = job.getPatchReleaseVersion();
-		setImportMetadata(importType, branchPath);
+		setImportMetadata(importType, branchPath, job.isCreateCodeSystemVersion());
 		try {
 			Date start = new Date();
 			logger.info("Starting RF2 {}{} import on branch {}. ID {}", importType, patchReleaseVersion != null ? " RELEASE PATCH on effectiveTime " + patchReleaseVersion : "", branchPath, importId);
@@ -162,11 +163,14 @@ public class ImportService {
 		}
 	}
 
-	private void setImportMetadata(RF2Type importType, String branchPath) {
+	private void setImportMetadata(RF2Type importType, String branchPath, boolean createCodeSystemVersion) {
 		Metadata metadata = branchService.findLatest(branchPath).getMetadata();
 		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
 		internalMetadataMap.put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
 		internalMetadataMap.put(IMPORT_TYPE_KEY, importType.getName());
+		if (importType == FULL || createCodeSystemVersion) {
+			internalMetadataMap.put(DISABLE_IMPORT_TRACEABILITY, "true");
+		}
 		branchService.updateMetadata(branchPath, metadata);
 	}
 
@@ -175,6 +179,7 @@ public class ImportService {
 		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
 		internalMetadataMap.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
 		internalMetadataMap.remove(IMPORT_TYPE_KEY);
+		internalMetadataMap.remove(DISABLE_IMPORT_TRACEABILITY);
 		branchService.updateMetadata(branchPath, metadata);
 	}
 
@@ -227,11 +232,13 @@ public class ImportService {
 	}
 
 	private ImportComponentFactoryImpl getImportComponentFactory(String branchPath, Integer patchReleaseVersion, boolean copyReleaseFields, boolean clearEffectiveTimes) {
-		return new ImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, branchPath, patchReleaseVersion, copyReleaseFields, clearEffectiveTimes);
+		return new ImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper,
+				branchPath, patchReleaseVersion, copyReleaseFields, clearEffectiveTimes);
 	}
 
 	private FullImportComponentFactoryImpl getFullImportComponentFactory(String branchPath) {
-		return new FullImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, codeSystemService, branchPath, null);
+		return new FullImportComponentFactoryImpl(conceptUpdateHelper, memberService, branchService, branchMetadataHelper, codeSystemService,
+				branchPath, null);
 	}
 
 	@PreAuthorize("hasPermission('AUTHOR', #branchPath)")

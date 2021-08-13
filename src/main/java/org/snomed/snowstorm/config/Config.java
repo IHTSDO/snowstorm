@@ -28,6 +28,7 @@ import org.snomed.snowstorm.core.data.services.identifier.IdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.LocalRandomIdentifierSource;
 import org.snomed.snowstorm.core.data.services.identifier.SnowstormCISClient;
 import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
+import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.ecl.SECLObjectFactory;
 import org.snomed.snowstorm.ecl.validation.ECLPreprocessingService;
@@ -160,9 +161,9 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(multiSearchService);
 		branchService.addCommitListener(eclPreprocessingService);
 		branchService.addCommitListener(commitServiceHookClient);
-		branchService.addCommitListener(commit -> {
-			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint()));
-		});
+		branchService.addCommitListener(BranchMetadataHelper::clearTransientMetadata);
+		branchService.addCommitListener(commit ->
+			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint())));
 	}
 	
 	private String secondsDuration(Date timepoint) {

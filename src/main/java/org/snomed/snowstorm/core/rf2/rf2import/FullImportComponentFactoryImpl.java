@@ -9,7 +9,7 @@ import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 
 public class FullImportComponentFactoryImpl extends ImportComponentFactoryImpl implements HistoryAwareComponentFactory {
 
-	private String basePath;
+	private final String basePath;
 	private final BranchMetadataHelper branchMetadataHelper;
 	private final CodeSystemService codeSystemService;
 	private final String stopImportAfterEffectiveTime;
@@ -50,9 +50,11 @@ public class FullImportComponentFactoryImpl extends ImportComponentFactoryImpl i
 
 	@Override
 	public void loadingComponentsStarting() {
+		// Nothing to do
 	}
 
 	@Override
 	public void loadingComponentsCompleted() {
+		// Nothing to do
 	}
 }

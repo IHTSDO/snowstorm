@@ -30,7 +30,7 @@ import org.snomed.snowstorm.core.data.repositories.classification.RelationshipCh
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.classification.pojo.ClassificationStatusResponse;
 import org.snomed.snowstorm.core.data.services.classification.pojo.EquivalentConceptsResponse;
-import org.snomed.snowstorm.core.data.services.traceability.Activity;
+import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.export.ExportException;
@@ -67,7 +67,6 @@ import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus.*;
 import static org.snomed.snowstorm.core.data.domain.classification.RelationshipChange.Fields.SOURCE_ID;
-import static org.snomed.snowstorm.core.data.services.ConceptService.DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY;
 
 @Service
 public class ClassificationService {
@@ -374,7 +373,8 @@ public class ClassificationService {
 				try {
 					// Commit in auto-close try block like this will roll back if an exception is thrown
 					try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Saving classification " + classification.getId()))) {
-						commit.getBranch().getMetadata().putString(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY, "true");
+
+						setClassificationSaveMetadata(commit);
 
 						List<RelationshipChange> changesBatch = null;
 						Object[] searchAfterToken = null;
@@ -420,11 +420,9 @@ public class ClassificationService {
 							}
 
 							// Update concepts
-							conceptService.updateWithinCommit(concepts, commit, false);// Traceability is skipped here because it gets logged soon after
+							conceptService.updateWithinCommit(concepts, commit);// Traceability is skipped here because it gets logged soon after
 						}
 
-						traceabilityLogService.logActivityUsingComponentLookup(SecurityUtil.getUsername(), commit, Activity.ActivityType.CLASSIFICATION_SAVE);
-						commit.getBranch().getMetadata().remove(DISABLE_CONTENT_AUTOMATIONS_METADATA_KEY);
 						BranchClassificationStatusService.setClassificationStatus(commit.getBranch(), true);
 						commit.markSuccessful();
 						classification.setStatus(SAVED);
@@ -443,6 +441,11 @@ public class ClassificationService {
 		} finally {
 			SecurityContextHolder.clearContext();
 		}
+	}
+
+	private void setClassificationSaveMetadata(Commit commit) {
+		BranchMetadataHelper.disableContentAutomations(commit);
+		BranchMetadataHelper.classificationCommit(commit);
 	}
 
 	public Classification classificationSaveStatusCheck(String path, String classificationId) {

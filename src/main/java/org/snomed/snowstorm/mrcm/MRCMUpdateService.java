@@ -36,6 +36,8 @@ import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTER
 @Service
 public class MRCMUpdateService extends ComponentService implements CommitListener {
 
+	public static final String DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY = "disableMrcmAutoUpdate";
+
 	@Autowired
 	private MRCMLoader mrcmLoader;
 
@@ -64,8 +66,6 @@ public class MRCMUpdateService extends ComponentService implements CommitListene
 	private ECLQueryService eclQueryService;
 
 	private final Logger logger = LoggerFactory.getLogger(MRCMUpdateService.class);
-
-	public static final String DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY = "disableMrcmAutoUpdate";
 
 	@Override
 	public void preCommitCompletion(Commit commit) {

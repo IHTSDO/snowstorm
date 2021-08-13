@@ -16,8 +16,8 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.Description;
 import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
+import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
@@ -56,8 +56,8 @@ class TraceabilityLogServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void createDeleteConcept() throws ServiceException, InterruptedException {
-		assertNull(getTraceabilityActivityWithTimeout(5));
+	void createUpdateDeleteConcept() throws ServiceException, InterruptedException {
+		assertNull(getTraceabilityActivityWithTimeout(2));
 
 		Concept concept = conceptService.create(new Concept().addFSN("New concept"), MAIN);
 
@@ -65,8 +65,10 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertEquals(1, activity.getChangesMap().size());
 		final String conceptId = concept.getConceptId();
 		assertTrue(activity.getChangesMap().containsKey(conceptId));
-		final Activity.ConceptActivity createActivity = activity.getChangesMap().get(conceptId);
-		assertEquals(3, createActivity.getComponentChanges().size(), createActivity.getComponentChanges().toString());
+		assertEquals("[ComponentChange{componentType=CONCEPT, componentSubType=null, componentId='x', changeType=CREATE, effectiveTimeNull=true}, " +
+						"ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000003001, componentId='x', changeType=CREATE, effectiveTimeNull=true}, " +
+						"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=CREATE, effectiveTimeNull=true}]",
+				toString(activity.getChangesMap().get(conceptId).getComponentChanges()));
 
 		// Add description
 		concept.addDescription(new Description("Another")
@@ -77,12 +79,15 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertEquals(1, activity.getChangesMap().size());
 		final Set<Activity.ComponentChange> componentChangesAddDesc = activity.getChanges().iterator().next().getComponentChanges();
 		assertEquals(2, componentChangesAddDesc.size());
-		assertNull(getTraceabilityActivityWithTimeout(5));
+		assertEquals("[ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000013009, componentId='x', changeType=CREATE, effectiveTimeNull=true}, " +
+				"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=CREATE, effectiveTimeNull=true}]",
+				toString(activity.getChangesMap().get(conceptId).getComponentChanges()));
+		assertNull(getTraceabilityActivityWithTimeout(2));
 
 		// Test update with no change logs no traceability
 		concept = simulateRestTransfer(concept);
 		concept = conceptService.update(concept, MAIN);
-		assertNull(getTraceabilityActivityWithTimeout(5));
+		assertNull(getTraceabilityActivityWithTimeout(2));
 
 		// Add axiom
 		concept.addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING));
@@ -103,29 +108,45 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		final String relationshipId = concept.getRelationships().iterator().next().getRelationshipId();
 		activity = getTraceabilityActivity();
 		assertEquals(1, activity.getChangesMap().size());
-		assertEquals(Collections.singleton(new Activity.ComponentChange(Activity.ComponentType.RELATIONSHIP, Long.parseLong(Concepts.INFERRED_RELATIONSHIP),
-						relationshipId, Activity.ChangeType.CREATE, true)),
-				activity.getChangesMap().get(conceptId).getComponentChanges());
+		assertEquals(new Activity.ComponentChange(Activity.ComponentType.RELATIONSHIP, Long.parseLong(Concepts.INFERRED_RELATIONSHIP),
+						relationshipId, Activity.ChangeType.CREATE, true).toString(),
+				activity.getChangesMap().get(conceptId).getComponentChanges().iterator().next().toString());
 
 		// Update concept with no change
 		conceptService.update(concept, MAIN);
 		activity = getTraceabilityActivityWithTimeout(2);// Shorter timeout here because we know the test JMS broker is up and we don't expect a message to come.
 		assertNull(activity, "No concept changes so no traceability commit.");
 
+		// Update description
+		Optional<Description> desc = concept.getDescriptions().stream().filter(description1 -> description1.getTerm().equals("Another")).findFirst();
+		assertTrue(desc.isPresent());
+		desc.get().setCaseSignificanceId(Concepts.ENTIRE_TERM_CASE_SENSITIVE);
+		conceptService.update(concept, MAIN);
+		activity = getTraceabilityActivity();
+		assertEquals(1, activity.getChangesMap().size());
+		assertEquals("[ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000013009, componentId='x', changeType=UPDATE, effectiveTimeNull=true}]",
+				toString(activity.getChanges().iterator().next().getComponentChanges()));
+
 		// Delete description
-		final Optional<Description> desc = concept.getDescriptions().stream().filter(description1 -> description1.getTerm().equals("Another")).findFirst();
+		desc = concept.getDescriptions().stream().filter(description1 -> description1.getTerm().equals("Another")).findFirst();
 		assertTrue(desc.isPresent());
 		concept.getDescriptions().remove(desc.get());
 		conceptService.update(concept, MAIN);
 		activity = getTraceabilityActivity();
 		assertEquals(1, activity.getChangesMap().size());
-		final Set<Activity.ComponentChange> componentChangesDeleteDesc = activity.getChanges().iterator().next().getComponentChanges();
-		assertEquals(2, componentChangesDeleteDesc.size());
+		assertEquals("[ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000013009, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
+				"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=DELETE, effectiveTimeNull=true}]",
+				toString(activity.getChanges().iterator().next().getComponentChanges()));
 
 		conceptService.deleteConceptAndComponents(conceptId, MAIN, false);
 		activity = getTraceabilityActivity();
 		assertNotNull(activity);
-		assertEquals(1, activity.getChangesMap().size());
+		assertEquals("[ComponentChange{componentType=CONCEPT, componentSubType=null, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
+				"ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000003001, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
+				"ComponentChange{componentType=RELATIONSHIP, componentSubType=900000000000011006, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
+				"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=733073007, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
+				"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=DELETE, effectiveTimeNull=true}]",
+				toString(activity.getChanges().iterator().next().getComponentChanges()));
 	}
 
 	@Test
@@ -222,37 +243,12 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		listAppender.stop();
 	}
 
-	@Test
-	void testDeltaImportWithOneAdditionChange() throws InterruptedException {
-		final Commit commit = new Commit(branchService.create("MAIN/RF2DeltaImport"), Commit.CommitType.CONTENT, null, null);
-		final PersistedComponents persistedComponents =
-				PersistedComponents.builder()
-						.withPersistedConcepts(Collections.singleton(new Concept("3311481044").addFSN("Test FSN")))
-						.withPersistedDescriptions(Collections.singleton(
-								new Description("8635753033", 1, true, "900000000000012033", "3311481044", "en", Concepts.SYNONYM, "Test term", "900000000000448022")))
-						.build();
-		traceabilityLogService.logActivity(null, commit, persistedComponents, false, Activity.ActivityType.CONTENT_CHANGE);
-		final Activity activity = getTraceabilityActivityWithTimeout(2);
-		assertNotNull(activity);
-		assertEquals(1, activity.getChangesMap().size());
-		assertTrue(activity.getChangesMap().containsKey("3311481044"));
+	private String toString(Set<Activity.ComponentChange> componentChanges) {
+		List<Activity.ComponentChange> changes = new ArrayList<>(componentChanges);
+		changes.sort(Comparator.comparing(Activity.ComponentChange::getComponentType)
+				.thenComparing(Activity.ComponentChange::getComponentSubType)
+				.thenComparing(Activity.ComponentChange::getChangeType));
+		return changes.toString().replaceAll("componentId='[0-9a-z\\-]*'", "componentId='x'");
 	}
 
-	@Test
-	void testDeltaImportWithTwoAdditionChange() throws InterruptedException {
-		final Commit commit = new Commit(branchService.create("MAIN/RF2DeltaImport"), Commit.CommitType.CONTENT, null, null);
-		final PersistedComponents persistedComponents =
-				PersistedComponents.builder()
-								   .withPersistedConcepts(Arrays.asList(new Concept("3311481044").addFSN("Test FSN"), new Concept("3311483055").addFSN("Test FSN2")))
-								   .withPersistedDescriptions(Arrays.asList(new Description("8635753033", 1, true, "900000000000012033", "3311481044",
-																									"en", Concepts.SYNONYM, "Test term", "900000000000448022"),
-																			new Description("8635753033", 1, true, "900000000000012033", "3311483055",
-																							"en", Concepts.SYNONYM, "Test term", "900000000000448022"))).build();
-		traceabilityLogService.logActivity(null, commit, persistedComponents, false, Activity.ActivityType.CONTENT_CHANGE);
-		final Activity activity = getTraceabilityActivityWithTimeout(2);
-		assertNotNull(activity);
-		assertEquals(2, activity.getChangesMap().size());
-		assertTrue(activity.getChangesMap().containsKey("3311481044"));
-		assertTrue(activity.getChangesMap().containsKey("3311483055"));
-	}
 }

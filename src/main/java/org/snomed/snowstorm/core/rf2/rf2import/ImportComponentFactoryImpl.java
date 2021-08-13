@@ -30,7 +30,6 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
-	private static Logger logger = LoggerFactory.getLogger(ImportComponentFactoryImpl.class);
 	private static final int FLUSH_INTERVAL = 5000;
 
 	private final BranchService branchService;
@@ -40,14 +39,16 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 	private Commit commit;
 	private BranchCriteria branchCriteriaBeforeOpenCommit;
 
-	private PersistBuffer<Concept> conceptPersistBuffer;
-	private PersistBuffer<Description> descriptionPersistBuffer;
-	private PersistBuffer<Relationship> relationshipPersistBuffer;
-	private PersistBuffer<ReferenceSetMember> memberPersistBuffer;
-	private List<PersistBuffer> persistBuffers;
-	private List<PersistBuffer> coreComponentPersistBuffers;
-	private MaxEffectiveTimeCollector maxEffectiveTimeCollector;
-	private Map<String, AtomicLong> componentTypeSkippedMap = new HashMap<>();
+	private final PersistBuffer<Concept> conceptPersistBuffer;
+	private final PersistBuffer<Description> descriptionPersistBuffer;
+	private final PersistBuffer<Relationship> relationshipPersistBuffer;
+	private final PersistBuffer<ReferenceSetMember> memberPersistBuffer;
+	private final List<PersistBuffer<?>> persistBuffers;
+	private final List<PersistBuffer<?>> coreComponentPersistBuffers;
+	private final MaxEffectiveTimeCollector maxEffectiveTimeCollector;
+	private final Map<String, AtomicLong> componentTypeSkippedMap = new HashMap<>();
+
+	private static final Logger logger = LoggerFactory.getLogger(ImportComponentFactoryImpl.class);
 
 	// A small number of stated relationships also appear in the inferred file. These should not be persisted when importing a snapshot.
 	Set<Long> statedRelationshipsToSkip = Sets.newHashSet(3187444026L, 3192499027L, 3574321020L);
@@ -65,7 +66,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		ElasticsearchOperations elasticsearchTemplate = conceptUpdateHelper.getElasticsearchTemplate();
 		versionControlHelper = conceptUpdateHelper.getVersionControlHelper();
 
-		conceptPersistBuffer = new PersistBuffer<Concept>() {
+		conceptPersistBuffer = new PersistBuffer<>() {
 			@Override
 			public void persistCollection(Collection<Concept> entities) {
 				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Concept.class, copyReleaseFields, clearEffectiveTimes);
@@ -76,7 +77,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		};
 		coreComponentPersistBuffers.add(conceptPersistBuffer);
 
-		descriptionPersistBuffer = new PersistBuffer<Description>() {
+		descriptionPersistBuffer = new PersistBuffer<>() {
 			@Override
 			public void persistCollection(Collection<Description> entities) {
 				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Description.class, copyReleaseFields, clearEffectiveTimes);
@@ -87,7 +88,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		};
 		coreComponentPersistBuffers.add(descriptionPersistBuffer);
 
-		relationshipPersistBuffer = new PersistBuffer<Relationship>() {
+		relationshipPersistBuffer = new PersistBuffer<>() {
 			@Override
 			public void persistCollection(Collection<Relationship> entities) {
 				processEntities(entities, patchReleaseVersion, elasticsearchTemplate, Relationship.class, copyReleaseFields, clearEffectiveTimes);
@@ -98,7 +99,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 		};
 		coreComponentPersistBuffers.add(relationshipPersistBuffer);
 
-		memberPersistBuffer = new PersistBuffer<ReferenceSetMember>() {
+		memberPersistBuffer = new PersistBuffer<>() {
 			@Override
 			public void persistCollection(Collection<ReferenceSetMember> entities) {
 				if (!coreComponentsFlushed) { // Avoid having to sync to check this
@@ -192,8 +193,7 @@ public class ImportComponentFactoryImpl extends ImpotentComponentFactory {
 
 	@Override
 	public void loadingComponentsStarting() {
-		commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Loading components from RF2 import."));
-		branchCriteriaBeforeOpenCommit = versionControlHelper.getBranchCriteriaBeforeOpenCommit(commit);
+		setCommit(branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Loading components from RF2 import.")));
 	}
 
 	protected void setCommit(Commit commit) {
