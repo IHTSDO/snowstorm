@@ -77,9 +77,9 @@ public class HapiValueSetMapper implements FHIRConstants {
 			ducExt.addExtension("context", new Coding(SNOMED_URI, langRefsetId, null)); // TODO: is there a quick way to find a description for an id? Which description?
 			// Add acceptability
 			switch(acceptability) {
-			case "ACCEPTABLE":
+			case Concepts.ACCEPTABLE_CONSTANT:
 				ducExt.addExtension("role", new Coding(SNOMED_URI, Concepts.ACCEPTABLE, Concepts.ACCEPTABLE_CONSTANT));
-			case "PREFERRED":
+			case Concepts.PREFERRED_CONSTANT:
 				ducExt.addExtension("role", new Coding(SNOMED_URI, Concepts.PREFERRED, Concepts.PREFERRED_CONSTANT));
 			};
 			// Add type, this is sometimes but not always redundant to designation.use!
