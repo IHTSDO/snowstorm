@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.fhir.services;
 
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.ValueSet;
 import org.hl7.fhir.r4.model.ValueSet.ConceptReferenceDesignationComponent;
 import org.hl7.fhir.r4.model.ValueSet.ValueSetExpansionComponent;
@@ -64,7 +65,32 @@ public class HapiValueSetMapper implements FHIRConstants {
 		ConceptReferenceDesignationComponent designation = new ConceptReferenceDesignationComponent();
 		designation.setLanguage(d.getLanguageCode());
 		designation.setValue(d.getTerm());
-		Coding use = new Coding(SNOMED_URI, d.getTypeId(), FHIRHelper.translateDescType(d.getTypeId()));
+
+		// Designation use context extension
+		String descType = FHIRHelper.translateDescType(d.getTypeId());
+		// For each acceptability of the acceptability map, add an extension instance
+		// TODO: is there a smart way to control when the extension is intantiated?
+		d.getAcceptabilityMap().forEach((langRefsetId, acceptability) -> {
+			// Create designation use context Extension object using the URI
+			Extension ducExt = new Extension("http://snomed.info/fhir/StructureDefinition/designation-use-context"); // TODO: are there FHIR constants anywhere?
+			// Add the context, i.e. the language reference set
+			ducExt.addExtension("context", new Coding(SNOMED_URI, langRefsetId, null)); // TODO: is there a quick way to find a description for an id? Which description?
+			// Add acceptability
+			switch(acceptability) {
+			case "ACCEPTABLE":
+				ducExt.addExtension("role", new Coding(SNOMED_URI, Concepts.ACCEPTABLE, Concepts.ACCEPTABLE_CONSTANT));
+			case "PREFERRED":
+				ducExt.addExtension("role", new Coding(SNOMED_URI, Concepts.PREFERRED, Concepts.PREFERRED_CONSTANT));
+			};
+			// Add type, this is sometimes but not always redundant to designation.use!
+			// TODO: currently it is truly redundant but as there are more alternatives for designation.use, e.g. "consumer", this is/will be needed here
+			ducExt.addExtension("type", new Coding(SNOMED_URI, d.getTypeId(), descType));
+
+			designation.addExtension(ducExt);
+		});
+		// End editing for designation use case extension
+		
+		Coding use = new Coding(SNOMED_URI, d.getTypeId(), descType);
 		designation.setUse(use);
 		return designation;
 	}
