@@ -160,6 +160,15 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		ValueSet v = getValueSet(url);
 		assertEquals(14,v.getExpansion().getContains().size());
 	}
+
+	@Test
+	void testECLWithDesignationUseContextExpansion() throws FHIROperationException {
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct/1234?fhir_vs=ecl/" + sampleSCTID +"&includeDesignations=true&_format=json";
+		ValueSet v = getValueSet(url);
+		assertEquals(1,v.getExpansion().getContains().size());
+		assertFalse(v.getExpansion().getContains().get(0).getDesignation().isEmpty());
+		assertNotNull(v.getExpansion().getContains().get(0).getDesignation().get(0).getExtensionByUrl("http://snomed.info/fhir/StructureDefinition/designation-use-context"));
+	}
 	
 	private void storeVs(String id, String vsJson) {
 		HttpEntity<String> request = new HttpEntity<>(vsJson, headers);
