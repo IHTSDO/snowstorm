@@ -138,7 +138,27 @@ public class HapiParametersMapper implements FHIRConstants {
 	private void addDesignations(Parameters parameters, Concept c) {
 		for (Description d : c.getActiveDescriptions()) {
 			Parameters.ParametersParameterComponent designation = parameters.addParameter().setName(DESIGNATION);
+			// 	TODO: with other values for degination.use might lead to multiple designations for the same description.
+			d.getAcceptabilityMap().forEach((langRefsetId, acceptability) -> {
+				Extension ducExt = new Extension("http://snomed.info/fhir/StructureDefinition/designation-use-context");
+				ducExt.addExtension("context", new Coding(SNOMED_URI, langRefsetId, null)); // TODO: is there a quick way to find a description for an id? Which description? Could be in any module/branch path.
+				// Add acceptability
+				switch(acceptability) {
+				case Concepts.ACCEPTABLE_CONSTANT:
+					ducExt.addExtension("role", new Coding(SNOMED_URI, Concepts.ACCEPTABLE, Concepts.ACCEPTABLE_CONSTANT));
+					break;
+				case Concepts.PREFERRED_CONSTANT:
+					ducExt.addExtension("role", new Coding(SNOMED_URI, Concepts.PREFERRED, Concepts.PREFERRED_CONSTANT));
+				};
+				// Add type, this is sometimes but not always redundant to designation.use!
+				// TODO: currently it is truly redundant but as there are more alternatives for designation.use, e.g. "consumer", this is/will be needed here
+				ducExt.addExtension("type", new Coding(SNOMED_URI, d.getTypeId(), FHIRHelper.translateDescType(d.getTypeId())));		
+
+				designation.addExtension(ducExt);
+			});
+
 			designation.addPart().setName(LANGUAGE).setValue(new CodeType(d.getLang()));
+			// TODO: use FHIR designation.use value set, e.g. "consumer" when an appropriate language reference set is used
 			designation.addPart().setName(USE).setValue(new Coding(SNOMED_URI, d.getTypeId(), FHIRHelper.translateDescType(d.getTypeId())));
 			designation.addPart().setName(VALUE).setValue(new StringType(d.getTerm()));
 		}
