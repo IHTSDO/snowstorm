@@ -74,7 +74,7 @@ public class HapiValueSetMapper implements FHIRConstants {
 			// Create designation use context Extension object using the URI
 			Extension ducExt = new Extension("http://snomed.info/fhir/StructureDefinition/designation-use-context"); // TODO: are there FHIR constants anywhere?
 			// Add the context, i.e. the language reference set
-			ducExt.addExtension("context", new Coding(SNOMED_URI, langRefsetId, null)); // TODO: is there a quick way to find a description for an id? Which description?
+			ducExt.addExtension("context", new Coding(SNOMED_URI, langRefsetId, null)); // TODO: is there a quick way to find a description for an id? Which description? Could be in any module/branch path.
 			// Add acceptability
 			switch(acceptability) {
 			case Concepts.ACCEPTABLE_CONSTANT:
