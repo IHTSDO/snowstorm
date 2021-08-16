@@ -176,6 +176,9 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 		assertEquals(1,v.getExpansion().getContains().size());
 		assertFalse(v.getExpansion().getContains().get(0).getDesignation().isEmpty());
 		assertNotNull(v.getExpansion().getContains().get(0).getDesignation().get(0).getExtensionByUrl("http://snomed.info/fhir/StructureDefinition/designation-use-context"));
+		assertNotNull(v.getExpansion().getContains().get(0).getDesignation().get(0).getExtensionByUrl("http://snomed.info/fhir/StructureDefinition/designation-use-context").getExtensionByUrl("context"));
+		assertNotNull(v.getExpansion().getContains().get(0).getDesignation().get(0).getExtensionByUrl("http://snomed.info/fhir/StructureDefinition/designation-use-context").getExtensionByUrl("role"));
+		assertNotNull(v.getExpansion().getContains().get(0).getDesignation().get(0).getExtensionByUrl("http://snomed.info/fhir/StructureDefinition/designation-use-context").getExtensionByUrl("type"));
 	}
 	
 	private void storeVs(String id, String vsJson) {
