@@ -84,8 +84,6 @@ public class TraceabilityLogService implements CommitListener {
 			return;
 		}
 
-		PersistedComponents persistedComponents = buildPersistedComponents(commit);
-
 		Activity.ActivityType activityType = null;
 		switch (commit.getCommitType()) {
 			case CONTENT:
@@ -102,6 +100,8 @@ public class TraceabilityLogService implements CommitListener {
 			activityType = Activity.ActivityType.CLASSIFICATION_SAVE;
 		}
 		ServiceUtil.assertNotNull("Traceability activity type", activityType);
+
+		PersistedComponents persistedComponents = activityType != Activity.ActivityType.PROMOTION ? buildPersistedComponents(commit) : new PersistedComponents();
 
 		logActivity(SecurityUtil.getUsername(), commit, persistedComponents, activityType);
 	}

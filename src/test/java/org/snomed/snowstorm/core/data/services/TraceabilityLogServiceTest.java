@@ -225,6 +225,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertEquals(PROMOTION, activity.getActivityType());
 		assertEquals("MAIN", activity.getBranchPath());
 		assertEquals("MAIN/A", activity.getSourceBranch());
+		assertTrue(activity.getChanges().isEmpty());
 	}
 
 	@Test
