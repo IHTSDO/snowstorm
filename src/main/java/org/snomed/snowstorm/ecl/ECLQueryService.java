@@ -3,6 +3,8 @@ package org.snomed.snowstorm.ecl;
 import ch.qos.logback.classic.Level;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import org.elasticsearch.index.query.BoolQueryBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.snomed.langauges.ecl.ECLException;
 import org.snomed.langauges.ecl.ECLQueryBuilder;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
@@ -34,6 +36,14 @@ public class ECLQueryService {
 	@Value("${timer.ecl.duration-threshold}")
 	private int eclDurationLoggingThreshold;
 
+	private final ECLResultsCache resultsCache;
+
+	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	public ECLQueryService() {
+		resultsCache = new ECLResultsCache();
+	}
+
 	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, PageRequest pageRequest) throws ECLException {
 		return selectConceptIds(ecl, branchCriteria, path, stated, null, pageRequest);
 	}
@@ -48,17 +58,35 @@ public class ECLQueryService {
 	}
 
 	public Page<Long> doSelectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, SExpressionConstraint expressionConstraint) {
+
+		BranchVersionECLCache branchVersionCache = null;
+		if (conceptIdFilter == null) {
+			branchVersionCache = resultsCache.getOrCreateBranchVersionCache(path, branchCriteria.getTimepoint());
+			Page<Long> cachedPage = branchVersionCache.get(ecl, stated, pageRequest);
+			if (cachedPage != null) {
+				logger.info("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageRequest.getPageNumber(), pageRequest.getPageSize());
+				return cachedPage;
+			}
+		}
+
 		TimerUtil eclSlowQueryTimer = getEclSlowQueryTimer();
 
 		if (expressionConstraint == null) {
 			expressionConstraint = (SExpressionConstraint) eclQueryBuilder.createQuery(ecl);
 		}
 
-		// TODO: Attempt to simplify queries here.
+		// - Optimisation idea -
 		// Changing something like "(id) AND (<<id OR >>id)"  to  "(id AND <<id) OR (id AND >>id)" will run in a fraction of the time because there will be no large fetches
 
 		Optional<Page<Long>> pageOptional = expressionConstraint.select(path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
-		pageOptional.ifPresent(page -> eclSlowQueryTimer.checkpoint(() -> String.format("ecl:'%s', with %s results in this page.", ecl, page.getNumberOfElements())));
+		if (pageOptional.isPresent()) {
+			final Page<Long> page = pageOptional.get();
+			if (branchVersionCache != null) {
+				branchVersionCache.put(ecl, stated, pageRequest, page);
+			}
+			String cacheWording = branchVersionCache != null ? "now cached for this branch/commit/page" : "can not be cached because of conceptIdFilter";
+			eclSlowQueryTimer.checkpoint(() -> String.format("ecl:'%s', with %s results in this page, %s.", ecl, page.getNumberOfElements(), cacheWording));
+		}
 
 		return pageOptional.orElseGet(() -> {
 			BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria.getEntityBranchCriteria(QueryConcept.class), stated);
