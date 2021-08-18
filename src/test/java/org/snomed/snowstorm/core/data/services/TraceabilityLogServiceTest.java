@@ -1,27 +1,25 @@
 package org.snomed.snowstorm.core.data.services;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.domain.Branch;
-import io.kaicode.elasticvc.domain.Commit;
+import org.ihtsdo.otf.snomedboot.ReleaseImportException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.LoggerFactory;
+import org.snomed.otf.snomedboot.testutil.ZipUtil;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
+import org.snomed.snowstorm.core.rf2.RF2Type;
+import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.snomed.snowstorm.core.data.services.traceability.Activity.ActivityType.PROMOTION;
-import static org.snomed.snowstorm.core.data.services.traceability.Activity.ActivityType.REBASE;
+import static org.snomed.snowstorm.core.data.services.traceability.Activity.ActivityType.*;
 
 class TraceabilityLogServiceTest extends AbstractTest {
 
@@ -253,20 +251,22 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertTrue(activity.getChanges().isEmpty());
 	}
 
+	@Autowired
+	private ImportService importService;
+
 	@Test
-	void testDeltaImportWithNoChanges() {
-		final ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
-		listAppender.start();
-		((Logger) LoggerFactory.getLogger(TraceabilityLogService.class)).addAppender(listAppender);
-		traceabilityLogService.setEnabled(true);
-		final Commit commit = new Commit(new Branch("MAIN/Delta"), Commit.CommitType.CONTENT, null, null);
-		commit.setSourceBranchPath("MAIN");
-		commit.getBranch().getMetadata().putString("importType", "Delta");
-		traceabilityLogService.preCommitCompletion(commit);
-		final List<ILoggingEvent> logsList = listAppender.list;
-		assertEquals("Skipping traceability because there was no traceable change for commit {} at {}.", logsList.get(0).getMessage());
-		assertEquals(Level.INFO, logsList.get(0).getLevel());
-		listAppender.stop();
+	void testDeltaImport() throws IOException, ReleaseImportException, InterruptedException {
+		branchService.create("MAIN/A");
+		java.io.File rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/RF2Release/Delta");
+		final String importJob = importService.createJob(RF2Type.DELTA, "MAIN/A", false, false);
+		clearActivities();
+
+		importService.importArchive(importJob, new FileInputStream(rf2Archive));
+
+		Activity activity = getTraceabilityActivity();
+		assertEquals(CONTENT_CHANGE, activity.getActivityType());
+		assertEquals("MAIN/A", activity.getBranchPath());
+		assertEquals(1, activity.getChanges().size());
 	}
 
 	private String toString(Set<Activity.ComponentChange> componentChanges) {
