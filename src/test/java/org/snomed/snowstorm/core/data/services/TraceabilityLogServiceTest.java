@@ -12,10 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.traceability.Activity;
 import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +36,9 @@ class TraceabilityLogServiceTest extends AbstractTest {
 
 	@Autowired
 	private BranchMergeService branchMergeService;
+
+	@Autowired
+	private CodeSystemService codeSystemService;
 
 	private boolean traceabilityOriginallyEnabled;
 
@@ -80,7 +80,7 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		final Set<Activity.ComponentChange> componentChangesAddDesc = activity.getChanges().iterator().next().getComponentChanges();
 		assertEquals(2, componentChangesAddDesc.size());
 		assertEquals("[ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000013009, componentId='x', changeType=CREATE, effectiveTimeNull=true}, " +
-				"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=CREATE, effectiveTimeNull=true}]",
+						"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=CREATE, effectiveTimeNull=true}]",
 				toString(activity.getChangesMap().get(conceptId).getComponentChanges()));
 		assertNull(getTraceabilityActivityWithTimeout(2));
 
@@ -135,18 +135,43 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		activity = getTraceabilityActivity();
 		assertEquals(1, activity.getChangesMap().size());
 		assertEquals("[ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000013009, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
-				"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=DELETE, effectiveTimeNull=true}]",
+						"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=DELETE, effectiveTimeNull=true}]",
 				toString(activity.getChanges().iterator().next().getComponentChanges()));
 
 		conceptService.deleteConceptAndComponents(conceptId, MAIN, false);
 		activity = getTraceabilityActivity();
 		assertNotNull(activity);
 		assertEquals("[ComponentChange{componentType=CONCEPT, componentSubType=null, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
-				"ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000003001, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
-				"ComponentChange{componentType=RELATIONSHIP, componentSubType=900000000000011006, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
-				"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=733073007, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
-				"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=DELETE, effectiveTimeNull=true}]",
+						"ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000003001, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
+						"ComponentChange{componentType=RELATIONSHIP, componentSubType=900000000000011006, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
+						"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=733073007, componentId='x', changeType=DELETE, effectiveTimeNull=true}, " +
+						"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=DELETE, effectiveTimeNull=true}]",
 				toString(activity.getChanges().iterator().next().getComponentChanges()));
+	}
+
+	@Test
+	void createConceptAndVersion() throws ServiceException, InterruptedException {
+		assertNull(getTraceabilityActivityWithTimeout(2));
+
+		Concept concept = conceptService.create(new Concept().addFSN("New concept"), MAIN);
+
+		Activity activity = getTraceabilityActivity();
+		assertEquals(1, activity.getChangesMap().size());
+		final String conceptId = concept.getConceptId();
+		assertTrue(activity.getChangesMap().containsKey(conceptId));
+		assertEquals("[ComponentChange{componentType=CONCEPT, componentSubType=null, componentId='x', changeType=CREATE, effectiveTimeNull=true}, " +
+						"ComponentChange{componentType=DESCRIPTION, componentSubType=900000000000003001, componentId='x', changeType=CREATE, effectiveTimeNull=true}, " +
+						"ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=900000000000509007, componentId='x', changeType=CREATE, effectiveTimeNull=true}]",
+				toString(activity.getChangesMap().get(conceptId).getComponentChanges()));
+
+		final CodeSystem codeSystem = codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", MAIN));
+		codeSystemService.createVersion(codeSystem, 20220131, "");
+
+		// Assert versioned
+		final Concept versionedConcept = conceptService.find(conceptId, MAIN);
+		assertEquals(20220131, versionedConcept.getEffectiveTimeI());
+
+		assertNull(getTraceabilityActivityWithTimeout(2), "There should be no traceability when creating a code system version.");
 	}
 
 	@Test

@@ -171,6 +171,8 @@ public class ImportService {
 		if (importType == FULL || createCodeSystemVersion) {
 			internalMetadataMap.put(DISABLE_IMPORT_TRACEABILITY, "true");
 		}
+		// Import metadata is saved to the store rather than just existing within the Commit object
+		// because imports can span multiple commits (if full import or creating a version)
 		branchService.updateMetadata(branchPath, metadata);
 	}
 

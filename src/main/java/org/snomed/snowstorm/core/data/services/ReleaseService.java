@@ -44,6 +44,10 @@ public class ReleaseService {
 
 	public void createVersion(Integer effectiveTime, String path) {
 		try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Versioning components using effectiveTime " + effectiveTime))) {
+
+			// Disable traceability when versioning to prevent logging every component in the release
+			BranchMetadataHelper.disableTraceabilityForCommit(commit);
+
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 
 			Set<Class<? extends SnomedComponent>> componentTypes = domainEntityConfiguration.getComponentTypeRepositoryMap().keySet();

@@ -80,7 +80,7 @@ public class TraceabilityLogService implements CommitListener {
 	@Override
 	public void preCommitCompletion(final Commit commit) throws IllegalStateException {
 
-		if ("true".equals(commit.getBranch().getMetadata().getMapOrCreate(BranchMetadataHelper.INTERNAL_METADATA_KEY).get(DISABLE_IMPORT_TRACEABILITY))) {
+		if (isTraceabilitySkippedForCommit(commit)) {
 			return;
 		}
 
@@ -104,6 +104,11 @@ public class TraceabilityLogService implements CommitListener {
 		PersistedComponents persistedComponents = activityType != Activity.ActivityType.PROMOTION ? buildPersistedComponents(commit) : new PersistedComponents();
 
 		logActivity(SecurityUtil.getUsername(), commit, persistedComponents, activityType);
+	}
+
+	private boolean isTraceabilitySkippedForCommit(Commit commit) {
+		final Map<String, String> internalMap = commit.getBranch().getMetadata().getMapOrCreate(BranchMetadataHelper.INTERNAL_METADATA_KEY);
+		return BranchMetadataHelper.isTraceabilityDisabledForCommit(commit) || "true".equals(internalMap.get(DISABLE_IMPORT_TRACEABILITY));
 	}
 
 	private PersistedComponents buildPersistedComponents(final Commit commit) {

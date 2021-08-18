@@ -444,7 +444,7 @@ public class ClassificationService {
 	}
 
 	private void setClassificationSaveMetadata(Commit commit) {
-		BranchMetadataHelper.disableContentAutomations(commit);
+		BranchMetadataHelper.disableContentAutomationsForCommit(commit);
 		BranchMetadataHelper.classificationCommit(commit);
 	}
 

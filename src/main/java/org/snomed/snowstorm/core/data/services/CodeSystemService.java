@@ -116,7 +116,7 @@ public class CodeSystemService {
 		return findOneByBranchPath(branchPath) != null;
 	}
 
-	public synchronized void createCodeSystem(CodeSystem newCodeSystem) {
+	public synchronized CodeSystem createCodeSystem(CodeSystem newCodeSystem) {
 		validatorService.validate(newCodeSystem);
 		if (repository.findById(newCodeSystem.getShortName()).isPresent()) {
 			throw new IllegalArgumentException("A code system already exists with this short name.");
@@ -169,6 +169,7 @@ public class CodeSystemService {
 		}
 		repository.save(newCodeSystem);
 		logger.info("Code System '{}' created.", newCodeSystem.getShortName());
+		return newCodeSystem;
 	}
 
 	public Optional<CodeSystem> findByBranchPath(String branchPath) {

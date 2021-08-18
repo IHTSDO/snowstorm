@@ -107,7 +107,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		Metadata metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
 		String defaultModuleId = metadata.getString(Config.DEFAULT_MODULE_ID_KEY);
 		String defaultNamespace = metadata.getString(Config.DEFAULT_NAMESPACE_KEY);
-		final boolean contentAutomationsDisabled = BranchMetadataHelper.isContentAutomationsDisabled(commit);
+		final boolean contentAutomationsDisabled = BranchMetadataHelper.isContentAutomationsDisabledForCommit(commit);
 		TimerUtil timerUtil = new TimerUtil("identifierService.reserveIdentifierBlock", Level.INFO, 1);
 		IdentifierReservedBlock reservedIds = identifierService.reserveIdentifierBlock(newVersionConcepts, defaultNamespace);
 		timerUtil.finish();
