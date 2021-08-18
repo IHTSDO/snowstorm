@@ -19,10 +19,12 @@ public class SExpressionConstraintHelper {
 	public static final String MISSING = "missing";
 	public static final Long MISSING_LONG = 111L;
 
-	protected static Optional<Page<Long>> select(SExpressionConstraint sExpressionConstraint, String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
+	protected static Optional<Page<Long>> select(SExpressionConstraint sExpressionConstraint, String path, BranchCriteria branchCriteria, boolean stated,
+			Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
+
 		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria.getEntityBranchCriteria(QueryConcept.class), stated);
 		RefinementBuilder refinementBuilder = new RefinementBuilderImpl(query, path, branchCriteria, stated, queryService);
-		sExpressionConstraint.addCriteria(refinementBuilder);
+		sExpressionConstraint.addCriteria(refinementBuilder);// This can add an inclusionFilter to the refinementBuilder.
 		return Optional.of(ConceptSelectorHelper.fetchIds(query, conceptIdFilter, refinementBuilder.getInclusionFilter(), pageRequest, queryService));
 	}
 
