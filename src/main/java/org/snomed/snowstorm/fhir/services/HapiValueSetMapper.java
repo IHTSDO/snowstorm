@@ -79,6 +79,7 @@ public class HapiValueSetMapper implements FHIRConstants {
 			switch(acceptability) {
 			case Concepts.ACCEPTABLE_CONSTANT:
 				ducExt.addExtension("role", new Coding(SNOMED_URI, Concepts.ACCEPTABLE, Concepts.ACCEPTABLE_CONSTANT));
+				break;
 			case Concepts.PREFERRED_CONSTANT:
 				ducExt.addExtension("role", new Coding(SNOMED_URI, Concepts.PREFERRED, Concepts.PREFERRED_CONSTANT));
 			};
