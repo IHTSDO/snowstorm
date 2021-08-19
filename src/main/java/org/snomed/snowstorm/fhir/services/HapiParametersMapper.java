@@ -138,8 +138,12 @@ public class HapiParametersMapper implements FHIRConstants {
 	private void addDesignations(Parameters parameters, Concept c) {
 		for (Description d : c.getActiveDescriptions()) {
 			Parameters.ParametersParameterComponent designation = parameters.addParameter().setName(DESIGNATION);
-			// 	TODO: with other values for degination.use might lead to multiple designations for the same description.
+			// TODO: what is the part name (or names) for DUC? As there are three parts of the DUC extension
+			// 	and there is one "bunch" of three per acceptability some object is needed to collect the DUC components.
+			// 	Further, with other values for degination.use might lead to multiple designations for the same description.
 			d.getAcceptabilityMap().forEach((langRefsetId, acceptability) -> {
+				// TODO: Is the name of the part correct? "The name of the parameter (reference to the operation definition)."
+				//	Reference to DUC extension?
 				Extension ducExt = new Extension("http://snomed.info/fhir/StructureDefinition/designation-use-context");
 				ducExt.addExtension("context", new Coding(SNOMED_URI, langRefsetId, null)); // TODO: is there a quick way to find a description for an id? Which description? Could be in any module/branch path.
 				// Add acceptability
