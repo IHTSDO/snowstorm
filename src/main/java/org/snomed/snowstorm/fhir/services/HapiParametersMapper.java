@@ -158,6 +158,7 @@ public class HapiParametersMapper implements FHIRConstants {
 			});
 
 			designation.addPart().setName(LANGUAGE).setValue(new CodeType(d.getLang()));
+			// TODO: use FHIR designation.use value set, e.g. "consumer" when an appropriate language reference set is used
 			designation.addPart().setName(USE).setValue(new Coding(SNOMED_URI, d.getTypeId(), FHIRHelper.translateDescType(d.getTypeId())));
 			designation.addPart().setName(VALUE).setValue(new StringType(d.getTerm()));
 		}
