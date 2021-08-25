@@ -1,8 +1,5 @@
 package org.snomed.snowstorm.extension;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import com.google.gson.annotations.SerializedName;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
@@ -14,7 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
+import org.snomed.snowstorm.core.data.services.NotFoundException;
+import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
@@ -25,23 +24,20 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.google.common.collect.Iterables.partition;
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
-import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
-import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.*;
+import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID;
+import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.Fields.REFSET_ID;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID;
 import static org.snomed.snowstorm.core.data.domain.ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID_FIELD_PATH;
 import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE;
 import static org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.EFFECTIVE_TIME;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.*;
-
-import static com.google.common.collect.Iterables.partition;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.DEFAULT_MODULE_ID;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.REQUIRED_LANGUAGE_REFSETS;
 
 @Service
 public class ExtensionAdditionalLanguageRefsetUpgradeService {
-	@Autowired
-	private CodeSystemService codeSystemService;
 
 	@Autowired
 	private BranchService branchService;
@@ -58,9 +54,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 	@Autowired
 	private ElasticsearchOperations elasticsearchTemplate;
 
-	private Gson gson = new GsonBuilder().create();
-
-	private Logger logger = LoggerFactory.getLogger(ExtensionAdditionalLanguageRefsetUpgradeService.class);
+	private final Logger logger = LoggerFactory.getLogger(ExtensionAdditionalLanguageRefsetUpgradeService.class);
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public void generateAdditionalLanguageRefsetDelta(CodeSystem codeSystem, String branchPath, String languageRefsetId, Boolean completeCopy) {
@@ -87,9 +81,9 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 			logger.info("{} components found with language refset id {} and effective time {}.", enGbComponents.keySet().size(),
 					config.getLanguageRefsetIdToCopyFrom(), effectiveTime);
 			toSave = addOrUpdateLanguageRefsetComponents(branchPath, config, enGbComponents);
-			toSave.stream().forEach(ReferenceSetMember::markChanged);
+			toSave.forEach(ReferenceSetMember::markChanged);
 		}
-		if (toSave != null && !toSave.isEmpty()) {
+		if (!toSave.isEmpty()) {
 			String lockMsg = String.format("Add or update additional language refset on branch %s ", branchPath);
 			try (Commit commit = branchService.openCommit(branchPath, branchMetadataHelper.getBranchLockMetadata(lockMsg))) {
 				referenceSetMemberService.doSaveBatchMembers(toSave, commit);
@@ -128,7 +122,7 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 				.withPageable(LARGE_PAGE);
 		try (final SearchHitsIterator<ReferenceSetMember> referencedComponents = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), ReferenceSetMember.class)) {
 			referencedComponents.forEachRemaining(hit ->
-					result.put(new Long(hit.getContent().getReferencedComponentId()), hit.getContent()));
+					result.put(Long.valueOf(hit.getContent().getReferencedComponentId()), hit.getContent()));
 		}
 		return result;
 	}
@@ -172,9 +166,9 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 	}
 
 	private void update(ReferenceSetMember member, Map<Long, ReferenceSetMember> existingComponents, List<ReferenceSetMember> result) {
-		if (existingComponents.containsKey(new Long(member.getReferencedComponentId()))) {
+		if (existingComponents.containsKey(Long.valueOf(member.getReferencedComponentId()))) {
 			// update
-			ReferenceSetMember existing = existingComponents.get(new Long(member.getReferencedComponentId()));
+			ReferenceSetMember existing = existingComponents.get(Long.valueOf(member.getReferencedComponentId()));
 			member.setActive(existing.isActive());
 			member.setEffectiveTimeI(null);
 			member.setAdditionalField(ACCEPTABILITY_ID, existing.getAdditionalField(ACCEPTABILITY_ID));
@@ -188,11 +182,11 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		final Metadata metadata = branch.getMetadata();
 		String defaultEnglishLanguageRefsetId = null;
 		if (metadata.containsKey(REQUIRED_LANGUAGE_REFSETS)) {
-			String jsonString = metadata.getString(REQUIRED_LANGUAGE_REFSETS);
-			LanguageRefsetMetadataConfig[] configs = gson.fromJson(jsonString, LanguageRefsetMetadataConfig[].class);
-			for (LanguageRefsetMetadataConfig metadataConfig : configs) {
-				if (metadataConfig.usedByDefault && metadataConfig.getEnglishLanguageRestId() != null) {
-					defaultEnglishLanguageRefsetId = metadataConfig.getEnglishLanguageRestId();
+			@SuppressWarnings("unchecked")
+			List<Map<String, String>> requiredLangRefsets = (List<Map<String, String>>) metadata.getAsMap().get(REQUIRED_LANGUAGE_REFSETS);
+			for (Map<String, String> requiredLangRefset : requiredLangRefsets) {
+				if (Boolean.parseBoolean(requiredLangRefset.get("default")) && requiredLangRefset.get("en") != null) {
+					defaultEnglishLanguageRefsetId = requiredLangRefset.get("en");
 					break;
 				}
 			}
@@ -210,15 +204,15 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 	}
 
 	 private static class AdditionalRefsetExecutionConfig {
-		private CodeSystem codeSystem;
+		private final CodeSystem codeSystem;
 		private String defaultModuleId;
 		private String defaultEnglishLanguageRefsetId;
-		private boolean completeCopy;
+		private final boolean completeCopy;
 		private String languageRefsetIdToCopyFrom;
 
 		AdditionalRefsetExecutionConfig(CodeSystem codeSystem, Boolean completeCopy) {
 			this.codeSystem = codeSystem;
-			this.completeCopy = completeCopy == null ? false : completeCopy;
+			this.completeCopy = completeCopy != null && completeCopy;
 		}
 
 		void setDefaultEnglishLanguageRefsetId(String defaultEnglishLanguageRefsetId) {
@@ -252,47 +246,4 @@ public class ExtensionAdditionalLanguageRefsetUpgradeService {
 		 }
 	 }
 
-	private static class LanguageRefsetMetadataConfig {
-
-		@SerializedName(value = "usedByDefault", alternate = "default")
-		private boolean usedByDefault;
-
-		@SerializedName(value = "englishLanguageRefsetId", alternate = "en")
-		private String englishLanguageRestId;
-
-		private boolean readOnly;
-
-		private String dialectName;
-
-		boolean isUsedByDefault() {
-			return usedByDefault;
-		}
-
-		void setUsedByDefault(boolean usedByDefault) {
-			this.usedByDefault = usedByDefault;
-		}
-
-		String getEnglishLanguageRestId() {
-			return englishLanguageRestId;
-		}
-
-		void setEnglishLanguageRefsetId(String englishLanguageRestId) {
-			this.englishLanguageRestId = englishLanguageRestId;
-		}
-		boolean isReadOnly() {
-			return readOnly;
-		}
-
-		void setReadOnly(boolean readOnly) {
-			this.readOnly = readOnly;
-		}
-
-		String getDialectName() {
-			return dialectName;
-		}
-
-		void setDialectName(String dialectName) {
-			this.dialectName = dialectName;
-		}
-	}
 }

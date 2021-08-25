@@ -1,5 +1,8 @@
 package org.snomed.snowstorm.extension;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Lists;
 import io.kaicode.elasticvc.api.BranchService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,6 +51,9 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 
 	@Autowired
 	private ConceptService conceptService;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	private CodeSystem snomedct;
 
@@ -113,7 +119,8 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 		metaData.put("defaultModuleId", "21000210109");
 		metaData.put("defaultNamespace", "1000210");
 		metaData.put("shortname", "NZ");
-		metaData.put("requiredLanguageRefsets", "[{\n" +
+		final TypeReference<List<Map<String, String>>> listTypeReference = new TypeReference<>() {};
+		List<Map<String, String>> requiredLanguageRefsets = objectMapper.readValue("[{\n" +
 				"        \"default\": \"false\",\n" +
 				"        \"en\": \"900000000000508004\",\n" +
 				"        \"readOnly\": \"true\",\n" +
@@ -133,10 +140,10 @@ class ExtensionAdditionalLanguageRefsetUpgradeServiceTest extends AbstractTest {
 				"        \"en\": \"900000000000509007\",\n" +
 				"        \"dialectName\": \"en-us\"\n" +
 				"      }\n" +
-				"    ]");
+				"    ]", listTypeReference);
+		metaData.put("requiredLanguageRefsets", requiredLanguageRefsets);
+
 		branchService.updateMetadata("MAIN/SNOMEDCT-NZ", metaData);
-
-
 	}
 
 	@Test
