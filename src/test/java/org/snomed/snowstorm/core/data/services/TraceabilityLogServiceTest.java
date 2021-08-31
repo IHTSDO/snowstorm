@@ -38,6 +38,9 @@ class TraceabilityLogServiceTest extends AbstractTest {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
+	@Autowired
+	private ImportService importService;
+
 	private boolean traceabilityOriginallyEnabled;
 
 	@BeforeEach
@@ -237,22 +240,30 @@ class TraceabilityLogServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void promote() throws ServiceException, InterruptedException {
+	void promoteRebase() throws ServiceException, InterruptedException {
 		branchService.create("MAIN/A");
+		branchService.create("MAIN/B");
 		conceptService.create(new Concept().addFSN("New concept"), "MAIN/A");
 		clearActivities();
 
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN", Collections.emptyList());
 
-		Activity activity = getTraceabilityActivity();
-		assertEquals(PROMOTION, activity.getActivityType());
-		assertEquals("MAIN", activity.getBranchPath());
-		assertEquals("MAIN/A", activity.getSourceBranch());
-		assertTrue(activity.getChanges().isEmpty());
-	}
+		Activity promotionActivity = getTraceabilityActivity();
+		assertEquals(PROMOTION, promotionActivity.getActivityType());
+		assertEquals("MAIN", promotionActivity.getBranchPath());
+		assertEquals("MAIN/A", promotionActivity.getSourceBranch());
+		assertTrue(promotionActivity.getChanges().isEmpty());
 
-	@Autowired
-	private ImportService importService;
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/B", Collections.emptyList());
+
+		Activity rebaseActivity = getTraceabilityActivity();
+		assertEquals(REBASE, rebaseActivity.getActivityType());
+		assertEquals("MAIN/B", rebaseActivity.getBranchPath());
+		assertEquals("MAIN", rebaseActivity.getSourceBranch());
+		final Collection<Activity.ConceptActivity> changes = rebaseActivity.getChanges();
+		System.out.println(changes);
+		assertTrue(changes.isEmpty());
+	}
 
 	@Test
 	void testDeltaImport() throws IOException, ReleaseImportException, InterruptedException {

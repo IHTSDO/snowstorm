@@ -114,10 +114,16 @@ public class TraceabilityLogService implements CommitListener {
 	private PersistedComponents buildPersistedComponents(final Commit commit) {
 		final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaChangesAndDeletionsWithinOpenCommitOnly(commit);
 		final String branchPath = commit.getBranch().getPath();
-		return PersistedComponents.builder().withPersistedConcepts(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Concept.class, branchCriteria, branchPath))
-				.withPersistedDescriptions(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Description.class, branchCriteria, branchPath))
-				.withPersistedRelationships(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Relationship.class, branchCriteria, branchPath))
-				.withPersistedReferenceSetMembers(traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(ReferenceSetMember.class, branchCriteria, branchPath)).build();
+		return PersistedComponents.builder()
+				.withPersistedConcepts(
+						traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Concept.class, branchCriteria, branchPath, commit.isRebase()))
+				.withPersistedDescriptions(
+						traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Description.class, branchCriteria, branchPath, commit.isRebase()))
+				.withPersistedRelationships(
+						traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Relationship.class, branchCriteria, branchPath, commit.isRebase()))
+				.withPersistedReferenceSetMembers(
+						traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(ReferenceSetMember.class, branchCriteria, branchPath, commit.isRebase()))
+				.build();
 	}
 
 	/**

@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.core.data.services.traceability;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
+import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.search.sort.SortBuilders;
 import org.snomed.snowstorm.core.data.domain.SnomedComponent;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 
 import static io.kaicode.elasticvc.api.VersionControlHelper.LARGE_PAGE;
+import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 
 @Service
 public class TraceabilityLogServiceHelper {
@@ -20,9 +22,18 @@ public class TraceabilityLogServiceHelper {
 	@Autowired
 	private ElasticsearchRestTemplate elasticsearchTemplate;
 
-	public <T extends SnomedComponent<T>> Iterable<T> loadChangesAndDeletionsWithinOpenCommitOnly(Class<T> clazz, BranchCriteria changesAndDeletionsWithinOpenCommitCriteria, String branchPath) {
+	public <T extends SnomedComponent<T>> Iterable<T> loadChangesAndDeletionsWithinOpenCommitOnly(Class<T> clazz, BranchCriteria changesAndDeletionsWithinOpenCommitCriteria,
+			String branchPath, boolean rebase) {
+
+		final BoolQueryBuilder branchCriteria = changesAndDeletionsWithinOpenCommitCriteria.getEntityBranchCriteria(clazz);
+
+		if (rebase) {
+			// The rebase branch criteria usually includes component versions brought in from ancestor branches. We will exclude those from traceability.
+			branchCriteria.must(termQuery(SnomedComponent.Fields.PATH, branchPath));
+		}
+
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
-				.withQuery(changesAndDeletionsWithinOpenCommitCriteria.getEntityBranchCriteria(clazz))
+				.withQuery(branchCriteria)
 				.withSort(SortBuilders.fieldSort("start"))
 				.withPageable(LARGE_PAGE)
 				.build();
@@ -40,10 +51,10 @@ public class TraceabilityLogServiceHelper {
 					componentsWithEndedVersion.add(componentId);
 				} else {
 					if (component.getEnd() == null) {
-						// A version on this branch was ended (may be update or delete)
+						// A version on this branch was created (may be update or create)
 						componentsWithNewVersion.add(componentId);
 					} else {
-						// A version on this branch was created (may be update or create)
+						// A version on this branch was ended (may be update or delete)
 						componentsWithEndedVersion.add(componentId);
 					}
 				}
