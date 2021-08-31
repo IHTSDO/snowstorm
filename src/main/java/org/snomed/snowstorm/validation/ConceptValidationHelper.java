@@ -4,7 +4,6 @@ import org.ihtsdo.drools.domain.Component;
 import org.ihtsdo.drools.response.InvalidContent;
 import org.ihtsdo.drools.response.Severity;
 import org.snomed.snowstorm.core.data.domain.*;
-import org.snomed.snowstorm.core.data.services.ServiceException;
 import org.snomed.snowstorm.validation.domain.DroolsDescription;
 import org.snomed.snowstorm.validation.domain.DroolsRelationship;
 
@@ -15,12 +14,6 @@ import java.util.function.Consumer;
 public final class ConceptValidationHelper {
 
 	private ConceptValidationHelper() {
-	}
-
-	public static InvalidContentWithSeverityStatus validate(final Concept concept, final String branchPath, final DroolsValidationService validationService) throws ServiceException {
-		final List<InvalidContent> invalidContents = validationService.validateConcept(branchPath, concept);
-		return invalidContents.stream().anyMatch(invalidContent -> invalidContent.getSeverity() == Severity.ERROR) ?
-				new InvalidContentWithSeverityStatus(invalidContents, Severity.ERROR) : new InvalidContentWithSeverityStatus(invalidContents, Severity.WARNING);
 	}
 
 	public static Concept stripTemporaryUUIDsIfSet(final Concept concept) {
