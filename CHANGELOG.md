@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+
+## 7.2.0 Release (Sept 2021)
+Feature release in preparation for frequent SNOMED CT releases in the Authoring Platform. Authoring traceability service integration has been rewritten using a simpler message format.
+
+### Breaking
+- Authoring traceability messaging format has changed. Requires Authoring Traceability Service version 3.x.
+  
+
 ## 7.1.2 Release (July 2021)
 Maintenance release with a couple of new features and many improvements and fixes.
 
@@ -19,7 +27,7 @@ Maintenance release with a couple of new features and many improvements and fixe
   - Admin function to reindex descriptions must be used to apply config change to existing data.
 - MAINT-1671 Add Code System "owner" field for display purposes. Added API function to set all owners, from all known defaults in config.
 - MAINT-1649 Add module filter to aggregated refset member search.
-- MAINT-1268 Show dependant version effectiveTime when viewing a CodeSystem. 
+- MAINT-1268 Show dependant version effectiveTime when viewing a CodeSystem.
 - RT2-56 Add refset filter to RF2 export.
 - RP-475 Add bulk feature for finding refset members
 - MAINT-1657 allow "Accept Language" header formats with more than two characters in the dialect.
@@ -27,7 +35,7 @@ Maintenance release with a couple of new features and many improvements and fixe
   - MAINT-1663 Add support for version element in ValueSet compose.
   - MAINT-1354 Add support for FHIR to return results past 10K.
   - Fix #285 Allow disjunction in FHIR filters. Also correct expansion item count and warp when skipping forward pages
-  - MAINT-1575 Documentation: Clarify use of xsct in ValueSet expansion url parameter. 
+  - MAINT-1575 Documentation: Clarify use of xsct in ValueSet expansion url parameter.
 - Authoring
   - MAINT-1667 Add admin function to clean up inactive inferred relationships during an authoring cycle.
   - FRI-101 Drools validation failures now include unique ruleId, to be used in whitelisting.
