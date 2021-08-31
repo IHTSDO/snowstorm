@@ -36,7 +36,7 @@ public class ImportService {
 
 	private final Map<String, ImportJob> importJobMap;
 
-	private static final LoadingProfile DEFAULT_LOADING_PROFILE = LoadingProfile.complete.withFullRefsetMemberObjects();
+	private static final LoadingProfile DEFAULT_LOADING_PROFILE = LoadingProfile.complete;
 
 	@Autowired
 	private ConceptUpdateHelper conceptUpdateHelper;
@@ -80,7 +80,7 @@ public class ImportService {
 		if (importConfiguration.isCreateCodeSystemVersion()) {
 			// Check there is a code system on this branch
 			Optional<CodeSystem> optionalCodeSystem = codeSystemService.findAll().stream().filter(codeSystem -> codeSystem.getBranchPath().equals(branchPath)).findAny();
-			if (!optionalCodeSystem.isPresent()) {
+			if (optionalCodeSystem.isEmpty()) {
 				throw new IllegalArgumentException(String.format("The %s option has been used but there is no codesystem on branchPath %s.", "createCodeSystemVersion", branchPath));
 			}
 		}
@@ -108,11 +108,9 @@ public class ImportService {
 
 			final Integer maxEffectiveTime = importFiles(releaseFileStream, job, importType, branchPath, patchReleaseVersion, new ReleaseImporter(), loadingProfile);
 
-			if (job.isCreateCodeSystemVersion() && importType != FULL) {
+			if (job.isCreateCodeSystemVersion() && importType != FULL && maxEffectiveTime != null) {
 				// Create Code System version if a code system exists on this path
-				if (maxEffectiveTime != null) {
-					codeSystemService.createVersionIfCodeSystemFoundOnPath(branchPath, maxEffectiveTime);
-				}
+				codeSystemService.createVersionIfCodeSystemFoundOnPath(branchPath, maxEffectiveTime);
 			}
 
 			job.setStatus(ImportJob.ImportStatus.COMPLETED);
