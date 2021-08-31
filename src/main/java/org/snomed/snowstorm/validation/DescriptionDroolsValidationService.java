@@ -29,14 +29,14 @@ import static org.elasticsearch.index.query.QueryBuilders.*;
 public class DescriptionDroolsValidationService implements org.ihtsdo.drools.service.DescriptionService {
 
 	private final VersionControlHelper versionControlHelper;
-	private String branchPath;
+	private final String branchPath;
 	private final BranchCriteria branchCriteria;
-	private ElasticsearchOperations elasticsearchTemplate;
+	private final ElasticsearchOperations elasticsearchTemplate;
 	private final DescriptionService descriptionService;
 	private final QueryService queryService;
 	private final TestResourceProvider testResourceProvider;
-	private static Set<String> hierarchyRootIds;
-	private Map<String, String> statedHierarchyRootIdCache = Collections.synchronizedMap(new HashMap<>());
+	private static Set<String> cachedHierarchyRootIds;
+	private final Map<String, String> statedHierarchyRootIdCache = Collections.synchronizedMap(new HashMap<>());
 	private static final Logger LOGGER = LoggerFactory.getLogger(DescriptionDroolsValidationService.class);
 
 	DescriptionDroolsValidationService(String branchPath,
@@ -101,7 +101,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 				if (conceptHierarchyRootId != null) {
 					return matchingDescriptions.stream().filter(d -> {
 						Set<Long> matchingDescriptionAncestors = queryService.findAncestorIds(branchCriteria, branchPath, true, d.getConceptId());
-						return matchingDescriptionAncestors.contains(new Long(conceptHierarchyRootId));
+						return matchingDescriptionAncestors.contains(Long.parseLong(conceptHierarchyRootId));
 					}).collect(Collectors.toSet());
 				}
 			}
@@ -144,7 +144,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(org.snomed.snowstorm.core.data.domain.Description.class))
 						.must(termsQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.CONCEPT_ID, statedParents))
-						.must(termQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.ACTIVE, true))
+						.must(termQuery(org.snomed.snowstorm.core.data.domain.SnomedComponent.Fields.ACTIVE, true))
 						.must(termQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.TYPE_ID, Concepts.FSN))
 						.mustNot(termQuery(org.snomed.snowstorm.core.data.domain.Description.Fields.TAG, termSemanticTag))
 				)
@@ -194,7 +194,7 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 	}
 
 	private Set<String> findHierarchyRootsOnMAIN() {
-		if (hierarchyRootIds == null) {
+		if (cachedHierarchyRootIds == null) {
 			synchronized (DescriptionDroolsValidationService.class) {
 				QueryBuilder mainBranchCriteria = versionControlHelper.getBranchCriteria("MAIN").getEntityBranchCriteria(Relationship.class);
 				NativeSearchQuery query = new NativeSearchQueryBuilder()
@@ -206,12 +206,10 @@ public class DescriptionDroolsValidationService implements org.ihtsdo.drools.ser
 						.withPageable(PageRequest.of(0, 1000))
 						.build();
 				List<Relationship> relationships = elasticsearchTemplate.search(query, Relationship.class).get().map(SearchHit::getContent).collect(Collectors.toList());
-				hierarchyRootIds = relationships.stream().map(Relationship::getSourceId).collect(Collectors.toSet());
+				cachedHierarchyRootIds = relationships.stream().map(Relationship::getSourceId).collect(Collectors.toSet());
 			}
 		}
-		return hierarchyRootIds;
+		return cachedHierarchyRootIds;
 	}
-
-
 
 }

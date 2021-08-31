@@ -44,7 +44,7 @@ public class UpgradeInactivationService {
 	@Autowired
 	private BranchMetadataHelper branchMetadataHelper;
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public void findAndUpdateDescriptionsInactivation(CodeSystem codeSystem) {
 		if (codeSystem == null) {
@@ -57,7 +57,7 @@ public class UpgradeInactivationService {
 		NativeSearchQuery inactiveConceptQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(Concept.Fields.ACTIVE, false)))
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, false)))
 				.withFields(Concept.Fields.CONCEPT_ID)
 				.withPageable(ComponentService.LARGE_PAGE)
 				.build();
@@ -91,7 +91,7 @@ public class UpgradeInactivationService {
 			NativeSearchQuery descriptionQuery = new NativeSearchQueryBuilder()
 					.withQuery(boolQuery()
 							.must(changesOnBranchOnly.getEntityBranchCriteria(Description.class))
-							.must(termQuery(Description.Fields.ACTIVE, true))
+							.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 							.must(termsQuery(Description.Fields.CONCEPT_ID, batch))
 							.mustNot(termsQuery(Description.Fields.DESCRIPTION_ID, descriptionIdsWithIndicators)))
 					.withPageable(ComponentService.LARGE_PAGE)
@@ -170,11 +170,11 @@ public class UpgradeInactivationService {
 		NativeSearchQueryBuilder activeAxiomsQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(changesOnBranchCriteria.getEntityBranchCriteria(ReferenceSetMember.class))
-						.must(termQuery(ReferenceSetMember.Fields.ACTIVE, true))
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 						.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET)))
 				.withPageable(ComponentService.LARGE_PAGE);
 		try (SearchHitsIterator<ReferenceSetMember> activeAxioms = elasticsearchTemplate.searchForStream(activeAxiomsQueryBuilder.build(), ReferenceSetMember.class)) {
-			activeAxioms.forEachRemaining(hit -> conceptToAxiomsMap.computeIfAbsent(new Long(hit.getContent().getReferencedComponentId()), axioms -> new ArrayList<>()).add(hit.getContent()));
+			activeAxioms.forEachRemaining(hit -> conceptToAxiomsMap.computeIfAbsent(Long.parseLong(hit.getContent().getReferencedComponentId()), axioms -> new ArrayList<>()).add(hit.getContent()));
 		}
 
 		// check referenced components are still active
@@ -186,7 +186,7 @@ public class UpgradeInactivationService {
 		NativeSearchQueryBuilder activeConceptsQueryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(branchCriteria.getEntityBranchCriteria(Concept.class))
-						.must(termQuery(Concept.Fields.ACTIVE, true))
+						.must(termQuery(SnomedComponent.Fields.ACTIVE, true))
 						.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptToAxiomsMap.keySet()))
 				)
 				.withFields(Concept.Fields.CONCEPT_ID)
@@ -198,9 +198,9 @@ public class UpgradeInactivationService {
 		// inactivate additional axioms for publish components and delete for unpublished.
 		List<ReferenceSetMember> toInactivate = new ArrayList<>();
 		List<ReferenceSetMember> toDelete = new ArrayList<>();
-		for (Long conceptId : conceptToAxiomsMap.keySet()) {
-			if (!activeConceptIds.contains(conceptId)) {
-				for (ReferenceSetMember axiom : conceptToAxiomsMap.get(conceptId)) {
+		for (Map.Entry<Long, List<ReferenceSetMember>> entry : conceptToAxiomsMap.entrySet()) {
+			if (!activeConceptIds.contains(entry.getKey())) {
+				for (ReferenceSetMember axiom : entry.getValue()) {
 					if (axiom.isReleased()) {
 						axiom.setActive(false);
 						axiom.markChanged();
@@ -252,7 +252,7 @@ public class UpgradeInactivationService {
 				.withPageable(ComponentService.LARGE_PAGE);
 
 		try (final SearchHitsIterator<Description> inactiveDescriptions = elasticsearchTemplate.searchForStream(searchQueryBuilder.build(), Description.class)) {
-			inactiveDescriptions.forEachRemaining(hit -> result.add(new Long(hit.getContent().getDescriptionId())));
+			inactiveDescriptions.forEachRemaining(hit -> result.add(Long.parseLong(hit.getContent().getDescriptionId())));
 		}
 		return result;
 	}
