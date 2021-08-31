@@ -101,7 +101,7 @@ public class DescriptionService extends ComponentService {
 				.get().map(SearchHit::getContent).collect(Collectors.toList());
 		if (descriptions.size() > 1) {
 			String message = String.format("More than one description found for id %s on branch %s.", descriptionId, path);
-			logger.error(message + " {}", descriptions);
+			logger.error("{} {}", message, descriptions);
 			throw new IllegalStateException(message);
 		}
 		// Join refset members
@@ -638,7 +638,7 @@ public class DescriptionService extends ComponentService {
 	}
 
 	private Set<Long> filterOrderedSet(Set<Long> orderedIds, List<Long> idsToKeep) {
-		LongLinkedOpenHashSet newSet = new LongLinkedOpenHashSet();
+		Set<Long> newSet = new LongLinkedOpenHashSet();
 		for (Long orderedId : orderedIds) {
 			if (idsToKeep.contains(orderedId)) {
 				newSet.add(orderedId);
