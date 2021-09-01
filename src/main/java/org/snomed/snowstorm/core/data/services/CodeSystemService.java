@@ -555,6 +555,7 @@ public class CodeSystemService {
 		}
 	}
 
+	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public void updateCodeSystemBranchMetadata(CodeSystem codeSystem, CodeSystemNewAuthoringCycleRequest updateRequest) {
 		String branchPath = codeSystem.getBranchPath();
 		Branch branch = branchService.findBranchOrThrow(branchPath);
@@ -563,8 +564,8 @@ public class CodeSystemService {
 			throw new IllegalStateException("Branch metadata can not be updated when branch is locked.");
 		}
 		Metadata branchMetadata = branch.getMetadata();
-		if (updateRequest.getPackageName() != null) {
-			branchMetadata.putString(PREVIOUS_PACKAGE, updateRequest.getPackageName());
+		if (updateRequest.getPreviousPackage() != null) {
+			branchMetadata.putString(PREVIOUS_PACKAGE, updateRequest.getPreviousPackage());
 		}
 		if (updateRequest.getPreviousRelease() != null) {
 			branchMetadata.putString(PREVIOUS_RELEASE, updateRequest.getPreviousRelease());
