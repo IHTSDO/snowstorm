@@ -2,15 +2,15 @@ package org.snomed.snowstorm.rest.pojo;
 
 public class CodeSystemNewAuthoringCycleRequest {
 
-    private String packageName;
+    private String previousPackage;
     private String previousRelease;
 
     public CodeSystemNewAuthoringCycleRequest() {
 
     }
 
-    public CodeSystemNewAuthoringCycleRequest(String packageName, String previousRelease) {
-        this.packageName = packageName;
+    public CodeSystemNewAuthoringCycleRequest(String previousPackage, String previousRelease) {
+        this.previousPackage = previousPackage;
         this.previousRelease = previousRelease;
     }
 
@@ -22,11 +22,11 @@ public class CodeSystemNewAuthoringCycleRequest {
         this.previousRelease = previousRelease;
     }
 
-    public String getPackageName() {
-        return packageName;
+    public String getPreviousPackage() {
+        return previousPackage;
     }
 
-    public void setPackageName(String packageName) {
-        this.packageName = packageName;
+    public void setPreviousPackage(String previousPackage) {
+        this.previousPackage = previousPackage;
     }
 }
