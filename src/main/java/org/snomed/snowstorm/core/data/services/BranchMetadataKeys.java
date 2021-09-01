@@ -9,4 +9,5 @@ public interface BranchMetadataKeys {
 	String DEFAULT_NAMESPACE = "defaultNamespace";
 	String SHORTNAME = "shortname";
 	String DEPENDENCY_RELEASE = "dependencyRelease";
+	String PREVIOUS_RELEASE = "previousRelease";
 }

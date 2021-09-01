@@ -11,10 +11,7 @@ import org.snomed.snowstorm.core.data.domain.fieldpermissions.CodeSystemCreate;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.snomed.snowstorm.extension.ExtensionAdditionalLanguageRefsetUpgradeService;
-import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
-import org.snomed.snowstorm.rest.pojo.CodeSystemUpgradeRequest;
-import org.snomed.snowstorm.rest.pojo.CreateCodeSystemVersionRequest;
-import org.snomed.snowstorm.rest.pojo.ItemsPage;
+import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -208,6 +205,13 @@ public class CodeSystemController {
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public void updateDetailsFromConfig() {
 		codeSystemService.updateDetailsFromConfig();
+	}
+
+	@ApiOperation("Start new authoring cycle for given code system")
+	@RequestMapping(value = "/{shortName}/new-authoring-cycle", method = RequestMethod.POST)
+	public void startNewAuthoringCycle(@PathVariable String shortName, @RequestBody CodeSystemNewAuthoringCycleRequest updateRequest) {
+		CodeSystem codeSystem = ControllerHelper.throwIfNotFound("Code System", codeSystemService.find(shortName));
+		codeSystemService.updateCodeSystemBranchMetadata(codeSystem, updateRequest);
 	}
 
 	private CodeSystem joinUserPermissionsInfo(CodeSystem codeSystem) {

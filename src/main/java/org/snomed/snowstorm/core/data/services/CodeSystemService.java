@@ -5,6 +5,7 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.PathUtil;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.MultiBucketsAggregation;
 import org.elasticsearch.search.aggregations.bucket.terms.ParsedStringTerms;
@@ -23,6 +24,7 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFa
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.DateUtil;
 import org.snomed.snowstorm.core.util.LangUtil;
+import org.snomed.snowstorm.rest.pojo.CodeSystemNewAuthoringCycleRequest;
 import org.snomed.snowstorm.rest.pojo.CodeSystemUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,6 +50,8 @@ import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.PREVIOUS_PACKAGE;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataKeys.PREVIOUS_RELEASE;
 
 @Service
 public class CodeSystemService {
@@ -549,5 +553,23 @@ public class CodeSystemService {
 				update(codeSystem, new CodeSystemUpdateRequest(codeSystem).populate(configuration));
 			}
 		}
+	}
+
+	public void updateCodeSystemBranchMetadata(CodeSystem codeSystem, CodeSystemNewAuthoringCycleRequest updateRequest) {
+		String branchPath = codeSystem.getBranchPath();
+		Branch branch = branchService.findBranchOrThrow(branchPath);
+
+		if (branch.isLocked()) {
+			throw new IllegalStateException("Branch metadata can not be updated when branch is locked.");
+		}
+		Metadata branchMetadata = branch.getMetadata();
+		if (updateRequest.getPackageName() != null) {
+			branchMetadata.putString(PREVIOUS_PACKAGE, updateRequest.getPackageName());
+		}
+		if (updateRequest.getPreviousRelease() != null) {
+			branchMetadata.putString(PREVIOUS_RELEASE, updateRequest.getPreviousRelease());
+		}
+
+		branchService.updateMetadata(branchPath, branchMetadata);
 	}
 }
