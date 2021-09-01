@@ -771,7 +771,7 @@ public class AdminOperationsService {
 				}
 				componentToFix.markChanged();
 				componentsToSave.add(componentToFix);
-				System.out.println(format("Restoring deleted component %s %s.", componentClass.getSimpleName(), componentToFix.getId()));
+				System.out.printf("Restoring deleted component %s %s.%n", componentClass.getSimpleName(), componentToFix.getId());
 			} else {
 				String moduleId = componentToFix.getModuleId();
 				if (!Concepts.CORE_MODULE.equals(moduleId) && !Concepts.MODEL_MODULE.equals(moduleId) && !releasedComponent.getModuleId().equals(moduleId)) {
@@ -780,7 +780,7 @@ public class AdminOperationsService {
 					componentToFix.copyReleaseDetails(releasedComponent);
 					componentToFix.updateEffectiveTime();
 					if (componentToFix.getEffectiveTime() != null) {
-						System.out.println(format("Setting previously released module restored the effectiveTime on %s %s.", componentClass.getSimpleName(), componentToFix.getId()));
+						System.out.printf("Setting previously released module restored the effectiveTime on %s %s.%n", componentClass.getSimpleName(), componentToFix.getId());
 						componentToFix.markChanged();
 						componentsToSave.add(componentToFix);
 					} else {
@@ -788,12 +788,14 @@ public class AdminOperationsService {
 						componentToFix.setModuleId(moduleId);
 					}
 				}
-				if (!componentToFix.isReleased()) {
+				if (componentToFix.getEffectiveTime() == null) {
 					componentToFix.copyReleaseDetails(releasedComponent);
 					componentToFix.updateEffectiveTime();
-					componentToFix.markChanged();
-					componentsToSave.add(componentToFix);
-					System.out.println(format("Restoring missing released status of %s %s.", componentClass.getSimpleName(), componentToFix.getId()));
+					if (componentToFix.getEffectiveTime() != null) {
+						componentToFix.markChanged();
+						componentsToSave.add(componentToFix);
+						System.out.printf("Restoring missing released status of %s %s.%n", componentClass.getSimpleName(), componentToFix.getId());
+					}
 				}
 			}
 		}
