@@ -6,14 +6,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
+import org.snomed.snowstorm.commitexplorer.CommitExplorer;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.ServiceTestUtil;
+import org.snomed.snowstorm.mrcm.model.ContentType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -32,6 +37,9 @@ class MRCMUpdateServiceTest extends AbstractTest {
 	@Autowired
 	private ConceptService conceptService;
 
+	@Autowired
+	private MRCMService mrcmService;
+
 	private ServiceTestUtil testUtil;
 
 	@BeforeEach
@@ -43,9 +51,10 @@ class MRCMUpdateServiceTest extends AbstractTest {
 	void testUpdatingMRCMRulesAndTemplates() throws Exception {
 
 		Branch branch = branchService.create("MAIN/MRCM");
-		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"255234002", "After");
-		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"272379006", "Event (event)");
-		testUtil.createConceptWithPathIdAndTerm(branch.getPath(),"404684003", "Clinical finding (finding)");
+		final String branchPath = branch.getPath();
+		testUtil.createConceptWithPathIdAndTerm(branchPath, "255234002", "After");
+		testUtil.createConceptWithPathIdAndTerm(branchPath, "272379006", "Event (event)");
+		testUtil.createConceptWithPathIdAndTerm(branchPath, "404684003", "Clinical finding (finding)");
 
 		ReferenceSetMember eventDomain = new ReferenceSetMember(null, null,true,
 				Concepts.CORE_MODULE, Concepts.REFSET_MRCM_DOMAIN_INTERNATIONAL,"272379006")
@@ -95,10 +104,10 @@ class MRCMUpdateServiceTest extends AbstractTest {
 		mrcmMembers.add(event);
 		mrcmMembers.add(clinicFinding);
 		mrcmMembers.add(range);
-		memberService.createMembers(branch.getPath(), mrcmMembers);
+		memberService.createMembers(branchPath, mrcmMembers);
 
 		// verify attribute range
-		range = memberService.findMember(branch.getPath(), range.getMemberId());
+		range = memberService.findMember(branchPath, range.getMemberId());
 		assertNotNull(range);
 
 		assertEquals("<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|",
@@ -109,7 +118,7 @@ class MRCMUpdateServiceTest extends AbstractTest {
 		assertEquals(expected, range.getAdditionalField("attributeRule"));
 
 		// verify domain templates
-		eventDomain = memberService.findMember(branch.getPath(), eventDomain.getMemberId());
+		eventDomain = memberService.findMember(branchPath, eventDomain.getMemberId());
 		assertNotNull(eventDomain);
 		assertEquals("[[+id(<< 272379006 |Event (event)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+id(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]] }",
 				eventDomain.getAdditionalField("domainTemplateForPrecoordination"));
@@ -117,7 +126,7 @@ class MRCMUpdateServiceTest extends AbstractTest {
 		assertEquals("[[+scg(<< 272379006 |Event (event)|)]]: [[0..*]] { [[0..1]] 255234002 |After| = [[+scg(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]] }",
 				eventDomain.getAdditionalField("domainTemplateForPostcoordination"));
 
-		clinicalFindingDomain = memberService.findMember(branch.getPath(), clinicalFindingDomain.getMemberId());
+		clinicalFindingDomain = memberService.findMember(branchPath, clinicalFindingDomain.getMemberId());
 		assertNotNull(clinicalFindingDomain);
 		assertNull(clinicalFindingDomain.getEffectiveTimeI());
 		assertNull(clinicalFindingDomain.getEffectiveTime());
@@ -125,6 +134,10 @@ class MRCMUpdateServiceTest extends AbstractTest {
 				clinicalFindingDomain.getAdditionalField("domainTemplateForPrecoordination"));
 		assertEquals("[[+scg(<< 404684003 |Clinical finding (finding)|)]]: [[0..1]] 255234002 |After| = [[+scg(<< 272379006 |Event (event)| OR << 404684003 |Clinical finding (finding)| OR << 71388002 |Procedure (procedure)|)]]",
 				clinicalFindingDomain.getAdditionalField("domainTemplateForPostcoordination"));
+
+		final Collection<ConceptMini> attributeConceptMinis =
+				mrcmService.retrieveDomainAttributeConceptMinis(ContentType.PRECOORDINATED, true, Collections.singleton(404684003L), branchPath, Config.DEFAULT_LANGUAGE_DIALECTS);
+		assertEquals(1, attributeConceptMinis.size());
 	}
 
 	@Test

@@ -33,9 +33,6 @@ public enum ContentType {
 			return this == ALL || this == PRECOORDINATED;
 		} else if (contentType == POSTCOORDINATED) {
 			return this == ALL || this == POSTCOORDINATED;
-		} else if (contentType == ALL) {
-			throw new IllegalArgumentException("Content type can not be ALL, this only applies to rule types.");
-		}
-		return false;
+		} else return contentType == ALL;
 	}
 }

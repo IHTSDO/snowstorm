@@ -149,16 +149,16 @@ public class MRCMService {
 			attributeConceptMini.addExtraField("attributeDomain",
 					attributeDomains.stream().filter(attributeDomain -> attributeConceptMini.getId().equals(attributeDomain.getReferencedComponentId()))
 							.collect(Collectors.toSet()));
-			addAttributeRangesToExtraConceptMiniFields(attributeConceptMini, attributeDomains, contentType, branchMRCM);
+			addAttributeRangesToExtraConceptMiniFields(attributeConceptMini, contentType, branchMRCM);
 		});
 	}
 
-	private void addAttributeRangesToExtraConceptMiniFields(final ConceptMini conceptMini, final List<AttributeDomain> attributeDomains, final ContentType contentType, final MRCM branchMRCM) {
-		final List<AttributeRange> attributeRanges = new ArrayList<>();
-		branchMRCM.getAttributeRanges().forEach(attributeRange -> attributeDomains.stream()
-				.filter(attributeDomain -> attributeRange.getReferencedComponentId().equals(attributeDomain.getReferencedComponentId()) && attributeRange.getContentType().ruleAppliesToContentType(contentType))
-				.map(attributeDomain -> attributeRange).forEach(attributeRanges::add));
-		conceptMini.addExtraField("attributeRange", attributeRanges);
+	private void addAttributeRangesToExtraConceptMiniFields(final ConceptMini attributeConceptMini, final ContentType contentType, final MRCM branchMRCM) {
+		attributeConceptMini.addExtraField("attributeRange",
+				branchMRCM.getAttributeRanges().stream()
+						.filter(attributeRange -> attributeRange.getReferencedComponentId().equals(attributeConceptMini.getConceptId()))
+						.filter(attributeRange -> contentType.ruleAppliesToContentType(attributeRange.getContentType()))
+						.collect(Collectors.toList()));
 	}
 
 	public Collection<ConceptMini> retrieveAttributeValues(ContentType contentType, String attributeId, String termPrefix, String branchPath, List<LanguageDialect> languageDialects) throws ServiceException {
