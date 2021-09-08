@@ -75,7 +75,7 @@
                     "destinationId": "404684003" // Clinical finding (finding)
                 }
             ]
-        }, 
+        },
         {
             "id": "123",
             "descriptions": [
@@ -90,14 +90,14 @@
                 }
             ]
         },
-        
+
         {
             "id": "473010000",
             "active" : true,
             "descriptions": [
                 {
                     "id": "6",
-                    "term": "Hypersensitivity condition (finding)",                    
+                    "term": "Hypersensitivity condition (finding)",
                     "typeId": "900000000000003001", // FSN
                     "acceptabilityMap": {
                         "900000000000509007": "900000000000548007", // PREFERRED
@@ -109,7 +109,7 @@
                 {
                     "typeId": "116680003", // is-a
                     "active" : true,
-                     "axiomGCI": false,
+                    "axiomGCI": false,
                     "characteristicTypeId": "900000000000010007",
                     "destinationId": "404684003" // Clinical finding (finding)
                 },
@@ -121,7 +121,7 @@
                     "destinationId": "64572001" // Disease (disorder)
                 }
             ]
-        },        
+        },
         {
             "id": "116223007",
             "descriptions": [
@@ -138,7 +138,7 @@
             "relationships": [
                 {
                     "typeId": "116680003", // is-a
-                     "characteristicTypeId": "900000000000010007",
+                    "characteristicTypeId": "900000000000010007",
                     "destinationId": "64572001" //  Disease (disorder)
                 }
             ]
@@ -149,7 +149,7 @@
             "descriptions": [
                 {
                     "id": "7",
-                    "term": "Adverse reaction (disorder)",                    
+                    "term": "Adverse reaction (disorder)",
                     "typeId": "900000000000003001", // FSN
                     "acceptabilityMap": {
                         "900000000000509007": "900000000000548007", // PREFERRED
@@ -163,6 +163,54 @@
                     "active" : true,
                     "characteristicTypeId": "900000000000010007",
                     "destinationId": "116223007" // Complication (disorder)
+                }
+            ]
+        },
+        {
+            "id": "390817007",
+            "active" : true,
+            "descriptions": [
+                {
+                    "id": "8",
+                    "term": "General psychiatric care of older adults (regime/therapy)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "axiomGCI": true,
+                    "active" : true,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "64572001" // Disease (disorder)
+                }
+            ]
+        },
+        {
+            "id": "391029008",
+            "active" : true,
+            "descriptions": [
+                {
+                    "id": "9",
+                    "term": "Procedure (procedure)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "axiomGCI": true,
+                    "active" : true,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "138875005"
                 }
             ]
         }
@@ -236,7 +284,7 @@
             "descriptions": [
                 {
                     "id": "4a",
-                    "term": "Testing (disorder)",                    
+                    "term": "Testing (disorder)",
                     "typeId": "900000000000003001" // FSN
                 }
             ],
@@ -256,14 +304,14 @@
                 }
             ]
         },
-        
+
         {
             "id": "421961002",
             "active" : true,
             "descriptions": [
                 {
                     "id": "5",
-                    "term": "Hypersensitivity reaction (disorder)",                    
+                    "term": "Hypersensitivity reaction (disorder)",
                     "typeId": "900000000000003001", // FSN
                     "acceptabilityMap": {
                         "900000000000509007": "900000000000548007", // PREFERRED
@@ -275,16 +323,49 @@
                 {
                     "typeId": "116680003", // is-a
                     "active" : true,
-                     "axiomGCI": false,
+                    "axiomGCI": false,
                     "characteristicTypeId": "900000000000010007",
                     "destinationId": "473010000" // Hypersensitivity condition (finding)
                 },
                 {
                     "typeId": "116680003", // is-a
                     "active" : true,
-                     "axiomGCI": false,
+                    "axiomGCI": false,
                     "characteristicTypeId": "900000000000010007",
                     "destinationId": "281647001" // Adverse reaction (disorder)
+                }
+            ]
+        },
+        {
+            "id": "391152009",
+            "active" : true,
+            "descriptions": [
+                {
+                    "id": "6",
+                    "term": "General psychiatric care of older adults - Daily intensive (regime/therapy)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                    "axiomGCI": false,
+                    "released": true,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "391029008" // Mental health healthcare resource groups (procedure)
+                },
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                    "axiomGCI": false,
+                    "released": true,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "390817007" // General psychiatric care of older adults (regime/therapy)
                 }
             ]
         }
@@ -310,7 +391,7 @@
                 }
             ]
         },
-        
+
         {
             "id": "1",
             "active" : true,
@@ -343,7 +424,7 @@
             "descriptions": [
                 {
                     "id": "4a",
-                    "term": "Testing (finding)",                    
+                    "term": "Testing (finding)",
                     "typeId": "900000000000003001" // FSN
                 }
             ],
@@ -369,7 +450,7 @@
             "descriptions": [
                 {
                     "id": "5a",
-                    "term": "Testing (finding)",                    
+                    "term": "Testing (finding)",
                     "typeId": "900000000000003001" // FSN
                 }
             ],
@@ -379,6 +460,39 @@
                     "active" : true,
                     "characteristicTypeId": "900000000000010007",
                     "destinationId": "64572001" // Disease (disorder)
+                }
+            ]
+        },
+        {
+            "id": "391152009",
+            "active" : true,
+            "descriptions": [
+                {
+                    "id": "6",
+                    "term": "General psychiatric care of older adults - Daily intensive (other)",
+                    "typeId": "900000000000003001", // FSN
+                    "acceptabilityMap": {
+                        "900000000000509007": "900000000000548007", // PREFERRED
+                        "900000000000508004": "900000000000548007" // PREFERRED
+                    }
+                }
+            ],
+            "relationships": [
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                    "axiomGCI": false,
+                    "released": false,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "391029008" // Mental health healthcare resource groups (procedure)
+                },
+                {
+                    "typeId": "116680003", // is-a
+                    "active" : true,
+                    "axiomGCI": false,
+                    "released": true,
+                    "characteristicTypeId": "900000000000010007",
+                    "destinationId": "390817007" // General psychiatric care of older adults (regime/therapy)
                 }
             ]
         }
