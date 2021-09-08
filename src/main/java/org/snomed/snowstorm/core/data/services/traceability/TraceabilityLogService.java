@@ -231,12 +231,12 @@ public class TraceabilityLogService implements CommitListener {
 				conceptToMembersMap.computeIfAbsent(parseLong(conceptId), id -> new ArrayList<>()).add(refsetMember);
 			} else {
 				membersToLog.add(refsetMember);
-				final Long referencedComponentId = parseLong(refsetMember.getReferencedComponentId());
-				if (!IdentifierService.isConceptId(referencedComponentId.toString())) {
-					if (IdentifierService.isDescriptionId(referencedComponentId.toString())) {
-						referencedDescriptions.add(referencedComponentId);
-					} else if (IdentifierService.isRelationshipId(referencedComponentId.toString())) {
-						referencedRelationships.add(referencedComponentId);
+				final String referencedComponentId = refsetMember.getReferencedComponentId();
+				if (!IdentifierService.isConceptId(referencedComponentId)) {
+					if (IdentifierService.isDescriptionId(referencedComponentId)) {
+						referencedDescriptions.add(parseLong(referencedComponentId));
+					} else if (IdentifierService.isRelationshipId(referencedComponentId)) {
+						referencedRelationships.add(parseLong(referencedComponentId));
 					}
 				}
 			}
