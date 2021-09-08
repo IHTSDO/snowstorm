@@ -5,7 +5,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 
 ## 7.2.0 Release (Sept 2021)
-Feature release in preparation for frequent SNOMED CT releases in the Authoring Platform. Authoring traceability service integration has been rewritten using a simpler message format.
+Feature release in preparation for frequent SNOMED CT releases in the Authoring Platform. Authoring traceability service integration has been rewritten using a simpler message format. This release also contains an important fix to preserve the semantic index of the existing release branch when upgrading a code system.
 
 ### Breaking
 - Authoring
@@ -27,6 +27,7 @@ Feature release in preparation for frequent SNOMED CT releases in the Authoring 
   - MAINT-1710 Allow release patch import using delta or snapshot.
 
 ### Fixes
+- BROWSE-464 Fix to preserve the semantic index of the existing release branch when upgrading a code system. This prevents creating a data issue related to duplicate concept errors.
 - Authoring
   - MAINT-1696 Fix Snowstorm restore release status admin function.
 
