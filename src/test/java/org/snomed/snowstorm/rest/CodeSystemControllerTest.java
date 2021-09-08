@@ -8,20 +8,15 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.CodeSystemUpgradeService;
 import org.snomed.snowstorm.core.data.services.ServiceException;
-import org.snomed.snowstorm.rest.pojo.BranchPojo;
 import org.snomed.snowstorm.rest.pojo.CodeSystemNewAuthoringCycleRequest;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.web.server.LocalServerPort;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.net.URI;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
