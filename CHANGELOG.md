@@ -1,15 +1,35 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). The change log format is inspired by [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
 ## 7.2.0 Release (Sept 2021)
 Feature release in preparation for frequent SNOMED CT releases in the Authoring Platform. Authoring traceability service integration has been rewritten using a simpler message format.
 
 ### Breaking
-- Authoring traceability messaging format has changed. Requires Authoring Traceability Service version 3.x.
-  
+- Authoring
+  - FRI-66 Authoring traceability messaging format has been simplified. This change requires upgrading Authoring Traceability Service to version 3.x.
+
+### Features
+- Authoring
+  - FRI-54 Authoring Acceptance Gateway can block branch promotion.
+  - FRI-160 Added report to list new descriptions with option to list only those not yet promoted.
+
+### Improvements
+- FHIR
+  - MAINT-1686 Support title and sorting in CodeSystem endpoint.
+- General
+  - FRI-158 Add effectiveTime and isReleased filters to concept search.
+  - BROWSE-463 Log ERROR with details if duplicate document found.
+- Authoring
+  - FRI-160 Report to list new descriptions with option to list only those not yet promoted.
+  - MAINT-1710 Allow release patch import using delta or snapshot.
+
+### Fixes
+- Authoring
+  - MAINT-1696 Fix Snowstorm restore release status admin function.
+
 
 ## 7.1.2 Release (July 2021)
 Maintenance release with a couple of new features and many improvements and fixes.
