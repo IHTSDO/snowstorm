@@ -110,7 +110,7 @@ public class ImportService {
 
 			if (job.isCreateCodeSystemVersion() && importType != FULL && maxEffectiveTime != null) {
 				// Create Code System version if a code system exists on this path
-				codeSystemService.createVersionIfCodeSystemFoundOnPath(branchPath, maxEffectiveTime);
+				codeSystemService.createVersionIfCodeSystemFoundOnPath(branchPath, maxEffectiveTime, job.isInternalRelease());
 			}
 
 			job.setStatus(ImportJob.ImportStatus.COMPLETED);

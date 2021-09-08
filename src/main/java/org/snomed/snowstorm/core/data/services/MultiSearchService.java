@@ -241,7 +241,7 @@ public class MultiSearchService implements CommitListener {
 	public Set<CodeSystemVersion> getAllPublishedVersions() {
 		Set<CodeSystemVersion> codeSystemVersions = new HashSet<>();
 		for (CodeSystem codeSystem : codeSystemService.findAll()) {
-			List<CodeSystemVersion> thisCodeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), true);
+			List<CodeSystemVersion> thisCodeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), true, false);
 			thisCodeSystemVersions.stream()
 				.forEach(csv -> csv.setCodeSystem(codeSystem));
 			codeSystemVersions.addAll(thisCodeSystemVersions);

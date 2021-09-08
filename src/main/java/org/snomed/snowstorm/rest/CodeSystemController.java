@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static java.lang.Boolean.TRUE;
+import static org.snomed.snowstorm.rest.ImportController.CODE_SYSTEM_INTERNAL_RELEASE_FLAG_README;
 
 @RestController
 @Api(tags = "Code Systems", description = "-")
@@ -103,23 +104,33 @@ public class CodeSystemController {
 		codeSystemService.deleteCodeSystemAndVersions(codeSystem);
 	}
 
-	@ApiOperation("Retrieve all code system versions")
+	@ApiOperation("Retrieve versions of a code system")
 	@RequestMapping(value = "/{shortName}/versions", method = RequestMethod.GET)
-	public ItemsPage<CodeSystemVersion> findAllVersions(@PathVariable String shortName, @RequestParam(required = false) Boolean showFutureVersions) {
-		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(shortName, showFutureVersions);
+	public ItemsPage<CodeSystemVersion> findAllVersions(
+			@ApiParam("Code system short name.")
+			@PathVariable String shortName,
+
+			@ApiParam("Should versions with a future effective-time be shown.")
+			@RequestParam(required = false, defaultValue = "false") Boolean showFutureVersions,
+
+			@ApiParam("Should versions marked as 'internalRelease' be shown.")
+			@RequestParam(required = false, defaultValue = "false") Boolean showInternalReleases) {
+
+		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(shortName, showFutureVersions, showInternalReleases);
 		for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
 			codeSystemVersionService.getDependantVersionForCodeSystemVersion(codeSystemVersion).ifPresent(codeSystemVersion::setDependantVersionEffectiveTime);
 		}
 		return new ItemsPage<>(codeSystemVersions);
 	}
 
-	@ApiOperation("Create a new code system version")
+	@ApiOperation(value = "Create a new code system version",
+			notes = CODE_SYSTEM_INTERNAL_RELEASE_FLAG_README)
 	@RequestMapping(value = "/{shortName}/versions", method = RequestMethod.POST)
 	public ResponseEntity<Void> createVersion(@PathVariable String shortName, @RequestBody CreateCodeSystemVersionRequest input) {
 		CodeSystem codeSystem = codeSystemService.find(shortName);
 		ControllerHelper.throwIfNotFound("CodeSystem", codeSystem);
 
-		String versionId = codeSystemService.createVersion(codeSystem, input.getEffectiveDate(), input.getDescription());
+		String versionId = codeSystemService.createVersion(codeSystem, input.getEffectiveDate(), input.getDescription(), input.isInternalRelease());
 		return ControllerHelper.getCreatedResponse(versionId);
 	}
 

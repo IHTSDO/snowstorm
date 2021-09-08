@@ -243,7 +243,7 @@ class ImportServiceTest extends AbstractTest {
 		final String branchPath = "MAIN";
 
 		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
-		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT, true).isEmpty());
+		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT, true, false).isEmpty());
 
 		String importId = importService.createJob(RF2Type.SNAPSHOT, branchPath, true, false);
 		importService.importArchive(importId, new FileInputStream(rf2Archive));
@@ -311,7 +311,7 @@ class ImportServiceTest extends AbstractTest {
 		final Description inactiveDescription = inactiveConcept.getDescription("697843019");
 		Assert.assertEquals("CONCEPT_NON_CURRENT", inactiveDescription.getInactivationIndicator());
 
-		List<CodeSystemVersion> allVersions = codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT, true);
+		List<CodeSystemVersion> allVersions = codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT, true, false);
 		assertEquals(1, allVersions.size());
 		CodeSystemVersion codeSystemVersion = allVersions.get(0);
 		assertEquals("SNOMEDCT", codeSystemVersion.getShortName());
@@ -338,7 +338,7 @@ class ImportServiceTest extends AbstractTest {
 		final String branchPath = "MAIN";
 
 		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
-		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT, true).isEmpty());
+		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT, true, false).isEmpty());
 
 
 		// Import Snapshot using Stated Relationships
@@ -383,7 +383,7 @@ class ImportServiceTest extends AbstractTest {
 		final String branchPath = "MAIN";
 
 		assertNotNull(codeSystemService.find(CodeSystemService.SNOMEDCT));
-		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT, true).isEmpty());
+		assertTrue(codeSystemService.findAllVersions(CodeSystemService.SNOMEDCT, true, false).isEmpty());
 
 		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(RF2Type.SNAPSHOT, branchPath);
 		importConfiguration.setModuleIds(Collections.singleton(Concepts.MODEL_MODULE));

@@ -1,9 +1,14 @@
 package org.snomed.snowstorm.rest.pojo;
 
+import io.swagger.annotations.ApiModelProperty;
+
 public class CreateCodeSystemVersionRequest {
 
 	private Integer effectiveDate;
 	private String description;
+
+	@ApiModelProperty(value = "false")
+	private boolean internalRelease;
 
 	public CreateCodeSystemVersionRequest() {
 	}
@@ -29,4 +34,11 @@ public class CreateCodeSystemVersionRequest {
 		this.description = description;
 	}
 
+	public boolean isInternalRelease() {
+		return internalRelease;
+	}
+
+	public void setInternalRelease(boolean internalRelease) {
+		this.internalRelease = internalRelease;
+	}
 }

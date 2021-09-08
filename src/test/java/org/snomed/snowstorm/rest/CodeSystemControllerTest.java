@@ -46,7 +46,7 @@ class CodeSystemControllerTest extends AbstractTest {
         String requestUrl = listCodeSystems();
 
         //when
-        ItemsPage<?> result = this.testRestTemplate.getForObject(requestUrl, ItemsPage.class);
+        ItemsPage<?> result = testRestTemplate.getForObject(requestUrl, ItemsPage.class);
 
         //then
         assertEquals(2, result.getTotal()); //SNOMEDCT & SNOMEDCT-DM
@@ -58,7 +58,7 @@ class CodeSystemControllerTest extends AbstractTest {
         String requestUrl = listCodeSystems();
 
         //when
-        ItemsPage<ItemsPage<?>> response = this.testRestTemplate.getForObject(requestUrl, ItemsPage.class);
+        ItemsPage<ItemsPage<?>> response = testRestTemplate.getForObject(requestUrl, ItemsPage.class);
         Integer dependantVersionEffectiveTime = getDependantVersionEffectiveTimeFromResponse(response, 0);
 
         //then
@@ -71,7 +71,7 @@ class CodeSystemControllerTest extends AbstractTest {
         String requestUrl = listCodeSystems();
 
         //when
-        ItemsPage<ItemsPage<?>> response = this.testRestTemplate.getForObject(requestUrl, ItemsPage.class);
+        ItemsPage<ItemsPage<?>> response = testRestTemplate.getForObject(requestUrl, ItemsPage.class);
         Integer dependantVersionEffectiveTime = getDependantVersionEffectiveTimeFromResponse(response, 1);
 
         //then
@@ -84,7 +84,7 @@ class CodeSystemControllerTest extends AbstractTest {
         String requestUrl = findCodeSystem("idontexist");
 
         //when
-        Map<String, Object> response = this.testRestTemplate.getForObject(requestUrl, Map.class);
+        Map<String, Object> response = testRestTemplate.getForObject(requestUrl, Map.class);
 
         //then
         assertEquals("NOT_FOUND", response.get("error"));
@@ -97,7 +97,7 @@ class CodeSystemControllerTest extends AbstractTest {
         String requestUrl = findCodeSystem("SNOMEDCT-DM");
 
         //when
-        CodeSystem response = this.testRestTemplate.getForObject(requestUrl, CodeSystem.class);
+        CodeSystem response = testRestTemplate.getForObject(requestUrl, CodeSystem.class);
 
         //then
         assertNotNull(response);
@@ -109,7 +109,7 @@ class CodeSystemControllerTest extends AbstractTest {
         String requestUrl = findCodeSystem("SNOMEDCT");
 
         //when
-        ItemsPage<ItemsPage<?>> response = this.testRestTemplate.getForObject(requestUrl, ItemsPage.class);
+        ItemsPage<ItemsPage<?>> response = testRestTemplate.getForObject(requestUrl, ItemsPage.class);
         Integer dependantVersionEffectiveTime = getDependantVersionEffectiveTimeFromResponse(response, 0);
 
         //then
@@ -122,7 +122,7 @@ class CodeSystemControllerTest extends AbstractTest {
         String requestUrl = findCodeSystem("SNOMEDCT-DM");
 
         //when
-        CodeSystem response = this.testRestTemplate.getForObject(requestUrl, CodeSystem.class);
+        CodeSystem response = testRestTemplate.getForObject(requestUrl, CodeSystem.class);
         Integer dependantVersionEffectiveTime = response.getLatestVersion().getDependantVersionEffectiveTime();
 
         //then
@@ -135,7 +135,7 @@ class CodeSystemControllerTest extends AbstractTest {
         String requestUrl = findAllVersions("idontexist");
 
         //when
-        ItemsPage<ItemsPage<?>> response = this.testRestTemplate.getForObject(requestUrl, ItemsPage.class);
+        ItemsPage<ItemsPage<?>> response = testRestTemplate.getForObject(requestUrl, ItemsPage.class);
 
         //then
         assertEquals(0, response.getItems().size());
@@ -147,7 +147,7 @@ class CodeSystemControllerTest extends AbstractTest {
         String requestUrl = findAllVersions("SNOMEDCT");
 
         //when
-        ItemsPage<ItemsPage<?>> response = this.testRestTemplate.getForObject(requestUrl, ItemsPage.class);
+        ItemsPage<ItemsPage<?>> response = testRestTemplate.getForObject(requestUrl, ItemsPage.class);
 
         //then
         assertEquals(5, response.getItems().size());
@@ -164,7 +164,7 @@ class CodeSystemControllerTest extends AbstractTest {
         String requestUrl = findAllVersions("SNOMEDCT-DM");
 
         //when
-        ItemsPage<ItemsPage<?>> response = this.testRestTemplate.getForObject(requestUrl, ItemsPage.class);
+        ItemsPage<ItemsPage<?>> response = testRestTemplate.getForObject(requestUrl, ItemsPage.class);
 
         //then
         assertEquals(3, response.getItems().size());

@@ -50,6 +50,10 @@ public class ImportJob {
 		return importConfiguration.isCreateCodeSystemVersion();
 	}
 
+	public boolean isInternalRelease() {
+		return importConfiguration.isInternalRelease();
+	}
+
 	@JsonIgnore
 	public boolean isClearEffectiveTimes() {
 		return importConfiguration.isClearEffectiveTimes();

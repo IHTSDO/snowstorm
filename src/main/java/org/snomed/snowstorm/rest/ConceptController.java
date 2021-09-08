@@ -306,14 +306,19 @@ public class ConceptController {
 
 	@ApiOperation(value = "View the history of a Concept.", notes = "Response details historical changes for the given Concept.")
 	@GetMapping(value = "/browser/{branch}/concepts/{conceptId}/history", produces = {"application/json"})
-	public ConceptHistory viewConceptHistory(@PathVariable String branch, @PathVariable String conceptId, @RequestParam(required = false, defaultValue = "false") boolean showFutureVersions) {
+	public ConceptHistory viewConceptHistory(
+			@PathVariable String branch,
+			@PathVariable String conceptId,
+			@RequestParam(required = false, defaultValue = "false") boolean showFutureVersions,
+			@RequestParam(required = false, defaultValue = "false") boolean showInternalReleases) {
+
 		branch = BranchPathUriUtil.decodePath(branch);
 		if (!conceptService.exists(conceptId, branch)) {
 			throw new NotFoundException("Concept '" + conceptId + "' not found on branch '" + branch + "'.");
 		}
 
 		CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branch, false);
-		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), showFutureVersions);
+		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), showFutureVersions, showInternalReleases);
 		ConceptHistory conceptHistory = conceptService.loadConceptHistory(conceptId, codeSystemVersions);
 
 		return ControllerHelper.throwIfNotFound("conceptHistory", conceptHistory);

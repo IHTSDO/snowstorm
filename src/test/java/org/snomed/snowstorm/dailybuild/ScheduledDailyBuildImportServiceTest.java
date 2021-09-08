@@ -168,7 +168,7 @@ class ScheduledDailyBuildImportServiceTest extends AbstractTest {
 		File extensionRelease = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Extension_snapshot");
 		importService.importArchive(importId, new FileInputStream(extensionRelease));
 
-		List<CodeSystemVersion> allVersions = codeSystemService.findAllVersions(shortName, false);
+		List<CodeSystemVersion> allVersions = codeSystemService.findAllVersions(shortName, false, false);
 		assertEquals(1, allVersions.size());
 
 		String dailyBuild1Concept = "131148009";

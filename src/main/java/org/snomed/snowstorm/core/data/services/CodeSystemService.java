@@ -92,6 +92,9 @@ public class CodeSystemService {
 	@Value("${codesystem.all.latest-version.allow-future}")
 	private boolean latestVersionCanBeFuture;
 
+	@Value("${codesystem.all.latest-version.allow-internal-release}")
+	private boolean latestVersionCanBeInternalRelease;
+
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
 	private final ConcurrentHashMap<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
 
@@ -199,8 +202,12 @@ public class CodeSystemService {
 		return null;
 	}
 
+	public String createVersion(CodeSystem codeSystem, Integer effectiveDate, String description) {
+		return createVersion(codeSystem, effectiveDate, description, false);
+	}
+
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
-	public synchronized String createVersion(CodeSystem codeSystem, Integer effectiveDate, String description) {
+	public synchronized String createVersion(CodeSystem codeSystem, Integer effectiveDate, String description, boolean internalRelease) {
 
 		if (effectiveDate == null || effectiveDate.toString().length() != 8) {
 			throw new IllegalArgumentException("Effective Date must have format yyyymmdd");
@@ -223,7 +230,7 @@ public class CodeSystemService {
 		Branch branch = sBranchService.create(releaseBranchPath);
 
 		logger.info("Persisting Code System Version...");
-		versionRepository.save(new CodeSystemVersion(codeSystem.getShortName(), branch.getHead(), branchPath, effectiveDate, version, description));
+		versionRepository.save(new CodeSystemVersion(codeSystem.getShortName(), branch.getHead(), branchPath, effectiveDate, version, description, internalRelease));
 
 		logger.info("Versioning complete.");
 
@@ -260,12 +267,12 @@ public class CodeSystemService {
 		return branchPath + "/" + getHyphenatedVersionString(effectiveDate);
 	}
 
-	public synchronized void createVersionIfCodeSystemFoundOnPath(String branchPath, Integer releaseDate) {
+	public synchronized void createVersionIfCodeSystemFoundOnPath(String branchPath, Integer releaseDate, boolean internalRelease) {
 		List<CodeSystem> codeSystems = elasticsearchOperations.search(new NativeSearchQuery(termQuery(CodeSystem.Fields.BRANCH_PATH, branchPath)), CodeSystem.class)
 				.get().map(SearchHit::getContent).collect(Collectors.toList());
 		if (!codeSystems.isEmpty()) {
 			CodeSystem codeSystem = codeSystems.get(0);
-			createVersion(codeSystem, releaseDate, format("%s %s import.", codeSystem.getShortName(), releaseDate));
+			createVersion(codeSystem, releaseDate, format("%s %s import.", codeSystem.getShortName(), releaseDate), internalRelease);
 		}
 	}
 
@@ -394,7 +401,7 @@ public class CodeSystemService {
 				return;
 			}
 
-			List<CodeSystemVersion> allParentVersions = findAllVersions(parentCodeSystem.getShortName(), true);
+			List<CodeSystemVersion> allParentVersions = findAllVersions(parentCodeSystem.getShortName(), true, false);
 			if (allParentVersions.isEmpty()) {
 				logger.error("Code System {} has a child Code System {} but does not have any versions.", parentCodeSystem, codeSystem);
 				return;
@@ -456,27 +463,26 @@ public class CodeSystemService {
 		return null;
 	}
 
-	public List<CodeSystemVersion> findAllVersions(String shortName, Boolean showFutureVersions) {
-		return findAllVersions(shortName, true, showFutureVersions);
+	public List<CodeSystemVersion> findAllVersions(String shortName, boolean includeFutureVersions, boolean includeInternalReleases) {
+		return findAllVersions(shortName, true, includeFutureVersions, includeInternalReleases);
 	}
 
-	private List<CodeSystemVersion> findAllVersions(String shortName, boolean ascOrder, Boolean showFutureVersions) {
+	private List<CodeSystemVersion> findAllVersions(String shortName, boolean ascOrder, boolean includeFutureVersions, boolean includeInternalReleases) {
 		List<CodeSystemVersion> content;
 		if (ascOrder) {
 			content = versionRepository.findByShortNameOrderByEffectiveDate(shortName, LARGE_PAGE).getContent();
 		} else {
 			content = versionRepository.findByShortNameOrderByEffectiveDateDesc(shortName, LARGE_PAGE).getContent();
 		}
-		if (showFutureVersions != null && showFutureVersions) {
-			return content;
-		} else {
-			int todaysEffectiveTime = DateUtil.getTodaysEffectiveTime();
-			return content.stream().filter(version -> version.getEffectiveDate() <= todaysEffectiveTime).collect(Collectors.toList());
-		}
+		int todaysEffectiveTime = DateUtil.getTodaysEffectiveTime();
+		return content.stream()
+				.filter(version -> includeFutureVersions || version.getEffectiveDate() <= todaysEffectiveTime)
+				.filter(version -> includeInternalReleases || !version.isInternalRelease())
+				.collect(Collectors.toList());
 	}
 
 	public CodeSystemVersion findLatestImportedVersion(String shortName) {
-		List<CodeSystemVersion> versions = findAllVersions(shortName, false, true);
+		List<CodeSystemVersion> versions = findAllVersions(shortName, false, true, true);
 		if (versions != null && !versions.isEmpty()) {
 			return versions.get(0);
 		}
@@ -484,7 +490,7 @@ public class CodeSystemService {
 	}
 
 	public CodeSystemVersion findLatestVisibleVersion(String shortName) {
-		List<CodeSystemVersion> versions = findAllVersions(shortName, false, latestVersionCanBeFuture);
+		List<CodeSystemVersion> versions = findAllVersions(shortName, false, latestVersionCanBeFuture, latestVersionCanBeInternalRelease);
 		if (versions != null && !versions.isEmpty()) {
 			return versions.get(0);
 		}
@@ -528,7 +534,7 @@ public class CodeSystemService {
 					"If you need to start again delete all indices and restart Snowstorm.");
 		}
 		logger.info("Deleting Code System '{}'.", codeSystem.getShortName());
-		List<CodeSystemVersion> allVersions = findAllVersions(codeSystem.getShortName(), true);
+		List<CodeSystemVersion> allVersions = findAllVersions(codeSystem.getShortName(), true, false);
 		versionRepository.deleteAll(allVersions);
 		repository.delete(codeSystem);
 		logger.info("Deleted Code System '{}' and versions.", codeSystem.getShortName());

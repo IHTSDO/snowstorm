@@ -5,7 +5,6 @@ import io.swagger.annotations.ApiOperation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
-import org.snomed.snowstorm.core.rf2.RF2Type;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportJob;
 import org.snomed.snowstorm.core.rf2.rf2import.ImportService;
 import org.snomed.snowstorm.core.rf2.rf2import.RF2ImportConfiguration;
@@ -34,10 +33,14 @@ public class ImportController {
 	@Autowired
 	private ImportService importService;
 
+	public static final String CODE_SYSTEM_INTERNAL_RELEASE_FLAG_README = "The 'internalRelease' flag is optional, " +
+			"it can be used to hide a version from the code system versions listing and prevent it being chosen as the code system 'latestRelease'. ";
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@ApiOperation(value = "Create an import job.",
-			notes = "Creates an import job ready for an archive to be uploaded. " +
+	notes = "Creates an import job ready for an archive to be uploaded. " +
+					CODE_SYSTEM_INTERNAL_RELEASE_FLAG_README +
 					"The 'location' response header contain the URL, including the identifier, of the new resource. " +
 					"Use the upload archive function next.")
 	@RequestMapping(method = RequestMethod.POST)
@@ -48,6 +51,7 @@ public class ImportController {
 
 		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(importRequest.getType(), importRequest.getBranchPath());
 		importConfiguration.setCreateCodeSystemVersion(importRequest.getCreateCodeSystemVersion());
+		importConfiguration.setInternalRelease(importRequest.isInternalRelease());
 		String id = importService.createJob(importConfiguration);
 		return ControllerHelper.getCreatedResponse(id);
 	}
@@ -55,6 +59,8 @@ public class ImportController {
 	@ApiOperation(value = "Create and start a local file import.",
 			notes = "Creates and starts an import using a file on the filesystem local to the server. " +
 					"PLEASE NOTE this is an asynchronous call, this function starts the import but does not wait for it to complete. " +
+					"The 'internalRelease' flag hides a version, by default, from the code system versions listing " +
+					"and prevents it being chosen as the code system 'latestRelease'. " +
 					"The 'location' header has the identifier of the new resource. Use this to check the status of the import until it is COMPLETED or FAILED.")
 	@RequestMapping(value = "start-local-file-import", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('AUTHOR', #importRequest.branchPath)")
@@ -71,6 +77,8 @@ public class ImportController {
 
 		RF2ImportConfiguration importConfiguration = new RF2ImportConfiguration(importRequest.getType(), importRequest.getBranchPath());
 		importConfiguration.setCreateCodeSystemVersion(importRequest.getCreateCodeSystemVersion());
+		importConfiguration.setInternalRelease(importRequest.isInternalRelease());
+
 		String id = importService.createJob(importConfiguration);
 
 		try (final FileInputStream localFileStream = new FileInputStream(localFile)) {

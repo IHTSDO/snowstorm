@@ -5,8 +5,7 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 
 class CodeSystemServiceTest extends AbstractTest {
 
@@ -49,6 +48,25 @@ class CodeSystemServiceTest extends AbstractTest {
 		codeSystemService.createVersion(codeSystem, 20990131, "");
 		assertEquals(20990131, codeSystemService.findLatestImportedVersion("SNOMEDCT").getEffectiveDate().intValue());
 
+	}
+
+	@Test
+	void testFindInternalVersion() {
+		CodeSystem codeSystem = new CodeSystem("SNOMEDCT", "MAIN");
+		codeSystemService.createCodeSystem(codeSystem);
+
+		// Create internal release
+		codeSystemService.createVersion(codeSystem, 20190731, "", true);
+
+		assertEquals(20190731, codeSystemService.findLatestImportedVersion("SNOMEDCT").getEffectiveDate().intValue(),
+				"Internal release listed as imported.");
+		assertNull(codeSystemService.findLatestVisibleVersion("SNOMEDCT"),
+				"Internal release not listed as visible, by default.");
+
+		// Create release, not internal
+		codeSystemService.createVersion(codeSystem, 20200131, "", false);
+		assertEquals(20200131, codeSystemService.findLatestImportedVersion("SNOMEDCT").getEffectiveDate().intValue());
+		assertEquals(20200131, codeSystemService.findLatestVisibleVersion("SNOMEDCT").getEffectiveDate().intValue());
 	}
 
 	@Test

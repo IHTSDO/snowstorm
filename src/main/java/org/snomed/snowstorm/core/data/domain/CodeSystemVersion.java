@@ -1,5 +1,6 @@
 package org.snomed.snowstorm.core.data.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.data.annotation.Transient;
 import org.springframework.data.elasticsearch.annotations.DateFormat;
 import org.springframework.data.elasticsearch.annotations.Document;
@@ -39,6 +40,9 @@ public class CodeSystemVersion {
 	@Field(type = FieldType.Keyword)
 	private String releasePackage;
 
+	@Field(type = FieldType.Boolean)
+	private boolean internalRelease;
+
 	@Transient
 	private Integer dependantVersionEffectiveTime;
 	
@@ -48,13 +52,14 @@ public class CodeSystemVersion {
 	public CodeSystemVersion() {
 	}
 
-	public CodeSystemVersion(String shortName, Date importDate, String parentBranchPath, Integer effectiveDate, String version, String description) {
+	public CodeSystemVersion(String shortName, Date importDate, String parentBranchPath, Integer effectiveDate, String version, String description, boolean internalRelease) {
 		this.shortName = shortName;
 		this.importDate = importDate;
 		this.parentBranchPath = parentBranchPath;
 		this.effectiveDate = effectiveDate;
 		this.version = version;
 		this.description = description;
+		this.internalRelease = internalRelease;
 	}
 
 	public String getBranchPath() {
@@ -139,5 +144,19 @@ public class CodeSystemVersion {
 
 	public void setCodeSystem(CodeSystem codeSystem) {
 		this.codeSystem = codeSystem;
+	}
+
+	public Boolean getInternalRelease() {
+		// Flag not returned if false so usually hidden
+		return internalRelease ? Boolean.TRUE : null;
+	}
+
+	@JsonIgnore
+	public boolean isInternalRelease() {
+		return internalRelease;
+	}
+
+	public void setInternalRelease(Boolean internalRelease) {
+		this.internalRelease = internalRelease;
 	}
 }

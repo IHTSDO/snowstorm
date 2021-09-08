@@ -114,10 +114,10 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 		assertEquals("900000000000207008", conceptService.find("18736003", "MAIN/SNOMEDCT-BE").getModuleId());
 
 		// Test delete code system
-		assertEquals(1, codeSystemService.findAllVersions("SNOMEDCT-BE", true).size());
+		assertEquals(1, codeSystemService.findAllVersions("SNOMEDCT-BE", true, false).size());
 		codeSystemService.deleteCodeSystemAndVersions(extensionCodeSystem);
 		assertNull(codeSystemService.find("SNOMEDCT-BE"));
-		assertEquals(0, codeSystemService.findAllVersions("SNOMEDCT-BE", true).size());
+		assertEquals(0, codeSystemService.findAllVersions("SNOMEDCT-BE", true, false).size());
 	}
 
 	@Test
@@ -128,7 +128,7 @@ class CodeSystemServiceIntegrationTest extends AbstractTest {
 		File snomedBase = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/dummy-snomed-content/SnomedCT_MiniRF2_Base_snapshot");
 		String importJob = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true, false);
 		importService.importArchive(importJob, new FileInputStream(snomedBase));
-		List<CodeSystemVersion> intVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), true);
+		List<CodeSystemVersion> intVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), true, false);
 		assertEquals(1, intVersions.size());
 		assertEquals("MAIN/2018-07-31", intVersions.get(0).getBranchPath());
 		assertEquals(20180731, intVersions.get(0).getEffectiveDate().intValue());

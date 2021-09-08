@@ -11,6 +11,7 @@ public final class RF2ImportConfiguration {
 	private RF2Type type;
 	private String branchPath;
 	private boolean createCodeSystemVersion;
+	private boolean internalRelease;
 	private Set<String> moduleIds;
 	private Integer patchReleaseVersion;
 
@@ -49,6 +50,14 @@ public final class RF2ImportConfiguration {
 	public RF2ImportConfiguration setCreateCodeSystemVersion(boolean createCodeSystemVersion) {
 		this.createCodeSystemVersion = createCodeSystemVersion;
 		return this;
+	}
+
+	public boolean isInternalRelease() {
+		return internalRelease;
+	}
+
+	public void setInternalRelease(boolean internalRelease) {
+		this.internalRelease = internalRelease;
 	}
 
 	public RF2ImportConfiguration setClearEffectiveTimes(Boolean clearEffectiveTimes) {
