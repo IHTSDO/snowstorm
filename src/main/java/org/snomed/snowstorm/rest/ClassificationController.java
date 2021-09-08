@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.rest;
 
 import com.fasterxml.jackson.annotation.JsonView;
+import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -29,6 +31,9 @@ public class ClassificationController {
 
 	@Autowired
 	private ClassificationService classificationService;
+
+	@Autowired
+	private BranchService branchService;
 
 	@ApiOperation("Retrieve classifications on a branch")
 	@RequestMapping(method = RequestMethod.GET)
@@ -97,9 +102,10 @@ public class ClassificationController {
 			UriComponentsBuilder uriComponentsBuilder) throws ServiceException {
 
 		branch = BranchPathUriUtil.decodePath(branch);
-		Classification classification = classificationService.createClassification(branch, reasonerId);
+		Branch branchObject = branchService.findBranchOrThrow(branch);
+		Classification classification = classificationService.createClassification(branchObject, reasonerId);
 		return ResponseEntity.created(uriComponentsBuilder.path("/{branch}/classifications/{classificationId}")
-				.buildAndExpand(branch, classification.getId()).toUri()).build();
+				.buildAndExpand(branchObject.getPath(), classification.getId()).toUri()).build();
 	}
 
 	@ApiOperation(value = "Update a classification on a branch.",

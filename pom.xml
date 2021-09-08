@@ -358,11 +358,6 @@
 			</snapshots>
 		</repository>
 		<repository>
-			<id>jcenter-snapshots</id>
-			<name>jcenter</name>
-			<url>https://jcenter.bintray.com/</url>
-		</repository>
-		<repository>
 			<id>ihtsdo-releases</id>
 			<releases>
 				<enabled>true</enabled>

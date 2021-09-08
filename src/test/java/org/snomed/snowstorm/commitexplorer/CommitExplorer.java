@@ -41,7 +41,7 @@ public class CommitExplorer {
 	private final String indexNamePrefix;
 
 	private void run() {
-		listCommits("MAIN/SNOMEDCT-US");
+		listCommits("MAIN");
 		//listRecentVersions("209889006", Concept.class);
 //		listRecentVersions("890431008", Concept.class);
 		//listRecentVersions("646067016", Description.class);

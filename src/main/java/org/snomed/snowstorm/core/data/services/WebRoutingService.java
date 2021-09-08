@@ -55,7 +55,11 @@ public class WebRoutingService {
 		if (concept == null && (webRoute == null || webRoute.isDefaultRoute()) && uriParts.nameSpace != null) {
 			return populateWebRouteTemplate(null, uriParts, webRoutes.getFallbackRoute());
 		}
-		
+
+		if (webRoute == null) {
+			webRoute = webRoutes.getFallbackRoute();
+		}
+
 		String template = webRoute.getRedirectionTemplate();
 		if (template.contains("{BRANCH}")) {
 			if (concept == null) {
@@ -72,7 +76,7 @@ public class WebRoutingService {
 			String versionUri = CANONICAL_URI_PREFIX + "sct/";
 			if (uriParts.moduleId != null) {
 				versionUri += uriParts.moduleId;
-			} else {
+			} else if (concept != null) {
 				//TODO Watch what happens when we have the model module rather than 
 				//the default module for the branch.
 				versionUri += concept.getModuleId();

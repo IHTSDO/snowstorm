@@ -68,8 +68,8 @@ class AttributeRange {
 		} else {
 			if (isNumeric) {
 				if (!(conceptAttributeValue instanceof String)) {
-					final Float attributeValue = Float.parseFloat(conceptAttributeValue.toString());
-					final int i = attributeValue.compareTo(concreteNumberValue);
+					final float attributeValue = Float.parseFloat(conceptAttributeValue.toString());
+					final int i = Float.compare(attributeValue, concreteNumberValue);
 					switch (operator) {
 						case "=":
 							return i == 0;

@@ -186,10 +186,11 @@ public class HapiParametersMapper implements FHIRConstants {
 	private Parameters.ParametersParameterComponent createProperty(StringType propertyName, Object propertyValue, boolean isCode) {
 		Parameters.ParametersParameterComponent property = new Parameters.ParametersParameterComponent().setName(PROPERTY);
 		property.addPart().setName(CODE).setValue(propertyName);
+		final String propertyValueString = propertyValue == null ? "" : propertyValue.toString();
 		if (isCode) {
-			property.addPart().setName(VALUE).setValue(new CodeType(propertyValue.toString()));
+			property.addPart().setName(VALUE).setValue(new CodeType(propertyValueString));
 		} else {
-			StringType value = new StringType(propertyValue == null ? "" : propertyValue.toString());
+			StringType value = new StringType(propertyValueString);
 			property.addPart().setName(getTypeName(propertyValue)).setValue(value);
 		}
 		return property;

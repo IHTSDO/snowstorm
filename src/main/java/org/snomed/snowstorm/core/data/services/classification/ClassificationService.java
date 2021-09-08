@@ -324,9 +324,9 @@ public class ClassificationService {
 		}
 	}
 
-	public Classification createClassification(String path, String reasonerId) throws ServiceException {
-		Branch branch = branchService.findBranchOrThrow(path);
+	public Classification createClassification(Branch branch, String reasonerId) throws ServiceException {
 
+		final String path = branch.getPath();
 		Classification classification = new Classification();
 		classification.setPath(path);
 		classification.setReasonerId(reasonerId);

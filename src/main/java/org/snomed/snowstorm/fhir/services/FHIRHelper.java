@@ -458,19 +458,19 @@ public class FHIRHelper implements FHIRConstants {
 			PageRequest pageRequest, List<LanguageDialect> languageDialects) {
 		//What's the last page we can safely recover to scroll forward from there?
 		int lastSafePage = (MAX_RETURN_COUNT / pageRequest.getPageSize()) -1;
-		long totalRequested = pageRequest.getPageSize() * pageRequest.getPageNumber();
+		long totalRequested = ((long)pageRequest.getPageSize()) * pageRequest.getPageNumber();
 		PageRequest currPageReq = PageRequest.of(lastSafePage, pageRequest.getPageSize(), DEFAULT_SORT);
 		int currPageCount = lastSafePage;
 		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branchPath);
 		SearchAfterPage<Long> page = null;
 		int scrollFowardPageCount = pageRequest.getPageNumber() - currPageCount;
-		logger.debug("Scrolling forward " + scrollFowardPageCount + " pages");
+		logger.debug("Scrolling forward {} pages", scrollFowardPageCount);
 		while (currPageCount <= pageRequest.getPageNumber()) {
 			//Can I warp towards the final page using a larger page size?
 			//Need to start from a page with a searchAfter, check page not null
 			if (currPageCount < pageRequest.getPageNumber() - 1 && page != null) {
 				int scrollFowardSize = (pageRequest.getPageNumber() - currPageCount) * pageRequest.getPageSize();
-				int maxPageSize = scrollFowardSize < MAX_RETURN_COUNT ? scrollFowardSize : MAX_RETURN_COUNT;
+				int maxPageSize = Math.min(scrollFowardSize, MAX_RETURN_COUNT);
 				//May need to be one page back from this so we leave our last page for the next loop
 				maxPageSize -= maxPageSize == MAX_RETURN_COUNT ? 0 : pageRequest.getPageSize();
 				//How far are we warping?
@@ -486,13 +486,17 @@ public class FHIRHelper implements FHIRConstants {
 			}
 			currPageReq = SearchAfterPageRequest.of(page.getSearchAfter(), pageRequest.getPageSize(), DEFAULT_SORT);
 		}
-		//Now we've got the right page, recover ConceptMinis for these Ids
-		ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, page.getContent(), languageDialects);
-		return new PageImpl<>(new ArrayList<>(conceptMinis.getResultsMap().values()), pageRequest, page.getTotalElements());
+		if (page != null) {
+			//Now we've got the right page, recover ConceptMinis for these Ids
+			ResultMapPage<String, ConceptMini> conceptMinis = conceptService.findConceptMinis(branchCriteria, page.getContent(), languageDialects);
+			return new PageImpl<>(new ArrayList<>(conceptMinis.getResultsMap().values()), pageRequest, page.getTotalElements());
+		} else {
+			return Page.empty();
+		}
 	}
 
 	public boolean hasUsageContext(MetadataResource r, TokenParam context) {
-		if (r.getUseContext() != null && r.getUseContext().size() > 0) {
+		if (r.getUseContext() != null && !r.getUseContext().isEmpty()) {
 			return r.getUseContext().stream()
 				.anyMatch(u -> codingMatches(u.getCode(), context.getValue()));
 		}
@@ -500,7 +504,7 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	public boolean hasJurisdiction(MetadataResource r, StringParam jurisdiction) {
-		if (r.getJurisdiction() != null && r.getJurisdiction().size() > 0) {
+		if (r.getJurisdiction() != null && !r.getJurisdiction().isEmpty()) {
 			for (CodeableConcept codeableConcept : r.getJurisdiction()) {
 				for (Coding c : codeableConcept.getCoding()) {
 					if (c.getCode().equals(jurisdiction.getValue())) {
@@ -513,7 +517,7 @@ public class FHIRHelper implements FHIRConstants {
 	}
 
 	public boolean hasIdentifier(ValueSet vs, StringParam identifier) {
-		if (vs.getIdentifier() != null && vs.getIdentifier().size() > 0) {
+		if (vs.getIdentifier() != null && !vs.getIdentifier().isEmpty()) {
 			for (Identifier i : vs.getIdentifier()) {
 				if (stringMatches(i.getValue(), identifier)) {
 					return true;
@@ -524,7 +528,7 @@ public class FHIRHelper implements FHIRConstants {
 	}
 	
 	public boolean hasIdentifier(CodeSystem cs, StringParam identifier) {
-		if (cs.getIdentifier() != null && cs.getIdentifier().size() > 0) {
+		if (cs.getIdentifier() != null && !cs.getIdentifier().isEmpty()) {
 			for (Identifier i : cs.getIdentifier()) {
 				if (stringMatches(i.getValue(), identifier)) {
 					return true;
@@ -543,7 +547,7 @@ public class FHIRHelper implements FHIRConstants {
 		if (obj instanceof Date) {
 			value = sdf.format((Date)obj);
 		}
-		return stringMatches(value.toString(), searchTerm);
+		return stringMatches(value, searchTerm);
 	}
 
 	public boolean stringMatches(String value, StringParam searchTerm) {
@@ -559,7 +563,7 @@ public class FHIRHelper implements FHIRConstants {
 
 		//What sort of matching are we doing?  StartsWith by default
 		if (searchTerm.isExact()) {
-			return value.toLowerCase().equals(searchTerm.getValue().toLowerCase());
+			return value.equalsIgnoreCase(searchTerm.getValue());
 		} else if (searchTerm.isContains()) {
 			return value.toLowerCase().contains(searchTerm.getValue().toLowerCase());
 		} else {

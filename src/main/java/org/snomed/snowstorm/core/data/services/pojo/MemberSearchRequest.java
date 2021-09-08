@@ -50,7 +50,7 @@ public class MemberSearchRequest {
 	}
 
 	/**
-	 * @param referencedComponentId  Filter by the referencedComponentId field.
+	 * @param referencedComponentIds Filter by the referencedComponentId field.
 	 */
 	public MemberSearchRequest referencedComponentIds(Set<String> referencedComponentIds) {
 		this.referencedComponentIds = referencedComponentIds;
