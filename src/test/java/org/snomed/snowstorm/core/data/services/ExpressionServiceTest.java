@@ -77,14 +77,15 @@ class ExpressionServiceTest extends AbstractTest {
 		
 		// Expecting one attribute (fully defined), and a single focus concept of concept 2
 		assertEquals(1, exp.getAttributes().size());
-		assertTrue(!exp.getAttributes().get(0).getValue().isConcrete());
+		assertTrue(exp.getAttributes().get(0).getValue() == null);
+		assertTrue(exp.getAttributes().get(0).getTarget() != null);
 		
 		assertEquals(1, exp.getConcepts().size());
 		assertEquals(new ConceptMicro(concept2), exp.getConcepts().get(0));
 		
 		//Concrete example also has 1 attribute (which is concrete) and Concept4 as a focus
 		assertEquals(1, expCD.getAttributes().size());
-		assertTrue(expCD.getAttributes().get(0).getValue().isConcrete());
+		assertTrue(expCD.getAttributes().get(0).getValue() != null);
 		
 		assertEquals(1, expCD.getConcepts().size());
 		//Concept 5 has the sufficiently defined concept4 as an immediate parent, however
@@ -166,7 +167,8 @@ class ExpressionServiceTest extends AbstractTest {
 
 		// Expecting one attribute (fully defined), and a single focus concept of concept 2
 		assertEquals(1, exp.getAttributes().size());
-		assertTrue(!exp.getAttributes().get(0).getValue().isConcrete());
+		assertTrue(exp.getAttributes().get(0).getValue() == null);
+		assertTrue(exp.getAttributes().get(0).getTarget() != null);
 
 		assertEquals(1, exp.getConcepts().size());
 		assertEquals(new ConceptMicro(concept2), exp.getConcepts().get(0));
