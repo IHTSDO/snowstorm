@@ -216,8 +216,9 @@ public class ClassificationService {
 								}
 
 								final ClassificationStatus newStatusFinal = newStatus;
+								final SecurityContext context = SecurityContextHolder.getContext();
 								classificationProcessingExecutor.submit(() -> {
-
+									SecurityContextHolder.setContext(context); // Security context brought across into new thread
 									classification.setStatus(newStatusFinal);
 
 									if (newStatusFinal == COMPLETED) {
