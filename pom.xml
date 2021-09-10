@@ -145,7 +145,7 @@
 		<dependency>
 			<groupId>org.ihtsdo.drools</groupId>
 			<artifactId>snomed-drools-engine</artifactId>
-			<version>3.0.3-SNAPSHOT</version>
+			<version>3.0.3</version>
 		</dependency>
 		<dependency>
 			<groupId>com.fasterxml.jackson.dataformat</groupId>
