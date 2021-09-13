@@ -266,6 +266,50 @@ class TraceabilityLogServiceTest extends AbstractTest {
 	}
 
 	@Test
+	void rebaseWithAutomaticallyResolvedSynonymConflict() throws ServiceException, InterruptedException {
+		final String conceptId = conceptService.create(new Concept().addFSN("New concept").addDescription(new Description("Some synonym")), "MAIN").getConceptId();
+		final Concept concept = conceptService.find(conceptId, "MAIN");
+		final Optional<Description> descriptionOptional = concept.getDescriptions().stream().filter(d -> d.getTypeId().equals(Concepts.SYNONYM)).findFirst();
+		assertTrue(descriptionOptional.isPresent());
+		final Description description = descriptionOptional.get();
+		branchService.create("MAIN/A");
+		branchService.create("MAIN/B");
+		clearActivities();
+
+		description.setCaseSignificanceId(Concepts.ENTIRE_TERM_CASE_SENSITIVE);
+		concept.addDescription(description);
+		assertEquals(2, concept.getDescriptions().size());
+		conceptService.update(concept, "MAIN/A");
+
+		description.setCaseSignificanceId(Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE);
+		concept.addDescription(description);
+		assertEquals(2, concept.getDescriptions().size());
+		conceptService.update(concept, "MAIN/B");
+
+		branchMergeService.mergeBranchSync("MAIN/A", "MAIN", Collections.emptyList());
+
+		Activity promotionActivity = getTraceabilityActivity();
+		assertEquals(PROMOTION, promotionActivity.getActivityType());
+		assertEquals("MAIN", promotionActivity.getBranchPath());
+		assertEquals("MAIN/A", promotionActivity.getSourceBranch());
+		assertTrue(promotionActivity.getChanges().isEmpty());
+
+		branchMergeService.mergeBranchSync("MAIN", "MAIN/B", Collections.emptyList());
+
+		Activity rebaseActivity = getTraceabilityActivity();
+		assertEquals(REBASE, rebaseActivity.getActivityType());
+		assertEquals("MAIN/B", rebaseActivity.getBranchPath());
+		assertEquals("MAIN", rebaseActivity.getSourceBranch());
+		final Collection<Activity.ConceptActivity> changes = rebaseActivity.getChanges();
+		System.out.println(changes);
+		assertEquals(1, changes.size());
+		final Activity.ConceptActivity activity = changes.iterator().next();
+		assertEquals(1, activity.getComponentChanges().size());
+		final Activity.ComponentChange componentChange = activity.getComponentChanges().iterator().next();
+		assertEquals(Activity.ChangeType.UPDATE, componentChange.getChangeType());
+	}
+
+	@Test
 	void testDeltaImport() throws IOException, ReleaseImportException, InterruptedException {
 		branchService.create("MAIN/A");
 		java.io.File rf2Archive = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/main/resources/dummy-snomed-content/RF2Release/Delta");

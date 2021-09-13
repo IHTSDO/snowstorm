@@ -271,8 +271,8 @@ public class BranchMergeService {
 
 		String idField;
 		try {
-			idField = componentClass.newInstance().getIdField();
-		} catch (InstantiationException | IllegalAccessException e) {
+			idField = componentClass.getConstructor().newInstance().getIdField();
+		} catch (ReflectiveOperationException e) {
 			throw new ServiceException("Failed to resolve id field of snomed component.", e);
 		}
 
@@ -311,6 +311,7 @@ public class BranchMergeService {
 			ElasticsearchRepository repository = domainEntityConfiguration.getComponentTypeRepositoryMap().get(componentClass);
 			logger.info("Taking parent version of {} {}s on {}", duplicateComponents.size(), componentClass.getSimpleName(), path);
 			versionControlHelper.endOldVersionsOnThisBranch(componentClass, duplicateComponents, idField, clause, commit, repository);
+			BranchMetadataHelper.getRebaseDuplicatesRemoved(commit).put(componentClass.getSimpleName(), duplicateComponents);
 		}
 	}
 

@@ -116,13 +116,13 @@ public class TraceabilityLogService implements CommitListener {
 		final String branchPath = commit.getBranch().getPath();
 		return PersistedComponents.builder()
 				.withPersistedConcepts(
-						traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Concept.class, branchCriteria, branchPath, commit.isRebase()))
+						traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Concept.class, branchCriteria, branchPath, commit))
 				.withPersistedDescriptions(
-						traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Description.class, branchCriteria, branchPath, commit.isRebase()))
+						traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Description.class, branchCriteria, branchPath, commit))
 				.withPersistedRelationships(
-						traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Relationship.class, branchCriteria, branchPath, commit.isRebase()))
+						traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(Relationship.class, branchCriteria, branchPath, commit))
 				.withPersistedReferenceSetMembers(
-						traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(ReferenceSetMember.class, branchCriteria, branchPath, commit.isRebase()))
+						traceabilityLogServiceHelper.loadChangesAndDeletionsWithinOpenCommitOnly(ReferenceSetMember.class, branchCriteria, branchPath, commit))
 				.build();
 	}
 
@@ -187,8 +187,8 @@ public class TraceabilityLogService implements CommitListener {
 		for (Activity.ConceptActivity conceptActivity : activityMap.values()) {
 			if (inferredChangesAccepted > inferredMax) {
 				// Remove activities with only inferred changes
-				if (!conceptActivity.getComponentChanges().stream()
-						.anyMatch(componentChange -> !componentChange.isComponentSubType(Long.parseLong(Concepts.INFERRED_RELATIONSHIP)))) {
+				if (conceptActivity.getComponentChanges().stream()
+						.allMatch(componentChange -> componentChange.isComponentSubType(Long.parseLong(Concepts.INFERRED_RELATIONSHIP)))) {
 					conceptChangesToRemove.add(conceptActivity.getConceptId());
 				}
 			} else {

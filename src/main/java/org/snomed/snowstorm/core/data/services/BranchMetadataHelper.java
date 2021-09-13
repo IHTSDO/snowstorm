@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.domain.Commit;
+import io.kaicode.elasticvc.domain.Metadata;
 import org.ihtsdo.sso.integration.SecurityUtil;
 import org.snomed.snowstorm.config.Config;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,6 +60,11 @@ public class BranchMetadataHelper {
 		return isTrue(getInternal(commit).get(CLASSIFICATION_COMMIT_TRANSIENT_METADATA_KEY));
 	}
 
+	@SuppressWarnings("unchecked")
+	public static Map<String, Set<String>> getRebaseDuplicatesRemoved(Commit commit) {
+		final String key = transientKey("rebaseDuplicatesRemoved");
+		return (Map<String, Set<String>>) commit.getBranch().getMetadata().getAsMap().computeIfAbsent(key, k -> new HashMap<String, Set<String>>());
+	}
 
 	private static boolean isTrue(String value) {
 		return "true".equals(value);
@@ -69,9 +75,11 @@ public class BranchMetadataHelper {
 	}
 
 	public static void clearTransientMetadata(Commit commit) {
-		final Map<String, String> map = commit.getBranch().getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY);
-		final Set<String> transientKeys = map.keySet().stream().filter(key -> key.startsWith(COMMIT_METADATA_KEY_PREFIX)).collect(Collectors.toSet());
-		transientKeys.forEach(map::remove);
+		final Metadata metadata = commit.getBranch().getMetadata();
+		final Map<String, Object> metadataAsMap = metadata.getAsMap();
+		metadataAsMap.keySet().stream().filter(key -> key.startsWith(COMMIT_METADATA_KEY_PREFIX)).collect(Collectors.toSet()).forEach(metadataAsMap::remove);
+		final Map<String, String> internalMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
+		internalMap.keySet().stream().filter(key -> key.startsWith(COMMIT_METADATA_KEY_PREFIX)).collect(Collectors.toSet()).forEach(internalMap::remove);
 	}
 
 	public String getBranchLockMetadata(String description) {
