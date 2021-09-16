@@ -40,6 +40,8 @@ import org.springframework.web.bind.annotation.RequestMethod;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -690,6 +692,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			ecl = "^" + sctId;
 		} else if (url.contains(IMPLICIT_ECL)) {
 			ecl = url.substring(url.indexOf(IMPLICIT_ECL) + IMPLICIT_ECL.length());
+			ecl = URLDecoder.decode(ecl, StandardCharsets.UTF_8);
 		} else if (validate) {
 			throw new FHIROperationException(IssueType.VALUE, "url is expected to include parameter with value: 'fhir_vs=ecl/'");
 		}

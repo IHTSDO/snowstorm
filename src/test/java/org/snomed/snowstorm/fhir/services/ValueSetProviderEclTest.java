@@ -20,9 +20,16 @@ class ValueSetProviderEclTest extends AbstractFHIRTest {
 	void testECLRecovery_DescOrSelf() throws FHIROperationException {
 		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/<<" + Concepts.SNOMEDCT_ROOT + "&_format=json";
 		ValueSet v = getValueSet(url);
-		assertEquals(11,v.getExpansion().getContains().size());
+		assertEquals(11, v.getExpansion().getContains().size());
 	}
 	
+	@Test
+	void testECLRecovery_DescOrSelfEncodedECL() throws FHIROperationException {
+		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?url=http://snomed.info/sct?fhir_vs=ecl/%3C%3C138875005&_format=json";
+		ValueSet v = getValueSet(url);
+		assertEquals(11, v.getExpansion().getContains().size());
+	}
+
 	@Test
 	void testECLRecovery_DescOrSelf_Edition() throws FHIROperationException {
 		String url = "http://localhost:" + port + "/fhir/ValueSet/$expand?" + 
