@@ -8,13 +8,12 @@ import io.kaicode.elasticvc.domain.Metadata;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mockito;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.TestConfig;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Description;
-import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.transitiveclosure.GraphBuilderException;
+import org.snomed.snowstorm.rest.pojo.MergeRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -23,9 +22,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Arrays.asList;
-import static org.junit.Assert.*;
-import static org.snomed.snowstorm.core.data.domain.Concepts.ISA;
-import static org.snomed.snowstorm.core.data.domain.Concepts.SNOMEDCT_ROOT;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
 /**
  * This class checks that making updates within a commit happen atomically.
@@ -47,6 +46,9 @@ class AtomicCommitTest extends AbstractTest {
 	@Autowired
 	private CodeSystemService codeSystemService;
 
+	@Autowired
+	private BranchMergeService branchMergeService;
+
 	@BeforeEach
 	void setup() {
 		branchService.create("MAIN/task");
@@ -56,11 +58,11 @@ class AtomicCommitTest extends AbstractTest {
 	void testMultipleConceptCreationRollback() throws ServiceException {
 		String branch = "MAIN/task";
 		Branch branchBefore = branchService.findLatest(branch);
-		assertEquals("Branch should be up to date before commit.", Branch.BranchState.UP_TO_DATE, branchBefore.getState());
+		assertEquals(Branch.BranchState.UP_TO_DATE, branchBefore.getState(), "Branch should be up to date before commit.");
 		assertFalse(branchBefore.isLocked());
 		long headTimestampBefore = branchBefore.getHeadTimestamp();
 
-		assertNull("Concept 1 should not exist before the attempted commit.", conceptService.find("1", branch));
+		assertNull(conceptService.find("1", branch), "Concept 1 should not exist before the attempted commit.");
 
 		try {
 			conceptService.batchCreate(Lists.newArrayList(
@@ -75,11 +77,11 @@ class AtomicCommitTest extends AbstractTest {
 		Branch branchAfter = branchService.findLatest(branch);
 		// Branch should still be up to date after failed commit
 		assertEquals(Branch.BranchState.UP_TO_DATE, branchAfter.getState());
-		assertEquals("Head timestamp should be the same before and after a failed commit.", headTimestampBefore, branchAfter.getHeadTimestamp());
-		assertFalse("Branch should be unlocked as part of commit rollback.", branchAfter.isLocked());
+		assertEquals(headTimestampBefore, branchAfter.getHeadTimestamp(), "Head timestamp should be the same before and after a failed commit.");
+		assertFalse(branchAfter.isLocked(), "Branch should be unlocked as part of commit rollback.");
 
-		assertNull("Concept 1 should not exist after the attempted commit " +
-				"because although there is nothing wrong with that concepts the whole commit should be rolled back.", conceptService.find("1", branch));
+		assertNull(conceptService.find("1", branch), "Concept 1 should not exist after the attempted commit " +
+				"because although there is nothing wrong with that concepts the whole commit should be rolled back.");
 	}
 
 	@Test
@@ -157,4 +159,71 @@ class AtomicCommitTest extends AbstractTest {
 		}
 	}
 
+	@Test
+	void testRollbackOfPromotion() throws ServiceException, InterruptedException {
+		// Concept to save & modify
+		String preferred = Concepts.descriptionAcceptabilityNames.get(Concepts.PREFERRED);
+		Description fsn = new Description("Pizza (food)");
+		fsn.setTypeId(FSN);
+		fsn.setAcceptabilityMap(Map.of(Concepts.US_EN_LANG_REFSET, preferred, Concepts.GB_EN_LANG_REFSET, preferred));
+		fsn.setCaseSignificance("CASE_INSENSITIVE");
+		fsn.setLanguageCode("en");
+
+		Description pt = new Description("Pizza");
+		pt.setTypeId(SYNONYM);
+		pt.setAcceptabilityMap(Map.of(Concepts.US_EN_LANG_REFSET, preferred, Concepts.GB_EN_LANG_REFSET, preferred));
+		pt.setCaseSignificance("CASE_INSENSITIVE");
+		pt.setLanguageCode("en");
+
+		Concept pizza = new Concept().addDescription(fsn).addDescription(pt);
+
+		// Create Pizza on MAIN
+		Concept pizzaOnMain = conceptService.create(pizza, "MAIN");
+
+		// Update Pizza on Project
+		branchService.create("MAIN/projectA");
+		pizzaOnMain.getDescriptions().iterator().next().setCaseSignificance("ENTIRE_TERM_CASE_SENSITIVE");
+		Concept pizzaOnProject = conceptService.update(pizzaOnMain, "MAIN/projectA");
+
+		// Promote Project to MAIN (it will fail as SAC not complete)
+		givenSACIncomplete();
+		promote("MAIN/projectA", "MAIN");
+
+		// Assert state of Concept before second attempt of promotion
+		Concept beforePromotion = conceptService.find(pizzaOnProject.getId(), "MAIN");
+		assertEquals("Pizza (food)", beforePromotion.getFsn().getTerm());
+		assertEquals("en", beforePromotion.getFsn().getLang());
+		assertEquals("Pizza", beforePromotion.getPt().getTerm());
+		assertEquals("en", beforePromotion.getPt().getLang());
+
+		// Promote Project to MAIN again (it will succeed as SAC is now complete)
+		givenSACComplete();
+		promote("MAIN/projectA", "MAIN");
+
+		// Assert state of Concept after second attempt of promotion
+		Concept afterPromotion = conceptService.find(pizzaOnProject.getId(), "MAIN");
+		assertEquals("Pizza (food)", afterPromotion.getFsn().getTerm());
+		assertEquals("en", afterPromotion.getFsn().getLang());
+		assertEquals("Pizza", afterPromotion.getPt().getTerm());
+		assertEquals("en", afterPromotion.getPt().getLang());
+	}
+
+	private void givenSACComplete() {
+		// When SAC is complete, nothing is returned/thrown.
+		Mockito.doNothing().when(commitServiceHookClient).preCommitCompletion(any());
+	}
+
+	private void givenSACIncomplete() {
+		// When SAC is incomplete, IllegalStateException is thrown.
+		Mockito.doThrow(IllegalStateException.class).when(commitServiceHookClient).preCommitCompletion(any());
+	}
+
+	private void promote(String source, String target) throws InterruptedException {
+		MergeRequest mergeRequest = new MergeRequest();
+		mergeRequest.setSource(source);
+		mergeRequest.setTarget(target);
+
+		branchMergeService.mergeBranchAsync(mergeRequest);
+		Thread.sleep(2000L);
+	}
 }
