@@ -172,7 +172,10 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		final Concept versionedConcept = conceptService.find(conceptId, MAIN);
 		assertEquals(20220131, versionedConcept.getEffectiveTimeI());
 
-		assertNull(getTraceabilityActivityWithTimeout(2), "There should be no traceability when creating a code system version.");
+		activity = getTraceabilityActivity();
+		assertNotNull(activity);
+		assertTrue(activity.getChangesMap().isEmpty());
+		assertEquals(CREATE_CODE_SYSTEM_VERSION, activity.getActivityType());
 	}
 
 	@Test

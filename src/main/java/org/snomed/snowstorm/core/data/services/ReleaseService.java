@@ -46,7 +46,7 @@ public class ReleaseService {
 		try (Commit commit = branchService.openCommit(path, branchMetadataHelper.getBranchLockMetadata("Versioning components using effectiveTime " + effectiveTime))) {
 
 			// Disable traceability when versioning to prevent logging every component in the release
-			BranchMetadataHelper.disableTraceabilityForCommit(commit);
+			BranchMetadataHelper.markCommitAsCreatingCodeSystemVersion(commit);
 
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 
