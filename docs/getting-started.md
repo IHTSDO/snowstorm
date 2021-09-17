@@ -22,8 +22,7 @@ Update the configuration file _config/jvm.options_ with the memory options `-Xms
 Download the latest release jar from the [releases page](https://github.com/IHTSDO/snowstorm/releases).
 
 #### _Alternatively_ if you would like to build Snowstorm from source code:
-  - Unit tests use the [TestContainers framework](https://www.testcontainers.org), that requires [Docker](https://docs.docker.com/get-docker) to be running. See more details [here](https://www.testcontainers.org/supported_docker_environment).
-  - Note: Only stable version of Docker(prior 2.3.0.4) is compatible and tested with TestContainers version 1.14.3.
+  - [Docker](https://docs.docker.com/get-docker) must be running because unit tests use the [TestContainers framework](https://www.testcontainers.org/supported_docker_environment). The latest version of Docker is recommended.
   - Then use maven:
     ```bash
     mvn clean package
