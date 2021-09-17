@@ -131,11 +131,6 @@ public class TraceabilityLogService implements CommitListener {
 				.build();
 	}
 
-	/**
-	 * This method may be called by a service class as an optimisation. In this
-	 * case the transient change and delete flags may be populated and depending
-	 * on these states, the <code>useChangeFlag</code> should be set accordingly.
-	 */
 	void logActivity(String userId, final Commit commit, final PersistedComponents persistedComponents, Activity.ActivityType activityType) {
 
 		ServiceUtil.assertNotNull("activityType", activityType);

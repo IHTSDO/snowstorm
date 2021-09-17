@@ -5,6 +5,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.*;
+import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogBackfiller;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.snomed.snowstorm.rest.pojo.UpdatedDocumentCount;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +42,9 @@ public class AdminController {
 	@Autowired
 	private SBranchService sBranchService;
 
+	@Autowired
+	private TraceabilityLogBackfiller traceabilityLogBackfiller;
+
 	@ApiOperation(value = "Rebuild the description index.",
 			notes = "Use this if the search configuration for international character handling of a language has been " +
 					"set or updated after importing content of that language. " +
@@ -51,6 +55,15 @@ public class AdminController {
 	public void rebuildDescriptionIndexForLanguage(@RequestParam String languageCode) throws IOException {
 		ControllerHelper.requiredParam(languageCode, "languageCode");
 		adminOperationsService.reindexDescriptionsForLanguage(languageCode);
+	}
+
+	@ApiOperation(value = "Backfill traceability information.",
+			notes = "Used to backfill data after upgrading to Traceability Service version 3.1.x. " +
+					"Sends previously missing information to the Traceability Service including the commit date of all code system versions.")
+	@RequestMapping(value = "/actions/traceability-backfill", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
+	public void traceabilityBackfill() {
+		traceabilityLogBackfiller.run();
 	}
 
 	@ApiOperation(value = "Rebuild the semantic index of the branch.",
