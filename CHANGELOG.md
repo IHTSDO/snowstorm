@@ -3,6 +3,22 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 7.3.0 Release (Sept 2021)
+Minor release to implement the `internalRelease` flag on code systems. This allows Snomed International to hide the first 
+few internal monthly releases of the International Edition from the public browser. Monthly public releases of the International Edition will be available by the end of the year.
+
+### Features
+- FRI-183 Add `internalRelease` flag to CodeSystemVersion. By default this is hidden from the listing by default, this is configurable. 
+
+### Improvements
+- FRI-166 Upgrade Snomed Drools engine to 3.0.3.
+- Implement code quality improvements suggested by LGTM.com .
+
+### Fixes
+- FRI-245 Fix traceability bug where component merge duplicate resolution was logged as deletion.
+- MAINT-1723 Fix MRCM attribute listing; only list applicable ranges under each attribute.
+- Improve admin restore-release-status function to be triggered by missing effectiveTime.
+
 
 ## 7.2.0 Release (Sept 2021)
 Feature release in preparation for frequent SNOMED CT releases in the Authoring Platform. Authoring traceability service integration has been rewritten using a simpler message format. This release also contains an important fix to preserve the semantic index of the existing release branch when upgrading a code system.
