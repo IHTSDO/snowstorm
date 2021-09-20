@@ -5,7 +5,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## 7.3.0 Release (Sept 2021)
 Minor release to implement the `internalRelease` flag on code systems. This allows Snomed International to hide the first 
-few internal monthly releases of the International Edition from the public browser. Monthly public releases of the International Edition will be available by the end of the year.
+few internal monthly releases of the International Edition from the public browser. Monthly public releases of the International Edition will be available starting Feburary 2022.
 
 ### Features
 - FRI-183 Add `internalRelease` flag to CodeSystemVersion. By default this is hidden from the listing by default, this is configurable. 
