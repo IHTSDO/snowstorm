@@ -2,7 +2,10 @@ package org.snomed.snowstorm.rest;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
+
+import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
+import org.snomed.snowstorm.core.data.services.ModuleDependencyService;
 import org.snomed.snowstorm.core.rf2.export.ExportService;
 import org.snomed.snowstorm.rest.pojo.ExportRequestView;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.io.IOException;
+import java.util.List;
 
 @RestController
 @Api(tags = "Export", description = "RF2")
@@ -20,6 +24,9 @@ public class ExportController {
 
 	@Autowired
 	private ExportService exportService;
+	
+	@Autowired
+	private ModuleDependencyService moduleDependencyService;
 
 	@ApiOperation(value = "Create an export job.",
 			notes = "Create a job to export an RF2 archive. " +
@@ -46,6 +53,15 @@ public class ExportController {
 		String filename = exportService.getFilename(exportConfiguration);
 		response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
 		exportService.exportRF2Archive(exportConfiguration, response.getOutputStream());
+	}
+	
+	@ApiOperation(value = "View a preview of the module dependency refset that would be generated for export")
+	@RequestMapping(value = "/module-dependency-preview", method = RequestMethod.GET, produces="application/zip")
+
+	public List<ReferenceSetMember> generateModuleDependencyPreview (
+			@RequestParam String branchPath,
+			@RequestParam String effectiveDate) {
+		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, null, false);
 	}
 
 }
