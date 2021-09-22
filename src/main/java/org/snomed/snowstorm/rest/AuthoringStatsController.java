@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @Api(tags = "Authoring Stats", description = "-")
@@ -27,6 +28,13 @@ public class AuthoringStatsController {
 	public AuthoringStatsSummary getStats(@PathVariable String branch) {
 		branch = BranchPathUriUtil.decodePath(branch);
 		return authoringStatsService.getStats(branch);
+	}
+	
+	@ApiOperation(value = "Get counts of various components types per module id")
+	@RequestMapping(value = "{branch}/authoring-stats/module-counts", method = RequestMethod.GET, produces = "application/json")
+	public Map<String, Map<String, Long>> getPerModuleCounts(@PathVariable String branch) {
+		branch = BranchPathUriUtil.decodePath(branch);
+		return authoringStatsService.getComponentCountsPerModule(branch);
 	}
 
 	@RequestMapping(value = "{branch}/authoring-stats/new-concepts", method = RequestMethod.GET, produces = "application/json")
