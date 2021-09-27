@@ -65,7 +65,7 @@ public class ExportController {
 			@RequestParam String branchPath,
 			@RequestParam String effectiveDate,
 			@RequestParam(required = false) Set<String> moduleFilter) {
-		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, moduleFilter, false);
+		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, moduleFilter, null);
 	}
 
 }

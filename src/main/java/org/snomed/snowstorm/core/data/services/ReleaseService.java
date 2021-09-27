@@ -35,6 +35,9 @@ public class ReleaseService {
 
 	@Autowired
 	private ElasticsearchOperations elasticsearchOperations;
+	
+	@Autowired
+	private ModuleDependencyService mdService;
 
 	@Autowired
 	private VersionControlHelper versionControlHelper;
@@ -47,6 +50,9 @@ public class ReleaseService {
 
 			// Disable traceability when versioning to prevent logging every component in the release
 			BranchMetadataHelper.markCommitAsCreatingCodeSystemVersion(commit);
+			
+			//Update the Module Dependency Refset members and persist
+			mdService.generateModuleDependencies(path, effectiveTime.toString(), null, commit);
 
 			BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(path);
 
