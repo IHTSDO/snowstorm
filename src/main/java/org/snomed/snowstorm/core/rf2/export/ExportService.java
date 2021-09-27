@@ -234,7 +234,7 @@ public class ExportService {
 									filenameEffectiveDate,
 									exportType,
 									zipOutputStream,
-									mdrService.generateModuleDependencies(branchPath, transientEffectiveTime, moduleIds, false),
+									mdrService.generateModuleDependencies(branchPath, transientEffectiveTime, moduleIds, null),
 									transientEffectiveTime,
 									referenceSetType.getFieldNameList(), codeSystemRF2Name);
 						} else if (!refsetOnlyExport || refsetIds.contains(refsetToExport.toString())) {
