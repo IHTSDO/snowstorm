@@ -18,6 +18,7 @@ import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @Api(tags = "Export", description = "RF2")
@@ -63,7 +64,7 @@ public class ExportController {
 	public List<ReferenceSetMember> generateModuleDependencyPreview (
 			@RequestParam String branchPath,
 			@RequestParam String effectiveDate,
-			@RequestParam(required = false) List<String> moduleFilter) {
+			@RequestParam(required = false) Set<String> moduleFilter) {
 		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, moduleFilter, false);
 	}
 

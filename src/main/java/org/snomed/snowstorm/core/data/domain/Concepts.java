@@ -76,6 +76,7 @@ public class Concepts {
 
 	public static final String REFSET = "900000000000455006";
 	public static final String REFSET_SIMPLE = "446609009";
+	public static final String REFSET_MODULE_DEPENDENCY = "900000000000534007";
 
 	// Historical reference sets
 	public static final String REFSET_HISTORICAL_ASSOCIATION = "900000000000522004";
