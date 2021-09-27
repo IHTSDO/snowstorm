@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.fasterxml.jackson.annotation.JsonView;
+
 import javax.servlet.http.HttpServletResponse;
 import javax.validation.Valid;
 import java.io.IOException;
@@ -56,12 +58,13 @@ public class ExportController {
 	}
 	
 	@ApiOperation(value = "View a preview of the module dependency refset that would be generated for export")
-	@RequestMapping(value = "/module-dependency-preview", method = RequestMethod.GET, produces="application/zip")
-
+	@RequestMapping(value = "/module-dependency-preview", method = RequestMethod.GET)
+	@JsonView(value = View.Component.class)
 	public List<ReferenceSetMember> generateModuleDependencyPreview (
 			@RequestParam String branchPath,
-			@RequestParam String effectiveDate) {
-		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, null, false);
+			@RequestParam String effectiveDate,
+			@RequestParam(required = false) List<String> moduleFilter) {
+		return moduleDependencyService.generateModuleDependencies(branchPath, effectiveDate, moduleFilter, false);
 	}
 
 }
