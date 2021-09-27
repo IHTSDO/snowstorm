@@ -9,6 +9,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -18,7 +19,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StopWatch;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.api.ComponentService;
 import io.kaicode.elasticvc.domain.Branch;
+import io.kaicode.elasticvc.domain.Commit;
 
 @Service
 /*
@@ -29,7 +32,7 @@ import io.kaicode.elasticvc.domain.Branch;
  * code system, so for extensions on extensions, we'll need to find the parent branch and then
  * get THAT dependency date.
  */
-public class ModuleDependencyService {
+public class ModuleDependencyService extends ComponentService {
 	
 	public static int RECURSION_LIMIT = 100;
 	public static String SOURCE_ET = "sourceEffectiveTime";
@@ -49,6 +52,9 @@ public class ModuleDependencyService {
 	
 	@Autowired
 	private ConceptService conceptService;
+	
+	@Autowired
+	private ReferenceSetMemberRepository memberRepository;
 	
 	@Autowired
 	private ReferenceSetMemberService refsetService;
@@ -76,7 +82,14 @@ public class ModuleDependencyService {
 		}
 	}
 	
-	public List<ReferenceSetMember> generateModuleDependencies(String branchPath, String effectiveDate, Set<String> moduleFilter, boolean persist) {
+	/**
+	 * @param branchPath
+	 * @param effectiveDate
+	 * @param moduleFilter
+	 * @param commit optionally passed to persist generated members
+	 * @return
+	 */
+	public List<ReferenceSetMember> generateModuleDependencies(String branchPath, String effectiveDate, Set<String> moduleFilter, Commit commit) {
 		StopWatch sw = new StopWatch("MDRGeneration");
 		sw.start();
 		refreshCache();
@@ -178,11 +191,16 @@ public class ModuleDependencyService {
 		modulesRequired.addAll(SI_MODULES);
 		sw.stop();
 		logger.info("MDR generation for {}, modules [{}] took {}s", branchPath, String.join(", ", modulesRequired), sw.getTotalTimeSeconds());
-		return moduleMap.values().stream()
+		List<ReferenceSetMember> updatedMDRmembers = moduleMap.values().stream()
 				.flatMap(Set::stream)
 				/*.filter(rm -> modulesRequired.contains(rm.getModuleId()))*/
 				.filter(rm -> rm.getEffectiveTime().equals(effectiveDate))
 				.collect(Collectors.toList());
+		
+		if (commit != null) {
+			doSaveBatchComponents(updatedMDRmembers, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
+		}
+		return updatedMDRmembers;
 	}
 
 	private String updateOrCreateModuleDependency(String moduleId, String thisLevel, Map<String, String> moduleParents,
