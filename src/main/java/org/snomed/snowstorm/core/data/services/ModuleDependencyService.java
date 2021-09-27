@@ -31,9 +31,7 @@ import io.kaicode.elasticvc.domain.Branch;
  */
 public class ModuleDependencyService {
 	
-	public static String SCTID_MODULE_DEPENDENCY = "900000000000534007";
 	public static int RECURSION_LIMIT = 100;
-	
 	public static String SOURCE_ET = "sourceEffectiveTime";
 	public static String TARGET_ET = "targetEffectiveTime";
 	public static Set<String> SI_MODULES = Set.of(Concepts.CORE_MODULE, Concepts.MODEL_MODULE);
@@ -78,14 +76,14 @@ public class ModuleDependencyService {
 		}
 	}
 	
-	public List<ReferenceSetMember> generateModuleDependencies(String branchPath, String effectiveDate, List<String> moduleFilter, boolean persist) {
+	public List<ReferenceSetMember> generateModuleDependencies(String branchPath, String effectiveDate, Set<String> moduleFilter, boolean persist) {
 		StopWatch sw = new StopWatch("MDRGeneration");
 		sw.start();
 		refreshCache();
 		
 		//What module dependency refset members already exist?
 		MemberSearchRequest searchRequest = new MemberSearchRequest();
-		searchRequest.referenceSet(SCTID_MODULE_DEPENDENCY);
+		searchRequest.referenceSet(Concepts.REFSET_MODULE_DEPENDENCY);
 		Page<ReferenceSetMember> rmPage = refsetService.findMembers(branchPath, searchRequest, LARGE_PAGE);
 		Map<String, Set<ReferenceSetMember>> moduleMap = rmPage.getContent().stream()
 				.collect(Collectors.groupingBy(ReferenceSetMember::getModuleId, Collectors.toSet()));

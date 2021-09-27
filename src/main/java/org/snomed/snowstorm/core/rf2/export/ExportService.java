@@ -5,6 +5,7 @@ import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import org.apache.tomcat.util.http.fileupload.util.Streams;
+import org.drools.core.util.StringUtils;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
@@ -16,6 +17,7 @@ import org.snomed.snowstorm.core.data.domain.jobs.ExportConfiguration;
 import org.snomed.snowstorm.core.data.repositories.ExportConfigurationRepository;
 import org.snomed.snowstorm.core.data.services.BranchMetadataHelper;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
+import org.snomed.snowstorm.core.data.services.ModuleDependencyService;
 import org.snomed.snowstorm.core.data.services.NotFoundException;
 import org.snomed.snowstorm.core.data.services.QueryService;
 import org.snomed.snowstorm.core.rf2.RF2Type;
@@ -60,6 +62,9 @@ public class ExportService {
 
 	@Autowired
 	private BranchMetadataHelper branchMetadataHelper;
+	
+	@Autowired
+	private ModuleDependencyService mdrService;
 
 	@Autowired
 	private CodeSystemService codeSystemService;
@@ -124,6 +129,11 @@ public class ExportService {
 
 		if (exportType == RF2Type.FULL) {
 			throw new IllegalArgumentException("FULL RF2 export is not implemented.");
+		}
+		
+		boolean generateMDR = false;
+		if (exportType == RF2Type.DELTA && !StringUtils.isEmpty(transientEffectiveTime)) {
+			generateMDR = true;
 		}
 
 		logger.info("Starting {} export.", exportType);
@@ -212,7 +222,22 @@ public class ExportService {
 					List<Long> refsetsOfThisType = new ArrayList<>(queryService.findDescendantIdsAsUnion(allContentBranchCriteria, true, Collections.singleton(Long.parseLong(referenceSetType.getConceptId()))));
 					refsetsOfThisType.add(Long.parseLong(referenceSetType.getConceptId()));
 					for (Long refsetToExport : refsetsOfThisType) {
-						if (!refsetOnlyExport || refsetIds.contains(refsetToExport.toString())) {
+						if (generateMDR && refsetToExport.toString().equals(Concepts.REFSET_MODULE_DEPENDENCY)) {
+							logger.info("MDR being generated rather than exported.");
+							String exportDir = referenceSetType.getExportDir();
+							String entryDirectory = !exportDir.startsWith("/") ? "Refset/" + exportDir + "/" : exportDir.substring(1) + "/";
+							String entryFilenamePrefix = (!entryDirectory.startsWith("Terminology/") ? "der2_" : "sct2_") + referenceSetType.getFieldTypes() + "Refset_" + referenceSetType.getName() + (refsetsOfThisType.size() > 1 ? refsetToExport : "");
+							exportComponents(
+									ReferenceSetMember.class,
+									entryDirectoryPrefix, entryDirectory,
+									entryFilenamePrefix,
+									filenameEffectiveDate,
+									exportType,
+									zipOutputStream,
+									mdrService.generateModuleDependencies(branchPath, transientEffectiveTime, moduleIds, false),
+									transientEffectiveTime,
+									referenceSetType.getFieldNameList(), codeSystemRF2Name);
+						} else if (!refsetOnlyExport || refsetIds.contains(refsetToExport.toString())) {
 							BoolQueryBuilder memberQuery = getContentQuery(exportType, moduleIds, startEffectiveTime, memberBranchCriteria);
 							memberQuery.must(QueryBuilders.termQuery(ReferenceSetMember.Fields.REFSET_ID, refsetToExport));
 							long memberCount = elasticsearchTemplate.count(getNativeSearchQuery(memberQuery), ReferenceSetMember.class);
@@ -236,6 +261,7 @@ public class ExportService {
 					}
 				}
 			}
+			
 			logger.info("{} export complete in {} seconds.", exportType, TimerUtil.secondsSince(startTime));
 			return exportFile;
 		} catch (IOException e) {
@@ -287,6 +313,30 @@ public class ExportService {
 				writer.setTransientEffectiveTime(transientEffectiveTime);
 				writer.writeHeader();
 				componentStream.forEachRemaining(hit -> writer.write(hit.getContent()));
+				return writer.getContentLinesWritten();
+			} finally {
+				// Close zip entry
+				zipOutputStream.closeEntry();
+			}
+		} catch (IOException e) {
+			throw new ExportException("Failed to write export zip entry '" + componentFilePath + "'", e);
+		}
+	}
+	
+	private <T> int exportComponents(Class<T> componentClass, String entryDirectoryPrefix, String entryDirectory, String entryFilenamePrefix, String filenameEffectiveDate,
+			RF2Type exportType, ZipOutputStream zipOutputStream, List<T> components, String transientEffectiveTime, List<String> extraFieldNames, String codeSystemRF2Name) {
+
+		String componentFilePath = entryDirectoryPrefix + entryDirectory + entryFilenamePrefix + format("%s_%s_%s.txt", exportType.getName(), codeSystemRF2Name, filenameEffectiveDate);
+		logger.info("Exporting file {}", componentFilePath);
+		try {
+			// Open zip entry
+			zipOutputStream.putNextEntry(new ZipEntry(componentFilePath));
+
+			// Stream components into zip
+			try (ExportWriter<T> writer = getExportWriter(componentClass, zipOutputStream, extraFieldNames, entryFilenamePrefix.contains("Concrete"))) {
+				writer.setTransientEffectiveTime(transientEffectiveTime);
+				writer.writeHeader();
+				components.forEach(c -> writer.write(c));
 				return writer.getContentLinesWritten();
 			} finally {
 				// Close zip entry
