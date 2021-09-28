@@ -129,7 +129,7 @@ public abstract class AbstractTest {
 	}
 
 	public Activity getTraceabilityActivity() throws InterruptedException {
-		return getTraceabilityActivityWithTimeout(20);
+		return getTraceabilityActivityWithTimeout(60);
 	}
 	public Activity getTraceabilityActivityWithTimeout(int maxWaitSeconds) throws InterruptedException {
 		int waited = 0;

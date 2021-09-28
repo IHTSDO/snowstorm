@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
 import io.kaicode.elasticvc.api.BranchService;
+import io.kaicode.elasticvc.domain.Branch;
+
 import org.junit.jupiter.api.Test;
 import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.*;
@@ -46,6 +48,8 @@ class ConceptUpdateHelperTest extends AbstractTest {
 
 	@Test
 	void saveNewOrUpdatedConcepts_ShouldRestoreDetailsFromParentCodeSystem() throws ServiceException {
+		//Need to start with a versioned MAIN so that children can inherit the dependentVersionEffectiveTime
+		givenVersionedMain();
 		// Extension A creates a Concept et al
 		givenCodeSystemExists(SHORTNAME_A, BRANCH_A);
 		givenBranchExists(BRANCH_A, MODULE_A);
@@ -66,6 +70,8 @@ class ConceptUpdateHelperTest extends AbstractTest {
 
 	@Test
 	void saveNewOrUpdatedConcepts_ShouldNotMoveDescriptionToDifferentCodeSystem() throws ServiceException {
+		//Need to start with a versioned MAIN so that children can inherit the dependentVersionEffectiveTime
+		givenVersionedMain();
 		// Extension A has a Component in one module, but a Description is another (which is wrong).
 		givenCodeSystemExists(SHORTNAME_A, BRANCH_A);
 		givenBranchExists(BRANCH_A, MODULE_A);
@@ -82,6 +88,8 @@ class ConceptUpdateHelperTest extends AbstractTest {
 
 	@Test
 	void saveNewOrUpdatedConcepts_ShouldAddNewRelationshipToCorrectModule() throws ServiceException {
+		//Need to start with a versioned MAIN so that children can inherit the dependentVersionEffectiveTime
+		givenVersionedMain();
 		// Extension A has a Component in one module, but a Description is another (which is wrong).
 		givenCodeSystemExists(SHORTNAME_A, BRANCH_A);
 		givenBranchExists(BRANCH_A, MODULE_A);
@@ -114,6 +122,12 @@ class ConceptUpdateHelperTest extends AbstractTest {
 
 	private void givenCodeSystemVersionExists() {
 		codeSystemService.createVersion(codeSystemService.find(SHORTNAME_A), 20210131, "20210131");
+	}
+	
+	private void givenVersionedMain() {
+		CodeSystem rootCS = new CodeSystem("ROOT-CS", Branch.MAIN);
+		codeSystemService.createCodeSystem(rootCS);
+		codeSystemService.createVersion(rootCS, 20190731, "20190731");
 	}
 
 	private Concept getConcept(String branchPath) {
