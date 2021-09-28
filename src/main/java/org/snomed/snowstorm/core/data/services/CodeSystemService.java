@@ -126,11 +126,11 @@ public class CodeSystemService {
 	public synchronized CodeSystem createCodeSystem(CodeSystem newCodeSystem) {
 		validatorService.validate(newCodeSystem);
 		if (repository.findById(newCodeSystem.getShortName()).isPresent()) {
-			throw new IllegalArgumentException("A code system already exists with this short name.");
+			throw new IllegalArgumentException("A code system already exists with short name " + newCodeSystem.getShortName());
 		}
 		String branchPath = newCodeSystem.getBranchPath();
 		if (findByBranchPath(branchPath).isPresent()) {
-			throw new IllegalArgumentException("A code system already exists with this branch path.");
+			throw new IllegalArgumentException("A code system already exists on branch path " + branchPath);
 		}
 		String parentPath = PathUtil.getParentPath(newCodeSystem.getBranchPath());
 		CodeSystem parentCodeSystem = null;

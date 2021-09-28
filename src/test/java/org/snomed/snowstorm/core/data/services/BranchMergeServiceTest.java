@@ -97,14 +97,21 @@ class BranchMergeServiceTest extends AbstractTest {
 
 	@Autowired
 	private CodeSystemService codeSystemService;
+	
+	private static String ROOT_CS = "ROOT-CS";
 
 	@BeforeEach
 	void setup() throws ServiceException, InterruptedException {
 		conceptService.deleteAll();
 
-		branchService.updateMetadata("MAIN", new Metadata().putString(BranchMetadataKeys.ASSERTION_GROUP_NAMES, "common-authoring"));
-		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), "MAIN");
-		branchService.create("MAIN/A");
+		branchService.updateMetadata(Branch.MAIN, new Metadata().putString(BranchMetadataKeys.ASSERTION_GROUP_NAMES, "common-authoring"));
+		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), Branch.MAIN);
+		CodeSystem rootCS = new CodeSystem(ROOT_CS, Branch.MAIN);
+		codeSystemService.createCodeSystem(rootCS);
+		codeSystemService.createVersion(rootCS, 20190131, "20190131");
+		
+		//If we have a parent code system we cannot create the codesystem on an existing branch
+		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-A", "MAIN/A"));
 		branchService.create("MAIN/A/A1");
 		branchService.create("MAIN/A/A2");
 		branchService.create("MAIN/C");
@@ -565,18 +572,20 @@ class BranchMergeServiceTest extends AbstractTest {
 				new Concept(conceptId).addAxiom(new Relationship(Concepts.ISA, Concepts.CLINICAL_FINDING)).addDescription(new Description("thingamajig"))
 		), path);
 
-		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN"));
-		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT"), 20190131, "");
-
+		//We must version now, otherwise the concept inactivation inactivates the axiom
+		//and that would cause deletion if not published. 
+		codeSystemService.createVersion(codeSystemService.find(ROOT_CS), 20190731, "");
+		
 		Concept concept = conceptService.find(conceptId, path);
 		concept.setActive(false);
 		concept.setInactivationIndicator("ERRONEOUS");
 		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(Concepts.CLINICAL_FINDING)));
 		conceptService.update(concept, path);
 
-		codeSystemService.createVersion(codeSystemService.find("SNOMEDCT"), 20200131, "");
+		codeSystemService.createVersion(codeSystemService.find(ROOT_CS), 20200131, "");
 
-		assertEquals(3, memberService.findMembers(path, conceptId, PageRequest.of(0, 10)).getTotalElements(), "One axiom, one published association member, one published historic association."
+		Page<ReferenceSetMember> memberPage = memberService.findMembers(path, conceptId, PageRequest.of(0, 10));
+		assertEquals(3, memberPage.getTotalElements(), "One axiom, one published association member, one published historic association."
 		);
 
 		branchService.create("MAIN/B");
@@ -756,7 +765,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// Create and version code system
-		codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-A", "MAIN/A"));
+		//codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT-A", "MAIN/A"));
 		CodeSystem codeSystem = codeSystemService.find("SNOMEDCT-A");
 		codeSystemService.createVersion(codeSystem, 20210131, "Version");
 		assertEquals("20210131", memberService.findMembers("MAIN/A", conceptAId, LARGE_PAGE).getContent().get(0).getEffectiveTime());
@@ -1369,11 +1378,11 @@ class BranchMergeServiceTest extends AbstractTest {
 
 	@Test
 	void testConcurrentPromotionBlockedByBranchLock() throws ServiceException, InterruptedException {
-		conceptService.create(new Concept("10000100").addDescription(new Description("100001")), "MAIN/A");
-		conceptService.create(new Concept("10000100").addDescription(new Description("100002")), "MAIN/C");
+		conceptService.create(new Concept("10000100").addDescription(new Description("100001")), "MAIN/A/A1");
+		conceptService.create(new Concept("10000100").addDescription(new Description("100002")), "MAIN/A/A2");
 
-		BranchMergeJob branchMergeJobA = branchMergeService.mergeBranchAsync(new MergeRequest("MAIN/A", "MAIN", "Promote A", null));
-		BranchMergeJob branchMergeJobC = branchMergeService.mergeBranchAsync(new MergeRequest("MAIN/C", "MAIN", "Promote C", null));
+		BranchMergeJob branchMergeJobA = branchMergeService.mergeBranchAsync(new MergeRequest("MAIN/A/A1", "MAIN/A", "Promote A1", null));
+		BranchMergeJob branchMergeJobC = branchMergeService.mergeBranchAsync(new MergeRequest("MAIN/A/A2", "MAIN/A", "Promote A2", null));
 
 		Thread.sleep(2000);
 
@@ -1383,7 +1392,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		assertEquals(1, completeJobs.size());
 		assertEquals(1, failedJobs.size());
-		assertEquals("Branch MAIN is already locked", failedJobs.get(0).getMessage());
+		assertEquals("Branch MAIN/A is already locked", failedJobs.get(0).getMessage());
 	}
 
 	@Test
@@ -1726,8 +1735,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		}
 
 		if (versionCodeSystemAfterFirstSave) {
-			codeSystemService.createCodeSystem(new CodeSystem("SNOMEDCT", "MAIN/A"));
-			CodeSystem codeSystem = codeSystemService.find("SNOMEDCT");
+			CodeSystem codeSystem = codeSystemService.find("SNOMEDCT-A");
 			codeSystemService.createVersion(codeSystem, 20200131, "Version");
 		}
 
@@ -1751,7 +1759,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		// Conflict setup complete - rebase A2 for conflict
 		return Lists.newArrayList(parentConcept, leftConcept, rightConcept);
 	}
-
+	
 	private Concept assertBranchStateAndConceptVisibility(String path, Branch.BranchState expectedBranchState, String conceptId, boolean expectedVisible) {
 		assertBranchState(path, expectedBranchState);
 		if (expectedVisible) {

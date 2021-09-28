@@ -401,23 +401,27 @@ class ImportServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testImportOnlyComponentsWithBlankOrLaterEffectiveTime() throws IOException, ReleaseImportException {
+	void testImportOnlyComponentsWithBlankOrLaterEffectiveTime() throws IOException, ReleaseImportException, ServiceException {
 
 		// The content in these zips is not correct or meaningful. We are just using rows to test how the import function behaves with effectiveTimes.
-
 		File zipFile = ZipUtil.zipDirectoryRemovingCommentsAndBlankLines("src/test/resources/import-tests/blankOrLaterEffectiveTimeBase");
 		String importId = importService.createJob(RF2Type.SNAPSHOT, "MAIN", true, false);
+		
+		//Importing the archive in this way versions the content which means we expect to find concepts representing the modules referenced 
+		conceptService.create(new Concept(Concepts.CORE_MODULE).setModuleId(Concepts.CORE_MODULE), Branch.MAIN);
+		conceptService.create(new Concept(Concepts.MODEL_MODULE).setModuleId(Concepts.MODEL_MODULE), Branch.MAIN);
+		
 		importService.importArchive(importId, new FileInputStream(zipFile));
 
 		List<Concept> concepts = conceptService.findAll("MAIN", PageRequest.of(0, 10)).getContent();
-		assertEquals(5, concepts.size());
+		assertEquals(7, concepts.size());  //5 in the file + 2 x module concepts
 		Map<String, AtomicInteger> conceptDefinitionStatuses = new HashMap<>();
 		Map<String, AtomicInteger> descriptionCaseSignificance = new HashMap<>();
 		Map<String, AtomicInteger> descriptionAcceptability = new HashMap<>();
 		Map<Integer, AtomicInteger> relationshipGroups = new HashMap<>();
 		collectContentCounts(concepts, conceptDefinitionStatuses, descriptionCaseSignificance, descriptionAcceptability, relationshipGroups);
 
-		assertEquals(5, conceptDefinitionStatuses.get(Concepts.PRIMITIVE).get());
+		assertEquals(7, conceptDefinitionStatuses.get(Concepts.PRIMITIVE).get());
 		assertNull(conceptDefinitionStatuses.get(Concepts.FULLY_DEFINED));
 
 		assertEquals(5, descriptionCaseSignificance.get(Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE).get());
@@ -443,11 +447,11 @@ class ImportServiceTest extends AbstractTest {
 		importService.importArchive(importId, new FileInputStream(zipFile));
 
 		concepts = conceptService.findAll("MAIN", PageRequest.of(0, 10)).getContent();
-		assertEquals(5, concepts.size());
+		assertEquals(7, concepts.size());
 		collectContentCounts(concepts, conceptDefinitionStatuses, descriptionCaseSignificance, descriptionAcceptability, relationshipGroups);
 
 		// Expecting just two of each type to have changed
-		assertEquals(3, conceptDefinitionStatuses.get(Concepts.PRIMITIVE).get());
+		assertEquals(5, conceptDefinitionStatuses.get(Concepts.PRIMITIVE).get());
 		assertEquals(2, conceptDefinitionStatuses.get(Concepts.FULLY_DEFINED).get());
 
 		assertEquals(3, descriptionCaseSignificance.get(Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE).get());
@@ -474,11 +478,11 @@ class ImportServiceTest extends AbstractTest {
 		importService.importArchive(importId, new FileInputStream(zipFile));
 
 		concepts = conceptService.findAll("MAIN", PageRequest.of(0, 10)).getContent();
-		assertEquals(5, concepts.size());
+		assertEquals(7, concepts.size());
 		collectContentCounts(concepts, conceptDefinitionStatuses, descriptionCaseSignificance, descriptionAcceptability, relationshipGroups);
 
 		// Now expecting three of each type to have changed because the row with the same effectiveTime will be allowed through
-		assertEquals(2, conceptDefinitionStatuses.get(Concepts.PRIMITIVE).get());
+		assertEquals(4, conceptDefinitionStatuses.get(Concepts.PRIMITIVE).get());
 		assertEquals(3, conceptDefinitionStatuses.get(Concepts.FULLY_DEFINED).get());
 
 		assertEquals(2, descriptionCaseSignificance.get(Concepts.INITIAL_CHARACTER_CASE_INSENSITIVE).get());
