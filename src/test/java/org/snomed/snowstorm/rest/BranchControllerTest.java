@@ -175,10 +175,14 @@ class BranchControllerTest extends AbstractControllerSecurityTest {
 	}
 
 	private void assertMetadataContains(String rawJson, String expected) {
-		rawJson = rawJson.replace("  ", "").replace("\n", "");
-		System.out.println("rawJson");
+		//Include \r in case we're running on MS Windows!
+		rawJson = rawJson.replace("  ", "").replace("\n", "").replace("\r", "");
+		System.out.println("rawJson:");
 		System.out.println(rawJson);
 		System.out.println();
+		if (!rawJson.contains(expected)) {
+			System.out.println("Debug Assertion Failure ^^^ here");
+		}
 		assertTrue(rawJson.contains(expected));
 	}
 
