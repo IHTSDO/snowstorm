@@ -10,6 +10,9 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
 
 public class DescriptionCriteria {
 
+	private static int searchTermMinLength = 3;
+	private static int searchTermMaxLength = 250;
+
 	private String term;
 	private Collection<String> searchLanguageCodes = DEFAULT_LANGUAGE_CODES;
 	private Boolean active;
@@ -25,6 +28,11 @@ public class DescriptionCriteria {
 	private Set<Long> acceptableIn;
 	private Set<Long> preferredOrAcceptableIn;
 
+	public static void configure(int searchTermMinimumLength, int searchTermMaximumLength) {
+		searchTermMinLength = searchTermMinimumLength;
+		searchTermMaxLength = searchTermMaximumLength;
+	}
+
 	public boolean hasDescriptionCriteria() {
 		return term != null
 				|| modules != null
@@ -35,11 +43,23 @@ public class DescriptionCriteria {
 	}
 
 	public DescriptionCriteria term(String term) {
-		if (term != null && term.isEmpty()) {
-			term = null;
+		if (term != null) {
+			if (term.isEmpty()) {
+				term = null;
+			} else if (term.length() < searchTermMinLength && !containsHanScript(term)) {
+				throw new IllegalArgumentException(String.format("Search term must have at least %s characters.", searchTermMinLength));
+			} else if (term.length() > searchTermMaxLength) {
+				throw new IllegalArgumentException(String.format("Search term can not have more than %s characters.", searchTermMaxLength));
+			}
 		}
 		this.term = term;
 		return this;
+	}
+
+	private static boolean containsHanScript(String s) {
+		return s.codePoints().anyMatch(
+				codepoint ->
+						Character.UnicodeScript.of(codepoint) == Character.UnicodeScript.HAN);
 	}
 
 	public String getTerm() {
