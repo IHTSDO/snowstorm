@@ -317,9 +317,7 @@ public class ConceptController {
 			throw new NotFoundException("Concept '" + conceptId + "' not found on branch '" + branch + "'.");
 		}
 
-		CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branch, false);
-		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), showFutureVersions, showInternalReleases);
-		ConceptHistory conceptHistory = conceptService.loadConceptHistory(conceptId, codeSystemVersions);
+		ConceptHistory conceptHistory = conceptService.loadConceptHistory(conceptId, branch, showFutureVersions, showInternalReleases);
 
 		return ControllerHelper.throwIfNotFound("conceptHistory", conceptHistory);
 	}

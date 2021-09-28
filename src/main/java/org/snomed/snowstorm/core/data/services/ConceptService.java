@@ -22,12 +22,12 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
 import org.snomed.snowstorm.core.data.services.pojo.*;
-import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.PageHelper;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -46,7 +46,6 @@ import org.springframework.util.Assert;
 import javax.annotation.Nullable;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
@@ -58,7 +57,7 @@ import static org.springframework.util.CollectionUtils.isEmpty;
 @Service
 public class ConceptService extends ComponentService {
 
-	private static final Map<ComponentType, Class<? extends DomainEntity<?>>> COMPONENT_DOCUMENT_TYPES = new HashMap<>();
+	private static final Map<ComponentType, Class<? extends DomainEntity<?>>> COMPONENT_DOCUMENT_TYPES = new EnumMap<>(ComponentType.class);
 
 	static {
 		COMPONENT_DOCUMENT_TYPES.put(ComponentType.Concept, Concept.class);
@@ -104,7 +103,8 @@ public class ConceptService extends ComponentService {
 	private ElasticsearchRestTemplate elasticsearchTemplate;
 
 	@Autowired
-	private TraceabilityLogService traceabilityLogService;
+	@Lazy
+	private CodeSystemService codeSystemService;
 
 	@Autowired
 	private ConceptAttributeSortHelper conceptAttributeSortHelper;
@@ -158,35 +158,40 @@ public class ConceptService extends ComponentService {
 		return doFind(conceptIds, languageDialects, new BranchTimepoint(path), pageRequest);
 	}
 
-	public ConceptHistory loadConceptHistory(String conceptId, List<CodeSystemVersion> codeSystemVersions) {
-		Map<String, BranchCriteria> branchCriteria = new HashMap<>();
+	public ConceptHistory loadConceptHistory(String conceptId, String branch, boolean showFutureVersions, boolean showInternalReleases) {
+		CodeSystem codeSystem = codeSystemService.findClosestCodeSystemUsingAnyBranch(branch, false);
+		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(codeSystem.getShortName(), showFutureVersions, showInternalReleases);
+
+		// Create branch criteria for each code system version
+		Map<String, BranchCriteria> codeSystemVersionBranchCriteria = new HashMap<>();
 		for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
 			String branchPath = codeSystemVersion.getBranchPath();
-			branchCriteria.put(branchPath, versionControlHelper.getBranchCriteria(branchPath));
+			codeSystemVersionBranchCriteria.put(branchPath, versionControlHelper.getBranchCriteria(branchPath));
 		}
 
-		BiFunction<String, ComponentType, BoolQueryBuilder> defaultFullQuery = (cId, cT) -> {
+		Function<ComponentType, BoolQueryBuilder> defaultFullQuery = componentType -> {
 			BoolQueryBuilder fullQuery = boolQuery();
 			fullQuery.must(
 					boolQuery() //Query for released Components
-							.must(existsQuery(Concept.Fields.EFFECTIVE_TIME))
-							.must(existsQuery(Concept.Fields.PATH))
+							.must(existsQuery(SnomedComponent.Fields.EFFECTIVE_TIME))
+							.must(existsQuery(SnomedComponent.Fields.PATH))
 			);
 
-			if (ComponentType.Axiom.equals(cT)) {
+			if (ComponentType.Axiom.equals(componentType)) {
 				fullQuery.must(
 						boolQuery() //Query for Axioms
 								.must(termQuery(ReferenceSetMember.Fields.REFSET_ID, Concepts.OWL_AXIOM_REFERENCE_SET))
-								.minimumShouldMatch(1)
-								.should(termQuery(ReferenceSetMember.Fields.CONCEPT_ID, cId))
-								.should(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, cId))
+								.must(boolQuery()
+										// One of:
+										.should(termQuery(ReferenceSetMember.Fields.CONCEPT_ID, conceptId))
+										.should(termQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, conceptId)))
 				);
 			} else {
 				fullQuery.must(
 						boolQuery() //Query for Concepts, Descriptions & Relationships
-								.minimumShouldMatch(1)
-								.should(termQuery(Concept.Fields.CONCEPT_ID, cId))
-								.should(termQuery(Relationship.Fields.SOURCE_ID, cId))
+								// One of:
+								.should(termQuery(Concept.Fields.CONCEPT_ID, conceptId))
+								.should(termQuery(Relationship.Fields.SOURCE_ID, conceptId))
 				);
 			}
 			return fullQuery;
@@ -196,22 +201,23 @@ public class ConceptService extends ComponentService {
 		for (Map.Entry<ComponentType, Class<? extends DomainEntity<?>>> entrySet : COMPONENT_DOCUMENT_TYPES.entrySet()) {
 			ComponentType componentType = entrySet.getKey();
 			Class<? extends DomainEntity<?>> documentType = entrySet.getValue();
-			BoolQueryBuilder fullQuery = defaultFullQuery.apply(conceptId, componentType);
-			BoolQueryBuilder codeSystemQuery = boolQuery();
+			BoolQueryBuilder componentQuery = defaultFullQuery.apply(componentType);
 
+			BoolQueryBuilder codeSystemQuery = boolQuery();
 			for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
 				codeSystemQuery
 						.should(
 								boolQuery()
-										.must(branchCriteria.get(codeSystemVersion.getBranchPath()).getEntityBranchCriteria(documentType))
-										.must(termQuery(Concept.Fields.EFFECTIVE_TIME, codeSystemVersion.getEffectiveDate()))
+										.must(termQuery(SnomedComponent.Fields.EFFECTIVE_TIME, codeSystemVersion.getEffectiveDate()))
+										// Branch criteria for this code system version and component type
+										.must(codeSystemVersionBranchCriteria.get(codeSystemVersion.getBranchPath()).getEntityBranchCriteria(documentType))
 						);
-				fullQuery.must(codeSystemQuery);
 			}
+			componentQuery.must(codeSystemQuery);
 
 			SearchHits<? extends DomainEntity<?>> searchHits = elasticsearchTemplate.search(
 					new NativeSearchQueryBuilder()
-							.withQuery(fullQuery)
+							.withQuery(componentQuery)
 							.withPageable(LARGE_PAGE)
 							.build(),
 					documentType
@@ -514,7 +520,6 @@ public class ConceptService extends ComponentService {
 
 	// Used by tests
 	public Iterable<Concept> batchCreate(List<Concept> concepts, String path) throws ServiceException {
-		final List<LanguageDialect> languageDialects = DEFAULT_LANGUAGE_DIALECTS;
 		final Branch branch = branchService.findBranchOrThrow(path);
 		final Set<String> conceptIds = concepts.stream().map(Concept::getConceptId).filter(Objects::nonNull).collect(Collectors.toSet());
 		if (!conceptIds.isEmpty()) {
@@ -526,7 +531,7 @@ public class ConceptService extends ComponentService {
 			}
 		}
 		PersistedComponents persistedComponents = doSave(concepts, branch);
-		joinComponentsToConceptsWithExpandedDescriptions(persistedComponents, branch, languageDialects);
+		joinComponentsToConceptsWithExpandedDescriptions(persistedComponents, branch, DEFAULT_LANGUAGE_DIALECTS);
 		return persistedComponents.getPersistedConcepts();
 	}
 
@@ -780,7 +785,7 @@ public class ConceptService extends ComponentService {
 		conceptQuery.must(termsQuery(Concept.Fields.CONCEPT_ID, conceptIds));
 		
 		if (active != null) {
-			conceptQuery.must(termsQuery(Concept.Fields.ACTIVE, active));
+			conceptQuery.must(termsQuery(SnomedComponent.Fields.ACTIVE, active));
 		}
 	}
 }
