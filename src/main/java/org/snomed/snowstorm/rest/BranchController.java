@@ -92,7 +92,7 @@ public class BranchController {
 		return new BranchPojo(branch, branch.getMetadata().getAsMap(), userRolesForBranch);
 	}
 
-	@ApiOperation("Update branch metadata")
+	@ApiOperation("Replace all branch metadata")
 	@RequestMapping(value = "/branches/{branch}", method = RequestMethod.PUT)
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public BranchPojo updateBranch(@PathVariable String branch, @RequestBody UpdateBranchRequest request) {
@@ -106,6 +106,23 @@ public class BranchController {
 		newMetadata.remove(INTERNAL_METADATA_KEY);
 		newMetadata.putMap(INTERNAL_METADATA_KEY, latestBranch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY));
 		return getBranchPojo(branchService.updateMetadata(branch, newMetadata));
+	}
+
+	@ApiOperation(value = "Upsert branch metadata",
+			notes = "The item or items in the request will be merged with the existing metadata.")
+	@RequestMapping(value = "/branches/{branch}/metadata-upsert", method = RequestMethod.PUT)
+	@PreAuthorize("hasPermission('ADMIN', #branch)")
+	public Map<String, Object> updateBranchMetadataItems(@PathVariable String branch, @RequestBody Map<String, Object> metadataToInsert) {
+		branch = BranchPathUriUtil.decodePath(branch);
+		final Branch latestBranch = branchService.findBranchOrThrow(branch);
+		if (latestBranch.isLocked()) {
+			throw new IllegalStateException("Branch metadata can not be updated when branch is locked.");
+		}
+		// Prevent updating internal values via REST api
+		metadataToInsert.remove(INTERNAL_METADATA_KEY);
+		Metadata newMetadata = latestBranch.getMetadata();
+		newMetadata.putAll(metadataToInsert);
+		return getBranchPojo(branchService.updateMetadata(branch, newMetadata)).getMetadata();
 	}
 
 	@ApiOperation("Retrieve a single branch")
