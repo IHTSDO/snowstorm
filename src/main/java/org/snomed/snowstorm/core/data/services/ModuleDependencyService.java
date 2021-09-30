@@ -167,7 +167,6 @@ public class ModuleDependencyService extends ComponentService {
 		int recursionLimit = 0;
 		for (String moduleId : modulesRequired) {
 			boolean isExtensionMod = !cachedInternationalModules.contains(moduleId);
-			boolean isExtensionTop = moduleId.equals(topLevelExtensionModule);
 			
 			Set<ReferenceSetMember> moduleDependencies = moduleMap.get(moduleId);
 			if (moduleDependencies == null) {
@@ -180,12 +179,7 @@ public class ModuleDependencyService extends ComponentService {
 			}
 			
 			String thisLevel = moduleId;
-			//Work out when we need to stop, depending on what we are
-			while ( (isInternational && !thisLevel.equals(Concepts.MODEL_MODULE)) ||
-					(isExtensionMod && (
-							(isExtensionTop && !thisLevel.equals(Concepts.CORE_MODULE)) ||
-							(!isExtensionTop && !thisLevel.equals(topLevelExtensionModule))
-							))){
+			while (!thisLevel.equals(Concepts.MODEL_MODULE)){
 				thisLevel = updateOrCreateModuleDependency(moduleId, 
 						thisLevel, 
 						moduleParentMap, 
@@ -204,7 +198,6 @@ public class ModuleDependencyService extends ComponentService {
 		logger.info("MDR generation for {}, modules [{}] took {}s", branchPath, String.join(", ", modulesRequired), sw.getTotalTimeSeconds());
 		List<ReferenceSetMember> updatedMDRmembers = moduleMap.values().stream()
 				.flatMap(Set::stream)
-				/*.filter(rm -> modulesRequired.contains(rm.getModuleId()))*/
 				.filter(rm -> rm.getEffectiveTime().equals(effectiveDate))
 				.collect(Collectors.toList());
 		
