@@ -98,14 +98,24 @@ class ModuleDependencyServiceTest extends AbstractTest {
 		
 		List<ReferenceSetMember> mdr = mdService.generateModuleDependencies(TEST_CS_PATH, TEST_ET, null, null);
 		
-		//Working with a single MS module we only expect to have a dependency on the CORE MODULE
-		assertEquals(1, mdr.size());
-		assertEquals(TEST_MODULE, mdr.get(0).getModuleId());
-		assertEquals(Concepts.CORE_MODULE, mdr.get(0).getReferencedComponentId());
-		assertEquals(TEST_ET, mdr.get(0).getEffectiveTime());
-		assertEquals(TEST_ET, mdr.get(0).getAdditionalField(ModuleDependencyService.SOURCE_ET));
-		assertEquals(TEST_DEPENDENCY_ET, mdr.get(0).getAdditionalField(ModuleDependencyService.TARGET_ET));
+		//Working with a single MS module we expect to have dependencies to both the core and model module
+		assertEquals(2, mdr.size());
+		assertTrue(resultsContain(mdr, TEST_MODULE, Concepts.CORE_MODULE, TEST_ET, TEST_ET, TEST_DEPENDENCY_ET));
+		assertTrue(resultsContain(mdr, TEST_MODULE, Concepts.MODEL_MODULE, TEST_ET, TEST_ET, TEST_DEPENDENCY_ET));
+	}
 
+	private boolean resultsContain(List<ReferenceSetMember> mdr, String sourceModule, String targetModule, String effectiveDate,
+			String sourceEffectiveDate, String targetEffectiveDate) {
+		for (ReferenceSetMember rm : mdr) {
+			if (rm.getModuleId().equals(sourceModule) &&
+					rm.getReferencedComponentId().equals(targetModule) &&
+					rm.getEffectiveTime().equals(effectiveDate) &&
+					rm.getAdditionalField(ModuleDependencyService.SOURCE_ET).equals(sourceEffectiveDate) &&
+					rm.getAdditionalField(ModuleDependencyService.TARGET_ET).equals(targetEffectiveDate)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private void createConcept(String conceptId, String moduleId, String path) throws ServiceException {
