@@ -103,6 +103,8 @@ public class CodeSystemService {
 	// Cache to prevent expensive aggregations. Entry per branch. Expires if there is a new commit.
 	private final ConcurrentHashMap<String, Pair<Date, CodeSystem>> contentInformationCache = new ConcurrentHashMap<>();
 
+	private Map<String, Integer> versionCommitEffectiveTimeCache = new HashMap<>();
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	public synchronized void init() {
@@ -282,7 +284,7 @@ public class CodeSystemService {
 	}
 
 	public List<CodeSystem> findAll() {
-		List<CodeSystem> codeSystems = repository.findAll(PageRequest.of(0, 1000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent();
+		List<CodeSystem> codeSystems = repository.findAll(PageRequest.of(0, 10_000, Sort.by(CodeSystem.Fields.SHORT_NAME))).getContent();
 		joinContentInformation(codeSystems);
 		return codeSystems;
 	}
@@ -325,7 +327,7 @@ public class CodeSystemService {
 		codeSystem.setDependantVersionEffectiveTime(cachedCodeSystem.getDependantVersionEffectiveTime());
 	}
 
-	private synchronized void doJoinContentInformation(CodeSystem codeSystem, String branchPath, Branch latestBranch) {
+	private synchronized void doJoinContentInformation(CodeSystem codeSystem, String branchPath, Branch workingBranch) {
 
 		// Pull from cache again in case this just ran in a different thread
 		Pair<Date, CodeSystem> dateCodeSystemPair = contentInformationCache.get(branchPath);
@@ -335,9 +337,17 @@ public class CodeSystemService {
 		}
 
 		// Set dependant version effectiveTime (transient field)
-		setDependantVersionEffectiveTime(codeSystem, branchPath, latestBranch);
+		if (!PathUtil.isRoot(branchPath)) {
+			Integer effectiveTime = getVersionEffectiveTime(PathUtil.getParentPath(branchPath), workingBranch.getBase(), codeSystem.getShortName());
+			if (effectiveTime == null) {
+				logger.warn("Code System {} is not dependant on a specific version of the parent Code System. " +
+								"The working branch {} has a base timepoint of {} which does not match the base of any version branches of {}.",
+						codeSystem, branchPath, workingBranch.getBase(), PathUtil.getParentPath(branchPath));
+			}
+			codeSystem.setDependantVersionEffectiveTime(effectiveTime);
+		}
 
-		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(latestBranch);
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(workingBranch);
 
 		List<String> acceptableLanguageCodes = new ArrayList<>(DEFAULT_LANGUAGE_CODES);
 
@@ -394,42 +404,38 @@ public class CodeSystemService {
 		}
 
 		// Add to cache
-		contentInformationCache.put(branchPath, Pair.of(latestBranch.getHead(), codeSystem));
+		contentInformationCache.put(branchPath, Pair.of(workingBranch.getHead(), codeSystem));
 	}
 
-	public void setDependantVersionEffectiveTime(CodeSystem codeSystem, String branchPath, Branch latestBranch) {
-		String parentPath = PathUtil.getParentPath(branchPath);
-		if (parentPath != null) {
-			CodeSystem parentCodeSystem = findByBranchPath(parentPath).orElse(null);
-			if (parentCodeSystem == null) {
-				logger.error("Parent branch should contain a Code System {}", branchPath);
-				return;
+	public synchronized Integer getVersionEffectiveTime(String codeSystemBranch, Date timepoint, String forChildCodeSystem) {
+		final String key = codeSystemBranch + timepoint.getTime();
+		return versionCommitEffectiveTimeCache.computeIfAbsent(key, k -> {
+			CodeSystem codeSystem = findByBranchPath(codeSystemBranch).orElse(null);
+			if (codeSystem == null) {
+				logger.error("Branch should contain a Code System {}", codeSystemBranch);
+				return null;
 			}
 
-			List<CodeSystemVersion> allParentVersions = findAllVersions(parentCodeSystem.getShortName(), true, false);
-			if (allParentVersions.isEmpty()) {
-				logger.error("Code System {} has a child Code System {} but does not have any versions.", parentCodeSystem, codeSystem);
-				return;
+			Map<String, Integer> pathToVersionMap = findAllVersions(codeSystem.getShortName(), true, true).stream()
+					.collect(Collectors.toMap(CodeSystemVersion::getBranchPath, CodeSystemVersion::getEffectiveDate));
+			if (pathToVersionMap.isEmpty()) {
+				logger.error("Code System {} does not have any versions.", codeSystem);
+				return null;
 			}
-			Map<String, CodeSystemVersion> pathToVersionMap = allParentVersions.stream().collect(Collectors.toMap(CodeSystemVersion::getBranchPath, Function.identity()));
-			Date codeSystemBranchBase = latestBranch.getBase();
-			List<Branch> parentVersionBranchMatchingCodeSystemBase = sBranchService.findByPathAndBaseTimepoint(pathToVersionMap.keySet(), codeSystemBranchBase);
-			if (parentVersionBranchMatchingCodeSystemBase.isEmpty()) {
-				logger.warn("Code System {} is not dependant on a specific version of the parent Code System {}. " +
-						"The working branch {} has a base timepoint of {} which does not match the base of any version branches of {}.",
-						codeSystem, parentCodeSystem, branchPath, codeSystemBranchBase.getTime(), parentCodeSystem);
-				return;
+			List<Branch> versionBranches = sBranchService.findByPathAndBaseTimepoint(pathToVersionMap.keySet(), timepoint, Sort.by("start").descending());
+			if (versionBranches.isEmpty()) {
+				return null;
 			}
-			Branch parentCodeSystemVersionBranch = parentVersionBranchMatchingCodeSystemBase.iterator().next();
-			if (parentCodeSystemVersionBranch.getEnd() != null) {
+			Branch versionBranch = versionBranches.iterator().next();
+			if (versionBranch.getEnd() != null) {
 				logger.warn("Code System {} is dependant on a version of the parent Code System {} that no longer exists. " +
-								"The working branch {} has a base timepoint of {} that matches the base of an outdated version of branch {}.",
-						codeSystem, parentCodeSystem, branchPath, codeSystemBranchBase.getTime(), parentCodeSystemVersionBranch.getPath());
+								"The branch with base timepoint {} matches the base of an outdated version of branch {}.",
+						forChildCodeSystem, codeSystem, timepoint, versionBranch.getPath());
 			} else {
-				CodeSystemVersion parentCodeSystemVersion = pathToVersionMap.get(parentCodeSystemVersionBranch.getPath());
-				codeSystem.setDependantVersionEffectiveTime(parentCodeSystemVersion.getEffectiveDate());
+				return pathToVersionMap.get(versionBranch.getPath());
 			}
-		}
+			return null;
+		});
 	}
 
 	public CodeSystem findOrThrow(String codeSystemShortName) {

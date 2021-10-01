@@ -17,10 +17,7 @@ import org.snomed.snowstorm.core.data.services.classification.BranchClassificati
 import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
 import org.snomed.snowstorm.rest.pojo.SetAuthorFlag;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.*;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
@@ -104,13 +101,13 @@ public class SBranchService {
 				pageable, searchHits.getTotalHits());
 	}
 
-	public List<Branch> findByPathAndBaseTimepoint(Set<String> path, Date baseTimestamp) {
+	public List<Branch> findByPathAndBaseTimepoint(Set<String> path, Date baseTimestamp, Sort sort) {
 		NativeSearchQueryBuilder queryBuilder = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()
 						.must(termsQuery("path", path))
 						.must(termQuery("base", baseTimestamp.getTime())))
 				.withSort(SortBuilders.fieldSort("start"))
-				.withPageable(PageRequest.of(0, path.size()));
+				.withPageable(PageRequest.of(0, path.size(), sort));
 		return elasticsearchTemplate.search(queryBuilder.build(), Branch.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 	}

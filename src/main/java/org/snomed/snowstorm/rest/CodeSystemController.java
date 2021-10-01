@@ -129,7 +129,7 @@ public class CodeSystemController {
 
 		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(shortName, showFutureVersions, showInternalReleases);
 		for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
-			codeSystemVersionService.getDependantVersionForCodeSystemVersion(codeSystemVersion).ifPresent(codeSystemVersion::setDependantVersionEffectiveTime);
+			codeSystemVersionService.populateDependantVersion(codeSystemVersion);
 		}
 		return new ItemsPage<>(codeSystemVersions);
 	}
@@ -253,9 +253,7 @@ public class CodeSystemController {
 				if (latestVersion == null) {
 					continue;
 				}
-				codeSystemVersionService
-						.getDependantVersionForCodeSystemVersion(latestVersion)
-						.ifPresent(latestVersion::setDependantVersionEffectiveTime);
+				codeSystemVersionService.populateDependantVersion(latestVersion);
 			}
 		}
 		return codeSystems;

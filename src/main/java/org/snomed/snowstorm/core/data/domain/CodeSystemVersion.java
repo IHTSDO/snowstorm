@@ -159,4 +159,12 @@ public class CodeSystemVersion {
 	public void setInternalRelease(Boolean internalRelease) {
 		this.internalRelease = internalRelease;
 	}
+
+	@Override
+	public String toString() {
+		return "CodeSystemVersion{" +
+				"shortName='" + shortName + '\'' +
+				", effectiveDate=" + effectiveDate +
+				'}';
+	}
 }
