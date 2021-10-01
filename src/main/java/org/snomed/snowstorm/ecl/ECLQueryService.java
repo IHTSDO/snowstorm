@@ -20,6 +20,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
+import java.util.Date;
 import java.util.Optional;
 
 @Service
@@ -65,7 +66,9 @@ public class ECLQueryService {
 			branchVersionCache = resultsCache.getOrCreateBranchVersionCache(path, branchCriteria.getTimepoint());
 			Page<Long> cachedPage = branchVersionCache.get(ecl, stated, pageRequest);
 			if (cachedPage != null) {
-				logger.debug("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageRequest.getPageNumber(), pageRequest.getPageSize());
+				final int pageNumber = pageRequest != null ? pageRequest.getPageNumber() : 0;
+				final int pageSize = pageRequest != null ? pageRequest.getPageSize() : -1;
+				logger.debug("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageNumber, pageSize);
 				return cachedPage;
 			}
 		}
