@@ -14,10 +14,8 @@ import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
@@ -31,7 +29,7 @@ public class CodeSystemVersionService {
      * K => CodeSystemVersion.getShortName() + "_" + CodeSystemVersion.getEffectiveDate() + "_" + Branch..getHeadTimestamp()
      * V => CodeSystemVersion.getDependantVersionEffectiveTime() or 0
      * */
-    private final Map<String, Integer> dependantVersionCache = new HashMap<>();
+    private final Map<String, Integer> dependantVersionCache = new ConcurrentHashMap<>();
 
     @Autowired
     private CodeSystemService codeSystemService;
