@@ -137,6 +137,7 @@ public class ConceptController {
 			@RequestParam(required = false) Boolean isNullEffectiveTime,
 			@RequestParam(required = false) Boolean isPublished,
 			@RequestParam(required = false) String statedEcl,
+			@RequestParam(required = false) Relationship.CharacteristicType form,
 			@RequestParam(required = false) Set<String> conceptIds,
 			@RequestParam(required = false) boolean returnIdOnly,
 			
@@ -193,7 +194,12 @@ public class ConceptController {
 		if (returnIdOnly) {
 			return new ItemsPage<>(queryService.searchForIds(queryBuilder, branch, pageRequest));
 		} else {
-			return new ItemsPage<>(queryService.search(queryBuilder, branch, pageRequest));
+			Page<ConceptMini> miniConcepts = queryService.search(queryBuilder, branch, pageRequest);
+			final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+			if (form != null && !form.equals("")) {
+				queryService.joinIsLeafFlag(miniConcepts.getContent(), form, branchCriteria);
+			}
+			return new ItemsPage<>(miniConcepts);
 		}
 	}
 
@@ -232,6 +238,7 @@ public class ConceptController {
 				searchRequest.isNullEffectiveTime(),
 				searchRequest.isPublished(),
 				searchRequest.getStatedEclFilter(),
+				searchRequest.getForm(),
 				searchRequest.getConceptIds(),
 				searchRequest.isReturnIdOnly(),
 				searchRequest.getOffset(),
