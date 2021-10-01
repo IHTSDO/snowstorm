@@ -5,10 +5,7 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.snomed.snowstorm.core.data.domain.CodeSystem;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,12 +31,12 @@ import io.kaicode.elasticvc.domain.Commit;
  */
 public class ModuleDependencyService extends ComponentService {
 	
-	public static int RECURSION_LIMIT = 100;
-	public static String SOURCE_ET = "sourceEffectiveTime";
-	public static String TARGET_ET = "targetEffectiveTime";
-	public static Set<String> SI_MODULES = Set.of(Concepts.CORE_MODULE, Concepts.MODEL_MODULE);
+	public static final int RECURSION_LIMIT = 100;
+	public static final String SOURCE_ET = "sourceEffectiveTime";
+	public static final String TARGET_ET = "targetEffectiveTime";
+	public static final Set<String> SI_MODULES = Set.of(Concepts.CORE_MODULE, Concepts.MODEL_MODULE);
 	
-	public static PageRequest LARGE_PAGE = PageRequest.of(0,10000);
+	public static final PageRequest LARGE_PAGE = PageRequest.of(0,10000);
 
 	@Autowired
 	private BranchService branchService;
@@ -66,19 +63,19 @@ public class ModuleDependencyService extends ComponentService {
 	
 	//Refresh when the HEAD time is greater than the HEAD time on MAIN
 	//Check every 30 mins to save time when export operation actually called
-	@Scheduled(fixedDelay = 1800000, initialDelay = 180000)
+	@Scheduled(fixedDelay = 1800_000, initialDelay = 180_000)
 	public synchronized void refreshCache() {
 		//Do we need to refresh the cache?
-		Long currentTime = branchService.findBranchOrThrow(Branch.MAIN).getHeadTimestamp();
+		long currentTime = branchService.findBranchOrThrow(Branch.MAIN).getHeadTimestamp();
 		if (currentTime > cacheValidAt) {
 			//Map of components to Maps of ModuleId -> Counts, pull out all the 2nd level keys into a set
-			Map<String,Map<String,Long>> moduleCountMap = statsService.getComponentCountsPerModule(Branch.MAIN);
+			Map<String, Map<String, Long>> moduleCountMap = statsService.getComponentCountsPerModule(Branch.MAIN);
 			cachedInternationalModules= moduleCountMap.values().stream()
 				.map(Map::keySet)
 				.flatMap(Set::stream)
 				.collect(Collectors.toSet());
 			cacheValidAt = currentTime;
-			logger.info("MDR cache of International Modules refreshed for HEAD time: " + currentTime);
+			logger.info("MDR cache of International Modules refreshed for HEAD time: {}", currentTime);
 		}
 	}
 	
@@ -108,7 +105,7 @@ public class ModuleDependencyService extends ComponentService {
 		boolean isInternational = true;
 		Integer dependencyET = null;
 		if (cs == null) {
-			logger.warn("No CodeSystem associated with branch " + branchPath + " assuming International CodeSystem");
+			logger.warn("No CodeSystem associated with branch {} assuming International CodeSystem", branchPath);
 		} else {
 			dependencyET = cs.getDependantVersionEffectiveTime();
 		}
@@ -122,7 +119,7 @@ public class ModuleDependencyService extends ComponentService {
 		//What modules are actually present in the content?
 		Map<String,Map<String,Long>> moduleCountMap = statsService.getComponentCountsPerModule(branchPath);
 		Set<String> modulesRequired;
-		if (moduleFilter != null && moduleFilter.size() > 0) {
+		if (moduleFilter != null && !moduleFilter.isEmpty()) {
 			modulesRequired = new HashSet<>(moduleFilter);
 		} else {
 			modulesRequired = moduleCountMap.values().stream()
@@ -138,7 +135,7 @@ public class ModuleDependencyService extends ComponentService {
 		
 		//Recover all these module concepts to find out what module they themselves were defined in.
 		//Generally, refset type modules are defined in the main extension module
-		Map<String, String> moduleParentMap = getModuleParents(branchPath, new HashSet<>(modulesRequired), moduleCountMap, isInternational);
+		Map<String, String> moduleParentMap = getModuleParents(branchPath, new HashSet<>(modulesRequired));
 		
 		//For extensions, the module with the concepts in it is assumed to be the parent, UNLESS
 		//a module concept is defined in another module, in which case the owning module is the parent. 
@@ -161,21 +158,17 @@ public class ModuleDependencyService extends ComponentService {
 		//Remove any map entries that we don't need
 		moduleMap.keySet().retainAll(modulesRequired);
 		
-		logger.info("Generating MDR for {}, " + (isInternational? "international":"extension") + " modules [{}]", branchPath, String.join(", ", modulesRequired));
+		logger.info("Generating MDR for {}, {} modules [{}]", branchPath, isInternational ? "international" : "extension", String.join(", ", modulesRequired));
 		
 		//Update or augment module dependencies as required
 		int recursionLimit = 0;
 		for (String moduleId : modulesRequired) {
 			boolean isExtensionMod = !cachedInternationalModules.contains(moduleId);
-			
-			Set<ReferenceSetMember> moduleDependencies = moduleMap.get(moduleId);
-			if (moduleDependencies == null) {
-				moduleDependencies = new HashSet<>();
-				moduleMap.put(moduleId, moduleDependencies);
-			}
-			
+
+			Set<ReferenceSetMember> moduleDependencies = moduleMap.computeIfAbsent(moduleId, k -> new HashSet<>());
+
 			if (isInternational && isExtensionMod) {
-				logger.warn("CHECK LOGIC: " + moduleId + " thought to be both International and an Extension Module");
+				logger.warn("CHECK LOGIC: {} thought to be both International and an Extension Module", moduleId);
 			}
 			
 			String thisLevel = moduleId;
@@ -248,7 +241,7 @@ public class ModuleDependencyService extends ComponentService {
 		return rm;
 	}
 
-	private Map<String, String> getModuleParents(String branchPath, Set<String> moduleIds, Map<String, Map<String, Long>> moduleCountMap, boolean isInternational) {
+	private Map<String, String> getModuleParents(String branchPath, Set<String> moduleIds) {
 		//Looking up the modules that concepts are declared in doesn't give guaranteed right answer
 		//eg INT derivative packages are declared in model module but obviously reference core concepts
 		//Hard code international modules other than model to core
@@ -263,15 +256,15 @@ public class ModuleDependencyService extends ComponentService {
 		//So we don't need to look these up
 		List<Long> conceptIds = moduleIds.stream()
 				.filter(m -> !cachedInternationalModules.contains(m))
-				.map(m -> Long.parseLong(m))
+				.map(Long::parseLong)
 				.collect(Collectors.toList());
 		
 		int recursionDepth = 0;
 		//Repeat lookup of parents until all modules encountered are populated in the map
-		while (conceptIds.size() > 0) {
+		while (!conceptIds.isEmpty()) {
 			Page<Concept> modulePage = conceptService.find(conceptIds, null, branchPath, LARGE_PAGE);
 			Map<String, String> partialParentMap = modulePage.getContent().stream()
-					.collect(Collectors.toMap(c -> c.getId(), c -> c.getModuleId()));
+					.collect(Collectors.toMap(Concept::getId, SnomedComponent::getModuleId));
 				moduleParentMap.putAll(partialParentMap);
 				
 			if (modulePage.getContent().size() != conceptIds.size()) {
@@ -287,7 +280,7 @@ public class ModuleDependencyService extends ComponentService {
 				if (bestFind == null) {
 					bestFind = Concepts.CORE_MODULE;
 				}
-				logger.info("Populating 'best effort' for missing modules: [" + String.join(", ", allMissing) + "] -> " + bestFind);
+				logger.info("Populating 'best effort' for missing modules: [{}] -> {}", String.join(", ", allMissing), bestFind);
 				
 				for (String missing : allMissing) {
 					String parent = missing.equals(Concepts.CORE_MODULE)?Concepts.MODEL_MODULE:bestFind;
@@ -298,7 +291,7 @@ public class ModuleDependencyService extends ComponentService {
 			//Now look up all these new parents as well, unless we've already got them in our map
 			conceptIds = partialParentMap.values().stream()
 					.filter(m -> !moduleParentMap.containsKey(m))
-					.map(m -> Long.parseLong(m))
+					.map(Long::parseLong)
 					.collect(Collectors.toList());
 			
 			if (++recursionDepth > RECURSION_LIMIT) {
