@@ -64,7 +64,7 @@ public class ECLQueryService {
 			branchVersionCache = resultsCache.getOrCreateBranchVersionCache(path, branchCriteria.getTimepoint());
 			Page<Long> cachedPage = branchVersionCache.get(ecl, stated, pageRequest);
 			if (cachedPage != null) {
-				logger.info("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageRequest.getPageNumber(), pageRequest.getPageSize());
+				logger.debug("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageRequest.getPageNumber(), pageRequest.getPageSize());
 				return cachedPage;
 			}
 		}
