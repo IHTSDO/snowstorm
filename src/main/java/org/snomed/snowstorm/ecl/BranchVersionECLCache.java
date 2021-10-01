@@ -4,7 +4,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class BranchVersionECLCache {
@@ -35,6 +38,10 @@ public class BranchVersionECLCache {
 		eclToConceptsCache.put(new ECLCacheEntry(ecl, stated, pageRequest), page);
 	}
 
+	static String normaliseEclString(String ecl) {
+		return ecl.toLowerCase().replaceAll("\\|[^|]*\\|", "").replace("and", ",").replace(" ", "");
+	}
+
 	private static final class ECLCacheEntry {
 
 		private final String ecl;
@@ -43,7 +50,7 @@ public class BranchVersionECLCache {
 		private final Object[] searchAfter;
 
 		public ECLCacheEntry(String ecl, boolean stated, PageRequest pageRequest) {
-			this.ecl = ecl;
+			this.ecl = ecl != null ? normaliseEclString(ecl) : "";
 			this.stated = stated;
 			this.pageRequest = pageRequest;
 			if (pageRequest instanceof SearchAfterPageRequest) {
