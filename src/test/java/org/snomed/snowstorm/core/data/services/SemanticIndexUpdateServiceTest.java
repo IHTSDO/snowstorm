@@ -807,17 +807,11 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(6, queryConcepts.size());
 
-		Query deleteQuery = new NativeSearchQueryBuilder().withQuery(new MatchAllQueryBuilder()).build();
-		elasticsearchTemplate.delete(deleteQuery, QueryConcept.class, elasticsearchTemplate.getIndexCoordinatesFor(QueryConcept.class));
-
-		// Wait for deletion to flush through
-		Thread.sleep(2000);
+		deleteAllAndRefresh(QueryConcept.class);
 
 		queryConcepts = elasticsearchTemplate.search(new NativeSearchQueryBuilder().build(), QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
 		assertEquals(0, queryConcepts.size());
-
-		assertEquals(0, queryService.search(queryService.createQueryBuilder(false).ecl("<" + SNOMEDCT_ROOT), path, PAGE_REQUEST).getTotalElements());
 
 		updateService.rebuildStatedAndInferredSemanticIndex(path, false);
 
