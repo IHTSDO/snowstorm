@@ -5,11 +5,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
+import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.core.data.domain.Concept;
+import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -22,6 +24,9 @@ import org.snomed.snowstorm.rest.View;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.jms.annotation.JmsListener;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -66,6 +71,9 @@ public abstract class AbstractTest {
 
 	@Autowired
 	private ObjectMapper objectMapper;
+
+	@Autowired
+	private ElasticsearchOperations elasticsearchOperations;
 
 	@Value("${ims-security.roles.enabled}")
 	private boolean rolesEnabled;
@@ -151,5 +159,11 @@ public abstract class AbstractTest {
 		} catch (JsonProcessingException e) {
 			throw new RuntimeException(e);
 		}
+	}
+
+	protected void deleteAllAndRefresh(Class<QueryConcept> clazz) {
+		Query deleteQuery = new NativeSearchQueryBuilder().withQuery(new MatchAllQueryBuilder()).build();
+		elasticsearchOperations.delete(deleteQuery, clazz, elasticsearchOperations.getIndexCoordinatesFor(clazz));
+		elasticsearchOperations.indexOps(clazz).refresh();
 	}
 }
