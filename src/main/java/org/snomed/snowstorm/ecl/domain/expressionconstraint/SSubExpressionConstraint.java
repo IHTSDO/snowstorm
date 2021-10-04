@@ -165,11 +165,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 	}
 
 	private Set<Long> retrieveAllAncestors(Collection<Long> conceptIds, BranchCriteria branchCriteria, String path, boolean stated, QueryService queryService) {
-		Set<Long> allAncestors = new LongArraySet();
-		for (Long conceptId : conceptIds) {
-			allAncestors.addAll(queryService.findAncestorIds(branchCriteria, path, stated, conceptId.toString()));
-		}
-		return allAncestors;
+		return queryService.findAncestorIdsAsUnion(branchCriteria, stated, conceptIds);
 	}
 
 	public void toString(StringBuffer buffer) {
