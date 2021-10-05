@@ -15,6 +15,7 @@ public class ConceptSearchRequest {
 	private Set<Long> preferredOrAcceptableIn;
 	private String definitionStatusFilter;
 	private Set<Long> module;
+	private Boolean includeLeafFlag;
 	private Relationship.CharacteristicType form;
 	private String eclFilter;
 	private String statedEclFilter;
@@ -155,5 +156,13 @@ public class ConceptSearchRequest {
 
 	public void setForm(Relationship.CharacteristicType form) {
 		this.form = form;
+	}
+	
+	public Boolean getIncludeLeafFlag() {
+		return includeLeafFlag;
+	}
+
+	public void setIncludeLeafFlag(Boolean includeLeafFlag) {
+		this.includeLeafFlag = includeLeafFlag;
 	}
 }
