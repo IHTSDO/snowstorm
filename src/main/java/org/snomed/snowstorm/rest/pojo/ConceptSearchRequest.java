@@ -1,6 +1,7 @@
 package org.snomed.snowstorm.rest.pojo;
 
 import java.util.Set;
+import org.snomed.snowstorm.core.data.domain.Relationship;
 
 public class ConceptSearchRequest {
 
@@ -14,6 +15,8 @@ public class ConceptSearchRequest {
 	private Set<Long> preferredOrAcceptableIn;
 	private String definitionStatusFilter;
 	private Set<Long> module;
+	private Boolean includeLeafFlag;
+	private Relationship.CharacteristicType form;
 	private String eclFilter;
 	private String statedEclFilter;
 	private Set<String> conceptIds;
@@ -145,5 +148,21 @@ public class ConceptSearchRequest {
 
 	public void setSearchAfter(String searchAfter) {
 		this.searchAfter = searchAfter;
+	}
+	
+	public Relationship.CharacteristicType getForm() {
+		return form;
+	}
+
+	public void setForm(Relationship.CharacteristicType form) {
+		this.form = form;
+	}
+	
+	public Boolean getIncludeLeafFlag() {
+		return includeLeafFlag;
+	}
+
+	public void setIncludeLeafFlag(Boolean includeLeafFlag) {
+		this.includeLeafFlag = includeLeafFlag;
 	}
 }

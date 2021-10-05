@@ -175,6 +175,8 @@ public class ConceptController {
 
 			@RequestParam(required = false) String ecl,
 			@RequestParam(required = false) String statedEcl,
+			@RequestParam(required = false, defaultValue = "false") Boolean includeLeafFlag,
+			@RequestParam(defaultValue = "inferred") Relationship.CharacteristicType form,
 			@RequestParam(required = false) Set<String> conceptIds,
 			@RequestParam(required = false) boolean returnIdOnly,
 			@RequestParam(required = false, defaultValue = "0") int offset,
@@ -227,7 +229,12 @@ public class ConceptController {
 		if (returnIdOnly) {
 			return new ItemsPage<>(queryService.searchForIds(queryBuilder, branch, pageRequest));
 		} else {
-			return new ItemsPage<>(queryService.search(queryBuilder, branch, pageRequest));
+			Page<ConceptMini> miniConcepts = queryService.search(queryBuilder, branch, pageRequest);
+			final BranchCriteria branchCriteria = versionControlHelper.getBranchCriteria(branch);
+			if (includeLeafFlag) {
+				queryService.joinIsLeafFlag(miniConcepts.getContent(), form, branchCriteria);
+			}
+			return new ItemsPage<>(miniConcepts);
 		}
 	}
 
@@ -263,6 +270,8 @@ public class ConceptController {
 				searchRequest.getPreferredOrAcceptableIn(),
 				searchRequest.getEclFilter(),
 				searchRequest.getStatedEclFilter(),
+				searchRequest.getIncludeLeafFlag(),
+				searchRequest.getForm(),
 				searchRequest.getConceptIds(),
 				searchRequest.isReturnIdOnly(),
 				searchRequest.getOffset(),
