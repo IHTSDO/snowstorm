@@ -1,7 +1,8 @@
 package org.snomed.snowstorm.rest.pojo;
 
-import java.util.Set;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+
+import java.util.Set;
 
 public class ConceptSearchRequest {
 
@@ -15,8 +16,12 @@ public class ConceptSearchRequest {
 	private Set<Long> preferredOrAcceptableIn;
 	private String definitionStatusFilter;
 	private Set<Long> module;
+	private Boolean includeLeafFlag;
 	private Relationship.CharacteristicType form;
 	private String eclFilter;
+	private Integer effectiveTime;
+	private Boolean nullEffectiveTime;
+	private Boolean published;
 	private String statedEclFilter;
 	private Set<String> conceptIds;
 	private boolean returnIdOnly;
@@ -109,6 +114,30 @@ public class ConceptSearchRequest {
 		this.statedEclFilter = statedEclFilter;
 	}
 
+	public Integer getEffectiveTime() {
+		return effectiveTime;
+	}
+
+	public void setEffectiveTime(Integer effectiveTime) {
+		this.effectiveTime = effectiveTime;
+	}
+
+	public Boolean isNullEffectiveTime() {
+		return nullEffectiveTime;
+	}
+
+	public void setNullEffectiveTime(Boolean nullEffectiveTime) {
+		this.nullEffectiveTime = nullEffectiveTime;
+	}
+
+	public Boolean isPublished() {
+		return published;
+	}
+
+	public void setPublished(Boolean published) {
+		this.published = published;
+	}
+
 	public Set<String> getConceptIds() {
 		return conceptIds;
 	}
@@ -155,5 +184,13 @@ public class ConceptSearchRequest {
 
 	public void setForm(Relationship.CharacteristicType form) {
 		this.form = form;
+	}
+	
+	public Boolean getIncludeLeafFlag() {
+		return includeLeafFlag;
+	}
+
+	public void setIncludeLeafFlag(Boolean includeLeafFlag) {
+		this.includeLeafFlag = includeLeafFlag;
 	}
 }
