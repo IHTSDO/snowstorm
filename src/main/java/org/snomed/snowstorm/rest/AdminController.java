@@ -3,9 +3,10 @@ package org.snomed.snowstorm.rest;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
-import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogBackfiller;
+import org.snomed.snowstorm.fix.ContentFixService;
+import org.snomed.snowstorm.fix.ContentFixType;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.snomed.snowstorm.rest.pojo.UpdatedDocumentCount;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +45,9 @@ public class AdminController {
 
 	@Autowired
 	private TraceabilityLogBackfiller traceabilityLogBackfiller;
+
+	@Autowired
+	private ContentFixService contentFixService;
 
 	@ApiOperation(value = "Rebuild the description index.",
 			notes = "Use this if the search configuration for international character handling of a language has been " +
@@ -236,6 +240,12 @@ public class AdminController {
 	@PreAuthorize("hasPermission('ADMIN', #branch)")
 	public void cleanInferredRelationships(@PathVariable String branch) {
 		adminOperationsService.cleanInferredRelationships(BranchPathUriUtil.decodePath(branch));
+	}
+
+	@RequestMapping(value = "/{branch}/actions/content-fix", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	public void runContentFix(@PathVariable String branch, @RequestParam ContentFixType contentFixType, @RequestParam Set<Long> conceptIds) {
+		contentFixService.runContentFix(BranchPathUriUtil.decodePath(branch), contentFixType, conceptIds);
 	}
 
 }
