@@ -15,6 +15,7 @@ import org.snomed.snowstorm.core.data.domain.CodeSystem;
 import org.snomed.snowstorm.core.data.domain.CodeSystemVersion;
 import org.snomed.snowstorm.core.data.services.classification.BranchClassificationStatusService;
 import org.snomed.snowstorm.core.data.services.servicehook.CommitServiceHookClient;
+import org.snomed.snowstorm.rest.pojo.SetAuthorFlag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.String.format;
 import static org.elasticsearch.index.query.QueryBuilders.*;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.AUTHOR_FLAGS_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.IntegrityService.INTEGRITY_ISSUE_METADATA_KEY;
 
@@ -196,5 +198,16 @@ public class SBranchService {
 			}
 		}
 		return null;
+	}
+
+	public Branch setAuthorFlag(String branchPath, SetAuthorFlag setAuthorFlag) {
+		Branch branch = branchService.findBranchOrThrow(branchPath);
+
+		Metadata metadata = branch.getMetadata();
+		Map<String, String> authFlagMap = metadata.getMapOrCreate(AUTHOR_FLAGS_METADATA_KEY);
+		authFlagMap.put(setAuthorFlag.getName(), String.valueOf(setAuthorFlag.isValue()));
+		metadata.putMap(AUTHOR_FLAGS_METADATA_KEY, authFlagMap);
+
+		return branchService.updateMetadata(branchPath, metadata);
 	}
 }
