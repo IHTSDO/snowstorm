@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.AUTHOR_FLAGS_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService.DISABLE_IMPORT_TRACEABILITY;
 import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
@@ -33,6 +34,8 @@ import static org.snomed.snowstorm.mrcm.MRCMUpdateService.DISABLE_MRCM_AUTO_UPDA
 public class ImportService {
 
 	public static final String IMPORT_TYPE_KEY = "importType";
+
+	public static final String BATCH_CHANGE_KEY = "batch-change";
 
 	private final Map<String, ImportJob> importJobMap;
 
@@ -168,6 +171,13 @@ public class ImportService {
 		internalMetadataMap.put(IMPORT_TYPE_KEY, importType.getName());
 		if (importType == FULL || createCodeSystemVersion) {
 			internalMetadataMap.put(DISABLE_IMPORT_TRACEABILITY, "true");
+		}
+
+		boolean codeSystem = codeSystemService.findByBranchPath(branchPath).isPresent();
+		if (!codeSystem) {
+			Map<String, String> authFlagMap = metadata.getMapOrCreate(AUTHOR_FLAGS_METADATA_KEY);
+			authFlagMap.put(BATCH_CHANGE_KEY, "true");
+			metadata.putMap(AUTHOR_FLAGS_METADATA_KEY, authFlagMap);
 		}
 		// Import metadata is saved to the store rather than just existing within the Commit object
 		// because imports can span multiple commits (if full import or creating a version)
