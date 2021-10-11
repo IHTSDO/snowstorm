@@ -33,7 +33,7 @@ public class FHIRMedicationProvider implements IResourceProvider, FHIRConstants 
 	public Medication getMedication(HttpServletRequest request,
 									@IdParam IdType id) throws FHIROperationException {
 		Medication medication = new Medication();
-		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
+		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 		Concept concept = ControllerHelper.throwIfNotFound("Concept", conceptService.find(id.getIdPart(), languageDialects, "MAIN"));
 		medication.setId(id);
 		TermLangPojo fsn = concept.getFsn(languageDialects);
