@@ -181,7 +181,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		fhirHelper.mutuallyExclusive("code", code, "coding", coding);
 		fhirHelper.notSupported("date", date);
 		system = fhirHelper.enhanceCodeSystem(system, version, coding);
-		return lookup(request, response, system, code, coding, displayLanguage, propertiesType);
+		return lookup(request, system, code, coding, displayLanguage, propertiesType);
 	}
 	
 	@Operation(name="$lookup", idempotent=true)
@@ -201,25 +201,25 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 		fhirHelper.notSupported("system", system, "CodeSystem where instance id is already specified in URL");
 		fhirHelper.notSupported("version", version, "CodeSystem where instance id is already specified in URL");
 		StringType systemURI = new StringType(getCodeSystem(id).getUrl());
-		return lookup(request, response, systemURI, code, coding, displayLanguage, propertiesType);
+		return lookup(request, systemURI, code, coding, displayLanguage, propertiesType);
 	}
 	
 	//Method common to both implicit and instance lookups
 	private Parameters lookup(
 			HttpServletRequest request,
-			HttpServletResponse response,
 			StringType system,
 			CodeType code,
 			Coding coding,
 			String displayLanguage,
 			List<CodeType> propertiesType) throws FHIROperationException {
+
 		String conceptId = fhirHelper.recoverConceptId(code, coding);
 		List<LanguageDialect> designations = new ArrayList<>();
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		// And make it the first in the list so we pick it up for the display element
-		fhirHelper.setLanguageOptions (designations, displayLanguage, request);
-		Concept fullConcept = null;
-		BranchPath branchPath = null;
+		fhirHelper.setLanguageOptions(designations, displayLanguage, request);
+		Concept fullConcept;
+		BranchPath branchPath;
 		if (system == null || system.toString().equals(SNOMED_URI)) {
 			//Multisearch is expensive, so we'll try on default branch first 
 			branchPath = fhirHelper.getBranchPathFromURI(system);
@@ -302,7 +302,7 @@ public class FHIRCodeSystemProvider implements IResourceProvider, FHIRConstants 
 			DateTimeType date,
 			Coding coding,
 			String displayLanguage) throws FHIROperationException {
-		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
+		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 		String conceptId = fhirHelper.recoverConceptId(code, coding);
 		ConceptCriteria criteria = new ConceptCriteria().conceptIds(Collections.singleton(conceptId));
 		Concept fullConcept = null;

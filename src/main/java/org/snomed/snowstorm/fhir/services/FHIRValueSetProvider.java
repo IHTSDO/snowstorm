@@ -281,7 +281,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="context") String context,
 			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
-		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
+		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 		return validateCode(id, url, codeSystem, code, display, version, date, coding, codeableConcept, context, abstractBool, displayLanguage, languageDialects);
 	}
 
@@ -300,7 +300,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 			@OperationParam(name="abstract") BooleanType abstractBool,
 			@OperationParam(name="context") String context,
 			@OperationParam(name="displayLanguage") String displayLanguage) throws FHIROperationException {
-		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request);
+		List<LanguageDialect> languageDialects = fhirHelper.getLanguageDialects(null, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 		return validateCode(null, url, codeSystem, code, display, version, date, coding, codeableConcept, context, abstractBool, displayLanguage, languageDialects);
 	}
 	
@@ -425,7 +425,7 @@ public class FHIRValueSetProvider implements IResourceProvider, FHIRConstants {
 		Page<ConceptMini> conceptMiniPage;
 		List<LanguageDialect> designations = new ArrayList<>();
 		boolean includeDesignations = fhirHelper.setLanguageOptions(designations, valueSetExpansionParameters.getDesignations(),
-				valueSetExpansionParameters.getDisplayLanguage(), valueSetExpansionParameters.getIncludeDesignationsType(), request);
+				valueSetExpansionParameters.getDisplayLanguage(), valueSetExpansionParameters.getIncludeDesignationsType(), request.getHeader(ACCEPT_LANGUAGE_HEADER));
 
 		//If we've specified a system version as part of the call, then that overrides whatever is in the compose element or URL
 		//TODO In fact this behaviour needs to be a little more subtle.  The total override is what forceSystemVersion does
