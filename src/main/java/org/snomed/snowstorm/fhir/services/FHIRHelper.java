@@ -15,6 +15,7 @@ import org.hl7.fhir.r4.model.ValueSet.ConceptSetFilterComponent;
 import org.hl7.fhir.r4.model.ValueSet.FilterOperator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.CodeSystemService;
 import org.snomed.snowstorm.core.data.services.ConceptService;
@@ -165,10 +166,10 @@ public class FHIRHelper implements FHIRConstants {
 		return new BranchPath(branchPathStr);
 	}
 
-	public List<LanguageDialect> getLanguageDialects(List<String> designations, HttpServletRequest request) throws FHIROperationException {
+	public List<LanguageDialect> getLanguageDialects(List<String> designations, String acceptLanguageHeader) throws FHIROperationException {
 		// Use designations preferably, or fall back to language headers
+		final List<LanguageDialect> languageDialects = new ArrayList<>();
 		if (designations != null) {
-			List<LanguageDialect> languageDialects = new ArrayList<>();
 			for (String designation : designations) {
 				if (designation.length() > MAX_LANGUAGE_CODE_LENGTH) {
 					//in this case we're expecting a designation token
@@ -189,16 +190,15 @@ public class FHIRHelper implements FHIRConstants {
 					languageDialects.add(dialectService.getLanguageDialect(designation));
 				}
 			}
-			if (languageDialects.isEmpty()) {
-				languageDialects.add(new LanguageDialect(DEFAULT_LANGUAGE_CODE));
-			}
-			return languageDialects;
 		} else {
-			if (request.getHeader(ACCEPT_LANGUAGE_HEADER) == null) {
-				return Collections.singletonList(new LanguageDialect(DEFAULT_LANGUAGE_CODE));
+			if (acceptLanguageHeader != null) {
+				languageDialects.addAll(ControllerHelper.parseAcceptLanguageHeader(acceptLanguageHeader));
 			}
-			return ControllerHelper.parseAcceptLanguageHeader(request.getHeader(ACCEPT_LANGUAGE_HEADER));
 		}
+		if (languageDialects.isEmpty()) {
+			languageDialects.addAll(DEFAULT_LANGUAGE_DIALECTS);
+		}
+		return languageDialects;
 	}
 
 	public String convertToECL(ConceptSetComponent setDefn) throws FHIROperationException {
@@ -252,11 +252,11 @@ public class FHIRHelper implements FHIRConstants {
 	}
 	
 	public void setLanguageOptions(List<LanguageDialect> designations, String displayLanguageStr, HttpServletRequest request) throws FHIROperationException {
-		setLanguageOptions(designations, null, displayLanguageStr, null, request);
+		setLanguageOptions(designations, null, displayLanguageStr, null, request.getHeader(ACCEPT_LANGUAGE_HEADER));
 	}
 	
 	public String getPreferredTerm(Concept concept, List<LanguageDialect> designations) {
-		if (designations == null || designations.size() == 0) {
+		if (designations == null || designations.isEmpty()) {
 			return concept.getPt().getTerm();
 		}
 		
@@ -269,13 +269,13 @@ public class FHIRHelper implements FHIRConstants {
 		return null;
 	}
 	
-	public boolean setLanguageOptions(List<LanguageDialect> designations, 
+	public boolean setLanguageOptions(List<LanguageDialect> designations,
 			List<String> designationsStr,
-			String displayLanguageStr, 
-			BooleanType includeDesignationsType, 
-			HttpServletRequest request) throws FHIROperationException {
-		boolean includeDesignations = false;
-		designations.addAll(getLanguageDialects(designationsStr, request));
+			String displayLanguageStr,
+			BooleanType includeDesignationsType,
+			String acceptLanguageHeader) throws FHIROperationException {
+
+		designations.addAll(getLanguageDialects(designationsStr, acceptLanguageHeader));
 		// Also if displayLanguage has been used, ensure that's part of our requested Language Codes
 		if (displayLanguageStr != null) {
 			//FHIR uses dialect codes as per https://tools.ietf.org/html/bcp47
@@ -287,12 +287,9 @@ public class FHIRHelper implements FHIRConstants {
 
 		//If someone specified designations, then include them unless specified not to, in which 
 		//case use only for the displayLanguage because that's the only way to get a langRefsetId specified
+		boolean includeDesignations;
 		if (includeDesignationsType != null) {
 			includeDesignations = includeDesignationsType.booleanValue();
-			//If we're including designations but not specified which ones, use the default
-			if (includeDesignations && designations.isEmpty()) {
-				designations.addAll(DEFAULT_LANGUAGE_DIALECTS);
-			}
 		} else {
 			//Otherwise include designations if we've specified one or more
 			includeDesignations = designationsStr != null;
