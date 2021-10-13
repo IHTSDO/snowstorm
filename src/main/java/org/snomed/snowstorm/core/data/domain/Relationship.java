@@ -213,9 +213,11 @@ public class Relationship extends SnomedComponent<Relationship> {
 
 	public void setConcreteValue(ConcreteValue concreteValue) {
 		this.concreteValue = concreteValue;
-		this.value = concreteValue.getValueWithPrefix();
-		this.destinationId = null;
-		this.target = null;
+		if (concreteValue != null) {
+			this.value = concreteValue.getValueWithPrefix();
+			this.destinationId = null;
+			this.target = null;
+		}
 	}
 
 	public void setConcreteValue(String value, String dataTypeName) {
