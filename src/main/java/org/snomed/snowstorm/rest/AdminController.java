@@ -5,6 +5,8 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.snomed.snowstorm.core.data.services.*;
 import org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogBackfiller;
+import org.snomed.snowstorm.ecl.BranchVersionECLCache;
+import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.snomed.snowstorm.fix.ContentFixService;
 import org.snomed.snowstorm.fix.ContentFixType;
 import org.snomed.snowstorm.mrcm.MRCMUpdateService;
@@ -15,9 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 @RestController
@@ -48,6 +48,9 @@ public class AdminController {
 
 	@Autowired
 	private ContentFixService contentFixService;
+
+	@Autowired
+	private ECLQueryService eclQueryService;
 
 	@ApiOperation(value = "Rebuild the description index.",
 			notes = "Use this if the search configuration for international character handling of a language has been " +
@@ -246,6 +249,16 @@ public class AdminController {
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	public void runContentFix(@PathVariable String branch, @RequestParam ContentFixType contentFixType, @RequestParam Set<Long> conceptIds) {
 		contentFixService.runContentFix(BranchPathUriUtil.decodePath(branch), contentFixType, conceptIds);
+	}
+
+	@RequestMapping(value = "/cache/ecl/stats", method = RequestMethod.GET)
+	public Map<String, Map<String, Long>> getECLCacheStats() {
+		final Map<String, BranchVersionECLCache> cacheMap = eclQueryService.getResultsCache().getCacheMap();
+		Map<String, Map<String, Long>> stats = new LinkedHashMap<>();
+		for (String branch : new TreeSet<>(cacheMap.keySet())) {
+			stats.put(branch, cacheMap.get(branch).getStats());
+		}
+		return stats;
 	}
 
 }

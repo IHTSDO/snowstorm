@@ -4,17 +4,17 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 
-import java.util.Arrays;
-import java.util.Date;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class BranchVersionECLCache {
 
 	private final Date head;
 
 	private final Map<ECLCacheEntry, Page<Long>> eclToConceptsCache;
+
+	private final Map<Calendar, AtomicLong> dayHits = new ConcurrentHashMap<>();
 
 	protected BranchVersionECLCache(Date branchHeadTimestamp) {
 		head = branchHeadTimestamp;
@@ -40,6 +40,52 @@ public class BranchVersionECLCache {
 
 	static String normaliseEclString(String ecl) {
 		return ecl.toLowerCase().replaceAll("\\|[^|]*\\|", "").replace("and", ",").replace(" ", "");
+	}
+
+	public void recordHit() {
+		final Calendar today = getToday();
+		AtomicLong hitCount = dayHits.get(today);
+		if (hitCount == null) {
+			synchronized (dayHits) {
+				hitCount = new AtomicLong();
+				dayHits.put(today, hitCount);
+				if (dayHits.size() > 30) {
+					final Calendar daysAgo30 = getPastDate(30);
+					dayHits.keySet().stream().filter(calendar -> calendar.before(daysAgo30)).forEach(dayHits::remove);
+				}
+			}
+		}
+		hitCount.incrementAndGet();
+	}
+
+	public Map<String, Long> getStats() {
+		Map<String, Long> stats = new HashMap<>();
+		stats.put("size", (long) eclToConceptsCache.size());
+		stats.put("hits-today", dayHits.getOrDefault(getToday(), new AtomicLong()).longValue());
+		addStat(stats, 7);
+		addStat(stats, 30);
+		return stats;
+	}
+
+	private void addStat(Map<String, Long> stats, int daysInPast) {
+		final Calendar daysAgo = getPastDate(daysInPast);
+		stats.put(String.format("hits-last%sdays", daysInPast),
+				dayHits.entrySet().stream().filter(entry -> !entry.getKey().before(daysAgo)).mapToLong(entry -> entry.getValue().get()).sum());
+	}
+
+	private Calendar getPastDate(int daysInPast) {
+		final Calendar oneMonthAgo = getToday();
+		oneMonthAgo.add(Calendar.DATE, -daysInPast);
+		return oneMonthAgo;
+	}
+
+	private Calendar getToday() {
+		final Calendar today = Calendar.getInstance();
+		today.clear(Calendar.MILLISECOND);
+		today.clear(Calendar.SECOND);
+		today.clear(Calendar.MINUTE);
+		today.clear(Calendar.HOUR_OF_DAY);
+		return today;
 	}
 
 	private static final class ECLCacheEntry {

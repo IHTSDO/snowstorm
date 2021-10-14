@@ -67,6 +67,7 @@ public class ECLQueryService {
 				final int pageNumber = pageRequest != null ? pageRequest.getPageNumber() : 0;
 				final int pageSize = pageRequest != null ? pageRequest.getPageSize() : -1;
 				logger.debug("ECL cache hit {}@{} \"{}\" {}:{}", path, branchCriteria.getTimepoint().getTime(), ecl, pageNumber, pageSize);
+				branchVersionCache.recordHit();
 				return cachedPage;
 			}
 		}
@@ -100,4 +101,7 @@ public class ECLQueryService {
 		return new TimerUtil(String.format("ECL took more than %s seconds.", eclDurationLoggingThreshold), Level.INFO, eclDurationLoggingThreshold);
 	}
 
+	public ECLResultsCache getResultsCache() {
+		return resultsCache;
+	}
 }
