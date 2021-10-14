@@ -37,4 +37,9 @@ public class ECLResultsCache {
 	public Map<String, BranchVersionECLCache> getCacheMap() {
 		return new HashMap<>(cacheMap);
 	}
+
+	public void clearCache() {
+		cacheMap.clear();
+		logger.info("ECL cache cleared.");
+	}
 }
