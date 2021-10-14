@@ -37,9 +37,6 @@ class BranchReviewServiceTest extends AbstractTest {
 	@Autowired
 	private BranchMergeService mergeService;
 
-	@Autowired
-	private ElasticsearchRestTemplate elasticsearchTemplate;
-
 	private Date setupStartTime;
 	private Date setupEndTime;
 
@@ -315,6 +312,30 @@ class BranchReviewServiceTest extends AbstractTest {
 		assertEquals(1, mergeReviewConflictingConcepts.size());
 		Set<String> conceptIds = mergeReviewConflictingConcepts.stream().map(conceptVersions -> conceptVersions.getSourceConcept().getId()).collect(Collectors.toSet());
 		assertTrue(conceptIds.contains("10000100"));
+	}
+
+	@Test
+	void testCreateMergeReviewConceptDeletedOnBothSides() throws InterruptedException, ServiceException {
+		// Update concept 10000100 description on A
+		final String conceptId = "10000100";
+		Concept concept = conceptService.find(conceptId, "MAIN");
+		getDescription(concept, true).setCaseSignificance("INITIAL_CHARACTER_CASE_INSENSITIVE");
+		conceptService.update(concept, "MAIN");
+
+		// Delete concept 10000100 on MAIN
+		conceptService.deleteConceptAndComponents(conceptId, "MAIN", false);
+		// Delete concept 10000100 on MAIN/A
+		conceptService.deleteConceptAndComponents(conceptId, "MAIN/A", false);
+
+		MergeReview review = createMergeReviewAndWaitUntilCurrent("MAIN", "MAIN/A");
+
+		Collection<MergeReviewConceptVersions> mergeReviewConflictingConcepts = reviewService.getMergeReviewConflictingConcepts(review.getId(), DEFAULT_LANGUAGE_DIALECTS);
+		assertTrue(mergeReviewConflictingConcepts.isEmpty());
+
+		reviewService.applyMergeReview(review);
+
+		assertNull(conceptService.find(conceptId, "MAIN"));
+		assertNull(conceptService.find(conceptId, "MAIN/A"));
 	}
 
 	@Test
