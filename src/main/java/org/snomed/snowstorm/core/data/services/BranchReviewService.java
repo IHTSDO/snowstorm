@@ -158,12 +158,16 @@ public class BranchReviewService {
 				Concept sourceVersion = conceptOnSource.get(conceptId);
 				Concept targetVersion = conceptOnTarget.get(conceptId);
 				MergeReviewConceptVersions mergeVersion = new MergeReviewConceptVersions(sourceVersion, targetVersion);
-				if (sourceVersion != null && targetVersion != null) {
-					mergeVersion.setAutoMergedConcept(autoMergeConcept(sourceVersion, targetVersion));
-					conflicts.put(conceptId, mergeVersion);
-				} else {
+				if (sourceVersion == null && targetVersion == null) {
+					// Both are deleted, no conflict.
 					persistManualMergeConceptDeletion(mergeReview, conceptId);
 					logger.info("Concept {} deleted on both sides of the merge. Excluding from merge review {}.", conceptId, id);
+				} else {
+					if (sourceVersion != null && targetVersion != null) {
+						// Neither deleted, auto-merge.
+						mergeVersion.setAutoMergedConcept(autoMergeConcept(sourceVersion, targetVersion));
+					}
+					conflicts.put(conceptId, mergeVersion);
 				}
 			});
 		}
