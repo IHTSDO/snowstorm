@@ -252,6 +252,7 @@ public class AdminController {
 	}
 
 	@RequestMapping(value = "/cache/ecl/stats", method = RequestMethod.GET)
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
 	public Map<String, Map<String, Long>> getECLCacheStats() {
 		final Map<String, BranchVersionECLCache> cacheMap = eclQueryService.getResultsCache().getCacheMap();
 		Map<String, Map<String, Long>> stats = new LinkedHashMap<>();
@@ -259,6 +260,12 @@ public class AdminController {
 			stats.put(branch, cacheMap.get(branch).getStats());
 		}
 		return stats;
+	}
+
+	@RequestMapping(value = "/cache/ecl/clear", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('ADMIN', 'global')")
+	public void clearEclCache() {
+		eclQueryService.clearCache();
 	}
 
 }

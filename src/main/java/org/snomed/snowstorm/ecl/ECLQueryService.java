@@ -104,4 +104,8 @@ public class ECLQueryService {
 	public ECLResultsCache getResultsCache() {
 		return resultsCache;
 	}
+
+	public void clearCache() {
+		resultsCache.clearCache();
+	}
 }
