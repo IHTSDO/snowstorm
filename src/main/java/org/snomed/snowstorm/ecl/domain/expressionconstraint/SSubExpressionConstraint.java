@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.ecl.domain.expressionconstraint;
 
 import io.kaicode.elasticvc.api.BranchCriteria;
-import it.unimi.dsi.fastutil.longs.LongArraySet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.snomed.langauges.ecl.domain.expressionconstraint.ExpressionConstraint;
@@ -83,7 +82,7 @@ public class SSubExpressionConstraint extends SubExpressionConstraint implements
 			}
 		} else if (nestedExpressionConstraint != null) {
 			Optional<Page<Long>> conceptIdsOptional = ((SExpressionConstraint)nestedExpressionConstraint).select(refinementBuilder);
-			if (!conceptIdsOptional.isPresent()) {
+			if (conceptIdsOptional.isEmpty()) {
 				return;
 			}
 			List<Long> conceptIds = conceptIdsOptional.get().getContent();

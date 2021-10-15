@@ -19,6 +19,9 @@ public class SExpressionConstraintHelper {
 	public static final String MISSING = "missing";
 	public static final Long MISSING_LONG = 111L;
 
+	private SExpressionConstraintHelper() {
+	}
+
 	protected static Optional<Page<Long>> select(SExpressionConstraint sExpressionConstraint, String path, BranchCriteria branchCriteria, boolean stated,
 			Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
 
