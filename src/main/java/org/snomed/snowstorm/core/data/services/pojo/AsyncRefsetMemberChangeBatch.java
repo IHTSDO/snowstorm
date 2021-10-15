@@ -6,17 +6,17 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-public class AsyncConceptChangeBatch {
+public class AsyncRefsetMemberChangeBatch {
 
 	private final String id;
 	private final Date startTime;
 	private Status status;
-	private List<Long> conceptIds;
+	private List<String> memberIds;
 	private Date endTime;
 	private String message;
 	private Float secondsDuration;
 
-	public AsyncConceptChangeBatch() {
+	public AsyncRefsetMemberChangeBatch() {
 		id = UUID.randomUUID().toString();
 		status = Status.RUNNING;
 		startTime = new Date();
@@ -34,16 +34,16 @@ public class AsyncConceptChangeBatch {
 		this.status = status;
 		if (status == Status.COMPLETED || status == Status.FAILED) {
 			endTime = new Date();
-			secondsDuration = TimerUtil.getDuration(startTime.getTime(), endTime.getTime());
+			secondsDuration = TimerUtil.getDurationSeconds(startTime.getTime(), endTime.getTime());
 		}
 	}
 
-	public List<Long> getConceptIds() {
-		return conceptIds;
+	public List<String> getMemberIds() {
+		return memberIds;
 	}
 
-	public void setConceptIds(List<Long> conceptIds) {
-		this.conceptIds = conceptIds;
+	public void setMemberIds(List<String> memberIds) {
+		this.memberIds = memberIds;
 	}
 
 	public void setMessage(String message) {

@@ -555,7 +555,8 @@ public class ConceptService extends ComponentService {
 		return doSave(concepts, branch);
 	}
 
-	public String createUpdateAsyncNewJob(AsyncConceptChangeBatch batchConceptChange) {
+	public String newCreateUpdateAsyncJob() {
+		final AsyncConceptChangeBatch batchConceptChange = new AsyncConceptChangeBatch();
 		synchronized (batchConceptChanges) {
 			batchConceptChanges.put(batchConceptChange.getId(), batchConceptChange);
 		}
@@ -563,7 +564,7 @@ public class ConceptService extends ComponentService {
 	}
 
 	@Async
-	public void createUpdateAsync(List<Concept> concepts, String path, String batchConceptChangeId, SecurityContext securityContext) {
+	public void createUpdateAsync(String batchConceptChangeId, String path, List<Concept> concepts, SecurityContext securityContext) {
 		SecurityContextHolder.setContext(securityContext);
 		AsyncConceptChangeBatch batchConceptChange = batchConceptChanges.getIfPresent(batchConceptChangeId);
 		if (batchConceptChange == null) {

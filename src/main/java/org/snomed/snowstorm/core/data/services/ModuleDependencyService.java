@@ -12,6 +12,7 @@ import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -57,6 +58,7 @@ public class ModuleDependencyService extends ComponentService {
 	private ReferenceSetMemberRepository memberRepository;
 	
 	@Autowired
+	@Lazy
 	private ReferenceSetMemberService refsetService;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
