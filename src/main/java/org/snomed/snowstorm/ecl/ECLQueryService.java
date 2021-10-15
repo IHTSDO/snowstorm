@@ -2,6 +2,7 @@ package org.snomed.snowstorm.ecl;
 
 import ch.qos.logback.classic.Level;
 import io.kaicode.elasticvc.api.BranchCriteria;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +20,10 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
+import java.util.function.LongPredicate;
+import java.util.stream.Collectors;
 
 @Service
 public class ECLQueryService {
@@ -55,15 +59,19 @@ public class ECLQueryService {
 		return selectConceptIds(ecl, branchCriteria, path, stated, conceptIdFilter, null);
 	}
 
-	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest) throws ECLException {
-		final SExpressionConstraint sExpressionConstraint = eclPreprocessingService.replaceIncorrectConcreteAttributeValue((SExpressionConstraint) eclQueryBuilder.createQuery(ecl), path, pageRequest);
+	public Page<Long> selectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated,
+			Collection<Long> conceptIdFilter, PageRequest pageRequest) throws ECLException {
+
+		final SExpressionConstraint sExpressionConstraint =
+				eclPreprocessingService.replaceIncorrectConcreteAttributeValue((SExpressionConstraint) eclQueryBuilder.createQuery(ecl), path, pageRequest);
 		return doSelectConceptIds(ecl, branchCriteria, path, stated, conceptIdFilter, pageRequest, sExpressionConstraint);
 	}
 
-	public Page<Long> doSelectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, SExpressionConstraint expressionConstraint) {
+	public Page<Long> doSelectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter,
+			PageRequest pageRequest, SExpressionConstraint expressionConstraint) {
 
 		BranchVersionECLCache branchVersionCache = null;
-		if (eclCacheEnabled && conceptIdFilter == null) {
+		if (eclCacheEnabled) {
 			branchVersionCache = resultsCache.getOrCreateBranchVersionCache(path, branchCriteria.getTimepoint());
 			Page<Long> cachedPage = branchVersionCache.get(ecl, stated, pageRequest);
 			if (cachedPage != null) {
@@ -84,20 +92,51 @@ public class ECLQueryService {
 		// - Optimisation idea -
 		// Changing something like "(id) AND (<<id OR >>id)"  to  "(id AND <<id) OR (id AND >>id)" will run in a fraction of the time because there will be no large fetches
 
-		Optional<Page<Long>> pageOptional = expressionConstraint.select(path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
-		if (pageOptional.isPresent()) {
-			final Page<Long> page = pageOptional.get();
-			if (branchVersionCache != null) {
-				branchVersionCache.put(ecl, stated, pageRequest, page);
+		Optional<Page<Long>> pageOptional;
+		if (eclCacheEnabled) {
+			LongPredicate filter = null;
+			if (conceptIdFilter != null) {
+				// Fetch all, without conceptIdFilter or paging. Apply filter and paging afterwards.
+				// This may be expensive, but it's the only way to allow the cache to help with this sort of query.
+				pageOptional = expressionConstraint.select(path, branchCriteria, stated, null, null, queryService);
+				final LongOpenHashSet fastSet = new LongOpenHashSet(conceptIdFilter);
+				filter = fastSet::contains;
+			} else {
+				pageOptional = expressionConstraint.select(path, branchCriteria, stated, null, pageRequest, queryService);
 			}
-			String cacheWording = eclCacheEnabled ? (branchVersionCache != null ? ", now cached for this branch/commit/page" : ", can not be cached because of conceptIdFilter") : "";
-			eclSlowQueryTimer.checkpoint(() -> String.format("ecl:'%s', with %s results in this page%s.", ecl, page.getNumberOfElements(), cacheWording));
+
+			if (pageOptional.isPresent()) {
+				// Cache results
+				final Page<Long> page = pageOptional.get();
+				if (branchVersionCache != null) {
+					branchVersionCache.put(ecl, stated, pageRequest, page);
+				}
+				eclSlowQueryTimer.checkpoint(String.format("ecl:'%s', with %s results in this page, now cached for this branch/commit/page.", ecl,
+						pageOptional.get().getNumberOfElements()));
+
+				// Filter results
+				if (filter != null) {
+					final List<Long> filteredList = page.get().filter(filter::test).collect(Collectors.toList());
+					pageOptional = Optional.of(ConceptSelectorHelper.getPage(pageRequest, filteredList));
+				}
+			}
+		} else {
+			pageOptional = expressionConstraint.select(path, branchCriteria, stated, conceptIdFilter, pageRequest, queryService);
+			pageOptional.ifPresent(conceptIds ->
+					eclSlowQueryTimer.checkpoint(String.format("ecl:'%s', with %s results in this page, cache not enabled.", ecl, conceptIds.getNumberOfElements())));
 		}
 
-		return pageOptional.orElseGet(() -> {
-			BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria.getEntityBranchCriteria(QueryConcept.class), stated);
-			return ConceptSelectorHelper.fetchIds(query, conceptIdFilter, null, pageRequest, queryService);
-		});
+		if (pageOptional.isEmpty()) {
+			return getWildcardPage(branchCriteria, stated, conceptIdFilter, pageRequest);
+		}
+
+		return pageOptional.get();
+	}
+
+	private Page<Long> getWildcardPage(BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest) {
+		// Wildcard expression. Grab a page of concepts with no criteria.
+		BoolQueryBuilder query = ConceptSelectorHelper.getBranchAndStatedQuery(branchCriteria.getEntityBranchCriteria(QueryConcept.class), stated);
+		return ConceptSelectorHelper.fetchIds(query, conceptIdFilter, null, pageRequest, queryService);
 	}
 
 	private TimerUtil getEclSlowQueryTimer() {

@@ -31,7 +31,7 @@ public class SDottedExpressionConstraint extends DottedExpressionConstraint impl
 	public Optional<Page<Long>> select(String path, BranchCriteria branchCriteria, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, QueryService queryService) {
 		Optional<Page<Long>> conceptIds = SExpressionConstraintHelper.select(this, path, branchCriteria, stated, conceptIdFilter, null, queryService);
 
-		if (!conceptIds.isPresent()) {
+		if (conceptIds.isEmpty()) {
 			throw new UnsupportedOperationException("Dotted expression using wildcard focus concept is not supported.");
 		}
 
