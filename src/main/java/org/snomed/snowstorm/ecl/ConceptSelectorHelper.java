@@ -3,7 +3,6 @@ package org.snomed.snowstorm.ecl;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongComparators;
-
 import org.apache.commons.lang3.NotImplementedException;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -13,15 +12,13 @@ import org.elasticsearch.search.sort.SortOrder;
 import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.QueryConcept;
 import org.snomed.snowstorm.core.data.services.QueryService;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
@@ -31,6 +28,9 @@ import static java.util.stream.Collectors.toList;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 
 public class ConceptSelectorHelper {
+
+	private ConceptSelectorHelper() {
+	}
 
 	public static BoolQueryBuilder getBranchAndStatedQuery(QueryBuilder branchCriteria, boolean stated) {
 		return boolQuery()
@@ -82,17 +82,22 @@ public class ConceptSelectorHelper {
 			// Stream search doesn't sort for us
 			ids.sort(LongComparators.OPPOSITE_COMPARATOR);
 
-			int total = ids.size();
-			if (pageRequest != null) {
-				int fromIndex = (int) pageRequest.getOffset();
-				int toIndex = fromIndex + (pageRequest.getPageSize());
-				if (toIndex > total) {
-					toIndex = total;
-				}
-				return ids.isEmpty() || fromIndex >= total ? Page.empty() : new PageImpl<>(ids.subList(fromIndex, toIndex), pageRequest, total);
-			} else {
-				return ids.isEmpty() ? Page.empty() : new PageImpl<>(ids, PageRequest.of(0, total), total);
+			return getPage(pageRequest, ids);
+		}
+	}
+
+	public static PageImpl<Long> getPage(PageRequest pageRequest, List<Long> ids) {
+		int total = ids.size();
+		if (pageRequest != null) {
+			int fromIndex = (int) pageRequest.getOffset();
+			int toIndex = fromIndex + (pageRequest.getPageSize());
+			if (toIndex > total) {
+				toIndex = total;
 			}
+			return ids.isEmpty() || fromIndex >= total ? new PageImpl<>(Collections.emptyList(), pageRequest, total)
+					: new PageImpl<>(ids.subList(fromIndex, toIndex), pageRequest, total);
+		} else {
+			return ids.isEmpty() ? new PageImpl<>(Collections.emptyList(), Pageable.unpaged(), total) : new PageImpl<>(ids, PageRequest.of(0, total), total);
 		}
 	}
 

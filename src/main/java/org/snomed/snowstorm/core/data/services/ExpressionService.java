@@ -39,7 +39,7 @@ public class ExpressionService {
 		Expression expression = new Expression();
 		String charType = statedView ? Concepts.STATED_RELATIONSHIP : Concepts.INFERRED_RELATIONSHIP;
 		concept.getRelationships().stream()
-				.filter(relationship -> relationship.isActive()) 
+				.filter(SnomedComponent::isActive)
 				.filter(relationship -> charType.equals(relationship.getCharacteristicTypeId()))
 				.forEach(relationship -> addRelationshipToExpression(relationship, expression));
 		return expression;
