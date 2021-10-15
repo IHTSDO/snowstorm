@@ -153,6 +153,9 @@ public abstract class Config extends ElasticsearchConfig {
 	@Autowired
 	private ECLPreprocessingService eclPreprocessingService;
 
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
@@ -168,6 +171,7 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(multiSearchService);
 		branchService.addCommitListener(eclPreprocessingService);
 		branchService.addCommitListener(commitServiceHookClient);
+		branchService.addCommitListener(referenceSetMemberService);
 		branchService.addCommitListener(BranchMetadataHelper::clearTransientMetadata);
 		branchService.addCommitListener(commit ->
 			logger.info("Completed commit on {} in {} seconds.", commit.getBranch().getPath(), secondsDuration(commit.getTimepoint())));

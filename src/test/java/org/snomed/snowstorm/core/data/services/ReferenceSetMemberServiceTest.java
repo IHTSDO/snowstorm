@@ -11,12 +11,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncRefsetMemberChangeBatch;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +24,8 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.Assert.*;
@@ -59,12 +57,18 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 		conceptService.create(new Concept(Concepts.SNOMEDCT_ROOT), MAIN);
 		conceptService.create(new Concept(Concepts.ISA)
 				.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
+		conceptService.create(new Concept(Concepts.REFSET)
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.FOUNDATION_METADATA)), MAIN);
 		conceptService.create(new Concept(Concepts.CLINICAL_FINDING)
 				.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
 		conceptService.create(new Concept(Concepts.REFSET_HISTORICAL_ASSOCIATION)
 				.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)), MAIN);
 		conceptService.create(new Concept(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION)
 				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET_HISTORICAL_ASSOCIATION)), MAIN);
+		conceptService.create(new Concept(Concepts.REFSET_SIMPLE)
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET)), MAIN);
+		conceptService.create(new Concept(Concepts.REFSET_DESCRIPTOR_REFSET)
+				.addAxiom(new Relationship(Concepts.ISA, Concepts.REFSET)), MAIN);
 	}
 
 	@Test
@@ -296,7 +300,7 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 		assertEquals(3, allResults.getBuckets().get(key).values().size());
 		assertEquals(1, allResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
 		assertEquals(2, allResults.getBuckets().get(key).get("723264001").intValue());
-		assertEquals(4, allResults.getBuckets().get(key).get(Concepts.OWL_AXIOM_REFERENCE_SET).intValue());
+		assertEquals(7, allResults.getBuckets().get(key).get(Concepts.OWL_AXIOM_REFERENCE_SET).intValue());
 
 		PageWithBucketAggregations<ReferenceSetMember> activeResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), new MemberSearchRequest().active(true));
 		assertNotNull(activeResults);
@@ -346,6 +350,73 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 
 	}
 
+	@Test
+	void testRefSetDescriptorEntryInserted() throws ServiceException {
+		// given
+		givenRefSetAncestorsExist();
+		Concept newRefSet = createNewRefSet();
+		MemberSearchRequest memberSearchRequest = buildMemberSearchRequest(true, Concepts.REFSET_DESCRIPTOR_REFSET, newRefSet.getId());
+
+		// when
+		ReferenceSetMember referenceSetMember = memberService.findMembers("MAIN", memberSearchRequest, PageRequest.of(0, 10)).getContent().get(0);
+
+		// then
+		assertEquals(newRefSet.getId(), referenceSetMember.getReferencedComponentId());
+		assertEquals(Concepts.REFSET_DESCRIPTOR_REFSET, referenceSetMember.getRefsetId());
+		assertEquals(Concepts.REFERENCED_COMPONENT, referenceSetMember.getAdditionalField("attributeDescription"));
+		assertEquals(Concepts.CONCEPT_TYPE_COMPONENT, referenceSetMember.getAdditionalField("attributeType"));
+		assertEquals("0", referenceSetMember.getAdditionalField("attributeOrder"));
+	}
+
+	private void givenRefSetAncestorsExist() throws ServiceException {
+		// Create top-level Concept
+		Concept foodStructure = conceptService.create(
+				new Concept()
+						.addDescription(new Description("Food structure (food structure)"))
+						.addAxiom(new Relationship(Concepts.ISA, Concepts.SNOMEDCT_ROOT)),
+				"MAIN"
+		);
+
+		// Add top-level Concept to simple refset
+		ReferenceSetMember foodStructureMember = new ReferenceSetMember(Concepts.MODEL_MODULE, Concepts.REFSET_SIMPLE, foodStructure.getId());
+		memberService.createMember("MAIN", foodStructureMember);
+
+		// Add simple refset to refset descriptor
+		ReferenceSetMember refsetInDescriptor = new ReferenceSetMember(Concepts.MODEL_MODULE, Concepts.REFSET_DESCRIPTOR_REFSET, Concepts.REFSET_SIMPLE);
+		refsetInDescriptor.setAdditionalFields(Map.of(
+				"attributeDescription", Concepts.REFERENCED_COMPONENT,
+				"attributeType", Concepts.CONCEPT_TYPE_COMPONENT,
+				"attributeOrder", "0")
+		);
+		memberService.createMember("MAIN", refsetInDescriptor);
+	}
+
+	private Concept createNewRefSet() throws ServiceException {
+		Relationship relationship = new Relationship();
+		relationship.setTypeId(Concepts.ISA);
+		relationship.setDestinationId(Concepts.REFSET_SIMPLE);
+		Set<Relationship> relationships = new HashSet<>();
+		relationships.add(relationship);
+
+		Axiom axiom = new Axiom();
+		axiom.setRelationships(relationships);
+		Set<Axiom> axioms = new HashSet<>();
+		axioms.add(axiom);
+
+		Concept concept = new Concept();
+		concept.setClassAxioms(axioms);
+
+		return conceptService.create(concept, "MAIN");
+	}
+
+	private MemberSearchRequest buildMemberSearchRequest(boolean active, String referenceSetId, String referencedComponentId) {
+		MemberSearchRequest memberSearchRequest = new MemberSearchRequest();
+		memberSearchRequest.active(active);
+		memberSearchRequest.referenceSet(referenceSetId);
+		memberSearchRequest.referencedComponentId(referencedComponentId);
+
+		return memberSearchRequest;
+	}
 
 	@AfterEach
 	void tearDown() throws InterruptedException {
