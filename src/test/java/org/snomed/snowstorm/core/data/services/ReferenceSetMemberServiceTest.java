@@ -1,8 +1,12 @@
 package org.snomed.snowstorm.core.data.services;
 
+import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Commit;
+import org.assertj.core.util.Lists;
+import org.ihtsdo.sso.integration.SecurityUtil;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,18 +15,25 @@ import org.snomed.snowstorm.core.data.domain.Concept;
 import org.snomed.snowstorm.core.data.domain.Concepts;
 import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
 import org.snomed.snowstorm.core.data.domain.Relationship;
+import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus;
+import org.snomed.snowstorm.core.data.services.pojo.AsyncRefsetMemberChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.snomed.snowstorm.core.data.services.ReferenceSetMemberService.AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET;
+import static org.snomed.snowstorm.core.data.services.pojo.AsyncRefsetMemberChangeBatch.Status.*;
 
 @ExtendWith(SpringExtension.class)
 class ReferenceSetMemberServiceTest extends AbstractTest {
@@ -232,6 +243,35 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 		memberService.createMember(MAIN, simple);
 		simple.setActive(false);
 		assertThrows(IllegalStateException.class, () -> memberService.updateMember(MAIN, simple));
+	}
+
+	@Test
+	void testBatchCreateUpdate() throws InterruptedException {
+		ReferenceSetMember simple = new ReferenceSetMember("900000000000207008", "723264001", "731819006");
+		memberService.createMember(MAIN, simple);
+
+		final String batchId = memberService.newCreateUpdateAsyncJob();
+		simple.setModuleId(Concepts.MODEL_MODULE);
+		ReferenceSetMember newMember = new ReferenceSetMember("900000000000207008", "723264001", Concepts.CLINICAL_FINDING);
+
+		memberService.createUpdateAsync(batchId, MAIN, Lists.newArrayList(simple, newMember), SecurityContextHolder.getContext());
+
+		final AsyncRefsetMemberChangeBatch batch = waitForAsyncCompletion(batchId);
+		assertEquals(COMPLETED, batch.getStatus());
+		assertEquals(2, batch.getMemberIds().size());
+		final List<ReferenceSetMember> members = memberService.findMembers(MAIN, batch.getMemberIds());
+		assertEquals(2, members.size());
+	}
+
+	private AsyncRefsetMemberChangeBatch waitForAsyncCompletion(String batchId) throws InterruptedException {
+		AsyncRefsetMemberChangeBatch batchChange = memberService.getBatchChange(batchId);
+		for (int i = 0; batchChange.getStatus() == RUNNING && i < 20; i++) {
+			Thread.sleep(1_000);
+		}
+		if (batchChange.getStatus() == RUNNING) {
+			Assertions.fail("Batch job timeout.");
+		}
+		return batchChange;
 	}
 
 	@Test
