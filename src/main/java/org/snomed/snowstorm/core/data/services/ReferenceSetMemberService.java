@@ -4,10 +4,7 @@ import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
-import io.kaicode.elasticvc.api.BranchCriteria;
-import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.api.ComponentService;
-import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.api.*;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Metadata;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
@@ -57,13 +54,13 @@ import java.util.stream.StreamSupport;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.snomed.snowstorm.config.Config.AGGREGATION_SEARCH_SIZE;
+import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationAndAssociationRefsets;
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 
 @Service
-@Lazy
-public class ReferenceSetMemberService extends ComponentService {
-
+public class ReferenceSetMemberService extends ComponentService implements CommitListener {
+	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 10);
 	private static final Set<String> LANG_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
 	private static final Set<String> OWL_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION);
 	public static final String AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET = "memberCountsByReferenceSet";
@@ -97,7 +94,61 @@ public class ReferenceSetMemberService extends ComponentService {
 
 	private final Cache<String, AsyncRefsetMemberChangeBatch> batchChanges = CacheBuilder.newBuilder().expireAfterWrite(2, TimeUnit.HOURS).build();
 
+	@Autowired
+	private QueryService queryService;
+
+	@Autowired
+	private ConceptService conceptService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
+
+	/**
+	 * Before the commit is completed, update the 900000000000456007 |Reference set descriptor| reference set accordingly if the
+	 * commit is creating a new reference set.
+	 *
+	 * @param commit Commit being processed.
+	 * @throws IllegalStateException If the grandparent of the new reference set cannot be read.
+	 */
+	@Override
+	public void preCommitCompletion(Commit commit) throws IllegalStateException {
+		if (Commit.CommitType.CONTENT != commit.getCommitType()) {
+			logger.debug("CommitType is not CONTENT. Nothing to do.");
+			return;
+		}
+
+		SearchHits<QueryConcept> searchHits = elasticsearchTemplate.search(
+				new NativeSearchQueryBuilder()
+						.withQuery(
+								boolQuery()
+										.must(termQuery(QueryConcept.Fields.START, commit.getTimepoint().getTime()))
+										.must(termQuery(QueryConcept.Fields.ANCESTORS, Concepts.REFSET))
+										.must(termQuery(QueryConcept.Fields.STATED, true)))
+						.build(),
+						QueryConcept.class
+		);
+		boolean creatingRefSet = searchHits.hasSearchHits();
+		if (!creatingRefSet) {
+			return;
+		}
+
+		long conceptIdL = searchHits.getSearchHit(0).getContent().getConceptIdL();
+		if (Concepts.REFSET.equals(String.valueOf(conceptIdL))) {
+			// Edge case where first importing.
+			return;
+		}
+
+		String branchPath = commit.getBranch().getPath();
+		Set<ReferenceSetMember> referenceSetMembersToSave = getNewMembersInspiredByAncestors(commit, conceptIdL, branchPath);
+		if (referenceSetMembersToSave.isEmpty()) {
+			logger.info("Commit is creating parent node for Reference Sets on branch {}; cannot proceed with updating {} |Reference set descriptor|.", branchPath, Concepts.REFSET_DESCRIPTOR_REFSET);
+			return;
+		}
+
+		logger.info("Commit is creating a new Reference Set (conceptId: {}). {} |Reference set descriptor| will be updated accordingly on branch {}.", conceptIdL, Concepts.REFSET_DESCRIPTOR_REFSET, branchPath);
+		Set<String> referenceSetMembersSaved = new HashSet<>();
+		this.doSaveBatchMembers(referenceSetMembersToSave, commit).forEach(s -> referenceSetMembersSaved.add(s.getId()));
+		logger.info("New ReferenceSetMember(s) created for {} |Reference set descriptor| on branch {}: {}", Concepts.REFSET_DESCRIPTOR_REFSET, branchPath, referenceSetMembersSaved);
+	}
 
 	public Page<ReferenceSetMember> findMembers(String branch,
 			String referencedComponentId,
@@ -543,5 +594,60 @@ public class ReferenceSetMemberService extends ComponentService {
 			}
 		}
 		return refsetTypes;
+	}
+
+	private Set<ReferenceSetMember> getNewMembersInspiredByAncestors(Commit commit, long conceptIdL, String branchPath) {
+		BranchCriteria branchCriteria = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
+		Page<ReferenceSetMember> membersExisting;
+		MemberSearchRequest memberSearchRequest = new MemberSearchRequest();
+		memberSearchRequest.active(true);
+		memberSearchRequest.referenceSet(Concepts.REFSET_DESCRIPTOR_REFSET);
+		String conceptIdS = String.valueOf(conceptIdL);
+		String moduleId = conceptService.find(branchCriteria, branchPath, List.of(conceptIdS), DEFAULT_LANGUAGE_DIALECTS).iterator().next().getModuleId();
+
+		// Find entry in RefSet for parent
+		Long parentId = queryService.findParentIds(branchCriteria, true, List.of(conceptIdL)).iterator().next();
+		memberSearchRequest.referencedComponentId(String.valueOf(parentId));
+		membersExisting = this.findMembers(branchPath, branchCriteria, memberSearchRequest, PAGE_REQUEST);
+
+		// Find entry in RefSet for grandparent
+		if (membersExisting == null || membersExisting.isEmpty()) {
+			Iterator<Long> iterator = queryService.findParentIds(branchCriteria, true, List.of(parentId)).iterator();
+			if (iterator.hasNext()) {
+				Long grandparentId = iterator.next();
+				String grandParentIdS = String.valueOf(grandparentId);
+				if (Concepts.REFSET.equals(grandParentIdS) || Concepts.FOUNDATION_METADATA.equals(grandParentIdS)) {
+					// Creating top-level Concept for Reference Sets; cannot proceed.
+					return Collections.emptySet();
+				}
+				memberSearchRequest.referencedComponentId(grandParentIdS);
+				membersExisting = this.findMembers(branchPath, branchCriteria, memberSearchRequest, PAGE_REQUEST);
+			}
+		}
+
+		// Safer to inherit properties as they are user generated. Therefore, fail fast
+		if (membersExisting == null || membersExisting.isEmpty()) {
+			String message = String.format("Cannot find parent/grandparent of %s to inherit from.", conceptIdL);
+			logger.error(message);
+			throw new IllegalStateException(message);
+		}
+
+		// Copy ReferenceSetMembers from parent/grandparent with mild differences
+		Set<ReferenceSetMember> membersNew = new HashSet<>();
+		for (ReferenceSetMember memberExisting : membersExisting) {
+			ReferenceSetMember memberNew = new ReferenceSetMember(moduleId, Concepts.REFSET_DESCRIPTOR_REFSET, conceptIdS);
+			memberNew.setAdditionalFields(
+					Map.of(
+							"attributeDescription", memberExisting.getAdditionalField("attributeDescription"),
+							"attributeType", memberExisting.getAdditionalField("attributeType"),
+							"attributeOrder", memberExisting.getAdditionalField("attributeOrder")
+					)
+			);
+			memberNew.markChanged();
+			memberNew.setConceptId(conceptIdS);
+			membersNew.add(memberNew);
+		}
+
+		return membersNew;
 	}
 }
