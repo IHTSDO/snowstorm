@@ -36,6 +36,9 @@ public class ECLQueryService {
 	@Value("${timer.ecl.duration-threshold}")
 	private int eclDurationLoggingThreshold;
 
+	@Value("${cache.ecl.enabled}")
+	private boolean eclCacheEnabled;
+
 	private final ECLResultsCache resultsCache;
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
@@ -60,7 +63,7 @@ public class ECLQueryService {
 	public Page<Long> doSelectConceptIds(String ecl, BranchCriteria branchCriteria, String path, boolean stated, Collection<Long> conceptIdFilter, PageRequest pageRequest, SExpressionConstraint expressionConstraint) {
 
 		BranchVersionECLCache branchVersionCache = null;
-		if (conceptIdFilter == null) {
+		if (eclCacheEnabled && conceptIdFilter == null) {
 			branchVersionCache = resultsCache.getOrCreateBranchVersionCache(path, branchCriteria.getTimepoint());
 			Page<Long> cachedPage = branchVersionCache.get(ecl, stated, pageRequest);
 			if (cachedPage != null) {
@@ -87,8 +90,8 @@ public class ECLQueryService {
 			if (branchVersionCache != null) {
 				branchVersionCache.put(ecl, stated, pageRequest, page);
 			}
-			String cacheWording = branchVersionCache != null ? "now cached for this branch/commit/page" : "can not be cached because of conceptIdFilter";
-			eclSlowQueryTimer.checkpoint(() -> String.format("ecl:'%s', with %s results in this page, %s.", ecl, page.getNumberOfElements(), cacheWording));
+			String cacheWording = eclCacheEnabled ? (branchVersionCache != null ? ", now cached for this branch/commit/page" : ", can not be cached because of conceptIdFilter") : "";
+			eclSlowQueryTimer.checkpoint(() -> String.format("ecl:'%s', with %s results in this page%s.", ecl, page.getNumberOfElements(), cacheWording));
 		}
 
 		return pageOptional.orElseGet(() -> {
