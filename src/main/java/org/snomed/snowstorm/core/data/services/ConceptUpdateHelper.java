@@ -17,12 +17,14 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.*;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierReservedBlock;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.core.util.SetUtils;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
@@ -504,6 +506,19 @@ public class ConceptUpdateHelper extends ComponentService {
 			membersToDelete.addAll(associationTargetMembers);
 		}
 		concept.getRelationships().forEach(Relationship::markDeleted);
+
+		MemberSearchRequest memberSearchRequest = new MemberSearchRequest();
+		memberSearchRequest.referenceSet(Concepts.REFSET_DESCRIPTOR_REFSET);
+		memberSearchRequest.referencedComponentId(concept.getId());
+		List<ReferenceSetMember> membersInRefSet = memberService.findMembers(path, memberSearchRequest, PageRequest.of(0, 10)).getContent();
+		if (!membersInRefSet.isEmpty()) {
+			Set<String> ids = new HashSet<>();
+			membersInRefSet.forEach(member -> ids.add(member.getId()));
+			membersToDelete.addAll(membersInRefSet);
+
+			logger.info("{} |{}| will be removed from {} |Reference set descriptor| on branch {}.", concept.getId(), concept.getFsn().getTerm(), Concepts.REFSET_DESCRIPTOR_REFSET, path);
+			logger.debug("{} will be removed from {} |Reference set descriptor| on branch {}.", ids, Concepts.REFSET_DESCRIPTOR_REFSET, path);
+		}
 
 		// Persist deletion
 		doSaveBatchConcepts(Sets.newHashSet(concept), commit);
