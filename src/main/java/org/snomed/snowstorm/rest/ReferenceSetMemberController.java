@@ -18,9 +18,7 @@ import org.snomed.snowstorm.core.data.services.ConceptService;
 import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.snomed.snowstorm.core.data.services.ReferenceSetMemberService;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
-import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
-import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
-import org.snomed.snowstorm.core.data.services.pojo.RefSetMemberPageWithBucketAggregations;
+import org.snomed.snowstorm.core.data.services.pojo.*;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
@@ -30,7 +28,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import javax.validation.Valid;
 import java.util.*;
@@ -204,8 +204,8 @@ public class ReferenceSetMemberController {
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	@JsonView(value = View.Component.class)
 	public ResponseEntity<ReferenceSetMemberView> createMember(@PathVariable String branch, @RequestBody @Valid ReferenceSetMemberView member) {
+		ControllerHelper.requiredParamConceptIdFormat(member.getRefsetId(), "refsetId");
 		ControllerHelper.requiredParam(member.getReferencedComponentId(), "referencedComponentId");
-		ControllerHelper.requiredParam(member.getRefsetId(), "refsetId");
 		branch = BranchPathUriUtil.decodePath(branch);
 
 		ReferenceSetMember createdMember = memberService.createMember(branch, (ReferenceSetMember) member);
@@ -213,6 +213,37 @@ public class ReferenceSetMemberController {
 			throw new IllegalStateException("Member creation failed. No object returned from member service.");
 		}
 		return new ResponseEntity<>(createdMember, ControllerHelper.getCreatedLocationHeaders(createdMember.getId()), HttpStatus.OK);
+	}
+
+	@ApiOperation(value = "Start a bulk reference set member create/update job.",
+			notes = "Reference set members can be created or updated using this endpoint. " +
+					"Use the location header in the response to check the job status. " +
+					"If the 'moduleId' is not set the '" + Config.DEFAULT_MODULE_ID_KEY + "' will be used from branch metadata (resolved recursively).")
+	@RequestMapping(value = "/{branch}/members/bulk", method = RequestMethod.POST)
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	@JsonView(value = View.Component.class)
+	public ResponseEntity<Void> createUpdateMembersBulkChange(@PathVariable String branch, @RequestBody @Valid List<ReferenceSetMemberView> members,
+			UriComponentsBuilder uriComponentsBuilder) {
+
+		branch = BranchPathUriUtil.decodePath(branch);
+		final List<ReferenceSetMember> refsetMembers = members.stream().map(ReferenceSetMember.class::cast).collect(Collectors.toList());
+
+		// Basic validation
+		for (ReferenceSetMember member : refsetMembers) {
+			ControllerHelper.requiredParamConceptIdFormat(member.getRefsetId(), "refsetId");
+			ControllerHelper.requiredParam(member.getReferencedComponentId(), "referencedComponentId");
+		}
+
+		String batchId = memberService.newCreateUpdateAsyncJob();
+		memberService.createUpdateAsync(batchId, branch, refsetMembers, SecurityContextHolder.getContext());
+		return ControllerHelper.getCreatedResponse(batchId);
+	}
+
+	@ApiOperation("Fetch the status of a bulk reference set member create/update job.")
+	@GetMapping(value = "/{branch}/members/bulk/{bulkChangeId}")
+	@PreAuthorize("hasPermission('AUTHOR', #branch)")
+	public AsyncRefsetMemberChangeBatch getMemberBulkChange(@PathVariable String branch, @PathVariable String bulkChangeId) {
+		return ControllerHelper.throwIfNotFound("Bulk Change", memberService.getBatchChange(bulkChangeId));
 	}
 
 	@ApiOperation("Update a reference set member.")
@@ -223,7 +254,7 @@ public class ReferenceSetMemberController {
 												 @PathVariable String uuid,
 												 @RequestBody ReferenceSetMemberView member) {
 
-		ControllerHelper.requiredParam(member.getRefsetId(), "refsetId");
+		ControllerHelper.requiredParamConceptIdFormat(member.getRefsetId(), "refsetId");
 		ControllerHelper.requiredParam(member.getReferencedComponentId(), "referencedComponentId");
 		branch = BranchPathUriUtil.decodePath(branch);
 
