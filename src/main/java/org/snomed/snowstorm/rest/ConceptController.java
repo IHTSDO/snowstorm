@@ -2,7 +2,6 @@ package org.snomed.snowstorm.rest;
 
 import ch.qos.logback.classic.Level;
 import com.fasterxml.jackson.annotation.JsonView;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.VersionControlHelper;
 import io.kaicode.rest.util.branchpathrewrite.BranchPathUriUtil;
@@ -92,9 +91,6 @@ public class ConceptController {
 
 	@Autowired
 	private DroolsValidationService validationService;
-
-	@Autowired
-	private ObjectMapper objectMapper;
 
 	@Value("${snowstorm.rest-api.allowUnlimitedConceptPagination:false}")
 	private boolean allowUnlimitedConceptPagination;
@@ -487,15 +483,15 @@ public class ConceptController {
 		conceptService.deleteConceptAndComponents(conceptId, BranchPathUriUtil.decodePath(branch), force);
 	}
 
-	@ApiOperation(value = "Start a bulk concept create/update job.", notes = "Concepts can be created or updated using this endpoint.")
+	@ApiOperation(value = "Start a bulk concept create/update job.",
+			notes = "Concepts can be created or updated using this endpoint. Use the location header in the response to check the job status.")
 	@PostMapping(value = "/browser/{branch}/concepts/bulk")
 	@PreAuthorize("hasPermission('AUTHOR', #branch)")
 	public ResponseEntity<ResponseEntity.BodyBuilder> createUpdateConceptBulkChange(@PathVariable String branch, @RequestBody @Valid List<ConceptView> concepts, UriComponentsBuilder uriComponentsBuilder) {
 		List<Concept> conceptList = new ArrayList<>();
 		concepts.forEach(conceptView -> conceptList.add((Concept) conceptView));
-		AsyncConceptChangeBatch batchConceptChange = new AsyncConceptChangeBatch();
-		String batchId = conceptService.createUpdateAsyncNewJob(batchConceptChange);
-		conceptService.createUpdateAsync(conceptList, BranchPathUriUtil.decodePath(branch), batchId, SecurityContextHolder.getContext());
+		String batchId = conceptService.newCreateUpdateAsyncJob();
+		conceptService.createUpdateAsync(batchId, BranchPathUriUtil.decodePath(branch), conceptList, SecurityContextHolder.getContext());
 		return ResponseEntity.created(uriComponentsBuilder.path("/browser/{branch}/concepts/bulk/{bulkChangeId}")
 				.buildAndExpand(branch, batchId).toUri()).build();
 	}

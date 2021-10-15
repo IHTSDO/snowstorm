@@ -34,11 +34,12 @@ import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
 
 @Component
 public class ControllerHelper {
-	
+
 	private static final Pattern LANGUAGE_PATTERN = Pattern.compile("([a-z]{2})");
 	private static final Pattern LANGUAGE_AND_REFSET_PATTERN = Pattern.compile("([a-z]{2})-x-(" + IdentifierService.SCTID_PATTERN + ")");
 	private static final Pattern LANGUAGE_AND_DIALECT_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2})");
 	private static final Pattern LANGUAGE_AND_DIALECT_AND_REFSET_PATTERN = Pattern.compile("([a-z]{2})-([a-z]{2,5})-x-(" + IdentifierService.SCTID_PATTERN + ")");
+	public static final String IS_A_REQUIRED_PARAMETER = " is a required parameter.";
 
 	public static BranchTimepoint parseBranchTimepoint(String branch) {
 		String[] parts = BranchPathUriUtil.decodePath(branch).split("@");
@@ -87,17 +88,28 @@ public class ControllerHelper {
 
 	static String requiredParam(String value, String paramName) {
 		if (Strings.isNullOrEmpty(value)) {
-			throw new IllegalArgumentException(paramName + " is a required parameter.");
+			throw new IllegalArgumentException(paramName + IS_A_REQUIRED_PARAMETER);
 		}
 		return value;
 	}
 
 	static <T> T requiredParam(T value, String paramName) {
 		if (value == null) {
-			throw new IllegalArgumentException(paramName + " is a required parameter.");
+			throw new IllegalArgumentException(paramName + IS_A_REQUIRED_PARAMETER);
 		}
 		return value;
 	}
+
+	static String requiredParamConceptIdFormat(String value, String paramName) {
+		if (Strings.isNullOrEmpty(value)) {
+			throw new IllegalArgumentException(paramName + IS_A_REQUIRED_PARAMETER);
+		}
+		if (!IdentifierService.isConceptId(value)) {
+			throw new IllegalArgumentException(paramName + " must be a concept id.");
+		}
+		return value;
+	}
+
 
 	public static <T> T throwIfNotFound(String type, T component) {
 		if (component == null) {

@@ -19,6 +19,7 @@ import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.snomed.snowstorm.mrcm.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -38,6 +39,7 @@ public class MRCMLoader implements CommitListener {
     private ECLQueryBuilder eclQueryBuilder;
 
     @Autowired
+	@Lazy
     private ReferenceSetMemberService memberService;
 
     @Autowired

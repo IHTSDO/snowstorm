@@ -22,6 +22,7 @@ import org.snomed.snowstorm.core.util.DescriptionHelper;
 import org.snomed.snowstorm.core.util.SetUtils;
 import org.snomed.snowstorm.core.util.TimerUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
@@ -51,6 +52,7 @@ public class ConceptUpdateHelper extends ComponentService {
 	private RelationshipRepository relationshipRepository;
 
 	@Autowired
+	@Lazy
 	private ReferenceSetMemberService memberService;
 
 	@Autowired

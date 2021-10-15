@@ -46,7 +46,7 @@ public class IdentifierService {
 	@Autowired
 	private IdentifiersForRegistrationRepository identifiersForRegistrationRepository;
 
-	private final static Logger logger = LoggerFactory.getLogger(IdentifierService.class);
+	private static final Logger logger = LoggerFactory.getLogger(IdentifierService.class);
 
 	public static boolean isConceptId(String sctid) {
 		return sctid != null && SCTID_PATTERN.matcher(sctid).matches() && PARTITION_PART2_CONCEPT.equals(getPartitionIdPart(sctid));

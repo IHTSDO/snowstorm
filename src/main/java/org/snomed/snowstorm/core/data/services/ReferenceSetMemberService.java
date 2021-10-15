@@ -1,6 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
 import com.google.common.base.Strings;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Iterables;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.BranchService;
@@ -24,12 +26,14 @@ import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetMemberRepository;
 import org.snomed.snowstorm.core.data.repositories.ReferenceSetTypeRepository;
 import org.snomed.snowstorm.core.data.services.identifier.IdentifierService;
+import org.snomed.snowstorm.core.data.services.pojo.AsyncRefsetMemberChangeBatch;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -39,10 +43,16 @@ import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.SearchHitsIterator;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQuery;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.*;
@@ -51,6 +61,7 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationAndAsso
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 
 @Service
+@Lazy
 public class ReferenceSetMemberService extends ComponentService {
 
 	private static final Set<String> LANG_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
@@ -82,7 +93,9 @@ public class ReferenceSetMemberService extends ComponentService {
 	private ReferenceSetTypesConfigurationService referenceSetTypesConfigurationService;
 
 	@Autowired
-	private ApplicationContext applicationContext;
+	private ECLQueryService eclQueryService;
+
+	private final Cache<String, AsyncRefsetMemberChangeBatch> batchChanges = CacheBuilder.newBuilder().expireAfterWrite(2, TimeUnit.HOURS).build();
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -156,18 +169,14 @@ public class ReferenceSetMemberService extends ComponentService {
 		return query;
 	}
 
-	private List<Long> getConceptIds(String branch, BranchCriteria branchCriteria, String parameter) {
+	private List<Long> getConceptIds(String branch, BranchCriteria branchCriteria, String conceptIdOrECL) {
 		List<Long> conceptIds;
-		if (parameter.matches("\\d+")) {
-			conceptIds = Collections.singletonList(parseLong(parameter));
+		if (conceptIdOrECL.matches("\\d+")) {
+			conceptIds = Collections.singletonList(parseLong(conceptIdOrECL));
 		} else {
-			conceptIds = getEclQueryService().selectConceptIds(parameter, branchCriteria, branch, true, LARGE_PAGE).getContent();
+			conceptIds = eclQueryService.selectConceptIds(conceptIdOrECL, branchCriteria, branch, true, LARGE_PAGE).getContent();
 		}
 		return conceptIds;
-	}
-
-	private ECLQueryService getEclQueryService() {
-		return applicationContext.getBeansOfType(ECLQueryService.class).values().iterator().next();
 	}
 
 	public ReferenceSetMember findMember(String branch, String uuid) {
@@ -258,6 +267,68 @@ public class ReferenceSetMemberService extends ComponentService {
 			doSaveBatchComponents(matches, commit, ReferenceSetMember.Fields.MEMBER_ID, memberRepository);
 			commit.markSuccessful();
 		}
+	}
+
+	public String newCreateUpdateAsyncJob() {
+		final AsyncRefsetMemberChangeBatch batchChange = new AsyncRefsetMemberChangeBatch();
+		synchronized (batchChanges) {
+			batchChanges.put(batchChange.getId(), batchChange);
+		}
+		return batchChange.getId();
+	}
+
+	@Async
+	public void createUpdateAsync(String batchId, String branch, List<ReferenceSetMember> members, SecurityContext securityContext) {
+		SecurityContextHolder.setContext(securityContext);
+		final AsyncRefsetMemberChangeBatch changeBatch = batchChanges.getIfPresent(batchId);
+		if (changeBatch == null) {
+			logger.error("Batch member change {} not found.", batchId);
+			return;
+		}
+		try {
+			Iterable<ReferenceSetMember> savedMembers;
+			try (final Commit commit = branchService.openCommit(branch, branchMetadataHelper.getBranchLockMetadata(String.format("Saving %s refset members.", members.size())))) {
+
+				// Set missing moduleIds
+				Metadata metadata = branchService.findBranchOrThrow(commit.getBranch().getPath(), true).getMetadata();
+				String defaultModuleId = metadata.getString(Config.DEFAULT_MODULE_ID_KEY);
+				members.stream().filter(member -> member.getModuleId() == null).forEach(member -> member.setModuleId(defaultModuleId));
+
+				// Mark new/updated members. Existing members that have not changed will not be persisted.
+				final Map<String, ReferenceSetMember> membersWithIds =
+						members.stream().filter(member -> member.getMemberId() != null).collect(Collectors.toMap(ReferenceSetMember::getMemberId, Function.identity()));
+				final Map<String, ReferenceSetMember> existingMembers =
+						findMembers(branch, membersWithIds.keySet()).stream().collect(Collectors.toMap(ReferenceSetMember::getMemberId, Function.identity()));
+				membersWithIds.forEach((key, batchMember) -> {
+					final ReferenceSetMember existingMember = existingMembers.get(key);
+					if (batchMember.isComponentChanged(existingMember)) {
+						batchMember.markChanged();
+					}
+					if (existingMember != null) {
+						batchMember.copyReleaseDetails(existingMember);
+					}
+				});
+
+				// Set missing ids
+				members.stream().filter(member -> member.getMemberId() == null).forEach(member -> member.setMemberId(UUID.randomUUID().toString()));
+
+				savedMembers = doSaveBatchMembers(members, commit);
+				commit.markSuccessful();
+			}
+			changeBatch.setMemberIds(StreamSupport.stream(savedMembers.spliterator(), false).map(ReferenceSetMember::getMemberId).collect(Collectors.toList()));
+			changeBatch.setStatus(AsyncRefsetMemberChangeBatch.Status.COMPLETED);
+
+		} catch (IllegalArgumentException | IllegalStateException e) {
+			changeBatch.setStatus(AsyncRefsetMemberChangeBatch.Status.FAILED);
+			changeBatch.setMessage(e.getMessage());
+			logger.error("Batch member change failed, id:{}, branch:{}", changeBatch.getId(), branch, e);
+		} finally {
+			SecurityContextHolder.clearContext();
+		}
+	}
+
+	public AsyncRefsetMemberChangeBatch getBatchChange(String bulkChangeId) {
+		return batchChanges.getIfPresent(bulkChangeId);
 	}
 
 	/**
@@ -431,7 +502,7 @@ public class ReferenceSetMemberService extends ComponentService {
 	}
 
 	public Map<String, String> findRefsetTypes(Set<String> referenceSetIds, BranchCriteria branchCriteria, String branch) {
-		List<Long> allRefsetTypes = getEclQueryService().selectConceptIds("<!" + Concepts.REFSET, branchCriteria, branch, false, LARGE_PAGE).getContent();
+		List<Long> allRefsetTypes = eclQueryService.selectConceptIds("<!" + Concepts.REFSET, branchCriteria, branch, false, LARGE_PAGE).getContent();
 
 		final NativeSearchQuery searchQuery = new NativeSearchQueryBuilder()
 				.withQuery(boolQuery()

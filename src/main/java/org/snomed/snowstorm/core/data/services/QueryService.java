@@ -26,6 +26,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -66,6 +67,7 @@ public class QueryService implements ApplicationContextAware {
 	private ECLQueryService eclQueryService;
 
 	@Autowired
+	@Lazy
 	private ReferenceSetMemberService memberService;
 
 	@Autowired
