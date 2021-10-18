@@ -510,7 +510,7 @@ public class ConceptUpdateHelper extends ComponentService {
 		MemberSearchRequest memberSearchRequest = new MemberSearchRequest();
 		memberSearchRequest.referenceSet(Concepts.REFSET_DESCRIPTOR_REFSET);
 		memberSearchRequest.referencedComponentId(concept.getId());
-		List<ReferenceSetMember> membersInRefSet = memberService.findMembers(path, memberSearchRequest, PageRequest.of(0, 10)).getContent();
+		List<ReferenceSetMember> membersInRefSet = memberService.findMembers(path, memberSearchRequest, PageRequest.of(0, 100)).getContent();
 		if (!membersInRefSet.isEmpty()) {
 			Set<String> ids = new HashSet<>();
 			membersInRefSet.forEach(member -> ids.add(member.getId()));
