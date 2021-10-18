@@ -69,8 +69,9 @@ public class AdminController {
 					"Sends previously missing information to the Traceability Service including the commit date of all code system versions.")
 	@RequestMapping(value = "/actions/traceability-backfill", method = RequestMethod.POST)
 	@PreAuthorize("hasPermission('ADMIN', 'global')")
-	public void traceabilityBackfill() {
-		traceabilityLogBackfiller.run();
+	public void traceabilityBackfill(@RequestParam(required = false) Long sinceEpochMillisecondDate) {
+		Date sinceDate = sinceEpochMillisecondDate != null ? new Date(sinceEpochMillisecondDate) : null;
+		traceabilityLogBackfiller.run(sinceDate);
 	}
 
 	@ApiOperation(value = "Rebuild the semantic index of the branch.",
