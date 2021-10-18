@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
+import org.springframework.data.elasticsearch.core.SearchHit;
 import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
 import org.springframework.stereotype.Service;
@@ -74,13 +75,19 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 			return;
 		}
 
-		long conceptIdL = searchHits.getSearchHit(0).getContent().getConceptIdL();
-		if (Concepts.REFSET.equals(String.valueOf(conceptIdL))) {
-			// Edge case where first importing.
-			return;
-		}
-
 		String branchPath = commit.getBranch().getPath();
+		for (SearchHit<QueryConcept> searchHit : searchHits.getSearchHits()) {
+			long conceptIdL = searchHit.getContent().getConceptIdL();
+			if (Concepts.REFSET.equals(String.valueOf(conceptIdL))) {
+				// Edge case where first importing.
+				continue;
+			}
+
+			doAddToRefset(commit, conceptIdL, branchPath);
+		}
+	}
+
+	private void doAddToRefset(Commit commit, long conceptIdL, String branchPath) {
 		Set<ReferenceSetMember> referenceSetMembersToSave = getNewMembersInspiredByAncestors(commit, conceptIdL, branchPath);
 		if (referenceSetMembersToSave.isEmpty()) {
 			logger.info("Cannot proceed with updating {} |Reference set descriptor| on branch {} as relevant properties cannot be inherited from parent/grandparent.", branchPath, Concepts.REFSET_DESCRIPTOR_REFSET);
