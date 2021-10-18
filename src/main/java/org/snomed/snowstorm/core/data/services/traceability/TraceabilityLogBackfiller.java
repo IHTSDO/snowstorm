@@ -27,13 +27,16 @@ public class TraceabilityLogBackfiller {
 
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
-	public void run() {
+	public void run(Date sinceDate) {
 		logger.info("Starting Traceability Backfilling process...");
 
 		// Send the commit date of all code system versions to the traceability service.
 		final Page<CodeSystemVersion> allVersions = codeSystemVersionRepository.findAll(PageRequest.of(0, 1000, Sort.by("importDate")));
 		logger.info("Sending {} code system version dates to traceability.", allVersions.getTotalElements());
 		for (CodeSystemVersion codeSystemVersion : allVersions) {
+			if (sinceDate != null && codeSystemVersion.getImportDate().before(sinceDate)) {
+				continue;
+			}
 			final Commit commit = new DummyCommitWithSpecificTimepoint(codeSystemVersion.getParentBranchPath(), Commit.CommitType.CONTENT, codeSystemVersion.getImportDate());
 			traceabilityLogService.logActivity("snowstorm", commit, new PersistedComponents(), Activity.ActivityType.CREATE_CODE_SYSTEM_VERSION);
 		}
