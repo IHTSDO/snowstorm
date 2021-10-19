@@ -27,7 +27,7 @@ public class ScheduledDailyBuildImportService {
 
 	private boolean running;
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
 	public void init() {
