@@ -3,6 +3,7 @@ package org.snomed.snowstorm.core.data.services;
 import io.kaicode.elasticvc.api.BranchCriteria;
 import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.api.VersionControlHelper;
+import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,8 @@ import java.util.*;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.DISABLE_REFSET_DESCRIPTOR_AUTO_UPDATE_METADATA_KEY;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
 @Service
 public class RefsetDescriptorUpdaterService implements CommitListener {
@@ -55,6 +58,12 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 	 */
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
+		Branch branch = commit.getBranch();
+		if (Boolean.parseBoolean(branch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(DISABLE_REFSET_DESCRIPTOR_AUTO_UPDATE_METADATA_KEY))) {
+			logger.info("RefSet Descriptor auto update is disabled on branch {}", branch.getPath());
+			return;
+		}
+
 		if (Commit.CommitType.CONTENT != commit.getCommitType()) {
 			logger.debug("CommitType is not CONTENT. Nothing to do.");
 			return;
@@ -75,7 +84,7 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 			return;
 		}
 
-		String branchPath = commit.getBranch().getPath();
+		String branchPath = branch.getPath();
 		for (SearchHit<QueryConcept> searchHit : searchHits.getSearchHits()) {
 			long conceptIdL = searchHit.getContent().getConceptIdL();
 			if (Concepts.REFSET.equals(String.valueOf(conceptIdL))) {
