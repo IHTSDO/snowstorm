@@ -65,7 +65,7 @@ public class DailyBuildService {
 
 	private ResourceManager resourceManager;
 
-	private Logger logger = LoggerFactory.getLogger(getClass());
+	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
 	public void init() {
@@ -80,9 +80,9 @@ public class DailyBuildService {
 			return;
 		}
 		// check any new daily builds
-		String dailyBuildSteam = getNewDailyBuildIfExists(codeSystem, codeSystemBranch.getHeadTimestamp());
+		String dailyBuildFilename = getNewDailyBuildIfExists(codeSystem, codeSystemBranch.getHeadTimestamp());
 		// perform rollback and import
-		dailyBuildDeltaImport(codeSystem, dailyBuildSteam);
+		dailyBuildDeltaImport(codeSystem, dailyBuildFilename);
 	}
 
 	void dailyBuildDeltaImport(CodeSystem codeSystem, String dailyBuildFilename) throws IOException, ReleaseImportException {
@@ -95,19 +95,20 @@ public class DailyBuildService {
 
 		rollbackDailyBuildContent(codeSystem);
 
-		logger.info("start daily build delta import for code system " +  codeSystem.getShortName());
+		logger.info("start daily build delta import for code system {}", codeSystem.getShortName());
 		String importId = importService.createJob(RF2Type.DELTA, codeSystem.getBranchPath(), false, true);
-		InputStream dailyBuildStream = resourceManager.readResourceStreamOrNullIfNotExists(codeSystem.getShortName() + "/" + dailyBuildFilename);
-		// Unlock branch so that delta import can be executed
-		branchService.unlock(codeSystem.getBranchPath());
-		importService.importArchive(importId, dailyBuildStream);
-		logger.info("Daily build delta import completed for code system " +  codeSystem.getShortName());
+		try (InputStream dailyBuildStream = resourceManager.readResourceStreamOrNullIfNotExists(codeSystem.getShortName() + "/" + dailyBuildFilename)) {
+			// Unlock branch so that delta import can be executed
+			branchService.unlock(codeSystem.getBranchPath());
+			importService.importArchive(importId, dailyBuildStream);
+		}
+		logger.info("Daily build delta import completed for code system {}", codeSystem.getShortName());
 	}
 
 	@PreAuthorize("hasPermission('ADMIN', #codeSystem.branchPath)")
 	public void rollbackDailyBuildContent(CodeSystem codeSystem) {
 		// Roll back commits on Code System branch if commit starts after latest release commit
-		// AND new base timestamp does not match one of the parent codesystem release branch timepoints.
+		// AND new base timestamp does not match one of the parent codeSystem release branch timePoints.
 
 		CodeSystemVersion latestVersion = codeSystemService.findLatestImportedVersion(codeSystem.getShortName());
 		Date releaseCommitHead = null;
@@ -158,7 +159,7 @@ public class DailyBuildService {
 			}
 		} else {
 			// If never released roll back all versions
-			logger.info("No release versions found on {}, all commit appart from branch creation will be rolled back.", codeSystem.getBranchPath());
+			logger.info("No release versions found on {}, all commit apart from branch creation will be rolled back.", codeSystem.getBranchPath());
 			List<Branch> allCommits = branchService.findAllVersions(branchPath, Pageable.unpaged()).stream().sorted(Comparator.comparing(Branch::getStart)).collect(Collectors.toList());
 			allCommits.remove(0);// Don't rollback the commit which creates the branch.
 			commitsToRollback = allCommits;
@@ -177,7 +178,7 @@ public class DailyBuildService {
 		}
 	}
 
-	private String getNewDailyBuildIfExists(CodeSystem codeSystem, long lastImportTimepoint) {
+	private String getNewDailyBuildIfExists(CodeSystem codeSystem, long lastImportTimePoint) {
 		String deltaDirectoryPath = ResourcePathHelper.getFullPath(dailyBuildResourceConfig, codeSystem.getShortName());
 		logger.debug("Daily build resources path '{}'.", deltaDirectoryPath);
 		List<String> archiveFilenames = new ArrayList<>();
@@ -192,7 +193,7 @@ public class DailyBuildService {
 						filename = filename.substring(filename.lastIndexOf("/") + 1);
 					}
 					// Check the uploaded time after the last import
-					if (isAfterAndNotFuture(filename, lastImportTimepoint)) {
+					if (isAfterAndNotFuture(filename, lastImportTimePoint)) {
 						archiveFilenames.add(filename);
 					}
 				}
@@ -246,7 +247,7 @@ public class DailyBuildService {
 		}
 		private static String getPathAndRelative(String path, String relativePath) {
 			if (!path.isEmpty() && !path.endsWith("/")) {
-				path = path + "/";
+				path += "/";
 			}
 			if (relativePath.startsWith("/")) {
 				relativePath = relativePath.substring(1);
