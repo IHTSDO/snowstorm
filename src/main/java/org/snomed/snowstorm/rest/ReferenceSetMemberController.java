@@ -128,7 +128,8 @@ public class ReferenceSetMemberController {
 			@ApiParam(value = "Set of referencedComponentId ids to limit search")
 			@RequestParam(required = false) Set<String> referencedComponentId, //Ideally this would be plural, but that would break backwards compatibility
 			@RequestParam(required = false) Boolean active,
-			@RequestParam(required = false) String targetComponent,
+			@ApiParam(value = "Set of target component ids to limit search")
+			@RequestParam(required = false) Set<String> targetComponent,
 			@RequestParam(required = false) String mapTarget,
 			@ApiParam("Search by concept identifiers within an owlExpression.")
 			@RequestParam(name = "owlExpression.conceptId", required = false) String owlExpressionConceptId,
@@ -147,7 +148,7 @@ public class ReferenceSetMemberController {
 						.referenceSet(referenceSet)
 						.module(module)
 						.referencedComponentIds(referencedComponentId)
-						.targetComponentId(targetComponent)
+						.targetComponentIds(targetComponent)
 						.mapTarget(mapTarget)
 						.owlExpressionConceptId(owlExpressionConceptId)
 						.owlExpressionGCI(owlExpressionGCI)

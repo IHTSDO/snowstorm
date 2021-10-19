@@ -11,9 +11,11 @@ public class MemberSearchRequest {
 	private String owlExpressionConceptId;
 	private Boolean owlExpressionGCI;
 	private final Map<String, String> additionalFields;
+	private final Map<String, Set<String>> additionalFieldSets;
 
 	public MemberSearchRequest() {
 		additionalFields = new HashMap<>();
+		additionalFieldSets = new HashMap<>();
 	}
 
 	/**
@@ -64,14 +66,22 @@ public class MemberSearchRequest {
 	/**
 	 * @param targetComponentId  Filter by the targetComponentId field. Not all reference set types have this field.
 	 */
-	public MemberSearchRequest targetComponentId(String targetComponentId) {
-		return additionalField("targetComponentId", targetComponentId);
+	public MemberSearchRequest targetComponentIds(Set<String> targetComponentIds) {
+		if (targetComponentIds == null) {
+			additionalFieldSets.remove("targetComponentId");
+			return this;
+		}
+		return additionalFieldSets("targetComponentId", targetComponentIds);
 	}
 
 	/**
 	 * @param mapTarget  Filter by the mapTarget field. Not all reference set types have this field.
 	 */
 	public MemberSearchRequest mapTarget(String mapTarget) {
+		if (mapTarget == null) {
+			additionalFieldSets.remove("mapTarget");
+			return this;
+		}
 		return additionalField("mapTarget", mapTarget);
 	}
 
@@ -81,6 +91,15 @@ public class MemberSearchRequest {
 	 */
 	public MemberSearchRequest additionalField(String fieldName, String fieldValue) {
 		additionalFields.put(fieldName, fieldValue);
+		return this;
+	}
+	
+	/**
+	 * @param fieldName Filter by an additional field with this name and value combination.
+	 * @param fieldValues Filter by additional fields with this name and one or more of these values.
+	 */
+	public MemberSearchRequest additionalFieldSets(String fieldName, Set<String> fieldValues) {
+		additionalFieldSets.put(fieldName, fieldValues);
 		return this;
 	}
 
@@ -110,6 +129,18 @@ public class MemberSearchRequest {
 
 	public Map<String, String> getAdditionalFields() {
 		return additionalFields;
+	}
+	
+	public boolean hasAdditionalField(String fieldName) {
+		return additionalFields.containsKey(fieldName);
+	}
+	
+	public Map<String, Set<String>> getAdditionalFieldSets() {
+		return additionalFieldSets;
+	}
+	
+	public boolean hasAdditionalFieldSet(String fieldName) {
+		return additionalFieldSets.containsKey(fieldName);
 	}
 
 	public MemberSearchRequest referencedComponentId(String referencedComponentId) {
