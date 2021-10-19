@@ -41,6 +41,9 @@ class TraceabilityLogServiceTest extends AbstractTest {
 	@Autowired
 	private ImportService importService;
 
+	@Autowired
+	private ReferenceSetMemberService referenceSetMemberService;
+
 	private boolean traceabilityOriginallyEnabled;
 
 	@BeforeEach
@@ -421,6 +424,24 @@ class TraceabilityLogServiceTest extends AbstractTest {
 		assertEquals(CONTENT_CHANGE, activity.getActivityType());
 		assertEquals("MAIN/A", activity.getBranchPath());
 		assertEquals(1, activity.getChanges().size());
+	}
+
+	@Test
+	void testCreateRefsetMember() throws InterruptedException {
+		// Given
+		branchService.create("MAIN/A");
+
+		// When
+		referenceSetMemberService.createMember("MAIN/A", new ReferenceSetMember(Concepts.CORE_MODULE, Concepts.REFSET_SIMPLE, Concepts.CLINICAL_FINDING));
+
+		// Then
+		final Activity activity = getTraceabilityActivity();
+		assertEquals(CONTENT_CHANGE, activity.getActivityType());
+		assertEquals("MAIN/A", activity.getBranchPath());
+		assertEquals(1, activity.getChanges().size());
+		final Activity.ConceptActivity conceptActivity = activity.getChanges().iterator().next();
+		assertEquals("[ComponentChange{componentType=REFERENCE_SET_MEMBER, componentSubType=446609009, componentId='x', changeType=CREATE, effectiveTimeNull=true}]",
+				toString(conceptActivity.getComponentChanges()));
 	}
 
 	private String toString(Set<Activity.ComponentChange> componentChanges) {
