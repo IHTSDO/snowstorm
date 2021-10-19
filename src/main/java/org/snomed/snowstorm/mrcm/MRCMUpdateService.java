@@ -31,12 +31,11 @@ import static io.kaicode.elasticvc.domain.Commit.CommitType.CONTENT;
 import static java.lang.Long.parseLong;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
 @Service
 public class MRCMUpdateService extends ComponentService implements CommitListener {
-
-	public static final String DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY = "disableMrcmAutoUpdate";
 
 	@Autowired
 	private MRCMLoader mrcmLoader;
