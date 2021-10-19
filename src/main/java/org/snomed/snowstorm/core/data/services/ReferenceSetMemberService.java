@@ -322,7 +322,10 @@ public class ReferenceSetMemberService extends ComponentService {
 				});
 
 				// Set missing ids
-				members.stream().filter(member -> member.getMemberId() == null).forEach(member -> member.setMemberId(UUID.randomUUID().toString()));
+				members.stream().filter(member -> member.getMemberId() == null).forEach(member -> {
+					member.markChanged();
+					member.setMemberId(UUID.randomUUID().toString());
+				});
 
 				savedMembers = doSaveBatchMembers(members, commit);
 				commit.markSuccessful();
