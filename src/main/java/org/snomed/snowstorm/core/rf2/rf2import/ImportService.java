@@ -28,7 +28,7 @@ import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.AUTHO
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.IMPORTING_CODE_SYSTEM_VERSION;
 import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
-import static org.snomed.snowstorm.mrcm.MRCMUpdateService.DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY;
 
 @Service
 public class ImportService {
