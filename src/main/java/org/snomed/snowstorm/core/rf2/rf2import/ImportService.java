@@ -169,6 +169,7 @@ public class ImportService {
 		Metadata metadata = branch.getMetadata();
 		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
 		branchMetadataHelper.disableMrcmAutoUpdateForBranch(branch);
+		branchMetadataHelper.disableRefSetDescriptorUpdateForBranch(branch);
 		internalMetadataMap.put(IMPORT_TYPE_KEY, importType.getName());
 		if (importType == FULL || createCodeSystemVersion) {
 			internalMetadataMap.put(IMPORTING_CODE_SYSTEM_VERSION, "true");
