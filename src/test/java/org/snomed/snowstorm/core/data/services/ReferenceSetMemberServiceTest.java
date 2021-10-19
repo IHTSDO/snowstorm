@@ -294,7 +294,7 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 		assertEquals(3, allResults.getBuckets().get(key).values().size());
 		assertEquals(1, allResults.getBuckets().get(key).get(Concepts.REFSET_POSSIBLY_EQUIVALENT_TO_ASSOCIATION).intValue());
 		assertEquals(2, allResults.getBuckets().get(key).get("723264001").intValue());
-		assertEquals(7, allResults.getBuckets().get(key).get(Concepts.OWL_AXIOM_REFERENCE_SET).intValue());
+		assertEquals(4, allResults.getBuckets().get(key).get(Concepts.OWL_AXIOM_REFERENCE_SET).intValue());
 
 		PageWithBucketAggregations<ReferenceSetMember> activeResults = memberService.findReferenceSetMembersWithAggregations(MAIN, PageRequest.of(0, 1), new MemberSearchRequest().active(true));
 		assertNotNull(activeResults);
