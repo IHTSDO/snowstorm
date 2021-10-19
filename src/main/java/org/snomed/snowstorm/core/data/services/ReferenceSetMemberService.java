@@ -146,13 +146,25 @@ public class ReferenceSetMemberService extends ComponentService {
 		if (referencedComponentIds != null && referencedComponentIds.size() > 0) {
 			query.must(termsQuery(ReferenceSetMember.Fields.REFERENCED_COMPONENT_ID, referencedComponentIds));
 		}
+		
 		Map<String, String> additionalFields = searchRequest.getAdditionalFields();
 		for (String additionalFieldName : additionalFields.keySet()) {
 			String additionalFieldNameValue = additionalFields.get(additionalFieldName);
 			if (!Strings.isNullOrEmpty(additionalFieldNameValue)) {
-				query.must(termQuery(ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(additionalFieldName), additionalFieldNameValue));
+				String fieldKeyword = ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(additionalFieldName);
+				query.must(termQuery(fieldKeyword, additionalFieldNameValue));
 			}
 		}
+		
+		Map<String, Set<String>> additionalFieldSets = searchRequest.getAdditionalFieldSets();
+		for (String additionalFieldName : additionalFieldSets.keySet()) {
+			Set<String> additionalFieldNameValues = additionalFieldSets.get(additionalFieldName);
+			if (additionalFieldNameValues != null && additionalFieldNameValues.size() > 0) {
+				String fieldKeyword = ReferenceSetMember.Fields.getAdditionalFieldKeywordTypeMapping(additionalFieldName);
+				query.must(termsQuery(fieldKeyword, additionalFieldNameValues));
+			}
+		}
+		
 		String owlExpressionConceptId = searchRequest.getOwlExpressionConceptId();
 		if (!Strings.isNullOrEmpty(owlExpressionConceptId)) {
 			query.must(regexpQuery(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION_KEYWORD_FIELD_PATH, String.format(".*:%s[^0-9].*", owlExpressionConceptId)));
