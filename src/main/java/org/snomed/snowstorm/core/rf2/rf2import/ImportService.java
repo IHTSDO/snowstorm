@@ -165,9 +165,10 @@ public class ImportService {
 	}
 
 	private void setImportMetadata(RF2Type importType, String branchPath, boolean createCodeSystemVersion) {
-		Metadata metadata = branchService.findLatest(branchPath).getMetadata();
+		Branch branch = branchService.findLatest(branchPath);
+		Metadata metadata = branch.getMetadata();
 		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
-		internalMetadataMap.put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
+		branchMetadataHelper.disableMrcmAutoUpdateForBranch(branch);
 		internalMetadataMap.put(IMPORT_TYPE_KEY, importType.getName());
 		if (importType == FULL || createCodeSystemVersion) {
 			internalMetadataMap.put(IMPORTING_CODE_SYSTEM_VERSION, "true");
