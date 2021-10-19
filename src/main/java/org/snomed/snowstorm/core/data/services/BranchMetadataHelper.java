@@ -31,6 +31,7 @@ public class BranchMetadataHelper {
 	public static final String AUTHOR_FLAGS_METADATA_KEY = "authorFlags";
 	public static final String IMPORTING_CODE_SYSTEM_VERSION = "importingCodeSystemVersion";
 	public static final String DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY = "disableMrcmAutoUpdate";
+	public static final String DISABLE_REFSET_DESCRIPTOR_AUTO_UPDATE_METADATA_KEY = "disableRefSetDescriptorAutoUpdate";
 
 	@Autowired
 	private ObjectMapper objectMapper;
@@ -115,6 +116,11 @@ public class BranchMetadataHelper {
 
 	public void disableMrcmAutoUpdateForBranch(Branch branch) {
 		getInternal(branch).put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
+		branchService.updateMetadata(branch.getPath(), branch.getMetadata());
+	}
+
+	public void disableRefSetDescriptorUpdateForBranch(Branch branch) {
+		getInternal(branch).put(DISABLE_REFSET_DESCRIPTOR_AUTO_UPDATE_METADATA_KEY, "true");
 		branchService.updateMetadata(branch.getPath(), branch.getMetadata());
 	}
 
