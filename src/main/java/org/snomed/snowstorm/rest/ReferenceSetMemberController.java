@@ -158,6 +158,27 @@ public class ReferenceSetMemberController {
 		joinReferencedComponents(members.getContent(), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch);
 		return new ItemsPage<>(members);
 	}
+	
+	@ApiOperation("Search for reference set members using bulk filters")
+	@RequestMapping(value = "/{branch}/members/search", method = RequestMethod.POST)
+	@JsonView(value = View.Component.class)
+	public ItemsPage<ReferenceSetMember> findRefsetMembers(@PathVariable String branch,
+			@RequestBody MemberSearchRequest memberSearchRequest,
+			@RequestParam(defaultValue = "0") int offset,
+			@RequestParam(defaultValue = "50") int limit,
+			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
+
+		ControllerHelper.validatePageSize(offset, limit);
+		branch = BranchPathUriUtil.decodePath(branch);
+		Page<ReferenceSetMember> members = memberService.findMembers(
+				branch,
+				memberSearchRequest,
+				ControllerHelper.getPageRequest(offset, limit)
+		);
+		joinReferencedComponents(members.getContent(), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch);
+		return new ItemsPage<>(members);
+	}
+
 
 	private void joinReferencedComponents(List<ReferenceSetMember> members, List<LanguageDialect> languageDialects, String branch) {
 		Set<String> conceptIds = members.stream().map(ReferenceSetMember::getReferencedComponentId).filter(IdentifierService::isConceptId).collect(Collectors.toSet());
