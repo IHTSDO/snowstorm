@@ -25,8 +25,6 @@ import java.util.*;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termQuery;
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_DIALECTS;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.DISABLE_REFSET_DESCRIPTOR_AUTO_UPDATE_METADATA_KEY;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 
 @Service
 public class RefsetDescriptorUpdaterService implements CommitListener {
@@ -58,9 +56,8 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 	 */
 	@Override
 	public void preCommitCompletion(Commit commit) throws IllegalStateException {
-		Branch branch = commit.getBranch();
-		if (Boolean.parseBoolean(branch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY).get(DISABLE_REFSET_DESCRIPTOR_AUTO_UPDATE_METADATA_KEY))) {
-			logger.info("RefSet Descriptor auto update is disabled on branch {}", branch.getPath());
+		if (BranchMetadataHelper.isImportingCodeSystemVersion(commit)) {
+			logger.info("RefSet Descriptor auto update is disabled on branch {}", commit.getBranch().getPath());
 			return;
 		}
 
@@ -84,7 +81,7 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 			return;
 		}
 
-		String branchPath = branch.getPath();
+		String branchPath = commit.getBranch().getPath();
 		for (SearchHit<QueryConcept> searchHit : searchHits.getSearchHits()) {
 			long conceptIdL = searchHit.getContent().getConceptIdL();
 			if (Concepts.REFSET.equals(String.valueOf(conceptIdL))) {
