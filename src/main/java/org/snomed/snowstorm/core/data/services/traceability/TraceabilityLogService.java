@@ -47,8 +47,6 @@ import static org.snomed.snowstorm.core.data.services.traceability.Activity.Acti
 @Service
 public class TraceabilityLogService implements CommitListener {
 
-	public static final String DISABLE_IMPORT_TRACEABILITY = "disableImportTraceability";
-
 	@Value("${authoring.traceability.enabled}")
 	private boolean enabled;
 
@@ -81,7 +79,7 @@ public class TraceabilityLogService implements CommitListener {
 	@Override
 	public void preCommitCompletion(final Commit commit) throws IllegalStateException {
 
-		if (isTraceabilitySkippedForCommit(commit)) {
+		if (BranchMetadataHelper.isImportingCodeSystemVersion(commit)) {
 			return;
 		}
 
@@ -109,11 +107,6 @@ public class TraceabilityLogService implements CommitListener {
 				new PersistedComponents() : buildPersistedComponents(commit);
 
 		logActivity(SecurityUtil.getUsername(), commit, persistedComponents, activityType);
-	}
-
-	private boolean isTraceabilitySkippedForCommit(Commit commit) {
-		final Map<String, String> internalMap = commit.getBranch().getMetadata().getMapOrCreate(BranchMetadataHelper.INTERNAL_METADATA_KEY);
-		return "true".equals(internalMap.get(DISABLE_IMPORT_TRACEABILITY));
 	}
 
 	private PersistedComponents buildPersistedComponents(final Commit commit) {
