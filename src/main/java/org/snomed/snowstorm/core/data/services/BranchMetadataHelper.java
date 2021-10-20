@@ -27,6 +27,7 @@ public class BranchMetadataHelper {
 	private static final String CLASSIFICATION_COMMIT_TRANSIENT_METADATA_KEY = transientKey("classificationCommit");
 
 	public static final String AUTHOR_FLAGS_METADATA_KEY = "authorFlags";
+	public static final String IMPORTING_CODE_SYSTEM_VERSION = "importingCodeSystemVersion";
 
 	@Autowired
 	private ObjectMapper objectMapper;
@@ -82,6 +83,10 @@ public class BranchMetadataHelper {
 		metadataAsMap.keySet().stream().filter(key -> key.startsWith(COMMIT_METADATA_KEY_PREFIX)).collect(Collectors.toSet()).forEach(metadataAsMap::remove);
 		final Map<String, String> internalMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
 		internalMap.keySet().stream().filter(key -> key.startsWith(COMMIT_METADATA_KEY_PREFIX)).collect(Collectors.toSet()).forEach(internalMap::remove);
+	}
+
+	public static boolean isImportingCodeSystemVersion(Commit commit) {
+		return Boolean.parseBoolean(getInternal(commit).get(IMPORTING_CODE_SYSTEM_VERSION));
 	}
 
 	public String getBranchLockMetadata(String description) {

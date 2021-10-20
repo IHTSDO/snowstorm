@@ -26,7 +26,7 @@ import java.util.concurrent.ExecutorService;
 
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.AUTHOR_FLAGS_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
-import static org.snomed.snowstorm.core.data.services.traceability.TraceabilityLogService.DISABLE_IMPORT_TRACEABILITY;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.IMPORTING_CODE_SYSTEM_VERSION;
 import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
 import static org.snomed.snowstorm.mrcm.MRCMUpdateService.DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY;
 
@@ -170,17 +170,16 @@ public class ImportService {
 		internalMetadataMap.put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
 		internalMetadataMap.put(IMPORT_TYPE_KEY, importType.getName());
 		if (importType == FULL || createCodeSystemVersion) {
-			internalMetadataMap.put(DISABLE_IMPORT_TRACEABILITY, "true");
+			internalMetadataMap.put(IMPORTING_CODE_SYSTEM_VERSION, "true");
 		}
 
 		boolean codeSystem = codeSystemService.findByBranchPath(branchPath).isPresent();
 		if (!codeSystem) {
-			Map<String, String> authFlagMap = metadata.getMapOrCreate(AUTHOR_FLAGS_METADATA_KEY);
-			authFlagMap.put(BATCH_CHANGE_KEY, "true");
-			metadata.putMap(AUTHOR_FLAGS_METADATA_KEY, authFlagMap);
+			metadata.getMapOrCreate(AUTHOR_FLAGS_METADATA_KEY).put(BATCH_CHANGE_KEY, "true");
 		}
-		// Import metadata is saved to the store rather than just existing within the Commit object
-		// because imports can span multiple commits (if full import or creating a version)
+		// Import metadata is saved to the store rather than just existing within the Commit object.
+		// We can also not use the transient metadata function.
+		// This is because imports span multiple commits when importing a FULL type or creating a code system version.
 		branchService.updateMetadata(branchPath, metadata);
 	}
 
@@ -189,7 +188,7 @@ public class ImportService {
 		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
 		internalMetadataMap.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
 		internalMetadataMap.remove(IMPORT_TYPE_KEY);
-		internalMetadataMap.remove(DISABLE_IMPORT_TRACEABILITY);
+		internalMetadataMap.remove(IMPORTING_CODE_SYSTEM_VERSION);
 		branchService.updateMetadata(branchPath, metadata);
 	}
 
