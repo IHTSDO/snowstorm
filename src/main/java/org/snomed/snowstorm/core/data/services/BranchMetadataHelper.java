@@ -30,14 +30,9 @@ public class BranchMetadataHelper {
 
 	public static final String AUTHOR_FLAGS_METADATA_KEY = "authorFlags";
 	public static final String IMPORTING_CODE_SYSTEM_VERSION = "importingCodeSystemVersion";
-	public static final String DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY = "disableMrcmAutoUpdate";
-	public static final String DISABLE_REFSET_DESCRIPTOR_AUTO_UPDATE_METADATA_KEY = "disableRefSetDescriptorAutoUpdate";
 
 	@Autowired
 	private ObjectMapper objectMapper;
-
-	@Autowired
-	private BranchService branchService;
 
 	private static final String OBJECT_PREFIX = "{object}|";
 	private final SimpleDateFormat lockMetadataDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
@@ -84,10 +79,6 @@ public class BranchMetadataHelper {
 		return commit.getBranch().getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY);
 	}
 
-	private static Map<String, String> getInternal(Branch branch) {
-		return branch.getMetadata().getMapOrCreate(INTERNAL_METADATA_KEY);
-	}
-
 	public static void clearTransientMetadata(Commit commit) {
 		final Metadata metadata = commit.getBranch().getMetadata();
 		final Map<String, Object> metadataAsMap = metadata.getAsMap();
@@ -112,16 +103,6 @@ public class BranchMetadataHelper {
 		} catch (JsonProcessingException e) {
 			throw new RuntimeServiceException("Failed to serialise branch lock metadata", e);
 		}
-	}
-
-	public void disableMrcmAutoUpdateForBranch(Branch branch) {
-		getInternal(branch).put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
-		branchService.updateMetadata(branch.getPath(), branch.getMetadata());
-	}
-
-	public void disableRefSetDescriptorUpdateForBranch(Branch branch) {
-		getInternal(branch).put(DISABLE_REFSET_DESCRIPTOR_AUTO_UPDATE_METADATA_KEY, "true");
-		branchService.updateMetadata(branch.getPath(), branch.getMetadata());
 	}
 
 }

@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.*;
-import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY;
+import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.IMPORTING_CODE_SYSTEM_VERSION;
 
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = TestConfig.class)
@@ -575,7 +575,7 @@ class ImportServiceTest extends AbstractTest {
 		importService.importArchive(importId, new FileInputStream(zipFile));
 
 		assertNotNull(referenceSetMemberService.findMember("MAIN", "01a78d22-ad0b-5e76-8fd4-9fed481e5de5"));
-		assertFalse(branchService.findLatest("MAIN").getMetadata().containsKey(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY));
+		assertFalse(branchService.findLatest("MAIN").getMetadata().containsKey(IMPORTING_CODE_SYSTEM_VERSION));
 	}
 
 	@Test
