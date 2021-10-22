@@ -164,6 +164,10 @@ public class BranchMergeService {
 		return branchMergeJobRepository.findById(id).orElseThrow(() -> new NotFoundException("Branch merge job not found."));
 	}
 
+	public void rebaseSync(String branch, Collection<Concept> manuallyMergedConcepts) throws ServiceException {
+		mergeBranchSync(PathUtil.getParentPath(branch), branch, manuallyMergedConcepts);
+	}
+
 	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts) throws ServiceException {
 		logger.info("Request merge {} -> {}", source, target);
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
