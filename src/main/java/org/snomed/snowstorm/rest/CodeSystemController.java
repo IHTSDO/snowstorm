@@ -13,6 +13,7 @@ import org.snomed.snowstorm.dailybuild.DailyBuildService;
 import org.snomed.snowstorm.extension.ExtensionAdditionalLanguageRefsetUpgradeService;
 import org.snomed.snowstorm.rest.pojo.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -46,6 +47,12 @@ public class CodeSystemController {
 
 	@Autowired
 	private CodeSystemVersionService codeSystemVersionService;
+
+	@Value("${codesystem.all.latest-version.allow-future}")
+	private boolean showFutureVersionsDefault;
+
+	@Value("${codesystem.all.latest-version.allow-internal-release}")
+	private boolean showInteralReleasesByDefault;
 
 	@ApiOperation(value = "Create a code system",
 			notes = "Required fields are shortName and branch.\n" +
@@ -108,10 +115,17 @@ public class CodeSystemController {
 			@PathVariable String shortName,
 
 			@ApiParam("Should versions with a future effective-time be shown.")
-			@RequestParam(required = false, defaultValue = "false") Boolean showFutureVersions,
+			@RequestParam(required = false) Boolean showFutureVersions,
 
 			@ApiParam("Should versions marked as 'internalRelease' be shown.")
-			@RequestParam(required = false, defaultValue = "false") Boolean showInternalReleases) {
+			@RequestParam(required = false) Boolean showInternalReleases) {
+
+		if (showFutureVersions == null) {
+			showFutureVersions = showFutureVersionsDefault;
+		}
+		if (showInternalReleases == null) {
+			showInternalReleases = showInteralReleasesByDefault;
+		}
 
 		List<CodeSystemVersion> codeSystemVersions = codeSystemService.findAllVersions(shortName, showFutureVersions, showInternalReleases);
 		for (CodeSystemVersion codeSystemVersion : codeSystemVersions) {
