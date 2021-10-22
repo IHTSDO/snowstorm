@@ -246,15 +246,25 @@ public class ConceptUpdateHelper extends ComponentService {
 				newVersionConcept.setModuleId(defaultModuleId);
 			}
 
-			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getDescriptions, defaultModuleId, descriptionsToPersist, rebaseConflictSave);
-			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getRelationships, defaultModuleId, relationshipsToPersist, rebaseConflictSave);
-			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getAllOwlAxiomMembers, defaultModuleId, refsetMembersToPersist, rebaseConflictSave);
+			// Descriptions
+			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getDescriptions,
+					defaultModuleId, descriptionsToPersist, rebaseConflictSave);
+
+			// Relationships
+			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getRelationships,
+					defaultModuleId, relationshipsToPersist, rebaseConflictSave);
+
+			// Axiom refset members
+			markDeletionsAndUpdates(newVersionConcept, existingConcept, existingConceptFromParent, Concept::getAllOwlAxiomMembers,
+					defaultModuleId, refsetMembersToPersist, rebaseConflictSave);
 
 			for (Description description : newVersionConcept.getDescriptions()) {
 				Description existingDescription = getExistingComponent(existingConcept, ConceptView::getDescriptions, description.getDescriptionId());
 				Description existingDescriptionFromParent = getExistingComponent(existingConceptFromParent, ConceptView::getDescriptions, description.getDescriptionId());
 
-				markDeletionsAndUpdates(description, existingDescription, existingDescriptionFromParent, Description::getLangRefsetMembers, defaultModuleId, refsetMembersToPersist, rebaseConflictSave);
+				// Description language refset members
+				markDeletionsAndUpdates(description, existingDescription, existingDescriptionFromParent, Description::getLangRefsetMembers,
+						defaultModuleId, refsetMembersToPersist, rebaseConflictSave);
 			}
 
 			// Detach concept's components to ensure concept persisted without collections
@@ -280,7 +290,8 @@ public class ConceptUpdateHelper extends ComponentService {
 
 	private <C extends SnomedComponent<?>, T extends SnomedComponent<?>> Collection<C> getExistingComponents(T existingConcept, Function<T, Collection<C>> getter) {
 		if (existingConcept != null) {
-			return getter.apply(existingConcept);
+			final Collection<C> collection = getter.apply(existingConcept);
+			return collection != null ? collection : Collections.emptySet();
 		}
 		return Collections.emptySet();
 	}
@@ -629,6 +640,7 @@ public class ConceptUpdateHelper extends ComponentService {
 				if (uniqueIds.add(existingComponent.getId()) && existingComponent.isReleased()) {
 					existingComponent.setActive(false);
 					existingComponent.setChanged(true);
+					existingComponent.copyReleaseDetails(existingComponent, rebaseParentExistingComponentMap.get(existingComponent.getId()));
 					existingComponent.updateEffectiveTime();
 				} else {
 					existingComponent.markDeleted();
