@@ -153,6 +153,9 @@ public abstract class Config extends ElasticsearchConfig {
 	@Autowired
 	private ECLPreprocessingService eclPreprocessingService;
 
+	@Autowired
+	private RefsetDescriptorUpdaterService refsetDescriptorUpdaterService;
+
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	@PostConstruct
@@ -163,6 +166,7 @@ public abstract class Config extends ElasticsearchConfig {
 		branchService.addCommitListener(semanticIndexUpdateService);
 		branchService.addCommitListener(mrcmUpdateService);
 		branchService.addCommitListener(branchClassificationStatusService);
+		branchService.addCommitListener(refsetDescriptorUpdaterService);
 		branchService.addCommitListener(traceabilityLogService);
 		branchService.addCommitListener(integrityService);
 		branchService.addCommitListener(multiSearchService);
