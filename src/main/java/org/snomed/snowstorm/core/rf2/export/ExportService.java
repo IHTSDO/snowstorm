@@ -109,7 +109,7 @@ public class ExportService {
 		File exportFile = exportRF2ArchiveFile(exportConfiguration.getBranchPath(), exportConfiguration.getFilenameEffectiveDate(),
 				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(), exportConfiguration.isUnpromotedChangesOnly(),
 				exportConfiguration.getTransientEffectiveTime(), exportConfiguration.getStartEffectiveTime(), exportConfiguration.getModuleIds(),
-				exportConfiguration.isLegacyZipNaming(), exportConfiguration.getRefsetIds());
+				exportConfiguration.isLegacyZipNaming(), exportConfiguration.getRefsetIds(), exportConfiguration.getId());
 		try (FileInputStream inputStream = new FileInputStream(exportFile)) {
 			Streams.copy(inputStream, outputStream, false);
 		} catch (IOException e) {
@@ -120,12 +120,12 @@ public class ExportService {
 	}
 
 	public File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification) throws ExportException {
-		return exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, forClassification, false, null, null, null, true, new HashSet<>());
+		return exportRF2ArchiveFile(branchPath, filenameEffectiveDate, exportType, forClassification, false, null, null, null, true, new HashSet<>(), null);
 	}
 
 	private File exportRF2ArchiveFile(String branchPath, String filenameEffectiveDate, RF2Type exportType, boolean forClassification,
 			boolean unpromotedChangesOnly, String transientEffectiveTime, String startEffectiveTime, Set<String> moduleIds,
-			boolean legacyZipNaming, Set<String> refsetIds) throws ExportException {
+			boolean legacyZipNaming, Set<String> refsetIds, String exportId) throws ExportException {
 
 		if (exportType == RF2Type.FULL) {
 			throw new IllegalArgumentException("FULL RF2 export is not implemented.");
@@ -136,7 +136,8 @@ public class ExportService {
 			generateMDR = true;
 		}
 
-		logger.info("Starting {} export.", exportType);
+		String exportStr = exportId == null ? "" : (" - " + exportId);
+		logger.info("Starting {} export of {}{}", exportType, branchPath, exportStr);
 		Date startTime = new Date();
 
 		BranchCriteria allContentBranchCriteria = versionControlHelper.getBranchCriteria(branchPath);
@@ -262,7 +263,7 @@ public class ExportService {
 				}
 			}
 			
-			logger.info("{} export complete in {} seconds.", exportType, TimerUtil.secondsSince(startTime));
+			logger.info("{} export of {}{} complete in {} seconds.", exportType, branchPath, exportStr, TimerUtil.secondsSince(startTime));
 			return exportFile;
 		} catch (IOException e) {
 			throw new ExportException("Failed to write RF2 zip file.", e);
