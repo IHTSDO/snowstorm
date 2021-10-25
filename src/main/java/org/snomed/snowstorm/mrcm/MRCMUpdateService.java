@@ -1,7 +1,6 @@
 package org.snomed.snowstorm.mrcm;
 
 import io.kaicode.elasticvc.api.*;
-import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
