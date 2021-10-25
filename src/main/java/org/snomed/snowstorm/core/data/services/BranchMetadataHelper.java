@@ -2,8 +2,6 @@ package org.snomed.snowstorm.core.data.services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.kaicode.elasticvc.api.BranchService;
-import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
 import io.kaicode.elasticvc.domain.Metadata;
 import org.ihtsdo.sso.integration.SecurityUtil;
