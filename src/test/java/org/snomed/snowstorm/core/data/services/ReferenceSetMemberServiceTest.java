@@ -1,10 +1,8 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Commit;
 import org.assertj.core.util.Lists;
-import org.ihtsdo.sso.integration.SecurityUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -22,11 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 
 import static org.junit.Assert.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
