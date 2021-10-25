@@ -32,8 +32,6 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregationsFactory;
 import org.snomed.snowstorm.ecl.ECLQueryService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -61,9 +59,7 @@ import static org.snomed.snowstorm.core.data.domain.Concepts.inactivationAndAsso
 import static org.snomed.snowstorm.core.data.services.CodeSystemService.MAIN;
 
 @Service
-@Lazy
 public class ReferenceSetMemberService extends ComponentService {
-
 	private static final Set<String> LANG_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.LanguageFields.ACCEPTABILITY_ID);
 	private static final Set<String> OWL_REFSET_MEMBER_FIELD_SET = Collections.singleton(ReferenceSetMember.OwlExpressionFields.OWL_EXPRESSION);
 	public static final String AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET = "memberCountsByReferenceSet";

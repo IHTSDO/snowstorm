@@ -28,7 +28,6 @@ import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.AUTHO
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.INTERNAL_METADATA_KEY;
 import static org.snomed.snowstorm.core.data.services.BranchMetadataHelper.IMPORTING_CODE_SYSTEM_VERSION;
 import static org.snomed.snowstorm.core.rf2.RF2Type.FULL;
-import static org.snomed.snowstorm.mrcm.MRCMUpdateService.DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY;
 
 @Service
 public class ImportService {
@@ -165,9 +164,9 @@ public class ImportService {
 	}
 
 	private void setImportMetadata(RF2Type importType, String branchPath, boolean createCodeSystemVersion) {
-		Metadata metadata = branchService.findLatest(branchPath).getMetadata();
+		Branch branch = branchService.findLatest(branchPath);
+		Metadata metadata = branch.getMetadata();
 		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
-		internalMetadataMap.put(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY, "true");
 		internalMetadataMap.put(IMPORT_TYPE_KEY, importType.getName());
 		if (importType == FULL || createCodeSystemVersion) {
 			internalMetadataMap.put(IMPORTING_CODE_SYSTEM_VERSION, "true");
@@ -186,7 +185,6 @@ public class ImportService {
 	private void clearImportMetadata(String branchPath) {
 		Metadata metadata = branchService.findLatest(branchPath).getMetadata();
 		final Map<String, String> internalMetadataMap = metadata.getMapOrCreate(INTERNAL_METADATA_KEY);
-		internalMetadataMap.remove(DISABLE_MRCM_AUTO_UPDATE_METADATA_KEY);
 		internalMetadataMap.remove(IMPORT_TYPE_KEY);
 		internalMetadataMap.remove(IMPORTING_CODE_SYSTEM_VERSION);
 		branchService.updateMetadata(branchPath, metadata);
