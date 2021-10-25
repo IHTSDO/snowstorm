@@ -136,8 +136,7 @@ public class RefsetDescriptorUpdaterService implements CommitListener {
 		}
 
 		if (membersExisting == null || membersExisting.isEmpty()) {
-			String message = String.format("Cannot find parent/grandparent of %s to inherit from.", conceptIdL);
-			logger.error(message);
+			logger.warn("A new Reference Set Concept was detected, however, the service cannot generate any RefSet Descriptor entries because existing entries for an ancestor could not be found.");
 			return Collections.emptySet();
 		}
 
