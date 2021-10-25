@@ -1,22 +1,16 @@
 package org.snomed.snowstorm.core.data.services;
 
-import com.google.common.collect.Sets;
 import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.domain.Commit;
 import org.assertj.core.util.Lists;
-import org.ihtsdo.sso.integration.SecurityUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.snomed.snowstorm.AbstractTest;
-import org.snomed.snowstorm.core.data.domain.Concept;
-import org.snomed.snowstorm.core.data.domain.Concepts;
-import org.snomed.snowstorm.core.data.domain.ReferenceSetMember;
-import org.snomed.snowstorm.core.data.domain.Relationship;
-import org.snomed.snowstorm.core.data.domain.classification.ClassificationStatus;
 import org.snomed.snowstorm.core.data.services.pojo.AsyncRefsetMemberChangeBatch;
+import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
 import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,9 +20,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.Set;
 
 import static org.junit.Assert.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -345,7 +337,6 @@ class ReferenceSetMemberServiceTest extends AbstractTest {
 				.getBuckets().get(AGGREGATION_MEMBER_COUNTS_BY_REFERENCE_SET).size());
 
 	}
-
 
 	@AfterEach
 	void tearDown() throws InterruptedException {

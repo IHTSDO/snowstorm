@@ -29,6 +29,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		String STATED = "stated";
 		String ATTR = "attr";
 		String ATTR_MAP = "attrMap";
+		String START = "start";
 	}
 	@Field(type = FieldType.Keyword)
 	private String conceptIdForm;
