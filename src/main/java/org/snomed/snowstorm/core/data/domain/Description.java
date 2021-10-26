@@ -360,7 +360,7 @@ public class Description extends SnomedComponent<Description> implements SnomedC
 	}
 
 	public List<ReferenceSetMember> getAssociationTargetMembers() {
-		return associationTargetMembers;
+		return associationTargetMembers != null ? associationTargetMembers : Collections.emptyList();
 	}
 
 	public String getDescriptionId() {

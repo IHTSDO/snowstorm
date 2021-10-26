@@ -6,7 +6,7 @@ import java.util.Set;
 
 public interface SnomedComponentWithAssociations {
 
-	Map<String,Set<String>> getAssociationTargets();
+	Map<String, Set<String>> getAssociationTargets();
 
 	Collection<ReferenceSetMember> getAssociationTargetMembers();
 
