@@ -34,6 +34,10 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		}
 	}
 	
+	public interface AttributeValueFields {
+		String VALUE_ID = "valueId";
+	}
+
 	public interface AssociationFields {
 		String TARGET_COMP_ID = "targetComponentId";
 		String MAP_TARGET = "mapTarget";
@@ -216,9 +220,9 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		}
 
 		return Objects.equals(getModuleId(), that.getModuleId()) &&
+				Objects.equals(active, that.active) &&
 				Objects.equals(refsetId, that.refsetId) &&
 				Objects.equals(referencedComponentId, that.referencedComponentId) &&
-				Objects.equals(conceptId, that.conceptId) &&
 				Objects.equals(additionalFields, that.additionalFields);
 	}
 
@@ -227,7 +231,7 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		if (memberId != null) {
 			return memberId.hashCode();
 		}
-		return Objects.hash(memberId, getModuleId(), refsetId, referencedComponentId, conceptId, additionalFields);
+		return Objects.hash(memberId, active, getModuleId(), refsetId, referencedComponentId, additionalFields);
 	}
 
 	@Override
@@ -235,6 +239,9 @@ public class ReferenceSetMember extends SnomedComponent<ReferenceSetMember> impl
 		return "ReferenceSetMember{" +
 				"memberId='" + memberId + '\'' +
 				", effectiveTime='" + getEffectiveTimeI() + '\'' +
+				", released='" + isReleased() + '\'' +
+				", releasedEffectiveTime='" + getReleasedEffectiveTime() + '\'' +
+				", releasedHash='" + getReleaseHash() + '\'' +
 				", active=" + active +
 				", moduleId='" + getModuleId() + '\'' +
 				", refsetId='" + refsetId + '\'' +

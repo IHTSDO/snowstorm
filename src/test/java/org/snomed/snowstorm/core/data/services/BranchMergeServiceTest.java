@@ -42,6 +42,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
+import static java.util.function.Predicate.not;
 import static org.elasticsearch.index.query.QueryBuilders.boolQuery;
 import static org.elasticsearch.index.query.QueryBuilders.termsQuery;
 import static org.junit.jupiter.api.Assertions.*;
@@ -509,7 +510,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		branchMergeService.mergeBranchSync("MAIN/A", taskA2, Collections.emptySet());
 
 		// On branch A1 inactivate conceptA with AMBIGUOUS reason and Equivalent association
-		Concept concept = conceptService.find(conceptAId, taskA1);
+		Concept concept = simulateRestTransfer(conceptService.find(conceptAId, taskA1));
 		concept.setActive(false);
 		concept.setInactivationIndicator("AMBIGUOUS");
 		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(conceptBId)));
@@ -528,7 +529,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals(1, memberService.findMembers(taskA1, descriptionInactivationMemberSearchRequest, LARGE_PAGE).getTotalElements());
 
 		// On branch A2 inactivate conceptA with OUTDATED reason and
-		concept = conceptService.find(conceptAId, taskA2);
+		concept = simulateRestTransfer(conceptService.find(conceptAId, taskA2));
 		concept.setActive(false);
 		concept.setInactivationIndicator("OUTDATED");
 		concept.setAssociationTargets(Maps.newHashMap("REPLACED_BY", Sets.newHashSet(conceptBId)));
@@ -574,7 +575,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		//and that would cause deletion if not published. 
 		codeSystemService.createVersion(codeSystemService.find(SNOMEDCT), 20190731, "");
 		
-		Concept concept = conceptService.find(conceptId, path);
+		Concept concept = simulateRestTransfer(conceptService.find(conceptId, path));
 		concept.setActive(false);
 		concept.setInactivationIndicator("ERRONEOUS");
 		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(Concepts.CLINICAL_FINDING)));
@@ -590,8 +591,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		branchService.create("MAIN/B/B2");
 
 		path = "MAIN/B/B1";
-		concept = conceptService.find(conceptId, path);
-		concept = simulateRestTransfer(concept);
+		concept = simulateRestTransfer(conceptService.find(conceptId, path));
 		concept.setInactivationIndicator("AMBIGUOUS");
 		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(Concepts.SNOMEDCT_ROOT)));
 		conceptService.update(concept, path);
@@ -603,8 +603,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		);
 
 		path = "MAIN/B/B2";
-		concept = conceptService.find(conceptId, path);
-		concept = simulateRestTransfer(concept);
+		concept = simulateRestTransfer(conceptService.find(conceptId, path));
 		concept.setInactivationIndicator("AMBIGUOUS");
 		concept.setAssociationTargets(Maps.newHashMap("POSSIBLY_EQUIVALENT_TO", Sets.newHashSet(Concepts.ISA)));
 		conceptService.update(concept, path);
@@ -617,8 +616,7 @@ class BranchMergeServiceTest extends AbstractTest {
 
 		// Rebase B1 with merge
 		path = "MAIN/B/B1";
-		concept = conceptService.find(conceptId, path);
-		concept = simulateRestTransfer(concept);
+		concept = simulateRestTransfer(conceptService.find(conceptId, path));
 		branchMergeService.mergeBranchSync("MAIN/B", "MAIN/B/B1", Collections.singleton(concept));
 
 		for (ReferenceSetMember member : memberService.findMembers(path, conceptId, PageRequest.of(0, 10))) {
@@ -1329,11 +1327,11 @@ class BranchMergeServiceTest extends AbstractTest {
 	}
 
 	@Test
-	void testConflictConceptReleasedAndModified() throws ServiceException {
+	void testConflictConceptReleasedAndModifiedLangRefset() throws ServiceException {
 		final String conceptId = "100001000";
+		final String descriptionId = "10000011";
 
 		// Release first version of the concept so that the inactive descriptions are not automatically deleted
-		String descriptionId = "10000011";
 		Concept releaseVersionConcept = new Concept(conceptId, Concepts.CORE_MODULE)
 				.addDescription(new Description(descriptionId, "Orig")
 						.addLanguageRefsetMember(US_EN_LANG_REFSET, Concepts.PREFERRED)
@@ -1390,6 +1388,92 @@ class BranchMergeServiceTest extends AbstractTest {
 		final Set<ReferenceSetMember> mergedGBLang = mergedDescription.getLangRefsetMembersMap().get(GB_EN_LANG_REFSET);
 		assertEquals(1, mergedGBLang.size());
 		assertEquals(2021_08_01, mergedGBLang.iterator().next().getEffectiveTimeI());
+	}
+
+	@Test
+	void testConflictConceptReleasedAndModifiedHistoricalAssociation() throws ServiceException {
+		final String conceptId = "100001000";
+		final String descriptionId = "10000011";
+
+		// Release first version of the concept
+		Concept releaseVersionConcept = new Concept(conceptId, Concepts.CORE_MODULE)
+				.addDescription(new Description(descriptionId, "Orig"));
+
+		// Create concept on MAIN and create Version #0
+		conceptService.create(releaseVersionConcept, "MAIN");
+		codeSystemService.createVersion(codeSystemService.find(SNOMEDCT), 2021_07_01, "");
+		releaseVersionConcept = simulateRestTransfer(conceptService.find(conceptId, "MAIN"));
+		assertEquals(2021_07_01, releaseVersionConcept.getReleasedEffectiveTime());
+
+		// Inactivate concept on MAIN and create Version #1 - with inactivation data
+		releaseVersionConcept.setActive(false);
+		releaseVersionConcept.setInactivationIndicator("DUPLICATE");
+		releaseVersionConcept.setAssociationTargets(Map.of("POSSIBLY_EQUIVALENT_TO", Collections.singleton("100002000")));
+		conceptService.update(releaseVersionConcept, "MAIN");
+		codeSystemService.createVersion(codeSystemService.find(SNOMEDCT), 2021_08_01, "");
+		releaseVersionConcept = simulateRestTransfer(conceptService.find(conceptId, "MAIN"));
+
+		// Rebase MAIN/A
+		branchMergeService.rebaseSync("MAIN/A", null);
+
+		// Update inactivation details on MAIN/A (on Version #1)
+		Concept conceptOnA = simulateRestTransfer(conceptService.find(conceptId, "MAIN/A"));
+		conceptOnA.setActive(false);
+		conceptOnA.setInactivationIndicator("OUTDATED");// Different indicator
+		conceptOnA.setAssociationTargets(Map.of("POSSIBLY_EQUIVALENT_TO", Collections.singleton("100003000")));// Different target
+		assertEquals(Map.of("POSSIBLY_EQUIVALENT_TO", Collections.singleton("100003000")), conceptOnA.getAssociationTargets());
+		conceptService.update(conceptOnA, "MAIN/A");
+		conceptOnA = simulateRestTransfer(conceptService.find(conceptId, "MAIN/A"));
+		assertEquals(Map.of("POSSIBLY_EQUIVALENT_TO", Collections.singleton("100003000")), conceptOnA.getAssociationTargets());
+		assertEquals(2021_08_01, conceptOnA.getReleasedEffectiveTime());
+
+		// Update inactivation details on MAIN and create Version #2
+		releaseVersionConcept.setActive(false);
+		releaseVersionConcept.setInactivationIndicator("OUTDATED");
+		releaseVersionConcept.setAssociationTargets(Map.of("POSSIBLY_EQUIVALENT_TO", Collections.singleton("100003000")));
+		conceptService.update(releaseVersionConcept, "MAIN");
+		codeSystemService.createVersion(codeSystemService.find(SNOMEDCT), 2021_09_01, "");
+
+		// Rebase MAIN/A
+		branchMergeService.rebaseSync("MAIN/A", Collections.singleton(conceptOnA));
+
+		// Assert that releasedEffectiveTime == #2
+		final Concept mergedConcept = conceptService.find(conceptId, "MAIN/A");
+		assertEquals(2021_08_01, mergedConcept.getReleasedEffectiveTime());
+
+		assertEquals("OUTDATED", mergedConcept.getInactivationIndicator());
+		assertEquals(Map.of("POSSIBLY_EQUIVALENT_TO", Collections.singleton("100003000")), mergedConcept.getAssociationTargets());
+
+		final Collection<ReferenceSetMember> inactivationIndicatorMembers = mergedConcept.getInactivationIndicatorMembers();
+		assertEquals(2, inactivationIndicatorMembers.size());
+
+		final ReferenceSetMember activeIndicatorMember = inactivationIndicatorMembers.stream().filter(ReferenceSetMember::isActive).findFirst().orElseThrow();
+		assertTrue(activeIndicatorMember.isActive());
+		assertTrue(activeIndicatorMember.isReleased());
+		assertEquals(2021_09_01, activeIndicatorMember.getEffectiveTimeI());
+		assertEquals(2021_09_01, activeIndicatorMember.getReleasedEffectiveTime());
+		assertEquals("900000000000483008", activeIndicatorMember.getAdditionalField("valueId"));
+
+		final ReferenceSetMember inactiveIndicatorMember = inactivationIndicatorMembers.stream().filter(not(ReferenceSetMember::isActive)).findFirst().orElseThrow();
+		assertFalse(inactiveIndicatorMember.isActive());
+		assertTrue(inactiveIndicatorMember.isReleased());
+		assertEquals(2021_09_01, inactiveIndicatorMember.getEffectiveTimeI());
+		assertEquals(2021_09_01, inactiveIndicatorMember.getReleasedEffectiveTime());
+		assertEquals("900000000000482003", inactiveIndicatorMember.getAdditionalField("valueId"));
+
+
+		final List<ReferenceSetMember> associationTargetMembers = mergedConcept.getAssociationTargetMembers();
+		assertEquals(2, associationTargetMembers.size());
+
+		final ReferenceSetMember activeAssocMember = associationTargetMembers.stream().filter(ReferenceSetMember::isActive).findFirst().orElseThrow();
+		assertTrue(activeAssocMember.isActive());
+		assertTrue(activeAssocMember.isReleased());
+		assertEquals(2021_09_01, activeAssocMember.getReleasedEffectiveTime());
+
+		final ReferenceSetMember inactiveAssocMember = associationTargetMembers.stream().filter(not(ReferenceSetMember::isActive)).findFirst().orElseThrow();
+		assertFalse(inactiveAssocMember.isActive());
+		assertTrue(inactiveAssocMember.isReleased());
+		assertEquals(2021_09_01, inactiveAssocMember.getReleasedEffectiveTime());
 	}
 
 	private <T> Supplier<String> itemsToString(String message, Iterable<T> items) {
