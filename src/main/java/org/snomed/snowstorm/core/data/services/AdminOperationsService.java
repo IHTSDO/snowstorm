@@ -742,10 +742,7 @@ public class AdminOperationsService {
 			if (inactivationIndicatorMembers != null) {
 				members.addAll(inactivationIndicatorMembers);
 			}
-			Collection<ReferenceSetMember> associationTargetMembers = description.getAssociationTargetMembers();
-			if (associationTargetMembers != null) {
-				members.addAll(associationTargetMembers);
-			}
+			members.addAll(description.getAssociationTargetMembers());
 		}
 		return members;
 	}
