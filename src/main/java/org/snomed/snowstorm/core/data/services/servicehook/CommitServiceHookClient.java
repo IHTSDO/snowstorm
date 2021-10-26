@@ -85,7 +85,7 @@ public class CommitServiceHookClient implements CommitListener {
 			// Cannot communicate with external system; perhaps lacking authentication or url configured incorrectly.
 			if (this.failIfError) {
 				logger.error("Cannot communicate with external system; throwing exception.");
-				throw new IllegalStateException("Cannot communicate with external system.", e);
+				throw new IllegalStateException("Cannot communicate with external system: " + this.serviceUrl, e);
 			} else {
 				logger.error("Cannot communicate with external system, however, failure will be ignored as per configuration.");
 			}
