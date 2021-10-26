@@ -97,7 +97,6 @@ public abstract class AbstractFHIRTest {
 	static ObjectMapper mapper = new ObjectMapper();
 
 	protected final Logger logger = LoggerFactory.getLogger(getClass());
-
 	private static final int TOTAL_TEST_CLASSES = 7;
 	private static int testClassesRun = 0;
 
@@ -119,7 +118,7 @@ public abstract class AbstractFHIRTest {
 		}
 		// Setup security
 		if (!rolesEnabled) {
-			PreAuthenticatedAuthenticationToken authentication = new PreAuthenticatedAuthenticationToken("test-admin", "123", Sets.newHashSet(new SimpleGrantedAuthority("USER")));
+			PreAuthenticatedAuthenticationToken authentication = new PreAuthenticatedAuthenticationToken("test-admin", "1234", Sets.newHashSet(new SimpleGrantedAuthority("USER")));
 			SecurityContextHolder.setContext(new SecurityContextImpl(authentication));
 		} else {
 			SecurityContextHolder.clearContext();
