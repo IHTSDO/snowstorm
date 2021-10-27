@@ -1273,7 +1273,7 @@ class BranchMergeServiceTest extends AbstractTest {
 		assertEquals("[100001000]", targetBranchReview.getChangedConcepts().toString());
 
 		// Rebase the diverged branch supplying the manually merged concept
-		Concept rightSideConcept = conceptVersions.get(2);
+		Concept rightSideConcept = simulateRestTransfer(conceptVersions.get(2));
 		branchMergeService.mergeBranchSync("MAIN/A", "MAIN/A/A2", Collections.singleton(rightSideConcept));
 
 		Set<Description> descriptions = conceptService.find(conceptId, "MAIN/A/A2").getDescriptions();
