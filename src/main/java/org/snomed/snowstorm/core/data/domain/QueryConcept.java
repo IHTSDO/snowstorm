@@ -31,6 +31,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		String ATTR_MAP = "attrMap";
 		String START = "start";
 	}
+
 	@Field(type = FieldType.Keyword)
 	private String conceptIdForm;
 
@@ -46,6 +47,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 	@Field(type = FieldType.Boolean)
 	private boolean stated;
 
+	@SuppressWarnings("unused")// Used in Elasticsearch queries, not code.
 	@Field(type = FieldType.Object)
 	private Map<String, Set<Object>> attr;
 
@@ -70,6 +72,16 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 		this.ancestors = ancestorIds;
 		this.stated = stated;
 		updateConceptIdForm();
+	}
+
+	public QueryConcept(QueryConcept queryConcept) {
+		conceptIdForm = queryConcept.conceptIdForm;
+		conceptIdL = queryConcept.conceptIdL;
+		parents = new HashSet<>(queryConcept.parents);
+		ancestors = new HashSet<>(queryConcept.ancestors);
+		stated = queryConcept.stated;
+		attrMap = queryConcept.attrMap;
+		serializeGroupedAttributesMap();// Populates attr field
 	}
 
 	public void clearAttributes() {
@@ -306,6 +318,7 @@ public class QueryConcept extends DomainEntity<QueryConcept> {
 					String type = attrParts[0];
 					String[] values = attrParts[1].split(",");
 					List<Object> transformed = checkAndTransformConcreteValues(Arrays.asList(values));
+					transformed.sort(null);
 					attributeMap.put(type, transformed);
 				}
 				groupedAttributesMap.put(groupNo, attributeMap);
