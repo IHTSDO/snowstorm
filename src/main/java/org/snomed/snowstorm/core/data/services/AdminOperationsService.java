@@ -146,7 +146,10 @@ public class AdminOperationsService {
 		logger.info("Finding and fixing donated content on {}.", branch);
 
 		Map<Class, Set<String>> fixesApplied = new HashMap<>();
-		branchMergeService.fixDuplicateComponents(branch, versionControlHelper.getBranchCriteria(branch), true, fixesApplied);
+		try (Commit commit = branchService.openCommit(branch)) {
+			branchMergeService.fixDuplicateComponents(branch, commit, versionControlHelper.getBranchCriteria(branch), true, fixesApplied);
+			commit.markSuccessful();
+		}
 
 		logger.info("Completed donated content fixing on {}.", branch);
 		return fixesApplied;
@@ -160,7 +163,10 @@ public class AdminOperationsService {
 		logger.info("Finding duplicate content on {} and hiding parent version.", branch);
 
 		Map<Class, Set<String>> fixesApplied = new HashMap<>();
-		branchMergeService.fixDuplicateComponents(branch, versionControlHelper.getBranchCriteria(branch), false, fixesApplied);
+		try (Commit commit = branchService.openCommit(branch)) {
+			branchMergeService.fixDuplicateComponents(branch, commit, versionControlHelper.getBranchCriteria(branch), false, fixesApplied);
+			commit.markSuccessful();
+		}
 
 		logger.info("Completed hiding parent version of duplicate content on {}.", branch);
 		return fixesApplied;
