@@ -340,8 +340,9 @@ public class ConceptUpdateHelper extends ComponentService {
 			membersRequired.computeIfAbsent(refsetId, id -> new HashSet<>()).addAll(entry.getValue());
 		}
 
-		updateMetadataRefset(membersRequired, ReferenceSetMember.AssociationFields.TARGET_COMP_ID, existingComponentVersion, existingComponentVersionFromParent,
+		List<ReferenceSetMember> activeSet = updateMetadataRefset(membersRequired, ReferenceSetMember.AssociationFields.TARGET_COMP_ID, existingComponentVersion, existingComponentVersionFromParent,
 				SnomedComponentWithAssociations::getAssociationTargetMembers, newComponentVersion.getId(), newComponentVersion.getModuleId(), refsetMembersToPersist);
+		activeSet.forEach(newComponentVersion::addAssociationTargetMember);
 	}
 
 	private void updateInactivationIndicator(SnomedComponentWithInactivationIndicator newComponent,
@@ -363,12 +364,13 @@ public class ConceptUpdateHelper extends ComponentService {
 		if (newIndicatorId != null) {
 			membersRequired.put(indicatorReferenceSet, Sets.newHashSet(newIndicatorId));
 		}
-		updateMetadataRefset(membersRequired, ReferenceSetMember.AttributeValueFields.VALUE_ID, existingComponent, existingConceptFromParent, SnomedComponentWithInactivationIndicator::getInactivationIndicatorMembers,
+		List<ReferenceSetMember> memberToKeep = updateMetadataRefset(membersRequired, ReferenceSetMember.AttributeValueFields.VALUE_ID, existingComponent, existingConceptFromParent, SnomedComponentWithInactivationIndicator::getInactivationIndicatorMembers,
 				newComponent.getId(), newComponent.getModuleId(), refsetMembersToPersist);
+		memberToKeep.forEach(newComponent::addInactivationIndicatorMember);
 	}
 
-	private <T> void updateMetadataRefset(Map<String, Set<String>> membersRequired, String fieldName, T existingComponent, T existingConceptFromParent,
-			Function<T, Collection<ReferenceSetMember>> getter, String refComponent, String moduleId, Collection<ReferenceSetMember> refsetMembersToPersist) {
+	private <T> List<ReferenceSetMember> updateMetadataRefset(Map<String, Set<String>> membersRequired, String fieldName, T existingComponent, T existingConceptFromParent,
+				Function<T, Collection<ReferenceSetMember>> getter, String refComponent, String moduleId, Collection<ReferenceSetMember> refsetMembersToPersist) {
 
 		List<ReferenceSetMember> existingMembers = new ArrayList<>();
 		if (existingComponent != null) {
@@ -432,10 +434,12 @@ public class ConceptUpdateHelper extends ComponentService {
 				newIndicatorMember.setAdditionalField(fieldName, value);
 				newIndicatorMember.setChanged(true);
 				toPersist.add(newIndicatorMember);
+				toKeep.add(newIndicatorMember);
 			}
 		}
 
 		refsetMembersToPersist.addAll(toPersist);
+		return toKeep;
 	}
 
 	void doDeleteConcept(String path, Commit commit, Concept concept) {

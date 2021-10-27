@@ -16,7 +16,6 @@ import org.snomed.snowstorm.AbstractTest;
 import org.snomed.snowstorm.core.data.domain.*;
 import org.snomed.snowstorm.core.data.services.pojo.DescriptionCriteria;
 import org.snomed.snowstorm.core.data.services.pojo.MemberSearchRequest;
-import org.snomed.snowstorm.core.data.services.pojo.PersistedComponents;
 import org.snomed.snowstorm.core.pojo.BranchTimepoint;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.rest.View;
@@ -178,7 +177,8 @@ class ConceptServiceTest extends AbstractTest {
 		associationTargets.put("REFERS_TO", Collections.singleton("321667001"));
 		descriptionToInactivate.setAssociationTargets(associationTargets);
 
-		Concept updated = conceptService.update(concept, "MAIN");
+		conceptService.update(concept, "MAIN");
+		Concept updated = conceptService.find(concept.getConceptId(), "MAIN");
 		assertEquals(1, updated.getDescriptions().size());
 		Description updatedDescription = updated.getDescriptions().iterator().next();
 		assertFalse(updatedDescription.isActive());
@@ -578,7 +578,7 @@ class ConceptServiceTest extends AbstractTest {
 		HashMap<String, Set<String>> associationTargetStrings = new HashMap<>();
 		associationTargetStrings.put(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION), Collections.singleton("87100004"));
 		savedConcept.setAssociationTargets(associationTargetStrings);
-		assertNull(savedConcept.getAssociationTargetMembers());
+		assertTrue(savedConcept.getAssociationTargetMembers().isEmpty());
 
 		Concept inactiveConcept = conceptService.update(savedConcept, path);
 		Concept foundInactiveConcept = conceptService.find(savedConcept.getConceptId(), path);
@@ -590,20 +590,20 @@ class ConceptServiceTest extends AbstractTest {
 		assertEquals("DUPLICATE", foundInactiveConcept.getInactivationIndicator());
 
 		// Check inactivation indicator reference set member was created
-		ReferenceSetMember inactivationIndicatorMember = inactiveConcept.getInactivationIndicatorMember();
+		ReferenceSetMember inactivationIndicatorMember = foundInactiveConcept.getInactivationIndicatorMember();
 		assertNotNull(inactivationIndicatorMember);
 		assertTrue(inactivationIndicatorMember.isActive());
 		assertEquals(Concepts.CONCEPT_INACTIVATION_INDICATOR_REFERENCE_SET, inactivationIndicatorMember.getRefsetId());
 		assertEquals(Concepts.DUPLICATE, inactivationIndicatorMember.getAdditionalField("valueId"));
 
 		// Check association target strings
-		Map<String, Set<String>> associationTargetsAfter = inactiveConcept.getAssociationTargets();
+		Map<String, Set<String>> associationTargetsAfter = foundInactiveConcept.getAssociationTargets();
 		assertNotNull(associationTargetsAfter);
 		assertEquals(1, associationTargetsAfter.size());
 		assertEquals(Collections.singleton("87100004"), associationTargetsAfter.get(Concepts.historicalAssociationNames.get(Concepts.REFSET_SAME_AS_ASSOCIATION)));
 
 		// Check association target reference set member was created
-		Collection<ReferenceSetMember> associationTargetMembers = inactiveConcept.getAssociationTargetMembers();
+		Collection<ReferenceSetMember> associationTargetMembers = foundInactiveConcept.getAssociationTargetMembers();
 		assertNotNull(associationTargetMembers);
 		assertEquals(1, associationTargetMembers.size());
 		ReferenceSetMember associationTargetMember = associationTargetMembers.iterator().next();
@@ -638,8 +638,7 @@ class ConceptServiceTest extends AbstractTest {
 
 		codeSystemService.createVersion(codeSystem, 20200731, "");
 
-		inactiveConcept = conceptService.find(inactiveConcept.getId(), path);
-		inactiveConcept.getInactivationIndicatorMembers().clear();
+		inactiveConcept = simulateRestTransfer(conceptService.find(inactiveConcept.getId(), path));
 		inactiveConcept.setInactivationIndicator("OUTDATED");
 		conceptService.update(inactiveConcept, path);
 
@@ -703,11 +702,11 @@ class ConceptServiceTest extends AbstractTest {
 		codeSystemService.createVersion(codeSystem, 20200131, "");
 
 		// Make concept active again
-		concept = conceptService.find(concept.getId(), path);
+		concept = simulateRestTransfer(conceptService.find(concept.getId(), path));
 		concept.setActive(true);
-		concept.getInactivationIndicatorMembers().clear();
-		concept.getAssociationTargetMembers().clear();
 		concept.getClassAxioms().iterator().next().setActive(true);
+		concept.setInactivationIndicator(null);
+		concept.setAssociationTargets(null);
 		conceptService.update(concept, path);
 
 		concept = conceptService.find(concept.getId(), path);
@@ -1347,10 +1346,12 @@ class ConceptServiceTest extends AbstractTest {
 		Concept actualConcept = conceptService.find(conceptId, DEFAULT_LANGUAGE_DIALECTS, new BranchTimepoint("MAIN"));
 
 		assertEquals(1, actualConcept.getDescriptions().size());
-		assertEquals(2,actualConcept.getDescriptions().iterator().next().getInactivationIndicatorMembers().size());
+		assertEquals(2, actualConcept.getDescriptions().iterator().next().getInactivationIndicatorMembers().size());
 
-		PersistedComponents persistedComponents = conceptService.createUpdate(Collections.singletonList(actualConcept), "MAIN");
-		assertEquals(2, persistedComponents.getPersistedDescriptions().iterator().next().getInactivationIndicatorMembers().size());
+		actualConcept = simulateRestTransfer(actualConcept);
+		conceptService.createUpdate(Collections.singletonList(actualConcept), "MAIN");
+		Concept conceptAfterUpdate = conceptService.find(actualConcept.getConceptId(), "MAIN");
+		assertEquals(2, conceptAfterUpdate.getDescriptions().iterator().next().getInactivationIndicatorMembers().size());
 	}
 
 	@Test
