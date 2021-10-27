@@ -165,6 +165,10 @@ public class BranchMergeService {
 		return branchMergeJobRepository.findById(id).orElseThrow(() -> new NotFoundException("Branch merge job not found."));
 	}
 
+	public void rebaseSync(String branch, Collection<Concept> manuallyMergedConcepts) throws ServiceException {
+		mergeBranchSync(PathUtil.getParentPath(branch), branch, manuallyMergedConcepts);
+	}
+
 	public void mergeBranchSync(String source, String target, Collection<Concept> manuallyMergedConcepts) throws ServiceException {
 		logger.info("Request merge {} -> {}", source, target);
 		final Branch sourceBranch = branchService.findBranchOrThrow(source);
@@ -325,20 +329,20 @@ public class BranchMergeService {
 		}
 		try (Commit commit = branchService.openRebaseToSpecificParentTimepointCommit(targetBranch, sourceTimepoint, branchMetadataHelper.getBranchLockMetadata(targetLockMessage))) {
 			BranchCriteria branchCriteriaIncludingOpenCommit = versionControlHelper.getBranchCriteriaIncludingOpenCommit(commit);
-			fixDuplicateComponents(targetBranch, branchCriteriaIncludingOpenCommit, true, new HashMap<>());
+			fixDuplicateComponents(targetBranch, commit, branchCriteriaIncludingOpenCommit, true, new HashMap<>());
 			commit.markSuccessful();
 		}
 	}
 
-	void fixDuplicateComponents(String branch, BranchCriteria branchCriteria, boolean endThisVersion, Map<Class, Set<String>> fixesApplied) {
-		fixDuplicateComponentsOfType(branch, branchCriteria, Concept.class, Concept.Fields.CONCEPT_ID, conceptRepository, endThisVersion, fixesApplied);
-		fixDuplicateComponentsOfType(branch, branchCriteria, Description.class, Description.Fields.DESCRIPTION_ID, descriptionRepository, endThisVersion, fixesApplied);
-		fixDuplicateComponentsOfType(branch, branchCriteria, Relationship.class, Relationship.Fields.RELATIONSHIP_ID, relationshipRepository, endThisVersion, fixesApplied);
-		fixDuplicateComponentsOfType(branch, branchCriteria, ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID, referenceSetMemberRepository, endThisVersion, fixesApplied);
+	void fixDuplicateComponents(String branch, Commit commit, BranchCriteria branchCriteria, boolean endThisVersion, Map<Class, Set<String>> fixesApplied) {
+		fixDuplicateComponentsOfType(branch, commit, branchCriteria, Concept.class, Concept.Fields.CONCEPT_ID, conceptRepository, endThisVersion, fixesApplied);
+		fixDuplicateComponentsOfType(branch, commit, branchCriteria, Description.class, Description.Fields.DESCRIPTION_ID, descriptionRepository, endThisVersion, fixesApplied);
+		fixDuplicateComponentsOfType(branch, commit, branchCriteria, Relationship.class, Relationship.Fields.RELATIONSHIP_ID, relationshipRepository, endThisVersion, fixesApplied);
+		fixDuplicateComponentsOfType(branch, commit, branchCriteria, ReferenceSetMember.class, ReferenceSetMember.Fields.MEMBER_ID, referenceSetMemberRepository, endThisVersion, fixesApplied);
 	}
 
-	private void fixDuplicateComponentsOfType(String branch, BranchCriteria branchCriteria, Class<? extends SnomedComponent> clazz, String idField,
-			ElasticsearchRepository repository, boolean endThisVersion, Map<Class, Set<String>> fixesApplied) {
+	private void fixDuplicateComponentsOfType(String branch, Commit commit, BranchCriteria branchCriteria, Class<? extends SnomedComponent> clazz, String idField,
+											  ElasticsearchRepository repository, boolean endThisVersion, Map<Class, Set<String>> fixesApplied) {
 
 		logger.info("Searching for duplicate {} records on {}", clazz.getSimpleName(), branch);
 		BoolQueryBuilder entityBranchCriteria = branchCriteria.getEntityBranchCriteria(clazz);
@@ -402,21 +406,15 @@ public class BranchMergeService {
 				SnomedComponent extensionVersion = extensionVersionList.get(0);
 				if (endThisVersion && intVersion.isReleasedMoreRecentlyThan(extensionVersion)) {
 					// End duplicate components in extension module
-					extensionVersion.setEnd(intVersion.getStart());
+					extensionVersion.setEnd(commit.getTimepoint());
 					repository.save(extensionVersion);
-					logger.info("Ended {} on {} at timepoint {} to match {} version start date.", duplicateId, branch, intVersion.getStart(), intVersion.getPath());
+					logger.info("Ended {} on {} at timepoint {} to match current commit.", duplicateId, branch, commit.getTimepoint());
 				} else {
 					// Hide parent version
+					commit.addVersionsReplaced(Collections.singleton(intVersion.getInternalId()), clazz);
 					internalIdsToHide.add(intVersion.getInternalId());
 				}
 			}
-		}
-		if (!internalIdsToHide.isEmpty()) {
-			// Hide parent version using version replaced map on branch
-			Branch latestBranch = branchService.findLatest(branch);
-			latestBranch.addVersionsReplaced(Collections.singletonMap(clazz.getSimpleName(), new HashSet<>(internalIdsToHide)));
-			branchRepository.save(latestBranch);
-			logger.info("Updated branch with an additional {} {} versions to hide on ancestor branch.", internalIdsToHide.size(), clazz.getSimpleName());
 		}
 
 		fixesApplied.put(clazz, duplicateIds);

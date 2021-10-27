@@ -5,7 +5,6 @@ import io.kaicode.elasticvc.api.BranchService;
 import io.kaicode.elasticvc.api.CommitListener;
 import io.kaicode.elasticvc.domain.Branch;
 import io.kaicode.elasticvc.domain.Commit;
-import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -24,10 +23,11 @@ import org.snomed.snowstorm.mrcm.MRCMUpdateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.elasticsearch.core.ElasticsearchOperations;
 import org.springframework.data.elasticsearch.core.ElasticsearchRestTemplate;
 import org.springframework.data.elasticsearch.core.SearchHit;
+import org.springframework.data.elasticsearch.core.SearchHits;
 import org.springframework.data.elasticsearch.core.query.NativeSearchQueryBuilder;
-import org.springframework.data.elasticsearch.core.query.Query;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
@@ -36,8 +36,7 @@ import java.util.stream.Collectors;
 
 import static io.kaicode.elasticvc.api.ComponentService.LARGE_PAGE;
 import static java.lang.Long.parseLong;
-import static org.elasticsearch.index.query.QueryBuilders.existsQuery;
-import static org.elasticsearch.index.query.QueryBuilders.termQuery;
+import static org.elasticsearch.index.query.QueryBuilders.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.snomed.snowstorm.core.data.domain.Concepts.*;
 
@@ -71,6 +70,12 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 	
 	@Autowired
 	private QueryConceptRepository queryConceptRepository;
+
+	@Autowired
+	private CodeSystemService codeSystemService;
+
+	@Autowired
+	private ElasticsearchOperations elasticsearchOperations;
 
 	private static final PageRequest PAGE_REQUEST = PageRequest.of(0, 50);
 
@@ -808,7 +813,7 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 
 		List<QueryConcept> queryConcepts = elasticsearchTemplate.search(new NativeSearchQueryBuilder().build(), QueryConcept.class)
 				.stream().map(SearchHit::getContent).collect(Collectors.toList());
-		assertEquals(6, queryConcepts.size());
+		assertEquals(5, queryConcepts.size());
 
 		deleteAllAndRefresh(QueryConcept.class);
 
@@ -1276,6 +1281,29 @@ class SemanticIndexUpdateServiceTest extends AbstractTest {
 				.getVersionsReplacedCounts().get(QueryConcept.class.getSimpleName()), "Versions replaced within old commit must stay intact.");
 
 		assertTC(n14, "MAIN/A/A1", n13, n12, n11, root);
+	}
+
+	@Test
+	void testNoRedundantSemanticUpdates() throws ServiceException {
+		// Given
+		Concept root = new Concept(SNOMEDCT_ROOT);
+		List<Concept> batch = new ArrayList<>();
+		batch.add(root);
+		for (int i = 0; i < 1000; i++) {
+			batch.add(new Concept("1000" + i + "011").addRelationship(new Relationship(ISA, SNOMEDCT_ROOT)));
+		}
+		conceptService.batchCreate(batch, MAIN);
+		codeSystemService.createCodeSystem(new CodeSystem(CodeSystemService.SNOMEDCT, MAIN));
+
+		// When
+		// Version content and check that no unnecessary semantic index changes are made.
+		Date now = new Date();
+		codeSystemService.createVersion(codeSystemService.find(CodeSystemService.SNOMEDCT), 20210101, "");
+
+		// Assert
+		SearchHits<QueryConcept> semanticChanges =
+				elasticsearchOperations.search(new NativeSearchQueryBuilder().withQuery(rangeQuery("start").gte(now.getTime())).build(), QueryConcept.class);
+		assertEquals(0, semanticChanges.getTotalHits());
 	}
 
 	private void simulateRF2Import(String path, List<Concept> concepts) {

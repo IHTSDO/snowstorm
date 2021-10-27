@@ -33,6 +33,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
@@ -110,12 +112,16 @@ public class ExportService {
 				exportConfiguration.getType(), exportConfiguration.isConceptsAndRelationshipsOnly(), exportConfiguration.isUnpromotedChangesOnly(),
 				exportConfiguration.getTransientEffectiveTime(), exportConfiguration.getStartEffectiveTime(), exportConfiguration.getModuleIds(),
 				exportConfiguration.isLegacyZipNaming(), exportConfiguration.getRefsetIds(), exportConfiguration.getId());
+		logger.info("Transmitting " + exportConfiguration.getId() + " export file " + exportFile);
 		try (FileInputStream inputStream = new FileInputStream(exportFile)) {
-			Streams.copy(inputStream, outputStream, false);
+			long fileSize = Files.size(exportFile.toPath());
+			long bytesTransferred = Streams.copy(inputStream, outputStream, false);
+			logger.info("Transmitted " + bytesTransferred + "bytes (file size = " + fileSize + "bytes) for export " + exportConfiguration.getId());
 		} catch (IOException e) {
 			throw new ExportException("Failed to copy RF2 data into output stream.", e);
 		} finally {
 			exportFile.delete();
+			logger.info("Deleted " + exportConfiguration.getId() + " export file " + exportFile);
 		}
 	}
 

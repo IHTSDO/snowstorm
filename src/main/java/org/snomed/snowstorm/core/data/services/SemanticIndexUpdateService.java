@@ -349,14 +349,17 @@ public class SemanticIndexUpdateService extends ComponentService implements Comm
 						save = true;
 					}
 				} else {
+					QueryConcept newQueryConcept = new QueryConcept(queryConcept);
 					if (node != null) {
 						// TC changes
-						queryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
-						queryConcept.setAncestors(new HashSet<>(node.getTransitiveClosure(branchPath, throwExceptionIfTransitiveClosureLoopFound)));
-						save = true;
+						newQueryConcept.setParents(node.getParents().stream().map(Node::getId).collect(Collectors.toSet()));
+						newQueryConcept.setAncestors(new HashSet<>(node.getTransitiveClosure(branchPath, throwExceptionIfTransitiveClosureLoopFound)));
 					}
 					if (updatedConceptIds.contains(conceptId)) {
-						applyAttributeChanges(queryConcept, conceptId, conceptAttributeChanges);
+						applyAttributeChanges(newQueryConcept, conceptId, conceptAttributeChanges);
+					}
+					if (!queryConcept.fieldsMatch(newQueryConcept)) {
+						queryConcept = newQueryConcept;
 						save = true;
 					}
 				}

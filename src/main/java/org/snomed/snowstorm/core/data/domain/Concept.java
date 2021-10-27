@@ -207,7 +207,7 @@ public class Concept extends SnomedComponent<Concept> implements ConceptView, Sn
 	}
 
 	public List<ReferenceSetMember> getAssociationTargetMembers() {
-		return associationTargetMembers;
+		return associationTargetMembers != null ? associationTargetMembers : Collections.emptyList();
 	}
 
 	@JsonView(value = View.Component.class)
