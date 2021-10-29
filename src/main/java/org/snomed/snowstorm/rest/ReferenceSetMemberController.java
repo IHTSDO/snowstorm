@@ -8,6 +8,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import org.apache.commons.lang3.SerializationUtils;
+import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.util.set.Sets;
 import org.snomed.snowstorm.config.Config;
 import org.snomed.snowstorm.core.data.domain.ConceptMini;
@@ -23,10 +24,13 @@ import org.snomed.snowstorm.core.data.services.pojo.PageWithBucketAggregations;
 import org.snomed.snowstorm.core.data.services.pojo.RefSetMemberPageWithBucketAggregations;
 import org.snomed.snowstorm.core.pojo.LanguageDialect;
 import org.snomed.snowstorm.core.util.TimerUtil;
+import org.snomed.snowstorm.rest.converter.SearchAfterHelper;
 import org.snomed.snowstorm.rest.pojo.ItemsPage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.elasticsearch.core.SearchAfterPageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -67,11 +71,13 @@ public class ReferenceSetMemberController {
 			@RequestParam(required = false) Boolean active,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "10") int limit,
+			@RequestParam(required = false) String searchAfter,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
 
 		branch = BranchPathUriUtil.decodePath(branch);
 		List<LanguageDialect> languageDialects = ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader);
-		PageRequest pageRequest = ControllerHelper.getPageRequest(offset, limit);
+		PageRequest pageRequest = getPageRequestWithSort(offset, limit, searchAfter,
+				Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending());
 
 		TimerUtil timer = new TimerUtil("Member aggregation debug " + branch);
 		// Find Reference Sets with aggregation
@@ -111,7 +117,7 @@ public class ReferenceSetMemberController {
 		timer.checkpoint("Load minis");
 
 		RefSetMemberPageWithBucketAggregations<ReferenceSetMember> pageWithBucketAggregations =
-				new RefSetMemberPageWithBucketAggregations<>(page.getContent(), page.getPageable(), page.getTotalElements(), page.getBuckets().get("memberCountsByReferenceSet"));
+				new RefSetMemberPageWithBucketAggregations<>(page.getContent(), page.getPageable(), page.getTotalElements(), page.getBuckets().get("memberCountsByReferenceSet"), page.getSearchAfterArray());
 		pageWithBucketAggregations.setReferenceSets(referenceSets);
 		timer.finish();
 		return pageWithBucketAggregations;
@@ -136,9 +142,11 @@ public class ReferenceSetMemberController {
 			@RequestParam(name = "owlExpression.gci", required = false) Boolean owlExpressionGCI,
 			@RequestParam(defaultValue = "0") int offset,
 			@RequestParam(defaultValue = "50") int limit,
+			@RequestParam(required = false) String searchAfter,
 			@RequestHeader(value = "Accept-Language", defaultValue = Config.DEFAULT_ACCEPT_LANG_HEADER) String acceptLanguageHeader) {
-
-		ControllerHelper.validatePageSize(offset, limit);
+		
+		PageRequest pageRequest = getPageRequestWithSort(offset, limit, searchAfter,
+				Sort.sort(ReferenceSetMember.class).by(ReferenceSetMember::getMemberId).descending());
 		branch = BranchPathUriUtil.decodePath(branch);
 		Page<ReferenceSetMember> members = memberService.findMembers(
 				branch,
@@ -152,7 +160,7 @@ public class ReferenceSetMemberController {
 						.owlExpressionConceptId(owlExpressionConceptId)
 						.owlExpressionGCI(owlExpressionGCI)
 				,
-				ControllerHelper.getPageRequest(offset, limit)
+				pageRequest
 		);
 		joinReferencedComponents(members.getContent(), ControllerHelper.parseAcceptLanguageHeaderWithDefaultFallback(acceptLanguageHeader), branch);
 		return new ItemsPage<>(members);
@@ -271,5 +279,16 @@ public class ReferenceSetMemberController {
 		public void setMemberIds(Set<String> memberIds) {
 			this.memberIds = memberIds;
 		}
+	}
+	
+	private PageRequest getPageRequestWithSort(int offset, int size, String searchAfter, Sort sort) {
+		ControllerHelper.validatePageSize(offset, size);
+		PageRequest pageRequest;
+		if (!Strings.isNullOrEmpty(searchAfter)) {
+			pageRequest = SearchAfterPageRequest.of(SearchAfterHelper.fromSearchAfterToken(searchAfter), size, sort);
+		} else {
+			pageRequest = ControllerHelper.getPageRequest(offset, size, sort);
+		}
+		return pageRequest;
 	}
 }
