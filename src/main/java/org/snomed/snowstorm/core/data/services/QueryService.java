@@ -702,6 +702,23 @@ public class QueryService implements ApplicationContextAware {
 		}
 
 		@Override
+		public String toString() {
+			return "ConceptQueryBuilder{" +
+					"stated=" + stated +
+					", activeFilter=" + activeFilter +
+					", definitionStatusFilter='" + definitionStatusFilter + '\'' +
+					", module=" + module +
+					", resultLanguageDialects=" + resultLanguageDialects +
+					", ecl='" + ecl + '\'' +
+					", conceptIds=" + conceptIds +
+					", descriptionCriteria=" + descriptionCriteria +
+					", effectiveTime=" + effectiveTime +
+					", isNullEffectiveTime=" + isNullEffectiveTime +
+					", isReleased=" + isReleased +
+					'}';
+		}
+
+		@Override
 		public boolean equals(Object o) {
 			if (this == o) return true;
 			if (o == null || getClass() != o.getClass()) return false;

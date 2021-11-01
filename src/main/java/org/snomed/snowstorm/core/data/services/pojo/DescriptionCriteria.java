@@ -4,6 +4,7 @@ import org.snomed.snowstorm.core.data.services.DescriptionService;
 import org.springframework.util.CollectionUtils;
 
 import java.util.Collection;
+import java.util.Objects;
 import java.util.Set;
 
 import static org.snomed.snowstorm.config.Config.DEFAULT_LANGUAGE_CODES;
@@ -194,4 +195,29 @@ public class DescriptionCriteria {
 		return searchMode;
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+		DescriptionCriteria that = (DescriptionCriteria) o;
+		return groupByConcept == that.groupByConcept &&
+				Objects.equals(term, that.term) &&
+				Objects.equals(searchLanguageCodes, that.searchLanguageCodes) &&
+				Objects.equals(active, that.active) &&
+				Objects.equals(modules, that.modules) &&
+				Objects.equals(semanticTag, that.semanticTag) &&
+				Objects.equals(semanticTags, that.semanticTags) &&
+				Objects.equals(conceptActive, that.conceptActive) &&
+				Objects.equals(conceptRefset, that.conceptRefset) &&
+				searchMode == that.searchMode &&
+				Objects.equals(type, that.type) &&
+				Objects.equals(preferredIn, that.preferredIn) &&
+				Objects.equals(acceptableIn, that.acceptableIn) &&
+				Objects.equals(preferredOrAcceptableIn, that.preferredOrAcceptableIn);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(term, searchLanguageCodes, active, modules, semanticTag, semanticTags, conceptActive, conceptRefset, groupByConcept, searchMode, type, preferredIn, acceptableIn, preferredOrAcceptableIn);
+	}
 }

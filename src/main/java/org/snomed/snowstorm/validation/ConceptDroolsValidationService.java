@@ -85,10 +85,14 @@ public class ConceptDroolsValidationService implements org.ihtsdo.drools.service
 			if (i > 0) {
 				ecl.append(" OR ");
 			}
-			ecl.append(">>").append(iterator.next());// Include self because this ID is a parent.
+			// Using > rather than >> to hit ECL cache more often.
+			ecl.append(">").append(iterator.next());
 		}
 
-		return getConceptIdsByEcl(true, ecl.toString());
+		Set<String> conceptIds = getConceptIdsByEcl(true, ecl.toString());
+		// Also include direct parents.
+		conceptIds.addAll(statedParents);
+		return conceptIds;
 	}
 
 	@Override
